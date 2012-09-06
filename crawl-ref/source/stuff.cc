@@ -77,10 +77,10 @@ void set_redraw_status(uint64_t flags)
     you.redraw_status_flags |= flags;
 }
 
-unsigned char get_ch()
+int get_ch()
 {
     mouse_control mc(MOUSE_MODE_MORE);
-    unsigned char gotched = getchm();
+    int gotched = getchm();
 
     if (gotched == 0)
         gotched = getchm();
@@ -318,6 +318,7 @@ void redraw_screen(void)
     // Display the message window at the end because it places
     // the cursor behind possible prompts.
     display_message_window();
+    update_screen();
 }
 
 // STEPDOWN FUNCTION to replace conditional chains in spells2.cc 12jan2000 {dlb}

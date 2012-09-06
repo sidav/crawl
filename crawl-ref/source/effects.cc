@@ -446,7 +446,7 @@ void conduct_electricity(coord_def where, actor *attacker)
     else
     {
         beam.thrower     = KILL_MON;
-        beam.beam_source = attacker->mindex();
+        beam.beam_source = attacker ? attacker->mindex() : MHITNOT;
     }
 
     beam.explode(false, true);
@@ -1106,7 +1106,7 @@ void yell(bool force)
     mprf(" Anything else - Stay silent%s.",
          one_chance_in(20) ? " (and be thought a fool)" : "");
 
-    unsigned char keyn = get_ch();
+    int keyn = get_ch();
     mesclr();
 
     switch (keyn)

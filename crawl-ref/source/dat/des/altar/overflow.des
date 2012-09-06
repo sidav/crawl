@@ -596,28 +596,29 @@ KPROP:  abcdefghBR' = no_rtele_into
 KFEAT:  _ = altar_nemelex_xobeh
 SUBST:  b:aa. , a:n. , d:c. , c:nn. , f:ee. , e:nn. , h:g. , g:n.
 SUBST:  G:GTUVblw> , C=c
-KFEAT:  z = teleport trap
+SUBST:  ':.
 MARKER: R = lua:fog_machine { cloud_type="flame", walk_dist=1, size=9, \
             pow_max=20, delay=10, buildup_amnt=14, buildup_time=7, \
             spread_rate=3, start_clouds=1 }
 MARKER: B = lua:fog_machine { cloud_type="foul pestilence", walk_dist=1, \
             size=9,  pow_max=20, delay=10, buildup_amnt=14, buildup_time=7, \
             spread_rate=3, start_clouds=1 }
+KFEAT:  RB = floor
 MAP
 CCCCCCCC+++CCCCCCCC
 Cnnnnnnn...nnnnnnnC
 Cnab'ban...ncd'dcnC
-Cnb...bn.G.nd...dnC
-Cn'.B..n...n..R.'nC
-Cnb...bn...nd...dnC
-Cnab.ban...ncd.dcnC
+Cnb'''bn.G.nd'''dnC
+Cn''B''n...n''R''nC
+Cnb'''bn...nd'''dnC
+Cnab'ban...ncd'dcnC
 Cnnnnnnn...nnnnnnnC
 CG......._.......GC
 Cnnnnnnn...nnnnnnnC
-Cnef.fen...ngh.hgnC
-Cnf...fn...nh...hnC
-Cn'.R..n...n..B.'nC
-Cnf...fn.G.nh...hnC
+Cnef'fen...ngh'hgnC
+Cnf'''fn...nh'''hnC
+Cn''R''n...n''B''nC
+Cnf'''fn.G.nh'''hnC
 Cnef'fen...ngh'hgnC
 Cnnnnnnn...nnnnnnnC
 CCCCCCCC+++CCCCCCCC

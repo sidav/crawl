@@ -1499,8 +1499,11 @@ bool items_stack(const item_def &item1, const item_def &item2,
 {
     // Both items must be stackable.
     if (!force_merge
-        && (!is_stackable_item(item1) || !is_stackable_item(item2)))
+        && (!is_stackable_item(item1) || !is_stackable_item(item2))
+        || static_cast<int>(item1.quantity) + item2.quantity > 32767)
     {
+        COMPILE_CHECK(sizeof(item1.quantity) == 2); // can be relaxed otherwise
+
         return (false);
     }
 
@@ -1623,8 +1626,12 @@ static void _got_gold(item_def& item, int quant, bool quiet)
 
     if (!quiet)
     {
-        mprf("You now have %d gold piece%s.",
-             you.gold, you.gold != 1 ? "s" : "");
+        const std::string gain = quant != you.gold
+                                 ? make_stringf(" (gained %d)", quant)
+                                 : "";
+
+        mprf("You now have %d gold piece%s%s.",
+             you.gold, you.gold != 1 ? "s" : "", gain.c_str());
         learned_something_new(HINT_SEEN_GOLD);
     }
 }
@@ -1796,8 +1803,10 @@ int move_item_to_player(int obj, int quant_got, bool quiet,
 
                 if (!quiet)
                 {
-                    mpr_nocap(get_menu_colour_prefix_tags(you.inv[m],
-                                                          DESC_INVENTORY).c_str());
+                    mprf_nocap("%s (gained %d)",
+                               get_menu_colour_prefix_tags(you.inv[m],
+                                   DESC_INVENTORY).c_str(),
+                               quant_got);
                 }
                 you.turn_is_over = true;
 
