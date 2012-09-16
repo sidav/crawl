@@ -429,7 +429,7 @@ void addChar(char c)
 
 int addnstr(int n, const char *s) 
 {
-	while (*s)
+	for(int i = 0; i < n; ++i)
 	{
 		addChar(*s);
 		++s;
