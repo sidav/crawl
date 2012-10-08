@@ -31,10 +31,11 @@ extern std::set<std::pair<std::string, level_id> > auto_unique_annotations;
 static bool _mon_needs_auto_exclude(const monster* mon, bool sleepy = false)
 {
     if (mons_is_stationary(mon))
-        return (!sleepy);
+        return !sleepy;
 
-    // Auto exclusion only makes sense if the monster is still asleep.
-    return (mon->asleep());
+    // Auto exclusion only makes sense if the monster is still asleep or if it
+    // is lurking (discovered mimics).
+    return (mon->asleep() || mons_is_lurking(mon));
 }
 
 // Check whether a given monster is listed in the auto_exclude option.
@@ -52,10 +53,10 @@ static bool _need_auto_exclude(const monster* mon, bool sleepy = false)
             && (mon->attitude == ATT_HOSTILE
                 || mon->type == MONS_HYPERACTIVE_BALLISTOMYCETE))
         {
-            return (true);
+            return true;
         }
 
-    return (false);
+    return false;
 }
 
 // Nightstalker reduces LOS, so reducing the maximum exclusion radius
@@ -84,6 +85,8 @@ void set_auto_exclude(const monster* mon)
         int rad = _get_full_exclusion_radius();
         if (mon->type == MONS_HYPERACTIVE_BALLISTOMYCETE)
             rad = 2;
+        else if (mons_is_mimic(mon->type))
+            rad = 1;
         set_exclude(mon->pos(), rad, true);
         // FIXME: If this happens for several monsters in the same turn
         //        (as is possible for some vaults), this could be really
@@ -114,7 +117,7 @@ void remove_auto_exclude(const monster* mon, bool sleepy)
 
 static opacity_type _feat_opacity(dungeon_feature_type feat)
 {
-    return (feat_is_opaque(feat) ? OPC_OPAQUE : OPC_CLEAR);
+    return feat_is_opaque(feat) ? OPC_OPAQUE : OPC_CLEAR;
 }
 
 // A cell is considered clear unless the player knows it's
@@ -185,7 +188,7 @@ bool travel_exclude::affects(const coord_def& p) const
     else if (radius == 1)
         return ((p - pos).rdist() <= 1);
     else
-        return (los.see_cell(p));
+        return los.see_cell(p);
 }
 
 bool travel_exclude::in_bounds(const coord_def &p) const
@@ -292,9 +295,9 @@ travel_exclude* exclude_set::get_exclude_root(const coord_def &p)
     exclude_set::iterator it = exclude_roots.find(p);
 
     if (it != exclude_roots.end())
-        return (&(it->second));
+        return &it->second;
 
-    return (NULL);
+    return NULL;
 }
 
 size_t exclude_set::size() const
@@ -368,7 +371,7 @@ bool is_excluded(const coord_def &p, const exclude_set &exc)
 
 bool is_exclude_root(const coord_def &p)
 {
-    return (curr_excludes.get_exclude_root(p));
+    return curr_excludes.get_exclude_root(p);
 }
 
 int get_exclusion_radius(const coord_def &p)

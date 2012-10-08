@@ -163,8 +163,8 @@ void Java_com_crawlmb_NativeWrapper_initGame( JNIEnv* env, jobject object , jstr
 	char *initLocation = new char[strlen(constInitLocation) + 1];
 	strncpy (initLocation, constInitLocation, strlen(constInitLocation));
 	initLocation[strlen(constInitLocation)] = '\0';
-	int argc = 3;
-	char *argv[] = {"","-rc", initLocation};
+	int argc = 5;
+	char *argv[] = {"","-rc", initLocation, "-dir", "/data/data/com.crawlmb/files"};
 	main (argc, argv);
 }
 
@@ -638,3 +638,7 @@ bool kbhit()
 	return false;
 }
 
+int num_to_lines(int num)
+{
+    return num;
+}

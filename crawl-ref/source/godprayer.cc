@@ -10,7 +10,6 @@
 #include "database.h"
 #include "effects.h"
 #include "env.h"
-#include "food.h"
 #include "fprop.h"
 #include "godabil.h"
 #include "goditem.h"
@@ -42,7 +41,7 @@ static bool _confirm_pray_sacrifice(god_type god)
     if (Options.stash_tracking == STM_EXPLICIT && is_stash(you.pos()))
     {
         mpr("You can't sacrifice explicitly marked stashes.");
-        return (false);
+        return false;
     }
 
     for (stack_iterator si(you.pos(), true); si; ++si)
@@ -55,11 +54,11 @@ static bool _confirm_pray_sacrifice(god_type god)
             prompt += " in it?";
 
             if (!yesno(prompt.c_str(), false, 'n'))
-                return (false);
+                return false;
         }
     }
 
-    return (true);
+    return true;
 }
 
 std::string god_prayer_reaction()
@@ -79,30 +78,7 @@ std::string god_prayer_reaction()
                           : "displeased";
     result += ".";
 
-    return (result);
-}
-
-bool god_accepts_prayer(god_type god)
-{
-    if (god_likes_fresh_corpses(god))
-        return (true);
-
-    switch (god)
-    {
-    case GOD_JIYVA:
-        return (jiyva_can_paralyse_jellies());
-
-    case GOD_ELYVILON:
-    case GOD_BEOGH:
-    case GOD_NEMELEX_XOBEH:
-    case GOD_ASHENZARI:
-        return (true);
-
-    default:
-        break;
-    }
-
-    return (false);
+    return result;
 }
 
 static bool _bless_weapon(god_type god, brand_type brand, int colour)
@@ -113,7 +89,7 @@ static bool _bless_weapon(god_type god, brand_type brand, int colour)
         || (is_range_weapon(wpn) && brand != SPWPN_HOLY_WRATH)
         || is_artefact(wpn))
     {
-        return (false);
+        return false;
     }
 
     std::string prompt = "Do you wish to have " + wpn.name(DESC_YOUR)
@@ -127,7 +103,7 @@ static bool _bless_weapon(god_type god, brand_type brand, int colour)
     prompt += "?";
 
     if (!yesno(prompt.c_str(), true, 'n'))
-        return (false);
+        return false;
 
     you.duration[DUR_WEAPON_BRAND] = 0;     // just in case
 
@@ -165,8 +141,7 @@ static bool _bless_weapon(god_type god, brand_type brand, int colour)
     }
 
     you.wield_change = true;
-    you.num_current_gifts[god]++;
-    you.num_total_gifts[god]++;
+    you.one_time_ability_used[god] = true;
     std::string desc  = old_name + " ";
             desc += (god == GOD_SHINING_ONE   ? "blessed by the Shining One" :
                      god == GOD_LUGONU        ? "corrupted by Lugonu" :
@@ -212,7 +187,7 @@ static bool _bless_weapon(god_type god, brand_type brand, int colour)
     delay(1000);
 #endif
 
-    return (true);
+    return true;
 }
 
 // Prayer at your god's altar.
@@ -232,7 +207,7 @@ static bool _altar_prayer()
     // TSO blesses weapons with holy wrath, and long blades and demon
     // whips specially.
     if (you.religion == GOD_SHINING_ONE
-        && !you.num_total_gifts[GOD_SHINING_ONE]
+        && !you.one_time_ability_used[GOD_SHINING_ONE]
         && !player_under_penance()
         && you.piety > 160)
     {
@@ -249,7 +224,7 @@ static bool _altar_prayer()
 
     // Lugonu blesses weapons with distortion.
     if (you.religion == GOD_LUGONU
-        && !you.num_total_gifts[GOD_LUGONU]
+        && !you.one_time_ability_used[GOD_LUGONU]
         && !player_under_penance()
         && you.piety > 160)
     {
@@ -261,7 +236,7 @@ static bool _altar_prayer()
 
     // Kikubaaqudgha blesses weapons with pain, or gives you a Necronomicon.
     if (you.religion == GOD_KIKUBAAQUDGHA
-        && !you.num_total_gifts[GOD_KIKUBAAQUDGHA]
+        && !you.one_time_ability_used[GOD_KIKUBAAQUDGHA]
         && !player_under_penance()
         && you.piety > 160)
     {
@@ -286,14 +261,14 @@ static bool _altar_prayer()
         if (!kiku_did_bless_weapon)
         {
             if (!yesno("Do you wish to receive the Necronomicon?", true, 'n'))
-                return (false);
+                return false;
 
             int thing_created = items(1, OBJ_BOOKS, BOOK_NECRONOMICON, true, 1,
                                       MAKE_ITEM_RANDOM_RACE,
                                       0, 0, you.religion);
 
             if (thing_created == NON_ITEM)
-                return (false);
+                return false;
 
             move_item_to_grid(&thing_created, you.pos());
 
@@ -302,8 +277,7 @@ static bool _altar_prayer()
                 simple_god_message(" grants you a gift!");
                 more();
 
-                you.num_current_gifts[you.religion]++;
-                you.num_total_gifts[you.religion]++;
+                you.one_time_ability_used[you.religion] = true;
                 did_bless = true;
                 take_note(Note(NOTE_GOD_GIFT, you.religion));
                 mitm[thing_created].inscription = "god gift";
@@ -311,10 +285,10 @@ static bool _altar_prayer()
         }
 
         // Return early so we don't offer our Necronomicon to Kiku.
-        return (did_bless);
+        return did_bless;
     }
 
-    return (did_bless);
+    return did_bless;
 }
 
 void pray()
@@ -405,7 +379,7 @@ void pray()
     dprf("piety: %d (-%d)", you.piety, you.piety_hysteresis);
 }
 
-int zin_tithe(item_def& item, int quant, bool quiet)
+int zin_tithe(item_def& item, int quant, bool quiet, bool converting)
 {
     int taken = 0;
     int due = quant += you.attribute[ATTR_TITHE_BASE];
@@ -431,8 +405,8 @@ int zin_tithe(item_def& item, int quant, bool quiet)
         if (item.plus == 1) // seen before worshipping Zin
         {
             tithe = 0;
-            mprf(MSGCH_GOD, "%s is a bit unhappy you did not bring this "
-                            "gold earlier.", god_name(GOD_ZIN).c_str());
+            simple_god_message(" is a bit unhappy you did not bring this "
+                               "gold earlier.");
         }
         // A single scroll can give you more than D:1-18, Lair and Orc
         // together, limit the gains.  You're still required to pay from
@@ -450,7 +424,7 @@ int zin_tithe(item_def& item, int quant, bool quiet)
         }
         else
         {
-            if (player_in_branch(BRANCH_ORCISH_MINES))
+            if (player_in_branch(BRANCH_ORCISH_MINES) && !converting)
             {
                 // Another special case: Orc gives simply too much compared to
                 // other branches.
@@ -458,7 +432,7 @@ int zin_tithe(item_def& item, int quant, bool quiet)
             }
             // Avg gold pile value: 10 + depth/2.
             tithe *= 47;
-            denom *= 20 + you.absdepth0;
+            denom *= 20 + env.absdepth0;
         }
         gain_piety(tithe * 3, denom);
     }
@@ -586,45 +560,53 @@ static void _ashenzari_sac_scroll(const item_def& item)
 // Unholy and evil weapons are handled specially.
 static bool _destroyed_valuable_weapon(int value, int type)
 {
-    // Once you've reached *** once, don't accept weapon sacrifices ever
-    // again just because of value.
-    if (you.piety_max[GOD_ELYVILON] >= piety_breakpoint(2))
-        return (false);
-
     // value/500 chance of piety normally
     if (value > random2(500))
-        return (true);
+        return true;
 
     // But all non-missiles are acceptable if you've never reached *.
     if (you.piety_max[GOD_ELYVILON] < piety_breakpoint(0)
         && type != OBJ_MISSILES)
     {
-        return (true);
+        return true;
     }
 
-    return (false);
+    return false;
 }
 
 static piety_gain_t _sac_corpse(const item_def& item)
 {
-#ifdef NEW_OKAWARU_PIETY
     if (you.religion == GOD_OKAWARU)
     {
         monster dummy;
-        dummy.type = (monster_type)(item.orig_monnum ? item.orig_monnum - 1 : item.plus);
-        if (item.props.exists(MONSTER_HIT_DICE))
-            dummy.hit_dice = item.props[MONSTER_HIT_DICE].get_short();
+        dummy.type = (monster_type)(item.orig_monnum ? item.orig_monnum - 1
+                                                     : item.plus);
         if (item.props.exists(MONSTER_NUMBER))
             dummy.number   = item.props[MONSTER_NUMBER].get_short();
         define_monster(&dummy);
+
+        // Hit dice are overridden by define_monster, so only set them now.
+        if (item.props.exists(MONSTER_HIT_DICE))
+        {
+            int hd = item.props[MONSTER_HIT_DICE].get_short();
+            const monsterentry *m = get_monster_data(dummy.type);
+            int hp = hit_points(hd, m->hpdice[1], m->hpdice[2]) + m->hpdice[3];
+
+            dummy.hit_dice = hd;
+            dummy.max_hit_points = hp;
+        }
         int gain = get_fuzzied_monster_difficulty(&dummy);
         dprf("fuzzied corpse difficulty: %4.2f", gain*0.01);
+
+        // Shouldn't be needed, but just in case an XL:1 spriggan diver walks
+        // into a minotaur corpses vault on D:10 ...
+        if (item.props.exists("cap_sacrifice"))
+            gain = std::min(gain, 700 * 3);
 
         gain_piety(gain, 700);
         gain = div_rand_round(gain, 700);
         return (gain <= 0) ? PIETY_NONE : (gain < 4) ? PIETY_SOME : PIETY_LOTS;
     }
-#endif
 
     gain_piety(13, 19);
 
@@ -647,8 +629,10 @@ static piety_gain_t _sacrifice_one_item_noncount(const item_def& item,
     const int shop_value = item_value(item, true) / item.quantity;
     // Since the god is taking the items as a sacrifice, they must have at
     // least minimal value, otherwise they wouldn't be taken.
-    const int value = (item.base_type == OBJ_CORPSES ? 50 :
-                       (is_worthless_consumable(item) ? 1 : shop_value));
+    const int value = (item.base_type == OBJ_CORPSES ?
+                          50 * stepdown_value(std::max(1,
+                          get_max_corpse_chunks(item.mon_type)), 4, 4, 12, 12) :
+                      (is_worthless_consumable(item) ? 1 : shop_value));
 
 #if defined(DEBUG_DIAGNOSTICS) || defined(DEBUG_SACRIFICE)
         mprf(MSGCH_DIAGNOSTICS, "Sacrifice item value: %d", value);
@@ -724,19 +708,10 @@ static piety_gain_t _sacrifice_one_item_noncount(const item_def& item,
         }
         // Nemelex piety gain is fairly fast... at least when you
         // have low piety.
-        int piety_change, piety_denom;
-        if (item.base_type == OBJ_CORPSES)
-        {
-            piety_change = 1;
-            piety_denom = 2 + you.piety/50;
-        }
-        else
-        {
-            piety_change = value/2 + 1;
-            if (is_artefact(item))
-                piety_change *= 2;
-            piety_denom = 30 + you.piety/2;
-        }
+        int piety_change = value/2 + 1;
+        if (is_artefact(item))
+            piety_change *= 2;
+        int piety_denom = 30 + you.piety/2;
 
         gain_piety(piety_change, piety_denom);
 
@@ -752,14 +727,6 @@ static piety_gain_t _sacrifice_one_item_noncount(const item_def& item,
             // Count chunks and blood potions towards decks of
             // Summoning.
             you.sacrifice_value[OBJ_CORPSES] += value;
-        }
-        else if (item.base_type == OBJ_CORPSES)
-        {
-#if defined(DEBUG_GIFTS) || defined(DEBUG_CARDS) || defined(DEBUG_SACRIFICE)
-            mprf(MSGCH_DIAGNOSTICS, "Corpse mass is %d",
-                 item_mass(item));
-#endif
-            you.sacrifice_value[item.base_type] += item_mass(item);
         }
         else
             you.sacrifice_value[item.base_type] += value;
@@ -785,7 +752,7 @@ static piety_gain_t _sacrifice_one_item_noncount(const item_def& item,
         break;
     }
 
-    return (relative_piety_gain);
+    return relative_piety_gain;
 }
 
 piety_gain_t sacrifice_item_stack(const item_def& item, int *js)
@@ -804,41 +771,42 @@ piety_gain_t sacrifice_item_stack(const item_def& item, int *js)
                 relative_gain = PIETY_LOTS;
         }
     }
-    return (relative_gain);
+    return relative_gain;
 }
 
-static bool _check_nemelex_sacrificing_item_type(const item_def& item)
+bool check_nemelex_sacrificing_item_type(const item_def& item)
 {
     switch (item.base_type)
     {
     case OBJ_ARMOUR:
-        return (you.nemelex_sacrificing[NEM_GIFT_ESCAPE]);
+        return you.nemelex_sacrificing[NEM_GIFT_ESCAPE];
 
     case OBJ_WEAPONS:
     case OBJ_STAVES:
+    case OBJ_RODS:
     case OBJ_MISSILES:
-        return (you.nemelex_sacrificing[NEM_GIFT_DESTRUCTION]);
+        return you.nemelex_sacrificing[NEM_GIFT_DESTRUCTION];
 
     case OBJ_CORPSES:
-        return (you.nemelex_sacrificing[NEM_GIFT_SUMMONING]);
+        return you.nemelex_sacrificing[NEM_GIFT_SUMMONING];
 
     case OBJ_POTIONS:
         if (is_blood_potion(item))
-            return (you.nemelex_sacrificing[NEM_GIFT_SUMMONING]);
-        return (you.nemelex_sacrificing[NEM_GIFT_WONDERS]);
+            return you.nemelex_sacrificing[NEM_GIFT_SUMMONING];
+        return you.nemelex_sacrificing[NEM_GIFT_WONDERS];
 
     case OBJ_FOOD:
         if (item.sub_type == FOOD_CHUNK)
-            return (you.nemelex_sacrificing[NEM_GIFT_SUMMONING]);
+            return you.nemelex_sacrificing[NEM_GIFT_SUMMONING];
     // else fall through
     case OBJ_WANDS:
     case OBJ_SCROLLS:
-        return (you.nemelex_sacrificing[NEM_GIFT_WONDERS]);
+        return you.nemelex_sacrificing[NEM_GIFT_WONDERS];
 
     case OBJ_JEWELLERY:
     case OBJ_BOOKS:
     case OBJ_MISCELLANY:
-        return (you.nemelex_sacrificing[NEM_GIFT_DUNGEONS]);
+        return you.nemelex_sacrificing[NEM_GIFT_DUNGEONS];
 
     default:
         return false;
@@ -847,7 +815,7 @@ static bool _check_nemelex_sacrificing_item_type(const item_def& item)
 
 static bool _offer_items()
 {
-    if (you.religion == GOD_NO_GOD || !god_likes_items(you.religion))
+    if (!god_likes_items(you.religion))
         return false;
 
     if (!_confirm_pray_sacrifice(you.religion))
@@ -882,7 +850,7 @@ static bool _offer_items()
 
         // Skip items you don't want to sacrifice right now.
         if (you.religion == GOD_NEMELEX_XOBEH
-            && !_check_nemelex_sacrificing_item_type(item))
+            && !check_nemelex_sacrificing_item_type(item))
         {
             i = next;
             continue;
@@ -928,7 +896,6 @@ static bool _offer_items()
         _show_pure_deck_chances();
 #endif
     }
-
     // Explanatory messages if nothing the god likes is sacrificed.
     else if (num_sacced == 0 && num_disliked > 0)
     {
@@ -955,7 +922,10 @@ static bool _offer_items()
             simple_god_message(" can corrupt only scrolls of remove curse.");
     }
     if (num_sacced == 0 && you.religion == GOD_ELYVILON)
-        mpr("There are no weapons here to destroy!");
+    {
+        mprf("There are no %sweapons here to destroy!",
+             you.piety_max[GOD_ELYVILON] < piety_breakpoint(2) ? "" : "unholy or evil ");
+    }
 
     return (num_sacced > 0);
 }

@@ -50,9 +50,9 @@ std::string dgn_set_default_depth(const std::string &s)
     }
     catch (const std::string &error)
     {
-        return (error);
+        return error;
     }
-    return ("");
+    return "";
 }
 
 static void dgn_add_depths(depth_ranges &drs, lua_State *ls, int s, int e)
@@ -74,19 +74,17 @@ static void dgn_add_depths(depth_ranges &drs, lua_State *ls, int s, int e)
 static int dgn_depth_proc(lua_State *ls, depth_ranges &dr, int s)
 {
     if (lua_gettop(ls) < s)
-    {
         PLUARET(string, dr.describe().c_str());
-    }
 
     if (lua_isnil(ls, s))
     {
         dr.clear();
-        return (0);
+        return 0;
     }
 
     dr.clear();
     dgn_add_depths(dr, ls, s, lua_gettop(ls));
-    return (0);
+    return 0;
 }
 
 static int dgn_default_depth(lua_State *ls)
@@ -111,7 +109,7 @@ static int dgn_place(lua_State *ls)
         {
             try
             {
-                map->place = level_id::parse_level_id(luaL_checkstring(ls, 2));
+                map->place = depth_ranges::parse_depth_ranges(luaL_checkstring(ls, 2));
             }
             catch (const std::string &err)
             {
@@ -187,7 +185,7 @@ static int dgn_lflags(lua_State *ls)
         luaL_argerror(ls, 2, error.c_str());
     }
 
-    return (0);
+    return 0;
 }
 
 static int dgn_change_level_flags(lua_State *ls)
@@ -203,7 +201,7 @@ static int dgn_change_level_flags(lua_State *ls)
     {
         luaL_argerror(ls, 2, error.c_str());
         lua_pushboolean(ls, false);
-        return (1);
+        return 1;
     }
 
     bool silent = lua_toboolean(ls, 2);
@@ -213,53 +211,7 @@ static int dgn_change_level_flags(lua_State *ls)
 
     lua_pushboolean(ls, changed1 || changed2);
 
-    return (1);
-}
-
-static const std::string branch_flag_names[] =
-{"no_tele_control", "unused", "no_map", "has_orb", "islanded", ""};
-
-static int dgn_bflags(lua_State *ls)
-{
-    MAP(ls, 1, map);
-
-    try
-    {
-        map->branch_flags = map_flags::parse(branch_flag_names,
-                                             luaL_checkstring(ls, 2));
-    }
-    catch (const std::string &error)
-    {
-        luaL_argerror(ls, 2, error.c_str());
-    }
-
-    return (0);
-}
-
-static int dgn_change_branch_flags(lua_State *ls)
-{
-    map_flags flags;
-
-    try
-    {
-        flags = map_flags::parse(branch_flag_names,
-                                 luaL_checkstring(ls, 1));
-    }
-    catch (const std::string &error)
-    {
-        luaL_argerror(ls, 2, error.c_str());
-        lua_pushboolean(ls, false);
-        return (1);
-    }
-
-    bool silent = lua_toboolean(ls, 2);
-
-    bool changed1 = set_branch_flags(flags.flags_set, silent);
-    bool changed2 = unset_branch_flags(flags.flags_unset, silent);
-
-    lua_pushboolean(ls, changed1 || changed2);
-
-    return (1);
+    return 1;
 }
 
 static void _chance_magnitude_check(lua_State *ls, int which_par, int chance)
@@ -304,7 +256,7 @@ static int dgn_depth_chance(lua_State *ls)
     {
         luaL_error(ls, error.c_str());
     }
-    return (0);
+    return 0;
 }
 
 #define WEIGHT(ls, n, weight) \
@@ -370,9 +322,7 @@ int dgn_map_add_transform(lua_State *ls,
     for (int i = 2, size = lua_gettop(ls); i <= size; ++i)
     {
         if (lua_isnil(ls, i))
-        {
             luaL_error(ls, "Unexpected nil.");
-        }
         else
         {
             std::string err = (map->map.*add)(luaL_checkstring(ls, i));
@@ -381,7 +331,7 @@ int dgn_map_add_transform(lua_State *ls,
         }
     }
 
-    return (0);
+    return 0;
 }
 
 static int dgn_shuffle(lua_State *ls)
@@ -408,7 +358,7 @@ static int dgn_normalise(lua_State *ls)
 {
     MAP(ls, 1, map);
     map->map.normalise();
-    return (0);
+    return 0;
 }
 
 static int dgn_map(lua_State *ls)
@@ -420,7 +370,7 @@ static int dgn_map(lua_State *ls)
     if (lua_isnil(ls, 2))
     {
         map->map.clear();
-        return (0);
+        return 0;
     }
 
     // map(<map>, x, y) = glyph at (x,y), subject to map being
@@ -432,13 +382,13 @@ static int dgn_map(lua_State *ls)
         char buf[2] = "";
         buf[0] = gly;
         lua_pushstring(ls, buf);
-        return (1);
+        return 1;
     }
 
     if (lua_isstring(ls, 2))
     {
         map->map.add_line(luaL_checkstring(ls, 2));
-        return (0);
+        return 0;
     }
 
     std::vector<std::string> &lines = map->map.get_lines();
@@ -465,36 +415,38 @@ static int dgn_map(lua_State *ls)
             lines.erase(lines.begin() + which_line);
             PLUARET(boolean, true);
         }
-        return (0);
+        return 0;
     }
 
     const std::string newline = luaL_checkstring(ls, 3);
     if (which_line < 0)
+    {
         luaL_error(ls,
                    make_stringf("Index %d out of range", which_line).c_str());
+    }
 
     if (which_line < (int) lines.size())
     {
         lines[which_line] = newline;
-        return (0);
+        return 0;
     }
 
     lines.reserve(which_line + 1);
     lines.resize(which_line + 1, "");
     lines[which_line] = newline;
-    return (0);
+    return 0;
 }
 
 static int dgn_mons(lua_State *ls)
 {
     MAP(ls, 1, map);
     if (lua_gettop(ls) == 1)
-        return (0);
+        return 0;
 
     if (lua_isnil(ls, 2))
     {
         map->mons.clear();
-        return (0);
+        return 0;
     }
 
     if (lua_isstring(ls, 2))
@@ -502,26 +454,26 @@ static int dgn_mons(lua_State *ls)
         std::string err = map->mons.add_mons(luaL_checkstring(ls, 2));
         if (!err.empty())
             luaL_error(ls, err.c_str());
-        return (0);
+        return 0;
     }
 
     const int index = luaL_checkint(ls, 2);
     std::string err = map->mons.set_mons(index, luaL_checkstring(ls, 3));
     if (!err.empty())
         luaL_error(ls, err.c_str());
-    return (0);
+    return 0;
 }
 
 static int dgn_item(lua_State *ls)
 {
     MAP(ls, 1, map);
     if (lua_gettop(ls) == 1)
-        return (0);
+        return 0;
 
     if (lua_isnil(ls, 2))
     {
         map->items.clear();
-        return (0);
+        return 0;
     }
 
     if (lua_isstring(ls, 2))
@@ -529,14 +481,14 @@ static int dgn_item(lua_State *ls)
         std::string err = map->items.add_item(luaL_checkstring(ls, 2));
         if (!err.empty())
             luaL_error(ls, err.c_str());
-        return (0);
+        return 0;
     }
 
     const int index = luaL_checkint(ls, 2);
     std::string err = map->items.set_item(index, luaL_checkstring(ls, 3));
     if (!err.empty())
         luaL_error(ls, err.c_str());
-    return (0);
+    return 0;
 }
 
 static int dgn_lua_marker(lua_State *ls)
@@ -556,18 +508,18 @@ static int dgn_lua_marker(lua_State *ls)
     if (!err.empty())
         luaL_error(ls, err.c_str());
 
-    return (0);
+    return 0;
 }
 
 static int dgn_marker(lua_State *ls)
 {
     MAP(ls, 1, map);
     if (lua_gettop(ls) == 1)
-        return (0);
+        return 0;
     if (lua_isnil(ls, 2))
     {
         map->map.clear_markers();
-        return (0);
+        return 0;
     }
 
     if (lua_isstring(ls, 2))
@@ -576,7 +528,7 @@ static int dgn_marker(lua_State *ls)
         if (!err.empty())
             luaL_error(ls, err.c_str());
     }
-    return (0);
+    return 0;
 }
 
 static int dgn_kfeat(lua_State *ls)
@@ -585,7 +537,7 @@ static int dgn_kfeat(lua_State *ls)
     std::string err = map->map.add_key_feat(luaL_checkstring(ls, 2));
     if (!err.empty())
         luaL_error(ls, err.c_str());
-    return (0);
+    return 0;
 }
 
 static int dgn_kmons(lua_State *ls)
@@ -594,7 +546,7 @@ static int dgn_kmons(lua_State *ls)
     std::string err = map->map.add_key_mons(luaL_checkstring(ls, 2));
     if (!err.empty())
         luaL_error(ls, err.c_str());
-    return (0);
+    return 0;
 }
 
 static int dgn_kitem(lua_State *ls)
@@ -603,7 +555,7 @@ static int dgn_kitem(lua_State *ls)
     std::string err = map->map.add_key_item(luaL_checkstring(ls, 2));
     if (!err.empty())
         luaL_error(ls, err.c_str());
-    return (0);
+    return 0;
 }
 
 static int dgn_kmask(lua_State *ls)
@@ -612,7 +564,7 @@ static int dgn_kmask(lua_State *ls)
     std::string err = map->map.add_key_mask(luaL_checkstring(ls, 2));
     if (!err.empty())
         luaL_error(ls, err.c_str());
-    return (0);
+    return 0;
 }
 
 static int dgn_kprop(lua_State *ls)
@@ -630,7 +582,7 @@ static int dgn_map_size(lua_State *ls)
     MAP(ls, 1, map);
     lua_pushnumber(ls, map->map.width());
     lua_pushnumber(ls, map->map.height());
-    return (2);
+    return 2;
 }
 
 static int dgn_subvault(lua_State *ls)
@@ -651,20 +603,13 @@ static int dgn_subvault(lua_State *ls)
         }
     }
 
-    return (0);
+    return 0;
 }
 
 static int dgn_name(lua_State *ls)
 {
     MAP(ls, 1, map);
     PLUARET(string, map->name.c_str());
-}
-
-static int dgn_welcome(lua_State *ls)
-{
-    MAP(ls, 1, map);
-    map->welcome_messages.push_back(luaL_checkstring(ls, 2));
-    return (0);
 }
 
 typedef
@@ -725,9 +670,9 @@ static int dgn_gly_point(lua_State *ls)
     if (c.x != -1 && c.y != -1)
     {
         dlua_push_coordinates(ls, c);
-        return (2);
+        return 2;
     }
-    return (0);
+    return 0;
 }
 
 static int dgn_gly_points(lua_State *ls)
@@ -747,7 +692,7 @@ static int dgn_original_map(lua_State *ls)
         clua_push_map(ls, map->original);
     else
         lua_pushnil(ls);
-    return (1);
+    return 1;
 }
 
 static int dgn_load_des_file(lua_State *ls)
@@ -755,7 +700,7 @@ static int dgn_load_des_file(lua_State *ls)
     const std::string &file = luaL_checkstring(ls, 1);
     if (!file.empty())
         read_map(file);
-    return (0);
+    return 0;
 }
 
 static int dgn_lfloorcol(lua_State *ls)
@@ -772,9 +717,7 @@ static int dgn_lfloorcol(lua_State *ls)
             std::string error;
 
             if (colour == BLACK)
-            {
                 error = "Can't set floor to black.";
-            }
             else
             {
                 error = "No such colour as '";
@@ -784,7 +727,7 @@ static int dgn_lfloorcol(lua_State *ls)
 
             luaL_argerror(ls, 2, error.c_str());
 
-            return (0);
+            return 0;
         }
         map->floor_colour = colour;
     }
@@ -805,9 +748,7 @@ static int dgn_lrockcol(lua_State *ls)
             std::string error;
 
             if (colour == BLACK)
-            {
                 error = "Can't set rock to black.";
-            }
             else
             {
                 error = "No such colour as '";
@@ -817,7 +758,7 @@ static int dgn_lrockcol(lua_State *ls)
 
             luaL_argerror(ls, 2, error.c_str());
 
-            return (0);
+            return 0;
         }
 
         map->rock_colour = colour;
@@ -853,7 +794,7 @@ static int _lua_colour(lua_State *ls, int ndx,
                 error = std::string("Unknown colour: '") + s + "'";
             return luaL_argerror(ls, 1, error.c_str());
         }
-        return (colour);
+        return colour;
     }
     return luaL_argerror(ls, ndx, "Expected colour name or number");
 }
@@ -867,7 +808,7 @@ static int dgn_change_floor_colour(lua_State *ls)
 
     if (crawl_state.need_save && update_now)
         viewwindow();
-    return (0);
+    return 0;
 }
 
 static int dgn_change_rock_colour(lua_State *ls)
@@ -879,7 +820,7 @@ static int dgn_change_rock_colour(lua_State *ls)
 
     if (crawl_state.need_save && update_now)
         viewwindow();
-    return (0);
+    return 0;
 }
 
 static int dgn_colour_at(lua_State *ls)
@@ -904,7 +845,7 @@ static int dgn_register_listener(lua_State *ls)
     }
 
     dungeon_events.register_listener(mask, listener, pos);
-    return (0);
+    return 0;
 }
 
 static int dgn_remove_listener(lua_State *ls)
@@ -919,14 +860,14 @@ static int dgn_remove_listener(lua_State *ls)
         pos.y = luaL_checkint(ls, 3);
     }
     dungeon_events.remove_listener(listener, pos);
-    return (0);
+    return 0;
 }
 
 static int dgn_remove_marker(lua_State *ls)
 {
     MAPMARKER(ls, 1, mark);
     env.markers.remove(mark);
-    return (0);
+    return 0;
 }
 
 static int dgn_num_matching_markers(lua_State *ls)
@@ -962,7 +903,7 @@ static int dgn_terrain_changed(lua_State *ls)
                                        luaL_checkint(ls, 2)),
                             type, affect_player,
                             preserve_features, preserve_items);
-    return (0);
+    return 0;
 }
 
 static int dgn_fprop_changed(lua_State *ls)
@@ -994,10 +935,10 @@ static int dgn_fprop_changed(lua_State *ls)
     else
         lua_pushboolean(ls, false);
 
-    return (1);
+    return 1;
 }
 
-static int dgn_fprop_at (lua_State *ls)
+static int dgn_fprop_at(lua_State *ls)
 {
     feature_property_type prop = FPROP_NONE;
 
@@ -1013,15 +954,15 @@ static int dgn_fprop_at (lua_State *ls)
     else
         lua_pushboolean(ls, false);
 
-    return (1);
+    return 1;
 }
 
-static int dgn_cloud_at (lua_State *ls)
+static int dgn_cloud_at(lua_State *ls)
 {
     COORDS(c, 1, 2);
 
     if (!in_bounds(c))
-        return (0);
+        return 0;
 
     int cloudno = env.cgrid(c);
 
@@ -1030,32 +971,39 @@ static int dgn_cloud_at (lua_State *ls)
     else
         lua_pushstring(ls, cloud_name_at_index(cloudno).c_str());
 
-    return (1);
+    return 1;
 }
 
 
-static int lua_dgn_set_lt_callback(lua_State *ls)
+static int lua_dgn_set_branch_epilogue(lua_State *ls)
 {
-    const char *level_type = luaL_checkstring(ls, 1);
+    const char *branch_name = luaL_checkstring(ls, 1);
 
-    if (level_type == NULL || strlen(level_type) == 0)
-        return (0);
+    if (!branch_name)
+        return 0;
 
-    const char *callback_name = luaL_checkstring(ls, 2);
+    branch_type br = str_to_branch(branch_name);
+    if (br == NUM_BRANCHES)
+    {
+        luaL_error(ls, make_stringf("unknown branch: '%s'.", branch_name).c_str());
+        return 0;
+    }
 
-    if (callback_name == NULL || strlen(callback_name) == 0)
-        return (0);
+    const char *func_name = luaL_checkstring(ls, 2);
 
-    dgn_set_lt_callback(level_type, callback_name);
+    if (!func_name || !*func_name)
+        return 0;
 
-    return (0);
+    dgn_set_branch_epilogue(br, func_name);
+
+    return 0;
 }
 
 // XXX: Currently, this is hacked so that map_def->border_fill_type is marshalled
 //      when the maps are stored. This relies on the individual map Lua prelude
 //      being executed whenever maps are loaded and verified, which means that
 //      the next time the map is loaded, border_fill_type is already stored.
-static int lua_dgn_set_border_fill_type (lua_State *ls)
+static int lua_dgn_set_border_fill_type(lua_State *ls)
 {
     MAP(ls, 1, map);
     if (lua_gettop(ls) != 2)
@@ -1076,41 +1024,27 @@ static int lua_dgn_set_border_fill_type (lua_State *ls)
         luaL_error(ls, ("set_border_fill_type cannot be the feature '" +
                          fill_string +"'.").c_str());
 
-    return (0);
+    return 0;
 }
 
-static int dgn_fixup_stairs(lua_State *ls)
+static int lua_dgn_set_feature_name(lua_State *ls)
 {
-    const dungeon_feature_type up_feat =
-    dungeon_feature_by_name(luaL_checkstring(ls, 1));
+    MAP(ls, 1, map);
+    if (lua_gettop(ls) != 3)
+        luaL_error(ls, "set_feature_name takes a feature and the new name.");
 
-    const dungeon_feature_type down_feat =
-    dungeon_feature_by_name(luaL_checkstring(ls, 2));
+    std::string feat_string = luaL_checkstring(ls, 2);
+    dungeon_feature_type feat_type = dungeon_feature_by_name(feat_string);
 
-    if (up_feat == DNGN_UNSEEN && down_feat == DNGN_UNSEEN)
-        return 0;
-
-    for (rectangle_iterator ri(0); ri; ++ri)
+    if (feat_type == DNGN_UNSEEN)
     {
-        const dungeon_feature_type feat = grd(*ri);
-        if (feat_is_stone_stair(feat) || feat_is_escape_hatch(feat))
-        {
-            dungeon_feature_type new_feat = DNGN_UNSEEN;
-
-            if (feat_stair_direction(feat) == CMD_GO_DOWNSTAIRS)
-                new_feat = down_feat;
-            else
-                new_feat = up_feat;
-
-            if (new_feat != DNGN_UNSEEN)
-            {
-                grd(*ri) = new_feat;
-                env.markers.add(new map_feature_marker(*ri, new_feat));
-            }
-        }
+        luaL_error(ls, ("unknown feature '" + feat_string + "'.").c_str());
+        return 0;
     }
 
-    return (0);
+    map->feat_renames[feat_type] = luaL_checkstring(ls, 3);
+
+    return 0;
 }
 
 static int dgn_floor_halo(lua_State *ls)
@@ -1156,18 +1090,15 @@ static int dgn_floor_halo(lua_State *ls)
 
                 const dungeon_feature_type feat2 = grd(*ai);
 
-                if (feat2 == DNGN_FLOOR
-                    || feat2 == DNGN_UNDISCOVERED_TRAP)
-                {
+                if (feat2 == DNGN_FLOOR || feat2 == DNGN_UNDISCOVERED_TRAP)
                     env.grid_colours(*ai) = colour;
-                }
             }
         }
     }
 
     unsigned int tile = get_tile_idx(ls, 3);
     if (!tile)
-        return (0);
+        return 0;
     if (tile_dngn_count(tile) != 9)
     {
         error += "'";
@@ -1176,12 +1107,12 @@ static int dgn_floor_halo(lua_State *ls)
         error += tile_dngn_count(tile);
         error += " variations, but needs exactly 9.";
         luaL_argerror(ls, 3, error.c_str());
-        return (0);
+        return 0;
     }
 
     tile_floor_halo(target, tile);
 
-    return (0);
+    return 0;
 }
 
 #define SQRT_2 1.41421356237309504880
@@ -1202,12 +1133,12 @@ static int dgn_random_walk(lua_State *ls)
         char buf[80];
         sprintf(buf, "Point (%d,%d) isn't in bounds.", x, y);
         luaL_argerror(ls, 1, buf);
-        return (0);
+        return 0;
     }
     if (dist < 1)
     {
         luaL_argerror(ls, 3, "Distance must be positive.");
-        return (0);
+        return 0;
     }
 
     float dist_left = dist;
@@ -1247,7 +1178,7 @@ static int dgn_random_walk(lua_State *ls)
 
     dlua_push_coordinates(ls, pos);
 
-    return (2);
+    return 2;
 }
 
 static cloud_type dgn_cloud_name_to_type(std::string name)
@@ -1255,15 +1186,15 @@ static cloud_type dgn_cloud_name_to_type(std::string name)
     lowercase(name);
 
     if (name == "random")
-        return (CLOUD_RANDOM);
+        return CLOUD_RANDOM;
     else if (name == "debugging")
-        return (CLOUD_DEBUGGING);
+        return CLOUD_DEBUGGING;
 
     for (int i = CLOUD_NONE; i < CLOUD_RANDOM; i++)
         if (cloud_type_name(static_cast<cloud_type>(i)) == name)
             return static_cast<cloud_type>(i);
 
-    return (CLOUD_NONE);
+    return CLOUD_NONE;
 }
 
 static kill_category dgn_kill_name_to_category(std::string name)
@@ -1326,37 +1257,37 @@ static int dgn_apply_area_cloud(lua_State *ls)
         char buf[80];
         sprintf(buf, "Point (%d,%d) isn't in bounds.", x, y);
         luaL_argerror(ls, 1, buf);
-        return (0);
+        return 0;
     }
 
     if (lua_cloud_pow_min < 0)
     {
         luaL_argerror(ls, 4, "pow_min must be non-negative");
-        return (0);
+        return 0;
     }
 
     if (lua_cloud_pow_max < lua_cloud_pow_min)
     {
         luaL_argerror(ls, 5, "pow_max must not be less than pow_min");
-        return (0);
+        return 0;
     }
 
     if (lua_cloud_pow_max == 0)
     {
         luaL_argerror(ls, 5, "pow_max must be positive");
-        return (0);
+        return 0;
     }
 
     if (lua_cloud_pow_rolls <= 0)
     {
         luaL_argerror(ls, 6, "pow_rolls must be positive");
-        return (0);
+        return 0;
     }
 
     if (size < 1)
     {
         luaL_argerror(ls, 4, "size must be positive.");
-        return (0);
+        return 0;
     }
 
     if (ctype == CLOUD_NONE)
@@ -1365,7 +1296,7 @@ static int dgn_apply_area_cloud(lua_State *ls)
         error += luaL_checkstring(ls, 7);
         error += "'";
         luaL_argerror(ls, 7, error.c_str());
-        return (0);
+        return 0;
     }
 
     if (kc == KC_NCATEGORIES || kc != KC_OTHER)
@@ -1374,21 +1305,21 @@ static int dgn_apply_area_cloud(lua_State *ls)
         error += kname;
         error += "'";
         luaL_argerror(ls, 8, error.c_str());
-        return (0);
+        return 0;
     }
 
     if (spread_rate < -1 || spread_rate > 100)
     {
         luaL_argerror(ls, 9, "spread_rate must be between -1 and 100,"
                       "inclusive");
-        return (0);
+        return 0;
     }
 
     apply_area_cloud(make_a_lua_cloud, coord_def(x, y), 0, size,
                      ctype, 0, spread_rate, colour, name, tile,
                      excl_rad);
 
-    return (0);
+    return 0;
 }
 
 static int dgn_delete_cloud(lua_State *ls)
@@ -1398,7 +1329,7 @@ static int dgn_delete_cloud(lua_State *ls)
     if (in_bounds(c) && env.cgrid(c) != EMPTY_CLOUD)
         delete_cloud(env.cgrid(c));
 
-    return (0);
+    return 0;
 }
 
 static int dgn_place_cloud(lua_State *ls)
@@ -1423,7 +1354,7 @@ static int dgn_place_cloud(lua_State *ls)
         char buf[80];
         sprintf(buf, "Point (%d,%d) isn't in bounds.", x, y);
         luaL_argerror(ls, 1, buf);
-        return (0);
+        return 0;
     }
 
     if (ctype == CLOUD_NONE)
@@ -1432,7 +1363,7 @@ static int dgn_place_cloud(lua_State *ls)
         error += luaL_checkstring(ls, 3);
         error += "'";
         luaL_argerror(ls, 3, error.c_str());
-        return (0);
+        return 0;
     }
 
     if (kc == KC_NCATEGORIES || kc != KC_OTHER)
@@ -1441,19 +1372,19 @@ static int dgn_place_cloud(lua_State *ls)
         error += kname;
         error += "'";
         luaL_argerror(ls, 5, error.c_str());
-        return (0);
+        return 0;
     }
 
     if (spread_rate < -1 || spread_rate > 100)
     {
         luaL_argerror(ls, 6, "spread_rate must be between -1 and 100,"
                       "inclusive");
-        return (0);
+        return 0;
     }
 
     place_cloud(ctype, coord_def(x, y), cl_range, 0, spread_rate, colour, name, tile, excl_rad);
 
-    return (0);
+    return 0;
 }
 
 
@@ -1466,14 +1397,14 @@ LUAFN(dgn_noisy)
 
     noisy(loudness, pos);
 
-    return (0);
+    return 0;
 }
 
 static int _dgn_is_passable(lua_State *ls)
 {
     COORDS(c, 1, 2);
     lua_pushboolean(ls, dgn_square_travel_ok(c));
-    return (1);
+    return 1;
 }
 
 static int dgn_register_feature_marker(lua_State *ls)
@@ -1481,13 +1412,13 @@ static int dgn_register_feature_marker(lua_State *ls)
     COORDS(c, 1, 2);
     FEAT(feat, 3);
     env.markers.add(new map_feature_marker(c, feat));
-    return (0);
+    return 0;
 }
 
 static int _dgn_map_register_flag(lua_State *ls)
 {
     map_register_flag(luaL_checkstring(ls, 1));
-    return (0);
+    return 0;
 }
 
 static int dgn_register_lua_marker(lua_State *ls)
@@ -1500,7 +1431,7 @@ static int dgn_register_lua_marker(lua_State *ls)
     map_marker *marker = new map_lua_marker(table);
     marker->pos = c;
     env.markers.add(marker);
-    return (0);
+    return 0;
 }
 
 static std::auto_ptr<lua_datum> _dgn_map_safe_bounds_fn;
@@ -1530,10 +1461,10 @@ static bool _lua_map_place_valid(const map_def &map,
     if (err)
     {
         mprf(MSGCH_ERROR, "Lua error: %s", lua_tostring(ls, -1));
-        return (true);
+        return true;
     }
 
-    return (lua_toboolean(ls, -1));
+    return lua_toboolean(ls, -1);
 }
 
 LUAFN(dgn_with_map_bounds_fn)
@@ -1565,7 +1496,7 @@ LUAFN(dgn_with_map_bounds_fn)
     if (err)
         lua_error(ls);
 
-    return (1);
+    return 1;
 }
 
 // Accepts any number of point coordinates and a function, binds the
@@ -1596,7 +1527,7 @@ LUAFN(dgn_with_map_anchors)
     }
     if (err)
         lua_error(ls);
-    return (1);
+    return 1;
 }
 
 static int _lua_push_map(lua_State *ls, const map_def *map)
@@ -1605,7 +1536,7 @@ static int _lua_push_map(lua_State *ls, const map_def *map)
         clua_push_map(ls, const_cast<map_def*>(map));
     else
         lua_pushnil(ls);
-    return (1);
+    return 1;
 }
 
 LUAFN(dgn_map_by_tag)
@@ -1615,7 +1546,7 @@ LUAFN(dgn_map_by_tag)
         const bool check_depth = _lua_boolean(ls, 3, true);
         return _lua_push_map(ls, random_map_for_tag(tag, check_depth));
     }
-    return (0);
+    return 0;
 }
 
 LUAFN(dgn_map_by_name)
@@ -1623,7 +1554,7 @@ LUAFN(dgn_map_by_name)
     if (const char *name = luaL_checkstring(ls, 1))
         return _lua_push_map(ls, find_map_by_name(name));
 
-    return (0);
+    return 0;
 }
 
 LUAFN(dgn_map_in_depth)
@@ -1643,7 +1574,7 @@ LUAFN(dgn_map_by_place)
 LUAFN(_dgn_place_map)
 {
     MAP(ls, 1, map);
-    const bool clobber = _lua_boolean(ls, 2, false);
+    const bool check_collision = _lua_boolean(ls, 2, true);
     const bool no_exits = _lua_boolean(ls, 3, false);
     coord_def where(-1, -1);
     if (lua_isnumber(ls, 4) && lua_isnumber(ls, 5))
@@ -1651,7 +1582,7 @@ LUAFN(_dgn_place_map)
         COORDS(c, 4, 5);
         where = c;
     }
-    if (dgn_place_map(map, clobber, no_exits, where)
+    if (dgn_place_map(map, check_collision, no_exits, where)
         && !env.level_vaults.empty())
     {
         lua_pushlightuserdata(ls,
@@ -1661,7 +1592,7 @@ LUAFN(_dgn_place_map)
     {
         lua_pushnil(ls);
     }
-    return (1);
+    return 1;
 }
 
 LUAFN(_dgn_in_vault)
@@ -1669,7 +1600,7 @@ LUAFN(_dgn_in_vault)
     GETCOORD(c, 1, 2, map_bounds);
     const int mask = lua_isnone(ls, 3) ? MMT_VAULT : lua_tointeger(ls, 3);
     lua_pushboolean(ls, env.level_map_mask(c) & mask);
-    return (1);
+    return 1;
 }
 
 LUAFN(_dgn_map_parameters)
@@ -1677,14 +1608,14 @@ LUAFN(_dgn_map_parameters)
     return clua_stringtable(ls, map_parameters);
 }
 
-int dgn_push_vault_placement(lua_State *ls, const vault_placement *vp)
+static int _dgn_push_vault_placement(lua_State *ls, const vault_placement *vp)
 {
     return dlua_push_object_type(ls, VAULT_PLACEMENT_METATABLE, *vp);
 }
 
 LUAFN(_dgn_maps_used_here)
 {
-    return clua_gentable(ls, env.level_vaults, dgn_push_vault_placement);
+    return clua_gentable(ls, env.level_vaults, _dgn_push_vault_placement);
 }
 
 LUAFN(_dgn_vault_at)
@@ -1692,13 +1623,9 @@ LUAFN(_dgn_vault_at)
     GETCOORD(c, 1, 2, map_bounds);
     vault_placement *place = dgn_vault_at(c);
     if (place)
-    {
-        dgn_push_vault_placement(ls, place);
-    }
+        _dgn_push_vault_placement(ls, place);
     else
-    {
         lua_pushnil(ls);
-    }
 
     return 1;
 }
@@ -1716,7 +1643,7 @@ LUAFN(_dgn_find_marker_position_by_prop)
         lua_pushnil(ls);
         lua_pushnil(ls);
     }
-    return (2);
+    return 2;
 }
 
 LUAFN(_dgn_find_marker_positions_by_prop)
@@ -1728,13 +1655,13 @@ LUAFN(_dgn_find_marker_positions_by_prop)
     const std::vector<coord_def> places =
         find_marker_positions_by_prop(prop, value, limit);
     clua_gentable(ls, places, clua_pushpoint);
-    return (1);
+    return 1;
 }
 
 static int _push_mapmarker(lua_State *ls, map_marker *marker)
 {
     dlua_push_userdata(ls, marker, MAPMARK_METATABLE);
-    return (1);
+    return 1;
 }
 
 LUAFN(_dgn_find_markers_by_prop)
@@ -1746,7 +1673,7 @@ LUAFN(_dgn_find_markers_by_prop)
     const std::vector<map_marker*> places =
         find_markers_by_prop(prop, value, limit);
     clua_gentable(ls, places, _push_mapmarker);
-    return (1);
+    return 1;
 }
 
 LUAFN(_dgn_marker_at_pos)
@@ -1763,14 +1690,14 @@ LUAFN(_dgn_marker_at_pos)
     else
         _push_mapmarker(ls, marker);
 
-    return (1);
+    return 1;
 }
 
 LUAFN(dgn_is_validating)
 {
     MAP(ls, 1, map);
     lua_pushboolean(ls, map->is_validating());
-    return (1);
+    return 1;
 }
 
 LUAFN(_dgn_resolve_map)
@@ -1778,7 +1705,7 @@ LUAFN(_dgn_resolve_map)
     if (lua_isnil(ls, 1))
     {
         lua_pushnil(ls);
-        return (1);
+        return 1;
     }
 
     MAP(ls, 1, map);
@@ -1800,7 +1727,7 @@ LUAFN(_dgn_resolve_map)
         lua_pushnil(ls);
         lua_pushnil(ls);
     }
-    return (2);
+    return 2;
 }
 
 LUAFN(_dgn_reuse_map)
@@ -1836,7 +1763,7 @@ LUAFN(_dgn_reuse_map)
     if (register_place)
         dgn_register_place(vp, register_vault);
 
-    return (0);
+    return 0;
 }
 
 LUAWRAP(_dgn_reset_level, dgn_reset_level())
@@ -1863,16 +1790,14 @@ LUAFN(dgn_fill_grd_area)
         for (int x = x1; x <= x2; x++)
             grd[x][y] = feat;
 
-    return (0);
+    return 0;
 }
 
 LUAFN(dgn_apply_tide)
 {
     shoals_apply_tides(0, true, true);
-    return (0);
+    return 0;
 }
-
-LUAWRAP(dgn_mark_game_won, crawl_state.mark_last_game_won())
 
 const struct luaL_reg dgn_dlib[] =
 {
@@ -1887,12 +1812,10 @@ const struct luaL_reg dgn_dlib[] =
 { "has_tag", dgn_has_tag },
 { "tags_remove", dgn_tags_remove },
 { "lflags", dgn_lflags },
-{ "bflags", dgn_bflags },
 { "chance", dgn_chance },
 { "depth_chance", dgn_depth_chance },
 { "weight", dgn_weight },
 { "depth_weight", dgn_depth_weight },
-{ "welcome", dgn_welcome },
 { "orient", dgn_orient },
 { "shuffle", dgn_shuffle },
 { "subst", dgn_subst },
@@ -1933,14 +1856,13 @@ const struct luaL_reg dgn_dlib[] =
 { "remove_marker", dgn_remove_marker },
 { "num_matching_markers", dgn_num_matching_markers },
 { "change_level_flags", dgn_change_level_flags },
-{ "change_branch_flags", dgn_change_branch_flags },
 { "get_floor_colour", dgn_get_floor_colour },
 { "get_rock_colour",  dgn_get_rock_colour },
 { "change_floor_colour", dgn_change_floor_colour },
 { "change_rock_colour",  dgn_change_rock_colour },
-{ "set_lt_callback", lua_dgn_set_lt_callback },
+{ "set_branch_epilogue", lua_dgn_set_branch_epilogue },
 { "set_border_fill_type", lua_dgn_set_border_fill_type },
-{ "fixup_stairs", dgn_fixup_stairs },
+{ "set_feature_name", lua_dgn_set_feature_name },
 { "floor_halo", dgn_floor_halo },
 { "random_walk", dgn_random_walk },
 { "apply_area_cloud", dgn_apply_area_cloud },
@@ -1982,8 +1904,6 @@ const struct luaL_reg dgn_dlib[] =
 { "fill_grd_area", dgn_fill_grd_area },
 
 { "apply_tide", dgn_apply_tide },
-
-{ "mark_game_won", dgn_mark_game_won },
 
 { NULL, NULL }
 };

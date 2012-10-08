@@ -137,6 +137,7 @@ enum hints_event_type
     HINT_MEMORISE_FAILURE,
     HINT_ANIMATE_CORPSE_SKELETON,
     HINT_SEEN_WEB,
+    HINT_SEEN_ROD,
     HINT_EVENTS_NUM
 };
 
@@ -145,7 +146,6 @@ void init_hints();
 void tutorial_init_hints();
 void pick_hints(newgame_def* choice);
 void hints_load_game(void);
-void print_hints_menu(unsigned int type);
 void hints_zap_secret_doors(void);
 
 formatted_string hints_starting_info2();
@@ -156,7 +156,6 @@ void hints_finished(void);
 
 void hints_dissection_reminder(bool healthy);
 void hints_healing_check();
-void hints_healing_reminder(void);
 
 void taken_new_item(object_class_type item_type);
 void hints_gained_new_skill(skill_type skill);
@@ -199,4 +198,5 @@ struct hints_state
 
 extern hints_state Hints;
 
+void tutorial_msg(const char *text, bool end = false);
 #endif

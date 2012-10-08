@@ -24,6 +24,7 @@
 #include "debug.h"
 #include "decks.h"
 #include "describe.h"
+#include "directn.h"
 #include "files.h"
 #include "godmenu.h"
 #include "ghost.h"
@@ -34,11 +35,8 @@
 #include "macro.h"
 #include "menu.h"
 #include "message.h"
-#include "mon-place.h"
-#include "mon-stuff.h"
 #include "mon-util.h"
 #include "ouch.h"
-#include "place.h"
 #include "player.h"
 #include "religion.h"
 #include "showsymb.h"
@@ -109,7 +107,7 @@ static std::string _get_version_information(void)
 
     result += "\n";
 
-    return (result);
+    return result;
 }
 
 static std::string _get_version_features(void)
@@ -124,7 +122,7 @@ static std::string _get_version_features(void)
         result += "\n";
     }
 
-    return (result);
+    return result;
 }
 
 static void _add_file_to_scroller(FILE* fp, formatted_scroller& m,
@@ -202,7 +200,7 @@ static std::string _get_version_changes(void)
 
     result += "\n\n";
 
-    return (result);
+    return result;
 }
 
 //#define DEBUG_FILES
@@ -260,7 +258,7 @@ void swap_inv_slots(int from_slot, int to_slot, bool verbose)
 
     // Slot switching.
     tmp.slot = you.inv[to_slot].slot;
-    you.inv[to_slot].slot  = you.inv[from_slot].slot;
+    you.inv[to_slot].slot  = index_to_letter(to_slot);//you.inv[from_slot].slot is 0 when 'from_slot' contains no item.
     you.inv[from_slot].slot = tmp.slot;
 
     you.inv[from_slot].link = from_slot;
@@ -560,7 +558,9 @@ void list_jewellery(void)
     {
         if ((you.species != SP_OCTOPODE && i > EQ_AMULET)
             || (you.species == SP_OCTOPODE && i < EQ_AMULET))
+        {
             continue;
+        }
 
         const int jewellery_id = you.equip[i];
         int       colour       = MSGCOL_BLACK;
@@ -611,115 +611,22 @@ void list_jewellery(void)
     }
 }
 
-void list_weapons(void)
+void toggle_viewport_monster_hp()
 {
-    const int weapon_id = you.equip[EQ_WEAPON];
-
-    // Output the current weapon
-    //
-    // Yes, this is already on the screen... I'm outputing it
-    // for completeness and to avoid confusion.
-    std::string wstring = "Current   : ";
-    int         colour;
-
-    if (weapon_id != -1)
-    {
-        wstring += you.inv[weapon_id].name(DESC_INVENTORY_EQUIP);
-        colour = menu_colour(wstring,
-                             menu_colour_item_prefix(you.inv[weapon_id]),
-                             "equip");
-    }
-    else
-    {
-        if (you.form == TRAN_BLADE_HANDS)
-            wstring += "    blade " + blade_parts(true);
-        else if (!you_tran_can_wear(EQ_WEAPON))
-            wstring += "    (currently unavailable)";
-        else
-            wstring += "    empty " + blade_parts(true);
-        colour = menu_colour(wstring, "", "equip");
-    }
-
-    mpr(wstring.c_str(), MSGCH_EQUIPMENT, colour);
-
-    // Print out the swap slots.
-    for (int i = 0; i <= 1; ++i)
-    {
-        // We'll avoid repeating the current weapon for these slots,
-        // in order to keep things clean.
-        if (weapon_id == i)
-            continue;
-
-        if (i == 0)
-            wstring = "Primary   : ";
-        else
-            wstring = "Secondary : ";
-
-        colour = MSGCOL_BLACK;
-        if (you.inv[i].defined()
-            && (you.inv[i].base_type == OBJ_WEAPONS
-                || you.inv[i].base_type == OBJ_STAVES
-                || you.inv[i].base_type == OBJ_MISCELLANY))
-        {
-            wstring += you.inv[i].name(DESC_INVENTORY_EQUIP);
-            colour = menu_colour(wstring,
-                                 menu_colour_item_prefix(you.inv[i]),
-                                 "equip");
-        }
-        else
-            wstring += "    none";
-
-        if (colour == MSGCOL_BLACK)
-            colour = menu_colour(wstring, "", "equip");
-
-        mpr(wstring.c_str(), MSGCH_EQUIPMENT, colour);
-    }
-
-    // Now we print out the current default fire weapon.
-    wstring = "Firing    : ";
-
-    int slot = you.m_quiver->get_fire_item();
-
-    colour = MSGCOL_BLACK;
-    if (slot == -1)
-    {
-        const item_def* item;
-        you.m_quiver->get_desired_item(&item, &slot);
-        if (!item->defined())
-        {
-            wstring += "    nothing";
-        }
-        else
-        {
-            wstring += "  - ";
-            wstring += item->name(DESC_A);
-            wstring += " (empty)";
-        }
-    }
-    else
-    {
-        wstring += you.inv[slot].name(DESC_INVENTORY_EQUIP);
-        colour = menu_colour(wstring,
-                             menu_colour_item_prefix(you.inv[slot]),
-                             "equip");
-    }
-
-    if (colour == MSGCOL_BLACK)
-        colour = menu_colour(wstring, "", "equip");
-
-    mpr(wstring.c_str(), MSGCH_EQUIPMENT, colour);
+    crawl_state.viewport_monster_hp = !crawl_state.viewport_monster_hp;
+    viewwindow();
 }
 
 static bool _cmdhelp_textfilter(const std::string &tag)
 {
 #ifdef WIZARD
     if (tag == "wiz")
-        return (true);
+        return true;
 #endif
-    return (false);
+    return false;
 }
 
-static const char *targeting_help_1 =
+static const char *targetting_help_1 =
     "<h>Examine surroundings ('<w>x</w><h>' in main):\n"
     "<w>Esc</w> : cancel (also <w>Space</w>, <w>x</w>)\n"
     "<w>Dir.</w>: move cursor in that direction\n"
@@ -736,15 +643,15 @@ static const char *targeting_help_1 =
     "<w>Tab</w> : cycle through shops and portals\n"
     "<w>r</w> : move cursor to you\n"
     "<w>e</w> : create/remove travel exclusion\n"
-    "<w>Ctrl-F</w> : monster targeting modes\n"
+    "<w>Ctrl-F</w> : monster targetting modes\n"
 #ifndef USE_TILE_LOCAL
-    "<w>Ctrl-L</w> : targeting via monster list\n"
+    "<w>Ctrl-L</w> : targetting via monster list\n"
 #endif
     "<w>Ctrl-P</w> : repeat prompt\n"
 ;
 #ifdef WIZARD
-static const char *targeting_help_wiz =
-    "<h>Wizard targeting commands:</h>\n"
+static const char *targetting_help_wiz =
+    "<h>Wizard targetting commands:</h>\n"
     "<w>Ctrl-C</w> : cycle through beam paths\n"
     "<w>D</w>: get debugging information about the monster\n"
     "<w>o</w>: give item to monster\n"
@@ -764,8 +671,8 @@ static const char *targeting_help_wiz =
 ;
 #endif
 
-static const char *targeting_help_2 =
-    "<h>Targeting (zap wands, cast spells, etc.):\n"
+static const char *targetting_help_2 =
+    "<h>Targetting (zap wands, cast spells, etc.):\n"
     "Most keys from examine surroundings work.\n"
     "Some keys fire at the target. By default,\n"
     "range is respected and beams don't stop.\n"
@@ -858,7 +765,7 @@ static bool _compare_mon_names(MenuEntry *entry_a, MenuEntry* entry_b)
     monster* b = static_cast<monster* >(entry_b->data);
 
     if (a->type == b->type)
-        return (false);
+        return false;
 
     std::string a_name = mons_type_name(a->type, DESC_PLAIN);
     std::string b_name = mons_type_name(b->type, DESC_PLAIN);
@@ -873,7 +780,7 @@ static bool _compare_mon_toughness(MenuEntry *entry_a, MenuEntry* entry_b)
     monster* b = static_cast<monster* >(entry_b->data);
 
     if (a->type == b->type)
-        return (false);
+        return false;
 
     int a_toughness = mons_avg_hp(a->type);
     int b_toughness = mons_avg_hp(b->type);
@@ -957,17 +864,17 @@ static std::vector<std::string> _get_desc_keys(std::string regex,
                                                                   filter);
 
     if (key_matches.size() == 1)
-        return (key_matches);
+        return key_matches;
     else if (key_matches.size() > 52)
-        return (key_matches);
+        return key_matches;
 
     std::vector<std::string> body_matches = getLongDescBodiesByRegex(regex,
                                                                      filter);
 
     if (key_matches.empty() && body_matches.empty())
-        return (key_matches);
+        return key_matches;
     else if (key_matches.empty() && body_matches.size() == 1)
-        return (body_matches);
+        return body_matches;
 
     // Merge key_matches and body_matches, discarding duplicates.
     std::vector<std::string> tmp = key_matches;
@@ -978,14 +885,14 @@ static std::vector<std::string> _get_desc_keys(std::string regex,
         if (i == 0 || all_matches[all_matches.size() - 1] != tmp[i])
             all_matches.push_back(tmp[i]);
 
-    return (all_matches);
+    return all_matches;
 }
 
 static std::vector<std::string> _get_monster_keys(ucs_t showchar)
 {
     std::vector<std::string> mon_keys;
 
-    for (int i = 0; i < NUM_MONSTERS; i++)
+    for (monster_type i = MONS_0; i < NUM_MONSTERS; ++i)
     {
         if (i == MONS_PROGRAM_BUG)
             continue;
@@ -1005,7 +912,7 @@ static std::vector<std::string> _get_monster_keys(ucs_t showchar)
             mon_keys.push_back(me->name);
     }
 
-    return (mon_keys);
+    return mon_keys;
 }
 
 static std::vector<std::string> _get_god_keys()
@@ -1028,7 +935,7 @@ static std::vector<std::string> _get_branch_keys()
     for (int i = BRANCH_MAIN_DUNGEON; i < NUM_BRANCHES; i++)
     {
         branch_type which_branch = static_cast<branch_type>(i);
-        Branch     &branch       = branches[which_branch];
+        const Branch &branch     = branches[which_branch];
 
         // Skip unimplemented branches
         if (branch_is_unfinished(which_branch))
@@ -1036,16 +943,7 @@ static std::vector<std::string> _get_branch_keys()
 
         names.push_back(branch.shortname);
     }
-
-    //add handpicked places
-    names.push_back(place_name(
-                            get_packed_place(BRANCH_MAIN_DUNGEON, 1,
-                                static_cast<level_area_type>(LEVEL_ABYSS)), false));
-    names.push_back(place_name(
-                            get_packed_place(BRANCH_MAIN_DUNGEON, 1,
-                                static_cast<level_area_type>(LEVEL_PANDEMONIUM)), false));
-
-    return (names);
+    return names;
 }
 
 static bool _monster_filter(std::string key, std::string body)
@@ -1056,21 +954,19 @@ static bool _monster_filter(std::string key, std::string body)
 
 static bool _spell_filter(std::string key, std::string body)
 {
+    if (!ends_with(key, " spell"))
+        return true;
+    key.erase(key.length() - 6);
+
     spell_type spell = spell_by_name(key);
 
     if (spell == SPELL_NO_SPELL)
-        return (true);
+        return true;
 
     if (get_spell_flags(spell) & (SPFLAG_MONSTER | SPFLAG_TESTING))
-    {
-#ifdef WIZARD
-        return (!you.wizard);
-#else
-        return (true);
-#endif
-    }
+        return !you.wizard;
 
-    return (false);
+    return false;
 }
 
 static bool _item_filter(std::string key, std::string body)
@@ -1092,9 +988,9 @@ static bool _skill_filter(std::string key, std::string body)
         name = lowercase_string(skill_name(sk));
 
         if (name.find(key) != std::string::npos)
-            return (false);
+            return false;
     }
-    return (true);
+    return true;
 }
 
 static bool _feature_filter(std::string key, std::string body)
@@ -1104,30 +1000,28 @@ static bool _feature_filter(std::string key, std::string body)
 
 static bool _card_filter(std::string key, std::string body)
 {
-    key = lowercase_string(key);
-    std::string name;
+    lowercase(key);
 
     // Every card description contains the keyword "card".
-    if (key.find("card") != std::string::npos)
-        return (false);
+    if (!ends_with(key, " card"))
+        return true;
+    key.erase(key.length() - 5);
 
     for (int i = 0; i < NUM_CARDS; ++i)
     {
-        name = lowercase_string(card_name(static_cast<card_type>(i)));
-
-        if (name.find(key) != std::string::npos)
-            return (false);
+        if (key == lowercase_string(card_name(static_cast<card_type>(i))))
+            return false;
     }
-    return (true);
+    return true;
 }
 
 static bool _ability_filter(std::string key, std::string body)
 {
     lowercase(key);
     if (string_matches_ability_name(key))
-        return (false);
+        return false;
 
-    return (true);
+    return true;
 }
 
 typedef void (*db_keys_recap)(std::vector<std::string>&);
@@ -1156,9 +1050,30 @@ static void _recap_feat_keys(std::vector<std::string> &keys)
     }
 }
 
+static void _recap_card_keys(std::vector<std::string> &keys)
+{
+    for (unsigned int i = 0, size = keys.size(); i < size; i++)
+    {
+        lowercase(keys[i]);
+
+        for (int j = 0; j < NUM_CARDS; ++j)
+        {
+            card_type card = static_cast<card_type>(j);
+            if (keys[i] == lowercase_string(card_name(card)) + " card")
+            {
+                keys[i] = std::string(card_name(card)) + " card";
+                break;
+            }
+        }
+    }
+}
+
 // Extra info on this item wasn't found anywhere else.
 static void _append_non_item(std::string &desc, std::string key)
 {
+    if (ends_with(key, " spell"))
+        key.erase(key.length() - 6);
+
     spell_type type = spell_by_name(key);
 
     if (type == SPELL_NO_SPELL)
@@ -1173,13 +1088,10 @@ static void _append_non_item(std::string &desc, std::string key)
     }
     else if (flags & SPFLAG_MONSTER)
     {
+        // We can get here only in wizmode, the spell isn't listed otherwise.
+        // And only if it has a description -- no monster ones do.
         desc += "\nThis is a monster-only spell, only available via the "
                 "&Z wizard command.";
-    }
-    else if (flags & SPFLAG_CARD)
-    {
-        desc += "\nThis is a card-effect spell, unavailable in ordinary "
-                "spellbooks.";
     }
     else
     {
@@ -1187,17 +1099,10 @@ static void _append_non_item(std::string &desc, std::string key)
                 "file a bug report.";
     }
 
-#ifdef WIZARD
-    if (!you.wizard)
-#else
-    if (true)
-#endif
+    if (!you.wizard && (flags & (SPFLAG_TESTING | SPFLAG_MONSTER)))
     {
-        if (flags & (SPFLAG_TESTING | SPFLAG_MONSTER))
-        {
-            desc += "\n\nYou aren't in wizard mode, so you shouldn't be "
-                    "seeing this entry. Please file a bug report.";
-        }
+        desc += "\n\nYou aren't in wizard mode, so you shouldn't be "
+                "seeing this entry. Please file a bug report.";
     }
 }
 
@@ -1205,10 +1110,13 @@ static void _append_non_item(std::string &desc, std::string key)
 // to a description string.
 static bool _append_books(std::string &desc, item_def &item, std::string key)
 {
+    if (ends_with(key, " spell"))
+        key.erase(key.length() - 6);
+
     spell_type type = spell_by_name(key, true);
 
     if (type == SPELL_NO_SPELL)
-        return (false);
+        return false;
 
     desc += "\nType:       ";
     bool already = false;
@@ -1249,9 +1157,9 @@ static bool _append_books(std::string &desc, item_def &item, std::string key)
                 books.push_back(item.name(DESC_PLAIN));
             }
 
-    item.base_type = OBJ_STAVES;
+    item.base_type = OBJ_RODS;
     int book;
-    for (int i = STAFF_FIRST_ROD; i < NUM_STAVES; i++)
+    for (int i = 0; i < NUM_RODS; i++)
     {
         item.sub_type = i;
         book = item.book_number();
@@ -1287,12 +1195,12 @@ static bool _append_books(std::string &desc, item_def &item, std::string key)
         desc += comma_separated_line(rods.begin(), rods.end(), "\n", "\n");
     }
 
-    return (true);
+    return true;
 }
 
 // Returns the result of the keypress.
 static int _do_description(std::string key, std::string type,
-                            std::string footer = "")
+                           const std::string &suffix, std::string footer = "")
 {
     describe_info inf;
     inf.quote = getQuoteString(key);
@@ -1363,7 +1271,7 @@ static int _do_description(std::string key, std::string type,
                 }
                 else if (type == "spell"
                          || get_item_by_name(&mitm[thing_created], name, OBJ_BOOKS)
-                         || get_item_by_name(&mitm[thing_created], name, OBJ_STAVES))
+                         || get_item_by_name(&mitm[thing_created], name, OBJ_RODS))
                 {
                     if (!_append_books(desc, mitm[thing_created], key))
                     {
@@ -1394,6 +1302,8 @@ static int _do_description(std::string key, std::string type,
 
     inf.body << desc;
 
+    if (ends_with(key, suffix))
+        key.erase(key.length() - suffix.length());
     key = uppercase_first(key);
     linebreak_string(footer, width - 1);
 
@@ -1419,13 +1329,13 @@ static bool _handle_FAQ()
     if (question_keys.empty())
     {
         mpr("No questions found in FAQ! Please submit a bug report!");
-        return (false);
+        return false;
     }
     Menu FAQmenu(MF_SINGLESELECT | MF_ANYPRINTABLE | MF_ALLOW_FORMATTING);
     MenuEntry *title = new MenuEntry("Frequently Asked Questions");
     title->colour = YELLOW;
     FAQmenu.set_title(title);
-    const int width = std::min(80, get_number_of_cols());
+    const int width = get_number_of_cols();
 
     for (unsigned int i = 0, size = question_keys.size(); i < size; i++)
     {
@@ -1459,7 +1369,7 @@ static bool _handle_FAQ()
         std::vector<MenuEntry*> sel = FAQmenu.show();
         redraw_screen();
         if (sel.empty())
-            return (false);
+            return false;
         else
         {
             ASSERT(sel.size() == 1);
@@ -1473,7 +1383,7 @@ static bool _handle_FAQ()
                          "bug report!";
             }
             answer = "Q: " + getFAQ_Question(key) + "\n" + answer;
-            linebreak_string(answer, width - 1);
+            linebreak_string(answer, width - 1, true);
             {
 #ifdef USE_TILE_WEB
                 tiles_crt_control show_as_menu(CRT_MENU, "faq_entry");
@@ -1484,7 +1394,7 @@ static bool _handle_FAQ()
         }
     }
 
-    return (true);
+    return true;
 }
 
 static void _find_description(bool *again, std::string *error_inout)
@@ -1504,6 +1414,7 @@ static void _find_description(bool *again, std::string *error_inout)
     }
     std::string    type;
     std::string    extra;
+    std::string    suffix;
     db_find_filter filter     = NULL;
     db_keys_recap  recap      = NULL;
     bool           want_regex = true;
@@ -1529,6 +1440,7 @@ static void _find_description(bool *again, std::string *error_inout)
     case 'S':
         type         = "spell";
         filter       = _spell_filter;
+        suffix       = " spell";
         doing_spells = true;
         break;
     case 'K':
@@ -1542,6 +1454,8 @@ static void _find_description(bool *again, std::string *error_inout)
     case 'C':
         type   = "card";
         filter = _card_filter;
+        suffix = " card";
+        recap  = _recap_card_keys;
         break;
     case 'I':
         type        = "item";
@@ -1616,7 +1530,7 @@ static void _find_description(bool *again, std::string *error_inout)
     if (want_regex && !(*filter)(regex, ""))
     {
         // Try to get an exact match first.
-        std::string desc = getLongDescription(regex);
+        std::string desc = getLongDescription(regex + suffix);
 
         if (!desc.empty())
             exact_match = true;
@@ -1679,7 +1593,7 @@ static void _find_description(bool *again, std::string *error_inout)
     }
     else if (key_list.size() == 1)
     {
-        _do_description(key_list[0], type);
+        _do_description(key_list[0], type, suffix);
         return;
     }
 
@@ -1689,7 +1603,7 @@ static void _find_description(bool *again, std::string *error_inout)
         footer += regex;
         footer += "'. To see non-exact matches, press space.";
 
-        if (_do_description(regex, type, footer) != ' ')
+        if (_do_description(regex, type, suffix, footer) != ' ')
             return;
     }
 
@@ -1714,6 +1628,9 @@ static void _find_description(bool *again, std::string *error_inout)
     {
         const char  letter = index_to_letter(i);
         std::string str    = uppercase_first(key_list[i]);
+
+        if (ends_with(str, suffix)) // perhaps we should assert this?
+            str.erase(str.length() - suffix.length());
 
         MenuEntry *me = NULL;
 
@@ -1775,8 +1692,7 @@ static void _find_description(bool *again, std::string *error_inout)
             me = new GodMenuEntry(str_to_god(key_list[i]));
         else
         {
-            me = new MenuEntry(uppercase_first(key_list[i]), MEL_ITEM, 1,
-                               letter);
+            me = new MenuEntry(str, MEL_ITEM, 1, letter);
 
 #ifdef USE_TILE
             if (doing_spells)
@@ -1811,7 +1727,7 @@ static void _find_description(bool *again, std::string *error_inout)
         else
         {
             ASSERT(sel.size() == 1);
-            ASSERT(sel[0]->hotkeys.size() == 1);
+            ASSERT(sel[0]->hotkeys.size() >= 1);
 
             std::string key;
 
@@ -1825,7 +1741,7 @@ static void _find_description(bool *again, std::string *error_inout)
             else
                 key = *((std::string*) sel[0]->data);
 
-            _do_description(key, type);
+            _do_description(key, type, suffix);
         }
     }
 }
@@ -1922,7 +1838,7 @@ std::string help_highlighter::get_species_key() const
         strip_tag(result, "Draconian");
 
     result += "  ";
-    return (result);
+    return result;
 }
 ////////////////////////////////////////////////////////////////////////////
 
@@ -1993,7 +1909,7 @@ static int _show_keyhelp_menu(const std::vector<formatted_string> &lines,
             "<w>F</w>.      Monsters\n"
             "<w>G</w>.      Items\n"
             "<w>H</w>.      Spellcasting\n"
-            "<w>I</w>.      Targeting\n"
+            "<w>I</w>.      Targetting\n"
             "<w>J</w>.      Religion\n"
             "<w>K</w>.      Mutations\n"
             "<w>L</w>.      Licence, Contact, History\n"
@@ -2078,18 +1994,23 @@ void show_pickup_menu_help()
     _show_specific_help(getHelpString("pick-up"));
 }
 
-void show_targeting_help()
+void show_known_menu_help()
+{
+    _show_specific_help(getHelpString("known-menu"));
+}
+
+void show_targetting_help()
 {
     column_composer cols(2, 40);
     // Page size is number of lines - one line for --more-- prompt.
     cols.set_pagesize(get_number_of_lines() - 1);
 
-    cols.add_formatted(0, targeting_help_1, true, true);
+    cols.add_formatted(0, targetting_help_1, true, true);
 #ifdef WIZARD
     if (you.wizard)
-        cols.add_formatted(0, targeting_help_wiz, true, true);
+        cols.add_formatted(0, targetting_help_wiz, true, true);
 #endif
-    cols.add_formatted(1, targeting_help_2, true, true);
+    cols.add_formatted(1, targetting_help_2, true, true);
     _show_keyhelp_menu(cols.formatted_lines(), false, Options.easy_exit_menu);
 }
 void show_interlevel_travel_branch_help()
@@ -2130,7 +2051,7 @@ static void _add_command(column_composer &cols, const int column,
     std::string line = "<w>" + command_name + "</w>";
     for (unsigned int i = cmd_len; i < space_to_colon; ++i)
         line += " ";
-    line += ": " + desc + "\n";
+    line += ": " + untag_tiles_console(desc) + "\n";
 
     cols.add_formatted(
             column,
@@ -2343,7 +2264,9 @@ static void _add_formatted_keyhelp(column_composer &cols)
 
     _add_command(cols, 1, CMD_SAVE_GAME, "Save game and exit");
     _add_command(cols, 1, CMD_SAVE_GAME_NOW, "Save and exit without query");
-    _add_command(cols, 1, CMD_QUIT, "Quit without saving");
+    _add_command(cols, 1, CMD_QUIT, "Suicide the current character");
+    cols.add_formatted(1, "         and quit the game\n",
+                       false, true, _cmdhelp_textfilter);
 
     cols.add_formatted(
             1,
@@ -2358,7 +2281,6 @@ static void _add_formatted_keyhelp(column_composer &cols)
     _add_command(cols, 1, CMD_DISPLAY_KNOWN_OBJECTS, "show item knowledge", 2);
     _add_command(cols, 1, CMD_DISPLAY_RUNES, "show runes collected", 2);
     _add_command(cols, 1, CMD_LIST_ARMOUR, "display worn armour", 2);
-    _add_command(cols, 1, CMD_LIST_WEAPONS, "display current weapons", 2);
     _add_command(cols, 1, CMD_LIST_JEWELLERY, "display worn jewellery", 2);
     _add_command(cols, 1, CMD_LIST_GOLD, "display gold in possession", 2);
     _add_command(cols, 1, CMD_EXPERIENCE_CHECK, "display experience info", 2);
@@ -2378,11 +2300,15 @@ static void _add_formatted_keyhelp(column_composer &cols)
     cols.add_formatted(1, "         pickup part of a single stack\n",
                        false, true, _cmdhelp_textfilter);
 
-
     _add_command(cols, 1, CMD_LOOK_AROUND, "eXamine surroundings/targets");
     _add_insert_commands(cols, 1, 7, "eXamine level map (<w>%?</w> for help)",
                          CMD_DISPLAY_MAP, CMD_DISPLAY_MAP, 0);
-    _add_command(cols, 1, CMD_FULL_VIEW, "list monsters, items, features in view");
+    _add_command(cols, 1, CMD_FULL_VIEW, "list monsters, items, features");
+    cols.add_formatted(1, "         in view\n",
+                       false, true, _cmdhelp_textfilter);
+    _add_command(cols, 1, CMD_SHOW_TERRAIN, "toggle terrain-only view");
+    if (!is_tiles())
+        _add_command(cols, 1, CMD_TOGGLE_VIEWPORT_MONSTER_HP, "colour monsters in view by HP");
     _add_command(cols, 1, CMD_DISPLAY_OVERMAP, "show dungeon Overview");
     _add_command(cols, 1, CMD_TOGGLE_AUTOPICKUP, "toggle auto-pickup");
     _add_command(cols, 1, CMD_TOGGLE_FRIENDLY_PICKUP, "change ally pickup behaviour");
@@ -2455,7 +2381,7 @@ static void _add_formatted_keyhelp(column_composer &cols)
     std::string text =
             "Many commands have context sensitive "
             "help, among them <w>%</w>, <w>%</w>, <w>%</w> (or any "
-            "form of targeting), <w>%</w>, and <w>%</w>.\n"
+            "form of targetting), <w>%</w>, and <w>%</w>.\n"
             "You can read descriptions of your "
             "current spells (<w>%</w>), skills (<w>%?</w>) and "
             "abilities (<w>%!</w>).";
@@ -2543,80 +2469,58 @@ static void _add_formatted_hints_help(column_composer &cols)
             false, true, _cmdhelp_textfilter);
 
     _add_insert_commands(cols, 1,
-#ifndef USE_TILE
-                         "<cyan>)</cyan> : "
-#endif
+                         "<console><cyan>)</cyan> : </console>"
                          "hand weapons (<w>%</w>ield)",
                          CMD_WIELD_WEAPON, 0);
     _add_insert_commands(cols, 1,
-#ifndef USE_TILE
-                         "<brown>(</brown> : "
-#endif
+                         "<console><brown>(</brown> : </console>"
                          "missiles (<w>%</w>uiver, <w>%</w>ire, <w>%</w>/<w>%</w> cycle)",
                          CMD_QUIVER_ITEM, CMD_FIRE, CMD_CYCLE_QUIVER_FORWARD,
                          CMD_CYCLE_QUIVER_BACKWARD, 0);
     _add_insert_commands(cols, 1,
-#ifndef USE_TILE
-                         "<cyan>[</cyan> : "
-#endif
+                         "<console><cyan>[</cyan> : </console>"
                          "armour (<w>%</w>ear and <w>%</w>ake off)",
                          CMD_WEAR_ARMOUR, CMD_REMOVE_ARMOUR, 0);
     _add_insert_commands(cols, 1,
-#ifndef USE_TILE
-                         "<brown>percent</brown> : "
-#endif
+                         "<console><brown>percent</brown> : </console>"
                          "corpses and food (<w>%</w>hop up and <w>%</w>at)",
                          CMD_BUTCHER, CMD_EAT, 0);
     _add_insert_commands(cols, 1,
-#ifndef USE_TILE
-                         "<w>?</w> : "
-#endif
+                         "<console><w>?</w> : </console>"
                          "scrolls (<w>%</w>ead)",
                          CMD_READ, 0);
     _add_insert_commands(cols, 1,
-#ifndef USE_TILE
-                         "<magenta>!</magenta> : "
-#endif
+                         "<console><magenta>!</magenta> : </console>"
                          "potions (<w>%</w>uaff)",
                          CMD_QUAFF, 0);
     _add_insert_commands(cols, 1,
-#ifndef USE_TILE
-                         "<blue>=</blue> : "
-#endif
+                         "<console><blue>=</blue> : </console>"
                          "rings (<w>%</w>ut on and <w>%</w>emove)",
                          CMD_WEAR_JEWELLERY, CMD_REMOVE_JEWELLERY, 0);
     _add_insert_commands(cols, 1,
-#ifndef USE_TILE
-                         "<red>\"</red> : "
-#endif
+                         "<console><red>\"</red> : </console>"
                          "amulets (<w>%</w>ut on and <w>%</w>emove)",
                          CMD_WEAR_JEWELLERY, CMD_REMOVE_JEWELLERY, 0);
     _add_insert_commands(cols, 1,
-#ifndef USE_TILE
-                         "<lightgrey>/</lightgrey> : "
-#endif
+                         "<console><lightgrey>/</lightgrey> : </console>"
                          "wands (e<w>%</w>oke)",
                          CMD_EVOKE, 0);
 
     std::string item_types =
-#ifndef USE_TILE
-                  "<lightcyan>";
+                  "<console><lightcyan>";
     item_types += stringize_glyph(get_item_symbol(SHOW_ITEM_BOOK));
     item_types +=
-        "</lightcyan> : "
-#endif
+        "</lightcyan> : </console>"
         "books (<w>%</w>ead, <w>%</w>emorise, <w>%</w>ap, <w>%</w>ap)";
     _add_insert_commands(cols, 1, item_types,
                          CMD_READ, CMD_MEMORISE_SPELL, CMD_CAST_SPELL,
                          CMD_FORCE_CAST_SPELL, 0);
 
     item_types =
-#ifndef USE_TILE
-                  "<brown>";
+                  "<console><brown>";
     item_types += stringize_glyph(get_item_symbol(SHOW_ITEM_STAVE));
     item_types +=
-        "</brown> : "
-#endif
+        "</brown> : </console>"
         "staves and rods (<w>%</w>ield and e<w>%</w>oke)";
     _add_insert_commands(cols, 1, item_types,
                          CMD_WIELD_WEAPON, CMD_EVOKE_WIELDED, 0);
@@ -2642,7 +2546,7 @@ static void _add_formatted_hints_help(column_composer &cols)
 
     cols.add_formatted(
             1,
-            "\n<h>Targeting\n"
+            "\n<h>Targetting\n"
             "<w>Enter</w> or <w>.</w> or <w>Del</w> : confirm target\n"
             "<w>+</w> and <w>-</w> : cycle between targets\n"
             "<w>f</w> or <w>p</w> : shoot at previous target\n"
@@ -2698,13 +2602,12 @@ int list_wizard_commands(bool do_redraw_screen)
                        "<w>_</w>      : gain religion\n"
                        "<w>^</w>      : set piety to a value\n"
                        "<w>@</w>      : set Str Int Dex\n"
+                       "<w>#</w>      : load character from a dump file\n"
                        "<w>Z</w>      : gain lots of Zot Points\n"
                        "\n"
                        "<yellow>Create level features</yellow>\n"
-                       "<w>l</w>      : make entrance to labyrinth\n"
                        "<w>L</w>      : place a vault by name\n"
-                       "<w>p</w>      : make entrance to pandemonium\n"
-                       "<w>P</w>      : make a portal\n"
+                       "<w>p</w>      : make a portal\n"
                        "<w>T</w>      : make a trap\n"
                        "<w><<</w>/<w>></w>    : create up/down staircase\n"
                        "<w>(</w>      : turn cell into feature\n"
@@ -2727,7 +2630,8 @@ int list_wizard_commands(bool do_redraw_screen)
                        "<w>}</w>      : detect all traps on level\n"
                        "<w>)</w>      : change Shoals' tide speed\n"
                        "<w>Ctrl-E</w> : dump level builder information\n"
-                       "<w>Ctrl-R</w> : regenerate current level\n",
+                       "<w>Ctrl-R</w> : regenerate current level\n"
+                       "<w>P</w>      : create a level based on a vault\n",
                        true, true);
 
     cols.add_formatted(1,
@@ -2740,8 +2644,10 @@ int list_wizard_commands(bool do_redraw_screen)
                        "<w>Ctrl-H</w> : set hunger state\n"
                        "<w>X</w>      : make Xom do something now\n"
                        "<w>z</w>      : cast spell by number/name\n"
+                       "<w>Ctrl-M</w> : memorise spell\n"
                        "<w>W</w>      : god wrath\n"
                        "<w>w</w>      : god mollification\n"
+                       "<w>Ctrl-P</w> : polymorph into a form\n"
                        "<w>Ctrl-V</w> : toggle xray vision\n"
                        "\n"
                        "<yellow>Monster related commands</yellow>\n"
@@ -2764,9 +2670,9 @@ int list_wizard_commands(bool do_redraw_screen)
                        "<w>J</w>      : Jiyva off-level sacrifice\n"
                        "\n"
                        "<yellow>Debugging commands</yellow>\n"
-                       "<w>f</w>      : player combat damage stats\n"
-                       "<w>F</w>      : combat stats with fsim_kit\n"
-                       "<w>Ctrl-F</w> : combat stats (monster vs PC)\n"
+                       "<w>f</w>      : quick fight simulation\n"
+                       "<w>F</w>      : single scale fsim\n"
+                       "<w>Ctrl-F</w> : double scale fsim\n"
                        "<w>Ctrl-I</w> : item generation stats\n"
                        "<w>O</w>      : measure exploration time\n"
                        "<w>Ctrl-t</w> : enter in-game Lua interpreter\n"

@@ -5,10 +5,10 @@
 
 #include "AppHdr.h"
 
-#include "dungeon.h"
-#include "traps.h"
-#include "libutil.h"
 #include "coordit.h"
+#include "dungeon.h"
+#include "libutil.h"
+#include "traps.h"
 
 static bool _find_forbidden_in_area(dgn_region& area, unsigned int mask);
 static int _count_antifeature_in_box(int x0, int y0, int x1, int y1,
@@ -42,8 +42,10 @@ static bool _may_overwrite_pos(coord_def c);
 static void _build_river(dungeon_feature_type river_type);
 static void _build_lake(dungeon_feature_type lake_type);
 
-void dgn_build_basic_level(int level_number)
+void dgn_build_basic_level()
 {
+    int level_number = env.absdepth0;
+
     env.level_build_method += " basic";
     env.level_layout_types.insert("basic");
 
@@ -161,7 +163,8 @@ void dgn_build_bigger_room_level(void)
 // A more chaotic version of city level.
 void dgn_build_chaotic_city_level(dungeon_feature_type force_wall)
 {
-    env.level_build_method += make_stringf(" chaotic_city [%d]", (int) force_wall);
+    env.level_build_method += make_stringf(" chaotic_city [%s]",
+        force_wall == NUM_FEATURES ? "any" : dungeon_feature_name(force_wall));
     env.level_layout_types.insert("city");
 
     int number_boxes = 5000;
@@ -455,8 +458,8 @@ static void _builder_extras(int level_number)
 static bool _octa_room(dgn_region& region, int oblique_max,
                        dungeon_feature_type type_floor)
 {
-    env.level_build_method += make_stringf(" octa_room [%d %d]", oblique_max,
-                                     (int) type_floor);
+    env.level_build_method += make_stringf(" octa_room [%d %s]", oblique_max,
+                                           dungeon_feature_name(type_floor));
 
     int x,y;
 
@@ -506,7 +509,7 @@ static bool _octa_room(dgn_region& region, int oblique_max,
             oblique--;
     }
 
-    return (true);
+    return true;
 }
 
 static dungeon_feature_type _random_wall()
@@ -521,7 +524,7 @@ static dungeon_feature_type _random_wall()
     }
     while (wall == DNGN_SLIMY_WALL);
 
-    return (wall);
+    return wall;
 }
 
 // Helper function for chequerboard rooms.
@@ -651,7 +654,7 @@ static int _box_room_doors(int bx1, int bx2, int by1, int by2, int new_doors)
         new_doors --;
     }
 
-    return (doors_placed);
+    return doors_placed;
 }
 
 static void _box_room(int bx1, int bx2, int by1, int by2,
@@ -875,10 +878,10 @@ static bool _make_room(int sx,int sy,int ex,int ey,int max_doors, int doorlevel)
     diag_door += _good_door_spot(ex,ey);
 
     if ((diag_door + find_door) > 1 && max_doors == 1)
-        return (false);
+        return false;
 
     if (find_door == 0 || find_door > max_doors)
-        return (false);
+        return false;
 
     // Convert the area to floor.
     for (rx = sx; rx <= ex; rx++)
@@ -933,7 +936,7 @@ static bool _make_room(int sx,int sy,int ex,int ey,int max_doors, int doorlevel)
         }
     }
 
-    return (true);
+    return true;
 }
 
 static void _make_random_rooms(int num, int max_doors, int door_level,
@@ -1027,8 +1030,8 @@ static void _many_pools(dungeon_feature_type pool_type)
     const int num_pools = 20 + random2avg(9, 2);
     int pools = 0;
 
-    env.level_build_method += make_stringf(" many_pools [%d %d]", (int)pool_type,
-                                           num_pools);
+    env.level_build_method += make_stringf(" many_pools [%s %d]",
+        dungeon_feature_name(pool_type), num_pools);
 
     for (int timeout = 0; pools < num_pools && timeout < 30000; ++timeout)
     {
@@ -1054,7 +1057,7 @@ static bool _may_overwrite_pos(coord_def c)
     if (grid >= DNGN_ENTER_SHOP && grid <= DNGN_EXIT_PORTAL_VAULT
         || grid == DNGN_EXIT_HELL)
     {
-        return (false);
+        return false;
     }
 
     // Don't overwrite feature if there's a monster or item there.
@@ -1070,7 +1073,8 @@ static void _build_river(dungeon_feature_type river_type) //mv
     if (player_in_branch(BRANCH_CRYPT) || player_in_branch(BRANCH_TOMB))
         return;
 
-    env.level_build_method += make_stringf(" river [%d]", (int) river_type);
+    env.level_build_method += make_stringf(" river [%s]",
+                                           dungeon_feature_name(river_type));
 
     // Made rivers less wide... min width five rivers were too annoying. -- bwr
     width = 3 + random2(4);
@@ -1117,7 +1121,8 @@ static void _build_lake(dungeon_feature_type lake_type) //mv
     if (player_in_branch(BRANCH_CRYPT) || player_in_branch(BRANCH_TOMB))
         return;
 
-    env.level_build_method += make_stringf(" lake [%d]", (int) lake_type);
+    env.level_build_method += make_stringf(" lake [%s]",
+                                           dungeon_feature_name(lake_type));
 
     x1 = 5 + random2(GXM - 30);
     y1 = 5 + random2(GYM - 30);

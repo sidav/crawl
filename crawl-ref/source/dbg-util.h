@@ -7,11 +7,10 @@
 #define DBGUTIL_H
 
 monster_type debug_prompt_for_monster(void);
-skill_type   debug_prompt_for_skill(const char *prompt);
+skill_type debug_prompt_for_skill(const char *prompt);
+skill_type skill_from_name(const char *name);
 
 int debug_cap_stat(int stat);
-
-void error_message_to_player(void);
 
 void debug_dump_levgen();
 

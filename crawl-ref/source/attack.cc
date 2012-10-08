@@ -62,7 +62,7 @@ bool attack::handle_phase_attempted()
 std::string attack::actor_name(const actor *a, description_level_type desc,
                                bool actor_visible, bool actor_invisible)
 {
-    return (actor_visible ? a->name(desc) : anon_name(desc, actor_invisible));
+    return actor_visible ? a->name(desc) : anon_name(desc, actor_invisible);
 }
 
 /* Returns an actor's pronoun
@@ -72,7 +72,7 @@ std::string attack::actor_name(const actor *a, description_level_type desc,
 std::string attack::actor_pronoun(const actor *a, pronoun_type pron,
                                   bool actor_visible)
 {
-    return (actor_visible ? a->pronoun(pron) : anon_pronoun(pron));
+    return actor_visible ? a->pronoun(pron) : anon_pronoun(pron);
 }
 
 /* Returns an anonymous actor's name
@@ -86,15 +86,15 @@ std::string attack::anon_name(description_level_type desc,
     switch (desc)
     {
     case DESC_NONE:
-        return ("");
+        return "";
     case DESC_YOUR:
     case DESC_ITS:
-        return ("its");
+        return "its";
     case DESC_THE:
     case DESC_A:
     case DESC_PLAIN:
     default:
-        return (actor_invisible? "it" : "something");
+        return actor_invisible? "it" : "something";
     }
 }
 
@@ -138,7 +138,7 @@ std::string attack::debug_damage_number()
 #ifdef DEBUG_DIAGNOSTICS
     return make_stringf(" for %d", damage_done);
 #else
-    return ("");
+    return "";
 #endif
 }
 
@@ -161,10 +161,8 @@ std::string attack::special_attack_punctuation()
  */
 std::string attack::attack_strength_punctuation()
 {
-    if (attacker->atype() == ACT_PLAYER)
-    {
+    if (attacker->is_player())
         return get_exclams(damage_done);
-    }
     else
         return (damage_done < HIT_WEAK ? "." : "!");
 }
@@ -220,7 +218,7 @@ std::string attack::wep_name(description_level_type desc, iflags_t ignre_flags)
 {
     ASSERT(weapon != NULL);
 
-    if (attacker->atype() == ACT_PLAYER)
+    if (attacker->is_player())
         return weapon->name(desc, false, false, false, false, ignre_flags);
 
     std::string name;
@@ -236,7 +234,7 @@ std::string attack::wep_name(description_level_type desc, iflags_t ignre_flags)
 
     name += weapon->name(DESC_PLAIN, false, false, false, false, ignre_flags);
 
-    return (name);
+    return name;
 }
 
 /* TODO: Remove this!

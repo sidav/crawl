@@ -6,7 +6,6 @@
 #include "AppHdr.h"
 
 #include "misc.h"
-#include "notes.h"
 
 #include <string.h>
 #include <algorithm>
@@ -20,7 +19,6 @@
 #include <cmath>
 
 #include "externs.h"
-#include "options.h"
 #include "misc.h"
 
 #include "abyss.h"
@@ -36,19 +34,19 @@
 #include "directn.h"
 #include "env.h"
 #include "exercise.h"
+#include "feature.h"
 #include "fight.h"
 #include "files.h"
 #include "fprop.h"
 #include "food.h"
 #include "ghost.h"
 #include "godabil.h"
-#include "hiscores.h"
+#include "godpassive.h"
 #include "itemname.h"
 #include "itemprop.h"
 #include "items.h"
 #include "item_use.h"
 #include "libutil.h"
-#include "macro.h"
 #include "makeitem.h"
 #include "mapmark.h"
 #include "message.h"
@@ -60,6 +58,7 @@
 #include "mon-iter.h"
 #include "mon-stuff.h"
 #include "ng-setup.h"
+#include "notes.h"
 #include "ouch.h"
 #include "player.h"
 #include "player-stats.h"
@@ -70,7 +69,6 @@
 #include "skills.h"
 #include "skills2.h"
 #include "spl-clouds.h"
-#include "stash.h"
 #include "state.h"
 #include "stuff.h"
 #include "terrain.h"
@@ -79,7 +77,6 @@
 #include "travel.h"
 #include "hints.h"
 #include "view.h"
-#include "viewgeom.h"
 #include "shout.h"
 #include "xom.h"
 
@@ -91,7 +88,7 @@ static void _create_monster_hide(const item_def corpse)
     if (corpse.props.exists("never_hide"))
         return;
 
-    int mons_class = corpse.plus;
+    const monster_type mons_class = corpse.mon_type;
 
     int o = get_mitm_slot();
     if (o == NON_ITEM)
@@ -139,11 +136,11 @@ static void _create_monster_hide(const item_def corpse)
 
 void maybe_drop_monster_hide(const item_def corpse)
 {
-    if (monster_descriptor(corpse.plus, MDSC_LEAVES_HIDE) && !one_chance_in(3))
+    if (monster_descriptor(corpse.mon_type, MDSC_LEAVES_HIDE) && !one_chance_in(3))
         _create_monster_hide(corpse);
 }
 
-int get_max_corpse_chunks(int mons_class)
+int get_max_corpse_chunks(monster_type mons_class)
 {
     return (mons_weight(mons_class) / 150);
 }
@@ -154,7 +151,7 @@ void turn_corpse_into_skeleton(item_def &item)
 
     // Some monsters' corpses lack the structure to leave skeletons
     // behind.
-    if (!mons_skeleton(item.plus))
+    if (!mons_skeleton(item.mon_type))
         return;
 
     item.sub_type = CORPSE_SKELETON;
@@ -162,7 +159,7 @@ void turn_corpse_into_skeleton(item_def &item)
     item.colour   = LIGHTGREY;
 }
 
-void maybe_bleed_monster_corpse(const item_def corpse)
+static void _maybe_bleed_monster_corpse(const item_def corpse)
 {
     // Only fresh corpses bleed enough to colour the ground.
     if (!food_is_rotten(corpse))
@@ -170,9 +167,8 @@ void maybe_bleed_monster_corpse(const item_def corpse)
         const coord_def pos = item_pos(corpse);
         if (!pos.origin())
         {
-            const monster_type montype = static_cast<monster_type>(corpse.plus);
-            const int max_chunks = get_max_corpse_chunks(corpse.plus);
-            bleed_onto_floor(pos, montype, max_chunks, true);
+            const int max_chunks = get_max_corpse_chunks(corpse.mon_type);
+            bleed_onto_floor(pos, corpse.mon_type, max_chunks, true);
         }
     }
 }
@@ -182,18 +178,19 @@ void turn_corpse_into_chunks(item_def &item, bool bloodspatter,
 {
     ASSERT(item.base_type == OBJ_CORPSES && item.sub_type == CORPSE_BODY);
     const item_def corpse = item;
-    const int max_chunks = get_max_corpse_chunks(item.plus);
+    const int max_chunks = get_max_corpse_chunks(item.mon_type);
 
     // Only fresh corpses bleed enough to colour the ground.
     if (bloodspatter)
-        maybe_bleed_monster_corpse(corpse);
+        _maybe_bleed_monster_corpse(corpse);
 
     item.base_type = OBJ_FOOD;
     item.sub_type  = FOOD_CHUNK;
     item.quantity  = 1 + random2(max_chunks);
     item.quantity  = stepdown_value(item.quantity, 4, 4, 12, 12);
 
-    if (is_bad_food(item))
+    // Don't mark it as dropped if we are forcing autopickup of chunks.
+    if (is_bad_food(item) && you.force_autopickup[OBJ_FOOD][FOOD_CHUNK] <= 0)
         item.flags |= ISFLAG_DROPPED;
     else if (you.species != SP_VAMPIRE)
         item.flags &= ~(ISFLAG_THROWN | ISFLAG_DROPPED);
@@ -226,7 +223,7 @@ static void _turn_corpse_into_skeleton_and_chunks(item_def &item, bool prefer_ch
 void butcher_corpse(item_def &item, maybe_bool skeleton, bool chunks)
 {
     item_was_destroyed(item);
-    if (!mons_skeleton(item.plus))
+    if (!mons_skeleton(item.mon_type))
         skeleton = B_FALSE;
     if (skeleton == B_TRUE || skeleton == B_MAYBE && one_chance_in(3))
     {
@@ -234,7 +231,7 @@ void butcher_corpse(item_def &item, maybe_bool skeleton, bool chunks)
             _turn_corpse_into_skeleton_and_chunks(item, skeleton != B_TRUE);
         else
         {
-            maybe_bleed_monster_corpse(item);
+            _maybe_bleed_monster_corpse(item);
             maybe_drop_monster_hide(item);
             turn_corpse_into_skeleton(item);
         }
@@ -245,7 +242,7 @@ void butcher_corpse(item_def &item, maybe_bool skeleton, bool chunks)
             turn_corpse_into_chunks(item);
         else
         {
-            maybe_bleed_monster_corpse(item);
+            _maybe_bleed_monster_corpse(item);
             maybe_drop_monster_hide(item);
             destroy_item(item.index());
         }
@@ -361,8 +358,7 @@ void maybe_coagulate_blood_potions_floor(int obj)
     }
 
     if (!rot_count && !coag_count)
-        // Nothing to be done.
-        return;
+        return; // Nothing to be done.
 
 #ifdef DEBUG_BLOOD_POTIONS
     mprf(MSGCH_DIAGNOSTICS, "in maybe_coagulate_blood_potions_FLOOR "
@@ -559,7 +555,7 @@ bool maybe_coagulate_blood_potions_inv(item_def &blood)
     }
 
     if (!rot_count && !coag_count)
-        return (false); // Nothing to be done.
+        return false; // Nothing to be done.
 
 #ifdef DEBUG_BLOOD_POTIONS
     mprf(MSGCH_DIAGNOSTICS, "in maybe_coagulate_blood_potions_INV "
@@ -582,26 +578,19 @@ bool maybe_coagulate_blood_potions_inv(item_def &blood)
         // Only coagulated blood can rot.
         ASSERT(blood.sub_type == POT_BLOOD_COAGULATED);
         _potion_stack_changed_message(blood, rot_count, "rot%s away");
-        blood.quantity -= rot_count;
+        bool destroyed = dec_inv_item_quantity(blood.link, rot_count);
 
         if (!knew_coag)
         {
             set_ident_type(OBJ_POTIONS, POT_BLOOD_COAGULATED, ID_KNOWN_TYPE);
-            if (blood.quantity >= 1)
+            if (!destroyed)
                 mpr_nocap(blood.name(DESC_INVENTORY).c_str());
         }
 
-        if (blood.quantity < 1)
-        {
-            if (you.equip[EQ_WEAPON] == blood.link)
-                you.equip[EQ_WEAPON] = -1;
-
-            destroy_item(blood);
-        }
-        else
+        if (!destroyed)
             _compare_blood_quantity(blood, timer.size());
 
-        return (true);
+        return true;
     }
 
     // Coagulated blood cannot coagulate any further...
@@ -636,16 +625,7 @@ bool maybe_coagulate_blood_potions_inv(item_def &blood)
 
             ASSERT(props2.exists("timer"));
             CrawlVector &timer2 = props2["timer"].get_vector();
-
-            blood.quantity -= coag_count + rot_count;
-            if (blood.quantity < 1)
-            {
-                if (you.equip[EQ_WEAPON] == blood.link)
-                    you.equip[EQ_WEAPON] = -1;
-
-                destroy_item(blood);
-            }
-            else
+            if (!dec_inv_item_quantity(blood.link, coag_count + rot_count))
             {
                 _compare_blood_quantity(blood, timer.size());
                 if (!knew_blood)
@@ -779,7 +759,7 @@ bool maybe_coagulate_blood_potions_inv(item_def &blood)
             if (!knew_blood)
                 mpr_nocap(blood.name(DESC_INVENTORY).c_str());
 
-            return (true);
+            return true;
         }
         o = mitm[o].link;
     }
@@ -788,7 +768,7 @@ bool maybe_coagulate_blood_potions_inv(item_def &blood)
     // Create a new stack of potions.
     o = get_mitm_slot();
     if (o == NON_ITEM)
-        return (false);
+        return false;
 
     // These values are common to all: {dlb}
     mitm[o].base_type = OBJ_POTIONS;
@@ -816,21 +796,13 @@ bool maybe_coagulate_blood_potions_inv(item_def &blood)
     props_new.assert_validity();
     move_item_to_grid(&o, you.pos());
 
-    blood.quantity -= rot_count + coag_count;
-    if (blood.quantity < 1)
-    {
-        if (you.equip[EQ_WEAPON] == blood.link)
-            you.equip[EQ_WEAPON] = -1;
-
-        destroy_item(blood);
-    }
-    else
+    if (!dec_inv_item_quantity(blood.link, coag_count + rot_count))
     {
         _compare_blood_quantity(blood, timer.size());
         if (!knew_blood)
             mpr_nocap(blood.name(DESC_INVENTORY).c_str());
     }
-    return (true);
+    return true;
 }
 
 // Removes the oldest timer of a stack of blood potions.
@@ -852,7 +824,7 @@ int remove_oldest_blood_potion(item_def &stack)
     timer.pop_back();
 
     // The quantity will be decreased elsewhere.
-    return (val);
+    return val;
 }
 
 // Used whenever copies of blood potions have to be cleaned up.
@@ -929,33 +901,33 @@ bool check_blood_corpses_on_ground()
     {
         if (si->base_type == OBJ_CORPSES && si->sub_type == CORPSE_BODY
             && !food_is_rotten(*si)
-            && mons_has_blood(si->plus))
+            && mons_has_blood(si->mon_type))
         {
-            return (true);
+            return true;
         }
     }
-    return (false);
+    return false;
 }
 
 // Deliberately don't check for rottenness here, so this check
 // can also be used to verify whether you *could* have bottled
 // a now rotten corpse.
-bool can_bottle_blood_from_corpse(int mons_class)
+bool can_bottle_blood_from_corpse(monster_type mons_class)
 {
     if (you.species != SP_VAMPIRE || you.experience_level < 6
         || !mons_has_blood(mons_class))
     {
-        return (false);
+        return false;
     }
 
     int chunk_type = mons_corpse_effect(mons_class);
     if (chunk_type == CE_CLEAN || chunk_type == CE_CONTAMINATED)
-        return (true);
+        return true;
 
-    return (false);
+    return false;
 }
 
-int num_blood_potions_from_corpse(int mons_class, int chunk_type)
+int num_blood_potions_from_corpse(monster_type mons_class, int chunk_type)
 {
     if (chunk_type == -1)
         chunk_type = mons_corpse_effect(mons_class);
@@ -974,7 +946,7 @@ int num_blood_potions_from_corpse(int mons_class, int chunk_type)
     if (pot_quantity < 1)
         pot_quantity = 1;
 
-    return (pot_quantity);
+    return pot_quantity;
 }
 
 // If autopickup is active, the potions are auto-picked up after creation.
@@ -984,7 +956,7 @@ void turn_corpse_into_blood_potions(item_def &item)
     ASSERT(!food_is_rotten(item));
 
     const item_def corpse = item;
-    const int mons_class = corpse.plus;
+    const monster_type mons_class = corpse.mon_type;
 
     ASSERT(can_bottle_blood_from_corpse(mons_class));
 
@@ -1008,7 +980,7 @@ void turn_corpse_into_skeleton_and_blood_potions(item_def &item)
 {
     item_def blood_potions = item;
 
-    if (mons_skeleton(item.plus))
+    if (mons_skeleton(item.mon_type))
         turn_corpse_into_skeleton(item);
 
     int o = get_mitm_slot();
@@ -1024,30 +996,30 @@ static bool allow_bleeding_on_square(const coord_def& where)
     // No bleeding onto sanctuary ground, please.
     // Also not necessary if already covered in blood.
     if (is_bloodcovered(where) || is_sanctuary(where))
-        return (false);
+        return false;
 
     // No spattering into lava or water.
     if (grd(where) >= DNGN_LAVA && grd(where) < DNGN_FLOOR)
-        return (false);
+        return false;
 
     // No spattering into fountains (other than blood).
     if (grd(where) == DNGN_FOUNTAIN_BLUE
         || grd(where) == DNGN_FOUNTAIN_SPARKLING)
     {
-        return (false);
+        return false;
     }
 
     // The good gods like to keep their altars pristine.
     if (is_good_god(feat_altar_god(grd(where))))
-        return (false);
+        return false;
 
-    return (true);
+    return true;
 }
 
 bool maybe_bloodify_square(const coord_def& where)
 {
     if (!allow_bleeding_on_square(where))
-        return (false);
+        return false;
 
     env.pgrid(where) |= FPROP_BLOODY;
     return true;
@@ -1062,8 +1034,12 @@ bool maybe_bloodify_square(const coord_def& where)
  *
  * @param where Coordinates of the wall where there is a blood splat.
  * @param from Coordinates of the source of the blood.
+ * @param old_blood blood splats created at level generation are old and can
+ * have some blood inscriptions. Only for south facing splats, so you don't
+ * have to turn your head to read the inscriptions.
  */
-static void _orient_wall_blood(const coord_def& where, coord_def from)
+static void _orient_wall_blood(const coord_def& where, coord_def from,
+                               bool old_blood)
 {
     if (!feat_is_wall(env.grid(where)))
         return;
@@ -1102,12 +1078,15 @@ static void _orient_wall_blood(const coord_def& where, coord_def from)
         env.pgrid(where) |= FPROP_BLOOD_NORTH;
     else if (diff == coord_def(-1, 0))
         env.pgrid(where) |= FPROP_BLOOD_EAST;
+    else if (old_blood && one_chance_in(10))
+        env.pgrid(where) |= FPROP_OLD_BLOOD;
 }
 
 static void _maybe_bloodify_square(const coord_def& where, int amount,
                                    bool spatter = false,
                                    bool smell_alert = true,
-                                   const coord_def& from = INVALID_COORD)
+                                   const coord_def& from = INVALID_COORD,
+                                   const bool old_blood = false)
 {
     if (amount < 1)
         return;
@@ -1120,7 +1099,7 @@ static void _maybe_bloodify_square(const coord_def& where, int amount,
                         && you.see_cell(where);
 
     if (ignite_blood)
-        amount *= 3;
+        amount *= 2;
 
     if (x_chance_in_y(amount, 20))
     {
@@ -1129,7 +1108,7 @@ static void _maybe_bloodify_square(const coord_def& where, int amount,
         if (may_bleed)
         {
             env.pgrid(where) |= FPROP_BLOODY;
-            _orient_wall_blood(where, from);
+            _orient_wall_blood(where, from, old_blood);
 
             if (smell_alert && in_bounds(where))
                 blood_smell(12, where);
@@ -1146,7 +1125,10 @@ static void _maybe_bloodify_square(const coord_def& where, int amount,
         {
             // Smaller chance of spattering surrounding squares.
             for (adjacent_iterator ai(where); ai; ++ai)
-                _maybe_bloodify_square(*ai, amount/15, false, true, from);
+            {
+                _maybe_bloodify_square(*ai, amount/15, false, true, from,
+                                       old_blood);
+            }
         }
     }
 }
@@ -1156,7 +1138,7 @@ static void _maybe_bloodify_square(const coord_def& where, int amount,
 // or, for sacrifices, on the number of chunks possible to get out of a corpse.
 void bleed_onto_floor(const coord_def& where, monster_type montype,
                       int damage, bool spatter, bool smell_alert,
-                      const coord_def& from)
+                      const coord_def& from, const bool old_blood)
 {
     ASSERT(in_bounds(where));
 
@@ -1171,7 +1153,8 @@ void bleed_onto_floor(const coord_def& where, monster_type montype,
             return;
     }
 
-    _maybe_bloodify_square(where, damage, spatter, smell_alert, from);
+    _maybe_bloodify_square(where, damage, spatter, smell_alert, from,
+                           old_blood);
 }
 
 void blood_spray(const coord_def& origin, monster_type montype, int level)
@@ -1215,7 +1198,7 @@ static void _spatter_neighbours(const coord_def& where, int chance,
         if (one_chance_in(chance))
         {
             env.pgrid(*ai) |= FPROP_BLOODY;
-            _orient_wall_blood(where, from);
+            _orient_wall_blood(where, from, true);
             _spatter_neighbours(*ai, chance+1, from);
         }
     }
@@ -1269,7 +1252,7 @@ void search_around(bool only_adjacent)
     const int skill = you.traps_skill();
     // Traps and doors stepdown skill:
     // skill/(2x-1) for squares at distance x
-    int max_dist = (skill + 1) / 2;
+    int max_dist = div_rand_round(skill, 2);
     if (max_dist > 5)
         max_dist = 5;
     if (only_adjacent && max_dist > 1 || max_dist < 1)
@@ -1289,7 +1272,7 @@ void search_around(bool only_adjacent)
                 ++dist;
 
             // Making this harsher by removing the old +1...
-            int effective = skill / (2*dist - 1);
+            int effective = div_rand_round(skill, (2*dist - 1));
 
             if (grd(*ri) == DNGN_SECRET_DOOR && x_chance_in_y(effective+1, 17))
             {
@@ -1369,8 +1352,6 @@ void merfolk_stop_swimming()
 void trackers_init_new_level(bool transit)
 {
     travel_init_new_level();
-    if (transit)
-        stash_init_new_level();
 }
 
 std::string weird_glowing_colour()
@@ -1399,7 +1380,7 @@ bool scramble(void)
 
     // Statues are too stiff and heavy to scramble out of the water.
     if (you.form == TRAN_STATUE || you.cannot_move())
-        return (false);
+        return false;
 
     const int max_carry = carrying_capacity();
     // When highly encumbered, scrambling out is hard to do.
@@ -1411,7 +1392,7 @@ bool go_berserk(bool intentional, bool potion)
     ASSERT(!crawl_state.game_is_arena());
 
     if (!you.can_go_berserk(intentional, potion))
-        return (false);
+        return false;
 
     if (stasis_blocks_effect(true,
                              true,
@@ -1419,7 +1400,7 @@ bool go_berserk(bool intentional, bool potion)
                              3,
                              "%s vibrates violently and saps your rage."))
     {
-        return (false);
+        return false;
     }
 
     if (crawl_state.game_is_hints())
@@ -1474,39 +1455,33 @@ bool go_berserk(bool intentional, bool potion)
 
     you.redraw_quiver = true; // Account for no firing.
 
-    return (true);
+    return true;
 }
 
 // Returns true if the monster has a path to the player, or it has to be
 // assumed that this is the case.
 static bool _mons_has_path_to_player(const monster* mon, bool want_move = false)
 {
-    // Don't consider sleeping monsters safe, in case the player would
-    // rather retreat and try another path for maximum stabbing chances.
-    // TODO: This doesn't cover monsters encaged in glass.
-    if (mon->asleep())
-        return (true);
-
     if (mons_is_stationary(mon) && !mons_is_tentacle_end(mon->type))
     {
         int dist = grid_distance(you.pos(), mon->pos());
         if (want_move)
             dist--;
         if (dist >= 2)
-            return (false);
+            return false;
     }
 
     // Short-cut if it's already adjacent.
     if (grid_distance(mon->pos(), you.pos()) <= 1)
-        return (true);
+        return true;
 
     // If the monster is awake and knows a path towards the player
     // (even though the player cannot know this) treat it as unsafe.
     if (mon->travel_target == MTRAV_PLAYER)
-        return (true);
+        return true;
 
     if (mon->travel_target == MTRAV_KNOWN_UNREACHABLE)
-        return (false);
+        return false;
 
     // Try to find a path from monster to player, using the map as it's
     // known to the player and assuming unknown terrain to be traversable.
@@ -1517,12 +1492,12 @@ static bool _mons_has_path_to_player(const monster* mon, bool want_move = false)
         mp.set_range(range * 4);
 
     if (mp.init_pathfind(mon, you.pos(), true, false, true))
-        return (true);
+        return true;
 
     // Now we know the monster cannot possibly reach the player.
     mon->travel_target = MTRAV_KNOWN_UNREACHABLE;
 
-    return (false);
+    return false;
 }
 
 bool mons_can_hurt_player(const monster* mon, const bool want_move)
@@ -1532,18 +1507,17 @@ bool mons_can_hurt_player(const monster* mon, const bool want_move)
     // It also always returns true for sleeping monsters, but that's okay
     // for its current purposes. (Travel interruptions and tension.)
     if (_mons_has_path_to_player(mon, want_move))
-        return (true);
+        return true;
 
     // Even if the monster can not actually reach the player it might
     // still use some ranged form of attack.
     if (you.see_cell_no_trans(mon->pos())
-        && (mons_itemuse(mon) >= MONUSE_STARTING_EQUIPMENT
-            || mons_has_ranged_attack(mon)))
+        && mons_has_known_ranged_attack(mon))
     {
-        return (true);
+        return true;
     }
 
-    return (false);
+    return false;
 }
 
 // Returns true if a monster can be considered safe regardless
@@ -1599,7 +1573,7 @@ bool mons_is_safe(const monster* mon, const bool want_move,
     }
 #endif
 
-    return (is_safe);
+    return is_safe;
 }
 
 // Return all nearby monsters in range (default: LOS) that the player
@@ -1652,8 +1626,8 @@ static bool _exposed_monsters_nearby(bool want_move)
     const int radius = want_move ? 2 : 1;
     for (radius_iterator ri(you.pos(), radius); ri; ++ri)
         if (env.map_knowledge(*ri).flags & MAP_INVISIBLE_MONSTER)
-            return (true);
-    return (false);
+            return true;
+    return false;
 }
 
 bool i_feel_safe(bool announce, bool want_move, bool just_monsters,
@@ -1674,14 +1648,14 @@ bool i_feel_safe(bool announce, bool want_move, bool just_monsters,
                     mprf(MSGCH_WARN, "You're standing in a cloud of %s!",
                          cloud_name_at_index(cloudidx).c_str());
                 }
-                return (false);
+                return false;
             }
         }
 
         // No monster will attack you inside a sanctuary,
         // so presence of monsters won't matter -- until it starts shrinking...
         if (is_sanctuary(you.pos()) && env.sanctuary_time >= 5)
-            return (true);
+            return true;
     }
 
     // Monster check.
@@ -1704,12 +1678,12 @@ bool i_feel_safe(bool announce, bool want_move, bool just_monsters,
     else if (_exposed_monsters_nearby(want_move))
         msg = "There is a strange disturbance nearby!";
     else
-        return (true);
+        return true;
 
     if (announce)
         mpr(msg, MSGCH_WARN);
 
-    return (false);
+    return false;
 }
 
 bool there_are_monsters_nearby(bool dangerous_only, bool require_visible,
@@ -1738,14 +1712,14 @@ static const char *shop_types[] = {
 int str_to_shoptype(const std::string &s)
 {
     if (s == "random" || s == "any")
-        return (SHOP_RANDOM);
+        return SHOP_RANDOM;
 
-    for (unsigned i = 0; i < sizeof(shop_types) / sizeof (*shop_types); ++i)
+    for (unsigned i = 0; i < ARRAYSZ(shop_types); ++i)
     {
         if (s == shop_types[i])
-            return (i);
+            return i;
     }
-    return (-1);
+    return -1;
 }
 
 // General threat = sum_of_logexpervalues_of_nearby_unfriendly_monsters.
@@ -1805,10 +1779,24 @@ static void _drop_tomb(const coord_def& pos, bool premature)
     bool seen_change = false;
     for (adjacent_iterator ai(pos); ai; ++ai)
     {
-        // "Normal" tomb
+        // "Normal" tomb (card or monster spell)
         if (grd(*ai) == DNGN_ROCK_WALL &&
-            env.markers.property_at(*ai, MAT_ANY, "prison") != "Zin")
+            (env.markers.property_at(*ai, MAT_ANY, "tomb") == "card"
+             || env.markers.property_at(*ai, MAT_ANY, "tomb") == "monster"))
         {
+            std::vector<map_marker*> markers = env.markers.get_markers_at(*ai);
+            for (int i = 0, size = markers.size(); i < size; ++i)
+            {
+                map_marker *mark = markers[i];
+                if (mark->property("tomb") == "card"
+                    || mark->property("tomb") == "monster")
+                {
+                    env.markers.remove(mark);
+                }
+            }
+
+            env.markers.clear_need_activate();
+
             grd(*ai) = DNGN_FLOOR;
             set_terrain_changed(*ai);
             count++;
@@ -1818,7 +1806,7 @@ static void _drop_tomb(const coord_def& pos, bool premature)
 
         // Zin's Imprison.
         if (grd(*ai) == DNGN_METAL_WALL &&
-            env.markers.property_at(*ai, MAT_ANY, "prison") == "Zin")
+            env.markers.property_at(*ai, MAT_ANY, "tomb") == "Zin")
         {
             zin = true;
 
@@ -1826,7 +1814,7 @@ static void _drop_tomb(const coord_def& pos, bool premature)
             for (int i = 0, size = markers.size(); i < size; ++i)
             {
                 map_marker *mark = markers[i];
-                if (mark->property("prison") == "Zin")
+                if (mark->property("tomb") == "Zin")
                     env.markers.remove(mark);
             }
 
@@ -1845,8 +1833,7 @@ static void _drop_tomb(const coord_def& pos, bool premature)
     if (count)
     {
         if (seen_change && !zin)
-            mprf("The walls disappear%s!",
-                 premature ? " prematurely" : "");
+            mprf("The walls disappear%s!", premature ? " prematurely" : "");
         else if (seen_change && zin)
         {
             mprf("Zin %s %s %s.",
@@ -1868,12 +1855,7 @@ static void _drop_tomb(const coord_def& pos, bool premature)
     }
 }
 
-int count_malign_gateways ()
-{
-    return get_malign_gateways().size();
-}
-
-std::vector<map_malign_gateway_marker*> get_malign_gateways ()
+static std::vector<map_malign_gateway_marker*> _get_malign_gateways()
 {
     std::vector<map_malign_gateway_marker*> mm_markers;
 
@@ -1892,12 +1874,17 @@ std::vector<map_malign_gateway_marker*> get_malign_gateways ()
     return mm_markers;
 }
 
-void timeout_malign_gateways (int duration)
+int count_malign_gateways()
+{
+    return _get_malign_gateways().size();
+}
+
+void timeout_malign_gateways(int duration)
 {
     // Passing 0 should allow us to just touch the gateway and see
     // if it should decay. This, in theory, should resolve the one
     // turn delay between it timing out and being recastable. -due
-    std::vector<map_malign_gateway_marker*> markers = get_malign_gateways();
+    std::vector<map_malign_gateway_marker*> markers = _get_malign_gateways();
 
     for (int i = 0, size = markers.size(); i < size; ++i)
     {
@@ -1971,11 +1958,13 @@ void timeout_tombs(int duration)
         map_tomb_marker *cmark = dynamic_cast<map_tomb_marker*>(mark);
         cmark->duration -= duration;
 
-        // Tombs without monsters in them disappear early.
+        // Empty tombs disappear early.
         monster* mon_entombed = monster_at(cmark->pos);
-        if (cmark->duration <= 0 || !mon_entombed)
+        bool empty_tomb = !(mon_entombed || you.pos() == cmark->pos);
+
+        if (cmark->duration <= 0 || empty_tomb)
         {
-            _drop_tomb(cmark->pos, !mon_entombed);
+            _drop_tomb(cmark->pos, empty_tomb);
 
             monster* mon_src =
                 !invalid_monster_index(cmark->source) ? &menv[cmark->source]
@@ -1994,7 +1983,7 @@ void timeout_tombs(int duration)
 
 void bring_to_safety()
 {
-    if (you.level_type == LEVEL_ABYSS)
+    if (player_in_branch(BRANCH_ABYSS))
         return abyss_teleport(true);
 
     if (crawl_state.game_is_zotdef() && !orb_position().origin())
@@ -2065,11 +2054,10 @@ void revive()
 
     you.disease = 0;
     you.magic_contamination = 0;
-    set_hunger(6000, true);
+    set_hunger(HUNGER_DEFAULT, true);
     restore_stat(STAT_ALL, 0, true);
     you.rotting = 0;
 
-    you.attribute[ATTR_WAS_SILENCED] = 0;
     you.attribute[ATTR_DIVINE_REGENERATION] = 0;
     you.attribute[ATTR_DELAYED_FIREBALL] = 0;
     clear_trapping_net();
@@ -2081,6 +2069,7 @@ void revive()
     if (you.form)
         untransform();
     you.clear_beholders();
+    you.clear_fearmongers();
     you.attribute[ATTR_DIVINE_DEATH_CHANNEL] = 0;
     you.attribute[ATTR_INVIS_UNCANCELLABLE] = 0;
     you.attribute[ATTR_LEV_UNCANCELLABLE] = 0;
@@ -2140,7 +2129,7 @@ void setup_environment_effects()
             const int grid = grd[x][y];
             if (grid == DNGN_LAVA
                     || (grid == DNGN_SHALLOW_WATER
-                        && you.where_are_you == BRANCH_SWAMP))
+                        && player_in_branch(BRANCH_SWAMP)))
             {
                 const coord_def c(x, y);
                 sfx_seeds.push_back(c);
@@ -2158,7 +2147,7 @@ static void apply_environment_effect(const coord_def &c)
         return;
     if (grid == DNGN_LAVA)
         check_place_cloud(CLOUD_BLACK_SMOKE, c, random_range(4, 8), 0);
-    else if (grid == DNGN_SHALLOW_WATER)
+    else if (one_chance_in(3) && grid == DNGN_SHALLOW_WATER)
         check_place_cloud(CLOUD_MIST,        c, random_range(2, 5), 0);
 }
 
@@ -2212,9 +2201,13 @@ coord_def pick_adjacent_free_square(const coord_def& p)
     coord_def result(-1, -1);
 
     for (adjacent_iterator ai(p); ai; ++ai)
-        if (grd(*ai) == DNGN_FLOOR && monster_at(*ai) == NULL)
-            if (one_chance_in(++num_ok))
-                result = *ai;
+    {
+        if (grd(*ai) == DNGN_FLOOR && monster_at(*ai) == NULL
+            && one_chance_in(++num_ok))
+        {
+            result = *ai;
+        }
+    }
 
     return result;
 }
@@ -2261,10 +2254,9 @@ void reveal_secret_door(const coord_def& p)
 bool bad_attack(const monster *mon, std::string& adj, std::string& suffix)
 {
     ASSERT(!crawl_state.game_is_arena());
-    if (you.confused() || !you.can_see(mon))
-        return (false);
+    if (!you.can_see(mon))
+        return false;
 
-    bool retval = false;
     adj.clear();
     suffix.clear();
 
@@ -2292,16 +2284,16 @@ bool bad_attack(const monster *mon, std::string& adj, std::string& suffix)
         adj += "non-hostile ";
 
     if (you.religion == GOD_JIYVA && mons_is_slime(mon))
-        retval = true;
+        return true;
 
-    return retval || !adj.empty() || !suffix.empty();
+    return !adj.empty() || !suffix.empty();
 }
 
 bool stop_attack_prompt(const monster* mon, bool beam_attack,
                         coord_def beam_target, bool autohit_first)
 {
     if (you.confused() || !you.can_see(mon))
-        return (false);
+        return false;
 
     std::string adj, suffix;
     if (!bad_attack(mon, adj, suffix))
@@ -2324,7 +2316,7 @@ bool stop_attack_prompt(const monster* mon, bool beam_attack,
                  || you.pos() > beam_target && beam_target > mon->pos())
         {
             if (autohit_first)
-                return (false);
+                return false;
 
             verb += "in " + apostrophise(mon_name) + " direction";
             mon_name = "";
@@ -2387,24 +2379,24 @@ bool stop_attack_prompt(targetter &hitfunc, std::string verb,
 bool is_orckind(const actor *act)
 {
     if (mons_genus(act->mons_species()) == MONS_ORC)
-        return (true);
+        return true;
 
-    if (act->atype() == ACT_MONSTER)
+    if (act->is_monster())
     {
         const monster* mon = act->as_monster();
         if (mons_is_zombified(mon)
             && mons_genus(mon->base_monster) == MONS_ORC)
         {
-            return (true);
+            return true;
         }
         if (mons_is_ghost_demon(mon->type)
             && mon->ghost->species == SP_HILL_ORC)
         {
-            return (true);
+            return true;
         }
     }
 
-    return (false);
+    return false;
 }
 
 bool is_dragonkind(const actor *act)
@@ -2412,32 +2404,29 @@ bool is_dragonkind(const actor *act)
     if (mons_genus(act->mons_species()) == MONS_DRAGON
         || mons_genus(act->mons_species()) == MONS_DRACONIAN)
     {
-        return (true);
+        return true;
     }
 
-    if (act->atype() == ACT_PLAYER)
+    if (act->is_player())
         return (you.form == TRAN_DRAGON);
 
     // Else the actor is a monster.
     const monster* mon = act->as_monster();
 
-    if (mon->type == MONS_SERPENT_OF_HELL)
-        return (true);
-
     if (mons_is_zombified(mon)
         && (mons_genus(mon->base_monster) == MONS_DRAGON
             || mons_genus(mon->base_monster) == MONS_DRACONIAN))
     {
-        return (true);
+        return true;
     }
 
     if (mons_is_ghost_demon(mon->type)
         && species_genus(mon->ghost->species) == GENPC_DRACONIAN)
     {
-        return (true);
+        return true;
     }
 
-    return (false);
+    return false;
 }
 
 // Make the player swap positions with a given monster.
@@ -2523,21 +2512,27 @@ void wear_id_type(item_def &item)
          item.name(DESC_INVENTORY_EQUIP).c_str());
 }
 
-// AutoID an equipped ring of teleport.
-// Code copied from fire/ice in spl-cast.cc
-void maybe_id_ring_TC()
+static void _maybe_id_jewel(jewellery_type ring_type = NUM_JEWELLERY,
+                            jewellery_type amulet_type = NUM_JEWELLERY,
+                            artefact_prop_type artp = ARTP_NUM_PROPERTIES)
 {
-    if (you.duration[DUR_CONTROL_TELEPORT]
-        || player_mutation_level(MUT_TELEPORT_CONTROL))
-    {
-        return;
-    }
-
     int num_unknown = 0;
     for (int i = EQ_LEFT_RING; i < NUM_EQUIP; ++i)
     {
-        if (i == EQ_AMULET)
+        bool artefact = (player_wearing_slot(i)
+                         && is_artefact(you.inv[you.equip[i]]));
+
+        if (i == EQ_AMULET && amulet_type == NUM_JEWELLERY
+            && (artp == ARTP_NUM_PROPERTIES || !artefact))
+        {
             continue;
+        }
+
+        if (i != EQ_AMULET && ring_type == NUM_JEWELLERY
+            && (artp == ARTP_NUM_PROPERTIES || !artefact))
+        {
+            continue;
+        }
 
         if (player_wearing_slot(i)
             && !item_ident(you.inv[you.equip[i]], ISFLAG_KNOW_PROPERTIES))
@@ -2546,19 +2541,155 @@ void maybe_id_ring_TC()
         }
     }
 
-    if (num_unknown == 0)
+    if (num_unknown != 1)
         return;
 
     for (int i = EQ_LEFT_RING; i < NUM_EQUIP; ++i)
     {
-        if (i == EQ_AMULET)
-            continue;
-
         if (player_wearing_slot(i))
         {
-            item_def& ring = you.inv[you.equip[i]];
-            if (ring.sub_type == RING_TELEPORT_CONTROL)
-                wear_id_type(ring);
+            item_def& item = you.inv[you.equip[i]];
+            if (item.sub_type == ring_type || item.sub_type == amulet_type)
+                wear_id_type(item);
+            bool known;
+            if (artp != ARTP_NUM_PROPERTIES && is_artefact(item)
+                && artefact_wpn_property(item, artp, known)
+                && !known)
+            {
+                artefact_wpn_learn_prop(item, artp);
+                mprf("You are wearing: %s",
+                     item.name(DESC_INVENTORY_EQUIP).c_str());
+            }
+        }
+    }
+}
+
+// AutoID an equipped ring of teleport.
+void maybe_id_ring_TC()
+{
+    if (you.duration[DUR_CONTROL_TELEPORT]
+        || player_mutation_level(MUT_TELEPORT_CONTROL))
+    {
+        return;
+    }
+
+    _maybe_id_jewel(RING_TELEPORT_CONTROL);
+}
+
+void maybe_id_ring_hunger()
+{
+    _maybe_id_jewel(RING_HUNGER, NUM_JEWELLERY, ARTP_METABOLISM);
+    _maybe_id_jewel(RING_SUSTENANCE, NUM_JEWELLERY, ARTP_METABOLISM);
+}
+
+void maybe_id_resist(beam_type flavour)
+{
+    switch (flavour)
+    {
+    case BEAM_FIRE:
+    case BEAM_LAVA:
+        if (player_res_fire(false))
+            return;
+        _maybe_id_jewel(RING_PROTECTION_FROM_FIRE, NUM_JEWELLERY, ARTP_FIRE);
+        break;
+
+    case BEAM_COLD:
+    case BEAM_ICE:
+        if (player_res_cold(false))
+            return;
+        _maybe_id_jewel(RING_PROTECTION_FROM_COLD, NUM_JEWELLERY, ARTP_COLD);
+        break;
+
+    case BEAM_ELECTRICITY:
+        if (player_res_electricity(false))
+            return;
+        _maybe_id_jewel(NUM_JEWELLERY, NUM_JEWELLERY, ARTP_ELECTRICITY);
+        break;
+
+    case BEAM_POISON:
+    case BEAM_POISON_ARROW:
+        if (player_res_poison(false))
+            return;
+        _maybe_id_jewel(RING_POISON_RESISTANCE, NUM_JEWELLERY, ARTP_POISON);
+        break;
+
+    case BEAM_NEG:
+        if (player_prot_life(false))
+            return;
+        _maybe_id_jewel(RING_LIFE_PROTECTION, AMU_WARDING, ARTP_NEGATIVE_ENERGY);
+        break;
+
+    case BEAM_STEAM:
+        if (player_res_steam(false))
+            return;
+        // rF+ grants rSteam, all possibly unidentified sources of rSteam are rF
+        _maybe_id_jewel(RING_PROTECTION_FROM_FIRE, NUM_JEWELLERY, ARTP_FIRE);
+        break;
+
+    case BEAM_POLYMORPH:
+        if (player_mutation_level(MUT_MUTATION_RESISTANCE))
+            return;
+        _maybe_id_jewel(NUM_JEWELLERY, AMU_RESIST_MUTATION);
+        break;
+
+    default: ;
+    }
+}
+
+bool maybe_id_weapon(item_def &item, const char *msg)
+{
+    // Do we need to identify an artefact brand?
+    bool do_art_brand = false;
+    iflags_t id = 0;
+
+    // Weapons you have wielded or know enough about.
+    if (item.base_type == OBJ_WEAPONS
+        && !(item.flags & ISFLAG_KNOW_PLUSES))
+    {
+        int min_skill20 = ((int)item.rnd) * 2 / 3;
+
+        if (item.flags & ISFLAG_KNOW_CURSE
+            && item.flags & ISFLAG_KNOW_TYPE
+            && you.skill(is_range_weapon(item) ? range_skill(item)
+                         : weapon_skill(item), 20, true) > min_skill20)
+        {
+            id = ISFLAG_KNOW_PLUSES;
+        }
+        else if (is_throwable(&you, item)
+                 && you.skill(SK_THROWING, 20, true) > min_skill20)
+        {
+            id = ISFLAG_KNOW_PLUSES | ISFLAG_KNOW_CURSE;
+            if (is_artefact(item))
+                do_art_brand = !artefact_known_wpn_property(item, ARTP_BRAND);
+            else
+                id |= ISFLAG_KNOW_TYPE;
+        }
+    }
+
+    if ((item.flags | id) != item.flags || do_art_brand)
+    {
+        set_ident_flags(item, id);
+        if (do_art_brand)
+            artefact_wpn_learn_prop(item, ARTP_BRAND);
+        add_autoinscription(item);
+        if (msg)
+            mprf("%s%s", msg, item.name(DESC_INVENTORY_EQUIP).c_str());
+        you.wield_change = true;
+        return true;
+    }
+
+    return false;
+}
+
+void auto_id_inventory()
+{
+    for (int i = 0; i < ENDOFPACK; i++)
+    {
+        item_def& item = you.inv[i];
+        if (item.defined())
+        {
+            maybe_id_weapon(item, "You determine that: ");
+            god_id_item(item, false);
         }
     }
 }
@@ -2588,10 +2719,13 @@ int apply_chunked_AC(int dam, int ac)
 void entered_malign_portal(actor* act)
 {
     if (you.can_see(act))
-        mprf("The portal repels %s, its terrible forces doing untold damage!", (act->atype() == ACT_PLAYER) ? "you" : act->name(DESC_THE).c_str());
+    {
+        mprf("The portal repels %s, its terrible forces doing untold damage!",
+             act->is_player() ? "you" : act->name(DESC_THE).c_str());
+    }
 
     act->blink(false);
-    if (act->atype() == ACT_PLAYER)
+    if (act->is_player())
         ouch(roll_dice(2, 4), NON_MONSTER, KILLED_BY_WILD_MAGIC, "a malign gateway");
     else
         act->hurt(NULL, roll_dice(2, 4));
@@ -2644,7 +2778,7 @@ int counted_monster_list::count()
     int nmons = 0;
     for (counted_list::const_iterator i = list.begin(); i != list.end(); ++i)
         nmons += i->second;
-    return (nmons);
+    return nmons;
 }
 
 std::string counted_monster_list::describe(description_level_type desc)
@@ -2675,18 +2809,18 @@ bool move_stairs(coord_def orig, coord_def dest)
     const dungeon_feature_type stair_feat = grd(orig);
 
     if (feat_stair_direction(stair_feat) == CMD_NO_CMD)
-        return (false);
+        return false;
 
     // The player can't use shops to escape, so don't bother.
     if (stair_feat == DNGN_ENTER_SHOP)
-        return (false);
+        return false;
 
     // Don't move around notable terrain the player is aware of if it's
     // out of sight.
     if (is_notable_terrain(stair_feat)
         && env.map_knowledge(orig).known() && !you.see_cell(orig))
     {
-        return (false);
+        return false;
     }
 
     return slide_feature_over(orig, dest);

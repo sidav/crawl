@@ -20,6 +20,7 @@
 #include "dungeon.h"
 #include "externs.h"
 #include "food.h"
+#include "goditem.h"
 #include "itemname.h"
 #include "itemprop.h"
 #include "items.h"
@@ -71,9 +72,7 @@ static armour_type _pick_wearable_armour(const armour_type arm)
                 result = ARM_LARGE_SHIELD; // prefer big shields for giant races
         }
         else if (arm == NUM_ARMOURS)
-        {
             result = ARM_ROBE;  // no heavy armour, see below
-        }
         break;
 
     case SP_RED_DRACONIAN:
@@ -160,7 +159,7 @@ static armour_type _pick_wearable_armour(const armour_type arm)
           result = NUM_ARMOURS;
     }
 
-    return (result);
+    return result;
 }
 
 static armour_type _acquirement_armour_subtype(bool divine)
@@ -330,7 +329,7 @@ static armour_type _acquirement_armour_subtype(bool divine)
         }
     }
 
-    return (result);
+    return result;
 }
 
 // If armour acquirement turned up a non-ego non-artefact armour item,
@@ -393,7 +392,7 @@ static bool _try_give_plain_armour(item_def &arm)
 
     // All available secondary slots already filled.
     if (picked == NUM_ARMOURS)
-        return (false);
+        return false;
 
     arm.clear();
     arm.quantity = 1;
@@ -409,7 +408,7 @@ static bool _try_give_plain_armour(item_def &arm)
     item_colour(arm);
 
     ASSERT(arm.is_valid());
-    return (true);
+    return true;
 }
 
 // Write results into arguments.
@@ -455,14 +454,10 @@ static void _acquirement_determine_food(int& type_wanted, int& quantity,
     quantity = 3 + random2(5);
 
     if (type_wanted == FOOD_BANANA || type_wanted == FOOD_ORANGE)
-    {
         quantity = 8 + random2avg(15, 2);
-    }
     // giving more of the lower food value items
     else if (type_wanted == FOOD_HONEYCOMB || type_wanted == FOOD_CHUNK)
-    {
         quantity += random2avg(10, 2);
-    }
     else if (type_wanted == POT_BLOOD)
     {
     // this was above in the vampire block, but gets overwritten by line 1371
@@ -564,7 +559,7 @@ static int _acquirement_weapon_subtype(bool divine)
         if (x_chance_in_y(acqweight, count += acqweight))
             result = i;
     }
-    return (result);
+    return result;
 }
 
 static bool _have_item_with_types(object_class_type basetype, int subtype)
@@ -575,10 +570,10 @@ static bool _have_item_with_types(object_class_type basetype, int subtype)
         if (item.defined()
             && item.base_type == basetype && item.sub_type == subtype)
         {
-            return (true);
+            return true;
         }
     }
-    return (false);
+    return false;
 }
 
 static missile_type _acquirement_missile_subtype()
@@ -628,7 +623,7 @@ static missile_type _acquirement_missile_subtype()
     default:
         break;
     }
-    return (result);
+    return result;
 }
 
 static int _acquirement_jewellery_subtype()
@@ -648,28 +643,29 @@ static int _acquirement_jewellery_subtype()
             break;
     }
 
-    return (result);
+    return result;
 }
 
-static int _acquirement_staff_subtype(const has_vector& already_has)
+static bool _want_rod()
 {
     // First look at skills to determine whether the player gets a rod.
     int spell_skills = 0;
     for (int i = SK_SPELLCASTING; i <= SK_LAST_MAGIC; i++)
         spell_skills += you.skills[i];
 
-    if (random2(spell_skills) < you.skills[SK_EVOCATIONS] + 3
-            && !one_chance_in(5))
-    {
-        return get_random_rod_type();
-    }
+    return random2(spell_skills) < you.skills[SK_EVOCATIONS] + 3
+           && !one_chance_in(5);
+}
 
-    // Now try to pick an enhancer staff matching the player's best skill.
+static int _acquirement_staff_subtype(const has_vector& already_has)
+{
+    // Try to pick an enhancer staff matching the player's best skill.
     skill_type best_spell_skill = best_skill(SK_SPELLCASTING, SK_EVOCATIONS);
     bool found_enhancer = false;
     int result = random2(NUM_STAVES);
 
-#define TRY_GIVE(x) { if (you.type_ids[OBJ_STAVES][x] != ID_KNOWN_TYPE) {result = x; found_enhancer = true;} }
+#define TRY_GIVE(x) { if (you.type_ids[OBJ_STAVES][x] != ID_KNOWN_TYPE) \
+                      {result = x; found_enhancer = true;} }
     switch (best_spell_skill)
     {
     case SK_FIRE_MAGIC:   TRY_GIVE(STAFF_FIRE);        break;
@@ -718,35 +714,31 @@ static int _acquirement_misc_subtype()
     if (one_chance_in(4) && !you.seen_misc[MISC_DISC_OF_STORMS])
         result = MISC_DISC_OF_STORMS;
     if (x_chance_in_y(you.skills[SK_FIRE_MAGIC], 27)
-        && !you.seen_misc[MISC_LAMP_OF_FIRE]
-        && you.skills[SK_EVOCATIONS])
+        && !you.seen_misc[MISC_LAMP_OF_FIRE])
     {
-        result = MISC_LAMP_OF_FIRE; // useless with no skill
+        result = MISC_LAMP_OF_FIRE;
     }
     if (x_chance_in_y(you.skills[SK_AIR_MAGIC], 27)
-        && !you.seen_misc[MISC_AIR_ELEMENTAL_FAN]
-        && you.skills[SK_EVOCATIONS])
+        && !you.seen_misc[MISC_AIR_ELEMENTAL_FAN])
     {
-        result = MISC_AIR_ELEMENTAL_FAN; // useless with no skill
+        result = MISC_AIR_ELEMENTAL_FAN;
     }
     if (one_chance_in(4)
-        && !you.seen_misc[MISC_STONE_OF_EARTH_ELEMENTALS]
-        && you.skills[SK_EVOCATIONS])
-    {   // useful for anyone with >= 1 skill, can't practice otherwise
+        && !you.seen_misc[MISC_STONE_OF_EARTH_ELEMENTALS])
+    {
         result = MISC_STONE_OF_EARTH_ELEMENTALS;
     }
     if (one_chance_in(4) && !you.seen_misc[MISC_LANTERN_OF_SHADOWS])
         result = MISC_LANTERN_OF_SHADOWS;
     if (x_chance_in_y(you.skills[SK_EVOCATIONS], 27)
         && (x_chance_in_y(std::max(you.skills[SK_SPELLCASTING],
-                                    you.skills[SK_INVOCATIONS]), 27)
-            || player_spirit_shield())
+                                    you.skills[SK_INVOCATIONS]), 27))
         && !you.seen_misc[MISC_CRYSTAL_BALL_OF_ENERGY])
     {
         result = MISC_CRYSTAL_BALL_OF_ENERGY;
     }
 
-    return (result);
+    return result;
 }
 
 static int _acquirement_wand_subtype()
@@ -798,10 +790,10 @@ static int _acquirement_wand_subtype()
             picked = type;
     }
 
-    return (picked);
+    return picked;
 }
 
-static int _find_acquirement_subtype(object_class_type class_wanted,
+static int _find_acquirement_subtype(object_class_type &class_wanted,
                                      int &quantity, bool divine,
                                      int agent = -1)
 {
@@ -829,6 +821,10 @@ static int _find_acquirement_subtype(object_class_type class_wanted,
 
     while (1)
     {
+        // Staves and rods have a common acquirement class.
+        if (class_wanted == OBJ_STAVES || class_wanted == OBJ_RODS)
+            class_wanted = _want_rod() ? OBJ_RODS : OBJ_STAVES;
+
         switch (class_wanted)
         {
         case OBJ_FOOD:
@@ -843,6 +839,7 @@ static int _find_acquirement_subtype(object_class_type class_wanted,
         case OBJ_WANDS:      type_wanted = _acquirement_wand_subtype(); break;
         case OBJ_STAVES:     type_wanted = _acquirement_staff_subtype(already_has);
             break;
+        case OBJ_RODS:       type_wanted = random2(NUM_RODS); break;
         case OBJ_JEWELLERY:  type_wanted = _acquirement_jewellery_subtype();
             break;
         default: break;         // gold, books
@@ -854,8 +851,11 @@ static int _find_acquirement_subtype(object_class_type class_wanted,
         dummy.plus = 1; // empty wands would be useless
         dummy.flags |= ISFLAG_IDENT_MASK;
 
-        if (is_useless_item(dummy, false) && useless_count++ < 200)
+        if ((is_useless_item(dummy, false) || god_hates_item(dummy))
+            && useless_count++ < 200)
+        {
             continue;
+        }
 
         if (!try_again)
             break;
@@ -867,7 +867,7 @@ static int _find_acquirement_subtype(object_class_type class_wanted,
             break;
     }
 
-    return (type_wanted);
+    return type_wanted;
 }
 
 // The weight of a spell takes into account its disciplines' skill levels
@@ -919,7 +919,7 @@ static int _book_weight(book_type book)
         total_weight += _spell_weight(stype);
     }
 
-    return (total_weight);
+    return total_weight;
 }
 
 static bool _is_magic_skill(int skill)
@@ -946,7 +946,7 @@ static bool _skill_useless_with_god(int skill)
     case GOD_NO_GOD:
         return (skill == SK_INVOCATIONS);
     default:
-        return (false);
+        return false;
     }
 }
 
@@ -1049,14 +1049,7 @@ static bool _do_book_acquirement(item_def &book, int agent)
                 weights[bk] = 0;
                 continue;
             }
-#if TAG_MAJOR_VERSION == 32
-            if (bk == BOOK_MINOR_MAGIC_II || bk == BOOK_MINOR_MAGIC_III
-                || bk == BOOK_CONJURATIONS_I)
-            {
-                weights[bk] = 0;
-                continue;
-            }
-#endif
+
             weights[bk]    = _book_weight(static_cast<book_type>(bk));
             total_weights += weights[bk];
         }
@@ -1074,7 +1067,7 @@ static bool _do_book_acquirement(item_def &book, int agent)
         if (!make_book_theme_randart(book, 0, 0, 5 + coinflip(), 20,
                                      SPELL_NO_SPELL, owner))
         {
-            return (false);
+            return false;
         }
         break;
 
@@ -1082,7 +1075,7 @@ static bool _do_book_acquirement(item_def &book, int agent)
     {
         book.sub_type  = BOOK_RANDART_LEVEL;
         if (!make_book_level_randart(book, level, -1, owner))
-            return (false);
+            return false;
         break;
     }
 
@@ -1090,7 +1083,7 @@ static bool _do_book_acquirement(item_def &book, int agent)
     {
         // The Tome of Destruction is rare enough we won't change this.
         if (book.sub_type == BOOK_DESTRUCTION)
-            return (true);
+            return true;
 
         int weights[NUM_SKILLS];
         int total_weights = 0;
@@ -1141,14 +1134,14 @@ static bool _do_book_acquirement(item_def &book, int agent)
         break;
     } // manuals
     } // switch book choice
-    return (true);
+    return true;
 }
 
 static int _failed_acquirement(bool quiet)
 {
     if (!quiet)
         mpr("The demon of the infinite void smiles upon you.");
-    return (NON_ITEM);
+    return NON_ITEM;
 }
 
 static int _weapon_brand_quality(int brand, bool range)
@@ -1601,7 +1594,7 @@ int acquirement_create_item(object_class_type class_wanted,
         ASSERT(mitm[thing_created].is_valid());
         mitm[thing_created].props["acquired"].get_int() = agent;
     }
-    return (thing_created);
+    return thing_created;
 }
 
 bool acquirement(object_class_type class_wanted, int agent,
@@ -1648,7 +1641,7 @@ bool acquirement(object_class_type class_wanted, int agent,
             if (agent == AQ_WIZMODE)
             {
                 canned_msg(MSG_OK);
-                return (false);
+                return false;
             }
 
             // If we've gotten a HUP signal then the player will be unable
@@ -1657,7 +1650,7 @@ bool acquirement(object_class_type class_wanted, int agent,
             {
                 mpr("Acquirement interrupted by HUP signal.", MSGCH_ERROR);
                 you.turn_is_over = false;
-                return (false);
+                return false;
             }
             break;
         }
@@ -1673,5 +1666,5 @@ bool acquirement(object_class_type class_wanted, int agent,
     *item_index = acquirement_create_item(class_wanted, agent, quiet,
                                           you.pos(), debug);
 
-    return (true);
+    return true;
 }

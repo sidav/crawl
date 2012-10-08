@@ -9,6 +9,7 @@
 
 #include "cio.h"
 #include "command.h"
+#include "describe.h"
 #include "fontwrapper-ft.h"
 #include "hints.h"
 #include "menu.h"
@@ -17,11 +18,12 @@
 #include "religion.h"
 #include "skills.h"
 #include "skills2.h"
+#include "state.h"
 #include "stuff.h"
 #include "tilepick.h"
 #include "tilereg-crt.h"
 
-menu_letter SkillMenuEntry::m_letter;
+menu_letter2 SkillMenuEntry::m_letter;
 SkillMenu* SkillMenuEntry::m_skm;
 SkillMenu* SkillMenuSwitch::m_skm;
 
@@ -192,7 +194,10 @@ void SkillMenuEntry::set_name(bool keep_hotkey)
     if (is_selectable(keep_hotkey))
     {
         if (!keep_hotkey)
+        {
             m_name->add_hotkey(++m_letter);
+            m_name->add_hotkey(toupper(m_letter));
+        }
         m_name->set_id(m_sk);
         m_name->allow_highlight(true);
     }
@@ -780,11 +785,6 @@ void SkillMenu::cancel_help()
     set_default_help();
 }
 
-void SkillMenu::clear_selections()
-{
-    _clear_selections();
-}
-
 // Before we exit, make sure there's at least one skill enabled.
 bool SkillMenu::exit()
 {
@@ -803,7 +803,8 @@ bool SkillMenu::exit()
         }
 
         if (you.skills[i] < 27 && you.can_train[i]
-            && !is_useless_skill((skill_type) i))
+            && !is_useless_skill((skill_type) i)
+            && !is_harmful_skill((skill_type) i))
         {
             maxed_out = false;
         }
@@ -1118,7 +1119,7 @@ void SkillMenu::refresh_display()
 
 void SkillMenu::refresh_names()
 {
-    SkillMenuEntry::m_letter = 'Z';
+    SkillMenuEntry::m_letter = '9';
     bool default_set = false;
     for (int col = 0; col < SK_ARR_COL; ++col)
         for (int ln = 0; ln < SK_ARR_LN; ++ln)
@@ -1220,7 +1221,7 @@ void SkillMenu::set_skills()
     else
         previous_active = -1;
 
-    SkillMenuEntry::m_letter = 'Z';
+    SkillMenuEntry::m_letter = '9';
     bool default_set = false;
     clear_flag(SKMF_CROSSTRAIN);
     clear_flag(SKMF_ANTITRAIN);
@@ -1265,13 +1266,14 @@ void SkillMenu::set_skills()
 void SkillMenu::toggle_practise(skill_type sk, int keyn)
 {
     ASSERT(you.can_train[sk]);
+    if (keyn >= 'A' && keyn <= 'Z')
+        you.train.init(0);
     if (get_state(SKM_DO) == SKM_DO_PRACTISE)
         you.train[sk] = !you.train[sk];
     else if (get_state(SKM_DO) == SKM_DO_FOCUS)
         you.train[sk] = (you.train[sk] + 1) % 3;
     else
         die("Invalid state.");
-    you.train_set[sk] = true;
     reset_training();
     SkillMenuEntry* skme = find_entry(sk);
     skme->set_name(true);

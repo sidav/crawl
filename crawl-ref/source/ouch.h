@@ -38,7 +38,7 @@ enum kill_method_type
     KILLED_BY_WILD_MAGIC,
     KILLED_BY_XOM,
     KILLED_BY_ROTTING,
-    KILLED_BY_TARGETING,
+    KILLED_BY_TARGETTING,
     KILLED_BY_SPORE,
     KILLED_BY_TSO_SMITING,
     KILLED_BY_PETRIFICATION,
@@ -54,6 +54,7 @@ enum kill_method_type
     KILLED_BY_FALLING_THROUGH_GATE,
     KILLED_BY_DISINT,
     KILLED_BY_HEADBUTT,
+    KILLED_BY_ROLLING,
 
     NUM_KILLBY
 };
@@ -66,6 +67,8 @@ void weapon_acid(int acid_strength);
 
 class actor;
 int actor_to_death_source(const actor* agent);
+
+std::string morgue_name(std::string char_name, time_t when_crawl_got_even);
 
 void reset_damage_counters();
 void ouch(int dam, int death_source, kill_method_type death_type,

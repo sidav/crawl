@@ -15,22 +15,17 @@
 #include "areas.h"
 #include "artefact.h"
 #include "beam.h"
-#include "effects.h"
 #include "env.h"
 #include "food.h"
 #include "godconduct.h"
-#include "godwrath.h"
 #include "hints.h"
 #include "item_use.h"
-#include "itemprop.h"
 #include "message.h"
 #include "misc.h"
 #include "mutation.h"
 #include "player.h"
-#include "player-equip.h"
 #include "player-stats.h"
 #include "skill_menu.h"
-#include "skills.h"
 #include "spl-miscast.h"
 #include "terrain.h"
 #include "transform.h"
@@ -214,17 +209,17 @@ bool potion_effect(potion_type pot_eff, int pow, bool drank_it, bool was_known,
     }
 
     case POT_GAIN_STRENGTH:
-        if (mutate(MUT_STRONG, true, false, false, true))
+        if (mutate(MUT_STRONG, "potion of gain strength", true, false, false, true))
             learned_something_new(HINT_YOU_MUTATED);
         break;
 
     case POT_GAIN_DEXTERITY:
-        if (mutate(MUT_AGILE, true, false, false, true))
+        if (mutate(MUT_AGILE, "potion of gain dexterity", true, false, false, true))
             learned_something_new(HINT_YOU_MUTATED);
         break;
 
     case POT_GAIN_INTELLIGENCE:
-        if (mutate(MUT_CLEVER, true, false, false, true))
+        if (mutate(MUT_CLEVER, "potion of gain intelligence", true, false, false, true))
             learned_something_new(HINT_YOU_MUTATED);
         break;
 
@@ -295,7 +290,7 @@ bool potion_effect(potion_type pot_eff, int pow, bool drank_it, bool was_known,
 
             // And also cancel corona (for whatever good that will do).
             you.duration[DUR_CORONA] = 0;
-            return (true);
+            return true;
         }
 
         if (get_contamination_level() > 1)
@@ -382,7 +377,7 @@ bool potion_effect(potion_type pot_eff, int pow, bool drank_it, bool was_known,
         break;
 
     case POT_MAGIC:
-        inc_mp((10 + random2avg(28, 3)));
+        inc_mp(10 + random2avg(28, 3));
         mpr("Magic courses through your body.");
         break;
 
@@ -419,13 +414,13 @@ bool potion_effect(potion_type pot_eff, int pow, bool drank_it, bool was_known,
         mpr("It has a very clean taste.");
         for (int i = 0; i < 7; i++)
             if (random2(9) >= i)
-                delete_mutation(RANDOM_MUTATION, false);
+                delete_mutation(RANDOM_MUTATION, "potion of cure mutation", false);
         break;
 
     case POT_MUTATION:
         mpr("You feel extremely strange.");
         for (int i = 0; i < 3; i++)
-            mutate(RANDOM_MUTATION, false);
+            mutate(RANDOM_MUTATION, "potion of mutation", false);
 
         learned_something_new(HINT_YOU_MUTATED);
         did_god_conduct(DID_DELIBERATE_MUTATING, 10, was_known);
@@ -433,10 +428,7 @@ bool potion_effect(potion_type pot_eff, int pow, bool drank_it, bool was_known,
 
     case POT_RESISTANCE:
         mpr("You feel protected.", MSGCH_DURATION);
-        you.increase_duration(DUR_RESIST_FIRE,   (random2(pow) + 35) / factor);
-        you.increase_duration(DUR_RESIST_COLD,   (random2(pow) + 35) / factor);
-        you.increase_duration(DUR_RESIST_POISON, (random2(pow) + 35) / factor);
-        you.increase_duration(DUR_INSULATION,    (random2(pow) + 35) / factor);
+        you.increase_duration(DUR_RESISTANCE, (random2(pow) + 35) / factor);
 
         // Just one point of contamination. These potions are really rare,
         // and contamination is nastier.

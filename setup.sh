@@ -35,9 +35,26 @@ util/gen-luatags.pl
 util/gen_ver.pl build.h
 util/gen-cflg.pl compflag.h none armeabi android android
 
+echo "Running make syscalls.h..."
+echo ""
+make syscalls.h
+
+echo "Running make config.h..."
+echo ""
+make config.h
+
+echo "Running make mi-enum.h..."
+echo ""
+make mi-enum.h
+
+echo "Running make cmd-name.h..."
+echo ""
+make cmd-name.h
+
 echo "Running make in rltiles..."
 echo ""
 cd rltiles
 make
+
 
 echo "Setup complete. Run your NDK build tool (ndk-build) from within the project directory to build the project"

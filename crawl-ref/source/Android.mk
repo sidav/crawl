@@ -90,7 +90,7 @@ godprayer.cc godwrath.cc hints.cc hiscores.cc initfile.cc invent.cc itemname.cc 
 itemprop.cc items.cc item_use.cc jobs.cc json.cc kills.cc l_colour.cc l_crawl.cc \
 l_debug.cc l_dgnbld.cc l_dgn.cc l_dgnevt.cc l_dgngrd.cc l_dgnit.cc l_dgnlvl.cc \
 l_dgnmon.cc l_dgntil.cc lev-pand.cc l_feat.cc l_file.cc l_food.cc l_global.cc \
-libgui.cc libutil.cc libandroid.cc libw32c.cc l_item.cc l_los.cc l_mapgrd.cc \
+lang-fake.cc libgui.cc libutil.cc libandroid.cc libw32c.cc l_item.cc l_los.cc l_mapgrd.cc \
 l_mapmrk.cc l_moninf.cc l_mons.cc l_option.cc los.cc los_def.cc losglobal.cc \
 losparam.cc l_spells.cc l_subvault.cc l_travel.cc luaterp.cc l_view.cc \
 l_you.cc macro.cc main.cc makeitem.cc mapdef.cc map_knowledge.cc mapmark.cc \
@@ -98,7 +98,7 @@ maps.cc melee_attack.cc menu.cc message.cc message-stream.cc misc.cc \
 mislead.cc mon-abil.cc mon-act.cc mon-behv.cc mon-cast.cc mon-clone.cc \
 mon-death.cc mon-ench.cc mon-gear.cc mon-grow.cc mon-info.cc mon-iter.cc \
 mon-movetarget.cc mon-pathfind.cc mon-pick.cc mon-place.cc mon-project.cc \
-mon_resist_def.cc mon-speak.cc mon-stealth.cc monster.cc mon-stuff.cc mon-transit.cc \
+mon-speak.cc mon-stealth.cc monster.cc mon-stuff.cc mon-transit.cc \
 mon-util.cc mutation.cc newgame.cc ng-init.cc ng-input.cc ng-restr.cc ng-setup.cc \
 ng-wanderer.cc notes.cc orb.cc ouch.cc output.cc package.cc pattern.cc \
 place.cc place-info.cc player-act.cc player.cc player-equip.cc player-stats.cc \
@@ -108,7 +108,7 @@ spl-cast.cc spl-clouds.cc spl-damage.cc spl-goditem.cc spl-miscast.cc spl-monenc
 spl-other.cc spl-selfench.cc spl-summoning.cc spl-tornado.cc spl-transloc.cc \
 spl-util.cc spl-wpnench.cc spl-zap.cc sprint.cc sqldbm.cc stairs.cc startup.cc \
 stash.cc state.cc status.cc store.cc stuff.cc syscalls.cc tags.cc tagstring.cc \
-target.cc teleport.cc terrain.cc tilebuf.cc tilefont.cc tilepick.cc \
+target.cc teleport.cc terrain.cc throw.cc tilebuf.cc tilefont.cc tilepick.cc \
 tiletex.cc tileview.cc tileweb.cc \
 transform.cc traps.cc travel.cc tutorial.cc unicode.cc version.cc view.cc \
 viewchar.cc viewgeom.cc viewmap.cc wcwidth.cc windowmanager-sdl.cc wiz-dgn.cc \
@@ -123,7 +123,7 @@ prebuilt/levcomp.lex.cc prebuilt/levcomp.tab.cc \
 #Removed from above
 # libunix.cc changed to libandroid.cc
 # tilecell.cc tiledgnbuf.cc
-# tiledoll.cc tilemcache.cc tilepick-p.cc tilereg.cc tilereg-cmd.cc\
+# tiledoll.cc tilemcache.cc tilepick-p.cc tilereg.cc tilereg-abl.cc tilereg-cmd.cc\
 # tilereg-crt.cc tilereg-dgn.cc tilereg-doll.cc tilereg-grid.cc tilereg-inv.cc \
 # tilereg-map.cc tilereg-mem.cc tilereg-menu.cc tilereg-mon.cc tilereg-msg.cc \
 # tilereg-skl.cc tilereg-spl.cc tilereg-stat.cc tilereg-tab.cc tilereg-text.cc tilereg-grid.cc\

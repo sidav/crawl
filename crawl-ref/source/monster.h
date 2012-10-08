@@ -48,7 +48,7 @@ public:
     unsigned short foe;
     int8_t ench_countdown;
     mon_enchant_list enchantments;
-    FixedBitArray<NUM_ENCHANTMENTS> ench_cache;
+    FixedBitVector<NUM_ENCHANTMENTS> ench_cache;
     uint64_t flags;                    // bitfield of boolean flags
 
     unsigned int experience;
@@ -100,6 +100,7 @@ public:
     void mark_summoned(int longevity, bool mark_items_summoned,
                        int summon_type = 0, bool abj = true);
     bool is_summoned(int* duration = NULL, int* summon_type = NULL) const;
+    bool is_perm_summoned() const;
     bool has_action_energy() const;
     void check_redraw(const coord_def &oldpos, bool clear_tiles = true) const;
     void apply_location_effects(const coord_def &oldpos,
@@ -118,7 +119,7 @@ public:
 
     // Has a hydra-like variable number of attacks based on mons->number.
     bool has_hydra_multi_attack() const;
-    bool has_multitargeting() const;
+    bool has_multitargetting() const;
 
     // Has the 'spellcaster' flag (may not actually have any spells).
     bool can_use_spells() const;
@@ -171,6 +172,10 @@ public:
     bool should_drink_potion(potion_type ptype) const;
     item_type_id_state_type drink_potion_effect(potion_type pot_eff);
 
+    bool can_evoke_jewellery(jewellery_type jtype) const;
+    bool should_evoke_jewellery(jewellery_type jtype) const;
+    item_type_id_state_type evoke_jewellery_effect(jewellery_type jtype);
+
     void timeout_enchantments(int levels);
 
     bool is_travelling() const;
@@ -186,7 +191,7 @@ public:
     void ghost_init(bool need_pos = true);
     void ghost_demon_init();
     void uglything_init(bool only_mutate = false);
-    void uglything_mutate(uint8_t force_colour = BLACK);
+    void uglything_mutate(colour_t force_colour = BLACK);
     void uglything_upgrade();
     void destroy_inventory();
     void load_ghost_spells();
@@ -217,6 +222,7 @@ public:
     int         total_weight() const;
     brand_type  damage_brand(int which_attack = -1);
     int         damage_type(int which_attack = -1);
+    int         has_claws(bool allow_tran = true) const;
 
     item_def *slot_item(equipment_type eq, bool include_melded=false);
     item_def *mslot_item(mon_inv_type sl) const;
@@ -249,6 +255,7 @@ public:
     bool      pickup_throwable_weapon(item_def &item, int near);
     bool      pickup_weapon(item_def &item, int near, bool force);
     bool      pickup_armour(item_def &item, int near, bool force);
+    bool      pickup_jewellery(item_def &item, int near, bool force);
     bool      pickup_misc(item_def &item, int near);
     bool      pickup_food(item_def &item, int near);
     bool      pickup_missile(item_def &item, int near, bool force);
@@ -293,11 +300,11 @@ public:
     bool can_mutate() const;
     bool can_safely_mutate() const;
     bool can_bleed(bool allow_tran = true) const;
-    bool mutate();
-    void banish(const std::string &who = "");
+    bool mutate(const std::string &reason);
+    void banish(actor *agent, const std::string &who = "");
     void expose_to_element(beam_type element, int strength = 0);
 
-    int mons_species(bool zombie_base = false) const;
+    monster_type mons_species(bool zombie_base = false) const;
 
     mon_holy_type holiness() const;
     bool undead_or_demonic() const;
@@ -328,7 +335,7 @@ public:
     int res_petrify(bool temp = true) const;
     int res_constrict() const;
     int res_magic() const;
-    bool no_tele(bool calc_unid = true, bool permit_id = true);
+    bool no_tele(bool calc_unid = true, bool permit_id = true) const;
 
     flight_type flight_mode() const;
     bool is_levitating() const;
@@ -345,6 +352,7 @@ public:
     bool is_icy() const;
     bool is_fiery() const;
     bool is_skeletal() const;
+    bool is_spiny() const;
     bool paralysed() const;
     bool cannot_move() const;
     bool cannot_act() const;
@@ -358,6 +366,7 @@ public:
     int silence_radius2() const;
     int liquefying_radius2 () const;
     int umbra_radius2 () const;
+    int suppression_radius2 () const;
     bool glows_naturally() const;
     bool petrified() const;
     bool petrifying() const;
@@ -369,10 +378,11 @@ public:
     bool wont_attack() const;
     bool pacified() const;
     bool withdrawn() const {return has_ench(ENCH_WITHDRAWN);};
+    int warding() const;
 
+    bool rolling() const { return has_ench(ENCH_ROLLING); } ;
     bool has_spells() const;
     bool has_spell(spell_type spell) const;
-    bool has_holy_spell() const;
     bool has_unholy_spell() const;
     bool has_evil_spell() const;
     bool has_unclean_spell() const;
@@ -380,6 +390,7 @@ public:
 
     bool has_attack_flavour(int flavour) const;
     bool has_damage_type(int dam_type);
+    int constriction_damage() const;
 
     bool can_throw_large_rocks() const;
     bool can_speak();
@@ -450,10 +461,11 @@ public:
     void bind_melee_flags();
     void bind_spell_flags();
     void calc_speed();
-    void accum_been_constricted();
-    void accum_has_constricted();
-    bool attempt_escape();
+    bool attempt_escape(int attempts = 1);
     bool has_usable_tentacle() const;
+
+    bool check_clarity(bool silent) const;
+    bool check_stasis(bool silent, bool calc_unid = true) const;
 
 private:
     void init_with(const monster& mons);
@@ -464,13 +476,16 @@ private:
     bool pickup(item_def &item, int slot, int near, bool force_merge = false);
     void equip_weapon(item_def &item, int near, bool msg = true);
     void equip_armour(item_def &item, int near);
+    void equip_jewellery(item_def &item, int near);
     void unequip_weapon(item_def &item, int near, bool msg = true);
     void unequip_armour(item_def &item, int near);
+    void unequip_jewellery(item_def &item, int near);
 
     bool decay_enchantment(const mon_enchant &me, bool decay_degree = true);
 
     bool wants_weapon(const item_def &item) const;
     bool wants_armour(const item_def &item) const;
+    bool wants_jewellery(const item_def &item) const;
     void lose_pickup_energy();
     bool check_set_valid_home(const coord_def &place,
                               coord_def &chosen,

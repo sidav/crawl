@@ -13,21 +13,12 @@
 #include "notes.h"
 #include "options.h"
 #include "show.h"
-#include "showsymb.h"
 #include "terrain.h"
 #ifdef USE_TILE
  #include "tilepick.h"
  #include "tileview.h"
 #endif
 #include "view.h"
-
-void map_knowledge_forget_mons(const coord_def& c)
-{
-    if (!env.map_knowledge(c).detected_monster())
-        return;
-
-    env.map_knowledge(c).clear_monster();
-}
 
 // Used to mark dug out areas, unset when terrain is seen or mapped again.
 void set_terrain_changed(int x, int y)
@@ -71,10 +62,10 @@ int count_detected_mons()
             count++;
     }
 
-    return (count);
+    return count;
 }
 
-void clear_map(bool clear_detected_items, bool clear_detected_monsters)
+void clear_map(bool clear_items, bool clear_mons)
 {
     for (rectangle_iterator ri(BOUNDARY_BORDER - 1); ri; ++ri)
     {
@@ -83,11 +74,12 @@ void clear_map(bool clear_detected_items, bool clear_detected_monsters)
         if (!cell.known() || cell.visible())
             continue;
 
-        if (clear_detected_items || !cell.detected_item())
+        cell.clear_cloud();
+
+        if (clear_items)
             cell.clear_item();
 
-        if ((clear_detected_monsters || !cell.detected_monster())
-            && !mons_class_is_stationary(cell.monster()))
+        if (clear_mons && !mons_class_is_stationary(cell.monster()))
         {
             cell.clear_monster();
 #ifdef USE_TILE
@@ -141,7 +133,7 @@ void set_terrain_seen(int x, int y)
         if (!is_boring_terrain(feat))
         {
             coord_def pos(x, y);
-            std::string desc = feature_description(pos, false, DESC_A);
+            std::string desc = feature_description_at(pos, false, DESC_A);
             take_note(Note(NOTE_SEEN_FEAT, 0, 0, desc.c_str()));
         }
     }

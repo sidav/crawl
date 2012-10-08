@@ -32,9 +32,7 @@ VertBuffer::VertBuffer(bool texture, bool colour, const GenericTexture *tex,
         m_state.texture = true;
     }
     if (m_colour_verts)
-    {
         m_state.array_colour = true;
-    }
 }
 
 void VertBuffer::draw() const
@@ -68,7 +66,7 @@ void VertBuffer::add_primitive(const GLWPrim &rect)
 
 unsigned int VertBuffer::size() const
 {
-    return (m_vert_buf->size());
+    return m_vert_buf->size();
 }
 
 void VertBuffer::set_tex(const GenericTexture *new_tex)

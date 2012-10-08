@@ -102,7 +102,6 @@ int travel_direction(uint8_t branch, int subdungeondepth);
 void prevent_travel_to(const std::string &dungeon_feature_name);
 
 // Sort dungeon features as appropriate.
-void arrange_features(std::vector<coord_def> &features);
 int level_distance(level_id first, level_id second);
 level_id find_deepest_explored(level_id curr);
 bool branch_entered(branch_type branch);
@@ -120,6 +119,7 @@ enum translevel_prompt_flags
     TPF_ALLOW_UPDOWN      = 0x2,
     TPF_REMEMBER_TARGET   = 0x4,
     TPF_SHOW_ALL_BRANCHES = 0x8,
+    TPF_SHOW_PORTALS_ONLY = 0x10,
 
     TPF_DEFAULT_OPTIONS   = TPF_ALLOW_WAYPOINTS | TPF_ALLOW_UPDOWN
                                                 | TPF_REMEMBER_TARGET,
@@ -188,7 +188,7 @@ enum explore_stop_type
     ES_GREEDY_VISITED_ITEM_STACK = 0x0040,
 
     // Explored into view of a stair, shop, altar, portal, glowing
-    // item, or artefact.
+    // item, artefact, or branch entrance.
     ES_STAIR                     = 0x0080,
     ES_SHOP                      = 0x0100,
     ES_ALTAR                     = 0x0200,
@@ -196,6 +196,10 @@ enum explore_stop_type
     ES_GLOWING_ITEM              = 0x0800,
     ES_ARTEFACT                  = 0x1000,
     ES_RUNE                      = 0x2000,
+    ES_BRANCH                    = 0x4000,
+
+    // Explored into view of an item which can be sacrificied
+    ES_GREEDY_SACRIFICEABLE      = 0x8000,
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -258,6 +262,7 @@ private:
     };
 
     bool can_autopickup;
+    bool sacrifice;
     int es_flags;
     const LevelStashes *current_level;
     std::vector< named_thing<item_def> > items;
@@ -570,6 +575,12 @@ protected:
     // Are we greedy exploring?
     bool need_for_greed;
 
+    // Can we autopickup?
+    bool autopickup;
+
+    // Does god wants sacrifices?
+    bool sacrifice;
+
     // Targets for explore and greedy explore.
     coord_def unexplored_place, greedy_place;
 
@@ -621,14 +632,7 @@ int click_travel(const coord_def &gc, bool force);
 bool check_for_interesting_features();
 void clear_level_target();
 
-class level_id_iterator : public std::iterator<std::forward_iterator_tag, level_id>
-{
-public:
-    level_id_iterator();
-    operator bool() const;
-    level_id operator *() const;
-    void operator++();
-private:
-    level_id cur;
-};
+void clear_travel_trail();
+int travel_trail_index(const coord_def& gc);
+
 #endif // TRAVEL_H

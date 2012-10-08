@@ -167,7 +167,7 @@ static dgn_island_plan _shoals_island_plan()
     plan.island_aux_radius_range = int_range(2, 7);
     plan.island_aux_point_height_increment = int_range(50, 65);
 
-    return (plan);
+    return plan;
 }
 
 static void _shoals_init_islands(int depth)
@@ -293,7 +293,7 @@ static void _shoals_furniture(int margin)
         const coord_def p = _pick_shoals_island();
         const char *SHOAL_RUNE_HUT = "shoal_rune_hut";
         const map_def *vault = random_map_for_tag(SHOAL_RUNE_HUT);
-        dgn_ensure_vault_placed(dgn_place_map(vault, false, false, p), false);
+        dgn_ensure_vault_placed(dgn_place_map(vault, true, false, p), false);
 
         const int nhuts = std::min(8, int(_shoals_islands.islands.size()));
         for (int i = 2; i < nhuts; ++i)
@@ -306,7 +306,7 @@ static void _shoals_furniture(int margin)
                 vault = random_map_for_tag("shoal_hut");
             while (!vault && --tries > 0);
             if (vault)
-                dgn_place_map(vault, false, false, _pick_shoals_island());
+                dgn_place_map(vault, true, false, _pick_shoals_island());
         }
 
         // Fixup pass to connect vaults.
@@ -464,7 +464,7 @@ _shoals_point_feat_cluster(dungeon_feature_type feat,
                 regions.push_back(weighted_region(featcount, c));
         }
     }
-    return (regions);
+    return regions;
 }
 
 static coord_def _shoals_pick_region(
@@ -684,14 +684,13 @@ void dgn_shoals_generate_flora()
     }
 }
 
-void dgn_build_shoals_level(int level_number)
+void dgn_build_shoals_level()
 {
-    env.level_build_method += make_stringf(" shoals+ [%d]", level_number);
+    env.level_build_method += make_stringf(" shoals+ [%d]", you.depth);
     env.level_layout_types.insert("shoals");
 
-    const int shoals_depth = level_id::current().depth - 1;
-    if (you.level_type != LEVEL_LABYRINTH && you.level_type != LEVEL_PORTAL_VAULT)
-        dgn_replace_area(0, 0, GXM-1, GYM-1, DNGN_ROCK_WALL, DNGN_OPEN_SEA);
+    const int shoals_depth = you.depth - 1;
+    dgn_replace_area(0, 0, GXM-1, GYM-1, DNGN_ROCK_WALL, DNGN_OPEN_SEA);
     _shoals_init_heights();
     _shoals_init_islands(shoals_depth);
     _shoals_cliffs();
@@ -748,8 +747,7 @@ static void _shoals_run_tide(int &tide, int &acc)
 
     tide += acc;
     tide = std::max(std::min(tide, HIGH_TIDE), LOW_TIDE);
-    if ((tide == HIGH_TIDE && acc > 0)
-        || (tide == LOW_TIDE && acc < 0))
+    if ((tide == HIGH_TIDE && acc > 0) || (tide == LOW_TIDE && acc < 0))
         acc = -acc;
     bool in_decel_margin =
         (abs(tide - HIGH_TIDE) < TIDE_DECEL_MARGIN)
@@ -788,7 +786,7 @@ static void _clear_net_trapping_status(coord_def c)
     if (!victim)
         return;
 
-    if (victim->atype() == ACT_MONSTER)
+    if (victim->is_monster())
     {
         monster* mvictim = victim->as_monster();
         if (you.can_see(mvictim))
@@ -842,7 +840,7 @@ static bool _shoals_tide_sweep_actors_clear(coord_def c)
     if (!victim || !victim->ground_level() || victim->swimming())
         return true;
 
-    if (victim->atype() == ACT_MONSTER)
+    if (victim->is_monster())
     {
         const monster* mvictim = victim->as_monster();
         // Plants and statues cannot be moved away; the tide cannot
@@ -895,14 +893,14 @@ static dungeon_feature_type _shoals_apply_tide_feature_at(
 
     // Return DNGN_UNSEEN if the feature isn't changed.
     if (feat == current_feat)
-        return (DNGN_UNSEEN);
+        return DNGN_UNSEEN;
 
     if (Generating_Level)
         grd(c) = feat;
     else
         dungeon_terrain_changed(c, feat, true, false, true);
 
-    return (feat);
+    return feat;
 }
 
 // Determines if the tide is rising or falling based on before and
@@ -1011,8 +1009,10 @@ static void _shoals_apply_tide(int tide, bool incremental_tide)
             const bool was_wet(_shoals_tide_passable_feat(herefeat));
             seen_points(c) = true;
             if (_shoals_tide_susceptible_feat(herefeat))
+            {
                 _shoals_apply_tide_at(c, _shoals_tide_at(c, tide),
                                       incremental_tide);
+            }
 
             const bool is_wet(feat_is_water(grd(c)));
 
@@ -1064,9 +1064,7 @@ static void _shoals_init_tide()
         props[PROPS_SHOALS_TIDE_UPDATE_TIME].get_int() = 0;
     }
     if (!env.properties.exists(PROPS_SHOALS_TIDE_KEY))
-    {
         env.properties[PROPS_SHOALS_TIDE_KEY].get_short() = 0;
-    }
 }
 
 static monster* _shoals_find_tide_caller()

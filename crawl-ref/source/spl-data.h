@@ -106,7 +106,7 @@ struct spell_desc
      0,
      SPFLAG_DIR_OR_TARGET | SPFLAG_BATTLE, // rod of striking
      1,
-     25,
+     50,
      5, 5,
      0,
      NULL,
@@ -481,21 +481,6 @@ struct spell_desc
      false
 },
 
-#if TAG_MAJOR_VERSION == 32
-{
-    SPELL_LEVITATION, "Levitation",
-     SPTYP_CHARMS | SPTYP_AIR,
-     SPFLAG_NONE,
-     3,
-     150,
-     -1, -1,
-     0,
-     NULL,
-     false,
-     true
-},
-#endif
-
 {
     SPELL_BOLT_OF_DRAINING, "Bolt of Draining",
      SPTYP_CONJURATION | SPTYP_NECROMANCY,
@@ -647,7 +632,7 @@ struct spell_desc
      SPFLAG_DIR_OR_TARGET,
      4,
      100,
-     5, 5,
+     7, 7,
      0,
      NULL,
      true,
@@ -732,21 +717,6 @@ struct spell_desc
      false
 },
 
-#if TAG_MAJOR_VERSION == 32
-{
-    SPELL_EXTENSION, "Extension",
-     SPTYP_CHARMS,
-     SPFLAG_NONE,
-     5,
-     200,
-     -1, -1,
-     0,
-     NULL,
-     false,
-     true
-},
-#endif
-
 {
     SPELL_CONTROL_UNDEAD, "Control Undead",
      SPTYP_NECROMANCY,
@@ -800,19 +770,6 @@ struct spell_desc
 },
 
 {
-    SPELL_DETECT_ITEMS, "Detect Items",
-     0,
-     SPFLAG_MAPPING,
-     2,
-     50,
-     -1, -1,
-     0,
-     NULL,
-     false,
-     true
-},
-
-{
     SPELL_BORGNJORS_REVIVIFICATION, "Borgnjor's Revivification",
      SPTYP_NECROMANCY,
      SPFLAG_NONE,
@@ -860,7 +817,7 @@ struct spell_desc
      -1, -1,
      0,
      NULL,
-     true,
+     false,
      false
 },
 
@@ -1075,19 +1032,6 @@ struct spell_desc
 },
 
 {
-    SPELL_TUKIMAS_BALL, "Tukima's Ball",
-     SPTYP_HEXES,
-     SPFLAG_NONE,
-     9,
-     200,
-     -1,-1,
-     0,
-     NULL,
-     false,
-     true
-},
-
-{
     SPELL_SUMMON_DEMON, "Summon Demon",
      SPTYP_SUMMONING,
      SPFLAG_UNHOLY | SPFLAG_BATTLE,
@@ -1204,21 +1148,6 @@ struct spell_desc
      false
 },
 
-#if TAG_MAJOR_VERSION == 32
-{
-    SPELL_STONEMAIL, "Stonemail",
-     SPTYP_CHARMS | SPTYP_EARTH,
-     SPFLAG_NONE,
-     6,
-     200,
-     -1, -1,
-     0,
-     NULL,
-     false,
-     true
-},
-#endif
-
 {
     SPELL_SHOCK, "Shock",
      SPTYP_CONJURATION | SPTYP_AIR,
@@ -1272,19 +1201,6 @@ struct spell_desc
 },
 
 {
-    SPELL_DETECT_CREATURES, "Detect Creatures",
-     0,
-     SPFLAG_MAPPING,
-     2,
-     60,                        // not 50, note the fuzz
-     -1, -1,
-     0,
-     NULL,
-     false,
-     false
-},
-
-{
     SPELL_CURE_POISON, "Cure Poison",
      SPTYP_POISON,
      SPFLAG_RECOVERY | SPFLAG_HELPFUL,
@@ -1315,20 +1231,6 @@ struct spell_desc
      SPTYP_CHARMS | SPTYP_POISON,
      SPFLAG_HELPFUL | SPFLAG_BATTLE,
      3,
-     0,
-     -1, -1,
-     0,
-     NULL,
-     false,
-     true
-},
-
-#if TAG_MAJOR_VERSION == 32
-{
-    SPELL_RESIST_POISON, "Resist Poison",
-     SPTYP_CHARMS | SPTYP_POISON,
-     SPFLAG_HELPFUL,
-     4,
      200,
      -1, -1,
      0,
@@ -1336,8 +1238,8 @@ struct spell_desc
      false,
      true
 },
-#endif
 
+#if TAG_MAJOR_VERSION == 33
 {
     SPELL_PROJECTED_NOISE, "Projected Noise",
      SPTYP_HEXES,
@@ -1345,20 +1247,6 @@ struct spell_desc
      2,
      0,
      LOS_RADIUS, LOS_RADIUS,
-     0,
-     NULL,
-     false,
-     false
-},
-
-#if TAG_MAJOR_VERSION == 32
-{
-    SPELL_ALTER_SELF, "Alter Self",
-     SPTYP_TRANSMUTATION,
-     SPFLAG_CHAOTIC,
-     7,
-     0,
-     -1, -1,
      0,
      NULL,
      false,
@@ -1420,8 +1308,8 @@ struct spell_desc
 
 {
     SPELL_DISINTEGRATE, "Disintegrate",
-     SPTYP_TRANSMUTATION,
-     SPFLAG_DIR_OR_TARGET | SPFLAG_NOT_SELF | SPFLAG_CARD, // also: wand
+     SPTYP_CONJURATION,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_NOT_SELF,
      6,
      200,
      6, 6,
@@ -1500,7 +1388,7 @@ struct spell_desc
     SPELL_DEATH_CHANNEL, "Death Channel",
      SPTYP_NECROMANCY,
      SPFLAG_HELPFUL,
-     7,
+     6,
      200,
      -1, -1,
      0,
@@ -1762,7 +1650,7 @@ struct spell_desc
      SPTYP_CHARMS | SPTYP_TRANSLOCATION,
      SPFLAG_HELPFUL | SPFLAG_BATTLE,
      5,     // this is high for a reason - Warp brands are very powerful.
-     0,
+     200,
      -1, -1,
      0,
      NULL,
@@ -1815,7 +1703,7 @@ struct spell_desc
      SPFLAG_AREA,
      3,
      100,
-     -1, -1,
+     1, 1,
      0,
      NULL,
      false,
@@ -1886,21 +1774,6 @@ struct spell_desc
      true,
      false
 },
-
-#if TAG_MAJOR_VERSION == 32
-{
-    SPELL_MAXWELLS_SILVER_HAMMER, "Maxwell's Silver Hammer",
-     SPTYP_CHARMS | SPTYP_EARTH,
-     SPFLAG_HELPFUL | SPFLAG_BATTLE,
-     2,
-     200,
-     -1, -1,
-     0,
-     NULL,
-     false,
-     true
-},
-#endif
 
 {
     SPELL_CONDENSATION_SHIELD, "Condensation Shield",
@@ -2036,7 +1909,7 @@ struct spell_desc
 
 {
     SPELL_MINOR_HEALING, "Minor Healing",
-     SPTYP_NONE, // was SPTYP_HOLY
+     SPTYP_NONE,
      SPFLAG_RECOVERY | SPFLAG_HELPFUL | SPFLAG_MONSTER,
      2,
      0,
@@ -2049,7 +1922,7 @@ struct spell_desc
 
 {
     SPELL_MAJOR_HEALING, "Major Healing",
-     SPTYP_NONE, // was SPTYP_HOLY
+     SPTYP_NONE,
      SPFLAG_RECOVERY | SPFLAG_HELPFUL | SPFLAG_MONSTER,
      6,
      0,
@@ -2727,7 +2600,7 @@ struct spell_desc
 
 {
     SPELL_RESURRECT, "Resurrection",
-     SPTYP_HOLY,
+     SPTYP_NONE,
      SPFLAG_DIR_OR_TARGET | SPFLAG_NOT_SELF | SPFLAG_HELPFUL,
      6,
      200,
@@ -2740,7 +2613,7 @@ struct spell_desc
 
 {
     SPELL_HOLY_LIGHT, "Holy Light",
-     SPTYP_CONJURATION | SPTYP_HOLY,
+     SPTYP_CONJURATION,
      SPFLAG_DIR_OR_TARGET,
      6,
      200,
@@ -2753,7 +2626,7 @@ struct spell_desc
 
 {
     SPELL_SUMMON_HOLIES, "Summon Holies",
-     SPTYP_SUMMONING | SPTYP_HOLY,
+     SPTYP_SUMMONING,
      SPFLAG_MONSTER,
      5,
      0,
@@ -2764,9 +2637,10 @@ struct spell_desc
      false
 },
 
+#if TAG_MAJOR_VERSION == 33
 {
     SPELL_SUMMON_GREATER_HOLY, "Summon Greater Holy",
-     SPTYP_SUMMONING | SPTYP_HOLY,
+     SPTYP_SUMMONING,
      SPFLAG_MONSTER,
      9,
      0,
@@ -2776,10 +2650,11 @@ struct spell_desc
      false,
      false
 },
+#endif
 
 {
     SPELL_HOLY_WORD, "Holy Word",
-     SPTYP_HOLY,
+     SPTYP_NONE,
      SPFLAG_AREA,
      6,
      0,
@@ -2805,7 +2680,7 @@ struct spell_desc
 
 {
     SPELL_SACRIFICE, "Sacrifice",
-     SPTYP_HOLY,
+     SPTYP_NONE,
      SPFLAG_DIR_OR_TARGET | SPFLAG_NOT_SELF | SPFLAG_HELPFUL,
      6,
      200,
@@ -2818,7 +2693,7 @@ struct spell_desc
 
 {
     SPELL_HOLY_FLAMES, "Holy Flames",
-     SPTYP_HOLY,
+     SPTYP_NONE,
      SPFLAG_TARGET | SPFLAG_NOT_SELF | SPFLAG_BATTLE,
      7,
      200,
@@ -2831,7 +2706,7 @@ struct spell_desc
 
 {
     SPELL_HOLY_BREATH, "Holy Breath",
-     SPTYP_CONJURATION | SPTYP_HOLY,
+     SPTYP_CONJURATION,
      SPFLAG_DIR_OR_TARGET | SPFLAG_AREA,
      5,
      200,
@@ -3000,9 +2875,35 @@ struct spell_desc
 
 {
     SPELL_SILVER_BLAST, "Silver Blast",
-     SPTYP_CONJURATION | SPTYP_HOLY,
+     SPTYP_CONJURATION,
      SPFLAG_DIR_OR_TARGET,
      5,
+     200,
+     6, 6,
+     0,
+     NULL,
+     true,
+     false
+},
+
+{
+    SPELL_ENSNARE, "Ensnare",
+     SPTYP_CONJURATION | SPTYP_HEXES,
+     SPFLAG_DIR_OR_TARGET,
+     6,
+     200,
+     6, 6,
+     0,
+     NULL,
+     true,
+     false
+},
+
+{
+    SPELL_THUNDERBOLT, "Thunderbolt",
+     SPTYP_CONJURATION | SPTYP_AIR,
+     SPFLAG_DIR_OR_TARGET,
+     2, // 2-5
      200,
      6, 6,
      0,

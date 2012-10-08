@@ -57,7 +57,7 @@ static macromap *all_maps[] =
 {
     &Keymaps[KMC_DEFAULT],
     &Keymaps[KMC_LEVELMAP],
-    &Keymaps[KMC_TARGETING],
+    &Keymaps[KMC_TARGETTING],
     &Keymaps[KMC_CONFIRM],
 
     &Macros,
@@ -103,6 +103,8 @@ typedef std::map<int, int> cmd_to_key_map;
 static key_to_cmd_map _keys_to_cmds[KMC_CONTEXT_COUNT];
 static cmd_to_key_map _cmds_to_keys[KMC_CONTEXT_COUNT];
 
+static KeymapContext _context_for_command(command_type cmd);
+
 static inline int userfunc_index(int key)
 {
     int index = (key <= USERFUNCBASE? USERFUNCBASE - key : -1);
@@ -112,7 +114,7 @@ static inline int userfunc_index(int key)
 static int userfunc_index(const keyseq &seq)
 {
     if (seq.empty())
-        return (-1);
+        return -1;
 
     return userfunc_index(seq.front());
 }
@@ -144,20 +146,20 @@ static bool userfunc_referenced(int index, const macromap &mm)
     for (macromap::const_iterator i = mm.begin(); i != mm.end(); ++i)
     {
         if (userfunc_index(i->second) == index)
-            return (true);
+            return true;
     }
-    return (false);
+    return false;
 }
 
 static bool userfunc_referenced(int index)
 {
-    for (unsigned i = 0; i < sizeof(all_maps) / sizeof(*all_maps); ++i)
+    for (unsigned i = 0; i < ARRAYSZ(all_maps); ++i)
     {
         macromap *m = all_maps[i];
         if (userfunc_referenced(index, *m))
-            return (true);
+            return true;
     }
-    return (false);
+    return false;
 }
 
 // Expensive function to discard unused function names
@@ -173,7 +175,7 @@ static void userfunc_collectgarbage(void)
 static int userfunc_getindex(const std::string &fname)
 {
     if (fname.length() == 0)
-        return (-1);
+        return -1;
 
     userfunc_collectgarbage();
 
@@ -181,7 +183,7 @@ static int userfunc_getindex(const std::string &fname)
     for (int i = 0, count = userfunctions.size(); i < count; ++i)
     {
         if (userfunctions[i] == fname)
-            return (i);
+            return i;
     }
 
     // Pass 2 to hunt for gaps.
@@ -190,7 +192,7 @@ static int userfunc_getindex(const std::string &fname)
         if (userfunctions[i].empty())
         {
             userfunctions[i] = fname;
-            return (i);
+            return i;
         }
     }
 
@@ -213,7 +215,7 @@ static std::string get_macro_file()
     }
 
 #if defined(DGL_MACRO_ABSOLUTE_PATH)
-    return (dir.empty()? "macro.txt" : dir);
+    return dir.empty()? "macro.txt" : dir;
 #endif
 
     check_mkdir("Macro directory", &dir, true);
@@ -251,7 +253,7 @@ static void buf2keyseq(const char *buff, keyseq &k)
 static int read_key_code(std::string s)
 {
     if (s.empty())
-        return (0);
+        return 0;
 
     int base = 10;
     if (s[0] == 'x')
@@ -287,7 +289,7 @@ static keyseq parse_keyseq(std::string s)
     if (s.find("===") == 0)
     {
         buf2keyseq(s.c_str(), v);
-        return (v);
+        return v;
     }
 
     bool more_reset = false;
@@ -340,7 +342,7 @@ static keyseq parse_keyseq(std::string s)
         }
     }
 
-    return (v);
+    return v;
 }
 
 /*
@@ -382,7 +384,7 @@ static std::string vtostr(const keyseq &seq)
             s << static_cast<char>(*i);
     }
 
-    return (s.str());
+    return s.str();
 }
 
 /*
@@ -626,7 +628,7 @@ int macro_buf_get()
         if (macro_keys_left == 0)
             macro_keys_left = -1;
 
-        return (-1);
+        return -1;
     }
 
     int key = Buffer.front();
@@ -640,7 +642,7 @@ int macro_buf_get()
     for (int i = 0, size_i = recorders.size(); i < size_i; i++)
         recorders[i]->add_key(key);
 
-    return (key);
+    return key;
 }
 
 static void write_map(FILE *f, const macromap &mp, const char *key)
@@ -720,7 +722,7 @@ static keyseq _getch_mul(int (*rgetch)() = NULL)
     while (kbhit() || a == 0)
         keys.push_back(a = rgetch());
 
-    return (keys);
+    return keys;
 }
 
 /*
@@ -738,7 +740,7 @@ int getchm(KeymapContext mc, int (*rgetch)())
 
     // Got data from buffer.
     if ((a = macro_buf_get()) != -1)
-        return (a);
+        return a;
 
     // Read some keys...
     keyseq keys = _getch_mul(rgetch);
@@ -747,7 +749,7 @@ int getchm(KeymapContext mc, int (*rgetch)())
     else
         macro_buf_add_long(keys, Keymaps[mc]);
 
-    return (macro_buf_get());
+    return macro_buf_get();
 }
 
 /*
@@ -769,7 +771,7 @@ int getch_with_command_macros()
     // Apply longest matching macro at front of buffer:
     macro_buf_apply_command_macro();
 
-    return (macro_buf_get());
+    return macro_buf_get();
 }
 
 /*
@@ -790,7 +792,8 @@ void flush_input_buffer(int reason)
 
     if (crawl_state.is_replaying_keys() && reason != FLUSH_ABORT_MACRO
         && reason != FLUSH_KEY_REPLAY_CANCEL
-        && reason != FLUSH_REPLAY_SETUP_FAILURE)
+        && reason != FLUSH_REPLAY_SETUP_FAILURE
+        && reason != FLUSH_ON_FAILURE)
     {
         return;
     }
@@ -870,7 +873,7 @@ static std::string _macro_type_name(bool keymap, KeymapContext keymc)
     return make_stringf("%s%s",
                         keymap ? (keymc == KMC_DEFAULT    ? "default " :
                                   keymc == KMC_LEVELMAP   ? "level-map " :
-                                  keymc == KMC_TARGETING  ? "targeting " :
+                                  keymc == KMC_TARGETTING ? "targetting " :
                                   keymc == KMC_CONFIRM    ? "confirm " :
                                   keymc == KMC_MENU       ? "menu "
                                   : "buggy") : "",
@@ -886,7 +889,7 @@ void macro_add_query(void)
 
     mesclr();
     mpr("(m)acro, (M)acro raw, keymap "
-        "[(k) default, (x) level-map, (t)argeting, (c)onfirm, m(e)nu], "
+        "[(k) default, (x) level-map, (t)argetting, (c)onfirm, m(e)nu], "
         "(s)ave? ",
         MSGCH_PROMPT);
     input = m_getch();
@@ -905,7 +908,7 @@ void macro_add_query(void)
     else if (low == 't')
     {
         keymap = true;
-        keymc  = KMC_TARGETING;
+        keymc  = KMC_TARGETTING;
     }
     else if (low == 'c')
     {
@@ -1083,9 +1086,9 @@ bool is_synthetic_key(int key)
 #ifdef USE_TILE
     case CK_MOUSE_CMD:
 #endif
-        return (true);
+        return true;
     default:
-        return (false);
+        return false;
     }
 }
 
@@ -1149,7 +1152,7 @@ void remove_key_recorder(key_recorder* recorder)
 
 int get_macro_buf_size()
 {
-    return (Buffer.size());
+    return Buffer.size();
 }
 
 ///////////////////////////////////////////////////////////////
@@ -1182,7 +1185,7 @@ void init_keybindings()
         default_binding &data = _default_binding_list[i];
         ASSERT(VALID_BIND_COMMAND(data.cmd));
 
-        KeymapContext context = context_for_command(data.cmd);
+        KeymapContext context = _context_for_command(data.cmd);
 
         ASSERT(context < KMC_CONTEXT_COUNT);
 
@@ -1205,7 +1208,7 @@ command_type name_to_command(std::string name)
     name_to_cmd_map::iterator it = _names_to_cmds.find(name);
 
     if (it == _names_to_cmds.end())
-        return (CMD_NO_CMD);
+        return CMD_NO_CMD;
 
     return static_cast<command_type>(it->second);
 }
@@ -1215,9 +1218,9 @@ std::string command_to_name(command_type cmd)
     cmd_to_name_map::iterator it = _cmds_to_names.find(cmd);
 
     if (it == _cmds_to_names.end())
-        return ("CMD_NO_CMD");
+        return "CMD_NO_CMD";
 
-    return (it->second);
+    return it->second;
 }
 
 command_type key_to_command(int key, KeymapContext context)
@@ -1225,10 +1228,10 @@ command_type key_to_command(int key, KeymapContext context)
     if (-key > CMD_NO_CMD && -key < CMD_MIN_SYNTHETIC)
     {
         command_type  cmd         = (command_type) -key;
-        KeymapContext cmd_context = context_for_command(cmd);
+        KeymapContext cmd_context = _context_for_command(cmd);
 
         if (cmd == CMD_NO_CMD)
-            return (CMD_NO_CMD);
+            return CMD_NO_CMD;
 
         if (cmd_context != context)
         {
@@ -1246,10 +1249,10 @@ command_type key_to_command(int key, KeymapContext context)
             }
             flush_input_buffer(FLUSH_BEFORE_COMMAND);
 
-            return (CMD_NO_CMD);
+            return CMD_NO_CMD;
         }
 
-        return (cmd);
+        return cmd;
     }
 
     key_to_cmd_map           &key_map = _keys_to_cmds[context];
@@ -1259,28 +1262,28 @@ command_type key_to_command(int key, KeymapContext context)
         return CMD_NO_CMD;
 
     const command_type cmd = static_cast<command_type>(it->second);
-    ASSERT(context_for_command(cmd) == context);
+    ASSERT(_context_for_command(cmd) == context);
 
     return cmd;
 }
 
 int command_to_key(command_type cmd)
 {
-    KeymapContext context = context_for_command(cmd);
+    KeymapContext context = _context_for_command(cmd);
 
     if (context == KMC_NONE)
-        return ('\0');
+        return '\0';
 
     cmd_to_key_map           &cmd_map = _cmds_to_keys[context];
     cmd_to_key_map::iterator it       = cmd_map.find(cmd);
 
     if (it == cmd_map.end())
-        return ('\0');
+        return '\0';
 
-    return (it->second);
+    return it->second;
 }
 
-KeymapContext context_for_command(command_type cmd)
+static KeymapContext _context_for_command(command_type cmd)
 {
     if (cmd > CMD_NO_CMD && cmd <= CMD_MAX_NORMAL)
         return KMC_DEFAULT;
@@ -1289,7 +1292,7 @@ KeymapContext context_for_command(command_type cmd)
         return KMC_LEVELMAP;
 
     if (cmd >= CMD_MIN_TARGET && cmd <= CMD_MAX_TARGET)
-        return KMC_TARGETING;
+        return KMC_TARGETTING;
 
 #ifdef USE_TILE
     if (cmd >= CMD_MIN_DOLL && cmd <= CMD_MAX_DOLL)
@@ -1301,7 +1304,7 @@ KeymapContext context_for_command(command_type cmd)
 
 void bind_command_to_key(command_type cmd, int key)
 {
-    KeymapContext context      = context_for_command(cmd);
+    KeymapContext context      = _context_for_command(cmd);
     std::string   command_name = command_to_name(cmd);
 
     if (context == KMC_NONE || command_name == "CMD_NO_CMD"
@@ -1375,7 +1378,7 @@ static std::string _special_keys_to_string(int key)
     case CK_PGDN:   cmd += "PgDn"; break;
     }
 
-    return (cmd);
+    return cmd;
 }
 
 std::string command_to_string(command_type cmd, bool tutorial)
@@ -1384,7 +1387,7 @@ std::string command_to_string(command_type cmd, bool tutorial)
 
     const std::string desc = _special_keys_to_string(key);
     if (!desc.empty())
-        return (desc);
+        return desc;
 
     if (key >= 32 && key < 256)
     {
@@ -1408,12 +1411,13 @@ std::string command_to_string(command_type cmd, bool tutorial)
     }
 
     std::string result = info;
-    return (result);
+    return result;
 }
 
 void insert_commands(std::string &desc, std::vector<command_type> cmds,
                      bool formatted)
 {
+    desc = untag_tiles_console(desc);
     for (unsigned int i = 0; i < cmds.size(); ++i)
     {
         const std::string::size_type found = desc.find("%");
@@ -1466,7 +1470,7 @@ static void _list_all_commands(std::string &commands)
         if (command_name == "CMD_NO_CMD")
             continue;
 
-        if (context_for_command(cmd) != KMC_DEFAULT)
+        if (_context_for_command(cmd) != KMC_DEFAULT)
             continue;
 
         snprintf(info, INFO_SIZE, "%s: %s\n",

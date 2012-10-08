@@ -14,11 +14,11 @@
 #include "coordit.h"
 #include "describe.h"
 #include "directn.h"
-#include "food.h"
 #include "itemname.h"
 #include "itemprop.h"
 #include "files.h"
 #include "godpassive.h"
+#include "godprayer.h"
 #include "invent.h"
 #include "items.h"
 #include "kills.h"
@@ -28,10 +28,10 @@
 #include "message.h"
 #include "misc.h"
 #include "mon-util.h"
-#include "mon-stuff.h"
 #include "notes.h"
 #include "options.h"
 #include "place.h"
+#include "religion.h"
 #include "shopping.h"
 #include "spl-book.h"
 #include "stash.h"
@@ -44,7 +44,6 @@
 #include "travel.h"
 #include "hints.h"
 #include "unicode.h"
-#include "viewgeom.h"
 #include "viewmap.h"
 
 #include <cctype>
@@ -54,13 +53,6 @@
 
 // Global
 StashTracker StashTrack;
-
-void stash_init_new_level()
-{
-    // If there's an existing stash level for Pan, blow it away.
-    StashTrack.remove_level(level_id(LEVEL_PANDEMONIUM));
-    StashTrack.remove_level(level_id(LEVEL_PORTAL_VAULT));
-}
 
 std::string userdef_annotate_item(const char *s, const item_def *item,
                                   bool exclusive)
@@ -73,9 +65,9 @@ std::string userdef_annotate_item(const char *s, const item_def *item,
     std::string ann;
     if (lua_isstring(clua, -1))
         ann = luaL_checkstring(clua, -1);
-    return (ann);
+    return ann;
 #else
-    return ("");
+    return "";
 #endif
 }
 
@@ -90,7 +82,7 @@ std::string stash_annotate_item(const char *s,
         formatted_string fs;
         item_def dup = *item;
         spellbook_contents(dup, item->base_type == OBJ_BOOKS ? RBOOK_READ_SPELL
-                                                             : RBOOK_USE_STAFF,
+                                                             : RBOOK_USE_ROD,
                            &fs);
         text += "\n";
         text += fs.tostring(2, -2);
@@ -124,7 +116,7 @@ bool is_stash(const coord_def& c)
         Stash *s = ls->find_stash(c);
         return (s && s->enabled);
     }
-    return (false);
+    return false;
 }
 
 std::string get_stash_desc(const coord_def& c)
@@ -204,7 +196,7 @@ bool Stash::are_items_same(const item_def &a, const item_def &b)
 {
     const bool same = a.base_type == b.base_type
         && a.sub_type == b.sub_type
-        && a.plus == b.plus
+        && (a.plus == b.plus || a.base_type == OBJ_GOLD)
         && a.plus2 == b.plus2
         && a.special == b.special
         && a.colour == b.colour
@@ -229,9 +221,18 @@ bool Stash::pickup_eligible() const
 {
     for (int i = 0, size = items.size(); i < size; ++i)
         if (item_needs_autopickup(items[i]))
-            return (true);
+            return true;
 
-    return (false);
+    return false;
+}
+
+bool Stash::sacrificeable() const
+{
+    for (int i = 0, size = items.size(); i < size; ++i)
+        if (items[i].is_greedy_sacrificeable())
+            return true;
+
+    return false;
 }
 
 bool Stash::is_boring_feature(dungeon_feature_type feature)
@@ -254,9 +255,9 @@ bool Stash::is_boring_feature(dungeon_feature_type feature)
     case DNGN_ENTER_SHOP:
     case DNGN_ABANDONED_SHOP:
     case DNGN_UNDISCOVERED_TRAP:
-        return (true);
+        return true;
     default:
-        return (feat_is_solid(feature));
+        return feat_is_solid(feature);
     }
 }
 
@@ -285,7 +286,16 @@ void Stash::update()
         feat = DNGN_FLOOR;
 
     if (feat_is_trap(feat))
+    {
         trap = get_trap_type(p);
+        if (trap == TRAP_WEB)
+            feat = DNGN_FLOOR, trap = TRAP_UNASSIGNED;
+    }
+
+    if (feat == DNGN_FLOOR)
+        feat_desc = "";
+    else
+        feat_desc = feature_description_at(coord_def(x, y), false);
 
     // If this is your position, you know what's on this square
     if (p == you.pos())
@@ -383,7 +393,7 @@ static short _min_rot(const item_def &item)
     if (item.base_type == OBJ_CORPSES && item.sub_type == CORPSE_SKELETON)
         return 0;
 
-    if (!mons_skeleton(item.plus))
+    if (!mons_skeleton(item.mon_type))
         return 0;
     else
         return -200;
@@ -480,14 +490,14 @@ bool StashMenu::process_key(int key)
     {
         // Travel activates.
         lastch = 1;
-        return (false);
+        return false;
     }
     return Menu::process_key(key);
 }
 
 unsigned char StashMenu::getkey() const
 {
-    return (lastch);
+    return lastch;
 }
 
 static MenuEntry *stash_menu_fixup(MenuEntry *me)
@@ -499,7 +509,7 @@ static MenuEntry *stash_menu_fixup(MenuEntry *me)
         me->colour   = DARKGREY;
     }
 
-    return (me);
+    return me;
 }
 
 bool Stash::show_menu(const level_pos &prefix, bool can_travel,
@@ -521,7 +531,7 @@ bool Stash::show_menu(const level_pos &prefix, bool can_travel,
     {
         sel = menu.show();
         if (menu.getkey() == 1)
-            return (true);
+            return true;
 
         if (sel.size() != 1)
             break;
@@ -529,13 +539,13 @@ bool Stash::show_menu(const level_pos &prefix, bool can_travel,
         item_def *item = static_cast<item_def *>(sel[0]->data);
         describe_item(*item);
     }
-    return (false);
+    return false;
 }
 
 std::string Stash::description() const
 {
     if (!enabled || items.empty())
-        return ("");
+        return "";
 
     const item_def &item = items[0];
     std::string desc = stash_item_name(item);
@@ -549,18 +559,12 @@ std::string Stash::description() const
                  (unsigned int) (sz - 1));
         desc += additionals;
     }
-    return (desc);
+    return desc;
 }
 
 std::string Stash::feature_description() const
 {
-    if (feat == DNGN_FLOOR)
-        return ("");
-
-    if (feat == DNGN_ENTER_PORTAL_VAULT)
-        return (::feature_description(coord_def(x, y), false));
-
-    return (::feature_description(feat, trap));
+    return feat_desc;
 }
 
 bool Stash::matches_search(const std::string &prefix,
@@ -568,7 +572,7 @@ bool Stash::matches_search(const std::string &prefix,
                            stash_search_result &res) const
 {
     if (!enabled || items.empty() && feat == DNGN_FLOOR)
-        return (false);
+        return false;
 
     for (unsigned i = 0; i < items.size(); ++i)
     {
@@ -750,13 +754,15 @@ void Stash::save(writer& outf) const
     marshallByte(outf, feat);
     marshallByte(outf, trap);
 
+    marshallString(outf, feat_desc);
+
     // Note: Enabled save value is inverted logic, so that it defaults to true
     marshallByte(outf, ((verified? 1 : 0) | (!enabled? 2 : 0)));
 
     // And dump the items individually. We don't bother saving fields we're
     // not interested in (and don't anticipate being interested in).
     for (unsigned i = 0; i < items.size(); ++i)
-        marshallItem(outf, items[i]);
+        marshallItem(outf, items[i], true);
 }
 
 void Stash::load(reader& inf)
@@ -769,6 +775,18 @@ void Stash::load(reader& inf)
 
     feat =  static_cast<dungeon_feature_type>(unmarshallUByte(inf));
     trap =  static_cast<trap_type>(unmarshallUByte(inf));
+#if TAG_MAJOR_VERSION == 33
+    if (trap == TRAP_AXED)
+        trap = TRAP_SPEAR;
+
+    if (inf.getMinorVersion() < TAG_MINOR_STASH_FEATDESC)
+    {
+        feat_desc = (is_boring_feature(feat)
+                     ? "" : ::feature_description(feat, trap));
+    }
+    else
+        feat_desc = unmarshallString(inf);
+#endif
 
     uint8_t flags = unmarshallUByte(inf);
     verified = (flags & 1) != 0;
@@ -820,7 +838,7 @@ std::string ShopInfo::shop_item_desc(const shop_item &si) const
 
     const iflags_t oldflags = si.item.flags;
 
-    if (shoptype_identifies_stock(static_cast<shop_type>(this->shoptype)))
+    if (shoptype_identifies_stock(static_cast<shop_type>(shoptype)))
         const_cast<shop_item&>(si).item.flags |= ISFLAG_IDENT_MASK;
 
     if (is_dumpable_artefact(si.item, false))
@@ -844,7 +862,7 @@ void ShopInfo::describe_shop_item(const shop_item &si) const
 {
     const iflags_t oldflags = si.item.flags;
 
-    if (shoptype_identifies_stock(static_cast<shop_type>(this->shoptype)))
+    if (shoptype_identifies_stock(static_cast<shop_type>(shoptype)))
         const_cast<shop_item&>(si).item.flags |= ISFLAG_IDENT_MASK
             | ISFLAG_NOTED_ID | ISFLAG_NOTED_GET;
 
@@ -926,7 +944,7 @@ bool ShopInfo::show_menu(const level_pos &place,
     {
         sel = menu.show();
         if (menu.getkey() == 1)
-            return (true);
+            return true;
 
         if (sel.size() != 1)
             break;
@@ -948,12 +966,12 @@ bool ShopInfo::show_menu(const level_pos &place,
             fill_out_menu(menu, place);
         }
     }
-    return (false);
+    return false;
 }
 
 std::string ShopInfo::description() const
 {
-    return (name);
+    return name;
 }
 
 bool ShopInfo::matches_search(const std::string &prefix,
@@ -961,7 +979,7 @@ bool ShopInfo::matches_search(const std::string &prefix,
                               stash_search_result &res) const
 {
     if (items.empty() && visited)
-        return (false);
+        return false;
 
     bool note_status = notes_are_active();
     activate_notes(false);
@@ -1060,7 +1078,7 @@ void ShopInfo::save(writer& outf) const
 
     for (unsigned i = 0; i < items.size(); ++i)
     {
-        marshallItem(outf, items[i].item);
+        marshallItem(outf, items[i].item, true);
         marshallShort(outf, (short) items[i].price);
     }
 }
@@ -1127,7 +1145,7 @@ const ShopInfo *LevelStashes::find_shop(const coord_def& c) const
         if (m_shops[i].isAt(c))
             return (&m_shops[i]);
 
-    return (NULL);
+    return NULL;
 }
 
 bool LevelStashes::shop_needs_visit(const coord_def& c) const
@@ -1136,19 +1154,29 @@ bool LevelStashes::shop_needs_visit(const coord_def& c) const
     return (shop && !shop->is_visited());
 }
 
-bool LevelStashes::needs_visit(const coord_def& c) const
+bool LevelStashes::needs_visit(const coord_def& c, bool autopickup,
+                               bool sacrifice) const
 {
     const Stash *s = find_stash(c);
-    if (s && (s->unverified() || s->pickup_eligible()))
-        return (true);
-
-    return (shop_needs_visit(c));
+    if (s && (s->unverified()
+              || sacrifice && s->sacrificeable()
+              || autopickup && s->pickup_eligible()))
+    {
+        return true;
+    }
+    return shop_needs_visit(c);
 }
 
 bool LevelStashes::unverified_stash(const coord_def &c) const
 {
     const Stash *s = find_stash(c);
     return (s && s->unverified());
+}
+
+bool LevelStashes::sacrificeable(const coord_def &c) const
+{
+    const Stash *s = find_stash(c);
+    return (s && s->sacrificeable());
 }
 
 ShopInfo &LevelStashes::get_shop(const coord_def& c)
@@ -1168,14 +1196,28 @@ ShopInfo &LevelStashes::get_shop(const coord_def& c)
 bool LevelStashes::update_stash(const coord_def& c)
 {
     Stash *s = find_stash(c);
-    if (s)
-    {
-        s->update();
-        if (s->empty())
-            kill_stash(*s);
-        return (true);
-    }
-    return (false);
+    if (!s)
+        return false;
+
+    s->update();
+    if (s->empty())
+        kill_stash(*s);
+    return true;
+}
+
+void LevelStashes::move_stash(const coord_def& from, const coord_def& to)
+{
+    ASSERT(from != to);
+
+    Stash *s = find_stash(from);
+    if (!s)
+        return;
+
+    int old_abs = s->abs_pos();
+    s->x = to.x;
+    s->y = to.y;
+    m_stashes.insert(std::pair<int, Stash>(s->abs_pos(), *s));
+    m_stashes.erase(old_abs);
 }
 
 // Removes a Stash from the level.
@@ -1243,7 +1285,7 @@ int LevelStashes::_num_enabled_stashes() const
 {
     int rawcount = m_stashes.size();
     if (!rawcount)
-        return (0);
+        return 0;
 
     for (stashes_t::const_iterator iter = m_stashes.begin();
             iter != m_stashes.end(); ++iter)
@@ -1425,9 +1467,6 @@ LevelStashes *StashTracker::find_level(const level_id &id)
 
 LevelStashes *StashTracker::find_current_level()
 {
-    if (is_level_untrackable())
-        return (NULL);
-
     return find_level(level_id::current());
 }
 
@@ -1440,9 +1479,16 @@ bool StashTracker::update_stash(const coord_def& c)
         bool res = lev->update_stash(c);
         if (!lev->stash_count())
             remove_level();
-        return (res);
+        return res;
     }
-    return (false);
+    return false;
+}
+
+void StashTracker::move_stash(const coord_def& from, const coord_def& to)
+{
+    LevelStashes *lev = find_current_level();
+    if (lev)
+        lev->move_stash(from, to);
 }
 
 void StashTracker::remove_level(const level_id &place)
@@ -1452,8 +1498,6 @@ void StashTracker::remove_level(const level_id &place)
 
 void StashTracker::no_stash(int x, int y)
 {
-    if (is_level_untrackable())
-        return ;
     LevelStashes &current = get_current_level();
     current.no_stash(x, y);
     if (!current.stash_count())
@@ -1462,8 +1506,6 @@ void StashTracker::no_stash(int x, int y)
 
 void StashTracker::add_stash(int x, int y, bool verbose)
 {
-    if (is_level_untrackable())
-        return ;
     LevelStashes &current = get_current_level();
     current.add_stash(x, y);
 
@@ -1534,12 +1576,8 @@ void StashTracker::load(reader& inf)
     }
 }
 
-void StashTracker::update_visible_stashes(
-                                    StashTracker::stash_update_mode mode)
+void StashTracker::update_visible_stashes(StashTracker::stash_update_mode mode)
 {
-    if (is_level_untrackable())
-        return;
-
     LevelStashes *lev = find_current_level();
     coord_def c;
     for (radius_iterator ri(you.get_los()); ri; ++ri)
@@ -1572,13 +1610,13 @@ std::string StashTracker::stash_search_prompt()
 {
     std::vector<std::string> opts;
     if (!lastsearch.empty())
-        opts.push_back(
-            make_stringf("Enter for \"%s\"", lastsearch.c_str()));
-    if (level_type_is_stash_trackable(you.level_type)
-        && lastsearch != ".")
     {
-        opts.push_back("? for help");
+        const std::string disp = replace_all(lastsearch, "<", "<<");
+        opts.push_back(
+            make_stringf("Enter for \"%s\"", disp.c_str()));
     }
+    if (lastsearch != ".")
+        opts.push_back("? for help");
 
     std::string prompt_qual =
         comma_separated_line(opts.begin(), opts.end(), ", or ", ", or ");
@@ -1610,7 +1648,7 @@ protected:
         if (ch == '?' && !pos)
         {
             *buffer = 0;
-            return (ch);
+            return ch;
         }
         return line_reader::process_key(ch);
     }
@@ -1648,7 +1686,7 @@ public:
             return (lhs.match < rhs.match);
         }
         else
-            return (false);
+            return false;
     }
 };
 
@@ -1675,7 +1713,7 @@ public:
             return (lhs.matches > rhs.matches);
         }
         else
-            return (false);
+            return false;
     }
 };
 
@@ -1683,8 +1721,8 @@ void StashTracker::search_stashes()
 {
     char buf[400];
 
-    this->update_corpses();
-    this->update_identification();
+    update_corpses();
+    update_identification();
 
     stash_search_reader reader(buf, sizeof buf);
 
@@ -1720,11 +1758,6 @@ void StashTracker::search_stashes()
 
     if (csearch == ".")
     {
-        if (!level_type_is_stash_trackable(you.level_type))
-        {
-            mpr("Cannot track items on this level.");
-            return;
-        }
 #if defined(REGEX_PCRE) || defined(REGEX_POSIX)
 #define RE_ESCAPE "\\"
 #else
@@ -1857,12 +1890,12 @@ bool StashSearchMenu::process_key(int key)
     if (key == '/')
     {
         request_toggle_sort_method = true;
-        return (false);
+        return false;
     }
     else if (key == '-')
     {
         request_toggle_show_as_stack = true;
-        return (false);
+        return false;
     }
 
     return Menu::process_key(key);
@@ -1927,7 +1960,7 @@ bool StashTracker::display_search_results(
     bool& show_as_stacks)
 {
     if (results_in.empty())
-        return (false);
+        return false;
 
     std::vector<stash_search_result> * results = &results_in;
     std::vector<stash_search_result> results_single_items;
@@ -2005,13 +2038,13 @@ bool StashTracker::display_search_results(
         if (stashmenu.request_toggle_sort_method)
         {
             sort_by_dist = !sort_by_dist;
-            return (true);
+            return true;
         }
 
         if (stashmenu.request_toggle_show_as_stack)
         {
             show_as_stacks = !show_as_stacks;
-            return (true);
+            return true;
         }
 
         if (sel.size() == 1
@@ -2029,7 +2062,7 @@ bool StashTracker::display_search_results(
                 if (show_map(lp, true, true, true))
                 {
                     start_translevel_travel(lp);
-                    return (false);
+                    return false;
                 }
             }
             continue;
@@ -2046,9 +2079,9 @@ bool StashTracker::display_search_results(
         if (show_map(lp, true, true, true))
             start_translevel_travel(lp);
         else
-            return (true);
+            return true;
     }
-    return (false);
+    return false;
 }
 
 void StashTracker::update_corpses()
@@ -2095,27 +2128,27 @@ ST_ItemIterator::operator bool() const
 
 const item_def& ST_ItemIterator::operator *() const
 {
-    return (*m_item);
+    return *m_item;
 }
 
 const item_def* ST_ItemIterator::operator->() const
 {
-    return (m_item);
+    return m_item;
 }
 
 const level_id &ST_ItemIterator::place()
 {
-    return (m_place);
+    return m_place;
 }
 
 const ShopInfo* ST_ItemIterator::shop()
 {
-    return (m_shop);
+    return m_shop;
 }
 
 unsigned        ST_ItemIterator::price()
 {
-    return (m_price);
+    return m_price;
 }
 
 const ST_ItemIterator& ST_ItemIterator::operator ++ ()
@@ -2131,10 +2164,10 @@ const ST_ItemIterator& ST_ItemIterator::operator ++ ()
         {
             m_stash_level_it++;
             if (m_stash_level_it == StashTrack.levels.end())
-                return (*this);
+                return *this;
 
             new_level();
-            return (*this);
+            return *this;
         }
         m_shop = &(*m_shop_it);
 
@@ -2144,7 +2177,7 @@ const ST_ItemIterator& ST_ItemIterator::operator ++ ()
             m_item  = &(item.item);
             ASSERT(m_item->defined());
             m_price = item.price;
-            return (*this);
+            return *this;
         }
 
         m_shop_it++;
@@ -2159,21 +2192,21 @@ const ST_ItemIterator& ST_ItemIterator::operator ++ ()
         {
             m_item = &(*m_stash_item_it++);
             ASSERT(m_item->defined());
-            return (*this);
+            return *this;
         }
 
         m_stash_it++;
         if (m_stash_it == ls.m_stashes.end())
         {
             ++(*this);
-            return (*this);
+            return *this;
         }
 
         m_stash_item_it = m_stash_it->second.items.begin();
         ++(*this);
     }
 
-    return (*this);
+    return *this;
 }
 
 void ST_ItemIterator::new_level()
@@ -2222,7 +2255,7 @@ ST_ItemIterator ST_ItemIterator::operator ++ (int dummy)
 {
     const ST_ItemIterator copy = *this;
     ++(*this);
-    return (copy);
+    return copy;
 }
 
 bool stash_search_result::show_menu() const

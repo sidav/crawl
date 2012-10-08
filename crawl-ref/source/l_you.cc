@@ -18,12 +18,12 @@
 #include "libutil.h"
 #include "newgame.h"
 #include "ng-setup.h"
-#include "mapmark.h"
 #include "misc.h"
 #include "mon-util.h"
 #include "mutation.h"
 #include "jobs.h"
 #include "ouch.h"
+#include "place.h"
 #include "religion.h"
 #include "shopping.h"
 #include "species.h"
@@ -44,33 +44,6 @@ module "you"
 /////////////////////////////////////////////////////////////////////
 // Bindings to get information on the player (clua).
 //
-
-static const char *transform_name()
-{
-    switch (you.form)
-    {
-    case TRAN_SPIDER:
-        return "spider";
-    case TRAN_BAT:
-        return "bat";
-    case TRAN_BLADE_HANDS:
-        return "blade";
-    case TRAN_STATUE:
-        return "statue";
-    case TRAN_ICE_BEAST:
-        return "ice";
-    case TRAN_DRAGON:
-        return "dragon";
-    case TRAN_LICH:
-        return "lich";
-    case TRAN_PIG:
-        return "pig";
-    case TRAN_APPENDAGE:
-        return "appendage";
-    default:
-        return "";
-    }
-}
 
 /*
 --- Has player done something that takes time?
@@ -120,19 +93,20 @@ LUARET1(you_god_likes_fresh_corpses, boolean,
         god_likes_fresh_corpses(you.religion))
 LUARET2(you_hp, number, you.hp, you.hp_max)
 LUARET2(you_mp, number, you.magic_points, you.max_magic_points)
-LUARET1(you_hunger, string, hunger_level())
+LUARET1(you_hunger, number, you.hunger_state)
+LUARET1(you_hunger_name, string, hunger_level())
 LUARET2(you_strength, number, you.strength(), you.max_strength())
 LUARET2(you_intelligence, number, you.intel(), you.max_intel())
 LUARET2(you_dexterity, number, you.dex(), you.max_dex())
 LUARET1(you_xl, number, you.experience_level)
 LUARET1(you_xl_progress, number, get_exp_progress())
-LUARET1(you_skill, number,
-        lua_isstring(ls, 1) ? you.skills[str_to_skill(lua_tostring(ls, 1))]
-                            : 0)
 LUARET1(you_skill_progress, number,
         lua_isstring(ls, 1)
             ? get_skill_percentage(str_to_skill(lua_tostring(ls, 1)))
             : 0)
+LUARET1(you_can_train_skill, boolean,
+        lua_isstring(ls, 1) ? you.can_train[str_to_skill(lua_tostring(ls, 1))]
+                            : false)
 LUARET1(you_res_poison, number, player_res_poison(false))
 LUARET1(you_res_fire, number, player_res_fire(false))
 LUARET1(you_res_cold, number, player_res_cold(false))
@@ -147,7 +121,7 @@ LUARET1(you_like_chunks, number, player_likes_chunks(true))
 LUARET1(you_saprovorous, number, player_mutation_level(MUT_SAPROVOROUS))
 LUARET1(you_levitating, boolean, you.flight_mode() == FL_LEVITATE)
 LUARET1(you_flying, boolean, you.flight_mode() == FL_FLY)
-LUARET1(you_transform, string, transform_name())
+LUARET1(you_transform, string, you.form ? transform_name() : "")
 LUARET1(you_berserk, boolean, you.berserk())
 LUARET1(you_confused, boolean, you.confused())
 LUARET1(you_shrouded, boolean, you.duration[DUR_SHROUD_OF_GOLUBRIA])
@@ -172,11 +146,12 @@ LUARET1(you_lives, number, you.lives)
 
 LUARET1(you_where, string, level_id::current().describe().c_str())
 LUARET1(you_branch, string, level_id::current().describe(false, false).c_str())
-LUARET1(you_subdepth, number, level_id::current().depth)
+LUARET1(you_depth, number, you.depth)
 // [ds] Absolute depth is 1-based for Lua to match things like DEPTH:
 // which are also 1-based. Yes, this is confusing. FIXME: eventually
 // change you.absdepth0 to be 1-based as well.
-LUARET1(you_absdepth, number, you.absdepth0 + 1)
+// [1KB] FIXME: eventually eliminate the notion of absolute depth at all.
+LUARET1(you_absdepth, number, env.absdepth0 + 1)
 LUAWRAP(you_stop_activity, interrupt_activity(AI_FORCE_INTERRUPT))
 LUARET1(you_taking_stairs, boolean,
         current_delay_action() == DELAY_ASCENDING_STAIRS
@@ -185,7 +160,6 @@ LUARET1(you_turns, number, you.num_turns)
 LUARET1(you_time, number, you.elapsed_time)
 LUARET1(you_can_smell, boolean, you.can_smell())
 LUARET1(you_has_claws, number, you.has_claws(false))
-LUARET1(you_level_type_tag, string, you.level_type_tag.c_str())
 
 LUARET1(you_see_cell_rel, boolean,
         you.see_cell(coord_def(luaL_checkint(ls, 1), luaL_checkint(ls, 2)) + you.pos()))
@@ -194,6 +168,8 @@ LUARET1(you_see_cell_no_trans_rel, boolean,
 LUARET1(you_piety_rank, number, piety_rank(you.piety) - 1)
 LUARET1(you_max_burden, number, carrying_capacity(BS_UNENCUMBERED))
 LUARET1(you_burden, number, you.burden)
+LUARET1(you_constricted, boolean, you.is_constricted())
+LUARET1(you_constricting, boolean, you.is_constricting())
 
 static int l_you_genus(lua_State *ls)
 {
@@ -203,14 +179,13 @@ static int l_you_genus(lua_State *ls)
     if (plural)
         genus = pluralise(genus);
     lua_pushstring(ls, genus.c_str());
-    return (1);
+    return 1;
 }
 
-void lua_push_floor_items(lua_State *ls, int link);
 static int you_floor_items(lua_State *ls)
 {
     lua_push_floor_items(ls, env.igrid(you.pos()));
-    return (1);
+    return 1;
 }
 
 static int l_you_spells(lua_State *ls)
@@ -226,7 +201,7 @@ static int l_you_spells(lua_State *ls)
         lua_pushstring(ls, spell_title(spell));
         lua_rawseti(ls, -2, ++index);
     }
-    return (1);
+    return 1;
 }
 
 static int l_you_spell_letters(lua_State *ls)
@@ -247,7 +222,7 @@ static int l_you_spell_letters(lua_State *ls)
         lua_pushstring(ls, buf);
         lua_rawseti(ls, -2, ++index);
     }
-    return (1);
+    return 1;
 }
 
 static int l_you_abils(lua_State *ls)
@@ -260,7 +235,7 @@ static int l_you_abils(lua_State *ls)
         lua_pushstring(ls, abils[i]);
         lua_rawseti(ls, -2, i + 1);
     }
-    return (1);
+    return 1;
 }
 
 static int l_you_abil_letters(lua_State *ls)
@@ -277,7 +252,7 @@ static int l_you_abil_letters(lua_State *ls)
         lua_pushstring(ls, buf);
         lua_rawseti(ls, -2, i + 1);
     }
-    return (1);
+    return 1;
 }
 
 static int you_can_consume_corpses(lua_State *ls)
@@ -286,7 +261,7 @@ static int you_can_consume_corpses(lua_State *ls)
                     can_ingest(OBJ_FOOD, FOOD_CHUNK, true, false)
                     || can_ingest(OBJ_CORPSES, CORPSE_BODY, true, false)
                   );
-    return (1);
+    return 1;
 }
 
 LUAFN(you_caught)
@@ -296,7 +271,7 @@ LUAFN(you_caught)
     else
         lua_pushnil(ls);
 
-    return (1);
+    return 1;
 }
 
 LUAFN(you_mutation)
@@ -310,14 +285,48 @@ LUAFN(you_mutation)
 
         const mutation_def& mdef = get_mutation_def(mut);
         if (!strcmp(mutname.c_str(), mdef.wizname))
-        {
             PLUARET(integer, you.mutation[mut]);
-        }
     }
 
     std::string err = make_stringf("No such mutation: '%s'.", mutname.c_str());
-    return (luaL_argerror(ls, 1, err.c_str()));
+    return luaL_argerror(ls, 1, err.c_str());
 }
+
+LUAFN(you_is_level_on_stack)
+{
+    std::string levname = luaL_checkstring(ls, 1);
+    level_id lev;
+    try
+    {
+        lev = level_id::parse_level_id(levname);
+    }
+    catch (const std::string &err)
+    {
+        return luaL_argerror(ls, 1, err.c_str());
+    }
+
+    PLUARET(boolean, is_level_on_stack(lev));
+}
+
+LUAFN(you_skill)
+{
+    skill_type sk = str_to_skill(luaL_checkstring(ls, 1));
+
+    PLUARET(number, you.skill(sk, 10) * 0.1);
+}
+
+LUAFN(you_train_skill)
+{
+    skill_type sk = str_to_skill(luaL_checkstring(ls, 1));
+    if (lua_gettop(ls) >= 2 && you.can_train[sk])
+    {
+        you.train[sk] = std::min(std::max(luaL_checkint(ls, 2), 0), 2);
+        reset_training();
+    }
+
+    PLUARET(number, you.train[sk]);
+}
+
 
 static const struct luaL_reg you_clib[] =
 {
@@ -339,11 +348,14 @@ static const struct luaL_reg you_clib[] =
     { "hp"          , you_hp },
     { "mp"          , you_mp },
     { "hunger"      , you_hunger },
+    { "hunger_name" , you_hunger_name },
     { "strength"    , you_strength },
     { "intelligence", you_intelligence },
     { "dexterity"   , you_dexterity },
     { "skill"       , you_skill },
     { "skill_progress", you_skill_progress },
+    { "can_train_skill", you_can_train_skill },
+    { "train_skill", you_train_skill },
     { "xl"          , you_xl },
     { "xl_progress" , you_xl_progress },
     { "res_poison"  , you_res_poison },
@@ -386,6 +398,8 @@ static const struct luaL_reg you_clib[] =
     { "piety_rank",   you_piety_rank },
     { "max_burden",   you_max_burden },
     { "burden",       you_burden },
+    { "constricted",  you_constricted },
+    { "constricting", you_constricting },
 
     { "god_likes_fresh_corpses",  you_god_likes_fresh_corpses },
     { "can_consume_corpses",      you_can_consume_corpses },
@@ -397,13 +411,12 @@ static const struct luaL_reg you_clib[] =
 
     { "where",        you_where },
     { "branch",       you_branch },
-    { "subdepth",     you_subdepth },
+    { "depth",        you_depth },
     { "absdepth",     you_absdepth },
+    { "is_level_on_stack", you_is_level_on_stack },
 
     { "can_smell",         you_can_smell },
     { "has_claws",         you_has_claws },
-
-    { "level_type_tag",    you_level_type_tag },
 
     { "see_cell",          you_see_cell_rel },
     { "see_cell_no_trans", you_see_cell_no_trans_rel },
@@ -433,13 +446,11 @@ LUARET1(you_see_cell, boolean,
 LUARET1(you_see_cell_no_trans, boolean,
         you.see_cell_no_trans(coord_def(luaL_checkint(ls, 1), luaL_checkint(ls, 2))))
 
-LUARET1(you_piety, number, you.piety)
-
 LUAFN(you_stop_running)
 {
     stop_running();
 
-    return (0);
+    return 0;
 }
 
 LUAFN(you_moveto)
@@ -447,7 +458,7 @@ LUAFN(you_moveto)
     const coord_def place(luaL_checkint(ls, 1), luaL_checkint(ls, 2));
     ASSERT(map_bounds(place));
     you.moveto(place);
-    return (0);
+    return 0;
 }
 
 LUAFN(you_teleport_to)
@@ -459,13 +470,13 @@ LUAFN(you_teleport_to)
 
     lua_pushboolean(ls, you_teleport_to(place, move_monsters));
 
-    return (1);
+    return 1;
 }
 
 LUAFN(you_random_teleport)
 {
     you_teleport_now(false, false);
-    return (0);
+    return 0;
 }
 
 static int _you_uniques(lua_State *ls)
@@ -476,7 +487,7 @@ static int _you_uniques(lua_State *ls)
         unique_found = you.unique_creatures[get_monster_by_name(lua_tostring(ls, 1))];
 
     lua_pushboolean(ls, unique_found);
-    return (1);
+    return 1;
 }
 
 LUARET1(you_num_runes, number, runes_in_pack())
@@ -497,7 +508,7 @@ static int _you_have_rune(lua_State *ls)
     if (which_rune >= 0 && which_rune < NUM_RUNE_TYPES)
         have_rune = you.runes[which_rune];
     lua_pushboolean(ls, have_rune);
-    return (1);
+    return 1;
 }
 
 static int _you_gold(lua_State *ls)
@@ -517,6 +528,18 @@ static int _you_gold(lua_State *ls)
 
 LUAWRAP(_you_die,ouch(INSTANT_DEATH, NON_MONSTER, KILLED_BY_SOMETHING))
 
+static int _you_piety(lua_State *ls)
+{
+    if (lua_gettop(ls) >= 1)
+    {
+        const int new_piety = std::min(std::max(luaL_checkint(ls, 1), 0), MAX_PIETY);
+        while (new_piety > you.piety)
+            gain_piety(new_piety - you.piety, 1, true, false);
+        lose_piety(you.piety - new_piety);
+    }
+    PLUARET(number, you.piety);
+}
+
 LUAFN(you_in_branch)
 {
     const char* name = luaL_checkstring(ls, 1);
@@ -535,7 +558,7 @@ LUAFN(you_in_branch)
                     "'%s' matches both branch '%s' and '%s'",
                     name, branches[br].abbrevname,
                     branches[i].abbrevname);
-                return (luaL_argerror(ls, 1, err.c_str()));
+                return luaL_argerror(ls, 1, err.c_str());
             }
             br = i;
         }
@@ -544,7 +567,7 @@ LUAFN(you_in_branch)
     if (br == NUM_BRANCHES)
     {
         std::string err = make_stringf("'%s' matches no branches.", name);
-        return (luaL_argerror(ls, 1, err.c_str()));
+        return luaL_argerror(ls, 1, err.c_str());
     }
 
     bool in_branch = (br == you.where_are_you);
@@ -634,7 +657,7 @@ static const struct luaL_reg you_dlib[] =
 { "num_runes",          you_num_runes },
 { "have_rune",          _you_have_rune },
 { "die",                _you_die },
-{ "piety",              you_piety },
+{ "piety",              _you_piety },
 { "in_branch",          you_in_branch },
 { "shopping_list_has",  _you_shopping_list_has },
 { "shopping_list_add",  _you_shopping_list_add },

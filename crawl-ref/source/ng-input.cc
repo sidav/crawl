@@ -1,5 +1,6 @@
 #include "AppHdr.h"
 
+#include <wctype.h>
 #include "ng-input.h"
 
 #include "cio.h"
@@ -47,8 +48,6 @@ void opening_screen(void)
     }
 
     msg += "\n";
-    msg += "<lightgreen>Take part in the 2012 survey:</lightgreen> "
-    "http://crawl.develz.org/wordpress/survey\n";
 
     formatted_string::parse_string(msg).display();
     textcolor(LIGHTGREY);
@@ -70,14 +69,14 @@ bool is_good_name(const std::string& name, bool blankOK, bool verbose)
     if (name.empty())
     {
         if (blankOK)
-            return (true);
+            return true;
 
         if (verbose)
             cprintf("\nThat's a silly name!\n");
-        return (false);
+        return false;
     }
 
-    return (validate_player_name(name, verbose));
+    return validate_player_name(name, verbose);
 }
 
 static bool _read_player_name(std::string &name)
@@ -100,11 +99,11 @@ static bool _read_player_name(std::string &name)
         if (!ret)
         {
             name = buf;
-            return (true);
+            return true;
         }
 
         if (key_is_escape(ret))
-            return (false);
+            return false;
 
         // Go back and prompt the user.
     }
@@ -139,7 +138,7 @@ bool validate_player_name(const std::string &name, bool verbose)
     {
         if (verbose)
             cprintf("\nSorry, that name gives your OS a headache.\n");
-        return (false);
+        return false;
     }
 #endif
 
@@ -147,7 +146,7 @@ bool validate_player_name(const std::string &name, bool verbose)
     {
         if (verbose)
             cprintf("\nThat name is too long.\n");
-        return (false);
+        return false;
     }
 
     ucs_t c;
@@ -167,9 +166,9 @@ bool validate_player_name(const std::string &name, bool verbose)
                         "and underscores only, please."
                         "\n");
             }
-            return (false);
+            return false;
         }
     }
 
-    return (true);
+    return true;
 }

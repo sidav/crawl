@@ -14,6 +14,7 @@
 #include "env.h"
 #include "goditem.h"
 #include "itemprop.h"
+#include "libutil.h"
 #include "message.h"
 #include "mon-behv.h"
 #include "mon-iter.h"
@@ -29,6 +30,7 @@
 
 static void _jiyva_convert_slime(monster* slime);
 static void _fedhas_neutralise_plant(monster* plant);
+static void _good_god_holy_fail_attitude_change(monster* holy);
 
 
 void good_god_follower_attitude_change(monster* mons)
@@ -60,14 +62,14 @@ void good_god_follower_attitude_change(monster* mons)
                 msg::stream << mons->name(DESC_THE)
                             << " glares at your weapon."
                             << std::endl;
-                good_god_holy_fail_attitude_change(mons);
+                _good_god_holy_fail_attitude_change(mons);
                 return;
             }
             good_god_holy_attitude_change(mons);
             stop_running();
         }
         else
-            good_god_holy_fail_attitude_change(mons);
+            _good_god_holy_fail_attitude_change(mons);
     }
 }
 
@@ -168,7 +170,7 @@ bool make_god_gifts_disappear()
         }
     }
 
-    return (count);
+    return count;
 }
 
 // When under penance, Yredelemnulites can lose all nearby undead slaves.
@@ -198,7 +200,7 @@ bool yred_slaves_abandon_you()
             }
 
             mons->attitude = ATT_HOSTILE;
-            behaviour_event(mons, ME_ALERT, MHITYOU);
+            behaviour_event(mons, ME_ALERT, &you);
             // For now CREATED_FRIENDLY stays.
             mons_att_changed(mons);
 
@@ -214,10 +216,10 @@ bool yred_slaves_abandon_you()
             simple_god_message(" reclaims your granted undead slaves!");
         else
             simple_god_message(" reclaims some of your granted undead slaves!");
-        return (true);
+        return true;
     }
 
-    return (false);
+    return false;
 }
 
 // When under penance, Beoghites can lose all nearby orcish followers,
@@ -256,7 +258,7 @@ bool beogh_followers_abandon_you()
                 }
 
                 mons->attitude = ATT_HOSTILE;
-                behaviour_event(mons, ME_ALERT, MHITYOU);
+                behaviour_event(mons, ME_ALERT, &you);
                 // For now CREATED_FRIENDLY stays.
                 mons_att_changed(mons);
 
@@ -287,10 +289,10 @@ bool beogh_followers_abandon_you()
 
         chan << std::endl;
 
-        return (true);
+        return true;
     }
 
-    return (false);
+    return false;
 }
 
 static void _print_good_god_holy_being_speech(bool neutral,
@@ -343,12 +345,12 @@ void good_god_holy_attitude_change(monster* holy)
     holy->god = GOD_SHINING_ONE;
 
     // Avoid immobile "followers".
-    behaviour_event(holy, ME_ALERT, MHITNOT);
+    behaviour_event(holy, ME_ALERT);
 
     mons_att_changed(holy);
 }
 
-void good_god_holy_fail_attitude_change(monster* holy)
+static void _good_god_holy_fail_attitude_change(monster* holy)
 {
     ASSERT(holy->is_holy());
 
@@ -433,7 +435,7 @@ void beogh_convert_orc(monster* orc, bool emergency,
         orc->hit_points = std::min(random_range(1, 4), orc->max_hit_points);
 
     // Avoid immobile "followers".
-    behaviour_event(orc, ME_ALERT, MHITNOT);
+    behaviour_event(orc, ME_ALERT);
 
     mons_att_changed(orc);
 }

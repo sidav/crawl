@@ -80,15 +80,19 @@ class InvEntry : public MenuEntry
 private:
     static bool show_prices;
     static bool show_glyph;
-    static bool show_cursor;
 
     mutable std::string basename;
     mutable std::string qualname;
 
+protected:
+    static bool show_cursor;
+    // Should we show the floor tile, etc?
+    bool show_background;
+
 public:
     const item_def *item;
 
-    InvEntry(const item_def &i);
+    InvEntry(const item_def &i, bool show_bg = false);
     std::string get_text(const bool need_cursor = false) const;
     void set_show_glyph(bool doshow);
     static void set_show_cursor(bool doshow);
@@ -142,8 +146,9 @@ public:
     // Loads items into the menu. If "procfn" is provided, it'll be called
     // for each MenuEntry added.
     // NOTE: Does not set menu title, ever! You *must* set the title explicitly
-    void load_items(const std::vector<const item_def*> &items,
-                    MenuEntry *(*procfn)(MenuEntry *me) = NULL);
+    menu_letter load_items(const std::vector<const item_def*> &items,
+                           MenuEntry *(*procfn)(MenuEntry *me) = NULL,
+                           menu_letter ckey = 'a');
 
     // Loads items from the player's inventory into the menu, and sets the
     // title to the stock title. If "procfn" is provided, it'll be called for
@@ -166,13 +171,17 @@ protected:
     bool process_key(int key);
     void do_preselect(InvEntry *ie);
     virtual bool is_selectable(int index) const;
+    virtual bool allow_easy_exit() const;
 
 protected:
     menu_type type;
     const std::vector<SelItem> *pre_select;
 
     invtitle_annotator title_annotate;
+    std::string temp_title;
 };
+
+void get_class_hotkeys(const int type, std::vector<char> &glyphs);
 
 bool any_items_to_select(int type_expect, bool msg = false, int excluded_slot = -1);
 
@@ -205,21 +214,6 @@ std::vector<SelItem> prompt_invent_items(
                         std::vector<text_pattern> *filter = NULL,
                         Menu::selitem_tfn fn = NULL,
                         const std::vector<SelItem> *pre_select = NULL);
-
-
-unsigned char invent_select(
-                   // Use NULL for stock Inventory title
-                   const char *title = NULL,
-                   // MT_DROP allows the multidrop toggle
-                   menu_type type = MT_INVLIST,
-                   int item_selector = OSEL_ANY,
-                   int excluded_slot = -1,
-                   int menu_select_flags = MF_NOSELECT,
-                   invtitle_annotator titlefn = NULL,
-                   std::vector<SelItem> *sels = NULL,
-                   std::vector<text_pattern> *filter = NULL,
-                   Menu::selitem_tfn fn = NULL,
-                   const std::vector<SelItem> *pre_select = NULL);
 
 void browse_inventory();
 unsigned char get_invent(int invent_type);

@@ -40,7 +40,6 @@
 #include "random.h"
 #include "religion.h"
 #include "shout.h"
-#include "spl-book.h"
 #include "spl-util.h"
 #include "spl-cast.h"
 #include "spl-clouds.h"
@@ -64,6 +63,7 @@ static bool _valid_mon_spells[NUM_SPELLS];
 static int  _mons_mesmerise(monster* mons, bool actual = true);
 static int  _mons_cause_fear(monster* mons, bool actual = true);
 static bool _mons_drain_life(monster* mons, bool actual = true);
+static bool _mons_ozocubus_refrigeration(monster *mons, bool actual = true);
 
 void init_mons_spells()
 {
@@ -90,7 +90,7 @@ void init_mons_spells()
 bool is_valid_mon_spell(spell_type spell)
 {
     if (spell < 0 || spell >= NUM_SPELLS)
-        return (false);
+        return false;
 
     return (_valid_mon_spells[spell]);
 }
@@ -111,6 +111,7 @@ static void _scale_draconian_breath(bolt& beam, int drac_type)
         beam.aux_source = "blast of chilling breath";
         beam.short_name = "frost";
         scaling         = 65;
+        beam.ac_rule    = AC_NONE;
         break;
 
     case MONS_PLAYER_GHOST: // draconians only
@@ -146,7 +147,7 @@ static spell_type _draco_type_to_breath(int drac_type)
         break;
     }
 
-    return (SPELL_DRACONIAN_BREATH);
+    return SPELL_DRACONIAN_BREATH;
 }
 
 static bool _flavour_benefits_monster(beam_type flavour, monster& monster)
@@ -154,13 +155,13 @@ static bool _flavour_benefits_monster(beam_type flavour, monster& monster)
     switch (flavour)
     {
     case BEAM_HASTE:
-        return (!monster.has_ench(ENCH_HASTE));
+        return !monster.has_ench(ENCH_HASTE);
 
     case BEAM_MIGHT:
-        return (!monster.has_ench(ENCH_MIGHT));
+        return !monster.has_ench(ENCH_MIGHT);
 
     case BEAM_INVISIBILITY:
-        return (!monster.has_ench(ENCH_INVIS));
+        return !monster.has_ench(ENCH_INVIS);
 
     case BEAM_HEALING:
         return (monster.hit_points != monster.max_hit_points);
@@ -218,11 +219,11 @@ static bool _set_allied_target(monster* caster, bolt & pbolt)
     if (selected_target)
     {
         pbolt.target = selected_target->pos();
-        return (true);
+        return true;
     }
 
     // Didn't find a target
-    return (false);
+    return false;
 }
 
 bolt mons_spells(monster* mons, spell_type spell_cast, int power,
@@ -255,7 +256,7 @@ bolt mons_spells(monster* mons, spell_type spell_cast, int power,
             beam.range = (power >= 20) ? 2 : 1;
             break;
         default:
-        beam.range = spell_range(spell_cast, power, true, false);
+        beam.range = spell_range(spell_cast, power, false);
      }
 
     const int drac_type = (mons_genus(mons->type) == MONS_DRACONIAN)
@@ -623,12 +624,15 @@ bolt mons_spells(monster* mons, spell_type spell_cast, int power,
         beam.is_beam    = true;
         break;
 
+    case SPELL_STICKY_FLAME:
+        beam.hit = AUTOMATIC_HIT;
     case SPELL_STICKY_FLAME_SPLASH:
     case SPELL_STICKY_FLAME_RANGE:
+        if (real_spell != SPELL_STICKY_FLAME)
+            beam.hit      = 18 + power / 15;
         beam.colour   = RED;
         beam.name     = "sticky flame";
         beam.damage   = dice_def(3, 3 + power / 50);
-        beam.hit      = 18 + power / 15;
         beam.flavour  = BEAM_FIRE;
         break;
 
@@ -636,7 +640,7 @@ bolt mons_spells(monster* mons, spell_type spell_cast, int power,
         beam.name     = "noxious blast";
         beam.damage   = dice_def(1, 0);
         beam.colour   = GREEN;
-        beam.flavour  = BEAM_POTION_STINKING_CLOUD;
+        beam.flavour  = BEAM_POTION_MEPHITIC;
         beam.hit      = 18 + power / 25;
         beam.is_beam  = true;
         beam.is_big_cloud = true;
@@ -726,7 +730,7 @@ bolt mons_spells(monster* mons, spell_type spell_cast, int power,
         beam.damage   = dice_def(1, 0);
         beam.colour   = GREEN;
         // Well, it works, even if the name isn't quite intuitive.
-        beam.flavour  = BEAM_POTION_STINKING_CLOUD;
+        beam.flavour  = BEAM_POTION_MEPHITIC;
         beam.hit      = 14 + power / 30;
         beam.ench_power = power; // probably meaningless
         beam.is_explosion = true;
@@ -935,22 +939,32 @@ bolt mons_spells(monster* mons, spell_type spell_cast, int power,
         beam.is_explosion = true;
         break;
 
+    case SPELL_ENSNARE:
+        beam.name     = "ensnaring beam";
+        beam.colour   = WHITE;
+        beam.glyph    = dchar_glyph(DCHAR_FIRED_MISSILE);
+        beam.flavour  = BEAM_ENSNARE;
+        beam.hit      = 22 + power / 20;
+        break;
+
     default:
         if (check_validity)
         {
             beam.flavour = NUM_BEAMS;
-            return (beam);
+            return beam;
         }
 
         if (!is_valid_spell(real_spell))
+        {
             die("Invalid spell #%d cast by %s", (int) real_spell,
                      mons->name(DESC_PLAIN, true).c_str());
+        }
 
         die("Unknown monster spell '%s' cast by %s",
                  spell_title(real_spell),
                  mons->name(DESC_PLAIN, true).c_str());
 
-        return (beam);
+        return beam;
     }
 
     if (beam.is_enchantment())
@@ -986,7 +1000,7 @@ bolt mons_spells(monster* mons, spell_type spell_cast, int power,
         }
     }
 
-    return (beam);
+    return beam;
 }
 
 static bool _los_free_spell(spell_type spell_cast)
@@ -1041,7 +1055,7 @@ bool setup_mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
         case SPELL_SACRIFICE:
         case SPELL_AIRSTRIKE:
         case SPELL_HOLY_FLAMES:
-            return (true);
+            return true;
         default:
             // Other spells get normal setup:
             break;
@@ -1052,7 +1066,6 @@ bool setup_mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
     // fire_tracer, or beam.
     switch (spell_cast)
     {
-    case SPELL_TUKIMAS_BALL:
     case SPELL_STICKS_TO_SNAKES:
     case SPELL_SUMMON_SMALL_MAMMALS:
     case SPELL_VAMPIRIC_DRAINING:
@@ -1118,7 +1131,6 @@ bool setup_mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
     case SPELL_SUMMON_CANIFORMS:
     case SPELL_SUMMON_SPECTRAL_ORCS:
     case SPELL_SUMMON_HOLIES:
-    case SPELL_SUMMON_GREATER_HOLY:
     case SPELL_REGENERATION:
     case SPELL_CORPSE_ROT:
     case SPELL_LEDAS_LIQUEFACTION:
@@ -1126,7 +1138,9 @@ bool setup_mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
     case SPELL_SUMMON_HYDRA:
     case SPELL_FIRE_SUMMON:
     case SPELL_DEATHS_DOOR:
-        return (true);
+    case SPELL_OZOCUBUS_ARMOUR:
+    case SPELL_OZOCUBUS_REFRIGERATION:
+        return true;
     default:
         if (check_validity)
         {
@@ -1205,13 +1219,13 @@ bool setup_mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
         {
             pbolt.target = targ->pos();
 #ifdef DEBUG_DIAGNOSTICS
-            mprf("Porkalator: targeting %s instead",
+            mprf("Porkalator: targetting %s instead",
                  targ->name(DESC_PLAIN).c_str());
 #endif
         }
         // else target remains as specified
     }
-    return (true);
+    return true;
 }
 
 // Returns a suitable breath weapon for the draconian; does not handle all
@@ -1248,7 +1262,7 @@ static spell_type _get_draconian_breath_spell(monster* mons)
             draco_breath = SPELL_NO_SPELL;
     }
 
-    return (draco_breath);
+    return draco_breath;
 }
 
 static bool _is_emergency_spell(const monster_spells &msp, int spell)
@@ -1257,7 +1271,7 @@ static bool _is_emergency_spell(const monster_spells &msp, int spell)
     // escape spell.
     for (int i = 0; i < 5; ++i)
         if (msp[i] == spell)
-            return (false);
+            return false;
 
     return (msp[5] == spell);
 }
@@ -1270,18 +1284,18 @@ static bool _animate_dead_okay(spell_type spell)
 {
     // It's always okay in the arena.
     if (crawl_state.game_is_arena())
-        return (true);
+        return true;
 
     if (is_butchering() || is_vampire_feeding())
-        return (false);
+        return false;
 
     if (you.hunger_state < HS_SATIATED && you.mutation[MUT_HERBIVOROUS] < 3)
-        return (false);
+        return false;
 
     if (god_hates_spell(spell, you.religion))
-        return (false);
+        return false;
 
-    return (true);
+    return true;
 }
 
 // Spells that work even if magic is off.  Be careful to not add ones which
@@ -1294,6 +1308,431 @@ static bool _is_physiological_spell(spell_type spell)
         || spell == SPELL_POISON_SPLASH
         || spell == SPELL_HOLY_BREATH
         || spell == SPELL_FIRE_BREATH;
+}
+
+// Returns true if the spell is something you wouldn't want done if
+// you had a friendly target...  only returns a meaningful value for
+// non-beam spells.
+static bool _ms_direct_nasty(spell_type monspell)
+{
+    return (spell_needs_foe(monspell)
+            && !spell_typematch(monspell, SPTYP_SUMMONING));
+}
+
+// Checks if the foe *appears* to be immune to negative energy.  We
+// can't just use foe->res_negative_energy(), because that'll mean
+// monsters will just "know" whether a player is fully life-protected.
+static bool _foe_should_res_negative_energy(const actor* foe)
+{
+    const mon_holy_type holiness = foe->holiness();
+
+    if (foe->is_player())
+    {
+        // Non-bloodless vampires do not appear immune.
+        if (holiness == MH_UNDEAD
+            && you.is_undead == US_SEMI_UNDEAD
+            && you.hunger_state > HS_STARVING)
+        {
+            return false;
+        }
+
+        // Demonspawn do not appear immune.
+        if (holiness == MH_DEMONIC)
+            return false;
+
+        // Nor do statues (they only have partial resistance).
+        if (you.form == TRAN_STATUE)
+            return false;
+    }
+
+    return (holiness != MH_NATURAL);
+}
+
+// Checks to see if a particular spell is worth casting in the first place.
+static bool _ms_waste_of_time(const monster* mon, spell_type monspell)
+{
+    bool ret = false;
+    actor *foe = mon->get_foe();
+
+    // Keep friendly summoners from spamming summons constantly.
+    if (mon->friendly()
+        && (!foe || foe->is_player())
+        && spell_typematch(monspell, SPTYP_SUMMONING))
+    {
+        return true;
+    }
+
+    if (!mon->wont_attack())
+    {
+        if (spell_harms_area(monspell) && env.sanctuary_time > 0)
+            return true;
+
+        if (spell_harms_target(monspell) && is_sanctuary(mon->target))
+            return true;
+    }
+
+    if (mons_genus(mon->type) == MONS_DRAGON && mon->has_ench(ENCH_BREATH_WEAPON))
+        return true;
+
+    // Eventually, we'll probably want to be able to have monsters
+    // learn which of their elemental bolts were resisted and have those
+    // handled here as well. - bwr
+    switch (monspell)
+    {
+    case SPELL_CALL_TIDE:
+        return (!player_in_branch(BRANCH_SHOALS)
+                || mon->has_ench(ENCH_TIDE)
+                || !foe
+                || (grd(mon->pos()) == DNGN_DEEP_WATER
+                    && grd(foe->pos()) == DNGN_DEEP_WATER));
+
+    case SPELL_BRAIN_FEED:
+        ret = (!foe || !foe->is_player());
+        break;
+
+    case SPELL_VAMPIRIC_DRAINING:
+        if (!foe
+            || mon->hit_points + 1 >= mon->max_hit_points
+            || grid_distance(mon->pos(), foe->pos()) > 1)
+        {
+            ret = true;
+        }
+    // fall through
+    case SPELL_BOLT_OF_DRAINING:
+    case SPELL_AGONY:
+    case SPELL_SYMBOL_OF_TORMENT:
+        if (!foe || _foe_should_res_negative_energy(foe))
+            ret = true;
+        break;
+    case SPELL_MIASMA:
+        ret = (!foe || foe->res_rotting());
+        break;
+
+    case SPELL_DISPEL_UNDEAD:
+        // [ds] How is dispel undead intended to interact with vampires?
+        ret = (!foe || foe->holiness() != MH_UNDEAD);
+        break;
+
+    case SPELL_CORONA:
+        ret = (!foe || foe->backlit() || foe->glows_naturally());
+        break;
+
+    case SPELL_BERSERKER_RAGE:
+        if (!mon->needs_berserk(false))
+            ret = true;
+        break;
+
+    case SPELL_HASTE:
+        if (mon->has_ench(ENCH_HASTE))
+            ret = true;
+        break;
+
+    case SPELL_MIGHT:
+        if (mon->has_ench(ENCH_MIGHT))
+            ret = true;
+        break;
+
+    case SPELL_SWIFTNESS:
+        if (mon->has_ench(ENCH_SWIFT))
+            ret = true;
+        break;
+
+    case SPELL_REGENERATION:
+        if (mon->has_ench(ENCH_REGENERATION) || mon->has_ench(ENCH_DEATHS_DOOR)
+            || mon->holiness() == MH_UNDEAD)
+        {
+            ret = true;
+        }
+        break;
+
+    case SPELL_MIRROR_DAMAGE:
+        if (mon->has_ench(ENCH_MIRROR_DAMAGE))
+            ret = true;
+        break;
+
+    case SPELL_STONESKIN:
+        if (mon->has_ench(ENCH_STONESKIN))
+            ret = true;
+        break;
+
+    case SPELL_INVISIBILITY:
+        if (mon->has_ench(ENCH_INVIS)
+            || mon->glows_naturally()
+            || mon->friendly() && !you.can_see_invisible(false))
+        {
+            ret = true;
+        }
+        break;
+
+    case SPELL_MINOR_HEALING:
+    case SPELL_MAJOR_HEALING:
+        if (mon->hit_points > mon->max_hit_points / 2)
+            ret = true;
+        break;
+
+    case SPELL_TELEPORT_SELF:
+        // Monsters aren't smart enough to know when to cancel teleport.
+        if (mon->has_ench(ENCH_TP))
+            ret = true;
+    case SPELL_BLINK:
+    case SPELL_CONTROLLED_BLINK:
+    case SPELL_BLINK_CLOSE:
+    case SPELL_BLINK_RANGE:
+    case SPELL_BLINK_AWAY:
+        if (mon->no_tele(true, false))
+            ret = true;
+        break;
+
+    case SPELL_TELEPORT_OTHER:
+        // Monsters aren't smart enough to know when to cancel teleport.
+        if (mon->foe == MHITYOU)
+        {
+            ret = you.duration[DUR_TELEPORT];
+            break;
+        }
+        else if (mon->foe != MHITNOT)
+        {
+            ret = (menv[mon->foe].has_ench(ENCH_TP));
+            break;
+        }
+        // intentional fall-through
+
+    case SPELL_SLOW:
+    case SPELL_CONFUSE:
+    case SPELL_PAIN:
+    case SPELL_BANISHMENT:
+    case SPELL_DISINTEGRATE:
+    case SPELL_PARALYSE:
+    case SPELL_SLEEP:
+    case SPELL_HIBERNATION:
+    {
+        if (monspell == SPELL_HIBERNATION && (!foe || foe->asleep()))
+        {
+            ret = true;
+            break;
+        }
+
+        // Occasionally we don't estimate... just fire and see.
+        if (one_chance_in(5))
+        {
+            ret = false;
+            break;
+        }
+
+        // Only intelligent monsters estimate.
+        int intel = mons_intel(mon);
+        if (intel < I_NORMAL)
+        {
+            ret = false;
+            break;
+        }
+
+        // We'll estimate the target's resistance to magic, by first getting
+        // the actual value and then randomising it.
+        int est_magic_resist = (mon->foe == MHITNOT) ? 10000 : 0;
+
+        if (mon->foe != MHITNOT)
+        {
+            if (mon->foe == MHITYOU)
+                est_magic_resist = you.res_magic();
+            else
+                est_magic_resist = menv[mon->foe].res_magic();
+
+            // now randomise (normal intels less accurate than high):
+            if (intel == I_NORMAL)
+                est_magic_resist += random2(80) - 40;
+            else
+                est_magic_resist += random2(30) - 15;
+        }
+
+        int power = 12 * mon->hit_dice * (monspell == SPELL_PAIN ? 2 : 1);
+        power = stepdown_value(power, 30, 40, 100, 120);
+
+        // Determine the amount of chance allowed by the benefit from
+        // the spell.  The estimated difficulty is the probability
+        // of rolling over 100 + diff on 2d100. -- bwr
+        int diff = (monspell == SPELL_PAIN
+                    || monspell == SPELL_SLOW
+                    || monspell == SPELL_CONFUSE) ? 0 : 50;
+
+        if (est_magic_resist - power > diff)
+            ret = true;
+        break;
+    }
+
+    case SPELL_MISLEAD:
+        if (you.duration[DUR_MISLED] > 10 && one_chance_in(3))
+            ret = true;
+
+        break;
+
+    case SPELL_SUMMON_ILLUSION:
+        if (!foe || !actor_is_illusion_cloneable(foe))
+            ret = true;
+        break;
+
+    case SPELL_FAKE_MARA_SUMMON:
+        if (count_mara_fakes() == 2)
+            ret = true;
+
+        break;
+
+    case SPELL_AWAKEN_FOREST:
+        if (mon->has_ench(ENCH_AWAKEN_FOREST)
+            || env.forest_awoken_until > you.elapsed_time
+            || !forest_near_enemy(mon))
+        {
+            ret = true;
+        }
+        break;
+
+    case SPELL_DEATHS_DOOR:
+        // The caster may be an (undead) enslaved soul.
+        if (mon->holiness() == MH_UNDEAD || mon->has_ench(ENCH_DEATHS_DOOR))
+            ret = true;
+        break;
+
+    case SPELL_OZOCUBUS_ARMOUR:
+        if (mon->has_ench(ENCH_OZOCUBUS_ARMOUR))
+            ret = true;
+        break;
+
+    case SPELL_NO_SPELL:
+        ret = true;
+        break;
+
+    default:
+        break;
+    }
+
+    return ret;
+}
+
+// Spells a monster may want to cast if fleeing from the player, and
+// the player is not in sight.
+static bool _ms_useful_fleeing_out_of_sight(const monster* mon,
+                                            spell_type monspell)
+{
+    if (monspell == SPELL_NO_SPELL || _ms_waste_of_time(mon, monspell))
+        return false;
+
+    switch (monspell)
+    {
+    case SPELL_HASTE:
+    case SPELL_SWIFTNESS:
+    case SPELL_INVISIBILITY:
+    case SPELL_MINOR_HEALING:
+    case SPELL_MAJOR_HEALING:
+    case SPELL_ANIMATE_DEAD:
+    case SPELL_TWISTED_RESURRECTION:
+        return true;
+
+    default:
+        if (spell_typematch(monspell, SPTYP_SUMMONING) && one_chance_in(4))
+            return true;
+        break;
+    }
+
+    return false;
+}
+
+static bool _ms_low_hitpoint_cast(const monster* mon, spell_type monspell)
+{
+    if (_ms_waste_of_time(mon, monspell))
+        return false;
+
+    bool targ_adj      = false;
+    bool targ_sanct    = false;
+    bool targ_friendly = false;
+    bool targ_undead   = false;
+
+    if (mon->foe == MHITYOU || mon->foe == MHITNOT)
+    {
+        if (adjacent(you.pos(), mon->pos()))
+            targ_adj = true;
+        if (is_sanctuary(you.pos()))
+            targ_sanct = true;
+        if (you.undead_or_demonic())
+            targ_undead = true;
+    }
+    else
+    {
+        if (adjacent(menv[mon->foe].pos(), mon->pos()))
+            targ_adj = true;
+        if (is_sanctuary(menv[mon->foe].pos()))
+            targ_sanct = true;
+        if (menv[mon->foe].undead_or_demonic())
+            targ_undead = true;
+    }
+
+    targ_friendly = (mon->foe == MHITYOU
+                     ? mon->wont_attack()
+                     : mons_aligned(mon, mon->get_foe()));
+
+    switch (monspell)
+    {
+    case SPELL_HEAL_OTHER:
+        return targ_friendly;
+    case SPELL_TELEPORT_OTHER:
+        return !targ_sanct && !targ_friendly;
+    case SPELL_MINOR_HEALING:
+    case SPELL_MAJOR_HEALING:
+    case SPELL_INVISIBILITY:
+    case SPELL_TELEPORT_SELF:
+    case SPELL_HASTE:
+    case SPELL_DEATHS_DOOR:
+    case SPELL_BERSERKER_RAGE:
+        return true;
+    case SPELL_VAMPIRIC_DRAINING:
+        return !targ_sanct && targ_adj && !targ_friendly && !targ_undead;
+    case SPELL_BLINK_AWAY:
+    case SPELL_BLINK_RANGE:
+    case SPELL_MIRROR_DAMAGE:
+        return !targ_friendly;
+    case SPELL_BLINK_OTHER:
+        return !targ_sanct && targ_adj && !targ_friendly;
+    case SPELL_CONFUSE:
+    case SPELL_DRAIN_LIFE:
+    case SPELL_BANISHMENT:
+    case SPELL_HELLFIRE_BURST:
+    case SPELL_FIREBALL:
+    case SPELL_AIRSTRIKE:
+    case SPELL_IOOD:
+    case SPELL_ENSNARE:
+    case SPELL_THROW_FLAME:
+    case SPELL_SILVER_BLAST:
+        return !targ_friendly && !targ_sanct;
+    case SPELL_BLINK:
+    case SPELL_CONTROLLED_BLINK:
+        return targ_adj;
+    case SPELL_TOMB_OF_DOROKLOHE:
+        return true;
+    case SPELL_NO_SPELL:
+        return false;
+    case SPELL_INK_CLOUD:
+        if (mon->type == MONS_KRAKEN)
+            return true;
+    default:
+        return !targ_adj && spell_typematch(monspell, SPTYP_SUMMONING);
+    }
+}
+
+// Spells for a quick get-away.
+// Currently only used to get out of a net.
+static bool _ms_quick_get_away(const monster* mon, spell_type monspell)
+{
+    switch (monspell)
+    {
+    case SPELL_TELEPORT_SELF:
+        // Don't cast again if already about to teleport.
+        if (mon->has_ench(ENCH_TP))
+            return false;
+        // intentional fall-through
+    case SPELL_BLINK:
+        return true;
+    default:
+        return false;
+    }
 }
 
 static void _mons_set_priest_wizard_god(monster* mons, bool& priest,
@@ -1342,7 +1781,7 @@ bool handle_mon_spell(monster* mons, bolt &beem)
         && mons->has_spells());
 
     if (is_sanctuary(mons->pos()) && !mons->wont_attack())
-        return (false);
+        return false;
 
     // Yes, there is a logic to this ordering {dlb}:
     // .. berserk check is necessary for out-of-sequence actions like emergency
@@ -1354,7 +1793,7 @@ bool handle_mon_spell(monster* mons, bolt &beem)
             && !spellcasting_poly
             && draco_breath == SPELL_NO_SPELL))
     {
-        return (false);
+        return false;
     }
 
     bool priest;
@@ -1367,26 +1806,26 @@ bool handle_mon_spell(monster* mons, bolt &beem)
         && (priest || wizard || spellcasting_poly
             || mons_class_flag(mons->type, M_SPELL_NO_SILENT)))
     {
-        return (false);
+        return false;
     }
 
     // Shapeshifters don't get spells.
     if (mons->is_shapeshifter() && (priest || wizard))
-        return (false);
+        return false;
     else if (mons_is_confused(mons, false))
-        return (false);
+        return false;
     else if (mons_is_ghost_demon(mons->type)
              && !mons->ghost->spellcaster)
     {
-        return (false);
+        return false;
     }
     else if (random2(200) > mons->hit_dice + 50
              || mons->type == MONS_BALL_LIGHTNING && coinflip())
     {
-        return (false);
+        return false;
     }
     else if (spellcasting_poly && coinflip()) // 50% chance of not casting
-        return (false);
+        return false;
     else
     {
         spell_type spell_cast = SPELL_NO_SPELL;
@@ -1422,7 +1861,7 @@ bool handle_mon_spell(monster* mons, bolt &beem)
                 int foundcount = 0;
                 for (int i = NUM_MONSTER_SPELL_SLOTS - 1; i >= 0; --i)
                 {
-                    if (ms_useful_fleeing_out_of_sight(mons, hspell_pass[i])
+                    if (_ms_useful_fleeing_out_of_sight(mons, hspell_pass[i])
                         && one_chance_in(++foundcount))
                     {
                         spell_cast = hspell_pass[i];
@@ -1431,7 +1870,7 @@ bool handle_mon_spell(monster* mons, bolt &beem)
                 }
             }
             else if (mons->foe == MHITYOU && !monsterNearby)
-                return (false);
+                return false;
         }
 
         // Monsters caught in a net try to get away.
@@ -1441,7 +1880,7 @@ bool handle_mon_spell(monster* mons, bolt &beem)
         {
             for (int i = 0; i < NUM_MONSTER_SPELL_SLOTS; ++i)
             {
-                if (ms_quick_get_away(mons, hspell_pass[i]))
+                if (_ms_quick_get_away(mons, hspell_pass[i]))
                 {
                     spell_cast = hspell_pass[i];
                     finalAnswer = true;
@@ -1461,7 +1900,7 @@ bool handle_mon_spell(monster* mons, bolt &beem)
             // way we don't have to worry about monsters infinitely casting
             // Healing on themselves (e.g. orc high priests).
             if ((mons_is_fleeing(mons) || mons->pacified())
-                && ms_low_hitpoint_cast(mons, hspell_pass[5]))
+                && _ms_low_hitpoint_cast(mons, hspell_pass[5]))
             {
                 spell_cast = hspell_pass[5];
                 finalAnswer = true;
@@ -1472,7 +1911,7 @@ bool handle_mon_spell(monster* mons, bolt &beem)
                 int found_spell = 0;
                 for (int i = 0; i < NUM_MONSTER_SPELL_SLOTS; ++i)
                 {
-                    if (ms_low_hitpoint_cast(mons, hspell_pass[i])
+                    if (_ms_low_hitpoint_cast(mons, hspell_pass[i])
                         && one_chance_in(++found_spell))
                     {
                         spell_cast  = hspell_pass[i];
@@ -1489,7 +1928,7 @@ bool handle_mon_spell(monster* mons, bolt &beem)
             if (mons->wont_attack() && !mon_enemies_around(mons)
                 && !one_chance_in(10))
             {
-                return (false);
+                return false;
             }
 
             // Remove healing/invis/haste if we don't need them.
@@ -1499,7 +1938,7 @@ bool handle_mon_spell(monster* mons, bolt &beem)
             {
                 if (hspell_pass[i] == SPELL_NO_SPELL)
                     num_no_spell++;
-                else if (ms_waste_of_time(mons, hspell_pass[i])
+                else if (_ms_waste_of_time(mons, hspell_pass[i])
                          || hspell_pass[i] == SPELL_DIG)
                 {
                     // Should monster not have selected dig by now,
@@ -1513,7 +1952,7 @@ bool handle_mon_spell(monster* mons, bolt &beem)
             if (num_no_spell == NUM_MONSTER_SPELL_SLOTS
                 && draco_breath == SPELL_NO_SPELL)
             {
-                return (false);
+                return false;
             }
 
             const bolt orig_beem = beem;
@@ -1576,7 +2015,7 @@ bool handle_mon_spell(monster* mons, bolt &beem)
                 // Alligators shouldn't spam swiftness.
                 if (spell_cast == SPELL_SWIFTNESS
                     && mons->type == MONS_ALLIGATOR
-                    && ((long) mons->number + random2avg(170, 5) >=
+                    && ((int) mons->number + random2avg(170, 5) >=
                         you.num_turns))
                 {
                     spell_cast = SPELL_NO_SPELL;
@@ -1639,7 +2078,7 @@ bool handle_mon_spell(monster* mons, bolt &beem)
                     // All direct-effect/summoning/self-enchantments/etc.
                     spellOK = true;
 
-                    if (ms_direct_nasty(spell_cast)
+                    if (_ms_direct_nasty(spell_cast)
                         && mons_aligned(mons, (mons->foe == MHITYOU) ?
                            &you : foe)) // foe=get_foe() is NULL for friendlies
                     {                   // targetting you, which is bad here.
@@ -1658,9 +2097,7 @@ bool handle_mon_spell(monster* mons, bolt &beem)
                         }
                     }
                     else if (!mons->can_see(&menv[mons->foe]))
-                    {
                         spellOK = false;
-                    }
                     else if (mons->type == MONS_DAEVA
                              && mons->god == GOD_SHINING_ONE)
                     {
@@ -1718,12 +2155,12 @@ bool handle_mon_spell(monster* mons, bolt &beem)
 
         // Should the monster *still* not have a spell, well, too bad {dlb}:
         if (spell_cast == SPELL_NO_SPELL || spell_cast == SPELL_MELEE)
-            return (false);
+            return false;
 
         // Friendly monsters don't use polymorph other, for fear of harming
         // the player.
         if (spell_cast == SPELL_POLYMORPH_OTHER && mons->friendly())
-            return (false);
+            return false;
 
         // Past this point, we're actually casting, instead of just pondering.
 
@@ -1739,62 +2176,59 @@ bool handle_mon_spell(monster* mons, bolt &beem)
             // lose a turn like players do not, please make this just return.
             simple_monster_message(mons, " falters for a moment.");
             mons->lose_energy(EUT_SPELL);
-            return (true);
-        }
-        // Try to animate weapons: if none are animated, pretend we didn't cast it.
-        if (spell_cast == SPELL_TUKIMAS_BALL)
-        {
-            // Friendly monsters cannot cast Tukima's Ball for now.
-            if (mons->friendly())
-                return (false);
-
-            if (!cast_tukimas_ball(mons, 100, GOD_NO_GOD, true))
-                return (false);
+            return true;
         }
         // Try to animate dead: if nothing rises, pretend we didn't cast it.
         else if (spell_cast == SPELL_ANIMATE_DEAD)
         {
             if (mons->friendly() && !_animate_dead_okay(spell_cast))
-                return (false);
+                return false;
 
             if (!animate_dead(mons, 100, SAME_ATTITUDE(mons),
                               mons->foe, mons, "", god, false))
             {
-                return (false);
+                return false;
             }
         }
         // Try to raise crawling corpses: if nothing rises, pretend we didn't cast it.
         else if (spell_cast == SPELL_TWISTED_RESURRECTION)
         {
             if (mons->friendly() && !_animate_dead_okay(spell_cast))
-                return (false);
+                return false;
 
             if (!twisted_resurrection(mons, 500, SAME_ATTITUDE(mons),
                                       mons->foe, god, false))
             {
-                return (false);
+                return false;
             }
         }
         // Ditto for simulacrum.
         else if (spell_cast == SPELL_SIMULACRUM)
         {
             if (mons->friendly() && !_animate_dead_okay(spell_cast))
-                return (false);
+                return false;
 
             if (!monster_simulacrum(mons, false))
-                return (false);
+                return false;
         }
         // Try to cause fear: if nothing is scared, pretend we didn't cast it.
         else if (spell_cast == SPELL_CAUSE_FEAR)
         {
             if (_mons_cause_fear(mons, false) < 0)
-                return (false);
+                return false;
         }
         // Try to drain life: if nothing is drained, pretend we didn't cast it.
         else if (spell_cast == SPELL_DRAIN_LIFE)
         {
             if (!_mons_drain_life(mons, false))
-                return (false);
+                return false;
+        }
+        // Try to use Ozocubu's Refrigeration; if nothing happened,
+        // pretend we didn't cast it.
+        else if (spell_cast == SPELL_OZOCUBUS_REFRIGERATION)
+        {
+            if (!_mons_ozocubus_refrigeration(mons, false))
+                return false;
         }
 
         if (mons->type == MONS_BALL_LIGHTNING)
@@ -1819,7 +2253,7 @@ bool handle_mon_spell(monster* mons, bolt &beem)
                 mons->lose_energy(EUT_SPELL);
             }
             else
-                return (false);
+                return false;
         }
         else if (spell_cast == SPELL_BLINK_RANGE)
         {
@@ -1844,9 +2278,9 @@ bool handle_mon_spell(monster* mons, bolt &beem)
             mons_cast(mons, beem, spell_cast);
             mons->lose_energy(EUT_SPELL);
         }
-    } // end "if mons_class_flag(mons->type, M_SPELLCASTER)
+    } // end "if (mons->can_use_spells())"
 
-    return (true);
+    return true;
 }
 
 static int _monster_abjure_square(const coord_def &pos,
@@ -1855,18 +2289,18 @@ static int _monster_abjure_square(const coord_def &pos,
 {
     monster* target = monster_at(pos);
     if (target == NULL)
-        return (0);
+        return 0;
 
     if (!target->alive()
         || ((bool)wont_attack == target->wont_attack()))
     {
-        return (0);
+        return 0;
     }
 
     int duration;
 
     if (!target->is_summoned(&duration))
-        return (0);
+        return 0;
 
     pow = std::max(20, fuzz_value(pow, 40, 25));
 
@@ -1909,10 +2343,10 @@ static int _monster_abjure_square(const coord_def &pos,
     {
         if (!shielded)
             simple_monster_message(target, " shudders.");
-        return (1);
+        return 1;
     }
 
-    return (0);
+    return 0;
 }
 
 static int _apply_radius_around_square(const coord_def &c, int radius,
@@ -1939,7 +2373,7 @@ static int _apply_radius_around_square(const coord_def &c, int radius,
         if (in_bounds(c2))
             res += fn(c2, pow, par1, par2);
     }
-    return (res);
+    return res;
 }
 
 static int _monster_abjuration(const monster* caster, bool actual)
@@ -1972,7 +2406,7 @@ static int _monster_abjuration(const monster* caster, bool actual)
 
         pow /= 2;
     }
-    return (maffected);
+    return maffected;
 }
 
 
@@ -1982,10 +2416,10 @@ static bool _mons_abjured(monster* mons, bool nearby)
         && coinflip())
     {
         _monster_abjuration(mons, true);
-        return (true);
+        return true;
     }
 
-    return (false);
+    return false;
 }
 
 static monster_type _pick_swarmer()
@@ -1998,7 +2432,7 @@ static monster_type _pick_swarmer()
         MONS_WORKER_ANT,
     };
 
-    return (RANDOM_ELEMENT(swarmers));
+    return RANDOM_ELEMENT(swarmers);
 }
 
 static monster_type _pick_random_wraith()
@@ -2010,7 +2444,7 @@ static monster_type _pick_random_wraith()
         MONS_FLAYED_GHOST
     };
 
-    return (RANDOM_ELEMENT(wraiths));
+    return RANDOM_ELEMENT(wraiths);
 }
 
 static monster_type _pick_horrible_thing()
@@ -2031,7 +2465,7 @@ static monster_type _pick_undead_summon()
         MONS_SIMULACRUM_LARGE, MONS_SHADOW
     };
 
-    return (RANDOM_ELEMENT(undead));
+    return RANDOM_ELEMENT(undead);
 }
 
 static void _do_high_level_summon(monster* mons, bool monsterNearby,
@@ -2141,7 +2575,7 @@ void mons_cast_spectral_orcs(monster* mons)
             orc->number = (int) mon;
 
             // give gear using the base type
-            give_item(orc, you.absdepth0, true, true);
+            give_item(orc, env.absdepth0, true, true);
 
             // set gear as summoned
             orc->mark_summoned(abj, true, SPELL_SUMMON_SPECTRAL_ORCS);
@@ -2153,9 +2587,9 @@ static bool _mons_vampiric_drain(monster *mons)
 {
     actor *target = mons->get_foe();
     if (!target)
-        return (false);
+        return false;
     if (grid_distance(mons->pos(), target->pos()) > 1)
-        return (false);
+        return false;
 
     int fnum = 5;
     int fden = 5;
@@ -2174,7 +2608,7 @@ static bool _mons_vampiric_drain(monster *mons)
         simple_monster_message(mons,
                                " is infused with unholy energy, but nothing happens.",
                                MSGCH_MONSTER_SPELL);
-        return (false);
+        return false;
     }
 
     dprf("vamp draining: %d damage, %d healing", hp_cost, hp_cost/2);
@@ -2188,25 +2622,31 @@ static bool _mons_vampiric_drain(monster *mons)
     else
         mpr("Unholy energy fills the air.");
 
-    if (target->atype() == ACT_PLAYER)
+    if (target->is_player())
     {
         ouch(hp_cost, mons->mindex(), KILLED_BY_BEAM, mons->name(DESC_A).c_str());
-        simple_monster_message(mons,
-                               " draws life force from you and is healed!");
+        if (mons->heal(hp_cost / 2))
+        {
+            simple_monster_message(mons,
+                " draws life force from you and is healed!");
+        }
     }
     else
     {
         monster* mtarget = target->as_monster();
         const std::string targname = mtarget->name(DESC_THE);
         mtarget->hurt(mons, hp_cost);
-        simple_monster_message(mons,
-                               make_stringf(" draws life force from %s and is healed!", targname.c_str()).c_str());
+        if (mons->heal(hp_cost / 2))
+        {
+            simple_monster_message(mons,
+                make_stringf(" draws life force from %s and is healed!",
+                targname.c_str()).c_str());
+        }
         if (mtarget->alive())
             print_wounds(mtarget);
     }
-    mons->heal(hp_cost / 2);
 
-    return (true);
+    return true;
 }
 
 void setup_breath_timeout(monster* mons)
@@ -2254,7 +2694,7 @@ static int _mons_mesmerise(monster* mons, bool actual)
         || mons->pacified()               // pacified,
         || mons->friendly())              // or friendly!
     {
-        return (-1);
+        return -1;
     }
 
     // Messages can be simple: if the monster is invisible, it won't try to
@@ -2277,12 +2717,12 @@ static int _mons_mesmerise(monster* mons, bool actual)
         if (actual)
             canned_msg(MSG_YOU_RESIST);
 
-        return (0);
+        return 0;
     }
 
     you.add_beholder(mons);
 
-    return (1);
+    return 1;
 }
 
 // Check whether targets might be scared.
@@ -2307,13 +2747,10 @@ static int _mons_cause_fear(monster* mons, bool actual)
 
     for (actor_iterator ai(mons->get_los()); ai; ++ai)
     {
-        if (ai->atype() == ACT_PLAYER)
+        if (ai->is_player())
         {
-            if (mons->pacified()
-                || mons->friendly())
-            {
+            if (mons->pacified() || mons->friendly())
                 continue;
-            }
 
             if (you.holiness() != MH_NATURAL)
             {
@@ -2367,10 +2804,7 @@ static int _mons_cause_fear(monster* mons, bool actual)
             if (res_margin > 0)
             {
                 if (actual)
-                {
-                    simple_monster_message(m,
-                                mons_resist_string(m, res_margin).c_str());
-                }
+                    simple_monster_message(m, mons_resist_string(m, res_margin));
                 continue;
             }
 
@@ -2382,9 +2816,7 @@ static int _mons_cause_fear(monster* mons, bool actual)
                 if (you.can_see(m))
                     simple_monster_message(m, " looks frightened!");
 
-                behaviour_event(m, ME_SCARE,
-                                mons->kill_alignment() == KC_YOU ? MHITYOU
-                                                                 : MHITNOT);
+                behaviour_event(m, ME_SCARE, mons);
 
                 if (!mons->has_ench(ENCH_FEAR_INSPIRING))
                     mons->add_ench(ENCH_FEAR_INSPIRING);
@@ -2392,12 +2824,12 @@ static int _mons_cause_fear(monster* mons, bool actual)
         }
     }
 
-    return (retval);
+    return retval;
 }
 
 static bool _mons_drain_life(monster* mons, bool actual)
 {
-    if (actual)
+    if (actual && you.see_cell(mons->pos()))
     {
         if (you.can_see(mons))
         {
@@ -2421,13 +2853,13 @@ static bool _mons_drain_life(monster* mons, bool actual)
         if (ai->res_negative_energy())
             continue;
 
-        if (ai->atype() == ACT_PLAYER)
+        if (ai->is_player())
         {
             if (mons->wont_attack())
                 continue;
 
             if (actual)
-                ouch(hurted, mons->mindex(), KILLED_BY_BEAM, mons->name(DESC_A).c_str());
+                ouch(hurted, mons->mindex(), KILLED_BY_BEAM, "by drain life");
 
             success = true;
 
@@ -2468,7 +2900,77 @@ static bool _mons_drain_life(monster* mons, bool actual)
             simple_monster_message(mons, " is healed.");
     }
 
-    return (success);
+    return success;
+}
+
+static bool _mons_ozocubus_refrigeration(monster* mons, bool actual)
+{
+    if (actual)
+    {
+        if (you.can_see(mons))
+        {
+            simple_monster_message(mons,
+                                   " drains the heat from the surrounding"
+                                   " environment!");
+        }
+        else
+            mpr("The ambient heat is drained!");
+
+        flash_view_delay(LIGHTCYAN, 300);
+    }
+
+    bool success = false;
+
+    const int pow = mons->hit_dice;
+    const dice_def dam_dice(3, 5 + pow / 2);
+
+    bolt beam;
+    beam.flavour = BEAM_COLD;
+    beam.thrower = KILL_MON;
+
+    for (actor_iterator ai(mons->get_los()); ai; ++ai)
+    {
+        if (ai->is_player())
+        {
+            const int hurted = check_your_resists(dam_dice.roll(), BEAM_COLD,
+                                                  "refrigeration");
+            if (actual)
+            {
+                mpr("You feel very cold.");
+                ouch(hurted, mons->mindex(), KILLED_BY_BEAM,
+                     "by Ozocubu's Refrigeration", true,
+                     mons->name(DESC_A).c_str());
+                expose_player_to_element(BEAM_COLD, 5);
+            }
+
+            success = true;
+        }
+        else
+        {
+            monster* m = ai->as_monster();
+
+            if (m->res_cold() >= 3)
+                continue;
+
+            const int hurted = mons_adjust_flavoured(m, beam, dam_dice.roll());
+
+            if (actual)
+            {
+                m->hurt(mons, hurted);
+
+                if (m->alive())
+                {
+                    print_wounds(m);
+                    if (mons_class_flag(m->type, M_COLD_BLOOD) && coinflip())
+                        m->add_ench(ENCH_SLOW);
+                }
+            }
+
+            success = true;
+        }
+    }
+
+    return success;
 }
 
 static bool _mon_spell_bail_out_early(monster* mons, spell_type spell_cast)
@@ -2483,17 +2985,18 @@ static bool _mon_spell_bail_out_early(monster* mons, spell_type spell_cast)
     case SPELL_SIMULACRUM:
         // see special handling in mon-stuff::handle_spell() {dlb}
         if (mons->friendly() && !_animate_dead_okay(spell_cast))
-            return (true);
+            return true;
         break;
 
     case SPELL_CHAIN_LIGHTNING:
     case SPELL_SYMBOL_OF_TORMENT:
     case SPELL_HOLY_WORD:
+    case SPELL_OZOCUBUS_REFRIGERATION:
         if (!monsterNearby
             // friendly holies don't care if you are friendly
             || (mons->friendly() && spell_cast != SPELL_HOLY_WORD))
         {
-            return (true);
+            return true;
         }
         break;
 
@@ -2501,7 +3004,7 @@ static bool _mon_spell_bail_out_early(monster* mons, spell_type spell_cast)
         break;
     }
 
-    return (false);
+    return false;
 }
 
 static void _clone_monster(monster* mons, monster_type clone_type,
@@ -2612,8 +3115,7 @@ void mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
             if (monsterNearby)
             {
                 if (do_noise)
-                    mons_cast_noise(mons, pbolt, spell_cast,
-                                    special_ability);
+                    mons_cast_noise(mons, pbolt, spell_cast, special_ability);
                 direct_effect(mons, spell_cast, pbolt, &you);
             }
             return;
@@ -2632,7 +3134,7 @@ void mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
 
     // Targeted spells need a valid target.
     // Wizard-mode cast monster spells may target the boundary (shift-dir).
-    ASSERT(!(flags & SPFLAG_TARGETING_MASK) || map_bounds(pbolt.target));
+    ASSERT(!(flags & SPFLAG_TARGETTING_MASK) || map_bounds(pbolt.target));
 #endif
 
     if (do_noise)
@@ -2677,7 +3179,8 @@ void mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
     case SPELL_TROGS_HAND:
     {
         simple_monster_message(mons,
-                               make_stringf(" invokes %s's protection!", god_name(mons->god).c_str()).c_str(),
+                               make_stringf(" invokes %s's protection!",
+                                   god_name(mons->god).c_str()).c_str(),
                                MSGCH_MONSTER_SPELL);
         const int dur = BASELINE_DELAY
             * std::min(5 + roll_dice(2, (mons->hit_dice * 10) / 3 + 1), 100);
@@ -2925,7 +3428,7 @@ void mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
                 mgen_data(MONS_KRAKEN_TENTACLE, SAME_ATTITUDE(mons), mons,
                           0, 0, adj_squares[i], mons->foe,
                           MG_FORCE_PLACE, god, MONS_NO_MONSTER, kraken_index,
-                          mons->colour, you.absdepth0, PROX_CLOSE_TO_PLAYER)))
+                          mons->colour, -1, PROX_CLOSE_TO_PLAYER)))
             {
                 created_count++;
                 tentacle->props["inwards"].get_int() = kraken_index;
@@ -2993,14 +3496,6 @@ void mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
                           duration, spell_cast, mons->pos(), mons->foe, 0,
                           god));
         }
-        return;
-
-    case SPELL_TUKIMAS_BALL:
-        //Tukima's dance NOT handled here.
-        //Instead, handle above in handle_mon_spell
-        //so nothing happens if no weapons animated.
-        mpr("Haunting music fills the air, and weapons rise to join the dance!");
-        noisy(12, mons->pos(), mons->mindex());
         return;
 
     case SPELL_ANIMATE_DEAD:
@@ -3108,7 +3603,11 @@ void mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
 
     case SPELL_MALIGN_GATEWAY:
         if (!can_cast_malign_gateway())
-            dprf("ERROR: %s can't cast malign gateway, but is casting anyway! Counted %d gateways.", mons->name(DESC_THE).c_str(), count_malign_gateways());
+        {
+            dprf("ERROR: %s can't cast malign gateway, but is casting anyway! "
+                 "Counted %d gateways.", mons->name(DESC_THE).c_str(),
+                 count_malign_gateways());
+        }
         cast_malign_gateway(mons, 200);
         return;
 
@@ -3174,8 +3673,12 @@ void mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
         _mons_drain_life(mons);
         return;
 
+    case SPELL_OZOCUBUS_REFRIGERATION:
+        _mons_ozocubus_refrigeration(mons);
+        return;
+
     case SPELL_LEDAS_LIQUEFACTION:
-        if (!mons->has_ench(ENCH_LIQUEFYING))
+        if (!mons->has_ench(ENCH_LIQUEFYING) && you.can_see(mons))
         {
             mprf("%s liquefies the ground around %s!", mons->name(DESC_THE).c_str(),
                 mons->pronoun(PRONOUN_REFLEXIVE).c_str());
@@ -3246,18 +3749,21 @@ void mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
         if (_mons_abjured(mons, monsterNearby))
             return;
 
-        sumcount2 = 1 + random2(2) + random2(mons->hit_dice / 4 + 1);
+        summon_type = random_choose_weighted(
+                            10, MONS_WOLF,
+                             3, MONS_GRIZZLY_BEAR,
+                             6, MONS_BLACK_BEAR,
+                             0); // no polar bears
+
+        if (summon_type == MONS_WOLF)
+            sumcount2 = 1 + random2(mons->hit_dice / 4 + 1);
+        else
+            sumcount2 = 1 + random2(2);
 
         duration  = std::min(2 + mons->hit_dice / 5, 6);
         for (int i = 0; i < sumcount2; ++i)
         {
-            create_monster(
-                mgen_data(random_choose_weighted(
-                            10, MONS_WOLF,
-                             3, MONS_GRIZZLY_BEAR,
-                             6, MONS_BLACK_BEAR,
-                             // no polar bears
-                          0), SAME_ATTITUDE(mons),
+            create_monster(mgen_data(summon_type, SAME_ATTITUDE(mons),
                           mons, duration, spell_cast, mons->pos(),
                           mons->foe, 0, god));
         }
@@ -3284,24 +3790,6 @@ void mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
         }
         return;
 
-    case SPELL_SUMMON_GREATER_HOLY: // Holy monsters.
-        if (_mons_abjured(mons, monsterNearby))
-            return;
-
-        sumcount2 = 1 + random2(2) + random2(mons->hit_dice / 4 + 1);
-
-        duration  = std::min(2 + mons->hit_dice / 5, 6);
-        create_monster(
-            mgen_data(random_choose_weighted(
-                        10, MONS_SILVER_STAR, 10, MONS_PHOENIX,
-                        10, MONS_APIS,        5,  MONS_DAEVA,
-                        2,  MONS_PEARL_DRAGON,
-                      0), SAME_ATTITUDE(mons),
-                      mons, duration, spell_cast, mons->pos(),
-                      mons->foe, 0, god));
-
-        return;
-
     // TODO: Outsource the cantrip messages and allow specification of
     //       special cantrip spells per monster, like for speech, both as
     //       "self buffs" and "player enchantments".
@@ -3323,39 +3811,13 @@ void mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
         const msg_channel_type channel = (friendly) ? MSGCH_FRIEND_ENCHANT
                                                     : MSGCH_MONSTER_ENCHANT;
 
-        if (mons->type == MONS_TERPSICHORE)
+        if (mons->type == MONS_ORB_SPIDER)
         {
-            std::string dance_compulsion = "";
-            bool has_mon_foe = !invalid_monster_index(mons->foe);
-            if (buff_only || crawl_state.game_is_arena() && !has_mon_foe
-                || friendly && !has_mon_foe || coinflip())
+            std::string msg = getSpeakString("orb_spider_cantrip");
+            if (!msg.empty())
             {
-                dance_compulsion = getSpeakString("Tukima_self_buff");
-                if (!dance_compulsion.empty())
-                {
-                    dance_compulsion = replace_all(dance_compulsion, "@The_monster@",
-                                           mons->name(DESC_THE));
-                    mpr(dance_compulsion.c_str(), channel);
-                }
-            }
-            else if (!friendly && !has_mon_foe)
-            {
-                mons_cast_noise(mons, pbolt, spell_cast);
-                dance_compulsion = getSpeakString("Tukima_debuff");
-                if (!dance_compulsion.empty())
-                    mpr(dance_compulsion.c_str());
-            }
-            else
-            {
-                dance_compulsion = getSpeakString("Tukima_other_buff");
-                const monster* foe = mons->get_foe()->as_monster();
-
-                if (!dance_compulsion.empty())
-                {
-                    dance_compulsion = replace_all(dance_compulsion,
-                        "@The_monster@", foe->name(DESC_THE));
-                    mpr(dance_compulsion.c_str(), MSGCH_MONSTER_ENCHANT);
-                }
+                msg = replace_all(msg, "@The_monster@", mons->name(DESC_THE));
+                mpr(msg.c_str(), channel);
             }
         }
         else if (mons->type == MONS_GASTRONOK)
@@ -3476,8 +3938,8 @@ void mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
 
             // We can blink away the crowd, but only our allies.
             if (act
-                && (act->atype() == ACT_PLAYER
-                    || (act->atype() == ACT_MONSTER
+                && (act->is_player()
+                    || (act->is_monster()
                         && act->as_monster()->attitude != mons->attitude)))
             {
                 sumcount++;
@@ -3489,7 +3951,7 @@ void mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
                 if (grd(*ai) == safe_tiles[i] || feat_is_trap(grd(*ai)))
                     proceed = true;
 
-            if (!proceed && grd(*ai) > DNGN_MAX_NONREACH)
+            if (!proceed && feat_is_reachable_past(grd(*ai)))
                 sumcount++;
         }
 
@@ -3535,6 +3997,9 @@ void mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
 
                 // Actually place the wall.
                 grd(*ai) = DNGN_ROCK_WALL;
+                map_wiz_props_marker *marker = new map_wiz_props_marker(*ai);
+                marker->set_property("tomb", "monster");
+                env.markers.add(marker);
                 set_terrain_changed(*ai);
                 sumcount++;
             }
@@ -3634,9 +4099,8 @@ void mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
             const monster_type mon = random_choose_weighted(
                                        3, MONS_EFREET,
                                        3, MONS_SUN_DEMON,
-                                       2, MONS_BALRUG,
+                                       3, MONS_BALRUG,
                                        2, MONS_HELLION,
-                                       1, MONS_PIT_FIEND,
                                        1, MONS_BRIMSTONE_FIEND,
                                        0);
 
@@ -3667,6 +4131,18 @@ void mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
         mons->add_ench(mon_enchant(ENCH_REGENERATION, 0, mons, dur));
         return;
     }
+
+    case SPELL_OZOCUBUS_ARMOUR:
+    {
+        mprf("A film of ice covers %s body!",
+        apostrophise(mons->name(DESC_THE)).c_str());
+        const int power = (mons->hit_dice * 15) / 10;
+        mons->add_ench(mon_enchant(ENCH_OZOCUBUS_ARMOUR, 0, mons,
+                                   BASELINE_DELAY *
+                                   (20 + random2(power) + random2(power))));
+
+        return;
+    }
     }
 
     // If a monster just came into view and immediately cast a spell,
@@ -3675,8 +4151,9 @@ void mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
     if (spell_is_direct_explosion(spell_cast))
     {
         const actor *foe = mons->get_foe();
-        const bool need_more = foe && (foe == &you || you.see_cell(foe->pos()));
+        const bool need_more = foe && (foe->is_player() || you.see_cell(foe->pos()));
         pbolt.in_explosion_phase = false;
+        pbolt.refine_for_explosion();
         pbolt.explode(need_more);
     }
     else
@@ -3754,13 +4231,12 @@ static unsigned int _noise_keys(std::vector<std::string>& key_list,
         }
     }
 
+    // Before just using generic per-spell and per-monster casts, try
+    // per-monster, per-spell.
+    key_list.push_back(spell_name + " " + mons_type_name(mons->type, DESC_PLAIN) + cast_str);
     key_list.push_back(spell_name + cast_str);
 
     const unsigned int num_spell_keys = key_list.size();
-
-    // Before just using generic per-monster casts, try per-monster,
-    // per-spell.
-    key_list.push_back(spell_name + " " + mons_type_name(mons->type, DESC_PLAIN) + cast_str);
 
     // Next the monster type name, then species name, then genus name.
     key_list.push_back(mons_type_name(mons->type, DESC_PLAIN) + cast_str);
@@ -3771,8 +4247,11 @@ static unsigned int _noise_keys(std::vector<std::string>& key_list,
 
     // Last, generic wizard, priest or demon.
     if (wizard)
-        key_list.push_back((std::string)((shape <= MON_SHAPE_NAGA) ? "" : "non-humanoid ")
-                           + "wizard" + cast_str);
+    {
+        key_list.push_back(make_stringf("%swizard%s",
+                               shape <= MON_SHAPE_NAGA ? "" : "non-humanoid ",
+                               cast_str.c_str()));
+    }
     else if (priest)
         key_list.push_back("priest" + cast_str);
     else if (mons_is_demon(mons->type))
@@ -3855,7 +4334,7 @@ static std::string _noise_message(const std::vector<std::string>& key_list,
             break;
     }
 
-    return (msg);
+    return msg;
 }
 
 static void _noise_fill_target(std::string& targ_prep, std::string& target,
@@ -3877,7 +4356,7 @@ static void _noise_fill_target(std::string& targ_prep, std::string& target,
     else if (pbolt.target == mons->pos())
         target = mons->pronoun(PRONOUN_REFLEXIVE);
     // Monsters should only use targeted spells while foe == MHITNOT
-    // if they're targeting themselves.
+    // if they're targetting themselves.
     else if (mons->foe == MHITNOT && !mons_is_confused(mons, true))
         target = "NONEXISTENT FOE";
     else if (!invalid_monster_index(mons->foe)
@@ -3910,10 +4389,10 @@ static void _noise_fill_target(std::string& targ_prep, std::string& target,
                 {
                     targ_prep = "next to";
 
-                    if (act->atype() == ACT_PLAYER || one_chance_in(++count))
+                    if (act->is_player() || one_chance_in(++count))
                         target = act->name(DESC_THE);
 
-                    if (act->atype() == ACT_PLAYER)
+                    if (act->is_player())
                         break;
                 }
             }
@@ -3981,13 +4460,13 @@ static void _noise_fill_target(std::string& targ_prep, std::string& target,
                     if (act && act != mons && you.can_see(act))
                     {
                         targ_prep = "past";
-                        if (act->atype() == ACT_PLAYER
+                        if (act->is_player()
                             || one_chance_in(++count))
                         {
                             target = act->name(DESC_THE);
                         }
 
-                        if (act->atype() == ACT_PLAYER)
+                        if (act->is_player())
                             break;
                     }
                 }
@@ -4037,7 +4516,7 @@ void mons_cast_noise(monster* mons, const bolt &pbolt,
 
     if (spell_cast == SPELL_DRACONIAN_BREATH)
     {
-        int type = mons->type;
+        monster_type type = mons->type;
         if (mons_genus(type) == MONS_DRACONIAN)
             type = draco_subspecies(mons);
 
@@ -4080,7 +4559,7 @@ void mons_cast_noise(monster* mons, const bolt &pbolt,
 
     int noise = _noise_level(mons, actual_spell, silent, innate);
 
-    const bool targeted = (flags & SPFLAG_TARGETING_MASK)
+    const bool targeted = (flags & SPFLAG_TARGETTING_MASK)
                            && (pbolt.target != mons->pos()
                                || pbolt.visible());
 
@@ -4138,395 +4617,4 @@ void mons_cast_noise(monster* mons, const bolt &pbolt,
         // noisy() returns true if the player heard the noise.
         mons_speaks_msg(mons, msg, chan);
     }
-}
-
-// Returns true if the spell is something you wouldn't want done if
-// you had a friendly target...  only returns a meaningful value for
-// non-beam spells.
-bool ms_direct_nasty(spell_type monspell)
-{
-    return (spell_needs_foe(monspell)
-            && !spell_typematch(monspell, SPTYP_SUMMONING));
-}
-
-// Spells a monster may want to cast if fleeing from the player, and
-// the player is not in sight.
-bool ms_useful_fleeing_out_of_sight(const monster* mon, spell_type monspell)
-{
-    if (monspell == SPELL_NO_SPELL || ms_waste_of_time(mon, monspell))
-        return (false);
-
-    switch (monspell)
-    {
-    case SPELL_HASTE:
-    case SPELL_SWIFTNESS:
-    case SPELL_INVISIBILITY:
-    case SPELL_MINOR_HEALING:
-    case SPELL_MAJOR_HEALING:
-    case SPELL_ANIMATE_DEAD:
-    case SPELL_TWISTED_RESURRECTION:
-        return (true);
-
-    default:
-        if (spell_typematch(monspell, SPTYP_SUMMONING) && one_chance_in(4))
-            return (true);
-        break;
-    }
-
-    return (false);
-}
-
-bool ms_low_hitpoint_cast(const monster* mon, spell_type monspell)
-{
-    if (ms_waste_of_time(mon, monspell))
-        return (false);
-
-    bool targ_adj      = false;
-    bool targ_sanct    = false;
-    bool targ_friendly = false;
-    bool targ_undead   = false;
-
-    if (mon->foe == MHITYOU || mon->foe == MHITNOT)
-    {
-        if (adjacent(you.pos(), mon->pos()))
-            targ_adj = true;
-        if (is_sanctuary(you.pos()))
-            targ_sanct = true;
-        if (you.undead_or_demonic())
-            targ_undead = true;
-    }
-    else
-    {
-        if (adjacent(menv[mon->foe].pos(), mon->pos()))
-            targ_adj = true;
-        if (is_sanctuary(menv[mon->foe].pos()))
-            targ_sanct = true;
-        if (menv[mon->foe].undead_or_demonic())
-            targ_undead = true;
-    }
-
-    targ_friendly = (mon->foe == MHITYOU
-                     ? mon->wont_attack()
-                     : mons_aligned(mon, mon->get_foe()));
-
-    switch (monspell)
-    {
-    case SPELL_TELEPORT_OTHER:
-        return !targ_sanct && !targ_friendly;
-    case SPELL_MINOR_HEALING:
-    case SPELL_MAJOR_HEALING:
-        return true;
-    case SPELL_VAMPIRIC_DRAINING:
-        return !targ_sanct && targ_adj && !targ_friendly && !targ_undead;
-    case SPELL_BLINK_AWAY:
-    case SPELL_BLINK_RANGE:
-        return !targ_friendly;
-    case SPELL_BLINK_OTHER:
-        return !targ_sanct && targ_adj && !targ_friendly;
-    case SPELL_BLINK:
-        return targ_adj;
-    case SPELL_TOMB_OF_DOROKLOHE:
-        return true;
-    case SPELL_NO_SPELL:
-        return false;
-    case SPELL_INK_CLOUD:
-        if (mon->type == MONS_KRAKEN)
-            return true;
-    default:
-        return !targ_adj && spell_typematch(monspell, SPTYP_SUMMONING);
-    }
-}
-
-// Spells for a quick get-away.
-// Currently only used to get out of a net.
-bool ms_quick_get_away(const monster* mon /*unused*/, spell_type monspell)
-{
-    switch (monspell)
-    {
-    case SPELL_TELEPORT_SELF:
-        // Don't cast again if already about to teleport.
-        if (mon->has_ench(ENCH_TP))
-            return (false);
-        // intentional fall-through
-    case SPELL_BLINK:
-        return (true);
-    default:
-        return (false);
-    }
-}
-
-// Checks if the foe *appears* to be immune to negative energy.  We
-// can't just use foe->res_negative_energy(), because that'll mean
-// monsters will just "know" whether a player is fully life-protected.
-static bool _foe_should_res_negative_energy(const actor* foe)
-{
-    const mon_holy_type holiness = foe->holiness();
-
-    if (foe->atype() == ACT_PLAYER)
-    {
-        // Non-bloodless vampires do not appear immune.
-        if (holiness == MH_UNDEAD
-            && you.is_undead == US_SEMI_UNDEAD
-            && you.hunger_state > HS_STARVING)
-        {
-            return (false);
-        }
-
-        // Demonspawn do not appear immune.
-        if (holiness == MH_DEMONIC)
-            return (false);
-
-        // Nor do statues (they only have partial resistance).
-        if (you.form == TRAN_STATUE)
-            return (false);
-    }
-
-    return (holiness != MH_NATURAL);
-}
-
-// Checks to see if a particular spell is worth casting in the first place.
-bool ms_waste_of_time(const monster* mon, spell_type monspell)
-{
-    bool ret = false;
-    actor *foe = mon->get_foe();
-
-    // Keep friendly summoners from spamming summons constantly.
-    if (mon->friendly()
-        && (!foe || foe == &you)
-        && spell_typematch(monspell, SPTYP_SUMMONING))
-    {
-        return (true);
-    }
-
-    if (!mon->wont_attack())
-    {
-        if (spell_harms_area(monspell) && env.sanctuary_time > 0)
-            return (true);
-
-        if (spell_harms_target(monspell) && is_sanctuary(mon->target))
-            return (true);
-    }
-
-    if (mons_genus(mon->type) == MONS_DRAGON && mon->has_ench(ENCH_BREATH_WEAPON))
-        return (true);
-
-    // Eventually, we'll probably want to be able to have monsters
-    // learn which of their elemental bolts were resisted and have those
-    // handled here as well. - bwr
-    switch (monspell)
-    {
-    case SPELL_CALL_TIDE:
-        return (!player_in_branch(BRANCH_SHOALS)
-                || mon->has_ench(ENCH_TIDE)
-                || !foe
-                || (grd(mon->pos()) == DNGN_DEEP_WATER
-                    && grd(foe->pos()) == DNGN_DEEP_WATER));
-
-    case SPELL_BRAIN_FEED:
-        ret = (foe != &you);
-        break;
-
-    case SPELL_VAMPIRIC_DRAINING:
-        if (mon->hit_points + 1 >= mon->max_hit_points
-            || grid_distance(mon->pos(), foe->pos()) > 1)
-        {
-            ret = true;
-        }
-    // fall through
-    case SPELL_BOLT_OF_DRAINING:
-    case SPELL_AGONY:
-    case SPELL_SYMBOL_OF_TORMENT:
-        if (!foe || _foe_should_res_negative_energy(foe))
-            ret = true;
-        break;
-    case SPELL_MIASMA:
-        ret = (!foe || foe->res_rotting());
-        break;
-
-    case SPELL_DISPEL_UNDEAD:
-        // [ds] How is dispel undead intended to interact with vampires?
-        ret = (!foe || foe->holiness() != MH_UNDEAD);
-        break;
-
-    case SPELL_CORONA:
-        ret = (!foe || foe->backlit() || foe->glows_naturally());
-        break;
-
-    case SPELL_BERSERKER_RAGE:
-        if (!mon->needs_berserk(false))
-            ret = true;
-        break;
-
-    case SPELL_HASTE:
-        if (mon->has_ench(ENCH_HASTE))
-            ret = true;
-        break;
-
-    case SPELL_MIGHT:
-        if (mon->has_ench(ENCH_MIGHT))
-            ret = true;
-        break;
-
-    case SPELL_SWIFTNESS:
-        if (mon->has_ench(ENCH_SWIFT))
-            ret = true;
-        break;
-
-    case SPELL_REGENERATION:
-        if (mon->has_ench(ENCH_REGENERATION) || mon->has_ench(ENCH_DEATHS_DOOR)
-            || mon->holiness() == MH_UNDEAD)
-        {
-            ret = true;
-        }
-        break;
-
-    case SPELL_MIRROR_DAMAGE:
-        if (mon->has_ench(ENCH_MIRROR_DAMAGE))
-            ret = true;
-        break;
-
-    case SPELL_STONESKIN:
-        if (mon->has_ench(ENCH_STONESKIN))
-            ret = true;
-        break;
-
-    case SPELL_INVISIBILITY:
-        if (mon->has_ench(ENCH_INVIS)
-            || mon->glows_naturally()
-            || mon->friendly() && !you.can_see_invisible(false))
-        {
-            ret = true;
-        }
-        break;
-
-    case SPELL_MINOR_HEALING:
-    case SPELL_MAJOR_HEALING:
-        if (mon->hit_points > mon->max_hit_points / 2)
-            ret = true;
-        break;
-
-    case SPELL_TELEPORT_SELF:
-        // Monsters aren't smart enough to know when to cancel teleport.
-        if (mon->has_ench(ENCH_TP))
-            ret = true;
-        break;
-
-    case SPELL_TELEPORT_OTHER:
-        // Monsters aren't smart enough to know when to cancel teleport.
-        if (mon->foe == MHITYOU)
-        {
-            ret = you.duration[DUR_TELEPORT];
-            break;
-        }
-        else if (mon->foe != MHITNOT)
-        {
-            ret = (menv[mon->foe].has_ench(ENCH_TP));
-            break;
-        }
-        // intentional fall-through
-
-    case SPELL_SLOW:
-    case SPELL_CONFUSE:
-    case SPELL_PAIN:
-    case SPELL_BANISHMENT:
-    case SPELL_DISINTEGRATE:
-    case SPELL_PARALYSE:
-    case SPELL_SLEEP:
-    case SPELL_HIBERNATION:
-    {
-        if (monspell == SPELL_HIBERNATION && (!foe || foe->asleep()))
-        {
-            ret = true;
-            break;
-        }
-
-        // Occasionally we don't estimate... just fire and see.
-        if (one_chance_in(5))
-        {
-            ret = false;
-            break;
-        }
-
-        // Only intelligent monsters estimate.
-        int intel = mons_intel(mon);
-        if (intel < I_NORMAL)
-        {
-            ret = false;
-            break;
-        }
-
-        // We'll estimate the target's resistance to magic, by first getting
-        // the actual value and then randomising it.
-        int est_magic_resist = (mon->foe == MHITNOT) ? 10000 : 0;
-
-        if (mon->foe != MHITNOT)
-        {
-            if (mon->foe == MHITYOU)
-                est_magic_resist = you.res_magic();
-            else
-                est_magic_resist = menv[mon->foe].res_magic();
-
-            // now randomise (normal intels less accurate than high):
-            if (intel == I_NORMAL)
-                est_magic_resist += random2(80) - 40;
-            else
-                est_magic_resist += random2(30) - 15;
-        }
-
-        int power = 12 * mon->hit_dice * (monspell == SPELL_PAIN ? 2 : 1);
-        power = stepdown_value(power, 30, 40, 100, 120);
-
-        // Determine the amount of chance allowed by the benefit from
-        // the spell.  The estimated difficulty is the probability
-        // of rolling over 100 + diff on 2d100. -- bwr
-        int diff = (monspell == SPELL_PAIN
-                    || monspell == SPELL_SLOW
-                    || monspell == SPELL_CONFUSE) ? 0 : 50;
-
-        if (est_magic_resist - power > diff)
-            ret = true;
-        break;
-    }
-
-    case SPELL_MISLEAD:
-        if (you.duration[DUR_MISLED] > 10 && one_chance_in(3))
-            ret = true;
-
-        break;
-
-    case SPELL_SUMMON_ILLUSION:
-        if (!foe || !actor_is_illusion_cloneable(foe))
-            ret = true;
-        break;
-
-    case SPELL_FAKE_MARA_SUMMON:
-        if (count_mara_fakes() == 2)
-            ret = true;
-
-        break;
-
-    case SPELL_AWAKEN_FOREST:
-        if (mon->has_ench(ENCH_AWAKEN_FOREST)
-            || env.forest_awoken_until > you.elapsed_time
-            || !forest_near_enemy(mon))
-        {
-            ret = true;
-        }
-        break;
-
-    case SPELL_DEATHS_DOOR:
-        // The caster may be an (undead) enslaved soul.
-        if (mon->holiness() == MH_UNDEAD || mon->has_ench(ENCH_DEATHS_DOOR))
-            ret = true;
-        break;
-
-    case SPELL_NO_SPELL:
-        ret = true;
-        break;
-
-    default:
-        break;
-    }
-
-    return (ret);
 }

@@ -28,7 +28,6 @@
 #include "misc.h"
 #include "mon-place.h"
 #include "coord.h"
-#include "mon-stuff.h"
 #include "mon-util.h"
 #include "ouch.h"
 #include "player.h"
@@ -47,10 +46,10 @@
 actor* actor_at(const coord_def& c)
 {
     if (!in_bounds(c))
-        return (NULL);
+        return NULL;
     if (c == you.pos())
-        return (&you);
-    return (monster_at(c));
+        return &you;
+    return monster_at(c);
 }
 
 int count_neighbours_with_func(const coord_def& c, bool (*checker)(dungeon_feature_type))
@@ -62,16 +61,6 @@ int count_neighbours_with_func(const coord_def& c, bool (*checker)(dungeon_featu
             count++;
     }
     return count;
-}
-
-bool feat_is_test(dungeon_feature_type feat, bool (*checker)(dungeon_feature_type))
-{
-    return (checker(feat));
-}
-
-bool feat_is_test(const coord_def& c, bool (*checker)(dungeon_feature_type))
-{
-    return (checker(grd(c)));
 }
 
 bool feat_is_malign_gateway_suitable(dungeon_feature_type feat)
@@ -94,57 +83,27 @@ bool feat_is_stone_stair(dungeon_feature_type feat)
     case DNGN_STONE_STAIRS_DOWN_I:
     case DNGN_STONE_STAIRS_DOWN_II:
     case DNGN_STONE_STAIRS_DOWN_III:
-        return (true);
+        return true;
     default:
-        return (false);
+        return false;
     }
 }
 
 bool feat_is_staircase(dungeon_feature_type feat)
 {
     if (feat_is_stone_stair(feat))
-    {
-        // Make up staircases in hell appear as gates.
-        if (player_in_hell())
-        {
-            switch (feat)
-            {
-                case DNGN_STONE_STAIRS_UP_I:
-                case DNGN_STONE_STAIRS_UP_II:
-                case DNGN_STONE_STAIRS_UP_III:
-                    return (false);
-                default:
-                    return (true);
-            }
-        }
-        return (true);
-    }
+        return true;
 
     // All branch entries/exits are staircases, except for Zot.
     if (feat == DNGN_ENTER_ZOT || feat == DNGN_RETURN_FROM_ZOT)
-        return (false);
+        return false;
+
+    if (feat == DNGN_EXIT_DUNGEON)
+        return true;
 
     return (feat >= DNGN_ENTER_FIRST_BRANCH && feat <= DNGN_ENTER_LAST_BRANCH
             || feat >= DNGN_RETURN_FROM_FIRST_BRANCH
                && feat <= DNGN_RETURN_FROM_LAST_BRANCH);
-}
-
-bool feat_sealable_portal(dungeon_feature_type feat)
-{
-    switch (feat)
-    {
-    case DNGN_ENTER_COCYTUS:
-    case DNGN_ENTER_DIS:
-    case DNGN_ENTER_GEHENNA:
-    case DNGN_ENTER_TARTARUS:
-    case DNGN_ENTER_ABYSS:
-    case DNGN_ENTER_PANDEMONIUM:
-    case DNGN_ENTER_LABYRINTH:
-    case DNGN_ENTER_PORTAL_VAULT:
-        return (true);
-    default:
-        return (false);
-    }
 }
 
 bool feat_is_portal(dungeon_feature_type feat)
@@ -174,6 +133,7 @@ bool feat_is_travelable_stair(dungeon_feature_type feat)
     case DNGN_STONE_STAIRS_UP_II:
     case DNGN_STONE_STAIRS_UP_III:
     case DNGN_ESCAPE_HATCH_UP:
+    case DNGN_EXIT_DUNGEON:
     case DNGN_ENTER_HELL:
     case DNGN_EXIT_HELL:
     case DNGN_ENTER_DIS:
@@ -182,7 +142,6 @@ bool feat_is_travelable_stair(dungeon_feature_type feat)
     case DNGN_ENTER_TARTARUS:
     case DNGN_ENTER_DWARVEN_HALL:
     case DNGN_ENTER_ORCISH_MINES:
-    case DNGN_ENTER_HIVE:
     case DNGN_ENTER_LAIR:
     case DNGN_ENTER_SLIME_PITS:
     case DNGN_ENTER_VAULTS:
@@ -199,7 +158,6 @@ bool feat_is_travelable_stair(dungeon_feature_type feat)
     case DNGN_ENTER_FOREST:
     case DNGN_RETURN_FROM_DWARVEN_HALL:
     case DNGN_RETURN_FROM_ORCISH_MINES:
-    case DNGN_RETURN_FROM_HIVE:
     case DNGN_RETURN_FROM_LAIR:
     case DNGN_RETURN_FROM_SLIME_PITS:
     case DNGN_RETURN_FROM_VAULTS:
@@ -214,9 +172,9 @@ bool feat_is_travelable_stair(dungeon_feature_type feat)
     case DNGN_RETURN_FROM_SHOALS:
     case DNGN_RETURN_FROM_SPIDER_NEST:
     case DNGN_RETURN_FROM_FOREST:
-        return (true);
+        return true;
     default:
-        return (false);
+        return false;
     }
 }
 
@@ -227,32 +185,19 @@ bool feat_is_escape_hatch(dungeon_feature_type feat)
     {
     case DNGN_ESCAPE_HATCH_DOWN:
     case DNGN_ESCAPE_HATCH_UP:
-        return (true);
+        return true;
     default:
-        return (false);
+        return false;
     }
 }
 
 // Returns true if the given dungeon feature can be considered a gate.
 bool feat_is_gate(dungeon_feature_type feat)
 {
-    // Make up staircases in hell appear as gates.
-    if (player_in_hell())
-    {
-        switch (feat)
-        {
-        case DNGN_STONE_STAIRS_UP_I:
-        case DNGN_STONE_STAIRS_UP_II:
-        case DNGN_STONE_STAIRS_UP_III:
-            return (true);
-        default:
-            break;
-        }
-    }
-
     switch (feat)
     {
     case DNGN_ENTER_ABYSS:
+    case DNGN_EXIT_THROUGH_ABYSS:
     case DNGN_EXIT_ABYSS:
     case DNGN_ENTER_LABYRINTH:
     case DNGN_ENTER_PANDEMONIUM:
@@ -268,9 +213,9 @@ bool feat_is_gate(dungeon_feature_type feat)
     case DNGN_ENTER_GEHENNA:
     case DNGN_ENTER_COCYTUS:
     case DNGN_ENTER_TARTARUS:
-        return (true);
+        return true;
     default:
-        return (false);
+        return false;
     }
 }
 
@@ -282,9 +227,9 @@ command_type feat_stair_direction(dungeon_feature_type feat)
     case DNGN_STONE_STAIRS_UP_II:
     case DNGN_STONE_STAIRS_UP_III:
     case DNGN_ESCAPE_HATCH_UP:
+    case DNGN_EXIT_DUNGEON:
     case DNGN_RETURN_FROM_DWARVEN_HALL:
     case DNGN_RETURN_FROM_ORCISH_MINES:
-    case DNGN_RETURN_FROM_HIVE:
     case DNGN_RETURN_FROM_LAIR:
     case DNGN_RETURN_FROM_SLIME_PITS:
     case DNGN_RETURN_FROM_VAULTS:
@@ -302,7 +247,7 @@ command_type feat_stair_direction(dungeon_feature_type feat)
     case DNGN_ENTER_SHOP:
     case DNGN_EXIT_HELL:
     case DNGN_EXIT_PORTAL_VAULT:
-        return (CMD_GO_UPSTAIRS);
+        return CMD_GO_UPSTAIRS;
 
     case DNGN_ENTER_PORTAL_VAULT:
     case DNGN_ENTER_HELL:
@@ -316,13 +261,13 @@ command_type feat_stair_direction(dungeon_feature_type feat)
     case DNGN_ENTER_COCYTUS:
     case DNGN_ENTER_TARTARUS:
     case DNGN_ENTER_ABYSS:
+    case DNGN_EXIT_THROUGH_ABYSS:
     case DNGN_EXIT_ABYSS:
     case DNGN_ENTER_PANDEMONIUM:
     case DNGN_EXIT_PANDEMONIUM:
     case DNGN_TRANSIT_PANDEMONIUM:
     case DNGN_ENTER_DWARVEN_HALL:
     case DNGN_ENTER_ORCISH_MINES:
-    case DNGN_ENTER_HIVE:
     case DNGN_ENTER_LAIR:
     case DNGN_ENTER_SLIME_PITS:
     case DNGN_ENTER_VAULTS:
@@ -337,36 +282,32 @@ command_type feat_stair_direction(dungeon_feature_type feat)
     case DNGN_ENTER_SHOALS:
     case DNGN_ENTER_SPIDER_NEST:
     case DNGN_ENTER_FOREST:
-        return (CMD_GO_DOWNSTAIRS);
+        return CMD_GO_DOWNSTAIRS;
 
     default:
-        return (CMD_NO_CMD);
+        return CMD_NO_CMD;
     }
 }
 
 bool feat_is_opaque(dungeon_feature_type feat)
 {
-    return (feat <= DNGN_MAXOPAQUE);
+    return (feat <= DNGN_MAXOPAQUE
+#if TAG_MAJOR_VERSION == 33
+            // Hack to make mangroves opaque. This isn't needed once the
+            // feature enums are reordered.
+            || feat == DNGN_MANGROVE
+#endif
+            );
 }
 
 bool feat_is_solid(dungeon_feature_type feat)
 {
-    return (feat <= DNGN_MAXSOLID || feat == DNGN_MALIGN_GATEWAY);
-}
-
-bool cell_is_solid(int x, int y)
-{
-    return (feat_is_solid(grd[x][y]));
+    return (feat <= DNGN_MAXSOLID);
 }
 
 bool cell_is_solid(const coord_def &c)
 {
-    return (feat_is_solid(grd(c)));
-}
-
-bool feat_is_floor(dungeon_feature_type feat)
-{
-    return (feat >= DNGN_FLOOR_MIN && feat <= DNGN_FLOOR_MAX);
+    return feat_is_solid(grd(c));
 }
 
 bool feat_has_solid_floor(dungeon_feature_type feat)
@@ -422,8 +363,7 @@ bool feat_is_water(dungeon_feature_type feat)
     return (feat == DNGN_SHALLOW_WATER
             || feat == DNGN_DEEP_WATER
             || feat == DNGN_OPEN_SEA
-            || feat == DNGN_SWAMP_TREE
-            || feat == DNGN_WATER_RESERVED);
+            || feat == DNGN_MANGROVE);
 }
 
 bool feat_is_watery(dungeon_feature_type feat)
@@ -444,7 +384,7 @@ god_type feat_altar_god(dungeon_feature_type feat)
     if (feat >= DNGN_ALTAR_FIRST_GOD && feat <= DNGN_ALTAR_LAST_GOD)
         return (static_cast<god_type>(feat - DNGN_ALTAR_FIRST_GOD + 1));
 
-    return (GOD_NO_GOD);
+    return GOD_NO_GOD;
 }
 
 // Returns DNGN_FLOOR for non-gods, otherwise returns the altar for the
@@ -452,7 +392,7 @@ god_type feat_altar_god(dungeon_feature_type feat)
 dungeon_feature_type altar_for_god(god_type god)
 {
     if (god == GOD_NO_GOD || god >= NUM_GODS)
-        return (DNGN_FLOOR);  // Yeah, lame. Tell me about it.
+        return DNGN_FLOOR;  // Yeah, lame. Tell me about it.
 
     return (static_cast<dungeon_feature_type>(DNGN_ALTAR_FIRST_GOD + god - 1));
 }
@@ -476,9 +416,17 @@ bool feat_is_branch_stairs(dungeon_feature_type feat)
             || (feat >= DNGN_ENTER_DIS && feat <= DNGN_ENTER_TARTARUS));
 }
 
+bool feat_is_branchlike(dungeon_feature_type feat)
+{
+    return (feat_is_branch_stairs(feat)
+            || feat == DNGN_ENTER_HELL || feat == DNGN_ENTER_ABYSS
+            || feat == DNGN_EXIT_THROUGH_ABYSS
+            || feat == DNGN_ENTER_PANDEMONIUM);
+}
+
 bool feat_is_tree(dungeon_feature_type feat)
 {
-    return (feat == DNGN_TREE || feat == DNGN_SWAMP_TREE);
+    return (feat == DNGN_TREE || feat == DNGN_MANGROVE);
 }
 
 bool feat_is_bidirectional_portal(dungeon_feature_type feat)
@@ -493,6 +441,11 @@ bool feat_is_bidirectional_portal(dungeon_feature_type feat)
 bool feat_is_fountain(dungeon_feature_type feat)
 {
     return feat >= DNGN_FOUNTAIN_BLUE && feat <= DNGN_PERMADRY_FOUNTAIN;
+}
+
+bool feat_is_reachable_past(dungeon_feature_type feat)
+{
+    return feat > DNGN_MAX_NONREACH;
 }
 
 // Find all connected cells containing ft, starting at d.
@@ -555,7 +508,7 @@ std::set<coord_def> connected_doors(const coord_def& d)
 {
     std::set<coord_def> doors;
     _find_connected_range(d, DNGN_CLOSED_DOOR, DNGN_SECRET_DOOR, doors);
-    return (doors);
+    return doors;
 }
 
 void get_door_description(int door_size, const char** adjective, const char** noun)
@@ -627,7 +580,7 @@ bool find_secret_door_info(const coord_def &where,
     {
         if (appearance)
             *appearance = DNGN_ROCK_WALL;
-        return (false);
+        return false;
     }
     else
     {
@@ -635,7 +588,7 @@ bool find_secret_door_info(const coord_def &where,
             *appearance = feat;
         if (gc)
             *gc = loc;
-        return (true);
+        return true;
     }
 }
 
@@ -643,7 +596,7 @@ dungeon_feature_type grid_secret_door_appearance(const coord_def &where)
 {
     dungeon_feature_type feat;
     find_secret_door_info(where, &feat, NULL);
-    return (feat);
+    return feat;
 }
 
 coord_def get_random_stair()
@@ -652,7 +605,9 @@ coord_def get_random_stair()
     for (rectangle_iterator ri(1); ri; ++ri)
     {
         const dungeon_feature_type feat = grd(*ri);
-        if (feat_is_travelable_stair(feat) && !feat_is_escape_hatch(feat))
+        if (feat_is_travelable_stair(feat) && !feat_is_escape_hatch(feat)
+            && (crawl_state.game_is_zotdef() || feat != DNGN_EXIT_DUNGEON)
+            && feat != DNGN_EXIT_HELL)
         {
             st.push_back(*ri);
         }
@@ -703,8 +658,8 @@ bool slime_wall_neighbour(const coord_def& c)
 
     for (adjacent_iterator ai(c); ai; ++ai)
         if (env.grid(*ai) == DNGN_SLIMY_WALL)
-            return (true);
-    return (false);
+            return true;
+    return false;
 }
 
 bool feat_destroys_item(dungeon_feature_type feat, const item_def &item,
@@ -716,15 +671,15 @@ bool feat_destroys_item(dungeon_feature_type feat, const item_def &item,
     case DNGN_DEEP_WATER:
         if (noisy)
             mprf(MSGCH_SOUND, "You hear a splash.");
-        return (false);
+        return false;
 
     case DNGN_LAVA:
         if (noisy)
             mprf(MSGCH_SOUND, "You hear a sizzling splash.");
-        return (true);
+        return true;
 
     default:
-        return (false);
+        return false;
     }
 }
 
@@ -738,20 +693,20 @@ bool feat_virtually_destroys_item(dungeon_feature_type feat, const item_def &ite
     case DNGN_SHALLOW_WATER:
         if (noisy)
             mprf(MSGCH_SOUND, "You hear a splash.");
-        return (false);
+        return false;
 
     case DNGN_DEEP_WATER:
         if (noisy)
             mprf(MSGCH_SOUND, "You hear a splash.");
-        return (true);
+        return true;
 
     case DNGN_LAVA:
         if (noisy)
             mprf(MSGCH_SOUND, "You hear a sizzling splash.");
-        return (true);
+        return true;
 
     default:
-        return (false);
+        return false;
     }
 }
 
@@ -775,7 +730,7 @@ static coord_def _dgn_find_nearest_square(
             const coord_def &p = *i;
 
             if (p != pos && acceptable(p, thing))
-                return (p);
+                return p;
 
             travel_point_distance[p.x][p.y] = 1;
             for (int yi = -1; yi <= 1; ++yi)
@@ -800,7 +755,7 @@ static coord_def _dgn_find_nearest_square(
     }
 
     coord_def unfound;
-    return (unfound);
+    return unfound;
 }
 
 static bool _item_safe_square(const coord_def &pos, void *item)
@@ -818,9 +773,9 @@ static bool _dgn_shift_item(const coord_def &pos, item_def &item)
     {
         int index = item.index();
         move_item_to_grid(&index, np);
-        return (true);
+        return true;
     }
-    return (false);
+    return false;
 }
 
 bool is_critical_feature(dungeon_feature_type feat)
@@ -834,7 +789,7 @@ bool is_valid_border_feat(dungeon_feature_type feat)
 {
     return ((feat <= DNGN_MAXWALL && feat >= DNGN_MINWALL)
             || (feat == DNGN_TREE
-               || feat == DNGN_SWAMP_TREE
+               || feat == DNGN_MANGROVE
                || feat == DNGN_OPEN_SEA
                || feat == DNGN_LAVA_SEA));
 }
@@ -910,9 +865,7 @@ void dgn_move_entities_at(coord_def src, coord_def dst,
     if (!in_bounds(dst) || !in_bounds(src) || src == dst)
         return;
 
-    // Move terrain.
-    if (you.level_type == LEVEL_DUNGEON)
-        move_notable_thing(src, dst);
+    move_notable_thing(src, dst);
 
     dungeon_feature_type dfeat = grd(src);
     if (dfeat == DNGN_ENTER_SHOP)
@@ -995,19 +948,20 @@ void dgn_move_entities_at(coord_def src, coord_def dst,
 
     // Move player's knowledge.
     env.map_knowledge(dst) = env.map_knowledge(src);
+    StashTrack.move_stash(src, dst);
 }
 
 static bool _dgn_shift_feature(const coord_def &pos)
 {
     const dungeon_feature_type dfeat = grd(pos);
     if (!is_critical_feature(dfeat) && !env.markers.find(pos, MAT_ANY))
-        return (false);
+        return false;
 
     const coord_def dest =
         _dgn_find_nearest_square(pos, NULL, _is_feature_shift_target);
 
     dgn_move_entities_at(pos, dest, false, false, false);
-    return (true);
+    return true;
 }
 
 static void _dgn_check_terrain_items(const coord_def &pos, bool preserve_items)
@@ -1132,7 +1086,7 @@ static void _announce_swap_real(coord_def orig_pos, coord_def dest_pos)
     const dungeon_feature_type orig_feat = grd(dest_pos);
 
     const std::string orig_name =
-        feature_description(dest_pos, false,
+        feature_description_at(dest_pos, false,
                             you.see_cell(orig_pos) ? DESC_THE : DESC_A,
                             false);
 
@@ -1218,7 +1172,7 @@ bool swap_features(const coord_def &pos1, const coord_def &pos2,
     ASSERT(pos1 != pos2);
 
     if (is_sanctuary(pos1) || is_sanctuary(pos2))
-        return (false);
+        return false;
 
     const dungeon_feature_type feat1 = grd(pos1);
     const dungeon_feature_type feat2 = grd(pos2);
@@ -1226,20 +1180,20 @@ bool swap_features(const coord_def &pos1, const coord_def &pos2,
     if (is_notable_terrain(feat1) && !you.see_cell(pos1)
         && env.map_knowledge(pos1).known())
     {
-        return (false);
+        return false;
     }
 
     if (is_notable_terrain(feat2) && !you.see_cell(pos2)
         && env.map_knowledge(pos2).known())
     {
-        return (false);
+        return false;
     }
 
     const unsigned short col1 = env.grid_colours(pos1);
     const unsigned short col2 = env.grid_colours(pos2);
 
-    const unsigned long prop1 = env.pgrid(pos1);
-    const unsigned long prop2 = env.pgrid(pos2);
+    const terrain_property_t prop1 = env.pgrid(pos1);
+    const terrain_property_t prop2 = env.pgrid(pos2);
 
     trap_def* trap1 = find_trap(pos1);
     trap_def* trap2 = find_trap(pos2);
@@ -1273,7 +1227,7 @@ bool swap_features(const coord_def &pos1, const coord_def &pos2,
     if (!in_bounds(temp))
     {
         mpr("swap_features(): No boring squares on level?", MSGCH_ERROR);
-        return (false);
+        return false;
     }
 
     // OK, now we guarantee the move.
@@ -1327,7 +1281,7 @@ bool swap_features(const coord_def &pos1, const coord_def &pos2,
 
         if (announce)
             _announce_swap(pos1, pos2);
-        return (true);
+        return true;
     }
 
     // Swap items.
@@ -1381,7 +1335,7 @@ bool swap_features(const coord_def &pos1, const coord_def &pos2,
     if (announce)
         _announce_swap(pos1, pos2);
 
-    return (true);
+    return true;
 }
 
 static bool _ok_dest_cell(const actor* orig_actor,
@@ -1391,22 +1345,22 @@ static bool _ok_dest_cell(const actor* orig_actor,
     const dungeon_feature_type dest_feat = grd(dest_pos);
 
     if (orig_feat == dest_feat)
-        return (false);
+        return false;
 
     if (is_notable_terrain(dest_feat))
-        return (false);
+        return false;
 
     if (find_trap(dest_pos))
-        return (false);
+        return false;
 
     actor* dest_actor = actor_at(dest_pos);
 
     if (orig_actor && !orig_actor->is_habitable_feat(dest_feat))
-        return (false);
+        return false;
     if (dest_actor && !dest_actor->is_habitable_feat(orig_feat))
-        return (false);
+        return false;
 
-    return (true);
+    return true;
 }
 
 bool slide_feature_over(const coord_def &src, coord_def preferred_dest,
@@ -1436,7 +1390,7 @@ bool slide_feature_over(const coord_def &src, coord_def preferred_dest,
     }
 
     if (!in_bounds(preferred_dest))
-        return (false);
+        return false;
 
     ASSERT(preferred_dest != src);
     return swap_features(src, preferred_dest, false, announce);
@@ -1452,20 +1406,13 @@ bool fall_into_a_pool(const coord_def& entry, bool allow_shift,
 
     if (terrain == DNGN_DEEP_WATER)
     {
-        if (beogh_water_walk())
-            return (false);
+        if (beogh_water_walk() || form_likes_water())
+            return false;
 
-        if (species_likes_water(you.species) || form_likes_water())
+        if (species_likes_water(you.species) && !you.transform_uncancellable)
         {
-            // These can happen when we enter deep water directly. - bwr
-            if (form_likes_water())
-                return (false);
-
-            if (!form_likes_water() && !you.transform_uncancellable)
-            {
-                emergency_untransform();
-                return (false);
-            }
+            emergency_untransform();
+            return false;
         }
     }
 
@@ -1485,6 +1432,9 @@ bool fall_into_a_pool(const coord_def& entry, bool allow_shift,
         {
             mpr("The lava burns you to a cinder!");
             ouch(INSTANT_DEATH, NON_MONSTER, KILLED_BY_LAVA);
+
+            if (you.dead) // felids
+                return false;
         }
         else
         {
@@ -1502,6 +1452,9 @@ bool fall_into_a_pool(const coord_def& entry, bool allow_shift,
                 mpr("The lava scalds you!");
 
             ouch(damage, NON_MONSTER, KILLED_BY_LAVA);
+
+            if (you.dead) // felids
+                return false;
         }
 
         expose_player_to_element(BEAM_LAVA, 14);
@@ -1550,7 +1503,7 @@ bool fall_into_a_pool(const coord_def& entry, bool allow_shift,
             if (terrain == DNGN_LAVA)
                 expose_player_to_element(BEAM_LAVA, 14);
 
-            return (true);
+            return true;
         }
     }
 
@@ -1569,7 +1522,7 @@ bool fall_into_a_pool(const coord_def& entry, bool allow_shift,
     else if (terrain == DNGN_DEEP_WATER)
         ouch(INSTANT_DEATH, NON_MONSTER, KILLED_BY_WATER);
 
-    return (false);
+    return false;
 }
 
 typedef std::map<std::string, dungeon_feature_type> feat_desc_map;
@@ -1598,9 +1551,9 @@ dungeon_feature_type feat_by_desc(std::string desc)
     feat_desc_map::iterator i = feat_desc_cache.find(desc);
 
     if (i != feat_desc_cache.end())
-        return (i->second);
+        return i->second;
 
-    return (DNGN_UNSEEN);
+    return DNGN_UNSEEN;
 }
 
 // If active is true, the player is just stepping onto the feature, with the
@@ -1686,58 +1639,77 @@ std::string stair_climb_verb(dungeon_feature_type feat)
 static const char *dngn_feature_names[] =
 {
 "unseen", "closed_door", "detected_secret_door", "secret_door",
-"wax_wall", "metal_wall", "green_crystal_wall", "rock_wall",
+#if TAG_MAJOR_VERSION == 33
+"waxed_wall", "metal_wall", "green_crystal_wall", "rock_wall",
 "slimy_wall", "stone_wall", "permarock_wall",
 "clear_rock_wall", "clear_stone_wall", "clear_permarock_wall", "iron_grate",
-"open_sea", "tree", "orcish_idol", "swamp_tree", "endless_lava", "",
-"granite_statue", "", "", "", "", "", "", "", "", "", "",
-"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
-"", "", "", "", "", "", "", "", "", "", "", "", "", "lava",
-"deep_water", "", "", "shallow_water", "water_stuck", "floor",
-"", "floor_reserved", "exit_hell", "enter_hell",
-"open_door", "", "", "trap_mechanical", "trap_magical", "trap_natural",
-"undiscovered_trap", "", "enter_shop", "enter_labyrinth",
+"tree", "mangrove", "open_sea", "endless_lava", "orcish_idol",
+"granite_statue", "malign_gateway", "", "", "", "", "", "", "", "",
+#else
+"metal_wall", "green_crystal_wall", "rock_wall",
+"slimy_wall", "stone_wall", "permarock_wall", "mangrove",
+"clear_rock_wall", "clear_stone_wall", "clear_permarock_wall", "iron_grate",
+"tree", "open_sea", "endless_lava", "orcish_idol",
+"granite_statue", "malign_gateway", "", "", "", "", "", "", "", "", "",
+#endif
+
+// DNGN_MINMOVE
+"lava", "deep_water",
+
+// DNGN_MINWALK
+"shallow_water", "floor", "open_door",
+"trap_mechanical", "trap_magical", "trap_natural", "trap_web",
+"undiscovered_trap", "enter_shop", "abandoned_shop",
+
 "stone_stairs_down_i", "stone_stairs_down_ii",
 "stone_stairs_down_iii", "escape_hatch_down", "stone_stairs_up_i",
-"stone_stairs_up_ii", "stone_stairs_up_iii", "escape_hatch_up", "",
-"", "enter_dis", "enter_gehenna", "enter_cocytus",
+"stone_stairs_up_ii", "stone_stairs_up_iii", "escape_hatch_up",
+
+"enter_dis", "enter_gehenna", "enter_cocytus",
 "enter_tartarus", "enter_abyss", "exit_abyss", "stone_arch",
 "enter_pandemonium", "exit_pandemonium", "transit_pandemonium",
-"", "", "", "", "", "",
-"", "", "enter_dwarven_hall", "enter_orcish_mines", "enter_hive", "enter_lair",
+"exit_dungeon", "exit_through_abyss",
+"exit_hell", "enter_hell", "enter_labyrinth",
+"teleporter", "enter_portal_vault", "exit_portal_vault",
+"expired_portal",
+
+"enter_dwarven_hall", "enter_orcish_mines", "enter_lair",
 "enter_slime_pits", "enter_vaults", "enter_crypt",
 "enter_hall_of_blades", "enter_zot", "enter_temple",
 "enter_snake_pit", "enter_elven_halls", "enter_tomb",
 "enter_swamp", "enter_shoals", "enter_spider_nest",
-"enter_forest", "enter_reserved_1", "", "",
-"return_from_dwarven_hall", "return_from_orcish_mines", "return_from_hive",
+"enter_forest", "",
+
+"return_from_dwarven_hall", "return_from_orcish_mines",
 "return_from_lair", "return_from_slime_pits",
 "return_from_vaults", "return_from_crypt",
 "return_from_hall_of_blades", "return_from_zot",
 "return_from_temple", "return_from_snake_pit",
 "return_from_elven_halls", "return_from_tomb",
 "return_from_swamp", "return_from_shoals", "return_from_spider_nest",
-"return_from_forest", "return_reserved_1", "", "", "", "", "",
-"", "", "", "", "", "", "", "enter_portal_vault", "exit_portal_vault",
-"malign_gateway", "expired_portal", "", "", "", "", "",
-"", "", "", "", "", "", "", "", "",
-"", "", "altar_zin", "altar_the_shining_one", "altar_kikubaaqudgha",
+"return_from_forest", "",
+
+"altar_zin", "altar_the_shining_one", "altar_kikubaaqudgha",
 "altar_yredelemnul", "altar_xom", "altar_vehumet",
 "altar_okawaru", "altar_makhleb", "altar_sif_muna", "altar_trog",
 "altar_nemelex_xobeh", "altar_elyvilon", "altar_lugonu",
 "altar_beogh", "altar_jiyva", "altar_fedhas", "altar_cheibriados",
-"altar_ashenzari", "", "",
+"altar_ashenzari", "",
+
 "fountain_blue", "fountain_sparkling", "fountain_blood",
 "dry_fountain_blue", "dry_fountain_sparkling", "dry_fountain_blood",
-"permadry_fountain", "abandoned_shop", "", "",
+"permadry_fountain",
+
 "explore_horizon",
+"unknown_altar", "unknown_portal",
 };
 
 dungeon_feature_type dungeon_feature_by_name(const std::string &name)
 {
     COMPILE_CHECK(ARRAYSZ(dngn_feature_names) == NUM_FEATURES);
+
     if (name.empty())
-        return (DNGN_UNSEEN);
+        return DNGN_UNSEEN;
 
     for (unsigned i = 0; i < ARRAYSZ(dngn_feature_names); ++i)
     {
@@ -1748,14 +1720,14 @@ dungeon_feature_type dungeon_feature_by_name(const std::string &name)
             if (feat_is_altar(feat)
                 && is_unavailable_god(feat_altar_god(feat)))
             {
-                return (DNGN_FLOOR);
+                return DNGN_FLOOR;
             }
 
-            return (feat);
+            return feat;
         }
     }
 
-    return (DNGN_UNSEEN);
+    return DNGN_UNSEEN;
 }
 
 std::vector<std::string> dungeon_feature_matches(const std::string &name)
@@ -1764,13 +1736,13 @@ std::vector<std::string> dungeon_feature_matches(const std::string &name)
 
     COMPILE_CHECK(ARRAYSZ(dngn_feature_names) == NUM_FEATURES);
     if (name.empty())
-        return (matches);
+        return matches;
 
     for (unsigned i = 0; i < ARRAYSZ(dngn_feature_names); ++i)
         if (strstr(dngn_feature_names[i], name.c_str()))
             matches.push_back(dngn_feature_names[i]);
 
-    return (matches);
+    return matches;
 }
 
 const char *dungeon_feature_name(dungeon_feature_type rfeat)
@@ -1778,7 +1750,7 @@ const char *dungeon_feature_name(dungeon_feature_type rfeat)
     const unsigned feat = rfeat;
 
     if (feat >= ARRAYSZ(dngn_feature_names))
-        return (NULL);
+        return NULL;
 
     return dngn_feature_names[feat];
 }
@@ -1794,7 +1766,7 @@ void nuke_wall(const coord_def& p)
 
     remove_mold(p);
 
-    grd(p) = (grd(p) == DNGN_SWAMP_TREE) ? DNGN_SHALLOW_WATER : DNGN_FLOOR;
+    grd(p) = (grd(p) == DNGN_MANGROVE) ? DNGN_SHALLOW_WATER : DNGN_FLOOR;
     set_terrain_changed(p);
 }
 
@@ -1848,10 +1820,14 @@ bool cell_can_cling_to(const coord_def& from, const coord_def to)
         return false;
 
     for (orth_adjacent_iterator ai(from); ai; ++ai)
+    {
         if (feat_is_wall(env.grid(*ai)))
+        {
             for (orth_adjacent_iterator ai2(to, false); ai2; ++ai2)
                 if (feat_is_wall(env.grid(*ai2)) && distance(*ai, *ai2) <= 1)
                     return true;
+        }
+    }
 
         return false;
 }
@@ -1882,7 +1858,7 @@ const char* feat_type_name(dungeon_feature_type feat)
         return "portal";
     if (feat_is_travelable_stair(feat))
         return "staircase";
-    if (feat == DNGN_ENTER_SHOP)
+    if (feat == DNGN_ENTER_SHOP || feat == DNGN_ABANDONED_SHOP)
         return "shop";
     if (feat_is_fountain(feat))
         return "fountain";
@@ -1897,7 +1873,7 @@ bool is_boring_terrain(dungeon_feature_type feat)
         return true;
 
     // A portal deeper into the Ziggurat is boring.
-    if (feat == DNGN_ENTER_PORTAL_VAULT && you.level_type == LEVEL_PORTAL_VAULT)
+    if (feat == DNGN_ENTER_PORTAL_VAULT && player_in_branch(BRANCH_ZIGGURAT))
         return true;
 
     // Altars in the temple are boring.

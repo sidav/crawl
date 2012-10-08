@@ -20,18 +20,15 @@
 #include "itemprop.h"
 #include "libutil.h"
 #include "mon-stuff.h"
-#include "options.h"
 #include "player.h"
-#include "player-stats.h"
 #include "religion.h"
 #include "skills2.h"
-#include "spl-book.h"
 #include "state.h"
 
 int che_stat_boost(int piety)
 {
     if (you.religion != GOD_CHEIBRIADOS || you.penance[GOD_CHEIBRIADOS])
-        return (0);
+        return 0;
     if (piety < 30)  // Since you've already begun to slow down.
         return 1;
     if (piety > 160) // Fudging this slightly to agree with ****** piety.
@@ -59,8 +56,8 @@ void jiyva_eat_offlevel_items()
 
         // Choose level based on main dungeon depth so that levels short branches
         // aren't picked more often.
-        ASSERT(branches[branch].depth <= branches[BRANCH_MAIN_DUNGEON].depth);
-        const int level  = random2(branches[BRANCH_MAIN_DUNGEON].depth) + 1;
+        ASSERT(brdepth[branch] <= MAX_BRANCH_DEPTH);
+        const int level  = random2(MAX_BRANCH_DEPTH) + 1;
 
         const level_id lid(static_cast<branch_type>(branch), level);
 
@@ -129,7 +126,8 @@ void jiyva_slurp_bonus(int item_value, int *js)
 
     if (you.piety >= piety_breakpoint(4)
         && x_chance_in_y(you.piety, MAX_PIETY)
-        && you.hp < you.hp_max)
+        && you.hp < you.hp_max
+        && !you.duration[DUR_DEATHS_DOOR])
     {
          inc_hp(std::max(random2(item_value), 1));
          *js |= JS_HP;
@@ -200,10 +198,7 @@ void ash_check_bondage(bool msg)
             if (you.equip[i] != -1)
             {
                 const item_def& item = you.inv[you.equip[i]];
-                if (item.cursed()
-                    && (i != EQ_WEAPON
-                        || item.base_type == OBJ_WEAPONS
-                        || item.base_type == OBJ_STAVES))
+                if (item.cursed() && (i != EQ_WEAPON || is_weapon(item)))
                 {
                     if (s == ET_WEAPON && _two_handed())
                     {
@@ -249,9 +244,11 @@ void ash_check_bondage(bool msg)
 
     int flags = 0;
     if (msg)
+    {
         for (int s = ET_WEAPON; s < NUM_ET; s++)
             if (new_bondage[s] != you.bondage[s])
                 flags |= 1 << s;
+    }
 
     you.skill_boost.clear();
     for (int s = ET_WEAPON; s < NUM_ET; s++)
@@ -356,7 +353,7 @@ static bool _is_slot_cursed(equipment_type eq)
         return false;
 
     if (eq == EQ_WEAPON)
-        return worn->base_type == OBJ_WEAPONS || worn->base_type == OBJ_STAVES;
+        return is_weapon(*worn);
     return true;
 }
 
@@ -414,17 +411,11 @@ bool god_id_item(item_def& item, bool silent)
         if (item.base_type == OBJ_JEWELLERY && item_needs_autopickup(item))
             item.props["needs_autopickup"] = true;
 
-        if (item.base_type == OBJ_WEAPONS
-            || item.base_type == OBJ_ARMOUR
-            || item.base_type == OBJ_STAVES)
-        {
+        if (is_weapon(item) || item.base_type == OBJ_ARMOUR)
             ided |= ISFLAG_KNOW_PROPERTIES | ISFLAG_KNOW_TYPE;
-        }
 
         if (_jewel_auto_id(item))
-        {
             ided |= ISFLAG_EQ_JEWELLERY_MASK;
-        }
 
         if (item.base_type == OBJ_ARMOUR
             && you.piety >= piety_breakpoint(0)
@@ -434,7 +425,7 @@ bool god_id_item(item_def& item, bool silent)
             ided |= ISFLAG_KNOW_PLUSES;
         }
 
-        if ((item.base_type == OBJ_WEAPONS || item.base_type == OBJ_STAVES)
+        if (is_weapon(item)
             && you.piety >= piety_breakpoint(1)
             && _is_slot_cursed(EQ_WEAPON))
         {
@@ -465,7 +456,7 @@ bool god_id_item(item_def& item, bool silent)
     }
     else if (you.religion == GOD_ELYVILON)
     {
-        if (item.base_type == OBJ_STAVES
+        if ((item.base_type == OBJ_STAVES || item.base_type == OBJ_RODS)
             && (is_evil_item(item) || is_unholy_item(item)))
         {
             // staff of death, evil rods
@@ -489,8 +480,7 @@ bool god_id_item(item_def& item, bool silent)
         if (ided & ISFLAG_KNOW_TYPE)
             set_ident_type(item, ID_KNOWN_TYPE);
         set_ident_flags(item, ided);
-        if (Options.autoinscribe_artefacts && is_artefact(item))
-            add_autoinscription(item, artefact_auto_inscription(item));
+        add_autoinscription(item);
 
         if (item.props.exists("needs_autopickup") && is_useless_item(item))
             item.props.erase("needs_autopickup");
@@ -507,19 +497,6 @@ bool god_id_item(item_def& item, bool silent)
 
     // nothing new
     return false;
-}
-
-void god_id_inventory()
-{
-    if (you.religion != GOD_ASHENZARI && you.religion != GOD_ELYVILON)
-        return;
-
-    for (int i = 0; i < ENDOFPACK; i++)
-    {
-        item_def& item = you.inv[i];
-        if (item.defined())
-            god_id_item(item, false);
-    }
 }
 
 void ash_id_monster_equipment(monster* mon)
@@ -565,7 +542,8 @@ static bool is_ash_portal(dungeon_feature_type feat)
     {
     case DNGN_ENTER_HELL:
     case DNGN_ENTER_LABYRINTH:
-    case DNGN_ENTER_ABYSS: // for completeness/Pan
+    case DNGN_ENTER_ABYSS: // for completeness
+    case DNGN_EXIT_THROUGH_ABYSS:
     case DNGN_EXIT_ABYSS:
     case DNGN_ENTER_PANDEMONIUM:
     case DNGN_EXIT_PANDEMONIUM:
@@ -622,7 +600,7 @@ int ash_detect_portals(bool all)
     }
 
     you.seen_portals += portals_found;
-    return (portals_found);
+    return portals_found;
 }
 
 monster_type ash_monster_tier(const monster *mon)
@@ -657,23 +635,24 @@ std::map<skill_type, int8_t> ash_get_boosted_skills(eq_type type)
         }
 
         // Those staves don't benefit from evocation.
-        //Boost spellcasting instead.
-        if (item_is_staff(*wpn) && (wpn->sub_type == STAFF_POWER
-                                    || wpn->sub_type == STAFF_CONJURATION
-                                    || wpn->sub_type == STAFF_ENCHANTMENT
-                                    || wpn->sub_type == STAFF_ENERGY
-                                    || wpn->sub_type == STAFF_WIZARDRY))
+        // Boost spellcasting instead.
+        if (wpn->base_type == OBJ_STAVES
+            && (wpn->sub_type == STAFF_POWER
+                || wpn->sub_type == STAFF_CONJURATION
+                || wpn->sub_type == STAFF_ENCHANTMENT
+                || wpn->sub_type == STAFF_ENERGY
+                || wpn->sub_type == STAFF_WIZARDRY))
         {
             boost[SK_SPELLCASTING] = 2;
         }
         // Other staves use evocation.
-        else if (item_is_staff(*wpn))
+        else if (wpn->base_type == OBJ_STAVES)
         {
             boost[SK_EVOCATIONS] = 1;
             boost[SK_STAVES] = 1;
 
         }
-        else if (item_is_rod(*wpn))
+        else if (wpn->base_type == OBJ_RODS)
             boost[SK_EVOCATIONS] = 2;
 
         break;

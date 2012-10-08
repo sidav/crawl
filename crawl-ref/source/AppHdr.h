@@ -83,6 +83,10 @@
     #endif
 #endif
 
+#if !defined(__cplusplus) || (__cplusplus < 201103)
+# define constexpr const
+#endif
+
 // =========================================================================
 //  System Defines
 // =========================================================================
@@ -173,12 +177,19 @@
 # define _WIN32_WINNT 0x501
 #endif
 
+// Note: clang does masquerade as GNUC.
 #if defined(__GNUC__)
 # define NORETURN __attribute__ ((noreturn))
 #elif defined(_MSC_VER)
 # define NORETURN __declspec(noreturn)
 #else
 # define NORETURN
+#endif
+
+#if defined(__GNUC__)
+# define PURE __attribute__ ((pure))
+#else
+# define PURE
 #endif
 
 // =========================================================================
@@ -367,24 +378,21 @@
 // Uncomment these if you can't find these functions on your system
 // #define NEED_USLEEP
 
-#ifndef PROPORTIONAL_FONT
-    #define PROPORTIONAL_FONT "Vera.ttf"
-#endif
-#ifndef MONOSPACED_FONT
-    #define MONOSPACED_FONT "VeraMono.ttf"
+#ifdef USE_TILE_LOCAL
+# ifndef PROPORTIONAL_FONT
+#  error PROPORTIONAL_FONT not defined
+# endif
+# ifndef MONOSPACED_FONT
+#  error MONOSPACED_FONT not defined
+# endif
 #endif
 
 #ifdef __cplusplus
 
 template < class T >
-inline void UNUSED(const volatile T &)
+static inline void UNUSED(const volatile T &)
 {
 }
-
-// C++11 has stricter requirements for compile-time checks.
-# if __cplusplus < 201103
-#  define constexpr const
-# endif
 
 #endif // __cplusplus
 

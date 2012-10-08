@@ -32,6 +32,8 @@ extern const char *traversable_glyphs;
 // Invalid heightmap height.
 static const int INVALID_HEIGHT = -31999;
 
+static const int BRANCH_END = 100;
+
 // Exception thrown when a map cannot be loaded from its .dsc file
 // because the .dsc file has changed under it.
 class map_load_exception : public std::exception
@@ -79,7 +81,6 @@ struct raw_range
 struct level_range
 {
 public:
-    level_area_type level_type;
     branch_type branch;
     int shallowest, deepest;
     bool deny;
@@ -99,7 +100,6 @@ public:
     void read(reader&);
 
     bool valid() const;
-    int span() const;
 
     static level_range parse(std::string lr) throw (std::string);
 
@@ -300,9 +300,6 @@ public:
     std::string fixed_str;
     map_string_list strlist;
 };
-
-template<class T>
-std::string parse_weighted_str(const std::string &cspec, T &list);
 
 class map_def;
 class rectangle_iterator;
@@ -886,6 +883,9 @@ public:
     item_list   &get_items();
     map_flags   &get_mask();
 
+    // Does this mapspec specify a feature, item, or monster?  If so, the
+    // glyph should be ignored.
+    bool replaces_glyph();
 private:
     std::string err;
 
@@ -896,7 +896,6 @@ private:
     feature_spec parse_trap(std::string s, int weight);
 };
 
-class map_def;
 class dlua_set_map
 {
 public:
@@ -906,7 +905,6 @@ private:
     std::auto_ptr<lua_datum> old_map;
 };
 
-class map_def;
 dungeon_feature_type map_feature_at(map_def *map,
                                     const coord_def &c,
                                     int rawfeat);
@@ -1091,7 +1089,7 @@ public:
     // Description for the map that can be shown to players.
     std::string     description;
     std::string     tags;
-    level_id        place;
+    depth_ranges    place;
 
     depth_ranges     depths;
     map_section_type orient;
@@ -1101,11 +1099,6 @@ public:
 
     range_chance_t   _chance;
     range_weight_t   _weight;
-
-    int              weight_depth_mult;
-    int              weight_depth_div;
-
-    std::vector<std::string> welcome_messages;
 
     map_lines       map;
     mons_list       mons;
@@ -1127,10 +1120,13 @@ public:
 
     map_def         *original;
 
-    uint8_t         rock_colour, floor_colour;
+    colour_t        rock_colour, floor_colour;
     std::string     rock_tile, floor_tile;
 
     dungeon_feature_type border_fill_type;
+
+    std::map<dungeon_feature_type, std::string> feat_renames;
+
 private:
     // This map has been loaded from an index, and not fully realised.
     bool            index_only;
@@ -1196,7 +1192,7 @@ public:
     std::string validate_map_def(const depth_ranges &);
     std::string validate_temple_map();
     // Returns true if this map is in the middle of validation.
-    bool is_validating() const { return (validating_map_flag); }
+    bool is_validating() const { return validating_map_flag; }
 
     void add_prelude_line(int line,  const std::string &s);
     void add_main_line(int line, const std::string &s);
@@ -1268,7 +1264,7 @@ public:
         // feature slots, but that's fine by us.
         dungeon_feature_type operator () (const coord_def &c) const
         {
-            return (map_feature_at(&map, c, -1));
+            return map_feature_at(&map, c, -1);
         }
     };
 
@@ -1284,8 +1280,6 @@ public:
     };
 
 private:
-    void write_depth_ranges(writer&) const;
-    void read_depth_ranges(reader&);
     bool test_lua_boolchunk(dlua_chunk &, bool def = false, bool croak = false);
     std::string rewrite_chunk_errors(const std::string &s) const;
     std::string apply_subvault(string_spec &);

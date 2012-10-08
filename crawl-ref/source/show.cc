@@ -20,7 +20,6 @@
 #include "fprop.h"
 #include "itemprop.h"
 #include "mon-place.h"
-#include "mon-stuff.h"
 #include "mon-util.h"
 #include "monster.h"
 #include "options.h"
@@ -35,7 +34,6 @@
 #include "tiledef-main.h"
 #include "traps.h"
 #include "travel.h"
-#include "viewgeom.h"
 #include "viewmap.h"
 
 show_type::show_type()
@@ -88,9 +86,9 @@ show_type::show_type(show_item_type t)
 bool show_type::operator < (const show_type &other) const
 {
     if (cls < other.cls)
-        return (false);
+        return false;
     else if (cls > other.cls)
-        return (true);
+        return true;
     switch (cls)
     {
     case SH_FEATURE:
@@ -100,7 +98,7 @@ bool show_type::operator < (const show_type &other) const
     case SH_MONSTER:
         return (mons < other.mons);
     default:
-        return (false);
+        return false;
     }
 }
 
@@ -131,6 +129,9 @@ static void _update_feat_at(const coord_def &gp)
 
     if (umbraed(gp))
         env.map_knowledge(gp).flags |= MAP_UMBRAED;
+
+    if (suppressed(gp))
+        env.map_knowledge(gp).flags |= MAP_SUPPRESSED;
 
     if (silenced(gp))
         env.map_knowledge(gp).flags |= MAP_SILENCED;
@@ -191,23 +192,24 @@ static show_item_type _item_to_show_code(const item_def &item)
 {
     switch (item.base_type)
     {
-    case OBJ_ORBS:       return (SHOW_ITEM_ORB);
-    case OBJ_WEAPONS:    return (SHOW_ITEM_WEAPON);
-    case OBJ_MISSILES:   return (SHOW_ITEM_MISSILE);
-    case OBJ_ARMOUR:     return (SHOW_ITEM_ARMOUR);
-    case OBJ_WANDS:      return (SHOW_ITEM_WAND);
-    case OBJ_FOOD:       return (SHOW_ITEM_FOOD);
-    case OBJ_SCROLLS:    return (SHOW_ITEM_SCROLL);
+    case OBJ_ORBS:       return SHOW_ITEM_ORB;
+    case OBJ_WEAPONS:    return SHOW_ITEM_WEAPON;
+    case OBJ_MISSILES:   return SHOW_ITEM_MISSILE;
+    case OBJ_ARMOUR:     return SHOW_ITEM_ARMOUR;
+    case OBJ_WANDS:      return SHOW_ITEM_WAND;
+    case OBJ_FOOD:       return SHOW_ITEM_FOOD;
+    case OBJ_SCROLLS:    return SHOW_ITEM_SCROLL;
     case OBJ_JEWELLERY:
         return (jewellery_is_amulet(item)? SHOW_ITEM_AMULET : SHOW_ITEM_RING);
-    case OBJ_POTIONS:    return (SHOW_ITEM_POTION);
-    case OBJ_BOOKS:      return (SHOW_ITEM_BOOK);
-    case OBJ_STAVES:     return (SHOW_ITEM_STAVE);
-    case OBJ_MISCELLANY: return (SHOW_ITEM_MISCELLANY);
-    case OBJ_CORPSES:    return (SHOW_ITEM_CORPSE);
-    case OBJ_GOLD:       return (SHOW_ITEM_GOLD);
-    case OBJ_DETECTED:   return (SHOW_ITEM_DETECTED);
-    default:             return (SHOW_ITEM_ORB); // bad item character
+    case OBJ_POTIONS:    return SHOW_ITEM_POTION;
+    case OBJ_BOOKS:      return SHOW_ITEM_BOOK;
+    case OBJ_STAVES:     return SHOW_ITEM_STAVE;
+    case OBJ_RODS:       return SHOW_ITEM_STAVE;
+    case OBJ_MISCELLANY: return SHOW_ITEM_MISCELLANY;
+    case OBJ_CORPSES:    return SHOW_ITEM_CORPSE;
+    case OBJ_GOLD:       return SHOW_ITEM_GOLD;
+    case OBJ_DETECTED:   return SHOW_ITEM_DETECTED;
+    default:             return SHOW_ITEM_ORB; // bad item character
    }
 }
 
@@ -311,12 +313,12 @@ static bool _valid_invis_spot(const coord_def &where, const monster* mons)
     monster *mons_at = monster_at(where);
 
     if (mons_at && mons_at != mons)
-        return (false);
+        return false;
 
     if (monster_habitable_grid(mons, grd(where)))
-        return (true);
+        return true;
 
-    return (false);
+    return false;
 }
 
 static int _hashed_rand(const monster* mons, uint32_t id, uint32_t die)
@@ -389,8 +391,11 @@ static void _update_monster(monster* mons)
             you.attribute[ATTR_SEEN_INVIS_SEED] = random_int();
         }
 
+        bool show_location = (mons->friendly()
+                              || (mons->constricted_by == MID_PLAYER));
+
         // maybe show unstealthy invis monsters
-        if (mons->friendly()
+        if (show_location
             || _hashed_rand(mons, 0, 7) >= mons->stealth() + 4)
         {
             // We cannot use regular randomness here, otherwise redrawing the
@@ -398,13 +403,12 @@ static void _update_monster(monster* mons)
             // seed too -- but it needs to be regenerated every turn.
 
             // Maybe mark their square.
-            if (mons->friendly()
+            if (show_location
                 || mons->stealth() <= -2
                 || mons->stealth() <= 2 && !_hashed_rand(mons, 1, 4))
             {
                 env.map_knowledge(gp).set_invisible_monster();
-                // Just display the actual position for friendlies.
-                if (mons->friendly())
+                if (show_location) // Don't add extra fake trails.
                     return;
             }
 
@@ -467,6 +471,9 @@ void show_update_at(const coord_def &gp, bool terrain_only)
 
 #ifdef USE_TILE
     tile_draw_map_cell(gp, true);
+#endif
+#ifdef USE_TILE_WEB
+    tiles.mark_for_redraw(gp);
 #endif
 }
 

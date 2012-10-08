@@ -23,6 +23,7 @@
 
 #include "abl-show.h"
 #include "artefact.h"
+#include "branch.h"
 #include "debug.h"
 #include "describe.h"
 #include "dgn-overview.h"
@@ -86,7 +87,6 @@ static void _sdump_overview(dump_params &);
 static void _sdump_hiscore(dump_params &);
 static void _sdump_monster_list(dump_params &);
 static void _sdump_vault_list(dump_params &);
-static void _sdump_spell_usage(dump_params &);
 static void _sdump_action_counts(dump_params &);
 static void _sdump_separator(dump_params &);
 #ifdef CLUA_BINDINGS
@@ -140,7 +140,7 @@ static dump_section_handler dump_handlers[] = {
     { "hiscore",        _sdump_hiscore       },
     { "monlist",        _sdump_monster_list  },
     { "vaults",         _sdump_vault_list    },
-    { "spell_usage",    _sdump_spell_usage   },
+    { "spell_usage",    _sdump_action_counts }, // compat
     { "action_counts",  _sdump_action_counts },
 
     // Conveniences for the .crawlrc artist.
@@ -194,6 +194,16 @@ static void _sdump_header(dump_params &par)
         type += " DCSS";
 
     par.text += " " + type + " version " + Version::Long();
+#ifdef USE_TILE_LOCAL
+    par.text += " (tiles)";
+#elif defined(USE_TILE_WEB)
+    if (::tiles.is_controlled_from_web())
+        par.text += " (webtiles)";
+    else
+        par.text += " (console)";
+#else
+    par.text += " (console)";
+#endif
     par.text += " character file.\n\n";
 }
 
@@ -287,6 +297,18 @@ static void _sdump_transform(dump_params &par)
     }
 }
 
+static branch_type single_portals[] =
+{
+    BRANCH_LABYRINTH,
+    BRANCH_TROVE,
+    BRANCH_SEWER,
+    BRANCH_OSSUARY,
+    BRANCH_BAILEY,
+    BRANCH_ICE_CAVE,
+    BRANCH_VOLCANO,
+    BRANCH_WIZLAB,
+};
+
 static void _sdump_visits(dump_params &par)
 {
     std::string &text(par.text);
@@ -313,7 +335,7 @@ static void _sdump_visits(dump_params &par)
     text += make_stringf(" of the dungeon, and %s %d of its levels.\n",
                          seen.c_str(), branches_total.levels_seen);
 
-    PlaceInfo place_info = you.get_place_info(LEVEL_PANDEMONIUM);
+    PlaceInfo place_info = you.get_place_info(BRANCH_PANDEMONIUM);
     if (place_info.num_visits > 0)
     {
         text += make_stringf("You %svisited Pandemonium %d time",
@@ -324,7 +346,7 @@ static void _sdump_visits(dump_params &par)
                              seen.c_str(), place_info.levels_seen);
     }
 
-    place_info = you.get_place_info(LEVEL_ABYSS);
+    place_info = you.get_place_info(BRANCH_ABYSS);
     if (place_info.num_visits > 0)
     {
         text += make_stringf("You %svisited the Abyss %d time",
@@ -334,86 +356,55 @@ static void _sdump_visits(dump_params &par)
         text += ".\n";
     }
 
-    place_info = you.get_place_info(LEVEL_LABYRINTH);
-    if (place_info.levels_seen > 0)
+    place_info = you.get_place_info(BRANCH_BAZAAR);
+    if (place_info.num_visits > 0)
     {
-        text += make_stringf("You %svisited %d Labyrinth",
-                             have.c_str(), place_info.levels_seen);
-        if (place_info.levels_seen > 1)
+        text += make_stringf("You %svisited %d bazaars",
+                             have.c_str(), place_info.num_visits);
+        if (place_info.num_visits > 1)
             text += "s";
         text += ".\n";
     }
 
-    place_info = you.get_place_info(LEVEL_PORTAL_VAULT);
+    place_info = you.get_place_info(BRANCH_ZIGGURAT);
     if (place_info.num_visits > 0)
     {
-        CrawlVector &vaults =
-            you.props[YOU_PORTAL_VAULT_NAMES_KEY].get_vector();
+        int num_zigs = place_info.num_visits;
+        text += make_stringf("You %s%s %d Ziggurat",
+                             have.c_str(),
+                             (num_zigs == you.zigs_completed) ? "completed"
+                                                              : "visited",
+                             num_zigs);
+        if (num_zigs > 1)
+            text += "s";
+        if (num_zigs != you.zigs_completed && you.zigs_completed)
+            text += make_stringf(" (completing %d)", you.zigs_completed);
+        text += make_stringf(", and %s %d of %s levels",
+                             seen.c_str(), place_info.levels_seen,
+                             num_zigs > 1 ? "their" : "its");
+        if (num_zigs != 1 && !you.zigs_completed)
+            text += make_stringf(" (deepest: %d)", you.zig_max);
+        text += ".\n";
+    }
 
-        int num_bazaars = 0;
-        int num_zigs    = 0;
-        int zig_levels  = 0;
-        std::vector<std::string> misc_portals;
-
-        for (unsigned int i = 0; i < vaults.size(); i++)
-        {
-            std::string name = vaults[i].get_string();
-            name = replace_all(name, "_", " ");
-
-            if (name.find("Ziggurat") != std::string::npos)
-            {
-                zig_levels++;
-
-                if (name == "Ziggurat:1")
-                    num_zigs++;
-            }
-            else if (name == "bazaar")
-                num_bazaars++;
-            else
-                misc_portals.push_back(name);
-        }
-
-        if (num_bazaars > 0)
-        {
-            text += make_stringf("You %svisited %d bazaar",
-                                 have.c_str(), num_bazaars);
-
-            if (num_bazaars > 1)
-                text += "s";
-            text += ".\n";
-        }
-
-        if (num_zigs > 0)
-        {
-            text += make_stringf("You %s%s %d Ziggurat",
-                                 have.c_str(),
-                                 (num_zigs == you.zigs_completed) ? "completed"
-                                                                  : "visited",
-                                 num_zigs);
-            if (num_zigs > 1)
-                text += "s";
-            if (num_zigs != you.zigs_completed && you.zigs_completed)
-                text += make_stringf(" (completing %d)", you.zigs_completed);
-            text += make_stringf(", and %s %d of %s levels",
-                                 seen.c_str(), zig_levels,
-                                 num_zigs > 1 ? "their" : "its");
-            if (num_zigs != 1 && !you.zigs_completed)
-                text += make_stringf(" (deepest: %d)", you.zig_max);
-            text += ".\n";
-        }
-
-        if (!misc_portals.empty())
-        {
-            text += make_stringf("You %svisited %d portal chamber",
-                                 have.c_str(), (int)misc_portals.size());
-            if (misc_portals.size() > 1)
-                text += "s";
-            text += ": ";
-            text += comma_separated_line(misc_portals.begin(),
-                                         misc_portals.end(),
-                                         ", ");
-            text += ".\n";
-        }
+    std::vector<std::string> misc_portals;
+    for (unsigned int i = 0; i < ARRAYSZ(single_portals); i++)
+    {
+        branch_type br = single_portals[i];
+        place_info = you.get_place_info(br);
+        if (!place_info.num_visits)
+            continue;
+        std::string name = branches[br].shortname;
+        if (place_info.num_visits > 1)
+            name += make_stringf(" (%d times)", place_info.num_visits);
+        misc_portals.push_back(name);
+    }
+    if (!misc_portals.empty())
+    {
+        text += "You " + have + "also visited: "
+                + comma_separated_line(misc_portals.begin(),
+                                       misc_portals.end())
+                + ".\n";
     }
 
     text += "\n";
@@ -601,7 +592,7 @@ std::string munge_description(std::string inStr)
                 + "\n";
     }
 
-    return (outStr);
+    return outStr;
 }
 
 static void _sdump_messages(dump_params &par)
@@ -643,12 +634,8 @@ static void _sdump_notes(dump_params &par)
  //---------------------------------------------------------------
 static void _sdump_location(dump_params &par)
 {
-    if (you.absdepth0 == -1
-        && you.where_are_you == BRANCH_MAIN_DUNGEON
-        && you.level_type == LEVEL_DUNGEON)
-    {
+    if (you.depth == 0 && player_in_branch(BRANCH_MAIN_DUNGEON))
         par.text += "You escaped";
-    }
     else if (par.se)
         par.text += "You were " + prep_branch_level_name();
     else
@@ -691,7 +678,7 @@ static void _sdump_religion(dump_params &par)
                 text += "You were ";
             else
                 text += "You are ";
-            text += describe_xom_favour(false);
+            text += describe_xom_favour();
             text += "\n";
         }
     }
@@ -702,12 +689,12 @@ static bool _dump_item_origin(const item_def &item)
 #define fs(x) (flags & (x))
     const int flags = Options.dump_item_origins;
     if (flags == IODS_EVERYTHING)
-        return (true);
+        return true;
 
     if (fs(IODS_ARTEFACTS)
         && is_artefact(item) && item_ident(item, ISFLAG_KNOW_PROPERTIES))
     {
-        return (true);
+        return true;
     }
     if (fs(IODS_EGO_ARMOUR) && item.base_type == OBJ_ARMOUR
         && item_type_known(item))
@@ -723,32 +710,26 @@ static bool _dump_item_origin(const item_def &item)
     }
 
     if (fs(IODS_JEWELLERY) && item.base_type == OBJ_JEWELLERY)
-        return (true);
+        return true;
 
     if (fs(IODS_RUNES) && item.base_type == OBJ_MISCELLANY
         && item.sub_type == MISC_RUNE_OF_ZOT)
     {
-        return (true);
+        return true;
     }
 
-    if (fs(IODS_RODS) && item.base_type == OBJ_STAVES
-        && item_is_rod(item))
-    {
-        return (true);
-    }
+    if (fs(IODS_RODS) && item.base_type == OBJ_RODS)
+        return true;
 
-    if (fs(IODS_STAVES) && item.base_type == OBJ_STAVES
-        && !item_is_rod(item))
-    {
-        return (true);
-    }
+    if (fs(IODS_STAVES) && item.base_type == OBJ_STAVES)
+        return true;
 
     if (fs(IODS_BOOKS) && item.base_type == OBJ_BOOKS)
-        return (true);
+        return true;
 
     const int refpr = Options.dump_item_origin_price;
     if (refpr == -1)
-        return (false);
+        return false;
     return ((int)item_value(item, false) >= refpr);
 #undef fs
 }
@@ -806,6 +787,7 @@ static void _sdump_inventory(dump_params &par)
                 case OBJ_POTIONS:    text += "Potions";         break;
                 case OBJ_BOOKS:      text += "Books";           break;
                 case OBJ_STAVES:     text += "Magical staves";  break;
+                case OBJ_RODS:       text += "Rods";            break;
                 case OBJ_ORBS:       text += "Orbs of Power";   break;
                 case OBJ_MISCELLANY: text += "Miscellaneous";   break;
                 case OBJ_CORPSES:    text += "Carrion";         break;
@@ -882,7 +864,7 @@ static std::string spell_type_shortname(int spell_class, bool slash)
 
     ret += spelltype_short_name(spell_class);
 
-    return (ret);
+    return ret;
 }
 
 //---------------------------------------------------------------
@@ -893,27 +875,6 @@ static std::string spell_type_shortname(int spell_class, bool slash)
 static void _sdump_spells(dump_params &par)
 {
     std::string &text(par.text);
-
-// This array helps output the spell types in the traditional order.
-// this can be tossed as soon as I reorder the enum to the traditional order {dlb}
-    const int spell_type_index[] =
-    {
-        SPTYP_HOLY,
-        SPTYP_POISON,
-        SPTYP_FIRE,
-        SPTYP_ICE,
-        SPTYP_EARTH,
-        SPTYP_AIR,
-        SPTYP_CONJURATION,
-        SPTYP_HEXES,
-        SPTYP_CHARMS,
-        SPTYP_DIVINATION,
-        SPTYP_TRANSLOCATION,
-        SPTYP_SUMMONING,
-        SPTYP_TRANSMUTATION,
-        SPTYP_NECROMANCY,
-        0
-    };
 
     int spell_levels = player_spell_levels();
 
@@ -970,12 +931,11 @@ static void _sdump_spells(dump_params &par)
 
                 bool already = false;
 
-                for (int i = 0; spell_type_index[i] != 0; i++)
+                for (int i = 0; i <= SPTYP_LAST_EXPONENT; i++)
                 {
-                    if (spell_typematch(spell, spell_type_index[i]))
+                    if (spell_typematch(spell, 1 << i))
                     {
-                        spell_line += spell_type_shortname(spell_type_index[i],
-                                                           already);
+                        spell_line += spell_type_shortname(1 << i, already);
                         already = true;
                     }
                 }
@@ -1120,8 +1080,11 @@ static void _sdump_monster_list(dump_params &par)
 {
     std::string monlist = mpr_monster_list(par.se);
     trim_string(monlist);
-    par.text += monlist;
-    par.text += "\n\n";
+    while (!monlist.empty())
+    {
+        par.text += wordwrap_line(monlist, 80) + "\n";
+    }
+    par.text += "\n";
 }
 
 static void _sdump_vault_list(dump_params &par)
@@ -1148,63 +1111,6 @@ static bool _sort_by_first(std::pair<int, FixedVector<int, 28> > a,
             return false;
     }
     return false;
-}
-
-static void _sdump_spell_usage(dump_params &par)
-{
-    std::vector<std::pair<int, FixedVector<int, 28> > > usage_vec;
-    for (std::map<std::pair<caction_type, int>, FixedVector<int, 27> >::const_iterator sp = you.action_count.begin(); sp != you.action_count.end(); ++sp)
-    {
-        if (sp->first.first != CACT_CAST)
-            continue;
-        FixedVector<int, 28> v;
-        v[27] = 0;
-        for (int i = 0; i < 27; i++)
-        {
-            v[i] = sp->second[i];
-            v[27] += v[i];
-        }
-        usage_vec.push_back(std::pair<int, FixedVector<int, 28> >(sp->first.second, v));
-    }
-    if (usage_vec.empty())
-        return;
-    std::sort(usage_vec.begin(), usage_vec.end(), _sort_by_first);
-
-    int max_lt = (std::min<int>(you.max_level, 27) - 1) / 3;
-
-    // Don't show both a total and 1..3 when there's only one tier.
-    if (max_lt)
-        max_lt++;
-
-    par.text += make_stringf("\n%-24s", "Spells cast");
-    for (int lt = 0; lt < max_lt; lt++)
-        par.text += make_stringf(" | %2d-%2d", lt * 3 + 1, lt * 3 + 3);
-    par.text += make_stringf(" || %5s", "total");
-    par.text += "\n-------------------------";
-    for (int lt = 0; lt < max_lt; lt++)
-        par.text += "+-------";
-    par.text += "++-------\n";
-
-    for (std::vector<std::pair<int, FixedVector<int, 28> > >::const_iterator sp =
-         usage_vec.begin(); sp != usage_vec.end(); ++sp)
-    {
-        par.text += chop_string(spell_title((spell_type)sp->first), 24);
-
-        for (int lt = 0; lt < max_lt; lt++)
-        {
-            int ltotal = 0;
-            for (int i = lt * 3; i < lt * 3 + 3; i++)
-                ltotal += sp->second[i];
-            if (ltotal)
-                par.text += make_stringf(" |%6d", ltotal);
-            else
-                par.text += " |      ";
-        }
-        par.text += make_stringf(" ||%6d", sp->second[27]);
-        par.text += "\n";
-    }
-
-    par.text += "\n";
 }
 
 static std::string _describe_action(caction_type type)
@@ -1238,6 +1144,14 @@ static std::string _describe_action_subtype(caction_type type, int subtype)
     {
     case CACT_MELEE:
     case CACT_FIRE:
+        if (subtype >= UNRAND_START)
+        {
+            // Paranoia: an artefact may lose its specialness.
+            const char *tn = get_unrand_entry(subtype)->type_name;
+            if (tn)
+                return uppercase_first(tn);
+            subtype = get_unrand_entry(subtype)->sub_type;
+        }
         return ((subtype == -1) ? "Unarmed"
                 : uppercase_first(item_base_name(OBJ_WEAPONS, subtype)));
     case CACT_THROW:
@@ -1290,7 +1204,9 @@ static void _sdump_action_counts(dump_params &par)
     for (int cact = 0; cact < NUM_CACTIONS; cact++)
     {
         std::vector<std::pair<int, FixedVector<int, 28> > > action_vec;
-        for (std::map<std::pair<caction_type, int>, FixedVector<int, 27> >::const_iterator ac = you.action_count.begin(); ac != you.action_count.end(); ++ac)
+        for (std::map<std::pair<caction_type, int>,
+                                FixedVector<int, 27> >::const_iterator ac =
+                 you.action_count.begin(); ac != you.action_count.end(); ++ac)
         {
             if (ac->first.first != cact)
                 continue;
@@ -1305,7 +1221,9 @@ static void _sdump_action_counts(dump_params &par)
         }
         std::sort(action_vec.begin(), action_vec.end(), _sort_by_first);
 
-        for (std::vector<std::pair<int, FixedVector<int, 28> > >::const_iterator ac = action_vec.begin(); ac != action_vec.end(); ++ac)
+        for (std::vector<std::pair<int, FixedVector<int, 28> > >
+                 ::const_iterator ac = action_vec.begin();
+             ac != action_vec.end(); ++ac)
         {
             if (ac == action_vec.begin())
             {
@@ -1339,7 +1257,7 @@ static void _sdump_mutations(dump_params &par)
     if (how_mutated(true, false))
     {
         text += "\n";
-        text += (formatted_string::parse_string(describe_mutations()));
+        text += (formatted_string::parse_string(describe_mutations(false)));
         text += "\n\n";
     }
 }
@@ -1348,18 +1266,40 @@ static void _sdump_mutations(dump_params &par)
 //      Public Functions
 // ========================================================================
 
+static const char* hunger_names[] =
+{
+    "starving",
+    "near starving",
+    "very hungry",
+    "hungry",
+    "not hungry",
+    "full",
+    "very full",
+    "completely stuffed",
+};
+
+static const char* thirst_names[] =
+{
+    "bloodless",
+    "near bloodless",
+    "very thirsty",
+    "thirsty",
+    "not thirsty",
+    "full",
+    "very full",
+    "almost alive",
+};
+
 const char *hunger_level(void)
 {
-    const bool vamp = (you.species == SP_VAMPIRE);
+    COMPILE_CHECK(ARRAYSZ(hunger_names) == HS_ENGORGED + 1);
+    COMPILE_CHECK(ARRAYSZ(thirst_names) == HS_ENGORGED + 1);
 
-    return ((you.hunger <= 1000) ? (vamp ? "bloodless" : "starving") :
-            (you.hunger <= 1533) ? (vamp ? "near bloodless" : "near starving") :
-            (you.hunger <= 2066) ? (vamp ? "very thirsty" : "very hungry") :
-            (you.hunger <= 2600) ? (vamp ? "thirsty" : "hungry") :
-            (you.hunger <  7000) ? (vamp ? "not thirsty" : "not hungry") :
-            (you.hunger <  9000) ? "full" :
-            (you.hunger < 11000) ? "very full"
-                                 : (vamp ? "almost alive" : "completely stuffed"));
+    ASSERT(you.hunger_state <= HS_ENGORGED);
+
+    if (you.species == SP_VAMPIRE)
+        return thirst_names[you.hunger_state];
+    return hunger_names[you.hunger_state];
 }
 
 std::string morgue_directory()
@@ -1371,7 +1311,7 @@ std::string morgue_directory()
     if (!dir.empty() && dir[dir.length() - 1] != FILE_SEPARATOR)
         dir += FILE_SEPARATOR;
 
-    return (dir);
+    return dir;
 }
 
 void dump_map(FILE *fp, bool debug, bool dist)
@@ -1480,7 +1420,7 @@ static bool _write_dump(const std::string &fname, dump_params &par,
     else
         mprf(MSGCH_ERROR, "Error opening file '%s'", file_name.c_str());
 
-    return (succeeded);
+    return succeeded;
 }
 
 void display_notes()
@@ -1585,7 +1525,7 @@ bool dgl_unknown_timestamp_file(const std::string &filename)
         fclose(inh);
         return (file_version != DGL_TIMESTAMP_VERSION);
     }
-    return (false);
+    return false;
 }
 
 // Returns a filehandle to use to write turn timestamps, NULL if
@@ -1653,8 +1593,8 @@ void dgl_record_timestamp(unsigned long file_offset, time_t time)
 // Record timestamps every so many turns:
 const int TIMESTAMP_TURN_INTERVAL = 100;
 // Stop recording timestamps after this turncount.
-const long TIMESTAMP_TURN_MAX = 500000L;
-void dgl_record_timestamp(long turn)
+const int TIMESTAMP_TURN_MAX = 500000;
+void dgl_record_timestamp(int turn)
 {
     if (turn && turn < TIMESTAMP_TURN_MAX && !(turn % TIMESTAMP_TURN_INTERVAL))
     {

@@ -21,10 +21,10 @@
 #include "godpassive.h"
 #include "itemprop.h"
 #include "items.h"
-#include "item_use.h"
 #include "invent.h"
 #include "makeitem.h"
 #include "mapdef.h"
+#include "misc.h"
 #include "mon-iter.h"
 #include "mon-stuff.h"
 #include "mon-util.h"
@@ -91,55 +91,29 @@ void wizard_create_spec_object_by_name()
 void wizard_create_spec_object()
 {
     char           specs[80];
-    int            keyin;
+    ucs_t          keyin;
     monster_type   mon;
 
     object_class_type class_wanted   = OBJ_UNASSIGNED;
 
     int            thing_created;
 
-    while (class_wanted == OBJ_UNASSIGNED)
+    while (class_wanted == OBJ_UNASSIGNED || class_wanted == NUM_OBJECT_CLASSES)
     {
         mpr(") - weapons     ( - missiles  [ - armour  / - wands    ?  - scrolls",
             MSGCH_PROMPT);
-        mpr("= - jewellery   ! - potions   : - books   | - staves   0  - The Orb",
+        mpr("= - jewellery   ! - potions   : - books   | - staves   \\  - rods",
             MSGCH_PROMPT);
-        mpr("} - miscellany  X - corpses   % - food    $ - gold    ESC - exit",
+        mpr("} - miscellany  X - corpses   % - food    $ - gold     0  - the Orb",
             MSGCH_PROMPT);
+        mpr("ESC - exit", MSGCH_PROMPT);
 
         msgwin_prompt("What class of item? ");
 
-        keyin = toupper(get_ch());
+        keyin = towupper(get_ch());
 
-        if (keyin == ')')
-            class_wanted = OBJ_WEAPONS;
-        else if (keyin == '(')
-            class_wanted = OBJ_MISSILES;
-        else if (keyin == '[' || keyin == ']')
-            class_wanted = OBJ_ARMOUR;
-        else if (keyin == '/' || keyin == '\\')
-            class_wanted = OBJ_WANDS;
-        else if (keyin == '?')
-            class_wanted = OBJ_SCROLLS;
-        else if (keyin == '=' || keyin == '"')
-            class_wanted = OBJ_JEWELLERY;
-        else if (keyin == '!')
-            class_wanted = OBJ_POTIONS;
-        else if (keyin == ':' || keyin == '+')
-            class_wanted = OBJ_BOOKS;
-        else if (keyin == '|')
-            class_wanted = OBJ_STAVES;
-        else if (keyin == '0' || keyin == 'O')
-            class_wanted = OBJ_ORBS;
-        else if (keyin == '}' || keyin == '{')
-            class_wanted = OBJ_MISCELLANY;
-        else if (keyin == 'X' || keyin == '&')
-            class_wanted = OBJ_CORPSES;
-        else if (keyin == '%')
-            class_wanted = OBJ_FOOD;
-        else if (keyin == '$')
-            class_wanted = OBJ_GOLD;
-        else if (key_is_escape(keyin) || keyin == ' '
+        class_wanted = item_class_by_sym(keyin);
+        if (key_is_escape(keyin) || keyin == ' '
                 || keyin == '\r' || keyin == '\n')
         {
             msgwin_reply("");
@@ -558,7 +532,7 @@ void wizard_tweak_object(void)
 
         // cursedness might have changed
         ash_check_bondage();
-        god_id_inventory();
+        auto_id_inventory();
     }
 }
 
@@ -730,8 +704,13 @@ void wizard_make_object_randart()
         return;
     }
 
-    if (Options.autoinscribe_artefacts)
-        add_autoinscription(item, artefact_auto_inscription(you.inv[i]));
+    // Remove curse flag from item, unless worshipping Ashenzari.
+    if (you.religion == GOD_ASHENZARI)
+        do_curse_item(item, true);
+    else
+        do_uncurse_item(item, false);
+
+    add_autoinscription(item);
 
     // If it was equipped, requip the item.
     if (eq != EQ_NONE)
@@ -744,7 +723,7 @@ void wizard_make_object_randart()
 static bool _item_type_can_be_cursed(int type)
 {
     return (type == OBJ_WEAPONS || type == OBJ_ARMOUR || type == OBJ_JEWELLERY
-            || type == OBJ_STAVES);
+            || type == OBJ_STAVES || type == OBJ_RODS);
 }
 
 void wizard_uncurse_item()
@@ -798,7 +777,7 @@ void wizard_unidentify_pack()
     you.redraw_quiver = true;
 
     // Forget things that nearby monsters are carrying, as well.
-    // (For use with the "give monster an item" wizard targeting
+    // (For use with the "give monster an item" wizard targetting
     // command.)
     for (monster_iterator mon(you.get_los()); mon; ++mon)
     {
@@ -1072,8 +1051,8 @@ static void _debug_acquirement_stats(FILE *ostat)
     {
         // For spellbooks, for each spell discipline, list the number of
         // unseen and total spells available.
-        std::vector<int> total_spells(SPTYP_LAST_EXPONENT);
-        std::vector<int> unseen_spells(SPTYP_LAST_EXPONENT);
+        std::vector<int> total_spells(SPTYP_LAST_EXPONENT + 1);
+        std::vector<int> unseen_spells(SPTYP_LAST_EXPONENT + 1);
 
         for (int i = 0; i < NUM_SPELLS; ++i)
         {
@@ -1093,7 +1072,7 @@ static void _debug_acquirement_stats(FILE *ostat)
             const bool seen = you.seen_spell[spell];
 
             const unsigned int disciplines = get_spell_disciplines(spell);
-            for (int d = 0; d < SPTYP_LAST_EXPONENT; ++d)
+            for (int d = 0; d <= SPTYP_LAST_EXPONENT; ++d)
             {
                 const int disc = 1 << d;
                 if (disc & SPTYP_DIVINATION)
@@ -1107,7 +1086,7 @@ static void _debug_acquirement_stats(FILE *ostat)
                 }
             }
         }
-        for (int d = 0; d < SPTYP_LAST_EXPONENT; ++d)
+        for (int d = 0; d <= SPTYP_LAST_EXPONENT; ++d)
         {
             const int disc = 1 << d;
             if (disc & SPTYP_DIVINATION)
@@ -1215,6 +1194,7 @@ static void _debug_acquirement_stats(FILE *ostat)
             fprintf(ostat, "Primary disciplines/levels of randart books:\n");
 
             const char* names[] = {
+                "none",
                 "conjuration",
                 "enchantment",
                 "fire magic",
@@ -1227,10 +1207,10 @@ static void _debug_acquirement_stats(FILE *ostat)
                 "poison magic",
                 "earth magic",
                 "air magic",
-                "holy magic"
             };
+            COMPILE_CHECK(ARRAYSZ(names) == SPTYP_LAST_EXPONENT + 1);
 
-            for (int i = 0; i < SPTYP_LAST_EXPONENT; ++i)
+            for (int i = 0; i <= SPTYP_LAST_EXPONENT; ++i)
             {
                 if (ego_quants[i] > 0)
                 {

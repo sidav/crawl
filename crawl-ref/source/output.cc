@@ -23,27 +23,28 @@
 #include "colour.h"
 #include "coord.h"
 #include "describe.h"
+#include "env.h"
+#include "files.h"
 #include "format.h"
 #include "godabil.h"
 #include "initfile.h"
 #include "itemname.h"
-#include "item_use.h"
+#include "lang-fake.h"
 #include "menu.h"
 #include "message.h"
 #include "misc.h"
-#include "mon-stuff.h"
 #include "mon-info.h"
 #include "mon-util.h"
 #include "mutation.h"
 #include "jobs.h"
 #include "ouch.h"
 #include "player.h"
-#include "place.h"
 #include "religion.h"
 #include "skills2.h"
 #include "status.h"
 #include "stuff.h"
 #include "tagstring.h"
+#include "throw.h"
 #include "transform.h"
 #include "travel.h"
 #include "viewchar.h"
@@ -313,7 +314,7 @@ static void _print_stats_hp(int x, int y)
 static short _get_stat_colour(stat_type stat)
 {
     if (you.stat_zero[stat] > 0)
-        return (LIGHTRED);
+        return LIGHTRED;
 
     // Check the stat_colour option for warning thresholds.
     for (unsigned int i = 0; i < Options.stat_colour.size(); ++i)
@@ -327,14 +328,14 @@ static short _get_stat_colour(stat_type stat)
         || stat == STAT_INT && you.duration[DUR_BRILLIANCE]
         || stat == STAT_DEX && you.duration[DUR_AGILITY])
     {
-        return (LIGHTBLUE);  // no end of effect warning
+        return LIGHTBLUE;  // no end of effect warning
     }
 
     // Stat is degenerated.
     if (you.stat_loss[stat] > 0)
-        return (YELLOW);
+        return YELLOW;
 
-    return (HUD_VALUE_COLOUR);
+    return HUD_VALUE_COLOUR;
 }
 
 static void _print_stat(stat_type stat, int x, int y)
@@ -413,13 +414,12 @@ static void _print_stats_wp(int y)
         col = LIGHTGREY;
         text = "Nothing wielded"; // Default
 
-        if (you.has_usable_claws(true))
-            text = "Claws";
-        if (you.has_usable_tentacles(true))
-            text = "Tentacles";
-
         if (you.species == SP_FELID)
             text = "Teeth and claws";
+        else if (you.has_usable_claws(true))
+            text = "Claws";
+        else if (you.has_usable_tentacles(true))
+            text = "Tentacles";
 
         switch (you.form)
         {
@@ -577,9 +577,7 @@ static void _get_status_lights(std::vector<status_light>& out)
         DUR_REPEL_MISSILES,
         STATUS_REGENERATION,
         DUR_BERSERK,
-        DUR_RESIST_POISON,
-        DUR_RESIST_COLD,
-        DUR_RESIST_FIRE,
+        DUR_RESISTANCE,
         DUR_INSULATION,
         DUR_SEE_INVISIBLE,
         STATUS_AIRBORNE,
@@ -588,7 +586,7 @@ static void _get_status_lights(std::vector<status_light>& out)
         DUR_SILENCE,
         DUR_CONFUSING_TOUCH,
         DUR_BARGAIN,
-        DUR_SAGE,
+        STATUS_SAGE,
         DUR_FIRE_SHIELD,
         DUR_SLIMIFY,
         DUR_SURE_BLADE,
@@ -630,6 +628,9 @@ static void _get_status_lights(std::vector<status_light>& out)
         STATUS_CONSTRICTED,
         DUR_DIVINE_STAMINA,
         STATUS_AUGMENTED,
+        STATUS_SUPPRESSED,
+        STATUS_TERRAIN,
+        STATUS_SILENCE,
     };
 
     status_info inf;
@@ -659,7 +660,13 @@ static void _print_status_lights(int y)
     const size_t line_end = crawl_view.hudsz.y+1;
 
     cgotoxy(1, line_cur, GOTO_STAT);
-    ASSERT_SAVE(wherex() == crawl_view.hudp.x);
+#ifdef ASSERTS
+    if (wherex() != crawl_view.hudp.x)
+    {
+        save_game(false); // should be safe
+        die("misaligned HUD (is %d, should be %d)", wherex(), crawl_view.hudp.x);
+    }
+#endif
 
     size_t i_light = 0;
     while (true)
@@ -806,7 +813,7 @@ void print_stats(void)
     if (you.redraw_title)
     {
         you.redraw_title = false;
-        _redraw_title(you.your_name, player_title());
+        _redraw_title(you.your_name, filtered_lang(player_title()));
     }
 
     if (you.redraw_hit_points)   { you.redraw_hit_points = false;   _print_stats_hp (1, 3); }
@@ -823,12 +830,6 @@ void print_stats(void)
     {
         cgotoxy(1,8, GOTO_STAT);
         textcolor(Options.status_caption_colour);
-#ifdef DEBUG_DIAGNOSTICS
-        cprintf("XP: ");
-        textcolor(HUD_VALUE_COLOUR);
-        cprintf("%d/%d (%d) ",
-                you.experience_level, you.skill_cost_level, you.exp_available);
-#else
         cprintf("XL: ");
         textcolor(HUD_VALUE_COLOUR);
         cprintf("%2d ", you.experience_level);
@@ -839,7 +840,6 @@ void print_stats(void)
             textcolor(HUD_VALUE_COLOUR);
             cprintf("%2d%% ", get_exp_progress());
         }
-#endif
         if (crawl_state.game_is_zotdef())
         {
             cgotoxy(1, 9, GOTO_STAT);
@@ -908,35 +908,16 @@ void print_stats(void)
 static std::string _level_description_string_hud()
 {
     const PlaceInfo& place = you.get_place_info();
-    std::string short_name = place.short_name();
+    std::string short_name = branches[place.branch].shortname;
 
-    if (place.level_type == LEVEL_DUNGEON
-        && branches[place.branch].depth > 1)
-    {
-        short_name += make_stringf(":%d", player_branch_depth());
-    }
-    // Indefinite articles
-    else if (place.level_type == LEVEL_PORTAL_VAULT
-             || place.level_type == LEVEL_LABYRINTH)
-    {
-        if (!you.level_type_name.empty())
-        {
-            // If the level name is faking a dungeon depth
-            // (i.e., "Ziggurat:3") then don't add an article
-            if (you.level_type_name.find(":") != std::string::npos)
-                short_name = you.level_type_name;
-            else
-                short_name = article_a(uppercase_first(you.level_type_name),
-                                       false);
-            if (short_name == "An Ice_cave")
-                short_name = "An ice cave";
-        }
-        else
-            short_name.insert(0, "A ");
-    }
+    if (brdepth[place.branch] > 1)
+        short_name += make_stringf(":%d", you.depth);
     // Definite articles
-    else if (place.level_type == LEVEL_ABYSS)
+    else if (place.branch == BRANCH_ABYSS)
         short_name.insert(0, "The ");
+    // Indefinite articles
+    else if (place.branch != BRANCH_PANDEMONIUM && !is_connected_branch(place.branch))
+        short_name = article_a(short_name);
     return short_name;
 }
 
@@ -948,7 +929,7 @@ void print_stats_level()
 
     textcolor(HUD_VALUE_COLOUR);
 #ifdef DEBUG_DIAGNOSTICS
-    cprintf("(%d) ", you.absdepth0 + 1);
+    cprintf("(%d) ", env.absdepth0 + 1);
 #endif
     cprintf("%s", _level_description_string_hud().c_str());
     clear_to_end_of_line();
@@ -1019,7 +1000,7 @@ static std::string _get_monster_name(const monster_info& mi,
     }
 
     desc += monpane_desc;
-    return (desc);
+    return desc;
 }
 
 // If past is true, the messages should be printed in the past tense
@@ -1037,7 +1018,7 @@ std::string mpr_monster_list(bool past)
         msg += (past ? "were" : "are");
         msg += " no monsters in sight!";
 
-        return (msg);
+        return msg;
     }
 
     std::vector<std::string> describe;
@@ -1065,7 +1046,7 @@ std::string mpr_monster_list(bool past)
         msg += comma_separated_line(describe.begin(), describe.end());
     msg += ".";
 
-    return (msg);
+    return msg;
 }
 
 #ifndef USE_TILE_LOCAL
@@ -1087,7 +1068,7 @@ static void _print_next_monster_desc(const std::vector<monster_info>& mons,
     {
         int printed = 0;
 
-        // for targeting
+        // for targetting
         if (idx >= 0)
         {
             textcolor(WHITE);
@@ -1113,37 +1094,13 @@ static void _print_next_monster_desc(const std::vector<monster_info>& mons,
 
         const int count = (end - start);
 
-        if (count == 1)
+        if (count == 1)  // Print an icon representing damage level.
         {
-            // Print an "icon" representing damage level.
-            monster_info mi = mons[start];
-
-            int dam_color;
-            switch (mi.dam)
-            {
-            // NOTE: In os x, light versions of foreground colors are OK,
-            //       but not background colors.  So stick wth standards.
-            case MDAM_DEAD:
-            case MDAM_ALMOST_DEAD:
-            case MDAM_SEVERELY_DAMAGED:   dam_color = RED;       break;
-            case MDAM_HEAVILY_DAMAGED:    dam_color = MAGENTA;   break;
-            case MDAM_MODERATELY_DAMAGED: dam_color = BROWN;     break;
-            case MDAM_LIGHTLY_DAMAGED:    dam_color = GREEN;     break;
-            case MDAM_OKAY:               dam_color = GREEN;     break;
-            default:                      dam_color = CYAN;      break;
-            }
-
-            if (!mons_class_can_display_wounds(mi.type))
-                dam_color = BLACK;
-
             cprintf(" ");
-            textbackground(dam_color);
-            textcolor(dam_color);
-            // FIXME: On Windows, printing a blank space here
-            // doesn't give us the correct colours. So use and
-            // underscore instead. Is this a bug with our interface
-            // or with Windows?
-            cprintf("_");
+
+            monster_info mi = mons[start];
+            textcolor(real_colour(dam_colour(mi) | COLFLAG_REVERSE));
+            cprintf(" ");
             textbackground(BLACK);
             textcolor(LIGHTGREY);
             cprintf(" ");
@@ -1158,10 +1115,10 @@ static void _print_next_monster_desc(const std::vector<monster_info>& mons,
 
         if (printed < crawl_view.mlistsz.x)
         {
-            int desc_color;
+            int desc_colour;
             std::string desc;
-            mons[start].to_string(count, desc, desc_color, zombified);
-            textcolor(desc_color);
+            mons[start].to_string(count, desc, desc_colour, zombified);
+            textcolor(desc_colour);
             desc.resize(crawl_view.mlistsz.x-printed, ' ');
             cprintf("%s", desc.c_str());
         }
@@ -1180,13 +1137,13 @@ static void _print_next_monster_desc(const std::vector<monster_info>& mons,
 int update_monster_pane()
 {
     if (!map_bounds(you.pos()) && !crawl_state.game_is_arena())
-        return (-1);
+        return -1;
 
     const int max_print = crawl_view.mlistsz.y;
     textbackground(BLACK);
 
     if (max_print <= 0)
-        return (-1);
+        return -1;
 
     std::vector<monster_info> mons;
     get_monster_info(mons);
@@ -1227,7 +1184,7 @@ int update_monster_pane()
         // i_mons is incremented by _print_next_monster_desc
         if (i_print >= skip_lines && i_mons < (int) mons.size())
         {
-             int idx = crawl_state.mlist_targeting ? i_print - skip_lines : -1;
+             int idx = crawl_state.mlist_targetting ? i_print - skip_lines : -1;
              _print_next_monster_desc(mons, i_mons, full_info, idx);
         }
         else
@@ -1242,15 +1199,15 @@ int update_monster_pane()
     }
 
     if (mons.empty())
-        return (-1);
+        return -1;
 
-    return (full_info);
+    return full_info;
 }
 #else
 // FIXME: Implement this for Tiles!
 int update_monster_pane()
 {
-    return (false);
+    return false;
 }
 #endif
 
@@ -1532,8 +1489,7 @@ static std::string _god_powers(bool simple)
     else if (you.religion != GOD_NO_GOD)
     {
         if (player_under_penance())
-            return (simple ? "*"
-                           : colour_string("*" + godpowers, RED));
+            return (simple ? "*" : colour_string("*" + godpowers, RED));
         else
         {
             // piety rankings
@@ -1546,10 +1502,10 @@ static std::string _god_powers(bool simple)
             std::string asterisks = std::string(prank, '*')
                                     + std::string(6 - prank, '.');
             if (simple)
-                return (asterisks);
+                return asterisks;
             godpowers = chop_string(godpowers, 20, false)
                       + " [" + asterisks + "]";
-            return (colour_string(godpowers, god_colour(you.religion)));
+            return colour_string(godpowers, god_colour(you.religion));
         }
     }
     return "";
@@ -1736,34 +1692,24 @@ static std::vector<formatted_string> _get_overview_resistances(
 {
     char buf[1000];
 
-    // 3 columns, splits at columns 21, 39
-    column_composer cols(3, 21, 39);
-
-    // Don't show unreliable resistances granted by the cloak.  We could mark
-    // them somehow, but for now this will do.
-    bool dragonskin = player_equip_unrand(UNRAND_DRAGONSKIN);
-    bool cloak_was_melded = you.melded[EQ_CLOAK];
-    if (dragonskin)
-        you.melded[EQ_CLOAK] = true; // hack!
+    // 3 columns, splits at columns 21, 38
+    column_composer cols(3, 21, 38);
 
     const int rfire = player_res_fire(calc_unid);
     const int rcold = player_res_cold(calc_unid);
     const int rlife = player_prot_life(calc_unid);
-    const int racid = player_res_acid(calc_unid);
     const int rpois = player_res_poison(calc_unid);
     const int relec = player_res_electricity(calc_unid);
     const int rsust = player_sust_abil(calc_unid);
-    const int rmuta = (wearing_amulet(AMU_RESIST_MUTATION, calc_unid)
+    const int rmuta = (player_res_mutation_from_item(calc_unid)
                        || player_mutation_level(MUT_MUTATION_RESISTANCE) == 3
                        || you.religion == GOD_ZIN && you.piety >= 150);
-    const int rrott = (you.res_rotting()
-                       || you.religion == GOD_ZIN && you.piety >= 150);
+    const int rrott = you.res_rotting();
 
     snprintf(buf, sizeof buf,
              "%sRes.Fire  : %s\n"
              "%sRes.Cold  : %s\n"
              "%sLife Prot.: %s\n"
-             "%sRes.Acid. : %s\n"
              "%sRes.Poison: %s\n"
              "%sRes.Elec. : %s\n"
              "%sSust.Abil.: %s\n"
@@ -1772,7 +1718,6 @@ static std::vector<formatted_string> _get_overview_resistances(
              _determine_colour_string(rfire, 3), _itosym3(rfire),
              _determine_colour_string(rcold, 3), _itosym3(rcold),
              _determine_colour_string(rlife, 3), _itosym3(rlife),
-             _determine_colour_string(racid, 3), _itosym3(racid),
              _determine_colour_string(rpois, 1), _itosym1(rpois),
              _determine_colour_string(relec, 1), _itosym1(relec),
              _determine_colour_string(rsust, 2), _itosym2(rsust),
@@ -1784,7 +1729,10 @@ static std::vector<formatted_string> _get_overview_resistances(
     const char* pregourmand;
     const char* postgourmand;
 
-    if (wearing_amulet(AMU_THE_GOURMAND, calc_unid))
+    if (you.species != SP_MUMMY
+        && you.species != SP_VAMPIRE
+        && player_mutation_level(MUT_HERBIVOROUS) < 3
+        && player_effect_gourmand())
     {
         pregourmand = "Gourmand  : ";
         postgourmand = _itosym1(1);
@@ -1815,24 +1763,24 @@ static std::vector<formatted_string> _get_overview_resistances(
              "%sSpirit.Shd : %s\n"
              ,
              _determine_colour_string(rinvi, 1), _itosym1(rinvi),
-             _determine_colour_string(rward, 2), _itosym2(rward),
+             _determine_colour_string(rward, 1), _itosym1(rward),
              _determine_colour_string(rcons, 1), _itosym1(rcons),
              _determine_colour_string(rcorr, 1), _itosym1(rcorr),
              _determine_colour_string(rclar, 1), _itosym1(rclar),
              _determine_colour_string(rspir, 1), _itosym1(rspir));
     cols.add_formatted(1, buf, false);
 
-    const int stasis = wearing_amulet(AMU_STASIS, calc_unid);
-    const int notele = scan_artefacts(ARTP_PREVENT_TELEPORTATION, calc_unid)
-                       || crawl_state.game_is_zotdef() && orb_haloed(you.pos());
+    const int stasis = player_effect_stasis(calc_unid);
+    const int notele = player_effect_notele(calc_unid)
+                       || crawl_state.game_is_zotdef()
+                          && orb_haloed(you.pos());
     const int rrtel = !!player_teleport(calc_unid);
     if (notele && !stasis)
     {
         snprintf(buf, sizeof buf, "%sPrev.Telep.: %s",
                  _determine_colour_string(-1, 1), _itosym1(1));
     }
-    else
-    if (rrtel && !stasis)
+    else if (rrtel && !stasis)
     {
         snprintf(buf, sizeof buf, "%sRnd.Telep. : %s",
                  _determine_colour_string(-1, 1), _itosym1(1));
@@ -1847,7 +1795,7 @@ static std::vector<formatted_string> _get_overview_resistances(
     int rctel = player_control_teleport(calc_unid);
     rctel = allow_control_teleport(true) ? rctel : -1;
     const int rlevi = you.airborne();
-    const int rcfli = wearing_amulet(AMU_CONTROLLED_FLIGHT, calc_unid);
+    const int rcfli = player_effect_cfly(calc_unid);
     snprintf(buf, sizeof buf,
              "%sCtrl.Telep.: %s\n"
              "%sLevitation : %s\n"
@@ -1856,8 +1804,6 @@ static std::vector<formatted_string> _get_overview_resistances(
              _determine_colour_string(rlevi, 1), _itosym1(rlevi),
              _determine_colour_string(rcfli, 1), _itosym1(rcfli));
     cols.add_formatted(1, buf, false);
-
-    you.melded[EQ_CLOAK] = cloak_was_melded;
 
     _print_overview_screen_equip(cols, equip_chars);
 
@@ -1997,7 +1943,7 @@ static std::string _annotate_form_based(std::string desc, bool suppressed)
     if (suppressed)
         return ("<darkgrey>(" + desc + ")</darkgrey>");
     else
-        return (desc);
+        return desc;
 }
 
 static std::string _dragon_abil(std::string desc)
@@ -2051,7 +1997,7 @@ static std::string _status_mut_abilities(int sw)
         DUR_BARGAIN,
         DUR_SLAYING,
         STATUS_MANUAL,
-        DUR_SAGE,
+        STATUS_SAGE,
         DUR_MAGIC_SHIELD,
         DUR_FIRE_SHIELD,
         DUR_POISONING,
@@ -2079,6 +2025,7 @@ static std::string _status_mut_abilities(int sw)
         STATUS_UMBRA,
         STATUS_CONSTRICTED,
         STATUS_AUGMENTED,
+        STATUS_SUPPRESSED,
     };
 
     status_info inf;
@@ -2157,8 +2104,7 @@ static std::string _status_mut_abilities(int sw)
               std::string help = "able to fly";
               if (you.experience_level > 14)
                   help += " continuously";
-              mutations.push_back(_annotate_form_based(help,
-                                                       player_is_shapechanged()));
+              mutations.push_back(help);
           }
           break;
 
@@ -2254,7 +2200,10 @@ static std::string _status_mut_abilities(int sw)
         mutations.push_back("almost no armour");
         mutations.push_back("amphibious");
         mutations.push_back(_annotate_form_based(
-            make_stringf("constrict %d", std::min(MAX_CONSTRICT, 8)),
+            "8 rings",
+            !form_keeps_mutations() && you.form != TRAN_SPIDER));
+        mutations.push_back(_annotate_form_based(
+            make_stringf("constrict %d", you.has_tentacles(false)),
             !form_keeps_mutations()));
     }
 
@@ -2336,10 +2285,6 @@ static std::string _status_mut_abilities(int sw)
                 break;
             case MUT_HIGH_MAGIC:
                 snprintf(info, INFO_SIZE, "+%d%% mp", level*10);
-                current = info;
-                break;
-            case MUT_STOCHASTIC_TORMENT_RESISTANCE:
-                snprintf(info, INFO_SIZE, "%d%% torment resistance", level*20);
                 current = info;
                 break;
             case MUT_ICEMAIL:

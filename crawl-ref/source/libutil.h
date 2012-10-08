@@ -25,8 +25,6 @@ std::string apply_description(description_level_type desc,
 
 description_level_type description_type_by_name(const char *desc);
 
-std::string &escape_path_spaces(std::string &s);
-
 std::string lowercase_string(std::string s);
 std::string &lowercase(std::string &s);
 std::string &uppercase(std::string &s);
@@ -70,8 +68,6 @@ static inline int isaalnum(int c)
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
 }
 
-bool ends_with(const std::string &s, const std::string &suffix);
-
 int numcmp(const char *a, const char *b, int limit = 0);
 bool numcmpstr(std::string a, std::string b);
 size_t strlcpy(char *dst, const char *src, size_t n);
@@ -80,7 +76,8 @@ int strwidth(const char *s);
 int strwidth(const std::string &s);
 std::string chop_string(const char *s, int width, bool spaces = true);
 std::string chop_string(const std::string &s, int width, bool spaces = true);
-std::string wordwrap_line(std::string &s, int cols, bool tags = false);
+std::string wordwrap_line(std::string &s, int cols, bool tags = false,
+                          bool indent = false);
 
 bool version_is_stable(const char *ver);
 
@@ -132,12 +129,12 @@ std::string &trim_string(std::string &str);
 std::string &trim_string_right(std::string &str);
 std::string trimmed_string(std::string s);
 
-inline bool starts_with(const std::string &s, const std::string &prefix)
+static inline bool starts_with(const std::string &s, const std::string &prefix)
 {
     return (s.rfind(prefix, 0) != std::string::npos);
 }
 
-inline bool ends_with(const std::string &s, const std::string &suffix)
+static inline bool ends_with(const std::string &s, const std::string &suffix)
 {
     if (s.length() < suffix.length())
         return false;
@@ -175,10 +172,28 @@ std::string comma_separated_line(Z start, Z end,
 
         text += *i;
     }
-    return (text);
+    return text;
 }
 
-inline int sqr(int x)
+std::string unwrap_desc(std::string desc);
+
+template <typename Z>
+void erase_any(std::vector<Z> &vec, unsigned long which)
+{
+    if (which != vec.size() - 1)
+        vec[which] = vec[vec.size() - 1];
+    vec.pop_back();
+}
+
+template <typename Z>
+static inline void swapv(Z &a, Z &b)
+{
+    Z tmp = a;
+    a = b;
+    b = tmp;
+}
+
+static inline int sqr(int x)
 {
     return x * x;
 }
@@ -186,13 +201,15 @@ inline int sqr(int x)
 unsigned int isqrt(unsigned int x);
 int isqrt_ceil(int x);
 
-inline bool testbits(uint64_t flags, uint64_t test)
+static inline bool testbits(uint64_t flags, uint64_t test)
 {
     return ((flags & test) == test);
 }
 
 coord_def cgetsize(GotoRegion region = GOTO_CRT);
 void cscroll(int n, GotoRegion region);
+
+std::string untag_tiles_console(std::string s);
 
 #ifdef TARGET_OS_WINDOWS
 enum taskbar_pos
@@ -208,6 +225,7 @@ enum taskbar_pos
 
 int get_taskbar_size();
 taskbar_pos get_taskbar_pos();
+void text_popup(const std::string& text, const wchar_t *caption);
 #endif
 
 class mouse_control

@@ -11,8 +11,6 @@
 #include "fprop.h"
 #include "items.h"
 #include "kills.h"
-#include "libutil.h"
-#include "mon-stuff.h"
 #include "mon-util.h"
 #include "options.h"
 #include "player.h"
@@ -66,75 +64,17 @@ void tile_new_level(bool first_time, bool init_unseen)
 
 void tile_init_default_flavour()
 {
-    tile_default_flv(you.level_type, you.where_are_you, env.tile_default);
+    tile_default_flv(you.where_are_you, env.tile_default);
 }
 
-void tile_default_flv(level_area_type lev, branch_type br, tile_flavour &flv)
+void tile_default_flv(branch_type br, tile_flavour &flv)
 {
     flv.wall    = TILE_WALL_NORMAL;
     flv.floor   = TILE_FLOOR_NORMAL;
     flv.special = 0;
 
-    if (lev == LEVEL_PANDEMONIUM)
-    {
-        switch (random2(9))
-        {
-            default:
-            case 0: flv.wall = TILE_WALL_BARS_RED; break;
-            case 1: flv.wall = TILE_WALL_BARS_BLUE; break;
-            case 2: flv.wall = TILE_WALL_BARS_CYAN; break;
-            case 3: flv.wall = TILE_WALL_BARS_GREEN; break;
-            case 4: flv.wall = TILE_WALL_BARS_MAGENTA; break;
-            case 5: flv.wall = TILE_WALL_BARS_BROWN; break;
-            case 6: flv.wall = TILE_WALL_BARS_LIGHTGRAY; break;
-            case 7: flv.wall = TILE_WALL_BARS_DARKGRAY; break;
-            // Wall_flesh used to have a 1/3 chance
-            case 8: flv.wall = TILE_WALL_FLESH; break;
-        }
-
-        switch (random2(8))
-        {
-            default:
-            case 0: flv.floor = TILE_FLOOR_DEMONIC_RED; break;
-            case 1: flv.floor = TILE_FLOOR_DEMONIC_BLUE; break;
-            case 2: flv.floor = TILE_FLOOR_DEMONIC_GREEN; break;
-            case 3: flv.floor = TILE_FLOOR_DEMONIC_CYAN; break;
-            case 4: flv.floor = TILE_FLOOR_DEMONIC_MAGENTA; break;
-            case 5: flv.floor = TILE_FLOOR_DEMONIC_BROWN; break;
-            case 6: flv.floor = TILE_FLOOR_DEMONIC_LIGHTGRAY; break;
-            case 7: flv.floor = TILE_FLOOR_DEMONIC_DARKGRAY; break;
-        }
-
-        return;
-    }
-    else if (lev == LEVEL_ABYSS)
-    {
-        flv.floor = TILE_FLOOR_NERVES;
-        switch (random2(6))
-        {
-        default:
-        case 0: flv.wall = TILE_WALL_HIVE; break;
-        case 1: flv.wall = TILE_WALL_PEBBLE_RED; break;
-        case 2: flv.wall = TILE_WALL_SLIME; break;
-        case 3: flv.wall = TILE_WALL_ICE; break;
-        case 4: flv.wall = TILE_WALL_HALL; break;
-        case 5: flv.wall = TILE_WALL_UNDEAD; break;
-        }
-        return;
-    }
-    else if (lev == LEVEL_LABYRINTH)
-    {
-        flv.wall  = TILE_WALL_LAB_ROCK;
-        flv.floor = TILE_FLOOR_LABYRINTH;
-        return;
-    }
-    else if (lev == LEVEL_PORTAL_VAULT)
-    {
-        // These should be handled in the respective lua files.
-        flv.wall  = TILE_WALL_NORMAL;
-        flv.floor = TILE_FLOOR_NORMAL;
-        return;
-    }
+    flv.wall_idx = 0;
+    flv.floor_idx = 0;
 
     switch (br)
     {
@@ -143,10 +83,12 @@ void tile_default_flv(level_area_type lev, branch_type br, tile_flavour &flv)
         flv.floor = TILE_FLOOR_NORMAL;
         return;
 
+#if TAG_MAJOR_VERSION == 33
     case BRANCH_HIVE:
-        flv.wall  = TILE_WALL_HIVE;
-        flv.floor = TILE_FLOOR_HIVE;
+        flv.wall  = TILE_WALL_WAX;
+        flv.floor = TILE_FLOOR_ORC;
         return;
+#endif
 
     case BRANCH_VAULTS:
         flv.wall  = TILE_WALL_VAULT;
@@ -210,7 +152,6 @@ void tile_default_flv(level_area_type lev, branch_type br, tile_flavour &flv)
         return;
 
     case BRANCH_LAIR:
-    case BRANCH_FOREST:
         flv.wall  = TILE_WALL_LAIR;
         flv.floor = TILE_FLOOR_LAIR;
         return;
@@ -222,7 +163,10 @@ void tile_default_flv(level_area_type lev, branch_type br, tile_flavour &flv)
 
     case BRANCH_SNAKE_PIT:
         flv.wall  = TILE_WALL_SNAKE;
-        flv.floor = TILE_FLOOR_SNAKE_A + random2(3) * 4;
+        flv.floor = random_choose(TILE_FLOOR_SNAKE_A,
+                                  TILE_FLOOR_SNAKE_C,
+                                  TILE_FLOOR_SNAKE_D,
+                                  -1);
         return;
 
     case BRANCH_SWAMP:
@@ -231,18 +175,111 @@ void tile_default_flv(level_area_type lev, branch_type br, tile_flavour &flv)
         return;
 
     case BRANCH_SHOALS:
-        flv.wall  = TILE_WALL_YELLOW_ROCK;
-        flv.floor = TILE_FLOOR_SAND_STONE;
+        flv.wall  = TILE_WALL_SHOALS;
+        flv.floor = TILE_FLOOR_SAND;
         return;
 
     case BRANCH_SPIDER_NEST:
-        flv.wall  = TILE_WALL_LAIR;
+        flv.wall  = TILE_WALL_SPIDER;
         flv.floor = TILE_FLOOR_SPIDER;
         return;
 
     case BRANCH_HALL_OF_ZOT:
         flv.wall  = TILE_WALL_ZOT_YELLOW;
         flv.floor = TILE_FLOOR_TOMB;
+        return;
+
+    case BRANCH_FOREST:
+        flv.wall  = TILE_WALL_LAIR;
+        flv.floor = TILE_FLOOR_WOODGROUND;
+        return;
+
+    case BRANCH_ABYSS:
+        flv.floor = TILE_FLOOR_NERVES;
+        switch (random2(6))
+        {
+        default:
+        case 0:
+        case 1:
+        case 2:
+        case 3: flv.wall = TILE_WALL_PEBBLE
+                + random2(15) * (TILE_WALL_PEBBLE_BLUE - TILE_WALL_PEBBLE_RED);
+                break;
+        case 4: flv.wall = TILE_WALL_HALL; break;
+        case 5: flv.wall = TILE_WALL_UNDEAD; break;
+        }
+        return;
+
+    case BRANCH_PANDEMONIUM:
+        switch (random2(9))
+        {
+            default:
+            case 0: flv.wall = TILE_WALL_BARS_RED; break;
+            case 1: flv.wall = TILE_WALL_BARS_BLUE; break;
+            case 2: flv.wall = TILE_WALL_BARS_CYAN; break;
+            case 3: flv.wall = TILE_WALL_BARS_GREEN; break;
+            case 4: flv.wall = TILE_WALL_BARS_MAGENTA; break;
+            case 5: flv.wall = TILE_WALL_BARS_BROWN; break;
+            case 6: flv.wall = TILE_WALL_BARS_LIGHTGRAY; break;
+            case 7: flv.wall = TILE_WALL_BARS_DARKGRAY; break;
+            // Wall_flesh used to have a 1/3 chance
+            case 8: flv.wall = TILE_WALL_FLESH; break;
+        }
+
+        switch (random2(8))
+        {
+            default:
+            case 0: flv.floor = TILE_FLOOR_DEMONIC_RED; break;
+            case 1: flv.floor = TILE_FLOOR_DEMONIC_BLUE; break;
+            case 2: flv.floor = TILE_FLOOR_DEMONIC_GREEN; break;
+            case 3: flv.floor = TILE_FLOOR_DEMONIC_CYAN; break;
+            case 4: flv.floor = TILE_FLOOR_DEMONIC_MAGENTA; break;
+            case 5: flv.floor = TILE_FLOOR_DEMONIC_BROWN; break;
+            case 6: flv.floor = TILE_FLOOR_DEMONIC_LIGHTGRAY; break;
+            case 7: flv.floor = TILE_FLOOR_DEMONIC_DARKGRAY; break;
+        }
+        break;
+
+    case BRANCH_ZIGGURAT:
+    case BRANCH_BAZAAR:
+    case BRANCH_TROVE:
+        flv.wall  = TILE_WALL_VAULT;
+        flv.floor = TILE_FLOOR_VAULT;
+        return;
+
+    case BRANCH_LABYRINTH:
+        flv.wall  = TILE_WALL_LAB_ROCK;
+        flv.floor = TILE_FLOOR_LABYRINTH;
+        return;
+
+    case BRANCH_SEWER:
+        flv.wall  = TILE_WALL_SLIME;
+        flv.floor = TILE_FLOOR_SLIME;
+        return;
+
+    case BRANCH_OSSUARY:
+        flv.wall  = TILE_WALL_SANDSTONE;
+        flv.floor = TILE_FLOOR_SANDSTONE;
+        return;
+
+    case BRANCH_BAILEY:
+        flv.wall  = TILE_WALL_BRICK_BROWN;
+        flv.floor = TILE_FLOOR_COBBLE_BLOOD;
+        return;
+
+    case BRANCH_ICE_CAVE:
+        flv.wall  = TILE_WALL_ZOT_CYAN;
+        flv.floor = TILE_FLOOR_ICE;
+        return;
+
+    case BRANCH_VOLCANO:
+        flv.wall  = TILE_WALL_VOLCANIC;
+        flv.floor = TILE_FLOOR_ROUGH_RED;
+        return;
+
+    case BRANCH_WIZLAB:
+        flv.wall  = TILE_WALL_NORMAL;
+        flv.floor = TILE_FLOOR_NORMAL;
         return;
 
     case NUM_BRANCHES:
@@ -252,10 +289,13 @@ void tile_default_flv(level_area_type lev, branch_type br, tile_flavour &flv)
 
 void tile_clear_flavour(const coord_def &p)
 {
-    env.tile_flv(p).floor   = 0;
-    env.tile_flv(p).wall    = 0;
-    env.tile_flv(p).feat    = 0;
-    env.tile_flv(p).special = 0;
+    env.tile_flv(p).floor     = 0;
+    env.tile_flv(p).wall      = 0;
+    env.tile_flv(p).feat      = 0;
+    env.tile_flv(p).floor_idx = 0;
+    env.tile_flv(p).wall_idx  = 0;
+    env.tile_flv(p).feat_idx  = 0;
+    env.tile_flv(p).special   = 0;
 }
 
 void tile_clear_flavour()
@@ -277,7 +317,7 @@ static tileidx_t _pick_random_dngn_tile(tileidx_t idx, int value = -1)
     ASSERT(idx >= 0 && idx < TILE_DNGN_MAX);
     const int count = tile_dngn_count(idx);
     if (count == 1)
-        return (idx);
+        return idx;
 
     const int total = tile_dngn_probs(idx + count - 1);
     const int rand  = (value == -1 ? random2(total) : value % total);
@@ -286,10 +326,10 @@ static tileidx_t _pick_random_dngn_tile(tileidx_t idx, int value = -1)
     {
         tileidx_t curr = idx + i;
         if (rand < tile_dngn_probs(curr))
-            return (curr);
+            return curr;
     }
 
-    return (idx);
+    return idx;
 }
 
 void tile_init_flavour(const coord_def &gc)
@@ -313,6 +353,13 @@ void tile_init_flavour(const coord_def &gc)
         if (colour)
             wall_base = tile_dngn_coloured(wall_base, colour);
         env.tile_flv(gc).wall = _pick_random_dngn_tile(wall_base);
+    }
+
+    if (feat_is_stone_stair(grd(gc)) && player_in_branch(BRANCH_SHOALS))
+    {
+        const bool up = feat_stair_direction(grd(gc)) == CMD_GO_UPSTAIRS;
+        env.tile_flv(gc).feat = up ? TILE_DNGN_SHOALS_STAIRS_UP
+                                   : TILE_DNGN_SHOALS_STAIRS_DOWN;
     }
 
     if (feat_is_door(grd(gc)))
@@ -388,10 +435,10 @@ static bool _adjacent_target(dungeon_feature_type target, int x, int y)
         if (!map_bounds(*ai))
             continue;
         if (grd(*ai) == target)
-            return (true);
+            return true;
     }
 
-    return (false);
+    return false;
 }
 
 void tile_floor_halo(dungeon_feature_type target, tileidx_t tile)
@@ -400,15 +447,15 @@ void tile_floor_halo(dungeon_feature_type target, tileidx_t tile)
     {
         for (int y = 0; y < GYM; y++)
         {
-            if (grd[x][y] < DNGN_FLOOR_MIN)
+            if (grd[x][y] < DNGN_FLOOR)
                 continue;
             if (!_adjacent_target(target, x, y))
                 continue;
 
-            bool l_flr = (x > 0 && grd[x-1][y] >= DNGN_FLOOR_MIN);
-            bool r_flr = (x < GXM - 1 && grd[x+1][y] >= DNGN_FLOOR_MIN);
-            bool u_flr = (y > 0 && grd[x][y-1] >= DNGN_FLOOR_MIN);
-            bool d_flr = (y < GYM - 1 && grd[x][y+1] >= DNGN_FLOOR_MIN);
+            bool l_flr = (x > 0 && grd[x-1][y] >= DNGN_FLOOR);
+            bool r_flr = (x < GXM - 1 && grd[x+1][y] >= DNGN_FLOOR);
+            bool u_flr = (y > 0 && grd[x][y-1] >= DNGN_FLOOR);
+            bool d_flr = (y < GYM - 1 && grd[x][y+1] >= DNGN_FLOOR);
 
             bool l_target = _adjacent_target(target, x-1, y);
             bool r_target = _adjacent_target(target, x+1, y);
@@ -548,21 +595,13 @@ void tile_floor_halo(dungeon_feature_type target, tileidx_t tile)
                     env.tile_flv[x][y].floor = tile + SPECIAL_FULL;
             }
             else if (u_spc && l_spc)
-            {
                 env.tile_flv[x][y].floor = tile + SPECIAL_SE;
-            }
             else if (u_spc && r_spc)
-            {
                 env.tile_flv[x][y].floor = tile + SPECIAL_SW;
-            }
             else if (d_spc && l_spc)
-            {
                 env.tile_flv[x][y].floor = tile + SPECIAL_NE;
-            }
             else if (d_spc && r_spc)
-            {
                 env.tile_flv[x][y].floor = tile + SPECIAL_NW;
-            }
             else
             {
                 env.tile_flv[x][y].floor = tile + SPECIAL_FULL;
@@ -718,6 +757,11 @@ static void _tile_place_invisible_monster(const coord_def &gc)
 {
     const coord_def ep = grid2show(gc);
 
+    // Shallow water has its own modified tile for disturbances
+    // see tileidx_feature
+    if (env.map_knowledge(gc).feat() == DNGN_SHALLOW_WATER)
+        return;
+
     tileidx_t t = TILE_UNSEEN_MONSTER;
     if (!you.see_cell(gc))
     {
@@ -761,9 +805,7 @@ static void _tile_place_monster(const coord_def &gc, const monster_info& mon)
 
     // Add name tags.
     if (mons_class_flag(mon.type, M_NO_EXP_GAIN))
-    {
         return;
-    }
 
     const tag_pref pref = Options.tile_tag_pref;
     if (pref == TAGPREF_NONE)
@@ -806,9 +848,7 @@ static void _tile_place_cloud(const coord_def &gc, const cloud_info &cl)
     bool disturbance = false;
 
     if (env.map_knowledge(gc).invisible_monster())
-    {
         disturbance = true;
-    }
 
     if (you.see_cell(gc))
     {
@@ -863,28 +903,21 @@ void tile_draw_map_cell(const coord_def& gc, bool foreground_only)
 
     const map_cell& cell = env.map_knowledge(gc);
 
-    switch (get_cell_show_class(cell))
-    {
-    default:
-    case SH_NOTHING:
-    case SH_FEATURE:
-        env.tile_bk_fg(gc) = 0;
-        if (cell.item())
-            _tile_place_item_marker(gc, *cell.item());
-        break;
-    case SH_ITEM:
-        _tile_place_item(gc, *cell.item(), (cell.flags & MAP_MORE_ITEMS) != 0);
-        break;
-    case SH_CLOUD:
-        _tile_place_cloud(gc, *cell.cloudinfo());
-        break;
-    case SH_INVIS_EXPOSED:
+    if (cell.invisible_monster())
         _tile_place_invisible_monster(gc);
-        break;
-    case SH_MONSTER:
+    else if (cell.monsterinfo())
         _tile_place_monster(gc, *cell.monsterinfo());
-        break;
+    else if (cell.cloud() != CLOUD_NONE)
+        _tile_place_cloud(gc, *cell.cloudinfo());
+    else if (cell.item())
+    {
+        if (feat_is_stair(cell.feat()))
+            _tile_place_item_marker(gc, *cell.item());
+        else
+            _tile_place_item(gc, *cell.item(), (cell.flags & MAP_MORE_ITEMS) != 0);
     }
+    else
+        env.tile_bk_fg(gc) = 0;
 }
 
 void tile_wizmap_terrain(const coord_def &gc)
@@ -897,15 +930,21 @@ void tile_wizmap_terrain(const coord_def &gc)
 void tile_apply_animations(tileidx_t bg, tile_flavour *flv)
 {
     tileidx_t bg_idx = bg & TILE_FLAG_MASK;
-    if (bg_idx >= TILE_DNGN_LAVA && bg_idx < TILE_BLOOD)
-    {
-        flv->special = random2(256);
-    }
-    else if (bg_idx == TILE_DNGN_PORTAL_WIZARD_LAB
-             || bg_idx == TILE_DNGN_ALTAR_CHEIBRIADOS)
+    if (bg_idx == TILE_DNGN_PORTAL_WIZARD_LAB
+        || bg_idx == TILE_DNGN_ALTAR_CHEIBRIADOS)
     {
         flv->special = (flv->special + 1) % tile_dngn_count(bg_idx);
     }
+    else if (bg_idx == TILE_DNGN_LAVA)
+    {
+        // Lava tiles are four sets of four tiles (the second and fourth
+        // sets are the same). This cycles between the four sets, picking
+        // a random element from each set.
+        flv->special = ((flv->special - ((flv->special % 4)))
+                        + 4 + random2(4)) % tile_dngn_count(bg_idx);
+    }
+    else if (bg_idx > TILE_DNGN_LAVA && bg_idx < TILE_BLOOD)
+        flv->special = random2(256);
     else if (bg_idx == TILE_WALL_NORMAL
              && flv->wall >= TILE_WALL_BRICK_TORCH_START
              && flv->wall <= TILE_WALL_BRICK_TORCH_END)
@@ -916,32 +955,28 @@ void tile_apply_animations(tileidx_t bg, tile_flavour *flv)
     }
 }
 
-static bool _suppress_blood(const coord_def pos)
+static bool _suppress_blood(const map_cell& mc)
 {
-    if (!you.see_cell(pos))
-        return (true);
-
-    const dungeon_feature_type feat = grd(pos);
-    if (feat == DNGN_TREE || feat == DNGN_SWAMP_TREE)
-        return (true);
+    const dungeon_feature_type feat = mc.feat();
+    if (feat == DNGN_TREE || feat == DNGN_MANGROVE)
+        return true;
 
     if (feat >= DNGN_FOUNTAIN_BLUE && feat <= DNGN_PERMADRY_FOUNTAIN)
-        return (true);
+        return true;
 
     if (feat_is_altar(feat))
-        return (true);
+        return true;
 
     if (feat_stair_direction(feat) != CMD_NO_CMD)
-        return (true);
+        return true;
 
     if (feat == DNGN_MALIGN_GATEWAY)
-        return (true);
+        return true;
 
-    const trap_def *trap = find_trap(pos);
-    if (trap && trap->type == TRAP_SHAFT && trap->is_known())
-        return (true);
+    if (mc.trap() == TRAP_SHAFT)
+        return true;
 
-    return (false);
+    return false;
 }
 
 static bool _suppress_blood(tileidx_t bg_idx)
@@ -1011,23 +1046,21 @@ static inline void _apply_variations(const tile_flavour &flv, tileidx_t *bg,
     tileidx_t flag = (*bg) & (~TILE_FLAG_MASK);
 
     // TODO: allow the stone type to be set in a cleaner way.
-    if (you.level_type == LEVEL_LABYRINTH)
+    if (player_in_branch(BRANCH_LABYRINTH))
     {
         if (orig == TILE_DNGN_STONE_WALL)
             orig = TILE_WALL_LAB_STONE;
         else if (orig == TILE_DNGN_METAL_WALL)
             orig = TILE_WALL_LAB_METAL;
     }
-    else if (you.level_type == LEVEL_DUNGEON
-             && you.where_are_you == BRANCH_CRYPT)
+    else if (player_in_branch(BRANCH_CRYPT))
     {
         if (orig == TILE_DNGN_STONE_WALL)
             orig = TILE_WALL_CRYPT;
         else if (orig == TILE_DNGN_METAL_WALL)
             orig = TILE_WALL_CRYPT_METAL;
     }
-    else if (you.level_type == LEVEL_DUNGEON
-             && you.where_are_you == BRANCH_TOMB)
+    else if (player_in_branch(BRANCH_TOMB))
     {
         if (orig == TILE_DNGN_STONE_WALL)
             orig = TILE_WALL_TOMB;
@@ -1059,6 +1092,21 @@ static inline void _apply_variations(const tile_flavour &flv, tileidx_t *bg,
             orig = TILE_DNGN_STONE_WALL_RED;
         if (orig == TILE_DNGN_METAL_WALL)
             orig = TILE_DNGN_METAL_WALL_RED;
+    }
+    else if (player_in_branch(BRANCH_BAILEY))
+    {
+        if (orig == TILE_DNGN_STONE_WALL)
+            orig = TILE_WALL_STONE_BRICK;
+    }
+    else if (player_in_branch(BRANCH_OSSUARY))
+    {
+        if (orig == TILE_DNGN_STONE_WALL)
+            orig = TILE_DNGN_STONE_WALL_BROWN;
+    }
+    else if (player_in_branch(BRANCH_SLIME_PITS))
+    {
+        if (orig == TILE_DNGN_STONE_WALL)
+            orig = TILE_STONE_WALL_SLIME;
     }
 
     const bool mimic = monster_at(gc) && mons_is_feat_mimic(monster_at(gc)->type);
@@ -1093,27 +1141,31 @@ static inline void _apply_variations(const tile_flavour &flv, tileidx_t *bg,
         *bg = orig + flv.special % tile_dngn_count(orig);
     }
     else if (orig < TILE_DNGN_MAX)
-    {
         *bg = _pick_random_dngn_tile(orig, flv.special);
-    }
 
     *bg |= flag;
 }
 
 // If the top tile is a corpse, don't draw blood underneath.
-static bool _top_item_is_corpse(const coord_def &gc)
+static bool _top_item_is_corpse(const map_cell& mc)
 {
-    if (!in_bounds(gc))
-        return (false);
+    const item_info* item = mc.item();
+    return (item
+            && item->base_type == OBJ_CORPSES
+            && item->sub_type == CORPSE_BODY);
+}
 
-    const int item_idx = igrd(gc);
-    // No item.
-    if (item_idx == NON_ITEM)
-        return (false);
-
-    item_def& item = mitm[item_idx];
-    return (item.base_type == OBJ_CORPSES
-            && item.sub_type == CORPSE_BODY);
+static uint8_t _get_direction_index(const coord_def& delta)
+{
+    if (delta.x ==  0 && delta.y ==  1) return 1;
+    if (delta.x == -1 && delta.y ==  1) return 2;
+    if (delta.x == -1 && delta.y ==  0) return 3;
+    if (delta.x == -1 && delta.y == -1) return 4;
+    if (delta.x ==  0 && delta.y == -1) return 5;
+    if (delta.x ==  1 && delta.y == -1) return 6;
+    if (delta.x ==  1 && delta.y ==  0) return 7;
+    if (delta.x ==  1 && delta.y ==  1) return 8;
+    return 0;
 }
 
 void tile_apply_properties(const coord_def &gc, packed_cell &cell)
@@ -1131,31 +1183,30 @@ void tile_apply_properties(const coord_def &gc, packed_cell &cell)
 
     _apply_variations(env.tile_flv(gc), &cell.bg, gc);
 
+    const map_cell& mc = env.map_knowledge(gc);
+
     bool print_blood = true;
-    if (haloed(gc))
+    if (mc.flags & MAP_UMBRAED)
+        cell.halo = HALO_UMBRA;
+    else if (mc.flags & MAP_HALOED)
     {
-        monster* mon = monster_at(gc);
-        if (you.see_cell(gc))
+        monster_info* mon = mc.monsterinfo();
+        if (mon && !mons_class_flag(mon->type, M_NO_EXP_GAIN))
         {
-            if (mon && !mons_class_flag(mon->type, M_NO_EXP_GAIN))
-            {
-                cell.halo = HALO_MONSTER;
-                print_blood = false;
-            }
-            else
-            {
-                cell.halo = HALO_RANGE;
-            }
+            cell.halo = HALO_MONSTER;
+            print_blood = false;
+        }
+        else
+        {
+            cell.halo = HALO_RANGE;
         }
     }
-    else if (umbraed(gc))
-        cell.halo = HALO_UMBRA;
     else
         cell.halo = HALO_NONE;
 
-    if (liquefied(gc, true))
+    if (mc.flags & MAP_LIQUEFIED)
         cell.is_liquefied = true;
-    else if (print_blood && (_suppress_blood(gc)
+    else if (print_blood && (_suppress_blood(mc)
                              || _suppress_blood((cell.bg) & TILE_FLAG_MASK)))
     {
         print_blood = false;
@@ -1164,33 +1215,55 @@ void tile_apply_properties(const coord_def &gc, packed_cell &cell)
     // Mold has the same restrictions as blood but takes precedence.
     if (print_blood)
     {
-        if (glowing_mold(gc))
+        if (mc.flags & MAP_GLOWING_MOLDY)
             cell.glowing_mold = true;
-        else if (is_moldy(gc))
+        else if (mc.flags & MAP_MOLDY)
             cell.is_moldy = true;
         // Corpses have a blood puddle of their own.
-        else if (is_bloodcovered(gc) && !_top_item_is_corpse(gc))
+        else if (mc.flags & MAP_BLOODY && !_top_item_is_corpse(mc))
         {
             cell.is_bloody = true;
             cell.blood_rotation = blood_rotation(gc);
+            cell.old_blood = env.pgrid(gc) & FPROP_OLD_BLOOD;
         }
     }
 
-    const dungeon_feature_type feat = env.map_knowledge(gc).feat();
+    const dungeon_feature_type feat = mc.feat();
     if (feat_is_water(feat) || feat == DNGN_LAVA)
         cell.bg |= TILE_FLAG_WATER;
 
-    if (is_sanctuary(gc))
+    if ((mc.flags & MAP_SANCTUARY_1) || (mc.flags & MAP_SANCTUARY_2))
         cell.is_sanctuary = true;
 
-    if (silenced(gc))
+    if (mc.flags & MAP_SILENCED)
         cell.is_silenced = true;
 
-    if (feat == DNGN_SWAMP_TREE)
-        cell.swamp_tree_water = true;
+    if (mc.flags & MAP_SUPPRESSED)
+        cell.is_suppressed = true;
 
-    if (orb_haloed(gc))
+    if (feat == DNGN_MANGROVE)
+        cell.mangrove_water = true;
+
+    if (mc.flags & MAP_ORB_HALOED)
         cell.orb_glow = get_orb_phase(gc) ? 2 : 1;
+
+    if (Options.show_travel_trail)
+    {
+        int tt_idx = travel_trail_index(gc);
+        if (tt_idx >= 0 && tt_idx < (int) env.travel_trail.size() - 1)
+        {
+            if (tt_idx > 0)
+            {
+                coord_def delta = gc - env.travel_trail[tt_idx-1];
+                cell.travel_trail = _get_direction_index(delta);
+            }
+            if (tt_idx < (int) env.travel_trail.size() - 1)
+            {
+                coord_def delta = gc - env.travel_trail[tt_idx+1];
+                cell.travel_trail |= _get_direction_index(delta) << 4;
+            }
+        }
+    }
 }
 
 void tile_clear_map(const coord_def& gc)

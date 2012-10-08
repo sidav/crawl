@@ -33,10 +33,6 @@ struct game_state
     bool game_crashed;      // The game crashed and is now in the process of
                             // dumping crash info.
 
-    // An assert was triggered, but an emergency save here should be possible
-    // without corruption.
-    bool game_wants_emergency_save;
-
     bool mouse_enabled;     // True if mouse input is currently relevant.
 
     bool waiting_for_command; // True when the game is waiting for a command.
@@ -90,12 +86,13 @@ struct game_state
     std::vector<std::string> startup_errors;
 
     bool level_annotation_shown;
+    bool viewport_monster_hp;
 
 #ifndef USE_TILE_LOCAL
-    // Are we currently targeting using the mlist?
+    // Are we currently targetting using the mlist?
     // This is global because the monster pane uses this when
     // drawing.
-    bool mlist_targeting;
+    bool mlist_targetting;
 #else
     bool title_screen;
 #endif
@@ -106,7 +103,7 @@ struct game_state
     // Any changes to macros that need to be changed?
     bool unsaved_macros;
 
-    FixedBitArray<NUM_DISABLEMENTS> disables;
+    FixedBitVector<NUM_DISABLEMENTS> disables;
 
     // Version of the last character save.
     int minorVersion;

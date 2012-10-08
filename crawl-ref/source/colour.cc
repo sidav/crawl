@@ -7,6 +7,10 @@
 #include "dgn-height.h"
 #include "env.h"
 #include "libutil.h"
+#include "mon-stuff.h"
+#include "mon-info.h"
+#include "mon-info.h"
+#include "mon-util.h"
 #include "options.h"
 #include "player.h"
 #include "random.h"
@@ -61,46 +65,46 @@ int random_element_colour_calc::get(const coord_def& loc, bool non_random)
     return (*real_calc)(rand(non_random), loc, rand_vals);
 }
 
-uint8_t random_colour(void)
+colour_t random_colour(void)
 {
     return (1 + random2(15));
 }
 
-uint8_t random_uncommon_colour()
+colour_t random_uncommon_colour()
 {
-    uint8_t result;
+    colour_t result;
 
     do
         result = random_colour();
     while (result == LIGHTCYAN || result == CYAN || result == BROWN);
 
-    return (result);
+    return result;
 }
 
-bool is_low_colour(uint8_t colour)
+bool is_low_colour(colour_t colour)
 {
     return (colour <= 7);
 }
 
-bool is_high_colour(uint8_t colour)
+bool is_high_colour(colour_t colour)
 {
     return (colour >= 8 && colour <= 15);
 }
 
-uint8_t make_low_colour(uint8_t colour)
+colour_t make_low_colour(colour_t colour)
 {
     if (is_high_colour(colour))
         return (colour - 8);
 
-    return (colour);
+    return colour;
 }
 
-uint8_t make_high_colour(uint8_t colour)
+colour_t make_high_colour(colour_t colour)
 {
     if (is_low_colour(colour))
         return (colour + 8);
 
-    return (colour);
+    return colour;
 }
 
 // returns if a colour is one of the special element colours (ie not regular)
@@ -140,9 +144,7 @@ static int _etc_rock(int, const coord_def& loc)
 static int _etc_elven_brick(int, const coord_def& loc)
 {
     if ((loc.x + loc.y) % 2)
-    {
         return LIGHTGREY;
-    }
     else
     {
         if ((loc.x / 2 + loc.y / 2) % 2)
@@ -201,7 +203,7 @@ static int _etc_tree(int, const coord_def& loc)
     return (h>>30) ? GREEN : LIGHTGREEN;
 }
 
-static int _etc_swamp_tree(int, const coord_def& loc)
+static int _etc_mangrove(int, const coord_def& loc)
 {
     uint32_t h = loc.x;
     h+=h<<10; h^=h>>6;
@@ -251,6 +253,24 @@ bool get_orb_phase(const coord_def& loc)
 static int _etc_orb_glow(int, const coord_def& loc)
 {
     return get_orb_phase(loc) ? LIGHTMAGENTA : MAGENTA;
+}
+
+int dam_colour(const monster_info& mi)
+{
+    if (!mons_class_can_display_wounds(mi.type))
+        return Options.enemy_hp_colour[6]; // undead and whatnot
+
+   switch (mi.dam)
+   {
+        case MDAM_OKAY:                 return Options.enemy_hp_colour[0];
+        case MDAM_LIGHTLY_DAMAGED:      return Options.enemy_hp_colour[1];
+        case MDAM_MODERATELY_DAMAGED:   return Options.enemy_hp_colour[2];
+        case MDAM_HEAVILY_DAMAGED:      return Options.enemy_hp_colour[3];
+        case MDAM_SEVERELY_DAMAGED:     return Options.enemy_hp_colour[4];
+        case MDAM_ALMOST_DEAD:          return Options.enemy_hp_colour[5];
+        case MDAM_DEAD:                 return BLACK; // this should never happen
+        default:                        return CYAN; // this should really never happen
+    }
 }
 
 static int _etc_random(int, const coord_def&)
@@ -383,14 +403,6 @@ void init_element_colours()
                             80,  DARKGREY,
                             40,  MAGENTA,
                         0));
-#if TAG_MAJOR_VERSION == 32
-    // necromancer
-    add_element_colour(_create_random_element_colour_calc(
-                            ETC_NECRO, "necro",
-                            80,  DARKGREY,
-                            40,  MAGENTA,
-                        0));
-#endif
     // ie demonology
     add_element_colour(_create_random_element_colour_calc(
                             ETC_UNHOLY, "unholy",
@@ -493,12 +505,6 @@ void init_element_colours()
     add_element_colour(new element_colour_calc(
                             ETC_ROCK, "rock", _etc_rock
                        ));
-#if TAG_MAJOR_VERSION == 32
-    add_element_colour(_create_random_element_colour_calc(
-                            ETC_STONE, "stone",
-                            1,  LIGHTGREY,
-                        0));
-#endif
     add_element_colour(_create_random_element_colour_calc(
                             ETC_MIST, "mist",
                             100, CYAN,
@@ -536,16 +542,6 @@ void init_element_colours()
                             90,  WHITE,
                             30,  LIGHTGREY,
                         0));
-#if TAG_MAJOR_VERSION == 32
-    add_element_colour(_create_random_element_colour_calc(
-                            ETC_SUBTRACTOR, "subtractor",
-                            24,  CYAN,
-                            24,  MAGENTA,
-                            24,  LIGHTBLUE,
-                            24,  LIGHTRED,
-                            24,  YELLOW,
-                        0));
-#endif
     add_element_colour(new element_colour_calc(
                             ETC_ELVEN_BRICK, "elven_brick", _etc_elven_brick
                        ));
@@ -556,7 +552,7 @@ void init_element_colours()
                             ETC_TREE, "tree", _etc_tree
                        ));
     add_element_colour(new element_colour_calc(
-                            ETC_SWAMP_TREE, "swamp_tree", _etc_swamp_tree
+                            ETC_MANGROVE, "mangrove", _etc_mangrove
                        ));
     add_element_colour(new element_colour_calc(
                             ETC_TORNADO, "tornado", _etc_tornado
@@ -591,7 +587,7 @@ int element_colour(int element, bool no_random, const coord_def& loc)
 {
     // pass regular colours through for safety.
     if (!_is_element_colour(element))
-        return (element);
+        return element;
 
     // Strip COLFLAGs just in case.
     element &= 0x007f;
@@ -619,7 +615,7 @@ static std::string tile_cols[24] =
 unsigned int str_to_tile_colour(std::string colour)
 {
     if (colour.empty())
-        return (0);
+        return 0;
 
     lowercase(colour);
 
@@ -633,20 +629,20 @@ unsigned int str_to_tile_colour(std::string colour)
     for (unsigned int i = 0; i < 24; i++)
     {
          if (tile_cols[i] == colour)
-             return (i);
+             return i;
     }
-    return (0);
+    return 0;
 }
 #endif
 
-const std::string cols[16] =
+static const std::string cols[16] =
 {
     "black", "blue", "green", "cyan", "red", "magenta", "brown",
     "lightgrey", "darkgrey", "lightblue", "lightgreen", "lightcyan",
     "lightred", "lightmagenta", "yellow", "white"
 };
 
-const std::string colour_to_str(uint8_t colour)
+const std::string colour_to_str(colour_t colour)
 {
     if (colour >= 16)
         return "lightgrey";
@@ -697,7 +693,7 @@ int str_to_colour(const std::string &str, int default_colour,
             ret = ci;
     }
 
-    return ((ret == 16) ? default_colour : ret);
+    return (ret == 16) ? default_colour : ret;
 }
 
 #if defined(TARGET_OS_WINDOWS) || defined(USE_TILE_LOCAL)
@@ -745,27 +741,26 @@ static unsigned short _dos_reverse_brand(unsigned short colour)
         }
     }
 
-    return (colour);
+    return colour;
 }
 
 static unsigned short _dos_hilite_brand(unsigned short colour,
                                         unsigned short hilite)
 {
     if (!hilite)
-        return (colour);
+        return colour;
 
     if (colour == hilite)
         colour = 0;
 
     colour |= (hilite << 4);
-    return (colour);
+    return colour;
 }
 
-unsigned short dos_brand(unsigned short colour,
-                          unsigned brand)
+static unsigned short _dos_brand(unsigned short colour, unsigned brand)
 {
     if ((brand & CHATTR_ATTRMASK) == CHATTR_NORMAL)
-        return (colour);
+        return colour;
 
     colour &= 0xFF;
 
@@ -782,21 +777,21 @@ static unsigned _colflag2brand(int colflag)
     switch (colflag)
     {
     case COLFLAG_ITEM_HEAP:
-        return (Options.heap_brand);
+        return Options.heap_brand;
     case COLFLAG_FRIENDLY_MONSTER:
-        return (Options.friend_brand);
+        return Options.friend_brand;
     case COLFLAG_NEUTRAL_MONSTER:
-        return (Options.neutral_brand);
+        return Options.neutral_brand;
     case COLFLAG_WILLSTAB:
-        return (Options.stab_brand);
+        return Options.stab_brand;
     case COLFLAG_MAYSTAB:
-        return (Options.may_stab_brand);
+        return Options.may_stab_brand;
     case COLFLAG_FEATURE_ITEM:
-        return (Options.feature_item_brand);
+        return Options.feature_item_brand;
     case COLFLAG_TRAP_ITEM:
-        return (Options.trap_item_brand);
+        return Options.trap_item_brand;
     default:
-        return (CHATTR_NORMAL);
+        return CHATTR_NORMAL;
     }
 }
 #endif
@@ -816,9 +811,9 @@ unsigned real_colour(unsigned raw_colour, const coord_def& loc)
     if (colflags)
     {
         unsigned brand = _colflag2brand(colflags);
-        raw_colour = dos_brand(raw_colour & 0xFF, brand);
+        raw_colour = _dos_brand(raw_colour & 0xFF, brand);
     }
 #endif
 
-    return (raw_colour);
+    return raw_colour;
 }

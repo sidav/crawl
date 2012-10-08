@@ -61,13 +61,6 @@ protected:
 #define ITEMNAME_SIZE   200          // size of item names/shop names/etc
 #define HIGHSCORE_SIZE  800          // <= 10 Lines for long format scores
 
-#if TAG_MAJOR_VERSION == 32
-#define MAX_NUM_GODS    21
-#else
-// FIXME: remove after save bump
-#define MAX_NUM_GODS NUM_GODS
-#endif
-
 #define BURDEN_TO_AUM 0.1f           // scale factor for converting burden to aum
 
 extern char info[INFO_SIZE];         // defined in main.cc {dlb}
@@ -102,7 +95,7 @@ template <typename Z> inline Z sgn(Z x)
     return (x < 0 ? -1 : (x > 0 ? 1 : 0));
 }
 
-inline int dist_range(int x) { return x*x + 1; };
+static inline int dist_range(int x) { return x*x + 1; };
 
 struct coord_def
 {
@@ -148,42 +141,42 @@ struct coord_def
     {
         x += other.x;
         y += other.y;
-        return (*this);
+        return *this;
     }
 
     const coord_def &operator += (int offset)
     {
         x += offset;
         y += offset;
-        return (*this);
+        return *this;
     }
 
     const coord_def &operator -= (const coord_def &other)
     {
         x -= other.x;
         y -= other.y;
-        return (*this);
+        return *this;
     }
 
     const coord_def &operator -= (int offset)
     {
         x -= offset;
         y -= offset;
-        return (*this);
+        return *this;
     }
 
     const coord_def &operator /= (int div)
     {
         x /= div;
         y /= div;
-        return (*this);
+        return *this;
     }
 
     const coord_def &operator *= (int mul)
     {
         x *= mul;
         y *= mul;
-        return (*this);
+        return *this;
     }
 
     coord_def operator + (const coord_def &other) const
@@ -239,7 +232,7 @@ struct coord_def
 
     int rdist() const
     {
-        return (std::max(std::abs(x), std::abs(y)));
+        return std::max(std::abs(x), std::abs(y));
     }
 
     bool origin() const
@@ -273,10 +266,17 @@ struct run_check_dir
 };
 
 typedef uint32_t mid_t;
+#define PRImidt PRIu32
 #define MID_PLAYER      ((mid_t)0xffffffff)
 // the numbers are meaningless, there's just plenty of space for gods, env,
 // and whatever else we want to have, while keeping all monster ids smaller.
 #define MID_ANON_FRIEND ((mid_t)0xffff0000)
+
+static inline monster_type operator++(monster_type &x)
+{
+    x = static_cast<monster_type>(x + 1);
+    return x;
+}
 
 struct cloud_struct
 {
@@ -354,7 +354,6 @@ class level_id
 public:
     branch_type branch;     // The branch in which the level is.
     int depth;              // What depth (in this branch - starting from 1)
-    level_area_type level_type;
 
 public:
     // Returns the level_id of the current level.
@@ -365,20 +364,15 @@ public:
     static level_id get_next_level_id(const coord_def &pos);
 
     level_id()
-        : branch(BRANCH_MAIN_DUNGEON), depth(-1),
-          level_type(LEVEL_DUNGEON)
+        : branch(BRANCH_MAIN_DUNGEON), depth(-1)
     {
     }
-    level_id(branch_type br, int dep, level_area_type ltype = LEVEL_DUNGEON)
-        : branch(br), depth(dep), level_type(ltype)
+    level_id(branch_type br, int dep = 1)
+        : branch(br), depth(dep)
     {
     }
     level_id(const level_id &ot)
-        : branch(ot.branch), depth(ot.depth), level_type(ot.level_type)
-    {
-    }
-    level_id(level_area_type ltype)
-        : branch(BRANCH_MAIN_DUNGEON), depth(-1), level_type(ltype)
+        : branch(ot.branch), depth(ot.depth)
     {
     }
 
@@ -392,39 +386,28 @@ public:
     {
         branch = BRANCH_MAIN_DUNGEON;
         depth  = -1;
-        level_type = LEVEL_DUNGEON;
     }
 
     // Returns the absolute depth in the dungeon for the level_id;
     // non-dungeon branches (specifically Abyss and Pan) will return
-    // depths suitable for use in monster and item generation. If
-    // you're looking for a depth to set you.absdepth0 to, use
-    // dungeon_absdepth().
+    // depths suitable for use in monster and item generation.
     int absdepth() const;
-
-    // Returns the absolute depth in the dungeon for the level_id, corresponding
-    // to you.absdepth0.
-    int dungeon_absdepth() const;
 
     bool is_valid() const
     {
-        return (branch != NUM_BRANCHES && depth != -1)
-            || level_type != LEVEL_DUNGEON;
+        return (branch != NUM_BRANCHES && depth != -1);
     }
 
     const level_id &operator = (const level_id &id)
     {
         branch     = id.branch;
         depth      = id.depth;
-        level_type = id.level_type;
-        return (*this);
+        return *this;
     }
 
     bool operator == (const level_id &id) const
     {
-        return (level_type == id.level_type
-                && (level_type != LEVEL_DUNGEON
-                    || (branch == id.branch && depth == id.depth)));
+        return (branch == id.branch && depth == id.depth);
     }
 
     bool operator != (const level_id &id) const
@@ -434,18 +417,12 @@ public:
 
     bool operator <(const level_id &id) const
     {
-        if (level_type != id.level_type)
-            return (level_type < id.level_type);
-
-        if (level_type != LEVEL_DUNGEON)
-            return (false);
-
         return (branch < id.branch) || (branch==id.branch && depth < id.depth);
     }
 
     bool operator == (const branch_type _branch) const
     {
-        return (branch == _branch && level_type == LEVEL_DUNGEON);
+        return (branch == _branch);
     }
 
     bool operator != (const branch_type _branch) const
@@ -529,10 +506,10 @@ struct item_def
 {
     object_class_type base_type:8; // basic class (ie OBJ_WEAPON)
     uint8_t        sub_type;       // type within that class (ie WPN_DAGGER)
-    short          plus;           // +to hit, charges, corpse mon id
+    union { short plus; monster_type mon_type:16; }; // +to hit, charges, corpse mon id
     short          plus2;          // +to dam, sub-sub type for boots/helms
     int            special;        // special stuff
-    uint8_t        colour;         // item colour
+    colour_t       colour;         // item colour
     uint8_t        rnd;            // random number, used for tile choice
     short          quantity;       // number of items
     iflags_t       flags;          // item status flags
@@ -589,13 +566,16 @@ public:
     bool held_by_monster() const;
 
     bool defined() const;
-    bool is_valid() const;
+    bool is_valid(bool info = false) const;
 
     // Returns true if this item should be preserved as far as possible.
     bool is_critical() const;
 
     // Returns true if this item should not normally be enchanted.
     bool is_mundane() const;
+
+    // Returns true if this item causes autoexplore to visit it.
+    bool is_greedy_sacrificeable() const;
 
 private:
     std::string name_aux(description_level_type desc,
@@ -720,7 +700,12 @@ struct message_filter
     {
     }
 
-    message_filter(const std::string &s) : channel(-1), pattern(s) { }
+    message_filter(const std::string &s) : channel(-1), pattern(s, true) { }
+
+    bool operator== (const message_filter &mf) const
+    {
+        return channel == mf.channel && pattern == mf.pattern;
+    }
 
     bool is_filtered(int ch, const std::string &s) const
     {
@@ -736,6 +721,10 @@ struct sound_mapping
 {
     text_pattern pattern;
     std::string  soundfile;
+    bool operator== (const sound_mapping &o) const
+    {
+        return pattern == o.pattern && soundfile == o.soundfile;
+    }
 };
 
 struct colour_mapping
@@ -743,12 +732,20 @@ struct colour_mapping
     std::string tag;
     text_pattern pattern;
     int colour;
+    bool operator== (const colour_mapping &o) const
+    {
+        return tag == o.tag && pattern == o.pattern && colour == o.colour;
+    }
 };
 
 struct message_colour_mapping
 {
     message_filter message;
     msg_colour_type colour;
+    bool operator== (const message_colour_mapping &o) const
+    {
+        return message == o.message && colour == o.colour;
+    }
 };
 
 class InvEntry;

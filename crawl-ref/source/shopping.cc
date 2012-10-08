@@ -13,8 +13,8 @@
 #include <string.h>
 
 #include "externs.h"
-#include "options.h"
 #include "artefact.h"
+#include "branch.h"
 #include "cio.h"
 #include "describe.h"
 #include "decks.h"
@@ -29,10 +29,12 @@
 #include "macro.h"
 #include "menu.h"
 #include "notes.h"
+#include "options.h"
 #include "place.h"
 #include "player.h"
 #include "spl-book.h"
 #include "stash.h"
+#include "state.h"
 #include "stuff.h"
 #include "travel.h"
 #include "env.h"
@@ -93,7 +95,7 @@ static std::string _hyphenated_suffix(char prev, char last)
 
     if (prev != last)
         s += prev;
-    return (s);
+    return s;
 }
 
 static std::string _purchase_keys(const std::string &s)
@@ -115,7 +117,13 @@ static std::string _purchase_keys(const std::string &s)
 
     list += _hyphenated_suffix(s[s.length() - 1], last);
     list += "</w>";
-    return (list);
+    return list;
+}
+
+static bool _can_shoplist(level_id lev = level_id::current())
+{
+    // TODO: temporary shoplists
+    return is_connected_branch(lev.branch);
 }
 
 static void _list_shop_keys(const std::string &purchasable, bool viewing,
@@ -128,7 +136,7 @@ static void _list_shop_keys(const std::string &purchasable, bool viewing,
     formatted_string fs;
 
     std::string shop_list = "";
-    if (!viewing && you.level_type == LEVEL_DUNGEON)
+    if (!viewing && _can_shoplist())
     {
         shop_list = "[<w>$</w>] ";
         if (num_selected > 0)
@@ -294,7 +302,7 @@ static std::string _shop_print_stock(const std::vector<int>& stock,
     }
     textcolor(LIGHTGREY);
 
-    return (purchasable);
+    return purchasable;
 }
 
 static int _count_identical(const std::vector<int>& stock,
@@ -308,7 +316,7 @@ static int _count_identical(const std::vector<int>& stock,
         if (ShoppingList::items_are_same(item, other))
             count++;
     }
-    return (count);
+    return count;
 }
 
 //  Rather than prompting for each individual item, shopping now works more
@@ -364,6 +372,11 @@ static bool _in_a_shop(int shopidx, int &num_in_list)
           bool viewing          = false;
           bool first_iter       = true;
 
+    // Store last_pickup in case we need to restore it.
+    // Then clear it to fill with items picked up.
+    std::map<int,int> tmp_l_p = you.last_pickup;
+    you.last_pickup.clear();
+
     while (true)
     {
         ASSERT(total_cost >= 0);
@@ -403,7 +416,7 @@ static bool _in_a_shop(int shopidx, int &num_in_list)
         {
             _shop_print("I'm sorry, my shop is empty now.", 1);
             _shop_more();
-            return (bought_something);
+            return bought_something;
         }
 
         const std::string purchasable = _shop_print_stock(stock, selected,
@@ -608,8 +621,7 @@ static bool _in_a_shop(int shopidx, int &num_in_list)
             browse_inventory();
         else if (key == '$')
         {
-            if (viewing || (num_selected == 0 && num_in_list == 0)
-                || you.level_type != LEVEL_DUNGEON)
+            if (viewing || (num_selected == 0 && num_in_list == 0))
             {
                 _shop_print("Huh?", 1);
                 _shop_more();
@@ -749,7 +761,10 @@ static bool _in_a_shop(int shopidx, int &num_in_list)
         }
     }
 
-    return (bought_something);
+    if (you.last_pickup.empty())
+        you.last_pickup = tmp_l_p;
+
+    return bought_something;
 }
 
 bool shoptype_identifies_stock(shop_type type)
@@ -785,9 +800,9 @@ static bool _purchase(int shop, int item_got, int cost, bool id)
     if (num < quant)
     {
         move_item_to_grid(&item_got, env.shop[shop].pos);
-        return (false);
+        return false;
     }
-    return (true);
+    return true;
 }
 
 // This probably still needs some work.  Rings used to be the only
@@ -896,7 +911,7 @@ unsigned int item_value(item_def item, bool ident)
     {
         const unrandart_entry *entry = get_unrand_entry(item.special);
         if (entry->value != 0)
-            return (entry->value);
+            return entry->value;
     }
 
     int valued = 0;
@@ -956,7 +971,6 @@ unsigned int item_value(item_def item, bool ident)
             valued += 35;
             break;
 
-        case WPN_ANKUS:
         case WPN_WAR_AXE:
         case WPN_MORNINGSTAR:
         case WPN_SABRE:
@@ -1025,10 +1039,6 @@ unsigned int item_value(item_def item, bool ident)
             valued += 150;
             break;
 
-#if TAG_MAJOR_VERSION == 32
-        case WPN_KATANA:
-        case WPN_BLESSED_KATANA:
-#endif
         case WPN_DEMON_BLADE:
         case WPN_TRIPLE_SWORD:
         case WPN_EUDEMON_BLADE:
@@ -1325,9 +1335,6 @@ unsigned int item_value(item_def item, bool ident)
             valued += 200;
             break;
 
-#if TAG_MAJOR_VERSION == 32
-        case ARM_BANDED_MAIL:
-#endif
         case ARM_CENTAUR_BARDING:
         case ARM_NAGA_BARDING:
             valued += 150;
@@ -1487,9 +1494,7 @@ unsigned int item_value(item_def item, bool ident)
                 valued += 50;
         }
         else if (item_type_known(item) && get_equip_desc(item) != 0)
-        {
             valued += 20;
-        }
 
         if (item_known_cursed(item))
         {
@@ -1709,7 +1714,7 @@ unsigned int item_value(item_def item, bool ident)
                 valued += 200;
                 break;
 
-            case SCR_SUMMONING:
+            case SCR_UNHOLY_CREATION:
                 valued += 95;
                 break;
 
@@ -1740,7 +1745,6 @@ unsigned int item_value(item_def item, bool ident)
                 break;
 
             case SCR_FOG:
-            case SCR_DETECT_CURSE:
             case SCR_IDENTIFY:
             case SCR_CURSE_ARMOUR:
             case SCR_CURSE_WEAPON:
@@ -1964,18 +1968,20 @@ unsigned int item_value(item_def item, bool ident)
         break;
 
     case OBJ_STAVES:
+        valued = item_type_known(item) ? 250 : 120;
+        break;
+
+    case OBJ_RODS:
         if (!item_type_known(item))
             valued = 120;
-        else if (item.sub_type == STAFF_SMITING
-                || item.sub_type == STAFF_STRIKING
-                || item.sub_type == STAFF_WARDING)
+        else if (item.sub_type == ROD_STRIKING
+                 || item.sub_type == ROD_WARDING)
         {
             valued = 150;
         }
         else
             valued = 250;
-
-        if (item_is_rod(item) && item_ident(item, ISFLAG_KNOW_PLUSES))
+        if (item_ident(item, ISFLAG_KNOW_PLUSES))
             valued += 50 * (item.plus2 / ROD_CHARGE_MULT);
         break;
 
@@ -1990,9 +1996,9 @@ unsigned int item_value(item_def item, bool ident)
     if (valued < 1)
         valued = 1;
 
-    valued *= item.quantity;
+    valued = stepdown_value(valued, 1000, 1000, 10000, 10000);
 
-    return (valued);
+    return (item.quantity * valued);
 }
 
 bool is_worthless_consumable(const item_def &item)
@@ -2085,9 +2091,9 @@ void shop()
         mpr("You can access your shopping list by pressing '$'.");
 }
 
-void destroy_shop(shop_struct *shop)
+void destroy_shop_at(coord_def p)
 {
-    if (shop)
+    if (shop_struct *shop = get_shop(p))
     {
         unnotice_feature(level_pos(level_id::current(), shop->pos));
 
@@ -2096,15 +2102,10 @@ void destroy_shop(shop_struct *shop)
     }
 }
 
-void destroy_shop_at(coord_def p)
-{
-    destroy_shop(get_shop(p));
-}
-
 shop_struct *get_shop(const coord_def& where)
 {
     if (grd(where) != DNGN_ENTER_SHOP)
-        return (NULL);
+        return NULL;
 
     unsigned short t = env.tgrid(where);
     ASSERT(t != NON_ENTITY && t < MAX_SHOPS);
@@ -2118,10 +2119,10 @@ std::string shop_name(const coord_def& where, bool add_stop)
     std::string name(shop_name(where));
     if (add_stop)
         name += ".";
-    return (name);
+    return name;
 }
 
-std::string shop_type_name (shop_type type)
+static std::string _shop_type_name(shop_type type)
 {
     switch (type)
     {
@@ -2150,7 +2151,7 @@ std::string shop_type_name (shop_type type)
         case SHOP_GENERAL:
             return "General Store";
         default:
-            return ("Bug");
+            return "Bug";
     }
 }
 
@@ -2160,7 +2161,7 @@ static std::string _shop_type_suffix(shop_type type, const coord_def &where)
         || type == SHOP_GENERAL_ANTIQUE
         || type == SHOP_DISTILLERY)
     {
-        return ("");
+        return "";
     }
 
     const char* suffixnames[] = {"Shoppe", "Boutique", "Emporium", "Shop"};
@@ -2179,7 +2180,7 @@ std::string shop_name(const coord_def& where)
     if (!cshop)
     {
         mpr("Help! Non-existent shop.");
-        return ("Buggy Shop");
+        return "Buggy Shop";
     }
 
     const shop_type type = cshop->type;
@@ -2187,9 +2188,7 @@ std::string shop_name(const coord_def& where)
     std::string sh_name = "";
 
     if (!cshop->shop_name.empty())
-    {
         sh_name += apostrophise(cshop->shop_name) + " ";
-    }
     else
     {
         uint32_t seed = static_cast<uint32_t>(cshop->keeper_name[0])
@@ -2202,12 +2201,10 @@ std::string shop_name(const coord_def& where)
     if (!cshop->shop_type_name.empty())
         sh_name += cshop->shop_type_name;
     else
-        sh_name += shop_type_name(type);
+        sh_name += _shop_type_name(type);
 
     if (!cshop->shop_suffix_name.empty())
-    {
         sh_name += " " + cshop->shop_suffix_name;
-    }
     else
     {
         std::string sh_suffix = _shop_type_suffix(type, where);
@@ -2215,7 +2212,7 @@ std::string shop_name(const coord_def& where)
             sh_name += " " + sh_suffix;
     }
 
-    return (sh_name);
+    return sh_name;
 }
 
 bool is_shop_item(const item_def &item)
@@ -2224,14 +2221,6 @@ bool is_shop_item(const item_def &item)
 }
 
 ////////////////////////////////////////////////////////////////////////
-
-// Setup shopping list after restoring savefile.
-static void _callback(bool saving)
-{
-    if (!saving)
-        shopping_list.refresh();
-}
-static SavefileCallback _register_callback(_callback);
 
 // TODO:
 //   * Let shopping list be modified from with the stash lister.
@@ -2250,11 +2239,7 @@ ShoppingList::ShoppingList()
 }
 
 #define SETUP_POS()                 \
-    if (list == NULL) \
-    { \
-        mpr("SavefileCallback global constructor weirdness!", MSGCH_ERROR); \
-        return (false); \
-    } \
+    ASSERT(list); \
     level_pos pos;                  \
     if (_pos != NULL)               \
         pos = *_pos;                \
@@ -2275,18 +2260,11 @@ bool ShoppingList::add_thing(const item_def &item, int cost,
 
     SETUP_POS();
 
-    if (pos.id.level_type != LEVEL_DUNGEON)
-    {
-        mpr("The shopping list can only contain things in the dungeon.",
-             MSGCH_ERROR);
-        return (false);
-    }
-
     if (find_thing(item, pos) != -1)
     {
         mprf(MSGCH_ERROR, "%s is already on the shopping list.",
              item.name(DESC_THE).c_str());
-        return (false);
+        return false;
     }
 
     SETUP_THING();
@@ -2294,7 +2272,7 @@ bool ShoppingList::add_thing(const item_def &item, int cost,
     list->push_back(*thing);
     refresh();
 
-    return (true);
+    return true;
 }
 
 bool ShoppingList::add_thing(std::string desc, std::string buy_verb, int cost,
@@ -2306,18 +2284,11 @@ bool ShoppingList::add_thing(std::string desc, std::string buy_verb, int cost,
 
     SETUP_POS();
 
-    if (pos.id.level_type != LEVEL_DUNGEON)
-    {
-        mpr("The shopping list can only contain things in the dungeon.",
-             MSGCH_ERROR);
-        return (false);
-    }
-
     if (find_thing(desc, pos) != -1)
     {
         mprf(MSGCH_ERROR, "%s is already on the shopping list.",
              desc.c_str());
-        return (false);
+        return false;
     }
 
     SETUP_THING();
@@ -2326,7 +2297,7 @@ bool ShoppingList::add_thing(std::string desc, std::string buy_verb, int cost,
     list->push_back(*thing);
     refresh();
 
-    return (true);
+    return true;
 }
 
 #undef SETUP_THING
@@ -2354,6 +2325,18 @@ void ShoppingList::del_thing_at_index(int idx)
     refresh();
 }
 
+void ShoppingList::del_things_from(const level_id &lid)
+{
+    for (unsigned int i = 0; i < list->size(); i++)
+    {
+        const CrawlHashTable &thing = (*list)[i];
+
+        if (thing_pos(thing).is_on(lid))
+            list->erase(i--);
+    }
+    refresh();
+}
+
 bool ShoppingList::del_thing(const item_def &item,
                              const level_pos* _pos)
 {
@@ -2365,11 +2348,11 @@ bool ShoppingList::del_thing(const item_def &item,
     {
         mprf(MSGCH_ERROR, "%s isn't on shopping list, can't delete it.",
              item.name(DESC_THE).c_str());
-        return (false);
+        return false;
     }
 
     del_thing_at_index(idx);
-    return (true);
+    return true;
 }
 
 bool ShoppingList::del_thing(std::string desc, const level_pos* _pos)
@@ -2382,11 +2365,11 @@ bool ShoppingList::del_thing(std::string desc, const level_pos* _pos)
     {
         mprf(MSGCH_ERROR, "%s isn't on shopping list, can't delete it.",
              desc.c_str());
-        return (false);
+        return false;
     }
 
     del_thing_at_index(idx);
-    return (true);
+    return true;
 }
 
 #undef SETUP_POS
@@ -2406,12 +2389,12 @@ unsigned int ShoppingList::cull_identical_items(const item_def& item,
 {
     // Dead men can't update their shopping lists.
     if (!crawl_state.need_save)
-        return (0);
+        return 0;
 
     // Can't put items in Bazaar shops in the shopping list, so
     // don't bother transferring shopping list items to Bazaar shops.
-    if (cost != -1 && you.level_type != LEVEL_DUNGEON)
-        return (0);
+    if (cost != -1 && !_can_shoplist())
+        return 0;
 
     switch (item.base_type)
     {
@@ -2422,21 +2405,21 @@ unsigned int ShoppingList::cull_identical_items(const item_def& item,
         break;
 
     default:
-        return (0);
+        return 0;
     }
 
     if (!item_type_known(item) || is_artefact(item))
-        return (0);
+        return 0;
 
     // Ignore stat-modification rings which reduce a stat, since they're
     // worthless.
     if (item.base_type == OBJ_JEWELLERY)
     {
         if (item.sub_type == RING_SLAYING && item.plus < 0 && item.plus2 < 0)
-            return (0);
+            return 0;
 
         if (item.plus < 0)
-            return (0);
+            return 0;
     }
 
     // Item is already on shopping-list.
@@ -2562,18 +2545,14 @@ unsigned int ShoppingList::cull_identical_items(const item_def& item,
     if (add_item && !on_list)
         add_thing(item, cost);
 
-    return (to_del.size());
+    return to_del.size();
 }
 
 int ShoppingList::size() const
 {
-    if (list == NULL)
-    {
-        mpr("SavefileCallback global constructor weirdness!", MSGCH_ERROR);
-        return (0);
-    }
+    ASSERT(list);
 
-    return (list->size());
+    return list->size();
 }
 
 bool ShoppingList::items_are_same(const item_def& item_a,
@@ -2585,8 +2564,7 @@ bool ShoppingList::items_are_same(const item_def& item_a,
 void ShoppingList::move_things(const coord_def &_src, const coord_def &_dst)
 {
     if (crawl_state.map_stat_gen || crawl_state.test)
-        // Shopping list is unitialized and uneeded.
-        return;
+        return; // Shopping list is unitialized and uneeded.
 
     const level_pos src(level_id::current(), _src);
     const level_pos dst(level_id::current(), _dst);
@@ -2603,8 +2581,7 @@ void ShoppingList::move_things(const coord_def &_src, const coord_def &_dst)
 void ShoppingList::forget_pos(const level_pos &pos)
 {
     if (!crawl_state.need_save)
-        // Shopping list is unitialized and uneeded.
-        return;
+        return; // Shopping list is unitialized and uneeded.
 
     for (unsigned int i = 0; i < list->size(); i++)
     {
@@ -2621,11 +2598,7 @@ void ShoppingList::forget_pos(const level_pos &pos)
 
 void ShoppingList::gold_changed(int old_amount, int new_amount)
 {
-    if (list == NULL)
-    {
-        mpr("SavefileCallback global constructor weirdness!", MSGCH_ERROR);
-        return;
-    }
+    ASSERT(list);
 
     if (new_amount > old_amount && new_amount >= min_unbuyable_cost)
     {
@@ -2745,17 +2718,13 @@ void ShoppingList::display()
     if (list->empty())
         return;
 
-    const bool travelable = can_travel_interlevel();
-
     ShoppingListMenu shopmenu;
     shopmenu.set_tag("shop");
-    shopmenu.menu_action  = travelable ? Menu::ACT_EXECUTE : Menu::ACT_EXAMINE;
-    shopmenu.action_cycle = travelable ? Menu::CYCLE_CYCLE : Menu::CYCLE_NONE;
+    shopmenu.menu_action  = Menu::ACT_EXECUTE;
+    shopmenu.action_cycle = Menu::CYCLE_CYCLE;
     std::string title     = "thing";
 
     MenuEntry *mtitle = new MenuEntry(title, MEL_TITLE);
-    // Abuse of the quantity field.
-    mtitle->quantity = list->size();
     shopmenu.set_title(mtitle);
 
     // Don't make a menu so tall that we recycle hotkeys on the same page.
@@ -2777,6 +2746,9 @@ void ShoppingList::display()
     std::vector<MenuEntry*> sel;
     while (true)
     {
+        // Abuse of the quantity field.
+        mtitle->quantity = list->size();
+
         redraw_screen();
         sel = shopmenu.show();
 
@@ -2923,10 +2895,10 @@ int ShoppingList::find_thing(const item_def &item,
         const item_def &_item = get_thing_item(thing);
 
         if (item_name_simple(item) == item_name_simple(_item))
-            return (i);
+            return i;
     }
 
-    return (-1);
+    return -1;
 }
 
 int ShoppingList::find_thing(const std::string &desc,
@@ -2944,10 +2916,10 @@ int ShoppingList::find_thing(const std::string &desc,
             continue;
 
         if (desc == name_thing(thing))
-            return (i);
+            return i;
     }
 
-    return (-1);
+    return -1;
 }
 
 bool ShoppingList::thing_is_item(const CrawlHashTable& thing)
@@ -2962,7 +2934,7 @@ const item_def& ShoppingList::get_thing_item(const CrawlHashTable& thing)
     const item_def &item = thing[SHOPPING_THING_ITEM_KEY].get_item();
     ASSERT(item.defined());
 
-    return (item);
+    return item;
 }
 
 std::string ShoppingList::get_thing_desc(const CrawlHashTable& thing)
@@ -2970,7 +2942,7 @@ std::string ShoppingList::get_thing_desc(const CrawlHashTable& thing)
     ASSERT(thing.exists(SHOPPING_THING_DESC_KEY));
 
     std::string desc = thing[SHOPPING_THING_DESC_KEY].get_string();
-    return (desc);
+    return desc;
 }
 
 int ShoppingList::thing_cost(const CrawlHashTable& thing)
@@ -3012,7 +2984,7 @@ std::string ShoppingList::describe_thing(const CrawlHashTable& thing,
     else
         desc += pos.id.describe();
 
-    return (desc);
+    return desc;
 }
 
 // Item name without curse-status or inscription.

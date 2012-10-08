@@ -23,14 +23,13 @@
 #include "dactions.h"
 #include "effects.h"
 #include "env.h"
-#include "format.h"
 #include "godabil.h"
 #include "godpassive.h"
 #include "itemprop.h"
 #include "items.h"
-#include "macro.h"
 #include "menu.h"
 #include "mgen_data.h"
+#include "misc.h"
 #include "mon-place.h"
 #include "mon-iter.h"
 #include "mon-stuff.h"
@@ -42,6 +41,7 @@
 #include "religion.h"
 #include "random.h"
 #include "skills2.h"
+#include "stuff.h"
 #include "transform.h"
 #include "hints.h"
 #include "xom.h"
@@ -54,8 +54,6 @@ static mutation_def mut_data[] = {
 
 };
 
-#define MUTDATASIZE (sizeof(mut_data)/sizeof(mutation_def))
-
 static const body_facet_def _body_facets[] =
 {
     //{ EQ_NONE, MUT_FANGS, 1 },
@@ -63,7 +61,6 @@ static const body_facet_def _body_facets[] =
     { EQ_HELMET, MUT_ANTENNAE, 1 },
     //{ EQ_HELMET, MUT_BEAK, 1 },
     { EQ_GLOVES, MUT_CLAWS, 3 },
-    { EQ_GLOVES, MUT_TENTACLES, 3 },
     { EQ_BOOTS, MUT_HOOVES, 3 },
     { EQ_BOOTS, MUT_TALONS, 3 }
 };
@@ -77,7 +74,6 @@ equipment_type beastly_slot(int mut)
     case MUT_BEAK:
         return EQ_HELMET;
     case MUT_CLAWS:
-    case MUT_TENTACLES:
         return EQ_GLOVES;
     case MUT_HOOVES:
     case MUT_TALONS:
@@ -95,7 +91,7 @@ void init_mut_index()
     for (int i = 0; i < NUM_MUTATIONS; ++i)
         mut_index[i] = -1;
 
-    for (unsigned int i = 0; i < MUTDATASIZE; ++i)
+    for (unsigned int i = 0; i < ARRAYSZ(mut_data); ++i)
     {
         const mutation_type mut = mut_data[i].mutation;
         ASSERT(mut >= 0 && mut < NUM_MUTATIONS);
@@ -108,7 +104,7 @@ static mutation_def* _seek_mutation(mutation_type mut)
 {
     ASSERT(mut >= 0 && mut < NUM_MUTATIONS);
     if (mut_index[mut] == -1)
-        return (NULL);
+        return NULL;
     else
         return (&mut_data[mut_index[mut]]);
 }
@@ -132,9 +128,9 @@ static bool _is_covering(mutation_type mut)
 {
     for (unsigned i = 0; i < ARRAYSZ(_all_scales); ++i)
         if (_all_scales[i] == mut)
-            return (true);
+            return true;
 
-    return (false);
+    return false;
 }
 
 bool is_body_facet(mutation_type mut)
@@ -142,10 +138,10 @@ bool is_body_facet(mutation_type mut)
     for (unsigned i = 0; i < ARRAYSZ(_body_facets); i++)
     {
         if (_body_facets[i].mut == mut)
-            return (true);
+            return true;
     }
 
-    return (false);
+    return false;
 }
 
 const mutation_def& get_mutation_def(mutation_type mut)
@@ -183,15 +179,23 @@ mutation_activity_type mutation_activity_level(mutation_type mut)
     if (mut == MUT_BREATHE_POISON)
     {
         if (form_changed_physiology() && you.form != TRAN_SPIDER)
-            return (MUTACT_INACTIVE);
+            return MUTACT_INACTIVE;
     }
     else if (!form_keeps_mutations())
     {
+        if (you.form == TRAN_DRAGON)
+        {
+            monster_type drag = dragon_form_dragon_type();
+            if (mut == MUT_SHOCK_RESISTANCE && drag == MONS_STORM_DRAGON)
+                return MUTACT_FULL;
+            if (mut == MUT_UNBREATHING && drag == MONS_IRON_DRAGON)
+                return MUTACT_FULL;
+        }
         // Dex and HP changes are kept in all forms.
         if (mut == MUT_ROUGH_BLACK_SCALES || mut == MUT_RUGGED_BROWN_SCALES)
-            return (MUTACT_PARTIAL);
+            return MUTACT_PARTIAL;
         else if (get_mutation_def(mut).form_based)
-            return (MUTACT_INACTIVE);
+            return MUTACT_INACTIVE;
     }
 
     if (you.form == TRAN_STATUE)
@@ -208,13 +212,12 @@ mutation_activity_type mutation_activity_level(mutation_type mut)
         case MUT_FAST:
         case MUT_SLOW:
         case MUT_IRIDESCENT_SCALES:
-            return (MUTACT_INACTIVE);
+            return MUTACT_INACTIVE;
         case MUT_LARGE_BONE_PLATES:
         case MUT_ROUGH_BLACK_SCALES:
         case MUT_RUGGED_BROWN_SCALES:
-            return (MUTACT_PARTIAL);
+            return MUTACT_PARTIAL;
         case MUT_YELLOW_SCALES:
-            return (you.mutation[mut] > 1 ? MUTACT_PARTIAL : MUTACT_INACTIVE);
         case MUT_ICY_BLUE_SCALES:
         case MUT_MOLTEN_SCALES:
         case MUT_SLIMY_GREEN_SCALES:
@@ -230,24 +233,24 @@ mutation_activity_type mutation_activity_level(mutation_type mut)
     {
         // Innate mutations are always active
         if (you.innate_mutations[mut])
-            return (MUTACT_FULL);
+            return MUTACT_FULL;
 
         // ... as are all mutations for semi-undead who are fully alive
         if (you.hunger_state == HS_ENGORGED)
-            return (MUTACT_FULL);
+            return MUTACT_FULL;
 
         // ... as are physical mutations.
         if (get_mutation_def(mut).physical)
-            return (MUTACT_FULL);
+            return MUTACT_FULL;
 
         // Other mutations are partially active at satiated and above.
         if (you.hunger_state >= HS_SATIATED)
-            return (MUTACT_HUNGER);
+            return MUTACT_HUNGER;
         else
-            return (MUTACT_INACTIVE);
+            return MUTACT_INACTIVE;
     }
     else
-        return (MUTACT_FULL);
+        return MUTACT_FULL;
 }
 
 // Counts of various statuses/types of mutations from the current/most
@@ -265,14 +268,14 @@ static int _num_hunger_based = 0;
 static bool _player_can_transform()
 {
     if (you.species == SP_MUMMY || you.species == SP_GHOUL)
-        return (false);
+        return false;
 
     if (form_changed_physiology())
-        return (true);
+        return true;
 
     // Bat form
     if (you.species == SP_VAMPIRE && you.experience_level >= 3)
-        return (true);
+        return true;
 
     for (int i = 0; i < MAX_KNOWN_SPELLS; i++)
     {
@@ -283,13 +286,13 @@ static bool _player_can_transform()
         case SPELL_STATUE_FORM:
         case SPELL_DRAGON_FORM:
         case SPELL_NECROMUTATION:
-            return (true);
+            return true;
         default:
             break;
         }
     }
 
-    return (false);
+    return false;
 }
 
 static std::string _annotate_form_based(std::string desc, bool suppressed)
@@ -315,7 +318,7 @@ static std::string _dragon_abil(std::string desc)
     return _annotate_form_based(desc, supp);
 }
 
-std::string describe_mutations()
+std::string describe_mutations(bool center_title)
 {
     std::string result;
     bool have_any = false;
@@ -325,11 +328,13 @@ std::string describe_mutations()
     _num_full_suppressed = _num_part_suppressed = 0;
     _num_form_based = _num_hunger_based = 0;
 
-    // center title
-    int offset = 39 - strwidth(mut_title) / 2;
-    if (offset < 0) offset = 0;
+    if (center_title)
+    {
+        int offset = 39 - strwidth(mut_title) / 2;
+        if (offset < 0) offset = 0;
 
-    result += std::string(offset, ' ');
+        result += std::string(offset, ' ');
+    }
 
     result += "<white>";
     result += mut_title;
@@ -364,9 +369,13 @@ std::string describe_mutations()
         // Breathe poison replaces spit poison.
         if (!player_mutation_level(MUT_BREATHE_POISON))
             result += "You can spit poison.\n";
-        result += _annotate_form_based(
-            "You can use your snake-like lower body to constrict enemies.",
-            !form_keeps_mutations());
+
+        if (you.experience_level > 12)
+        {
+            result += _annotate_form_based(
+                "You can use your snake-like lower body to constrict enemies.",
+                !form_keeps_mutations());
+        }
 
         if (you.experience_level > 2)
         {
@@ -391,9 +400,9 @@ std::string describe_mutations()
             std::string msg = "You can fly";
             if (you.experience_level > 14)
                 msg += " continuously";
-            msg += ".";
+            msg += ".\n";
 
-            result += _annotate_form_based(msg, player_is_shapechanged());
+            result += msg;
             have_any = true;
         }
         break;
@@ -423,7 +432,7 @@ std::string describe_mutations()
     case SP_GREY_DRACONIAN:
         result += "You can walk through water.\n";
         have_any = true;
-        scale_type = "dull grey";
+        scale_type = "dull iron-grey";
         break;
 
     case SP_RED_DRACONIAN:
@@ -515,8 +524,10 @@ std::string describe_mutations()
 
     case SP_OCTOPODE:
         result += "You cannot wear most types of armour.\n";
-        result += "You can wear up to eight rings at the same time.\n";
         result += "You are amphibious.\n";
+        result += _annotate_form_based(
+            "You can wear up to eight rings at the same time.",
+            !form_keeps_mutations() && you.form != TRAN_SPIDER);
         result += _annotate_form_based(
             "You can use your tentacles to constrict many enemies at once.",
             !form_keeps_mutations());
@@ -552,10 +563,12 @@ std::string describe_mutations()
         // Draconians are large for the purposes of armour, but only medium for
         // weapons and carrying capacity.
         std::ostringstream num;
-        num << 4 + you.experience_level / 3;
+        num << 4 + you.experience_level / 3
+                 + (you.species == SP_GREY_DRACONIAN ? 5 : 0);
 
-        const std::string msg = "Your " + scale_type + " scales are hard"
-                                " (AC +" + num.str() + ").";
+        const std::string msg = "Your " + scale_type + " scales are "
+              + (you.species == SP_GREY_DRACONIAN ? "very " : "") + "hard"
+              + " (AC +" + num.str() + ").";
 
         result += _annotate_form_based(msg,
                       player_is_shapechanged() && you.form != TRAN_DRAGON);
@@ -717,7 +730,7 @@ static void _display_vampire_attributes()
 
 void display_mutations()
 {
-    std::string mutation_s = describe_mutations();
+    std::string mutation_s = describe_mutations(true);
 
     std::string extra = "";
     if (_num_part_suppressed)
@@ -800,7 +813,6 @@ static int _calc_mutation_amusement_value(mutation_type which_mutation)
     case MUT_BLURRY_VISION:
     case MUT_FRAIL:
     case MUT_CLAWS:
-    case MUT_TENTACLES:
     case MUT_FANGS:
     case MUT_HOOVES:
     case MUT_TALONS:
@@ -818,26 +830,26 @@ static int _calc_mutation_amusement_value(mutation_type which_mutation)
         break;
     }
 
-    return (amusement);
+    return amusement;
 }
 
 static bool _accept_mutation(mutation_type mutat, bool ignore_rarity = false)
 {
     if (!is_valid_mutation(mutat))
-        return (false);
+        return false;
 
     const mutation_def& mdef = get_mutation_def(mutat);
 
     if (you.mutation[mutat] >= mdef.levels)
-        return (false);
+        return false;
 
     if (ignore_rarity)
-        return (true);
+        return true;
 
     const int rarity = mdef.rarity + you.innate_mutations[mutat];
 
     // Low rarity means unlikely to choose it.
-    return (x_chance_in_y(rarity, 10));
+    return x_chance_in_y(rarity, 10);
 }
 
 static mutation_type _get_random_slime_mutation()
@@ -893,13 +905,13 @@ static mutation_type _get_random_xom_mutation()
         mutat = static_cast<mutation_type>(random2(NUM_MUTATIONS));
 
         if (one_chance_in(1000))
-            return (NUM_MUTATIONS);
+            return NUM_MUTATIONS;
         else if (one_chance_in(5))
             mutat = RANDOM_ELEMENT(bad_muts);
     }
     while (!_accept_mutation(mutat, false));
 
-    return (mutat);
+    return mutat;
 }
 
 static bool _mut_matches_class(mutation_type mutclass, const mutation_def& mdef)
@@ -907,9 +919,9 @@ static bool _mut_matches_class(mutation_type mutclass, const mutation_def& mdef)
     switch (mutclass)
     {
     case RANDOM_MUTATION:
-        return (true);
+        return true;
     case RANDOM_BAD_MUTATION:
-        return (mdef.bad);
+        return mdef.bad;
     case RANDOM_GOOD_MUTATION:
         return (!mdef.bad);
     default:
@@ -943,7 +955,7 @@ static mutation_type _get_random_mutation(mutation_type mutclass)
             chosen = curr;
     }
 
-    return (chosen);
+    return chosen;
 }
 
 // Tries to give you the mutation by deleting a conflicting
@@ -954,14 +966,16 @@ static mutation_type _get_random_mutation(mutation_type mutclass)
 //  0 if we should continue processing;
 // -1 if we should stop processing (failure).
 static int _handle_conflicting_mutations(mutation_type mutation,
-                                         bool override)
+                                         bool override,
+                                         const std::string &reason)
 {
     const int conflict[][3] = {
         { MUT_REGENERATION,     MUT_SLOW_METABOLISM,  0},
         { MUT_REGENERATION,     MUT_SLOW_HEALING,     0},
         { MUT_ACUTE_VISION,     MUT_BLURRY_VISION,    0},
         { MUT_FAST,             MUT_SLOW,             0},
-        { MUT_CLAWS,            MUT_TENTACLES,       -1},
+        { MUT_UNBREATHING,      MUT_BREATHE_FLAMES,   0},
+        { MUT_UNBREATHING,      MUT_BREATHE_POISON,   0},
         { MUT_FANGS,            MUT_BEAK,            -1},
         { MUT_ANTENNAE,         MUT_HORNS,           -1},
         { MUT_HOOVES,           MUT_TALONS,          -1},
@@ -1005,14 +1019,16 @@ static int _handle_conflicting_mutations(mutation_type mutation,
                     // Ignore if not forced, otherwise override.
                     // All cases but regen:slowmeta will currently trade off.
                     if (override)
-                        while (delete_mutation(b, true, true))
+                    {
+                        while (delete_mutation(b, reason, true, true))
                             ;
+                    }
                     break;
                 case 1:
                     // If we have one of the pair, delete a level of the
                     // other, and that's it.
-                    delete_mutation(b, true, true);
-                    return (1);     // Nothing more to do.
+                    delete_mutation(b, reason, true, true);
+                    return 1;     // Nothing more to do.
                 default:
                     die("bad mutation conflict resulution");
                 }
@@ -1020,7 +1036,7 @@ static int _handle_conflicting_mutations(mutation_type mutation,
         }
     }
 
-    return (0);
+    return 0;
 }
 
 static int _body_covered()
@@ -1037,7 +1053,7 @@ static int _body_covered()
     for (unsigned i = 0; i < ARRAYSZ(_all_scales); ++i)
         covered += you.mutation[_all_scales[i]];
 
-    return (covered);
+    return covered;
 }
 
 bool physiology_mutation_conflict(mutation_type mutat)
@@ -1061,42 +1077,46 @@ bool physiology_mutation_conflict(mutation_type mutat)
 
     // Strict 3-scale limit.
     if (_is_covering(mutat) && _body_covered() >= 3)
-        return (true);
+        return true;
 
     // Only Nagas and Draconians can get this one.
-    if (mutat == MUT_STINGER
-        && you.species != SP_NAGA && !player_genus(GENPC_DRACONIAN))
+    if (you.species != SP_NAGA && !player_genus(GENPC_DRACONIAN)
+        && mutat == MUT_STINGER)
     {
-        return (true);
+        return true;
     }
 
     // Need tentacles to grow something on them.
-    if (mutat == MUT_TENTACLE_SPIKE && you.species != SP_OCTOPODE)
-        return (true);
+    if (you.species != SP_OCTOPODE && mutat == MUT_TENTACLE_SPIKE)
+        return true;
 
     // No bones.
-    if (mutat == MUT_THIN_SKELETAL_STRUCTURE && you.species == SP_OCTOPODE)
-        return (true);
+    if (you.species == SP_OCTOPODE && mutat == MUT_THIN_SKELETAL_STRUCTURE)
+        return true;
 
-    if ((mutat == MUT_HOOVES || mutat == MUT_TALONS) && !player_has_feet(false))
-        return (true);
+    // No feet.
+    if (!player_has_feet(false)
+        && (mutat == MUT_HOOVES || mutat == MUT_TALONS))
+    {
+        return true;
+    }
 
     // Only Nagas can get this upgrade.
-    if (mutat == MUT_BREATHE_POISON && you.species != SP_NAGA)
-        return (true);
+    if (you.species != SP_NAGA && mutat == MUT_BREATHE_POISON)
+        return true;
 
     // Red Draconians can already breathe flames.
-    if (mutat == MUT_BREATHE_FLAMES && you.species == SP_RED_DRACONIAN)
-        return (true);
+    if (you.species == SP_RED_DRACONIAN && mutat == MUT_BREATHE_FLAMES)
+        return true;
 
     // Green Draconians can breathe mephitic, poison is not really redundant
     // but its name might confuse players a bit ("noxious" vs "poison").
-    if (mutat == MUT_SPIT_POISON && you.species == SP_GREEN_DRACONIAN)
-        return (true);
+    if (you.species == SP_GREEN_DRACONIAN && mutat == MUT_SPIT_POISON)
+        return true;
 
     // Only Draconians can get wings.
-    if (mutat == MUT_BIG_WINGS && !player_genus(GENPC_DRACONIAN))
-        return (true);
+    if (!player_genus(GENPC_DRACONIAN) && mutat == MUT_BIG_WINGS)
+        return true;
 
     // Vampires' healing and thirst rates depend on their blood level.
     if (you.species == SP_VAMPIRE
@@ -1104,16 +1124,20 @@ bool physiology_mutation_conflict(mutation_type mutat)
             || mutat == MUT_REGENERATION || mutat == MUT_SLOW_HEALING
             || mutat == MUT_FAST_METABOLISM || mutat == MUT_SLOW_METABOLISM))
     {
-        return (true);
+        return true;
     }
 
     // Felids have innate claws, and unlike trolls/ghouls, there are no
-    // increases for them. Felids cannot get tentacles, since they have
-    // no fingers, hands or arms to mutate into tentacles.
-    if ((mutat == MUT_CLAWS || mutat == MUT_TENTACLES)
-        && you.species == SP_FELID)
+    // increases for them.
+    if (you.species == SP_FELID && mutat == MUT_CLAWS)
+        return true;
+
+    // Merfolk have no feet in the natural form, and we never allow mutations
+    // that show up only in a certain transformation.
+    if (you.species == SP_MERFOLK
+        && (mutat == MUT_TALONS || mutat == MUT_HOOVES))
     {
-        return (true);
+        return true;
     }
 
     equipment_type eq_type = EQ_NONE;
@@ -1134,13 +1158,13 @@ bool physiology_mutation_conflict(mutation_type mutat)
                     && mutat != _body_facets[i].mut
                     && player_mutation_level(_body_facets[i].mut, false))
                 {
-                    return (true);
+                    return true;
                 }
             }
         }
     }
 
-    return (false);
+    return false;
 }
 
 static const char* _stat_mut_desc(mutation_type mut, bool gain)
@@ -1170,10 +1194,11 @@ static const char* _stat_mut_desc(mutation_type mut, bool gain)
     default:
         die("invalid stat mutation: %d", mut);
     }
-    return (stat_desc(stat, positive ? SD_INCREASE : SD_DECREASE));
+    return stat_desc(stat, positive ? SD_INCREASE : SD_DECREASE);
 }
 
-bool mutate(mutation_type which_mutation, bool failMsg,
+bool mutate(mutation_type which_mutation, const std::string &reason,
+            bool failMsg,
             bool force_mutation, bool god_gift, bool stat_gain_potion,
             bool demonspawn, bool no_rot)
 {
@@ -1200,15 +1225,18 @@ bool mutate(mutation_type which_mutation, bool failMsg,
         // resistance mutation.
         if (!god_gift)
         {
-            if ((wearing_amulet(AMU_RESIST_MUTATION)
-                    && !one_chance_in(10) && !stat_gain_potion)
+            if ((player_res_mutation_from_item()
+                 && !one_chance_in(10) && !stat_gain_potion)
                 || player_mutation_level(MUT_MUTATION_RESISTANCE) == 3
                 || (player_mutation_level(MUT_MUTATION_RESISTANCE)
                     && !one_chance_in(3)))
             {
                 if (failMsg)
+                {
                     mpr("You feel odd for a moment.", MSGCH_MUTATION);
-                return (false);
+                    maybe_id_resist(BEAM_POLYMORPH);
+                }
+                return false;
             }
         }
 
@@ -1219,7 +1247,7 @@ bool mutate(mutation_type which_mutation, bool failMsg,
             && !stat_gain_potion)
         {
             simple_god_message(" protects your body from mutation!");
-            return (false);
+            return false;
         }
     }
 
@@ -1246,6 +1274,7 @@ bool mutate(mutation_type which_mutation, bool failMsg,
             case HS_FULL:      rotting = coinflip();        break;
             case HS_VERY_FULL: rotting = one_chance_in(3);  break;
             case HS_ENGORGED:  rotting = false;             break;
+            default: ;
             }
         }
     }
@@ -1255,20 +1284,20 @@ bool mutate(mutation_type which_mutation, bool failMsg,
     if (rotting && !demonspawn)
     {
         if (no_rot)
-            return (false);
+            return false;
 
         mpr("Your body decomposes!", MSGCH_MUTATION);
 
         if (coinflip())
-            lose_stat(STAT_RANDOM, 1, false, "mutating");
+            lose_stat(STAT_RANDOM, 1, false, reason);
         else
         {
-            ouch(3, NON_MONSTER, KILLED_BY_ROTTING, "mutation");
+            ouch(3, NON_MONSTER, KILLED_BY_ROTTING, reason.c_str());
             rot_hp(roll_dice(1, 3));
         }
 
         xom_is_stimulated(50);
-        return (true);
+        return true;
     }
 
     if (which_mutation == RANDOM_MUTATION
@@ -1280,9 +1309,9 @@ bool mutate(mutation_type which_mutation, bool failMsg,
             // God gifts override mutation loss due to being heavily
             // mutated.
             if (!one_chance_in(3) && !god_gift && !force_mutation)
-                return (false);
+                return false;
             else
-                return (delete_mutation(RANDOM_MUTATION, failMsg,
+                return (delete_mutation(RANDOM_MUTATION, reason, failMsg,
                                         force_mutation, false));
         }
     }
@@ -1305,11 +1334,11 @@ bool mutate(mutation_type which_mutation, bool failMsg,
     }
 
     if (!is_valid_mutation(mutat))
-        return (false);
+        return false;
 
     // [Cha] don't allow teleportitis in sprint
     if (mutat == MUT_TELEPORT && crawl_state.game_is_sprint())
-        return (false);
+        return false;
 
     if (you.species == SP_NAGA)
     {
@@ -1317,7 +1346,7 @@ bool mutate(mutation_type which_mutation, bool failMsg,
         if (mutat == MUT_SPIT_POISON)
         {
             if (coinflip())
-                return (false);
+                return false;
 
             mutat = MUT_BREATHE_POISON;
 
@@ -1329,7 +1358,7 @@ bool mutate(mutation_type which_mutation, bool failMsg,
     }
 
     if (physiology_mutation_conflict(mutat))
-        return (false);
+        return false;
 
     const mutation_def& mdef = get_mutation_def(mutat);
 
@@ -1347,15 +1376,15 @@ bool mutate(mutation_type which_mutation, bool failMsg,
                     break;
                 }
         if (!found)
-            return (false);
+            return false;
     }
 
     // God gifts and forced mutations clear away conflicting mutations.
-    int rc = _handle_conflicting_mutations(mutat, god_gift || force_mutation);
+    int rc = _handle_conflicting_mutations(mutat, god_gift || force_mutation, reason);
     if (rc == 1)
-        return (true);
+        return true;
     if (rc == -1)
-        return (false);
+        return false;
 
     ASSERT(rc == 0);
 
@@ -1377,10 +1406,10 @@ bool mutate(mutation_type which_mutation, bool failMsg,
     case MUT_LARGE_BONE_PLATES:
         {
             const char *arms;
-            if (you.mutation[MUT_TENTACLES] >= 3)
-                arms = "tentacles";
-            else if (you.species == SP_FELID)
+            if (you.species == SP_FELID)
                 arms = "legs";
+            else if (you.species == SP_OCTOPODE)
+                arms = "tentacles";
             else
                 break;
             mpr(replace_all(mdef.gain[you.mutation[mutat]-1], "arms",
@@ -1427,8 +1456,7 @@ bool mutate(mutation_type which_mutation, bool failMsg,
         break;
 
     case MUT_CLAWS:
-    case MUT_TENTACLES:
-        // Gloves aren't prevented until level 3 of claws or tentacles.
+        // Claws force gloves off at 3.
         if (you.mutation[mutat] >= 3 && !you.melded[EQ_GLOVES])
             remove_one_equip(EQ_GLOVES, false, true);
         break;
@@ -1466,23 +1494,31 @@ bool mutate(mutation_type which_mutation, bool failMsg,
     // Amusement value will be 12 * (11-rarity) * Xom's-sense-of-humor.
     xom_is_stimulated(_calc_mutation_amusement_value(mutat));
 
-    take_note(Note(NOTE_GET_MUTATION, mutat, you.mutation[mutat]));
+    take_note(Note(NOTE_GET_MUTATION, mutat, you.mutation[mutat], reason.c_str()));
 
+#ifdef USE_TILE_LOCAL
+    if (your_talents(false).size() != old_talents)
+    {
+        tiles.layout_statcol();
+        redraw_screen();
+    }
+#endif
     if (crawl_state.game_is_hints()
         && your_talents(false).size() > old_talents)
     {
         learned_something_new(HINT_NEW_ABILITY_MUT);
     }
-    return (true);
+    return true;
 }
 
-static bool _delete_single_mutation_level(mutation_type mutat)
+static bool _delete_single_mutation_level(mutation_type mutat,
+                                          const std::string &reason)
 {
     if (you.mutation[mutat] == 0)
-        return (false);
+        return false;
 
     if (you.innate_mutations[mutat] >= you.mutation[mutat])
-        return (false);
+        return false;
 
     const mutation_def& mdef = get_mutation_def(mutat);
 
@@ -1536,12 +1572,13 @@ static bool _delete_single_mutation_level(mutation_type mutat)
     if (mutat == MUT_LOW_MAGIC || mutat == MUT_HIGH_MAGIC)
         calc_mp();
 
-    take_note(Note(NOTE_LOSE_MUTATION, mutat, you.mutation[mutat]));
+    take_note(Note(NOTE_LOSE_MUTATION, mutat, you.mutation[mutat], reason.c_str()));
 
-    return (true);
+    return true;
 }
 
-bool delete_mutation(mutation_type which_mutation, bool failMsg,
+bool delete_mutation(mutation_type which_mutation, const std::string &reason,
+                     bool failMsg,
                      bool force_mutation, bool god_gift,
                      bool disallow_mismatch)
 {
@@ -1567,7 +1604,7 @@ bool delete_mutation(mutation_type which_mutation, bool failMsg,
             {
                 if (failMsg)
                     mpr("You feel rather odd for a moment.", MSGCH_MUTATION);
-                return (false);
+                return false;
             }
         }
     }
@@ -1581,7 +1618,7 @@ bool delete_mutation(mutation_type which_mutation, bool failMsg,
         while (true)
         {
             if (one_chance_in(1000))
-                return (false);
+                return false;
 
             mutat = static_cast<mutation_type>(random2(NUM_MUTATIONS));
 
@@ -1632,18 +1669,18 @@ bool delete_mutation(mutation_type which_mutation, bool failMsg,
             return false;
     }
 
-    return (_delete_single_mutation_level(mutat));
+    return _delete_single_mutation_level(mutat, reason);
 }
 
-bool delete_all_mutations()
+bool delete_all_mutations(const std::string &reason)
 {
     for (int i = 0; i < NUM_MUTATIONS; ++i)
     {
-        while (_delete_single_mutation_level(static_cast<mutation_type>(i)))
+        while (_delete_single_mutation_level(static_cast<mutation_type>(i), reason))
             ;
     }
 
-    return (!how_mutated());
+    return !how_mutated();
 }
 
 // Return a string describing the mutation.
@@ -1763,98 +1800,88 @@ std::string mutation_name(mutation_type mut, int level, bool colour)
         result = ostr.str();
     }
 
-    return (result);
+    return result;
 }
 
-// The tiers of each mutation within a facet should never exceed the overall
-// tier of the entire facet, lest ordering / scheduling issues arise.
+// The "when" numbers indicate the range of times in which the mutation tries
+// to place itself; it will be approximately placed between when% and
+// (when + 100)% of the way through the mutations. For example, you should
+// usually get all your body slot mutations in the first 2/3 of your
+// mutations and you should usually only start your tier 3 facet in the second
+// half of your mutations. See _order_ds_mutations() for details.
 static const facet_def _demon_facets[] =
 {
     // Body Slot facets
-    { 2,  { MUT_CLAWS, MUT_CLAWS, MUT_CLAWS },
-      { 2, 2, 2 } },
-    { 2, { MUT_HORNS, MUT_HORNS, MUT_HORNS },
-      { 2, 2, 2 } },
-    { 2, { MUT_ANTENNAE, MUT_ANTENNAE, MUT_ANTENNAE },
-      { 2, 2, 2 } },
-    { 2, { MUT_HOOVES, MUT_HOOVES, MUT_HOOVES },
-      { 2, 2, 2 } },
-    { 2, { MUT_TALONS, MUT_TALONS, MUT_TALONS },
-      { 2, 2, 2 } },
-    // Tier 3 facets
-    { 3, { MUT_CONSERVE_SCROLLS, MUT_HEAT_RESISTANCE, MUT_HURL_HELLFIRE },
-      { 3, 3, 3 } },
-    { 3, { MUT_COLD_RESISTANCE, MUT_CONSERVE_POTIONS, MUT_PASSIVE_FREEZE },
-      { 3, 3, 3 } },
-    { 3, { MUT_ROBUST, MUT_ROBUST, MUT_ROBUST },
-      { 3, 3, 3 } },
-    { 3, { MUT_NEGATIVE_ENERGY_RESISTANCE, MUT_NEGATIVE_ENERGY_RESISTANCE,
-          MUT_NEGATIVE_ENERGY_RESISTANCE },
-      { 3, 3, 3 } },
-    { 3, { MUT_STOCHASTIC_TORMENT_RESISTANCE, MUT_STOCHASTIC_TORMENT_RESISTANCE,
-          MUT_STOCHASTIC_TORMENT_RESISTANCE },
-      { 3, 3, 3 } },
-    { 3, { MUT_AUGMENTATION, MUT_AUGMENTATION, MUT_AUGMENTATION },
-      { 3, 3, 3 } },
-    // Tier 2 facets
-    { 2, { MUT_CONSERVE_SCROLLS, MUT_HEAT_RESISTANCE, MUT_IGNITE_BLOOD },
-      { 2, 2, 2 } },
-    { 2, { MUT_COLD_RESISTANCE, MUT_CONSERVE_POTIONS, MUT_ICEMAIL },
-      { 2, 2, 2 } },
-    { 2, { MUT_POWERED_BY_DEATH, MUT_POWERED_BY_DEATH, MUT_POWERED_BY_DEATH },
-      { 2, 2, 2 } },
-    { 2, { MUT_MAGIC_RESISTANCE, MUT_MAGIC_RESISTANCE, MUT_MAGIC_RESISTANCE },
-      { 2, 2, 2 } },
-    { 2, { MUT_DEMONIC_GUARDIAN, MUT_DEMONIC_GUARDIAN, MUT_DEMONIC_GUARDIAN },
-      { 2, 2, 2 } },
-    { 2, { MUT_NIGHTSTALKER, MUT_NIGHTSTALKER, MUT_NIGHTSTALKER },
-      { 2, 2, 2 } },
-    { 2, { MUT_SPINY, MUT_SPINY, MUT_SPINY },
-      { 2, 2, 2 } },
-    { 2, { MUT_POWERED_BY_PAIN, MUT_POWERED_BY_PAIN, MUT_POWERED_BY_PAIN },
-      { 2, 2, 2 } },
-    { 2, { MUT_SAPROVOROUS, MUT_FOUL_STENCH, MUT_FOUL_STENCH },
-      { 2, 2, 2 } },
+    { 0,  { MUT_CLAWS, MUT_CLAWS, MUT_CLAWS },
+      { -33, -33, -33 } },
+    { 0, { MUT_HORNS, MUT_HORNS, MUT_HORNS },
+      { -33, -33, -33 } },
+    { 0, { MUT_ANTENNAE, MUT_ANTENNAE, MUT_ANTENNAE },
+      { -33, -33, -33 } },
+    { 0, { MUT_HOOVES, MUT_HOOVES, MUT_HOOVES },
+      { -33, -33, -33 } },
+    { 0, { MUT_TALONS, MUT_TALONS, MUT_TALONS },
+      { -33, -33, -33 } },
     // Scale mutations
     { 1, { MUT_DISTORTION_FIELD, MUT_DISTORTION_FIELD, MUT_DISTORTION_FIELD },
-      { 1, 1, 1 } },
+      { -33, -33, 0 } },
     { 1, { MUT_ICY_BLUE_SCALES, MUT_ICY_BLUE_SCALES, MUT_ICY_BLUE_SCALES },
-      { 1, 1, 1 } },
+      { -33, -33, 0 } },
     { 1, { MUT_IRIDESCENT_SCALES, MUT_IRIDESCENT_SCALES, MUT_IRIDESCENT_SCALES },
-      { 1, 1, 1 } },
+      { -33, -33, 0 } },
     { 1, { MUT_LARGE_BONE_PLATES, MUT_LARGE_BONE_PLATES, MUT_LARGE_BONE_PLATES },
-      { 1, 1, 1 } },
+      { -33, -33, 0 } },
     { 1, { MUT_MOLTEN_SCALES, MUT_MOLTEN_SCALES, MUT_MOLTEN_SCALES },
-      { 1, 1, 1 } },
+      { -33, -33, 0 } },
     { 1, { MUT_ROUGH_BLACK_SCALES, MUT_ROUGH_BLACK_SCALES, MUT_ROUGH_BLACK_SCALES },
-      { 1, 1, 1 } },
+      { -33, -33, 0 } },
     { 1, { MUT_RUGGED_BROWN_SCALES, MUT_RUGGED_BROWN_SCALES,
         MUT_RUGGED_BROWN_SCALES },
-      { 1, 1, 1 } },
+      { -33, -33, 0 } },
     { 1, { MUT_SLIMY_GREEN_SCALES, MUT_SLIMY_GREEN_SCALES, MUT_SLIMY_GREEN_SCALES },
-      { 1, 1, 1 } },
+      { -33, -33, 0 } },
     { 1, { MUT_THIN_METALLIC_SCALES, MUT_THIN_METALLIC_SCALES,
         MUT_THIN_METALLIC_SCALES },
-      { 1, 1, 1 } },
+      { -33, -33, 0 } },
     { 1, { MUT_THIN_SKELETAL_STRUCTURE, MUT_THIN_SKELETAL_STRUCTURE,
         MUT_THIN_SKELETAL_STRUCTURE },
-      { 1, 1, 1 } },
+      { -33, -33, 0 } },
     { 1, { MUT_YELLOW_SCALES, MUT_YELLOW_SCALES, MUT_YELLOW_SCALES },
-      { 1, 1, 1 } }
+      { -33, -33, 0 } },
+    // Tier 2 facets
+    { 2, { MUT_CONSERVE_SCROLLS, MUT_HEAT_RESISTANCE, MUT_IGNITE_BLOOD },
+      { -33, 0, 0 } },
+    { 2, { MUT_COLD_RESISTANCE, MUT_CONSERVE_POTIONS, MUT_ICEMAIL },
+      { -33, 0, 0 } },
+    { 2, { MUT_POWERED_BY_DEATH, MUT_POWERED_BY_DEATH, MUT_POWERED_BY_DEATH },
+      { -33, 0, 0 } },
+    { 2, { MUT_DEMONIC_GUARDIAN, MUT_DEMONIC_GUARDIAN, MUT_DEMONIC_GUARDIAN },
+      { -33, 33, 66 } },
+    { 2, { MUT_NIGHTSTALKER, MUT_NIGHTSTALKER, MUT_NIGHTSTALKER },
+      { -33, 0, 0 } },
+    { 2, { MUT_SPINY, MUT_SPINY, MUT_SPINY },
+      { -33, 0, 0 } },
+    { 2, { MUT_POWERED_BY_PAIN, MUT_POWERED_BY_PAIN, MUT_POWERED_BY_PAIN },
+      { -33, 0, 0 } },
+    { 2, { MUT_SAPROVOROUS, MUT_FOUL_STENCH, MUT_FOUL_STENCH },
+      { -33, 0, 0 } },
+    // Tier 3 facets
+    { 3, { MUT_CONSERVE_SCROLLS, MUT_HEAT_RESISTANCE, MUT_HURL_HELLFIRE },
+      { 50, 50, 50 } },
+    { 3, { MUT_COLD_RESISTANCE, MUT_CONSERVE_POTIONS, MUT_PASSIVE_FREEZE },
+      { 50, 50, 50 } },
+    { 3, { MUT_ROBUST, MUT_ROBUST, MUT_ROBUST },
+      { 50, 50, 50 } },
+    { 3, { MUT_NEGATIVE_ENERGY_RESISTANCE, MUT_NEGATIVE_ENERGY_RESISTANCE,
+          MUT_STOCHASTIC_TORMENT_RESISTANCE },
+      { 50, 50, 50 } },
+    { 3, { MUT_AUGMENTATION, MUT_AUGMENTATION, MUT_AUGMENTATION },
+      { 50, 50, 50 } },
 };
 
 static bool _works_at_tier(const facet_def& facet, int tier)
 {
     return facet.tier == tier;
-}
-
-static int _rank_for_tier(const facet_def& facet, int tier)
-{
-    int k;
-
-    for (k = 0; k < 3 && facet.tiers[k] <= tier; ++k);
-
-    return (k);
 }
 
 #define MUTS_IN_SLOT ARRAYSZ(((facet_def*)0)->muts)
@@ -1898,14 +1925,12 @@ static bool _slot_is_unique(const mutation_type mut[MUTS_IN_SLOT],
 
 static std::vector<demon_mutation_info> _select_ds_mutations()
 {
-    int NUM_BODY_SLOTS = 1;
-    int ct_of_tier[] = { 0, 1, 3, 1 };
+    int ct_of_tier[] = { 1, 1, 2, 1 };
     // 1 in 10 chance to create a monstrous set
     if (one_chance_in(10))
     {
-        NUM_BODY_SLOTS = 3;
+        ct_of_tier[0] = 3;
         ct_of_tier[1] = 0;
-        ct_of_tier[2] = 5;
     }
 
 try_again:
@@ -1914,9 +1939,9 @@ try_again:
     ret.clear();
     int absfacet = 0;
     int scales = 0;
-    int slots_lost = 0;
     int ice_elemental = 0;
     int fire_elemental = 0;
+    int cloud_producing = 0;
 
     std::set<const facet_def *> facets_used;
 
@@ -1936,11 +1961,11 @@ try_again:
 
             facets_used.insert(next_facet);
 
-            for (int i = 0; i < _rank_for_tier(*next_facet, tier); ++i)
+            for (int i = 0; i < 3; ++i)
             {
                 mutation_type m = next_facet->muts[i];
 
-                ret.push_back(demon_mutation_info(m, next_facet->tiers[i],
+                ret.push_back(demon_mutation_info(m, next_facet->when[i],
                                                   absfacet));
 
                 if (_is_covering(m))
@@ -1952,16 +1977,8 @@ try_again:
                 if (m == MUT_CONSERVE_SCROLLS)
                     fire_elemental++;
 
-                if (m == MUT_CLAWS && i == 2
-                    || m == MUT_TENTACLES && i == 2
-                    || m == MUT_HORNS && i == 0
-                    || m == MUT_BEAK && i == 0
-                    || m == MUT_ANTENNAE && i == 0
-                    || m == MUT_HOOVES && i == 2
-                    || m == MUT_TALONS && i == 2)
-                {
-                    ++slots_lost;
-                }
+                if (m == MUT_SAPROVOROUS || m == MUT_IGNITE_BLOOD)
+                    cloud_producing++;
             }
 
             ++absfacet;
@@ -1971,10 +1988,10 @@ try_again:
     if (scales > 3)
         goto try_again;
 
-    if (slots_lost != NUM_BODY_SLOTS)
+    if (ice_elemental + fire_elemental > 1)
         goto try_again;
 
-    if (ice_elemental + fire_elemental > 1)
+    if (cloud_producing > 1)
         goto try_again;
 
     return ret;
@@ -1984,36 +2001,42 @@ static std::vector<mutation_type>
 _order_ds_mutations(std::vector<demon_mutation_info> muts)
 {
     std::vector<mutation_type> out;
-
-    while (!muts.empty())
+    std::vector<int> times;
+    FixedVector<int, 1000> time_slots;
+    time_slots.init(-1);
+    for (unsigned int i = 0; i < muts.size(); i++)
     {
-        int first_tier = 99;
-
-        for (unsigned i = 0; i < muts.size(); ++i)
-            first_tier = std::min(first_tier, muts[i].tier);
-
-        int ix;
-
+        int first = std::max(0, muts[i].when);
+        int last = std::min(100, muts[i].when + 100);
+        int k;
         do
         {
-            ix = random2(muts.size());
+            k = 10 * first + random2(10 * (last - first));
         }
-        // Don't consider mutations from more than two tiers at a time
-        while (muts[ix].tier >= first_tier + 2);
+        while (time_slots[k] >= 0);
+        time_slots[k] = i;
+        times.push_back(k);
 
-        // Don't reorder mutations within a facet
-        for (int j = 0; j < ix; ++j)
+        // Don't reorder mutations within a facet.
+        for (unsigned int j = i; j > 0; j--)
         {
-            if (muts[j].facet == muts[ix].facet)
+            if (muts[j].facet == muts[j-1].facet && times[j] < times[j-1])
             {
-                ix = j;
-                break;
+                int earlier = times[j];
+                int later = times[j-1];
+                time_slots[earlier] = j-1;
+                time_slots[later] = j;
+                times[j-1] = earlier;
+                times[j] = later;
             }
+            else
+                break;
         }
-
-        out.push_back(muts[ix].mut);
-        muts.erase(muts.begin() + ix);
     }
+
+    for (int time = 0; time < 1000; time++)
+        if (time_slots[time] >= 0)
+            out.push_back(muts[time_slots[time]].mut);
 
     return out;
 }
@@ -2064,24 +2087,8 @@ void roll_demonspawn_mutations()
                          _select_ds_mutations()));
 }
 
-void adjust_racial_mutation(mutation_type mut, int diff)
-{
-    if (diff < 0)
-    {
-        you.mutation[mut]         = std::max(you.mutation[mut] + diff, 0);
-        you.innate_mutations[mut] = std::max(you.innate_mutations[mut] + diff, 0);
-    }
-    else
-    {
-        const mutation_def& mdef  = get_mutation_def(mut);
-        you.mutation[mut]         = std::min<int>(you.mutation[mut] + diff,
-                                                  mdef.levels);
-        you.innate_mutations[mut] = std::min<int>(you.innate_mutations[mut] + diff,
-                                                  mdef.levels);
-    }
-}
-
-bool perma_mutate(mutation_type which_mut, int how_much)
+bool perma_mutate(mutation_type which_mut, int how_much,
+                  const std::string &reason)
 {
     ASSERT(is_valid_mutation(which_mut));
 
@@ -2092,15 +2099,17 @@ bool perma_mutate(mutation_type which_mut, int how_much)
     // clear out conflicting mutations
     int count = 0;
     while (rc == 1 && ++count < 100)
-        rc = _handle_conflicting_mutations(which_mut, true);
+        rc = _handle_conflicting_mutations(which_mut, true, reason);
     ASSERT(rc == 0);
 
     int levels = 0;
     while (how_much-- > 0)
     {
-        if (you.mutation[which_mut] < cap)
-            if (!mutate(which_mut, false, true, false, false, true))
-                return levels; // a partial success was still possible
+        if (you.mutation[which_mut] < cap
+            && !mutate(which_mut, reason, false, true, false, false, true))
+        {
+            return levels; // a partial success was still possible
+        }
         levels++;
     }
     you.innate_mutations[which_mut] += levels;
@@ -2137,7 +2146,7 @@ int how_mutated(bool all, bool levels)
 
     dprf("how_mutated(): all = %u, levels = %u, j = %d", all, levels, j);
 
-    return (j);
+    return j;
 }
 
 // Return whether current tension is balanced
@@ -2150,7 +2159,7 @@ static bool _balance_demonic_guardian()
 
     // tension is unfavorably high, perhaps another guardian should spawn
     if (tension*3/4 > mutlevel*6 + random2(mutlevel*mutlevel*2))
-        return (false);
+        return false;
 
     for (int i = 0; mons && i <= 20/mutlevel; ++mons)
     {
@@ -2171,7 +2180,7 @@ static bool _balance_demonic_guardian()
             total += mons_val;
     }
 
-    return (true);
+    return true;
 }
 
 // Primary function to handle and balance demonic guardians, if the tension
@@ -2192,7 +2201,7 @@ void check_demonic_guardian()
         {
         case 1:
             mt = random_choose(MONS_WHITE_IMP, MONS_LEMURE, MONS_UFETUBUS,
-                               MONS_IRON_IMP, MONS_MIDGE, -1);
+                               MONS_IRON_IMP, MONS_CRIMSON_IMP, -1);
             break;
         case 2:
             mt = random_choose(MONS_SIXFIRHY, MONS_SMOKE_DEMON, MONS_SOUL_EATER,
@@ -2305,7 +2314,7 @@ int handle_pbd_corpses(bool do_rot)
         }
     }
 
-    return (corpse_count);
+    return corpse_count;
 }
 
 int augmentation_amount()

@@ -17,8 +17,8 @@ typedef std::vector<vault_placement*> vault_placement_refv;
 
 struct crawl_environment
 {
-    uint8_t rock_colour;
-    uint8_t floor_colour;
+    colour_t rock_colour;
+    colour_t floor_colour;
 
     FixedVector< item_def, MAX_ITEMS >       item;  // item list
     FixedVector< monster, MAX_MONSTERS+1 >   mons;  // monster list, plus anon
@@ -37,6 +37,7 @@ struct crawl_environment
     string_set                               level_uniq_maps;
     string_set                               level_uniq_map_tags;
     string_set                               level_layout_types;
+    std::vector<std::string>                 level_vault_list;
 
     std::string                              level_build_method;
 
@@ -49,6 +50,8 @@ struct crawl_environment
     // Previous map knowledge (last step)
     FixedArray< map_cell, GXM, GYM >         map_shadow;
     std::set<coord_def> visible;
+
+    std::vector<coord_def>                   travel_trail;
 
     // indexed by grid coords
 #ifdef USE_TILE
@@ -104,6 +107,8 @@ struct crawl_environment
     int sanctuary_time;
     int forest_awoken_until;
     int density;
+    int absdepth0;
+    std::vector<std::pair<coord_def, int> > sunlight;
 
     // Volatile level flags, not saved.
     uint32_t level_state;

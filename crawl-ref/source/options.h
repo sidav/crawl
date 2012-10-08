@@ -19,7 +19,7 @@ public:
                       bool clear_aliases = true);
 
     void include(const std::string &file, bool resolve, bool runscript);
-    void report_error(const std::string &error);
+    void report_error(PRINTF(1, ));
 
     std::string resolve_include(const std::string &file,
                                 const char *type = "");
@@ -68,7 +68,7 @@ public:
     int         msg_max_height;
     bool        mlist_allow_alternate_layout;
     bool        messages_at_top;
-    bool        mlist_targeting;
+    bool        mlist_targetting;
     bool        msg_condense_repeats;
     bool        msg_condense_short;
 
@@ -111,6 +111,7 @@ public:
     bool        prompt_for_swap; // Prompt to switch back from butchering
                                  // tool if hostile monsters are around.
     bool        list_rotten;     // list slots for rotting corpses/chunks
+    chunk_drop_type auto_drop_chunks; // drop chunks when overburdened
     bool        prefer_safe_chunks; // prefer clean chunks to contaminated ones
     bool        easy_eat_chunks; // make 'e' auto-eat the oldest safe chunk
     bool        easy_eat_gourmand; // with easy_eat_chunks, and wearing a
@@ -119,18 +120,16 @@ public:
     bool        easy_eat_contaminated; // like easy_eat_gourmand, but
                                        // always active.
     bool        auto_eat_chunks; // allow eating chunks while resting or travelling
-    bool        default_target;  // start targeting on a real target
+    bool        default_target;  // start targetting on a real target
     bool        autopickup_no_burden;   // don't autopickup if it changes burden
     skill_focus_mode skill_focus; // is the focus skills available
 
     bool        note_all_skill_levels;  // take note for all skill levels (1-27)
     bool        note_skill_max;   // take note when skills reach new max
-    bool        note_all_spells;  // take note when learning any spell
     std::string user_note_prefix; // Prefix for user notes
     int         note_hp_percent;  // percentage hp for notetaking
     bool        note_xom_effects; // take note of all Xom effects
-    int         ood_interesting;  // how many levels OOD is noteworthy?
-    int         rare_interesting; // what monster rarity is noteworthy?
+    bool        note_chat_messages; // log chat in DGL/Webtiles
     confirm_level_type easy_confirm;    // make yesno() confirming easier
     bool        easy_quit_item_prompts; // make item prompts quitable on space
     confirm_prompt_type allow_self_target;      // yes, no, prompt
@@ -138,7 +137,7 @@ public:
     int         colour[16];      // macro fg colours to other colours
     int         background_colour; // select default background colour
     msg_colour_type channels[NUM_MESSAGE_CHANNELS];  // msg channel colouring
-    bool        darken_beyond_range; // for whether targeting is out of range
+    bool        darken_beyond_range; // for whether targetting is out of range
 
     int         hp_warning;      // percentage hp for danger warning
     int         magic_point_warning;    // percentage mp for danger warning
@@ -163,11 +162,10 @@ public:
 
     int         num_colours;     // used for setting up curses colour table (8 or 16)
 
-    std::string pizza;
-
 #ifdef WIZARD
     int                      wiz_mode;   // no, never, start in wiz mode
     std::vector<std::string> terp_files; // Lua files to load for luaterp
+    bool                     no_save;    // don't use persistent save files
 #endif
 
     // internal use only:
@@ -177,6 +175,8 @@ public:
     std::vector<std::pair<int, int> > hp_colour;
     std::vector<std::pair<int, int> > mp_colour;
     std::vector<std::pair<int, int> > stat_colour;
+    std::vector<int> enemy_hp_colour;
+    bool visual_monster_hp;
 
     std::string map_file_name;   // name of mapping file to use
     std::vector<std::pair<text_pattern, bool> > force_autopickup;
@@ -184,7 +184,7 @@ public:
     std::vector<text_pattern> note_messages;  // Interesting messages
     std::vector<std::pair<text_pattern, std::string> > autoinscriptions;
     std::vector<text_pattern> note_items;     // Objects to note
-    std::vector<int> note_skill_levels;       // Skill levels to note
+    FixedBitVector<27+1> note_skill_levels;   // Skill levels to note
     std::vector<std::pair<text_pattern, std::string> > auto_spell_letters;
 
     bool        autoinscribe_artefacts; // Auto-inscribe identified artefacts.
@@ -193,6 +193,8 @@ public:
     bool        pickup_thrown;  // Pickup thrown missiles
     int         travel_delay;   // How long to pause between travel moves
     int         explore_delay;  // How long to pause between explore moves
+
+    bool        show_travel_trail;
 
     int         arena_delay;
     bool        arena_dump_msgs;
@@ -235,6 +237,8 @@ public:
                                    // item comes into view
 
     int         explore_stop_prompt;
+
+    int         sacrifice_before_explore;
 
     // Don't stop greedy explore when picking up an item which matches
     // any of these patterns.
@@ -290,6 +294,9 @@ public:
     std::vector<text_pattern> drop_filter;
 
     FixedArray<bool, NUM_DELAYS, NUM_AINTERRUPTS> activity_interrupts;
+#ifdef DEBUG_DIAGNOSTICS
+    FixedBitVector<NUM_DIAGNOSTICS> quiet_debug_messages;
+#endif
 
     // Previous startup options
     bool        remember_name;      // Remember and reprompt with last name
@@ -311,19 +318,22 @@ public:
     bool        rest_wait_both; // Stop resting only when both HP and MP are
                                 // fully restored.
 
+    lang_t      lang;                // Translation to use.
+    const char* lang_name;           // Database name of the language.
+
 #ifdef WIZARD
     // Parameters for fight simulations.
+    std::string fsim_mode;
     int         fsim_rounds;
-    int         fsim_str, fsim_int, fsim_dex;
-    int         fsim_xl;
     std::string fsim_mons;
+    std::vector<std::string> fsim_scale;
     std::vector<std::string> fsim_kit;
 #endif  // WIZARD
 
 #ifdef USE_TILE
-    char        tile_show_items[20]; // show which item types in tile inventory
-    bool        tile_skip_title;     // wait for a key at title screen?
-    bool        tile_menu_icons;     // display icons in menus?
+    std::string tile_show_items; // show which item types in tile inventory
+    bool        tile_skip_title; // wait for a key at title screen?
+    bool        tile_menu_icons; // display icons in menus?
 
     // minimap colours
     char        tile_player_col;
@@ -420,8 +430,8 @@ private:
     void add_cset_override(char_set_type set, dungeon_char_type dc, int symbol);
     void add_feature_override(const std::string &);
 
-    void add_message_colour_mappings(const std::string &);
-    void add_message_colour_mapping(const std::string &);
+    void add_message_colour_mappings(const std::string &, bool);
+    void add_message_colour_mapping(const std::string &, bool);
     message_filter parse_message_filter(const std::string &s);
 
     void set_default_activity_interrupts();
@@ -436,6 +446,7 @@ private:
     void set_fire_order(const std::string &full, bool add);
     void add_fire_order_slot(const std::string &s);
     void set_menu_sort(std::string field);
+    void str_to_enemy_hp_colour(const std::string &);
     void new_dump_fields(const std::string &text, bool add = true);
     void do_kill_map(const std::string &from, const std::string &to);
     int  read_explore_stop_conditions(const std::string &) const;
@@ -451,6 +462,7 @@ private:
 };
 
 ucs_t get_glyph_override(int c);
+object_class_type item_class_by_sym(ucs_t c);
 
 #ifdef DEBUG_GLOBALS
 #define Options (*real_Options)

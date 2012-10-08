@@ -14,12 +14,10 @@
 #include "coord.h"
 #include "coordit.h"
 #include "crash.h"
-#include "dbg-crsh.h"
 #include "dbg-scan.h"
 #include "dbg-util.h"
 #include "directn.h"
 #include "dlua.h"
-#include "dungeon.h"
 #include "env.h"
 #include "initfile.h"
 #include "itemname.h"
@@ -35,6 +33,7 @@
 #include "spl-cast.h"
 #include "spl-util.h"
 #include "state.h"
+#include "stuff.h"
 #include "travel.h"
 #include "hiscores.h"
 #include "view.h"
@@ -52,7 +51,7 @@
 #define NOLSTRING         /* lstr* string management routines */
 #define NODBCS            /* Double-byte character set routines */
 #define NOKEYBOARDINFO    /* Keyboard driver routines */
-#define NOCOLOR           /* COLOR_* color values */
+#define NOCOLOR           /* COLOR_* colour values */
 #define NODRAWTEXT        /* DrawText() and related definitions */
 #define NOSCALABLEFONT    /* Truetype scalable font support */
 #define NOMETAFILE        /* Metafile support */
@@ -78,7 +77,6 @@
 #endif
 #endif
 
-#include "threads.h"
 
 static std::string _assert_msg;
 
@@ -96,27 +94,14 @@ static void _dump_compilation_info(FILE* file)
 
 static void _dump_level_info(FILE* file)
 {
-    CrawlHashTable &props = env.properties;
-
     fprintf(file, "Place info:\n");
 
-    fprintf(file, "absdepth0 = %d, branch = %d, level_type = %d, "
-                  "type_name = %s\n\n",
-            you.absdepth0, (int) you.where_are_you, (int) you.level_type,
-            you.level_type_name.c_str());
+    fprintf(file, "branch = %d, depth = %d\n\n",
+            (int)you.where_are_you, you.depth);
 
     std::string place = level_id::current().describe();
-    std::string orig_place;
-
-    if (!props.exists(LEVEL_ID_KEY))
-        orig_place = "ABSENT";
-    else
-        orig_place = props[LEVEL_ID_KEY].get_string();
 
     fprintf(file, "Level id: %s\n", place.c_str());
-    if (place != orig_place)
-        fprintf(file, "Level id when level was generated: %s\n",
-                orig_place.c_str());
 
     debug_dump_levgen();
 }
@@ -164,9 +149,8 @@ static void _dump_player(FILE *file)
 
     if (in_bounds(you.pos()))
     {
-        const dungeon_feature_type feat = grd(you.pos());
         fprintf(file, "Standing on/in/over feature: %s\n",
-                raw_feature_description(feat, NUM_TRAPS, true).c_str());
+                raw_feature_description(you.pos()).c_str());
     }
 
     debug_dump_constriction(&you);
@@ -520,8 +504,10 @@ static void _debug_dump_lua_persist(FILE* file)
 
     std::string result;
     if (!dlua.callfn("persist_to_string", 0, 1))
+    {
         result = make_stringf("error (persist_to_string): %s",
                               dlua.error.c_str());
+    }
     else if (lua_isstring(dlua, -1))
         result = lua_tostring(dlua, -1);
     else
@@ -725,7 +711,7 @@ void do_crash_dump()
 
     set_msg_dump_file(NULL);
 
-    mark_milestone("crash", _assert_msg, false, t);
+    mark_milestone("crash", _assert_msg, "", t);
 
     if (file != stderr)
         fclose(file);
@@ -778,12 +764,9 @@ static NORETURN void _BreakStrToDebugger(const char *mesg, bool assert)
 // AssertFailed
 //
 //---------------------------------------------------------------
-NORETURN void AssertFailed(const char *expr, const char *file, int line, bool save_game)
+NORETURN void AssertFailed(const char *expr, const char *file, int line)
 {
     char mesg[512];
-
-    if (save_game)
-        crawl_state.game_wants_emergency_save = true;
 
     const char *fileName = file + strlen(file); // strip off path
 

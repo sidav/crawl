@@ -49,6 +49,8 @@ public:
     int    miscast_type;
     actor* miscast_target;
 
+    bool simu;
+
 public:
     melee_attack(actor *attacker, actor *defender,
                  int attack_num = -1, int effective_attack_num = -1);
@@ -71,11 +73,9 @@ private:
     bool handle_phase_damaged();
     bool handle_phase_killed();
     bool handle_phase_end();
-    // Replaces some of the above phases.
-    bool handle_constriction();
 
     /* Combat Calculations */
-    int test_hit(int to_hit, int ev);
+    int test_hit(int to_hit, int ev, bool randomise_ev);
     int calc_base_unarmed_damage();
     int calc_base_weapon_damage();
     int calc_damage();
@@ -153,15 +153,15 @@ private:
     int  player_apply_weapon_skill(int damage);
     int  player_apply_fighting_skill(int damage, bool aux);
     int  player_apply_misc_modifiers(int damage);
-    void player_weapon_auto_id();
+    int  player_apply_slaying_bonuses(int damage, bool aux);
     int  player_stab_weapon_bonus(int damage);
     int  player_stab(int damage);
 
     void player_exercise_combat_skills();
     bool player_monattk_hit_effects();
-    void player_sustain_passive_damage();
-    int  player_staff_damage(skill_type skill);
-    void player_apply_staff_damage();
+    void attacker_sustain_passive_damage();
+    int  staff_damage(skill_type skill);
+    void apply_staff_damage();
     void player_stab_check();
     random_var player_weapon_speed();
     random_var player_unarmed_speed();
