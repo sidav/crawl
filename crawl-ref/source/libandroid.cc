@@ -156,15 +156,15 @@ extern "C"
 	void Java_com_crawlmb_NativeWrapper_refreshTerminal( JNIEnv* env, jobject object);
 };
 
-void Java_com_crawlmb_NativeWrapper_initGame( JNIEnv* env, jobject object , jstring jInitLocation)
+void Java_com_crawlmb_NativeWrapper_initGame( JNIEnv* env, jobject object , jstring jCrawlDirectory)
 {
 	init_java_methods(env, object);
-	const char *constInitLocation = env->GetStringUTFChars(jInitLocation, NULL);
-	char *initLocation = new char[strlen(constInitLocation) + 1];
-	strncpy (initLocation, constInitLocation, strlen(constInitLocation));
-	initLocation[strlen(constInitLocation)] = '\0';
-	int argc = 5;
-	char *argv[] = {"","-rc", initLocation, "-dir", "/data/data/com.crawlmb/files"};
+	const char *constCrawlDirectory = env->GetStringUTFChars(jCrawlDirectory, NULL);
+	char *crawlDirectory = new char[strlen(constCrawlDirectory) + 1];
+	strncpy (crawlDirectory, constCrawlDirectory, strlen(constCrawlDirectory));
+	crawlDirectory[strlen(constCrawlDirectory)] = '\0';
+	int argc = 3;
+	char *argv[] = {"","-dir", crawlDirectory};
 	main (argc, argv);
 }
 
