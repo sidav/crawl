@@ -9,6 +9,25 @@
  * Originally based off of libunix.cc
 
    Aug 2012 Michael Barlow <michaelbarlow7@gmail.com>                 */
+
+/** Workaround for bug in CrystaX's toolchain version r7-crystax-5.beta2.
+ *  This bug was fixed in r7-crystax-5.beta3, but unfortunately this version
+ *  introduced a regressive bug which does not allow native code to access
+ *  internal storage used by the application.
+ *  So, we're using the beta2 release and the following bit of workaround
+ *  code until this gets fixed (http://www.crystax.net/trac/ndk/ticket/126).
+ *
+ */
+#ifdef __cplusplus
+extern "C" {
+#endif
+void __exidx_start() {}
+void __exidx_end() {}
+#ifdef __cplusplus
+}
+#endif
+// WORKAROUND CODE ENDS HERE
+
 #include "AppHdr.h"
 
 #include <stdio.h>
