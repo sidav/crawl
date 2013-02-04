@@ -483,7 +483,17 @@ void game_options::str_to_enemy_hp_colour(const std::string &colours)
 {
     std::vector<std::string> colour_list = split_string(" ", colours, true, true);
     for (int i = 0, csize = colour_list.size(); i < csize; i++)
-        enemy_hp_colour.push_back(str_to_colour(colour_list[i]));
+    {
+        const int col = str_to_colour(colour_list[i]);
+        if (col < 0)
+        {
+            Options.report_error("Bad enemy_hp_colour: %s\n",
+                                 colour_list[i].c_str());
+            return;
+        }
+        else
+            enemy_hp_colour.push_back(col);
+    }
 }
 
 #ifdef USE_TILE
@@ -2862,12 +2872,22 @@ void game_options::read_option_line(const std::string &str, bool runscript)
             if (insplit.size() == 2)
                 hp_percent = atoi(insplit[0].c_str());
 
-            int scolour = str_to_colour(insplit[(insplit.size() == 1) ? 0 : 1]);
-            std::pair<int, int> entry(hp_percent, scolour);
-            if (minus_equal)
-                remove_matching(hp_colour, entry);
+            const std::string colstr = insplit[(insplit.size() == 1) ? 0 : 1];
+            const int scolour = str_to_colour(colstr);
+            if (scolour > 0)
+            {
+                std::pair<int, int> entry(hp_percent, scolour);
+                // We do not treat prepend differently since we will be sorting.
+                if (minus_equal)
+                    remove_matching(hp_colour, entry);
+                else
+                    hp_colour.push_back(entry);
+            }
             else
-                hp_colour.push_back(entry);
+            {
+                report_error("Bad hp_colour: %s", colstr.c_str());
+                break;
+            }
         }
     }
     else if (key == "mp_color" || key == "mp_colour")
@@ -2891,12 +2911,22 @@ void game_options::read_option_line(const std::string &str, bool runscript)
             if (insplit.size() == 2)
                 mp_percent = atoi(insplit[0].c_str());
 
-            int scolour = str_to_colour(insplit[(insplit.size() == 1) ? 0 : 1]);
-            std::pair<int, int> entry(mp_percent, scolour);
-            if (minus_equal)
-                remove_matching(mp_colour, entry);
+            const std::string colstr = insplit[(insplit.size() == 1) ? 0 : 1];
+            const int scolour = str_to_colour(colstr);
+            if (scolour > 0)
+            {
+                std::pair<int, int> entry(mp_percent, scolour);
+                // We do not treat prepend differently since we will be sorting.
+                if (minus_equal)
+                    remove_matching(mp_colour, entry);
+                else
+                    mp_colour.push_back(entry);
+            }
             else
-                mp_colour.push_back(entry);
+            {
+                report_error("Bad mp_colour: %s", colstr.c_str());
+                break;
+            }
         }
     }
     else if (key == "stat_colour" || key == "stat_color")
@@ -2920,12 +2950,22 @@ void game_options::read_option_line(const std::string &str, bool runscript)
             if (insplit.size() == 2)
                 stat_limit = atoi(insplit[0].c_str());
 
-            int scolour = str_to_colour(insplit[(insplit.size() == 1) ? 0 : 1]);
-            std::pair<int, int> entry(stat_limit, scolour);
-            if (minus_equal)
-                remove_matching(stat_colour, entry);
+            const std::string colstr = insplit[(insplit.size() == 1) ? 0 : 1];
+            const int scolour = str_to_colour(colstr);
+            if (scolour > 0)
+            {
+                std::pair<int, int> entry(stat_limit, scolour);
+                // We do not treat prepend differently since we will be sorting.
+                if (minus_equal)
+                    remove_matching(stat_colour, entry);
+                else
+                    stat_colour.push_back(entry);
+            }
             else
-                stat_colour.push_back(entry);
+            {
+                report_error("Bad stat_colour: %s", colstr.c_str());
+                break;
+            }
         }
     }
 
@@ -2957,8 +2997,8 @@ void game_options::read_option_line(const std::string &str, bool runscript)
     else if (key == "spell_slot")
     {
         if (plain && field.empty())
-            force_autopickup.clear();
-        else if (plain && !force_autopickup.empty())
+            auto_spell_letters.clear();
+        else if (plain && !auto_spell_letters.empty())
             warn_list_append.insert(key);
 
         std::vector<std::string> thesplit = split_string(":", field);

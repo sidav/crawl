@@ -1048,8 +1048,8 @@ SRC_PKG_ZIP   := $(PKG_SRC_DIR).zip
 
 greet:
 	@if [ ! -e $(GAME) ]; then\
-		printf "  * If you experience any problems building Crawl, please take a second look\\n"\
-		"  * at INSTALL.txt: the solution to your problem just might be in there!\\n";\
+		printf '  * %s\n' "If you experience any problems building Crawl, please take a second look"\
+		                  "at INSTALL.txt: the solution to your problem just might be in there!";\
 	fi
 
 docs: $(GENERATED_DOCS)
@@ -1609,7 +1609,7 @@ source: removeold prebuildyacc
 	(cd ../..;git ls-files| \
 		grep -v -f crawl-ref/source/misc/src-pkg-excludes.lst| \
 		tar cf - -T -)|tar xf - -C build
-	for x in lua pcre sqlite libpng freetype sdl sdl-image zlib; \
+	for x in lua pcre sqlite libpng freetype sdl sdl-image zlib fonts; \
 	  do \
 	   mkdir -p $(BSRC)contrib/$$x; \
 	   (cd contrib/$$x;git ls-files|tar cf - -T -)| \

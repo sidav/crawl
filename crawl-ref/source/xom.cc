@@ -29,7 +29,7 @@
 #include "itemprop.h"
 #include "items.h"
 #include "libutil.h"
-#include "los.h"
+#include "losglobal.h"
 #include "makeitem.h"
 #include "map_knowledge.h"
 #include "message.h"
@@ -1057,7 +1057,7 @@ static monster_type _xom_random_demon(int sever, bool use_greater_demons = true)
 static bool _player_is_dead()
 {
     return (you.hp <= 0 || you.strength() <= 0 || you.dex() <= 0 || you.intel() <= 0
-            || is_feat_dangerous(grd(you.pos()))
+            || is_feat_dangerous(grd(you.pos())) && !you.is_wall_clinging()
             || you.did_escape_death());
 }
 
@@ -2235,8 +2235,12 @@ static int _xom_inner_flame(int sever, bool debug = false)
     bool rc = false;
     for (monster_iterator mi(you.get_los()); mi; ++mi)
     {
-        if (mi->wont_attack() || one_chance_in(4))
+        if (mi->wont_attack()
+            || mons_immune_magic(*mi)
+            || one_chance_in(4))
+        {
             continue;
+        }
 
         if (debug)
             return XOM_GOOD_INNER_FLAME;
@@ -2569,7 +2573,7 @@ static void _xom_zero_miscast()
                 str += " primary";
             else
             {
-                str += random_choose(" front", " middle", " rear");
+                str += random_choose(" front", " middle", " rear", 0);
                 str += " secondary";
             }
         str += " eye.";
@@ -3157,8 +3161,11 @@ static int _xom_repel_stairs(bool debug = false)
 
     std::vector<coord_def> stairs_avail;
     bool real_stairs = false;
-    for (radius_iterator ri(you.get_los()); ri; ++ri)
+    for (radius_iterator ri(you.pos(), LOS_RADIUS, C_ROUND); ri; ++ri)
     {
+        if (!cell_see_cell(you.pos(), *ri, LOS_SOLID_SEE))
+            continue;
+
         dungeon_feature_type feat = grd(*ri);
         if (feat_stair_direction(feat) != CMD_NO_CMD
             && feat != DNGN_ENTER_SHOP)

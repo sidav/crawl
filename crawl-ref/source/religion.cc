@@ -2180,7 +2180,6 @@ bool do_god_gift(bool forced)
                     _inc_gift_timeout(15 + roll_dice(2, 4));
                     you.num_current_gifts[you.religion]++;
                     you.num_total_gifts[you.religion]++;
-                    take_note(Note(NOTE_GOD_GIFT, you.religion));
                 }
                 else
                     mpr("You feel as though nothing has changed.");
@@ -4287,7 +4286,7 @@ int get_tension(god_type god)
     // Tension goes up inversely proportional to the percentage of max
     // hp you have.
     tension *= (scale + 1) * you.hp_max;
-    tension /= you.hp_max + scale * you.hp;
+    tension /= std::max(you.hp_max + scale * you.hp, 1);
 
     // Divides by 1 at level 1, 200 at level 27.
     const int exp_lev  = you.get_experience_level();
