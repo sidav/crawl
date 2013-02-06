@@ -58,6 +58,7 @@ void __exidx_end() {}
 
 #include <time.h>
 #include <jni.h>
+#include <android/log.h>
 #include <setjmp.h>
 
 
@@ -183,9 +184,8 @@ void Java_com_crawlmb_NativeWrapper_initGame( JNIEnv* env, jobject object , jstr
 	const char * settingsSubDir = "/settings";
 	int macroDirectoryStrlen = strlen(constCrawlDirectory) + strlen(settingsSubDir);
 	char macroDirectory[macroDirectoryStrlen + 1];
-	strncpy(macroDirectory,constCrawlDirectory, strlen(constCrawlDirectory));
-	strncat(macroDirectory, settingsSubDir, strlen(settingsSubDir));
-	macroDirectory[macroDirectoryStrlen] = '\0';
+	strcpy(macroDirectory,constCrawlDirectory);
+	strcat(macroDirectory, settingsSubDir);
 
 	int argc = 5;
 	const char *argv[] = {"","-dir", constCrawlDirectory, "-macro", macroDirectory};
