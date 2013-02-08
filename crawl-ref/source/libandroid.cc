@@ -490,10 +490,10 @@ void putwch(ucs_t chr)
     {
 		c = ' ';
 	}
-	char * printstr = new char[1];
-	sprintf(printstr, "%c", chr);
-        
-    addnstr(1, printstr);
+	char printstr;
+	sprintf(&printstr, "%c", chr);
+
+    addnstr(1, &printstr);
 }
 
 void puttext(int x1, int y1, const crawl_view_buffer &vbuf)
