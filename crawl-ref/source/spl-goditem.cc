@@ -422,14 +422,6 @@ void antimagic()
         need_msg = true;
     }
 
-    // Don't dispel divine regeneration.
-    if (you.duration[DUR_REGENERATION] > 0
-        && !you.attribute[ATTR_DIVINE_REGENERATION])
-    {
-        you.duration[DUR_REGENERATION] = 1;
-        need_msg = true;
-    }
-
     if (you.duration[DUR_TELEPORT] > 0)
     {
         you.duration[DUR_TELEPORT] = 0;

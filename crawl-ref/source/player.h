@@ -284,9 +284,6 @@ public:
   // Which branches have been noted to have been left during this game.
   FixedVector<bool, NUM_BRANCHES> branches_left;
 
-  // Which branches have been noted to have been left during this game.
-  FixedVector<bool, NUM_BRANCHES> branches_left;
-
   // For now, only control the speed of abyss morphing.
   int abyss_speed;
 

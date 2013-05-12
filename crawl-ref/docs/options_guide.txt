@@ -931,8 +931,6 @@ runrest_stop_message += <regex>, <regex>, ...
         Multiple lines can be used. The earliest match among both
         ignore and stop messages overrides later lines. The file
         runrest_messages.txt contains a number of default settings.
-        
-        Resetting either option has the effect of resetting both.
 
         Resetting either option has the effect of resetting both.
 

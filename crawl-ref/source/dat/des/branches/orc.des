@@ -360,7 +360,6 @@ COLOUR: ! = brown
 FTILE:  ! = floor_orc
 SUBST:  ! : .$
 KFEAT:  O = enter_orcish_mines
-NSUBST: = = 1:+ / *:=
 MAP
 xx?xxxxxxx?xx
 x111xxxxx111x

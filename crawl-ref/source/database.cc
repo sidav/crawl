@@ -326,13 +326,12 @@ void databaseSystemInit()
     // Note: if you're building contrib libraries initially checked out
     // before 2011-12-28 and this assertion fails, please make sure you have
     // the current version ("git submodule sync;git submodule update --init").
-    bool bad_sqlite = !sqlite3_threadsafe();
+    ASSERT(sqlite3_threadsafe());
 
     thread_t th[NUM_DB];
     for (unsigned int i = 0; i < NUM_DB; i++)
 #ifndef DGAMELAUNCH
-        if (bad_sqlite
-            || thread_create_joinable(&th[i], init_db, (void*)(intptr_t)i))
+        if (thread_create_joinable(&th[i], init_db, (void*)(intptr_t)i))
 #endif
         {
             // if thread creation fails, do it serially

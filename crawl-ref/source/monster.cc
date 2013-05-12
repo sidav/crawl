@@ -1515,12 +1515,6 @@ static bool _is_signature_weapon(monster* mons, const item_def &weapon)
             return (weapon.base_type == OBJ_STAVES
                     && weapon.sub_type == STAFF_COLD);
         }
-
-        if (mons->type == MONS_FANNAR)
-        {
-            return (weapon.base_type == OBJ_STAVES
-                    && weapon.sub_type == STAFF_COLD);
-        }
     }
 
     if (mons->is_holy())

@@ -570,11 +570,6 @@ ifndef BUILD_LUA
   endif
 endif
 ifndef BUILD_LUA
-  ifdef NO_PKGCONFIG
-    BUILD_LUA = yes
-  endif
-endif
-ifndef BUILD_LUA
   ifneq ($(shell $(PKGCONFIG) lua5.1 --exists || echo no),)
     ifneq ($(shell $(PKGCONFIG) lua --exists || echo no),)
       BUILD_LUA = yes

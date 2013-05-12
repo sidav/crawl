@@ -85,7 +85,6 @@ unsigned short _cell_feat_show_colour(const map_cell& cell,
     }
     else if (cell.feat_colour() && !norecolour)
         colour = cell.feat_colour();
-    }
     else
     {
         colour = fdef.colour;

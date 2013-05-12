@@ -296,8 +296,6 @@ public:
 
     int         explore_stop_prompt;
 
-    int         sacrifice_before_explore;
-
     // Don't stop greedy explore when picking up an item which matches
     // any of these patterns.
     vector<text_pattern> explore_stop_pickup_ignore;

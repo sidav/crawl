@@ -78,14 +78,14 @@ LOCAL_CFLAGS += -DCLUA_BINDINGS -DWIZARD
 # This is basically all the .cc files in the 'source' folder
 CRAWLSRC = abl-show.cc abyss.cc acquire.cc act-iter.cc actor.cc actor-los.cc \
 AppHdr.cc areas.cc arena.cc artefact.cc asg.cc attack.cc attitude-change.cc beam.cc \
-behold.cc bitary.cc branch.cc cellular.cc chardump.cc cio.cc cloud.cc clua.cc cluautil.cc \
+behold.cc bitary.cc branch.cc chardump.cc cio.cc cloud.cc clua.cc cluautil.cc \
 colour.cc command.cc coord.cc coord-circle.cc coordit.cc crash.cc ctest.cc dactions.cc \
 database.cc dbg-asrt.cc dbg-maps.cc dbg-scan.cc dbg-util.cc decks.cc delay.cc describe.cc \
 dgl-message.cc dgn-delve.cc dgnevent.cc dgn-height.cc dgn-labyrinth.cc dgn-layouts.cc \
-dgn-overview.cc dgn-shoals.cc dgn-swamp.cc directn.cc dlua.cc dungeon.cc effects.cc \
+dgn-overview.cc dgn-proclayouts.cc dgn-shoals.cc dgn-swamp.cc directn.cc dlua.cc dungeon.cc effects.cc \
 errors.cc evoke.cc exclude.cc exercise.cc fearmonger.cc feature.cc fight.cc files.cc \
 fineff.cc fontwrapper-ft.cc food.cc format.cc fprop.cc geom2d.cc ghost.cc glwrapper.cc \
-glwrapper-ogl.cc godabil.cc godconduct.cc goditem.cc godmenu.cc godpassive.cc \
+glwrapper-ogl.cc godabil.cc godconduct.cc godcompanions.cc goditem.cc godmenu.cc godpassive.cc \
 godprayer.cc godwrath.cc hints.cc hiscores.cc initfile.cc invent.cc itemname.cc \
 itemprop.cc items.cc item_use.cc jobs.cc json.cc kills.cc l_colour.cc l_crawl.cc \
 l_debug.cc l_dgnbld.cc l_dgn.cc l_dgnevt.cc l_dgngrd.cc l_dgnit.cc l_dgnlvl.cc \
@@ -100,7 +100,7 @@ mon-death.cc mon-ench.cc mon-gear.cc mon-grow.cc mon-info.cc mon-iter.cc \
 mon-movetarget.cc mon-pathfind.cc mon-pick.cc mon-place.cc mon-project.cc \
 mon-speak.cc mon-stealth.cc monster.cc mon-stuff.cc mon-transit.cc \
 mon-util.cc mutation.cc newgame.cc ng-init.cc ng-input.cc ng-restr.cc ng-setup.cc \
-ng-wanderer.cc notes.cc orb.cc ouch.cc output.cc package.cc pattern.cc \
+ng-wanderer.cc notes.cc orb.cc ouch.cc output.cc package.cc pattern.cc perlin.cc\
 place.cc place-info.cc player-act.cc player.cc player-equip.cc player-stats.cc \
 potion.cc quiver.cc random.cc random-var.cc ray.cc religion.cc rng.cc shopping.cc \
 shout.cc show.cc showsymb.cc skill_menu.cc skills2.cc skills.cc species.cc spl-book.cc \
@@ -110,9 +110,9 @@ spl-util.cc spl-wpnench.cc spl-zap.cc sprint.cc sqldbm.cc stairs.cc startup.cc \
 stash.cc state.cc status.cc store.cc stuff.cc syscalls.cc tags.cc tagstring.cc \
 target.cc teleport.cc terrain.cc throw.cc tilebuf.cc tilefont.cc tilepick.cc \
 tiletex.cc tileview.cc tileweb.cc \
-transform.cc traps.cc travel.cc tutorial.cc unicode.cc version.cc view.cc \
+transform.cc traps.cc travel.cc tutorial.cc uncancel.cc unicode.cc version.cc view.cc \
 viewchar.cc viewgeom.cc viewmap.cc wcwidth.cc windowmanager-sdl.cc wiz-dgn.cc \
-wiz-fsim.cc wiz-item.cc wiz-mon.cc wiz-you.cc xom.cc zotdef.cc \
+wiz-fsim.cc wiz-item.cc wiz-mon.cc wiz-you.cc woreley.cc xom.cc zotdef.cc \
 \
 $(RLTILES_DIR)/tiledef-dngn.cc  $(RLTILES_DIR)/tiledef-feat.cc  $(RLTILES_DIR)/tiledef-floor.cc  \
 $(RLTILES_DIR)/tiledef-gui.cc  $(RLTILES_DIR)/tiledef-icons.cc  $(RLTILES_DIR)/tiledef-main.cc  \
@@ -127,7 +127,7 @@ prebuilt/levcomp.lex.cc prebuilt/levcomp.tab.cc \
 # tilereg-crt.cc tilereg-dgn.cc tilereg-doll.cc tilereg-grid.cc tilereg-inv.cc \
 # tilereg-map.cc tilereg-mem.cc tilereg-menu.cc tilereg-mon.cc tilereg-msg.cc \
 # tilereg-skl.cc tilereg-spl.cc tilereg-stat.cc tilereg-tab.cc tilereg-text.cc tilereg-grid.cc\
-# tilereg-title.cc tilesdl.cc  tileweb-text.cc \
+# tilereg-popup.cc tilereg-title.cc tilesdl.cc  tileweb-text.cc \
 
 LOCAL_MODULE    := crawl
 

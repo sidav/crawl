@@ -23,13 +23,6 @@ Cuando el portador reciba algún daño, una parte de este se descontará de los
 puntos de magia, en lugar de los puntos de vida. Si las reservas mágicas están
 agotadas, este amuleto no tendrá ningún efecto.
 %%%%
-amulet of guardian spirit
-
-Este amuleto hace que su portador sea un poco menos vulnerable al daño externo.
-Cuando el portador reciba algún daño, una parte de este se descontará de los
-puntos de magia, en lugar de los puntos de vida. Si las reservas mágicas están
-agotadas, este amuleto no tendrá ningún efecto.
-%%%%
 amulet of inaccuracy
 
 Este amuleto hace que su portador sea menos preciso en el combate cuerpo a
@@ -293,10 +286,6 @@ Un libro con hechizos mágicos.
 book of summonings
 
 Un libro con hechizos mágicos.
-%%%%
-book of the dragon
-
-Un libro con hechizos mágicos. Es cálido al tacto.
 %%%%
 book of the dragon
 
@@ -648,10 +637,6 @@ La cosa con la que clavas puntillas, modificada para el combate.
 hand axe
 
 Una pequeña hacha ideada para el combate cuerpo a cuerpo, o para ser arrojada.
-%%%%
-helm
-
-Una protección metálica para la cabeza.
 %%%%
 helmet
 

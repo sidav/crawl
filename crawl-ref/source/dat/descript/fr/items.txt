@@ -290,13 +290,6 @@ l'apprenti Nécromancien. Considérant les dangers auxquels s'exposent ceux qui
 s'essaient à cette magie, c'est aussi parfois le tout *dernier* grimoire qu'un
 apprenti Nécromancien étudiera.
 %%%%
-book of necromancy
-
-Un livre macabre de sorts magiques, souvent le tout premier grimoire de
-l'apprenti Nécromancien. Considérant les dangers auxquels s'exposent ceux qui
-s'essaient à cette magie, c'est aussi parfois le tout *dernier* grimoire qu'un
-apprenti Nécromancien étudiera.
-%%%%
 book of party tricks
 
 Un livre de sortilèges magiques.

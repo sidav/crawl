@@ -962,18 +962,6 @@ static dungeon_feature_type unmarshallFeatureType_Info(reader &th)
 }
 #endif
 
-static void marshallStringVector(writer &th, const std::vector<std::string> &vec)
-{
-    marshall_iterator(th, vec.begin(), vec.end(), marshallStringNoMax);
-}
-
-static std::vector<std::string> unmarshallStringVector(reader &th)
-{
-    std::vector<std::string> vec;
-    unmarshall_vector(th, vec, unmarshallStringNoMax);
-    return vec;
-}
-
 
 // Write a tagged chunk of data to the FILE*.
 // tagId specifies what to write.
