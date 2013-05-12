@@ -3253,13 +3253,6 @@ void game_options::read_option_line(const string &str, bool runscript)
         else
             explore_stop |= new_conditions;
     }
-    else if (key == "sacrifice_before_explore")
-    {
-        if (field == "prompt" || field == "ask")
-            sacrifice_before_explore = 2;
-        else
-            sacrifice_before_explore = _read_bool(field, false);
-    }
     else if (key == "explore_stop_prompt")
     {
         if (plain)
