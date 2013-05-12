@@ -27,6 +27,9 @@
 #include "items.h"
 #include "item_use.h"
 #include "itemprop.h"
+#include "libutil.h"
+#include "mapmark.h"
+#include "melee_attack.h"
 #include "message.h"
 #include "mon-place.h"
 #include "mgen_data.h"
@@ -39,7 +42,10 @@
 #include "spl-cast.h"
 #include "spl-clouds.h"
 #include "spl-summoning.h"
+#include "state.h"
 #include "stuff.h"
+#include "target.h"
+#include "terrain.h"
 #include "view.h"
 #include "xom.h"
 
@@ -115,14 +121,21 @@ static bool _reaching_weapon_attack(const item_def& wpn)
         mpr("Your weapon cannot reach that far!");
         return false; // Shouldn't happen with confused swings
     }
-    else if (!feat_is_reachable_past(grd(first_middle))
-             && !feat_is_reachable_past(grd(second_middle)))
+
+    // Calculate attack delay now in case we have to apply it.
+    melee_attack attk(&you, NULL);
+    const int attack_delay = attk.calc_attack_delay();
+
+    if (!feat_is_reachable_past(grd(first_middle))
+        && !feat_is_reachable_past(grd(second_middle)))
     {
         // Might also be a granite statue/orcish idol which you
         // can reach _past_.
         if (you.confused())
         {
             mpr("You swing wildly and hit a wall.");
+            you.time_taken = attack_delay;
+            make_hungry(3, true);
             return true;
         }
         else
@@ -167,6 +180,8 @@ static bool _reaching_weapon_attack(const item_def& wpn)
                 {
                     // Let's assume friendlies cooperate.
                     mpr("You could not reach far enough!");
+                    you.time_taken = attack_delay;
+                    make_hungry(3, true);
                     return true;
                 }
             }
@@ -193,6 +208,8 @@ static bool _reaching_weapon_attack(const item_def& wpn)
         }
         else
             mpr("You attack empty space.");
+        you.time_taken = attack_delay;
+        make_hungry(3, true);
         return true;
     }
     else if (!fight_melee(&you, mons))
@@ -202,6 +219,8 @@ static bool _reaching_weapon_attack(const item_def& wpn)
             // turn_is_over may have been reset to false by fight_melee, but
             // a failed attempt to reach further should not be free; instead,
             // charge the same as a successful attempt.
+            you.time_taken = attack_delay;
+            make_hungry(3, true);
             you.turn_is_over = true;
         }
         else
@@ -357,11 +376,8 @@ bool disc_of_storms(bool drac_breath)
     const int fail_rate = 30 - you.skill(SK_EVOCATIONS);
     bool rc = false;
 
-    if ((player_res_electricity() || x_chance_in_y(fail_rate, 100))
-         && !drac_breath)
-    {
+    if (x_chance_in_y(fail_rate, 100) && !drac_breath)
         canned_msg(MSG_NOTHING_HAPPENS);
-    }
     else if (x_chance_in_y(fail_rate, 100) && !drac_breath)
         mpr("The disc glows for a moment, then fades.");
     else if (x_chance_in_y(fail_rate, 100) && !drac_breath)
@@ -378,7 +394,7 @@ bool disc_of_storms(bool drac_breath)
         for (int i = 0; i < disc_count; ++i)
         {
             bolt beam;
-            const zap_type types[] = { ZAP_LIGHTNING, ZAP_ELECTRICITY,
+            const zap_type types[] = { ZAP_LIGHTNING_BOLT, ZAP_SHOCK,
                                        ZAP_ORB_OF_ELECTRICITY };
 
             const zap_type which_zap = RANDOM_ELEMENT(types);
@@ -399,7 +415,7 @@ bool disc_of_storms(bool drac_breath)
         {
             for (radius_iterator ri(you.pos(), LOS_RADIUS, false); ri; ++ri)
             {
-                if (grd(*ri) < DNGN_MAXWALL)
+                if (!in_bounds(*ri) || grd(*ri) < DNGN_MAXWALL)
                     continue;
 
                 if (one_chance_in(60 - you.skill(SK_EVOCATIONS)))
@@ -413,11 +429,17 @@ bool disc_of_storms(bool drac_breath)
 
 void tome_of_power(int slot)
 {
-    int powc = 5 + you.skill(SK_EVOCATIONS)
-                 + roll_dice(5, you.skill(SK_EVOCATIONS));
+    if (you.form == TRAN_WISP)
+    {
+        crawl_state.zero_turns_taken();
+        return mpr("You can't handle books in this form.");
+    }
+
+    const int powc = 5 + you.skill(SK_EVOCATIONS)
+                       + roll_dice(5, you.skill(SK_EVOCATIONS));
 
     msg::stream << "The book opens to a page covered in "
-                << weird_writing() << '.' << std::endl;
+                << weird_writing() << '.' << endl;
 
     you.turn_is_over = true;
 
@@ -478,10 +500,9 @@ void tome_of_power(int slot)
     {
         viewwindow();
 
-        int temp_rand = random2(23) + random2(you.skill_rdiv(SK_EVOCATIONS, 1, 3));
-
-        if (temp_rand > 25)
-            temp_rand = 25;
+        const int temp_rand =
+            min(25, random2(23)
+                    + random2(you.skill_rdiv(SK_EVOCATIONS, 1, 3)));
 
         const spell_type spell_casted =
             ((temp_rand > 24) ? SPELL_LEHUDIBS_CRYSTAL_SPEAR :
@@ -494,8 +515,8 @@ void tome_of_power(int slot)
              (temp_rand >  7) ? SPELL_BOLT_OF_INACCURACY :
              (temp_rand >  6) ? SPELL_STICKY_FLAME_RANGE :
              (temp_rand >  5) ? SPELL_TELEPORT_SELF :
-             (temp_rand >  4) ? SPELL_CIGOTUVIS_DEGENERATION :
-             (temp_rand >  3) ? SPELL_POLYMORPH_OTHER :
+             (temp_rand >  4) ? SPELL_DAZZLING_SPRAY :
+             (temp_rand >  3) ? SPELL_POLYMORPH :
              (temp_rand >  2) ? SPELL_MEPHITIC_CLOUD :
              (temp_rand >  1) ? SPELL_THROW_FLAME :
              (temp_rand >  0) ? SPELL_THROW_FROST
@@ -548,8 +569,8 @@ void skill_manual(int slot)
 
     if (!known)
     {
-        std::string prompt = make_stringf("This is a manual of %s. Do you want "
-                                          "to study it?", skill_name(skill));
+        string prompt = make_stringf("This is a manual of %s. Do you want "
+                                     "to study it?", skill_name(skill));
         if (!yesno(prompt.c_str(), true, 'n'))
         {
             canned_msg(MSG_OK);
@@ -612,8 +633,9 @@ static bool _box_of_beasts(item_def &box)
             mpr("...but nothing happens.");
         else
         {
-            mpr("...but the box appears empty.");
-            box.sub_type = MISC_EMPTY_EBONY_CASKET;
+            mpr("...but the box appears empty, and falls apart.");
+            ASSERT(in_inventory(box));
+            dec_inv_item_quantity(box.link, 1);
         }
     }
 
@@ -661,6 +683,8 @@ static bool _ball_of_energy(void)
 
 bool evoke_item(int slot)
 {
+    if (you.form == TRAN_WISP)
+        return mpr("You cannot handle anything in this form."), false;
 
     if (you.berserk() && (slot == -1
                        || slot != you.equip[EQ_WEAPON]
@@ -773,7 +797,8 @@ bool evoke_item(int slot)
             return false;
         }
 
-        if (!you.is_undead && you.hunger_state == HS_STARVING)
+        if (!you.is_undead && !you_foodless()
+            && you.hunger_state == HS_STARVING)
         {
             canned_msg(MSG_TOO_HUNGRY);
             return false;
@@ -871,6 +896,7 @@ bool evoke_item(int slot)
             you.duration[DUR_QUAD_DAMAGE] = 30 * BASELINE_DELAY;
             ASSERT(in_inventory(item));
             dec_inv_item_quantity(item.link, 1);
+            invalidate_agrid(true);
             break;
 
         default:

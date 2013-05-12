@@ -15,13 +15,6 @@ amulet of conservation
 Ten amulet ochrania zwoje i eliksiry przed zniszczeniem, niestety nie jest
 niezawodny.
 %%%%
-amulet of controlled flight
-
-Jeśli nosiciel tego amuletu zostanie poddany lewitacji w jakiś sposób, amulet
-ten umożliwia kontrolę nad lotem. Daje to między innymi możliwość kontaktu z
-podłożem, podnoszenia przedmiotów leżących na ziemi, jak i schodzenia po
-schodach.
-%%%%
 amulet of guardian spirit
 
 Ten amulet chroni swego nosiciela przed obrażeniami. Odniesione rany zamiast
@@ -179,14 +172,6 @@ book of changes
 
 Księga czarów.
 %%%%
-book of card effects
-
-Księga czarów.
-%%%%
-book of charms
-
-Księga czarów.
-%%%%
 book of clouds
 
 Księga czarów.
@@ -259,10 +244,6 @@ book of minor magic
 
 Księga czarów.
 %%%%
-book of morphology
-
-Księga czarów.
-%%%%
 book of necromancy
 
 Zakurzony tom zabronionej magii.
@@ -276,10 +257,6 @@ book of power
 Księga czarów.
 %%%%
 book of spatial translocations
-
-Księga czarów.
-%%%%
-book of stalking
 
 Księga czarów.
 %%%%
@@ -352,6 +329,14 @@ Siekiera o wielkim ostrzu.
 buckler
 
 Mała tarcza.
+%%%%
+buckler:quote
+
+„Stateczność jego tarcz i puklerz mocny,
+ Za którym stojąc, na żaden strach nocny,
+ Na żadną trwogę, ani dbaj na strzały,
+ Którymi sieje przygoda w dzień biały.”
+    -pieśń kościelna
 %%%%
 cap
 
@@ -507,7 +492,7 @@ disc of storms
 
 Ten potężny przedmiot potrafi wypuścić niszczące elektryczne wyładowanie,
 zwłaszcza w rękach kogoś kto potrafi dobrze posługiwać się magicznymi
-przedmiotami. Nie zadziała jeśli użytkownik jest elektrycznie odizolowany.
+przedmiotami.
 %%%%
 double sword
 
@@ -618,10 +603,6 @@ hand axe
 
 Mała siekiera zdatna zarówno do walki wręcz jak i do rzucania.
 %%%%
-helm
-
-Metalowe nakrycie głowy.
-%%%%
 helmet
 
 Metalowe nakrycie głowy.
@@ -636,6 +617,18 @@ horn of Geryon
 Ten róg należy do Geryona, strażnika Przedsionka Piekła. Legendy mówią że
 śmiertelnik który zapragnie dostać się do piekieł żywy, musiałby zadąć w ten
 róg.
+%%%%
+horn of Geryon:quote
+
+„Natenczas Wojski chwycił na taśmie przypięty
+ Swój róg bawoli, długi, cętkowany, kręty
+ Jak wąż boa, oburącz do ust go przycisnął,
+ Wzdął policzki jak banię, w oczach krwią zabłysnął,
+ Zasunął wpół powieki, wciągnął w głąb pół brzucha
+ I do płuc wysłał z niego cały zapas ducha
+ I zagrał: róg jak wicher wirowatym dechem,
+ Niesie w puszczę muzykę i podwaja echem.”
+    -Adam Mickiewicz, „Pan Tadeusz”
 %%%%
 ice dragon armour
 
@@ -732,7 +725,7 @@ Miecz o długim prostym ostrzu.
 longbow
 
 Duży, mocny cisowy łuk. Ma spory naciąg i potrafi zadać poważne obrażenia,
-zwłaszcz w rękach zaawansowanego łucznika.
+zwłaszcza w rękach zaawansowanego łucznika.
 %%%%
 lychee
 
@@ -910,9 +903,9 @@ potion of invisibility
 
 Eliksir który daje tymczasową niewidzialność.
 %%%%
-potion of levitation
+potion of flight
 
-Eliksir który czyni pijącego lżejszym od powietrza.
+Eliksir który daje zdolność lotu.
 %%%%
 potion of magic
 
@@ -961,10 +954,6 @@ spowodować magiczną skazę!
 potion of strong poison
 
 Wyjątkowo groźna trucizna.
-%%%%
-potion of water
-
-Cudowna substancja, podstawa wszelkiego życia.
 %%%%
 quad damage
 
@@ -1029,11 +1018,11 @@ posługiwania się magicznymi przedmiotami. Bycie niewidzialnym znacznie wzmaga
 zużycie metabolizm, a także powoduje magiczne skażenie. Zbyt częste użycie tego
 pierścienia nie jest więc wskazane.
 %%%%
-ring of levitation
+ring of flight
 
-Ten pierścień, po uruchomieniu, pozwala unieść się w powietrze na krótki czas.
-Po wylądowaniu można uruchomić pierścień ponownie, nie da się jednak tego
-zrobić z powietrza.
+Ten pierścień można aktywować dla uzyskania zdolności lotu na krótki czas.
+Uwaga: przedłużenie działania pierścienia nie jest możliwe bez lądowania. To
+może być dość niezdrowe w czasie dłuższych wypraw ponad głębinami...
 %%%%
 ring of life protection
 
@@ -1073,6 +1062,12 @@ nosiciela, kosztem znacznego przyspieszenia metabolizmu.
 ring of see invisible
 
 Ten pierścień pozwala swemu nosicielowi ujrzeć niewidzialne istoty.
+%%%%
+ring of see invisible:quote
+
+„A oto mój sekret. Jest bardzo prosty: dobrze widzi się tylko sercem.
+Najważniejsze jest niewidoczne dla oczu.”
+    -Antoine de Saint-Exupéry, „Mały Książę”, 1943
 %%%%
 ring of slaying
 
@@ -1124,17 +1119,23 @@ rod of destruction
 
 Ten pręt zawiera czary siejące zniszczenie.
 %%%%
+rod of inaccuracy
+
+Ten pręt strzela potężną strugą czystej magii. Jest on bardzo trudny do
+wycelowania, a jego efekt łatwy do uniknięcia, jednak jak już w coś trafi,
+skutki są dość brutalne.
+%%%%
 rod of striking
 
-Ten pręt pozwala uderzać wrógów surową magią, niestety niezbyt efektywnie.
+Ten pręt pozwala uderzać wrogów surową magią, niestety niezbyt efektywnie.
 %%%%
-rod of summoning
+rod of the swarm
 
-Ten pret zawiera czary przywołań.
+Ten pręt pozwala przyzwać chmarę owadów.
 %%%%
 rod of venom
 
-Ten pręt zawiera ofensywne jak i ochronne czary Magii Trucizn.
+Ten pręt zawiera ofensywne czary Magii Trucizn.
 %%%%
 rod of warding
 
@@ -1208,23 +1209,23 @@ ze skóry niektórych stworzeń — zwykle trolli i smoków.
 %%%%
 scroll of enchant weapon i
 
-Ten zwój pozwala na poprawienie jakości broni trzymanej w dłoni w czwili
+Ten zwój pozwala na poprawienie jakości broni trzymanej w dłoni w chwili
 odczytania zwoju. Zwiększa on celność. Broń która już jest wysokiej jakości
 może nie poddać się działaniu tego zwoju — szansa porażki jest coraz większa.
 Bezwzględny limit to +9.
 %%%%
 scroll of enchant weapon ii
 
-Ten zwój pozwala na poprawienie jakości broni trzymanej w dłoni w czwili
+Ten zwój pozwala na poprawienie jakości broni trzymanej w dłoni w cewili
 odczytania zwoju. Zwiększa on zadawane obrażenia. Broń która już jest wysokiej
 jakości może nie poddać się działaniu tego zwoju — szansa porażki jest coraz
 większa. Bezwzględny limit to +9.
 %%%%
 scroll of enchant weapon iii
 
-Ten zwój pozwala na znaczne poprawienie jakości broni trzymanej w dłoni w
-czwili odczytania zwoju. Zwiększa on zarówno celność jak i zadawane obrażenia.
-Broń która już jest wysokiej jakości może nie poddać się działaniu tego zwoju —
+Ten zwój pozwala na znaczne poprawienie jakości broni trzymanej w dłoni w zwili
+odczytania zwoju. Zwiększa on zarówno celność jak i zadawane obrażenia. Broń
+która już jest wysokiej jakości może nie poddać się działaniu tego zwoju —
 szansa porażki jest coraz większa. Bezwzględny limit to +9.
 %%%%
 scroll of fear
@@ -1254,8 +1255,7 @@ próbie odczytania.
 %%%%
 scroll of magic mapping
 
-Ten zwój tworzy mapę poziomu lochów wokół czytającego. Jego moc nie jest
-wystarczająca aby ujawnić wnętrze pomieszczeń ukrytych za sekrentymi drzwiami.
+Ten zwój tworzy mapę poziomu lochów wokół czytającego.
 %%%%
 scroll of noise
 
@@ -1272,7 +1272,7 @@ zastosowania.
 %%%%
 scroll of recharging
 
-Ten zwój służy do ładowania mocy różdzek. Użyty na magicznym pręcie, zwiększa
+Ten zwój służy do ładowania mocy różdżek. Użyty na magicznym pręcie, zwiększa
 zarówno pojemność jego baterii (max. do +17), jak i jakość pręta (max. do +9)
 która poprawia zarówno szybkość regeneracji baterii jak i przydatność pręta w
 walce wręcz.
@@ -1281,12 +1281,6 @@ scroll of remove curse
 
 Odczytanie tego zwoju usuwa wszystkie przekleństwa rzucone na przedmioty
 przylegające do twego ciała.
-%%%%
-scroll of unholy creation
-
-Ten zwój czerpie z mocy Otchłani i tworzy paskudną bestię. Bestia ta jest
-przyjaźnie nastawiona do czytającego, chyba że Fedhas lub jeden z dobrych bogów
-ma coś do powiedzenia.
 %%%%
 scroll of teleportation
 
@@ -1333,13 +1327,13 @@ shield
 
 Kawał metalu, z uchwytem i paskami umożliwiającymi przyczepienie do ramienia.
 Pozwala blokować ciosy, jednak utrudnia ruchy co spowalnia szybkość ataków oraz
-przeskadza w rzucaniu czarów.
+przeszkadza w rzucaniu czarów.
 %%%%
 short sword
 
 Miecz z krótkim ostrzem, przydatny do kłucia i cięcia, zwłaszcza w zwarciu.
 %%%%
-skeleton
+decaying skeleton
 
 Kupa kości w trakcie rozkładu.
 %%%%
@@ -1378,11 +1372,6 @@ Zbroja z prostokątnych metalowych płytek, połączonych metalowymi kółkami. 
 to bardzo dobrą ochronę przed ciosami — co prawda znacznie gorszą niż pełna
 zbroja płytowa, jednak umożliwia ona dużo większą swobodę ruchów.
 %%%%
-staff
-
-Patyk którym można się podpierać w czasie marszu, a przy braku innej broni,
-nawet użyć w walce.
-%%%%
 staff of air
 
 Ten kij zwiększa moc czarów Magii Powietrza, a także zapewnia ochronę przed
@@ -1418,12 +1407,6 @@ Ten kij zwiększa moc czarów Magii Ziemi. Jeśli użytkownik potrafi posługiwa
 się magicznymi przedmiotami, wrogowie uderzeni tym kijem zostaną zmiażdżeni —
 mocniej jeśli użytkownik posiada umiejętności w Magii Ziemi.
 %%%%
-staff of enchantment
-
-Ten kij zwiększa moc Uroków jak i Magii Wspomagania. Przy wystarczających
-umiejętnościach w dowolnej z tych dwóch szkół, także poprawia odporność na
-wrogie uroki.
-%%%%
 staff of energy
 
 Ten kij redukuje głód będący skutkiem rzucania czarów.
@@ -1438,7 +1421,7 @@ użytkownik posiada umiejętności w Magii Ognia.
 staff of poison
 
 Ten kij zwiększa moc czarów Magii Trucizn, a także zapewnia ochronę przed
-truciznami i jadami. Jeśli użytkownik posiada umiejętności zarówno w uzyciu
+truciznami i jadami. Jeśli użytkownik posiada umiejętności zarówno w użyciu
 przedmiotów magicznych jak i w Magii Trucizn, wrogowie uderzeni tym kijem
 zostaną zatruci — nawet ci którzy zwykle są na trucizny odporni. Oczywiście nie
 działa to na duchy, umarlaków, i tym podobnych.
@@ -1479,7 +1462,7 @@ Magiczny przedmiot do przywoływania żywiołaków ziemi. Jest niezbyt niezawodn
 zwykle potrzebując paru prób zanim poprawnie zadziała. Potrzebuje jakiegoś
 kawałka skały do działania — zwykła ściana powinna się nadać. Kontrola nad
 żywiołakiem wymaga umiejętności z Magii Ziemi, jednak nawet ci którzy tej
-umiejętności nie posiadają, moga skorzystać z tego przedmiotu w celu powolnego,
+umiejętności nie posiadają, mogą skorzystać z tego przedmiotu w celu powolnego,
 bolesnego drążenia tuneli. Wymaga to oczywiście możliwości pokonania zeźlonego
 żywiołaka...
 %%%%
@@ -1490,7 +1473,7 @@ skór, ale zapewnia też świetną obronę, a także odporność na porażenie p
 %%%%
 storm dragon hide
 
-Surowa skóra smoka zionacego piorunami, pokryta wyjątkowo twardymi niebieskimi
+Surowa skóra smoka zionącego piorunami, pokryta wyjątkowo twardymi niebieskimi
 łuskami. W tej postaci nie zapewnia wiele oprócz odporności na porażenie
 prądem, ale można z niej zrobić świetną zbroję.
 %%%%
@@ -1500,7 +1483,7 @@ Mały ale smakowity czerwony owoc.
 %%%%
 sultana
 
-Pojedyńcza rodzynka. Bardzo duża jak na rodzynkę, ale wciąż arbuz to to nie
+Pojedyncza rodzynka. Bardzo duża jak na rodzynkę, ale wciąż arbuz to to nie
 jest...
 %%%%
 swamp dragon armour
@@ -1550,7 +1533,7 @@ Magiczny miecz z trzema wielkimi ostrymi ostrzami.
 %%%%
 trishula
 
-Błogosławiony trójząb uformowany w świetym ogniu, z trzema zębami
+Błogosławiony trójząb uformowany w świętym ogniu, z trzema zębami
 symbolizującymi połączoną potęgę trójcy dobrych bogów. Jest to ulubiona broń
 sług Świetlistego.
 %%%%
@@ -1638,14 +1621,14 @@ trafiają.
 wand of paralysis
 
 Magiczny przedmiot który potrafi uczynić stworzenie na które został skierowany
-niezdolnym do ruchu.
+niezdolnym do ruchu. W szczególności, nagła utrata zdolności machania
+skrzydłami może się skończyć kąpielą w lawie.
 %%%%
-wand of polymorph other
+wand of polymorph
 
-Magiczny przemiot który potrafi przemienić stworzenie w coś innego. Jest
+Magiczny przedmiot który potrafi przemienić stworzenie w coś innego. Jest
 szczególnie efektywne wobec istot które naturalnie zmieniają formę: nie są one
-w stanie odeprzeć tego efektu. Nie da się tej różdżki skierować na siebie
-samego.
+w stanie odeprzeć tego efektu.
 %%%%
 wand of random effects
 

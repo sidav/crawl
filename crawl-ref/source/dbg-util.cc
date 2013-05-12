@@ -16,14 +16,17 @@
 #include "libutil.h"
 #include "message.h"
 #include "mon-util.h"
+#include "options.h"
 #include "religion.h"
 #include "shopping.h"
 #include "skills2.h"
 #include "spl-util.h"
+#include "state.h"
+#include "stuff.h"
 
 monster_type debug_prompt_for_monster(void)
 {
-    char  specs[80];
+    char specs[1024];
 
     mpr("Which monster by name? ", MSGCH_PROMPT);
     if (!cancelable_get_line_autohist(specs, sizeof specs))
@@ -43,8 +46,8 @@ void debug_dump_levgen()
 
     CrawlHashTable &props = env.properties;
 
-    std::string method;
-    std::string type;
+    string method;
+    string type;
 
     if (Generating_Level)
     {
@@ -52,6 +55,15 @@ void debug_dump_levgen()
         method = env.level_build_method;
         type   = comma_separated_line(env.level_layout_types.begin(),
                                       env.level_layout_types.end(), ", ");
+
+        if (!env.placing_vault.empty())
+            mprf("Vault being placed: %s", env.placing_vault.c_str());
+        if (!env.new_subvault_names.empty())
+        {
+            mprf("Subvaults: %s", comma_separated_line(
+                 env.new_subvault_names.begin(), env.new_subvault_names.end(),
+                 ", ").c_str());
+        }
     }
     else
     {
@@ -72,25 +84,40 @@ void debug_dump_levgen()
     if (!env.level_vault_list.empty())
     {
         mpr("Level vaults:");
-        for (size_t i = 0; i < env.level_vault_list.size(); ++i)
-            mprf("    %s", env.level_vault_list[i].c_str());
+        for (size_t i = 0; i < env.level_vaults.size(); ++i)
+        {
+            const vault_placement* vault = env.level_vaults[i];
+            string vault_name = vault->map.name.c_str();
+            if (vault->map.subvault_places.size())
+            {
+                vault_name += " [";
+                for (unsigned int j = 0; j < vault->map.subvault_places.size(); ++j)
+                {
+                    vault_name += vault->map.subvault_places[j].subvault->name;
+                    if (j < vault->map.subvault_places.size() - 1)
+                        vault_name += ", ";
+                }
+                vault_name += "]";
+            }
+            mprf("    %s", vault_name.c_str());
+        }
     }
     mpr("");
 }
 
-std::string debug_coord_str(const coord_def &pos)
+string debug_coord_str(const coord_def &pos)
 {
     return make_stringf("(%d, %d)%s", pos.x, pos.y,
                         !in_bounds(pos) ? " <OoB>" : "");
 }
 
-std::string debug_mon_str(const monster* mon)
+string debug_mon_str(const monster* mon)
 {
     const int midx = mon->mindex();
     if (invalid_monster_index(midx))
         return make_stringf("Invalid monster index %d", midx);
 
-    std::string out = "Monster '" + mon->full_name(DESC_PLAIN, true) + "' ";
+    string out = "Monster '" + mon->full_name(DESC_PLAIN, true) + "' ";
     out += make_stringf("%s [midx = %d]", debug_coord_str(mon->pos()).c_str(),
                         midx);
 
@@ -110,7 +137,7 @@ static void _debug_mid_name(mid_t mid)
         if (mons)
             fprintf(stderr, "%s", debug_mon_str(mons).c_str());
         else
-            fprintf(stderr, "bad monster[%"PRImidt"]", mid);
+            fprintf(stderr, "bad monster[%" PRImidt"]", mid);
     }
 }
 
@@ -151,8 +178,7 @@ void debug_dump_mon(const monster* mon, bool recurse)
 
     if (in_bounds(mon->pos()))
     {
-        std::string feat =
-            raw_feature_description(mon->pos());
+        string feat = raw_feature_description(mon->pos());
         fprintf(stderr, "On/in/over feature: %s\n\n", feat.c_str());
     }
 
@@ -192,18 +218,18 @@ void debug_dump_mon(const monster* mon, bool recurse)
     }
     else if (in_bounds(mon->target))
     {
-       target = mgrd(mon->target);
+        target = mgrd(mon->target);
 
-       if (target == NON_MONSTER)
-           fprintf(stderr, "nothing");
-       else if (target == midx)
-           fprintf(stderr, "improperly linked self");
-       else if (target == mon->foe)
-           fprintf(stderr, "same as foe");
-       else if (invalid_monster_index(target))
-           fprintf(stderr, "invalid monster index %d", target);
-       else
-           fprintf(stderr, "%s", debug_mon_str(&menv[target]).c_str());
+        if (target == NON_MONSTER)
+            fprintf(stderr, "nothing");
+        else if (target == midx)
+            fprintf(stderr, "improperly linked self");
+        else if (target == mon->foe)
+            fprintf(stderr, "same as foe");
+        else if (invalid_monster_index(target))
+            fprintf(stderr, "invalid monster index %d", target);
+        else
+            fprintf(stderr, "%s", debug_mon_str(&menv[target]).c_str());
     }
     else
         fprintf(stderr, "<OoB>");
@@ -294,7 +320,7 @@ void debug_dump_mon(const monster* mon, bool recurse)
         fprintf(stderr, "\n");
     }
 
-    fprintf(stderr, "attitude: %d, behaviour: %d, number: %d, flags: 0x%"PRIx64"\n",
+    fprintf(stderr, "attitude: %d, behaviour: %d, number: %d, flags: 0x%" PRIx64"\n",
             mon->attitude, mon->behaviour, mon->number, mon->flags);
 
     fprintf(stderr, "colour: %d, foe_memory: %d, shield_blocks:%d, "
@@ -344,10 +370,10 @@ skill_type skill_from_name(const char *name)
     {
         skill_type sk = static_cast<skill_type>(i);
 
-        std::string sk_name = lowercase_string(skill_name(sk));
+        string sk_name = lowercase_string(skill_name(sk));
 
         size_t pos = sk_name.find(name);
-        if (pos != std::string::npos)
+        if (pos != string::npos)
         {
             skill = sk;
             // We prefer prefixes over partial matches.
@@ -359,7 +385,7 @@ skill_type skill_from_name(const char *name)
     return skill;
 }
 
-std::string debug_art_val_str(const item_def& item)
+string debug_art_val_str(const item_def& item)
 {
     ASSERT(is_artefact(item));
 
@@ -391,5 +417,62 @@ void debuglog(const char *format, ...)
     vfprintf(debugf, format, args);
     va_end(args);
     fflush(debugf);
+}
+#endif
+
+#ifndef DEBUG_DIAGNOSTICS
+void wizard_toggle_dprf()
+{
+    mpr("Diagnostic messages are available only in debug builds.");
+}
+#else
+static const char* diag_names[] =
+{
+    "normal",
+    "combat",
+    "beam",
+    "abyss",
+    "monplace",
+};
+
+void wizard_toggle_dprf()
+{
+    COMPILE_CHECK(ARRAYSZ(diag_names) == NUM_DIAGNOSTICS);
+
+    while (true)
+    {
+        string line;
+        for (int i = 0; i < NUM_DIAGNOSTICS; i++)
+        {
+            line += make_stringf("%s[%c] %-10s%s ",
+                                 Options.quiet_debug_messages[i] ? "<white>" : "",
+                                 i + '0',
+                                 diag_names[i],
+                                 Options.quiet_debug_messages[i] ? "</white>" : "");
+            if (i % 5 == 4 || i == NUM_DIAGNOSTICS - 1)
+            {
+                mpr(line, MSGCH_PROMPT);
+                line.clear();
+            }
+        }
+        mpr("Toggle which debug class (ESC to exit)? ", MSGCH_PROMPT);
+
+        int keyin = toalower(get_ch());
+
+        if (key_is_escape(keyin) || keyin == ' '
+            || keyin == '\r' || keyin == '\n')
+        {
+            return mpr("M'kay.");
+        }
+
+        if (keyin < '0' || keyin >= '0' + NUM_DIAGNOSTICS)
+            continue;
+
+        int diag = keyin - '0';
+        Options.quiet_debug_messages.set(diag, !Options.quiet_debug_messages[diag]);
+        mprf("%s messages will be %s.", diag_names[diag],
+             Options.quiet_debug_messages[diag] ? "quiet" : "printed");
+        return;
+    }
 }
 #endif

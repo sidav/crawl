@@ -7,12 +7,10 @@
 #ifndef DUNGEON_H
 #define DUNGEON_H
 
-#include "fixedarray.h"
 #include "env.h"
 #include "externs.h"
-#include "terrain.h"
-#include "stuff.h"
 #include "mapdef.h"
+#include "mon-pick.h"
 
 #include <vector>
 #include <set>
@@ -26,18 +24,6 @@
 #define TEMPLE_GODS_KEY      "temple_gods_key"
 #define OVERFLOW_TEMPLES_KEY "overflow_temples_key"
 #define TEMPLE_MAP_KEY       "temple_map_key"
-
-#if TAG_MAJOR_VERSION == 33
-enum oldportal_type
-{
-    PORTAL_NONE = 0,
-    PORTAL_LABYRINTH,
-    PORTAL_HELL,
-    PORTAL_ABYSS,
-    PORTAL_PANDEMONIUM,
-    NUM_PORTALS
-};
-#endif
 
 const int MAKE_GIFT_ITEM = 350; // worse than the next one
 const int MAKE_GOOD_ITEM = 351;
@@ -55,16 +41,17 @@ enum map_mask_type
     MMT_NO_ITEM    = 0x02,    // Random items should not be placed here.
     MMT_NO_MONS    = 0x04,    // Random monsters should not be placed here.
     MMT_NO_POOL    = 0x08,    // Pool fixup should not be applied here.
-    MMT_NO_DOOR    = 0x10,    // No secret-doorisation.
     MMT_NO_WALL    = 0x20,    // Wall fixup should not be applied here.
     MMT_OPAQUE     = 0x40,    // Vault may impede connectivity.
     MMT_NO_TRAP    = 0x80,    // No trap generation
     MMT_MIMIC      = 0x100,   // Feature mimics
     MMT_NO_MIMIC   = 0x200,   // This feature shouldn't be turned into a mimic.
+    MMT_WAS_DOOR_MIMIC = 0x400, // There was a door mimic there.
+    MMT_NUKED      = 0x800,   // This feature was dug, deconstructed or nuked.
 };
 
 class dgn_region;
-typedef std::vector<dgn_region> dgn_region_list;
+typedef vector<dgn_region> dgn_region_list;
 
 class dgn_region
 {
@@ -141,24 +128,21 @@ public:
 
     map_section_type orient;
     map_def map;
-    std::vector<coord_def> exits;
-
-    int level_number;
+    vector<coord_def> exits;
 
     // The PC has seen at least one square of this vault.
     bool seen;
 
 public:
-    vault_placement()
-        : pos(-1, -1), size(0, 0), orient(MAP_NONE), map(),
-          exits(), level_number(0), seen(false)
-    {
-    }
-
+    vault_placement();
     void reset();
     void apply_grid();
     void draw_at(const coord_def &c);
     void connect(bool spotty = false) const;
+    string map_name_at(const coord_def &c) const;
+    dungeon_feature_type feature_at(const coord_def &c);
+    bool is_exit(const coord_def &c);
+    bool is_space(const coord_def &c);
 };
 
 class vault_place_iterator
@@ -179,16 +163,16 @@ private:
 class unwind_vault_placement_mask
 {
 public:
-    unwind_vault_placement_mask(const map_mask *mask);
+    unwind_vault_placement_mask(const map_bitmask *mask);
     ~unwind_vault_placement_mask();
 private:
-    const map_mask *oldmask;
+    const map_bitmask *oldmask;
 };
 
 extern bool Generating_Level;
-extern std::vector<vault_placement> Temp_Vaults;
+extern vector<vault_placement> Temp_Vaults;
 
-extern const map_mask *Vault_Placement_Mask;
+extern const map_bitmask *Vault_Placement_Mask;
 
 void init_level_connectivity();
 void read_level_connectivity(reader &th);
@@ -216,15 +200,15 @@ void dgn_place_stone_stairs(bool maybe_place_hatches = false);
 void dgn_set_colours_from_monsters();
 void dgn_set_grid_colour_at(const coord_def &c, int colour);
 
-bool dgn_place_map(const map_def *map,
-                   bool check_collision,
-                   bool make_no_exits,
-                   const coord_def &pos = INVALID_COORD);
+const vault_placement *dgn_place_map(const map_def *map,
+                                     bool check_collision,
+                                     bool make_no_exits,
+                                     const coord_def &pos = INVALID_COORD);
 
-const map_def *dgn_safe_place_map(const map_def *map,
-                                  bool check_collision,
-                                  bool make_no_exits,
-                                  const coord_def &pos = INVALID_COORD);
+const vault_placement *dgn_safe_place_map(const map_def *map,
+                                          bool check_collision,
+                                          bool make_no_exits,
+                                          const coord_def &pos = INVALID_COORD);
 
 void level_clear_vault_memory();
 void run_map_epilogues();
@@ -242,8 +226,7 @@ coord_def dgn_find_nearby_stair(dungeon_feature_type stair_to_find,
                                 coord_def base_pos, bool find_closest);
 
 class mons_spec;
-monster *dgn_place_monster(mons_spec &mspec,
-                           int monster_level, const coord_def& where,
+monster *dgn_place_monster(mons_spec &mspec, coord_def where,
                            bool force_pos = false, bool generate_awake = false,
                            bool patrolling = false);
 int dgn_place_item(const item_spec &spec,
@@ -252,24 +235,19 @@ int dgn_place_item(const item_spec &spec,
 
 class item_list;
 void dgn_place_multiple_items(item_list &list,
-                              const coord_def& where,
-                              int level);
+                              const coord_def& where);
 
 bool set_level_flags(uint32_t flags, bool silent = false);
 bool unset_level_flags(uint32_t flags, bool silent = false);
 
-void dgn_set_branch_epilogue(branch_type br, std::string callback_name);
+void dgn_set_branch_epilogue(branch_type br, string callback_name);
 
 void dgn_reset_level(bool enable_random_maps = true);
 
-void dgn_register_place(const vault_placement &place, bool register_vault);
-void dgn_register_vault(const map_def &map);
+const vault_placement *dgn_register_place(const vault_placement &place,
+                                          bool register_vault);
 
 void dgn_seen_vault_at(coord_def p);
-
-int process_disconnected_zones(int x1, int y1, int x2, int y2,
-                               bool choose_stairless,
-                               dungeon_feature_type fill);
 
 // Count number of mutually isolated zones. If choose_stairless, only count
 // zones with no stairs in them. If fill is set to anything other than
@@ -287,10 +265,6 @@ void dgn_replace_area(int sx, int sy, int ex, int ey,
                       dungeon_feature_type feature,
                       unsigned mmask = 0, bool needs_update = false);
 
-bool dgn_ensure_vault_placed(bool vault_success,
-                             bool disable_further_vaults);
-
-
 vault_placement *dgn_vault_at(coord_def gp);
 void dgn_seen_vault_at(coord_def gp);
 
@@ -300,11 +274,18 @@ static inline int count_neighbours(const coord_def& p, dungeon_feature_type feat
     return count_neighbours(p.x, p.y, feat);
 }
 
-std::string dump_vault_maps();
+string dump_vault_maps();
 
 bool dgn_square_travel_ok(const coord_def &c);
 
-bool join_the_dots(const coord_def &from, const coord_def &to, unsigned mmask);
+// Resets travel_point_distance!
+vector<coord_def> dgn_join_the_dots_pathfind(const coord_def &from,
+                                             const coord_def &to,
+                                             uint32_t mapmask);
+
+bool join_the_dots(const coord_def &from, const coord_def &to,
+                   unsigned mmask,
+                   bool (*overwriteable)(dungeon_feature_type) = NULL);
 int count_feature_in_box(int x0, int y0, int x1, int y1,
                          dungeon_feature_type feat);
 bool door_vetoed(const coord_def pos);

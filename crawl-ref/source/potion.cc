@@ -50,7 +50,7 @@ bool potion_effect(potion_type pot_eff, int pow, bool drank_it, bool was_known,
 {
     bool effect = true;  // current behaviour is all potions id on quaffing
 
-    pow = std::min(pow, 150);
+    pow = min(pow, 150);
 
     int factor = (you.species == SP_VAMPIRE
                   && you.hunger_state < HS_SATIATED
@@ -88,7 +88,6 @@ bool potion_effect(potion_type pot_eff, int pow, bool drank_it, bool was_known,
         you.rotting = 0;
         you.disease = 0;
         you.duration[DUR_CONF] = 0;
-        you.duration[DUR_MISLED] = 0;
         you.duration[DUR_NAUSEA] = 0;
         break;
 
@@ -165,12 +164,9 @@ bool potion_effect(potion_type pot_eff, int pow, bool drank_it, bool was_known,
         mprf(MSGCH_DURATION, "You feel %s all of a sudden.",
              were_mighty ? "mightier" : "very mighty");
 
-        // conceivable max gain of +184 {dlb}
         you.increase_duration(DUR_MIGHT, (35 + random2(pow)) / factor, 80);
 
-        if (were_mighty)
-            contaminate_player(1, was_known);
-        else
+        if (!were_mighty)
             notify_stat_change(STAT_STR, 5, true, "");
         break;
     }
@@ -185,9 +181,7 @@ bool potion_effect(potion_type pot_eff, int pow, bool drank_it, bool was_known,
         you.increase_duration(DUR_BRILLIANCE,
                               (35 + random2(pow)) / factor, 80);
 
-        if (were_brilliant)
-            contaminate_player(1, was_known);
-        else
+        if (!were_brilliant)
             notify_stat_change(STAT_INT, 5, true, "");
         break;
     }
@@ -201,9 +195,7 @@ bool potion_effect(potion_type pot_eff, int pow, bool drank_it, bool was_known,
 
         you.increase_duration(DUR_AGILITY, (35 + random2(pow)) / factor, 80);
 
-        if (were_agile)
-            contaminate_player(1, was_known);
-        else
+        if (!were_agile)
             notify_stat_change(STAT_DEX, 5, true, "");
         break;
     }
@@ -223,15 +215,21 @@ bool potion_effect(potion_type pot_eff, int pow, bool drank_it, bool was_known,
             learned_something_new(HINT_YOU_MUTATED);
         break;
 
-    case POT_LEVITATION:
-        if (liquefied(you.pos()) && you.ground_level())
+    case POT_FLIGHT:
+        if (you.form == TRAN_TREE)
+        {
+            mprf(MSGCH_WARN, "Your roots keep you in place.");
+            break;
+        }
+
+        if (you.liquefied_ground())
         {
             mprf(MSGCH_WARN, "This potion isn't strong enough to pull you from the ground!");
             break;
         }
 
-        you.attribute[ATTR_LEV_UNCANCELLABLE] = 1;
-        levitate_player(pow);
+        you.attribute[ATTR_FLIGHT_UNCANCELLABLE] = 1;
+        fly_player(pow);
         break;
 
     case POT_POISON:
@@ -240,6 +238,7 @@ bool potion_effect(potion_type pot_eff, int pow, bool drank_it, bool was_known,
         {
             mprf("You feel %s nauseous.",
                  (pot_eff == POT_POISON) ? "slightly" : "quite");
+            maybe_id_resist(BEAM_POISON);
         }
         else
         {
@@ -248,7 +247,7 @@ bool potion_effect(potion_type pot_eff, int pow, bool drank_it, bool was_known,
                  (pot_eff == POT_POISON) ? "very" : "extremely");
 
             int amount;
-            std::string msg;
+            string msg;
             if (pot_eff == POT_POISON)
             {
                 amount = 1 + random2avg(5, 2);
@@ -348,12 +347,12 @@ bool potion_effect(potion_type pot_eff, int pow, bool drank_it, bool was_known,
 
     // Don't generate randomly - should be rare and interesting.
     case POT_DECAY:
-        if (you.rot(&you, (10 + random2(10)) / factor))
+        if (you.rot(&you, 0, (3 + random2(3)) / factor))
             xom_is_stimulated(50 / xom_factor);
         break;
 
     case POT_FIZZING:
-    case POT_WATER:
+    case NUM_POTIONS:
         if (you.species == SP_VAMPIRE)
             mpr("Blech - this tastes like water.");
         else
@@ -429,15 +428,12 @@ bool potion_effect(potion_type pot_eff, int pow, bool drank_it, bool was_known,
     case POT_RESISTANCE:
         mpr("You feel protected.", MSGCH_DURATION);
         you.increase_duration(DUR_RESISTANCE, (random2(pow) + 35) / factor);
-
-        // Just one point of contamination. These potions are really rare,
-        // and contamination is nastier.
-        contaminate_player(1, was_known);
         break;
 
-    case NUM_POTIONS:
-        mpr("You feel bugginess flow through your body.");
+#if TAG_MAJOR_VERSION == 34
+    case POT_WATER:
         break;
+#endif
     }
 
     return (!was_known && effect);

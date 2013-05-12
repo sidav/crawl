@@ -1,8 +1,6 @@
 #ifndef ITEMPROP_ENUM_H
 #define ITEMPROP_ENUM_H
 
-#include "tags.h"
-
 enum armour_type
 {
     ARM_ROBE,
@@ -106,13 +104,18 @@ enum brand_type // item_def.special
 
     MAX_PAN_LORD_BRANDS = SPWPN_EVASION,
 
-    SPWPN_CONFUSE,
+#if TAG_MAJOR_VERSION == 34
+    SPWPN_CONFUSE, // XXX not a real weapon brand, only for Confusing Touch
+#endif
     SPWPN_PENETRATION,
     SPWPN_REAPING,
 
     NUM_REAL_SPECIAL_WEAPONS,
 
     SPWPN_ACID,    // acid bite only for the moment
+#if TAG_MAJOR_VERSION != 34
+    SPWPN_CONFUSE, // Confusing Touch only for the moment
+#endif
     SPWPN_DEBUG_RANDART,
     NUM_SPECIAL_WEAPONS,
 };
@@ -126,10 +129,7 @@ enum corpse_type
 enum hands_reqd_type
 {
     HANDS_ONE,
-    HANDS_HALF,
     HANDS_TWO,
-
-    HANDS_DOUBLE,       // not a level, marks double ended weapons (== half)
 };
 
 enum helmet_desc_type
@@ -174,7 +174,7 @@ enum jewellery_type
     RING_INTELLIGENCE,
     RING_WIZARDRY,
     RING_MAGICAL_POWER,
-    RING_LEVITATION,
+    RING_FLIGHT,
     RING_LIFE_PROTECTION,
     RING_PROTECTION_FROM_MAGIC,
     RING_FIRE,
@@ -194,7 +194,9 @@ enum jewellery_type
     AMU_RESIST_CORROSION,
     AMU_THE_GOURMAND,
     AMU_CONSERVATION,
+#if TAG_MAJOR_VERSION == 34
     AMU_CONTROLLED_FLIGHT,
+#endif
     AMU_INACCURACY,
     AMU_RESIST_MUTATION,
     AMU_GUARDIAN_SPIRIT,
@@ -221,7 +223,9 @@ enum misc_item_type
     MISC_HORN_OF_GERYON,
     MISC_BOX_OF_BEASTS,
     MISC_CRYSTAL_BALL_OF_ENERGY,
+#if TAG_MAJOR_VERSION == 34
     MISC_EMPTY_EBONY_CASKET,
+#endif
     MISC_DISC_OF_STORMS,
 
     // pure decks
@@ -253,7 +257,6 @@ enum missile_type
     MI_ARROW,
     MI_BOLT,
     MI_JAVELIN,
-    MI_MAX_RACIAL = MI_JAVELIN,
 
     MI_STONE,
     MI_LARGE_ROCK,
@@ -301,7 +304,7 @@ enum scroll_type
     SCR_FEAR,
     SCR_NOISE,
     SCR_REMOVE_CURSE,
-    SCR_UNHOLY_CREATION,
+    SCR_SUMMONING,
     SCR_ENCHANT_WEAPON_I,
     SCR_ENCHANT_ARMOUR,
     SCR_TORMENT,
@@ -339,7 +342,7 @@ enum special_armour_type
     SPARM_DEXTERITY,
     SPARM_INTELLIGENCE,
     SPARM_PONDEROUSNESS,
-    SPARM_LEVITATION,
+    SPARM_FLYING,
     SPARM_MAGIC_RESISTANCE,
     SPARM_PROTECTION,
     SPARM_STEALTH,
@@ -350,7 +353,8 @@ enum special_armour_type
     SPARM_REFLECTION,
     SPARM_SPIRIT_SHIELD,
     SPARM_ARCHERY,
-    NUM_SPECIAL_ARMOURS
+    NUM_REAL_SPECIAL_ARMOURS,
+    NUM_SPECIAL_ARMOURS,
 };
 
 enum special_missile_type // to separate from weapons in general {dlb}
@@ -374,7 +378,8 @@ enum special_missile_type // to separate from weapons in general {dlb}
     SPMSL_CONFUSION,                   // confusing
     SPMSL_SICKNESS,                    // sickness/disease
     SPMSL_RAGE,                        // berserk rage
-    NUM_SPECIAL_MISSILES               // 20
+    NUM_REAL_SPECIAL_MISSILES,
+    NUM_SPECIAL_MISSILES,
 };
 
 enum special_ring_type // jewellery mitm[].special values
@@ -393,7 +398,9 @@ enum stave_type
     STAFF_ENERGY,
     STAFF_DEATH,
     STAFF_CONJURATION,
+#if TAG_MAJOR_VERSION == 34
     STAFF_ENCHANTMENT,
+#endif
     STAFF_SUMMONING,
     STAFF_AIR,
     STAFF_EARTH,
@@ -404,11 +411,11 @@ enum stave_type
 enum rod_type
 {
     ROD_LIGHTNING,
-    ROD_SUMMONING,
+    ROD_SWARM,
     ROD_DESTRUCTION_I,
     ROD_DESTRUCTION_II,
     ROD_DESTRUCTION_III,
-    ROD_DESTRUCTION_IV,
+    ROD_INACCURACY,
     ROD_WARDING,
     ROD_DEMONOLOGY,
     ROD_STRIKING,
@@ -424,7 +431,9 @@ enum weapon_type
     WPN_MACE,
     WPN_FLAIL,
     WPN_MORNINGSTAR,
+#if TAG_MAJOR_VERSION == 34
     WPN_SPIKED_FLAIL,
+#endif
     WPN_DIRE_FLAIL,
     WPN_EVENINGSTAR,
     WPN_GREAT_MACE,
@@ -468,7 +477,7 @@ enum weapon_type
     WPN_DEMON_TRIDENT,
     WPN_SCYTHE,
 
-    WPN_STAFF,
+    WPN_STAFF,          // Just used for the weapon stats for magical staves.
     WPN_QUARTERSTAFF,
     WPN_LAJATANG,
 
@@ -562,7 +571,7 @@ enum wand_type
     WAND_FIREBALL,
     WAND_TELEPORTATION,
     WAND_LIGHTNING,
-    WAND_POLYMORPH_OTHER,
+    WAND_POLYMORPH,
     WAND_ENSLAVEMENT,
     WAND_DRAINING,
     WAND_RANDOM_EFFECTS,

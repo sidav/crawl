@@ -13,14 +13,15 @@
 #include "externs.h"
 
 #include "artefact.h"
+#include "cloud.h"
 #include "delay.h"
 #include "env.h"
 #include "godabil.h"
 #include "goditem.h"
-#include "invent.h"
 #include "item_use.h"
 #include "itemprop.h"
 #include "items.h"
+#include "libutil.h"
 #include "mutation.h"
 #include "output.h"
 #include "player.h"
@@ -37,7 +38,7 @@
 
 static void _extra_hp(int amount_extra);
 
-static const char* form_names[LAST_FORM + 1] =
+static const char* form_names[] =
 {
     "none",
     "spider",
@@ -49,10 +50,16 @@ static const char* form_names[LAST_FORM + 1] =
     "bat",
     "pig",
     "appendage",
+    "tree",
+    "porcupine",
+    "wisp",
+    "jelly",
+    "fungus",
 };
 
 const char* transform_name(transformation_type form)
 {
+    COMPILE_CHECK(ARRAYSZ(form_names) == LAST_FORM + 1);
     ASSERT(form >= 0 && form <= LAST_FORM);
     return form_names[form];
 }
@@ -60,7 +67,7 @@ const char* transform_name(transformation_type form)
 bool form_can_wield(transformation_type form)
 {
     return (form == TRAN_NONE || form == TRAN_STATUE || form == TRAN_LICH
-            || form == TRAN_APPENDAGE);
+            || form == TRAN_APPENDAGE || form == TRAN_TREE);
 }
 
 bool form_can_wear(transformation_type form)
@@ -70,18 +77,15 @@ bool form_can_wear(transformation_type form)
 
 bool form_can_fly(transformation_type form)
 {
-    if (you.species == SP_TENGU
-        && (you.experience_level >= 15 || you.airborne()))
-    {
+    if (you.racial_permanent_flight() && you.permanent_flight())
         return true;
-    }
-    return (form == TRAN_DRAGON || form == TRAN_BAT);
+    return (form == TRAN_DRAGON || form == TRAN_BAT || form == TRAN_WISP);
 }
 
 bool form_can_swim(transformation_type form)
 {
-    // Ice floats.
-    if (form == TRAN_ICE_BEAST)
+    // Ice floats, scum goes to the top.
+    if (form == TRAN_ICE_BEAST || form == TRAN_JELLY)
         return true;
 
     if (you.species == SP_MERFOLK && !form_changed_physiology(form))
@@ -103,6 +107,14 @@ bool form_likes_water(transformation_type form)
             || you.species == SP_OCTOPODE && !form_changed_physiology(form));
 }
 
+bool form_has_mouth(transformation_type form)
+{
+    return form != TRAN_TREE
+        && form != TRAN_WISP
+        && form != TRAN_JELLY
+        && form != TRAN_FUNGUS;
+}
+
 bool form_can_butcher_barehanded(transformation_type form)
 {
     return (form == TRAN_BLADE_HANDS || form == TRAN_DRAGON
@@ -116,14 +128,22 @@ bool form_changed_physiology(transformation_type form)
             && form != TRAN_BLADE_HANDS);
 }
 
+bool form_can_use_wand(transformation_type form)
+{
+    return (form_can_wield(form) || form == TRAN_DRAGON);
+}
+
 bool form_can_wear_item(const item_def& item, transformation_type form)
 {
+    if (form == TRAN_JELLY || form == TRAN_PORCUPINE || form == TRAN_WISP)
+        return false;
+
     if (item.base_type == OBJ_JEWELLERY)
     {
-        // Everyone can wear amulets.
+        // Everyone but jellies, porcupines and wisps can wear amulets.
         if (jewellery_is_amulet(item))
             return true;
-        // And only bats and pigs can't wear rings.
+        // Bats and pigs can't wear rings.
         return (form != TRAN_BAT && form != TRAN_PIG);
     }
 
@@ -152,7 +172,13 @@ bool form_can_wear_item(const item_def& item, transformation_type form)
 
     case TRAN_STATUE:
         return (eqslot == EQ_CLOAK || eqslot == EQ_HELMET
-             || eqslot == EQ_SHIELD);
+                || eqslot == EQ_SHIELD);
+
+    case TRAN_FUNGUS:
+        return (eqslot == EQ_HELMET && !is_hard_helmet(item));
+
+    case TRAN_TREE:
+        return (eqslot == EQ_SHIELD || eqslot == EQ_HELMET);
 
     default:                // Bug-catcher.
         die("Unknown transformation type %d in form_can_wear_item", you.form);
@@ -175,10 +201,10 @@ bool form_keeps_mutations(transformation_type form)
     }
 }
 
-static std::set<equipment_type>
+static set<equipment_type>
 _init_equipment_removal(transformation_type form)
 {
-    std::set<equipment_type> result;
+    set<equipment_type> result;
     if (!form_can_wield(form) && you.weapon() || you.melded[EQ_WEAPON])
         result.insert(EQ_WEAPON);
 
@@ -208,11 +234,11 @@ _init_equipment_removal(transformation_type form)
     return result;
 }
 
-static void _remove_equipment(const std::set<equipment_type>& removed,
+static void _remove_equipment(const set<equipment_type>& removed,
                               bool meld = true, bool mutation = false)
 {
-    // Meld items into you in (reverse) order. (std::set is a sorted container)
-    std::set<equipment_type>::const_iterator iter;
+    // Meld items into you in (reverse) order. (set is a sorted container)
+    set<equipment_type>::const_iterator iter;
     for (iter = removed.begin(); iter != removed.end(); ++iter)
     {
         const equipment_type e = *iter;
@@ -294,25 +320,22 @@ static bool _mutations_prevent_wearing(const item_def& item)
 static void _unmeld_equipment_type(equipment_type e)
 {
     item_def& item = you.inv[you.equip[e]];
+    bool force_remove = false;
 
-    if (item.base_type == OBJ_JEWELLERY)
-        unmeld_slot(e);
-    else if (e == EQ_WEAPON)
+    if (e == EQ_WEAPON)
     {
         if (you.slot_item(EQ_SHIELD)
             && is_shield_incompatible(item, you.slot_item(EQ_SHIELD)))
         {
-            mpr(item.name(DESC_YOUR) + " is pushed off your body!");
-            unequip_item(e);
+            force_remove = true;
         }
-        else
-            unmeld_slot(e);
     }
-    else
+    else if (item.base_type != OBJ_JEWELLERY)
     {
         // In case the player was mutated during the transformation,
         // check whether the equipment is still wearable.
-        bool force_remove = _mutations_prevent_wearing(item);
+        if (_mutations_prevent_wearing(item))
+            force_remove = true;
 
         // If you switched weapons during the transformation, make
         // sure you can still wear your shield.
@@ -322,22 +345,25 @@ static void _unmeld_equipment_type(equipment_type e)
         {
             force_remove = true;
         }
+    }
 
-        if (force_remove)
-        {
-            mprf("%s is pushed off your body!",
-                 item.name(DESC_YOUR).c_str());
-            unequip_item(e);
-        }
-        else
-            unmeld_slot(e);
+    if (force_remove)
+    {
+        mprf("%s is pushed off your body!", item.name(DESC_YOUR).c_str());
+        unequip_item(e);
+    }
+    else
+    {
+        // if (item.base_type != OBJ_JEWELLERY)
+        mprf("%s unmelds from your body.", item.name(DESC_YOUR).c_str());
+        unmeld_slot(e);
     }
 }
 
-static void _unmeld_equipment(const std::set<equipment_type>& melded)
+static void _unmeld_equipment(const set<equipment_type>& melded)
 {
     // Unmeld items in order.
-    std::set<equipment_type>::const_iterator iter;
+    set<equipment_type>::const_iterator iter;
     for (iter = melded.begin(); iter != melded.end(); ++iter)
     {
         const equipment_type e = *iter;
@@ -350,14 +376,14 @@ static void _unmeld_equipment(const std::set<equipment_type>& melded)
 
 void unmeld_one_equip(equipment_type eq)
 {
-    std::set<equipment_type> e;
+    set<equipment_type> e;
     e.insert(eq);
     _unmeld_equipment(e);
 }
 
 void remove_one_equip(equipment_type eq, bool meld, bool mutation)
 {
-    std::set<equipment_type> r;
+    set<equipment_type> r;
     r.insert(eq);
     _remove_equipment(r, meld, mutation);
 }
@@ -368,12 +394,17 @@ size_type player::transform_size(transformation_type tform, int psize) const
     {
     case TRAN_SPIDER:
     case TRAN_BAT:
+    case TRAN_PORCUPINE:
+    case TRAN_WISP:
+    case TRAN_FUNGUS:
         return SIZE_TINY;
     case TRAN_PIG:
+    case TRAN_JELLY:
         return SIZE_SMALL;
     case TRAN_ICE_BEAST:
         return SIZE_LARGE;
     case TRAN_DRAGON:
+    case TRAN_TREE:
         return SIZE_HUGE;
     default:
         return SIZE_CHARACTER;
@@ -395,6 +426,8 @@ monster_type transform_mons()
 {
     switch (you.form)
     {
+    case TRAN_FUNGUS:
+        return MONS_WANDERING_MUSHROOM;
     case TRAN_SPIDER:
         return MONS_SPIDER;
     case TRAN_STATUE:
@@ -409,6 +442,14 @@ monster_type transform_mons()
         return you.species == SP_VAMPIRE ? MONS_VAMPIRE_BAT : MONS_BAT;
     case TRAN_PIG:
         return MONS_HOG;
+    case TRAN_JELLY:
+        return MONS_JELLY;
+    case TRAN_PORCUPINE:
+        return MONS_PORCUPINE;
+    case TRAN_TREE:
+        return MONS_ANIMATED_TREE;
+    case TRAN_WISP:
+        return MONS_INSUBSTANTIAL_WISP;
     case TRAN_BLADE_HANDS:
     case TRAN_APPENDAGE:
     case TRAN_NONE:
@@ -418,7 +459,7 @@ monster_type transform_mons()
     return MONS_PLAYER;
 }
 
-std::string blade_parts(bool terse)
+string blade_parts(bool terse)
 {
     if (you.species == SP_FELID)
         return terse ? "paws" : "front paws";
@@ -431,25 +472,25 @@ monster_type dragon_form_dragon_type()
 {
     switch (you.species)
     {
-        case SP_WHITE_DRACONIAN:
-             return MONS_ICE_DRAGON;
-        case SP_GREEN_DRACONIAN:
-             return MONS_SWAMP_DRAGON;
-        case SP_YELLOW_DRACONIAN:
-             return MONS_GOLDEN_DRAGON;
-        case SP_GREY_DRACONIAN:
-             return MONS_IRON_DRAGON;
-        case SP_BLACK_DRACONIAN:
-             return MONS_STORM_DRAGON;
-        case SP_PURPLE_DRACONIAN:
-             return MONS_QUICKSILVER_DRAGON;
-        case SP_MOTTLED_DRACONIAN:
-             return MONS_MOTTLED_DRAGON;
-        case SP_PALE_DRACONIAN:
-             return MONS_STEAM_DRAGON;
-        case SP_RED_DRACONIAN:
-        default:
-             return MONS_DRAGON;
+    case SP_WHITE_DRACONIAN:
+        return MONS_ICE_DRAGON;
+    case SP_GREEN_DRACONIAN:
+        return MONS_SWAMP_DRAGON;
+    case SP_YELLOW_DRACONIAN:
+        return MONS_GOLDEN_DRAGON;
+    case SP_GREY_DRACONIAN:
+        return MONS_IRON_DRAGON;
+    case SP_BLACK_DRACONIAN:
+        return MONS_STORM_DRAGON;
+    case SP_PURPLE_DRACONIAN:
+        return MONS_QUICKSILVER_DRAGON;
+    case SP_MOTTLED_DRACONIAN:
+        return MONS_MOTTLED_DRAGON;
+    case SP_PALE_DRACONIAN:
+        return MONS_STEAM_DRAGON;
+    case SP_RED_DRACONIAN:
+    default:
+        return MONS_DRAGON;
     }
 }
 
@@ -462,26 +503,31 @@ int form_hp_mod()
         return 13;
     case TRAN_ICE_BEAST:
         return 12;
+    case TRAN_JELLY:
     case TRAN_DRAGON:
+    case TRAN_TREE:
         return 15;
     default:
         return 10;
     }
 }
 
-static bool _levitating_in_new_form(transformation_type which_trans)
+static bool _flying_in_new_form(transformation_type which_trans)
 {
-    //if our levitation is uncancellable (or tenguish) then it's not from evoking
-    if (you.attribute[ATTR_LEV_UNCANCELLABLE] || you.permanent_flight())
+    // If our flight is uncancellable (or tenguish) then it's not from evoking
+    if (you.attribute[ATTR_FLIGHT_UNCANCELLABLE]
+        || you.permanent_flight() && you.racial_permanent_flight())
+    {
         return true;
+    }
 
-    if (!you.is_levitating())
+    if (!you.duration[DUR_FLIGHT] && !you.attribute[ATTR_PERM_FLIGHT])
         return false;
 
-    int sources = player_evokable_levitation();
+    int sources = you.evokable_flight();
     int sources_removed = 0;
-    std::set<equipment_type> removed = _init_equipment_removal(which_trans);
-    for (std::set<equipment_type>::iterator iter = removed.begin();
+    set<equipment_type> removed = _init_equipment_removal(which_trans);
+    for (set<equipment_type>::iterator iter = removed.begin();
          iter != removed.end(); ++iter)
     {
         item_def *item = you.slot_item(*iter, true);
@@ -490,11 +536,11 @@ static bool _levitating_in_new_form(transformation_type which_trans)
         item_info inf = get_item_info(*item);
 
         //similar code to safe_to_remove from item_use.cc
-        if (inf.base_type == OBJ_JEWELLERY && inf.sub_type == RING_LEVITATION)
+        if (inf.base_type == OBJ_JEWELLERY && inf.sub_type == RING_FLIGHT)
             sources_removed++;
-        if (inf.base_type == OBJ_ARMOUR && inf.special == SPARM_LEVITATION)
+        if (inf.base_type == OBJ_ARMOUR && inf.special == SPARM_FLYING)
             sources_removed++;
-        if (is_artefact(inf) && artefact_known_wpn_property(inf, ARTP_LEVITATE))
+        if (is_artefact(inf) && artefact_known_wpn_property(inf, ARTP_FLY))
             sources_removed++;
     }
 
@@ -505,7 +551,7 @@ bool feat_dangerous_for_form(transformation_type which_trans,
                              dungeon_feature_type feat)
 {
     // Everything is okay if we can fly.
-    if (form_can_fly(which_trans) || _levitating_in_new_form(which_trans))
+    if (form_can_fly(which_trans) || _flying_in_new_form(which_trans))
         return false;
 
     // We can only cling for safety if we're already doing so.
@@ -525,7 +571,6 @@ static mutation_type appendages[] =
 {
     MUT_HORNS,
     MUT_TENTACLE_SPIKE,
-    MUT_CLAWS,
     MUT_TALONS,
 };
 
@@ -582,6 +627,13 @@ const char* appendage_name(int app)
 static bool _transformation_is_safe(transformation_type which_trans,
                                     dungeon_feature_type feat, bool quiet)
 {
+    if (which_trans == TRAN_TREE)
+    {
+        const int cloud = env.cgrid(you.pos());
+        if (cloud != EMPTY_CLOUD && is_damaging_cloud(env.cloud[cloud].type, false))
+            return false;
+    }
+
     if (!feat_dangerous_for_form(which_trans, feat))
         return true;
 
@@ -598,19 +650,24 @@ static int _transform_duration(transformation_type which_trans, int pow)
     switch (which_trans)
     {
     case TRAN_BLADE_HANDS:
-        return std::min(10 + random2(pow), 100);
+        return min(10 + random2(pow), 100);
     case TRAN_APPENDAGE:
     case TRAN_SPIDER:
-        return std::min(10 + random2(pow) + random2(pow), 60);
+        return min(10 + random2(pow) + random2(pow), 60);
     case TRAN_STATUE:
     case TRAN_DRAGON:
     case TRAN_LICH:
     case TRAN_BAT:
-        return std::min(20 + random2(pow) + random2(pow), 100);
+        return min(20 + random2(pow) + random2(pow), 100);
     case TRAN_ICE_BEAST:
-        return std::min(30 + random2(pow) + random2(pow), 100);
+        return min(30 + random2(pow) + random2(pow), 100);
+    case TRAN_FUNGUS:
     case TRAN_PIG:
-        return pow;
+    case TRAN_PORCUPINE:
+    case TRAN_JELLY:
+    case TRAN_TREE:
+    case TRAN_WISP:
+        return min(15 + random2(pow) + random2(pow / 2), 100);
     case TRAN_NONE:
         return 0;
     default:
@@ -645,6 +702,8 @@ bool transform(int pow, transformation_type which_trans, bool force,
         // Jiyva's wrath-induced transformation is blocking the attempt.
         // May need to be updated if transform_uncancellable is used for
         // other uses.
+        if (!just_check)
+            mpr("You are stuck in your current form!");
         return false;
     }
 
@@ -716,11 +775,11 @@ bool transform(int pow, transformation_type which_trans, bool force,
         return _abort_or_fizzle(just_check);
     }
 
-    std::set<equipment_type> rem_stuff = _init_equipment_removal(which_trans);
+    set<equipment_type> rem_stuff = _init_equipment_removal(which_trans);
 
     int str = 0, dex = 0;
     const char* tran_name = "buggy";
-    std::string msg;
+    string msg;
 
     if (was_in_water && form_can_fly(which_trans))
         msg = "You fly out of the water as you turn into ";
@@ -822,12 +881,52 @@ bool transform(int pow, transformation_type which_trans, bool force,
         break;
     }
 
+    case TRAN_FUNGUS:
+        tran_name = "fungus";
+        msg      += "a fleshy mushroom.";
+        you.set_duration(DUR_CONFUSING_TOUCH,
+            you.duration[DUR_TRANSFORMATION] ? you.duration[DUR_TRANSFORMATION] : INFINITE_DURATION);
+        break;
+
+    case TRAN_JELLY:
+        tran_name = "jelly";
+        msg      += "a lump of acidic jelly.";
+        break;
+
+    case TRAN_PORCUPINE:
+        tran_name = "spider";
+        str       = -3;
+        msg      += "a spiny porcupine.";
+        break;
+
+    case TRAN_TREE:
+        tran_name = "tree";
+        str       = 10;
+        msg      += "an animated tree.";
+        break;
+
+    case TRAN_WISP:
+        tran_name = "wisp";
+        msg      += "an insubstantial wisp of gas.";
+        break;
+
     case TRAN_NONE:
         tran_name = "null";
         msg += "your old self.";
         break;
     default:
         msg += "something buggy!";
+    }
+
+    if (!force && just_check && (str + you.strength() <= 0 || dex + you.dex() <= 0))
+    {
+        string prompt = make_stringf("Transforming will reduce your %s to zero. Continue?",
+                                     str + you.strength() <= 0 ? "strength" : "dexterity");
+        if (!yesno(prompt.c_str(), false, 'n'))
+        {
+            canned_msg(MSG_OK);
+            return false;
+        }
     }
 
     // If we're just pretending return now.
@@ -907,6 +1006,29 @@ bool transform(int pow, transformation_type which_trans, bool force,
         }
         break;
 
+    case TRAN_FUNGUS:
+        if (you.religion == GOD_FEDHAS)
+            simple_god_message(" smiles upon you.");
+        // ignore hunger_state (but don't reset hunger)
+        you.hunger_state = HS_SATIATED;
+        set_redraw_status(REDRAW_HUNGER);
+        break;
+
+    case TRAN_TREE:
+        if (you.religion == GOD_FEDHAS)
+            simple_god_message(" smiles upon you.");
+        // ignore hunger_state (but don't reset hunger)
+        you.hunger_state = HS_SATIATED;
+        set_redraw_status(REDRAW_HUNGER);
+        mpr("Your roots penetrate the ground.");
+        if (you.duration[DUR_TELEPORT])
+        {
+            you.duration[DUR_TELEPORT] = 0;
+            mpr("You feel strangely stable.");
+        }
+        you.duration[DUR_FLIGHT] = 0;
+        // break out of webs/nets as well
+
     case TRAN_DRAGON:
         if (you.attribute[ATTR_HELD])
         {
@@ -949,6 +1071,12 @@ bool transform(int pow, transformation_type which_trans, bool force,
         }
         break;
 
+    case TRAN_WISP:
+        // ignore hunger_state (but don't reset hunger)
+        you.hunger_state = HS_SATIATED;
+        set_redraw_status(REDRAW_HUNGER);
+        break;
+
     default:
         break;
     }
@@ -982,7 +1110,7 @@ bool transform(int pow, transformation_type which_trans, bool force,
        you.transform_uncancellable = true;
 
     // Re-check terrain now that be may no longer be swimming or flying.
-    if (was_flying && you.flight_mode() == FL_NONE
+    if (was_flying && !you.flight_mode()
                    || feat_is_water(grd(you.pos()))
                       && (which_trans == TRAN_BLADE_HANDS
                           || which_trans == TRAN_APPENDAGE)
@@ -1008,7 +1136,7 @@ void untransform(bool skip_wielding, bool skip_move)
     int hp_downscale = form_hp_mod();
 
     // We may have to unmeld a couple of equipment types.
-    std::set<equipment_type> melded = _init_equipment_removal(old_form);
+    set<equipment_type> melded = _init_equipment_removal(old_form);
 
     you.form = TRAN_NONE;
     you.duration[DUR_TRANSFORMATION]   = 0;
@@ -1076,6 +1204,9 @@ void untransform(bool skip_wielding, bool skip_move)
         break;
 
     case TRAN_PIG:
+    case TRAN_JELLY:
+    case TRAN_PORCUPINE:
+    case TRAN_WISP:
         mpr("Your transformation has ended.", MSGCH_DURATION);
         break;
 
@@ -1092,14 +1223,43 @@ void untransform(bool skip_wielding, bool skip_move)
         }
         break;
 
+    case TRAN_FUNGUS:
+        mpr("You stop sporulating.", MSGCH_DURATION);
+        you.set_duration(DUR_CONFUSING_TOUCH, 0);
+        break;
+    case TRAN_TREE:
+        mpr("You feel less woody.", MSGCH_DURATION);
+        if (grd(you.pos()) == DNGN_DEEP_WATER && you.species == SP_TENGU
+            && you.experience_level >= 5)
+        {
+            // Flight was disabled, need to turn it back NOW.
+            if (you.experience_level >= 15)
+                you.attribute[ATTR_PERM_FLIGHT] = 1;
+            else
+                you.increase_duration(DUR_FLIGHT, 50, 100);
+            mpr("You frantically escape the water.");
+        }
+        notify_stat_change(STAT_STR, -10, true,
+                     "losing the tree transformation");
+        break;
+
     default:
         break;
     }
 
     _unmeld_equipment(melded);
 
+    if (old_form == TRAN_TREE && grd(you.pos()) == DNGN_DEEP_WATER
+        && you.wearing_ego(EQ_ALL_ARMOUR, SPARM_FLYING)
+        && !species_likes_water(you.species)
+        && !you.attribute[ATTR_PERM_FLIGHT]) // tengu may have both
+    {
+        you.attribute[ATTR_PERM_FLIGHT] = 1;
+        mpr("You frantically enable flight.");
+    }
+
     // Re-check terrain now that be may no longer be swimming or flying.
-    if (!skip_move && (old_flight && you.flight_mode() == FL_NONE
+    if (!skip_move && (old_flight && !you.flight_mode()
                        || (feat_is_water(grd(you.pos()))
                            && (old_form == TRAN_ICE_BEAST
                                || you.species == SP_MERFOLK))))

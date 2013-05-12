@@ -1807,7 +1807,7 @@ char *yytext;
 
 static bool alloced = false;
 
-std::queue<const char *> free_queue;
+queue<const char *> free_queue;
 
 static void flush_free_queue(unsigned int max_allowed)
 {

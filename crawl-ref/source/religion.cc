@@ -17,6 +17,7 @@
 #include "externs.h"
 
 #include "abl-show.h"
+#include "branch.h"
 #include "acquire.h"
 #include "areas.h"
 #include "artefact.h"
@@ -39,6 +40,7 @@
 #include "files.h"
 #include "godabil.h"
 #include "goditem.h"
+#include "godcompanions.h"
 #include "godpassive.h"
 #include "godprayer.h"
 #include "godwrath.h"
@@ -246,9 +248,9 @@ const char* god_gain_power_messages[NUM_GODS][MAX_GOD_ABILITIES] =
     { "", "", "", "", "" },
     // Vehumet
     { "gain magical power from killing",
+      "",
       "Vehumet is aiding your destructive magics.",
       "Vehumet is extending the range of your destructive magics.",
-      "Vehumet is reducing the cost of your expensive destructive magics.",
       "" },
     // Okawaru
     { "gain great but temporary skills",
@@ -291,7 +293,7 @@ const char* god_gain_power_messages[NUM_GODS][MAX_GOD_ABILITIES] =
       "bend space around yourself",
       "banish your foes",
       "corrupt the fabric of space",
-      "gate yourself to the Abyss - for a price" },
+      "gate yourself to the Abyss" },
     // Beogh
     { "Beogh supports the use of orcish gear.",
       "smite your foes",
@@ -300,7 +302,7 @@ const char* god_gain_power_messages[NUM_GODS][MAX_GOD_ABILITIES] =
       "walk on water" },
     // Jiyva
     { "request a jelly",
-      "",
+      "temporarily halt your jellies' item consumption",
       "",
       "turn your foes to slime",
       "call upon Jiyva to remove your harmful mutations"
@@ -363,9 +365,9 @@ const char* god_lose_power_messages[NUM_GODS][MAX_GOD_ABILITIES] =
     { "", "", "", "", "" },
     // Vehumet
     { "gain magical power from killing",
+      "",
       "Vehumet will no longer aid your destructive magics.",
       "Vehumet will no longer extend the range of your destructive magics.",
-      "Vehumet will no longer reduce the cost of your expensive destructive magics.",
       "" },
     // Okawaru
     { "gain great but temporary skills",
@@ -417,7 +419,7 @@ const char* god_lose_power_messages[NUM_GODS][MAX_GOD_ABILITIES] =
       "walk on water" },
     // Jiyva
     { "request a jelly",
-      "",
+      "temporarily halt your jellies' item consumption",
       "",
       "turn your foes to slime",
       "call upon Jiyva to remove your harmful mutations"
@@ -449,7 +451,7 @@ typedef void (*delayed_callback)(const mgen_data &mg, monster *&mon, int placed)
 
 static void _delayed_monster(const mgen_data &mg,
                              delayed_callback callback = NULL);
-static void _delayed_monster_done(std::string success, std::string failure,
+static void _delayed_monster_done(string success, string failure,
                                   delayed_callback callback = NULL);
 static void _place_delayed_monsters();
 
@@ -475,6 +477,11 @@ bool is_chaotic_god(god_type god)
             || god == GOD_MAKHLEB
             || god == GOD_LUGONU
             || god == GOD_JIYVA);
+}
+
+bool is_unknown_god(god_type god)
+{
+    return (god == GOD_NAMELESS);
 }
 
 bool is_unavailable_god(god_type god)
@@ -509,24 +516,24 @@ god_type random_god(bool available)
     return god;
 }
 
-std::string get_god_powers(god_type which_god)
+string get_god_powers(god_type which_god)
 {
     // Return early for the special cases.
     if (which_god == GOD_NO_GOD)
         return "";
 
-    std::string result = getLongDescription(god_name(which_god) + " powers");
+    string result = getLongDescription(god_name(which_god) + " powers");
     return result;
 }
 
-std::string get_god_likes(god_type which_god, bool verbose)
+string get_god_likes(god_type which_god, bool verbose)
 {
     if (which_god == GOD_NO_GOD || which_god == GOD_XOM)
         return "";
 
-    std::string text = uppercase_first(god_name(which_god));
-    std::vector<std::string> likes;
-    std::vector<std::string> really_likes;
+    string text = uppercase_first(god_name(which_god));
+    vector<string> likes;
+    vector<string> really_likes;
 
     // Unique/unusual piety gain methods first.
     switch (which_god)
@@ -543,10 +550,8 @@ std::string get_god_likes(god_type which_god, bool verbose)
         break;
 
     case GOD_TROG:
-        snprintf(info, INFO_SIZE, "you destroy spellbooks (especially ones "
-                                  "you've never read)%s",
+        snprintf(info, INFO_SIZE, "you destroy spellbooks%s",
                  verbose ? " via the <w>a</w> command" : "");
-
         likes.push_back(info);
         break;
 
@@ -564,9 +569,7 @@ std::string get_god_likes(god_type which_god, bool verbose)
                  verbose ? " via the <w>p</w> command (inscribe items with "
                            "<w>!p</w> to prevent their accidental destruction)"
                          : "");
-
         likes.push_back(info);
-
         likes.push_back("you calm hostilities by healing your foes");
         break;
 
@@ -584,15 +587,13 @@ std::string get_god_likes(god_type which_god, bool verbose)
         break;
 
     case GOD_ASHENZARI:
-        snprintf(info, INFO_SIZE, "you explore the world (preferably while "
-                                  "bound by curses)");
-        likes.push_back(info);
+        likes.push_back("you explore the world (preferably while bound by "
+                        "curses)");
         break;
 
     case GOD_SHINING_ONE:
-        snprintf(info, INFO_SIZE, "you meet creatures to determine whether "
-                                  "they need to be eradicated");
-        likes.push_back(info);
+        likes.push_back("you meet creatures to determine whether they need to "
+                        "be eradicated");
         break;
 
     case GOD_LUGONU:
@@ -608,7 +609,6 @@ std::string get_god_likes(god_type which_god, bool verbose)
     case GOD_ZIN:
         snprintf(info, INFO_SIZE, "you donate money%s",
                  verbose ? " (by <w>p</w>raying at an altar)" : "");
-
         likes.push_back(info);
         break;
 
@@ -626,8 +626,7 @@ std::string get_god_likes(god_type which_god, bool verbose)
         break;
 
     case GOD_ASHENZARI:
-        snprintf(info, INFO_SIZE, "you obtain runes of Zot");
-        likes.push_back(info);
+        likes.push_back("you obtain runes of Zot");
         break;
 
     default:
@@ -644,7 +643,8 @@ std::string get_god_likes(god_type which_god, bool verbose)
 
     switch (which_god)
     {
-    case GOD_VEHUMET: case GOD_MAKHLEB: case GOD_LUGONU:
+    case GOD_MAKHLEB:
+    case GOD_LUGONU:
         likes.push_back("you or your allies kill living beings");
         break;
 
@@ -662,6 +662,7 @@ std::string get_god_likes(god_type which_god, bool verbose)
         break;
 
     case GOD_OKAWARU:
+    case GOD_VEHUMET:
         likes.push_back("you kill living beings");
         break;
 
@@ -685,7 +686,8 @@ std::string get_god_likes(god_type which_god, bool verbose)
 
     switch (which_god)
     {
-    case GOD_SHINING_ONE: case GOD_VEHUMET: case GOD_MAKHLEB:
+    case GOD_SHINING_ONE:
+    case GOD_MAKHLEB:
     case GOD_LUGONU:
         likes.push_back("you or your allies kill the undead");
         break;
@@ -695,6 +697,7 @@ std::string get_god_likes(god_type which_god, bool verbose)
         break;
 
     case GOD_OKAWARU:
+    case GOD_VEHUMET:
         likes.push_back("you kill the undead");
         break;
 
@@ -704,7 +707,9 @@ std::string get_god_likes(god_type which_god, bool verbose)
 
     switch (which_god)
     {
-    case GOD_SHINING_ONE: case GOD_MAKHLEB: case GOD_LUGONU:
+    case GOD_SHINING_ONE:
+    case GOD_MAKHLEB:
+    case GOD_LUGONU:
         likes.push_back("you or your allies kill demons");
         break;
 
@@ -721,6 +726,7 @@ std::string get_god_likes(god_type which_god, bool verbose)
         break;
 
     case GOD_OKAWARU:
+    case GOD_VEHUMET:
         likes.push_back("you kill demons");
         break;
 
@@ -740,7 +746,8 @@ std::string get_god_likes(god_type which_god, bool verbose)
 
     switch (which_god)
     {
-    case GOD_MAKHLEB: case GOD_LUGONU:
+    case GOD_MAKHLEB:
+    case GOD_LUGONU:
         likes.push_back("you or your allies kill holy beings");
         break;
 
@@ -750,6 +757,7 @@ std::string get_god_likes(god_type which_god, bool verbose)
 
     case GOD_YREDELEMNUL:
         likes.push_back("your undead slaves kill holy beings");
+        likes.push_back("you desecrate holy remains");
         break;
 
     case GOD_KIKUBAAQUDGHA:
@@ -761,6 +769,7 @@ std::string get_god_likes(god_type which_god, bool verbose)
         break;
 
     case GOD_OKAWARU:
+    case GOD_VEHUMET:
         likes.push_back("you kill holy beings");
         break;
 
@@ -810,15 +819,15 @@ std::string get_god_likes(god_type which_god, bool verbose)
     return text;
 }
 
-std::string get_god_dislikes(god_type which_god, bool /*verbose*/)
+string get_god_dislikes(god_type which_god, bool /*verbose*/)
 {
     // Return early for the special cases.
     if (which_god == GOD_NO_GOD || which_god == GOD_XOM)
         return "";
 
-    std::string text;
-    std::vector<std::string> dislikes;        // Piety loss
-    std::vector<std::string> really_dislikes; // Penance
+    string text;
+    vector<string> dislikes;        // Piety loss
+    vector<string> really_dislikes; // Penance
 
     if (god_hates_cannibalism(which_god))
         really_dislikes.push_back("you perform cannibalism");
@@ -890,6 +899,7 @@ std::string get_god_dislikes(god_type which_god, bool /*verbose*/)
     {
     case GOD_ZIN:
         dislikes.push_back("you deliberately mutate yourself");
+        really_dislikes.push_back("you transform yourself");
         really_dislikes.push_back("you polymorph monsters");
         really_dislikes.push_back("you use unclean or chaotic magic or items");
         really_dislikes.push_back("you eat the flesh of sentient beings");
@@ -1005,13 +1015,13 @@ void dec_penance(god_type god, int val)
                  you.redraw_armour_class = true;
             // TSO's halo is once more available.
             else if (god == GOD_SHINING_ONE
-                && you.piety >= piety_breakpoint(0))
+                     && you.piety >= piety_breakpoint(0))
             {
                 mpr("Your divine halo returns!");
                 invalidate_agrid(true);
             }
             else if (god == GOD_ASHENZARI
-                && you.piety >= piety_breakpoint(2))
+                     && you.piety >= piety_breakpoint(2))
             {
                 mpr("Your vision regains its divine sight.");
                 autotoggle_autopickup(false);
@@ -1027,6 +1037,10 @@ void dec_penance(god_type god, int val)
             // another chance to make hostile holy beings good neutral.
             if (is_good_god(god))
                 add_daction(DACT_HOLY_NEW_ATTEMPT);
+            // When you've worked through all your penance, you get
+            // another chance to make hostile slimes strict neutral.
+            else if (god == GOD_JIYVA)
+                add_daction(DACT_SLIME_NEW_ATTEMPT);
         }
     }
     else if (god == GOD_NEMELEX_XOBEH && you.penance[god] > 100)
@@ -1071,7 +1085,7 @@ static void _inc_penance(god_type god, int val)
         take_note(Note(NOTE_PENANCE, god));
 
         you.penance[god] += val;
-        you.penance[god] = std::min((uint8_t)MAX_PENANCE, you.penance[god]);
+        you.penance[god] = min((uint8_t)MAX_PENANCE, you.penance[god]);
 
         // Orcish bonuses don't apply under penance.
         if (god == GOD_BEOGH)
@@ -1134,7 +1148,7 @@ static void _inc_penance(god_type god, int val)
     else
     {
         you.penance[god] += val;
-        you.penance[god] = std::min((uint8_t)MAX_PENANCE, you.penance[god]);
+        you.penance[god] = min((uint8_t)MAX_PENANCE, you.penance[god]);
     }
 }
 
@@ -1174,9 +1188,8 @@ int yred_random_servants(unsigned int threshold, bool force_hostile)
         threshold = ARRAYSZ(_yred_servants);
     else
     {
-        threshold =
-            std::min(static_cast<unsigned int>(ARRAYSZ(_yred_servants)),
-                     threshold);
+        threshold = min(static_cast<unsigned int>(ARRAYSZ(_yred_servants)),
+                        threshold);
     }
 
     const unsigned int servant = random2(threshold);
@@ -1338,10 +1351,12 @@ static misc_item_type _gift_type_to_deck(int gift)
 
 static bool _give_nemelex_gift(bool forced = false)
 {
-    // But only if you're not levitating over deep water.
-    // Merfolk don't get gifts in deep water. {due}
-    if (!feat_has_solid_floor(grd(you.pos())))
+    // But only if you're not flying over deep water.
+    if (!(feat_has_solid_floor(grd(you.pos()))
+          || feat_is_watery(grd(you.pos())) && species_likes_water(you.species)))
+    {
         return false;
+    }
 
     // Nemelex will give at least one gift early.
     if (forced
@@ -1397,7 +1412,6 @@ static bool _give_nemelex_gift(bool forced = false)
 
             deck.special = rarity;
             deck.colour  = deck_rarity_to_colour(rarity);
-            deck.inscription = "god gift";
 
             simple_god_message(" grants you a gift!");
             more();
@@ -1465,10 +1479,10 @@ bool is_fellow_slime(const monster* mon)
             && mons_is_god_gift(mon, GOD_JIYVA));
 }
 
-static bool _is_neutral_plant(const monster* mon)
+static bool _is_plant_follower(const monster* mon)
 {
     return (mon->alive() && mons_is_plant(mon)
-            && mon->attitude == ATT_GOOD_NEUTRAL);
+            && mon->attitude == ATT_FRIENDLY);
 }
 
 static bool _has_jelly()
@@ -1490,7 +1504,7 @@ bool is_follower(const monster* mon)
     else if (you.religion == GOD_JIYVA)
         return is_fellow_slime(mon);
     else if (you.religion == GOD_FEDHAS)
-        return _is_neutral_plant(mon);
+        return _is_plant_follower(mon);
     else
         return (mon->alive() && mon->friendly());
 }
@@ -1554,7 +1568,7 @@ static bool _blessing_AC(monster* mon)
 static bool _blessing_balms(monster* mon)
 {
     // Remove poisoning, sickness, confusion, and rotting, like a potion
-    // of healing, but without the healing.  Also, remove slowing and
+    // of curing, but without the healing. Also, remove slowing and
     // fatigue.
     bool success = false;
 
@@ -1595,85 +1609,6 @@ static bool _blessing_healing(monster* mon)
     return false;
 }
 
-static bool _tso_blessing_holy_wpn(monster* mon)
-{
-    // Pick a monster's weapon.
-    const int weapon = mon->inv[MSLOT_WEAPON];
-    const int alt_weapon = mon->inv[MSLOT_ALT_WEAPON];
-
-    if (weapon == NON_ITEM && alt_weapon == NON_ITEM
-        || mon->type == MONS_DANCING_WEAPON)
-    {
-        return false;
-    }
-
-    int slot;
-
-    do
-        slot = (coinflip()) ? weapon : alt_weapon;
-    while (slot == NON_ITEM);
-
-    item_def& wpn(mitm[slot]);
-
-    const int wpn_brand = get_weapon_brand(wpn);
-
-    // Only brand weapons, and only override certain brands.
-    if (is_artefact(wpn)
-        || (wpn_brand != SPWPN_NORMAL && wpn_brand != SPWPN_DRAINING
-            && wpn_brand != SPWPN_PAIN && wpn_brand != SPWPN_VAMPIRICISM
-            && wpn_brand != SPWPN_REAPING && wpn_brand != SPWPN_CHAOS
-            && wpn_brand != SPWPN_VENOM))
-    {
-        return false;
-    }
-
-    // Convert a demonic weapon into a non-demonic weapon.
-    if (is_demonic(wpn))
-        convert2good(wpn, false);
-
-    // And make it holy.
-    set_equip_desc(wpn, ISFLAG_GLOWING);
-    set_item_ego_type(wpn, OBJ_WEAPONS, SPWPN_HOLY_WRATH);
-    wpn.colour = YELLOW;
-
-    return true;
-}
-
-static bool _tso_blessing_holy_arm(monster* mon)
-{
-    // If a monster has full negative energy resistance, get out.
-    if (mon->res_negative_energy() == 3)
-        return false;
-
-    // Pick either a monster's armour or its shield.
-    const int armour = mon->inv[MSLOT_ARMOUR];
-    const int shield = mon->inv[MSLOT_SHIELD];
-
-    if (armour == NON_ITEM && shield == NON_ITEM)
-        return false;
-
-    int slot;
-
-    do
-        slot = (coinflip()) ? armour : shield;
-    while (slot == NON_ITEM);
-
-    item_def& arm(mitm[slot]);
-
-    const int arm_brand = get_armour_ego_type(arm);
-
-    // Override certain brands.
-    if (is_artefact(arm) || arm_brand != SPARM_NORMAL)
-        return false;
-
-    // And make it resistant to negative energy.
-    set_equip_desc(arm, ISFLAG_GLOWING);
-    set_item_ego_type(arm, OBJ_ARMOUR, SPARM_POSITIVE_ENERGY);
-    arm.colour = WHITE;
-
-    return true;
-}
-
 static bool _increase_ench_duration(monster* mon,
                                     mon_enchant ench,
                                     const int increase)
@@ -1681,7 +1616,7 @@ static bool _increase_ench_duration(monster* mon,
     // Durations are saved as 16-bit signed ints, so clamp at the largest such.
     const int MARSHALL_MAX = (1 << 15) - 1;
 
-    const int newdur = std::min(ench.duration + increase, MARSHALL_MAX);
+    const int newdur = min(ench.duration + increase, MARSHALL_MAX);
     if (ench.duration >= newdur)
         return false;
 
@@ -1691,10 +1626,10 @@ static bool _increase_ench_duration(monster* mon,
     return true;
 }
 
-static int _tso_blessing_extend_stay(monster* mon)
+static bool _tso_blessing_extend_stay(monster* mon)
 {
     if (!mon->has_ench(ENCH_ABJ))
-        return 0;
+        return false;
 
     mon_enchant abj = mon->get_ench(ENCH_ABJ);
 
@@ -1704,8 +1639,8 @@ static int _tso_blessing_extend_stay(monster* mon)
     if (mon->is_holy())
         return _increase_ench_duration(mon, abj, 1100 + random2(1100));
     else
-        return _increase_ench_duration(mon, abj, std::min(abj.duration,
-                                                          500 + random2(500)));
+        return _increase_ench_duration(mon, abj, min(abj.duration,
+                                                     500 + random2(500)));
 }
 
 static bool _tso_blessing_friendliness(monster* mon)
@@ -1802,7 +1737,7 @@ bool bless_follower(monster* follower,
                     bool force)
 {
     int chance = (force ? coinflip() : random2(20));
-    std::string result;
+    string result;
 
     // If a follower was specified, and it's suitable, pick it.
     // Otherwise, pick a random follower.
@@ -1859,51 +1794,16 @@ bool bless_follower(monster* follower,
     }
     ASSERT(follower);
 
-    if (chance <= 1) // 10% chance of holy branding, or priesthood
+    if (chance <= 1 && god == GOD_BEOGH) // 10% chance of priesthood
     {
-        switch (god)
+        // Turn a monster into a priestly monster, if possible.
+        if (_beogh_blessing_priesthood(follower))
         {
-            case GOD_SHINING_ONE:
-                if (coinflip())
-                {
-                    // Brand a monster's weapon with holy wrath, if
-                    // possible.
-                    if (_tso_blessing_holy_wpn(follower))
-                    {
-                        result = "holy attack power";
-                        goto blessing_done;
-                    }
-                    else if (force)
-                        mpr("Couldn't bless monster's weapon.");
-                }
-                else
-                {
-                    // Brand a monster's armour with positive energy, if
-                    // possible.
-                    if (_tso_blessing_holy_arm(follower))
-                    {
-                        result = "life defence";
-                        goto blessing_done;
-                    }
-                    else if (force)
-                        mpr("Couldn't bless monster's armour.");
-                }
-                break;
-
-            case GOD_BEOGH:
-                // Turn a monster into a priestly monster, if possible.
-                if (_beogh_blessing_priesthood(follower))
-                {
-                    result = "priesthood";
-                    goto blessing_done;
-                }
-                else if (force)
-                    mpr("Couldn't promote monster to priesthood.");
-                break;
-
-            default:
-                break;
+            result = "priesthood";
+            goto blessing_done;
         }
+        else if (force)
+            mpr("Couldn't promote monster to priesthood.");
     }
 
     // Enchant a monster's weapon or armour/shield by one point, or at
@@ -1943,7 +1843,7 @@ bool bless_follower(monster* follower,
         {
             // Extend a monster's stay if it's abjurable, or extend charm
             // duration. If neither is possible, deliberately fall through.
-            int more_time = _tso_blessing_extend_stay(follower);
+            bool more_time = _tso_blessing_extend_stay(follower);
             bool friendliness = false;
 
             if (!more_time || coinflip())
@@ -1959,10 +1859,7 @@ bool bless_follower(monster* follower,
             }
 
             if (more_time)
-            {
-                result += (more_time == 2) ? "permanent time in this world"
-                                           : "more time in this world";
-            }
+                result += "more time in this world";
 
             if (more_time || friendliness)
                 break;
@@ -2012,7 +1909,7 @@ bool bless_follower(monster* follower,
 
 blessing_done:
 
-    std::string whom = "";
+    string whom = "";
     if (!follower)
         whom = "you";
     else
@@ -2068,6 +1965,134 @@ static bool _jiyva_mutate()
         return mutate(RANDOM_GOOD_MUTATION, "Jiyva's grace", true, false, true);
 }
 
+bool vehumet_is_offering(spell_type spell)
+{
+    return (find(you.vehumet_gifts.begin(), you.vehumet_gifts.end(), spell)
+            != you.vehumet_gifts.end());
+}
+
+void vehumet_accept_gift(spell_type spell)
+{
+    set<spell_type>::iterator it =
+        find(you.vehumet_gifts.begin(), you.vehumet_gifts.end(), spell);
+    if (it != you.vehumet_gifts.end())
+    {
+        you.vehumet_gifts.erase(it);
+        you.seen_spell[spell] = true;
+        you.duration[DUR_VEHUMET_GIFT] = 0;
+    }
+}
+
+static void _add_to_old_gifts(spell_type spell)
+{
+    you.old_vehumet_gifts.insert(spell);
+}
+
+static bool _is_old_gift(spell_type spell)
+{
+    return (find(you.old_vehumet_gifts.begin(),
+                 you.old_vehumet_gifts.end(), spell)
+            != you.old_vehumet_gifts.end());
+}
+
+static set<spell_type> _vehumet_eligible_gift_spells(set<spell_type> excluded_spells)
+{
+    set<spell_type> eligible_spells;
+
+    const int gifts = you.num_total_gifts[you.religion];
+    if (gifts >= 13)
+        return eligible_spells;
+
+    int min_lev[13] = {1,1,2,3,3,4,4,5,5,6,6,6,8};
+    int max_lev[13] = {1,2,3,4,5,7,7,7,7,7,7,7,9};
+    int min_level = min_lev[gifts];
+    int max_level = max_lev[gifts];
+
+    if (min_level > you.experience_level)
+        return eligible_spells;
+
+    set<spell_type> backup_spells;
+    for (int i = 0; i < NUM_SPELLS; ++i)
+    {
+        spell_type spell = static_cast<spell_type>(i);
+        if (!is_valid_spell(spell))
+            continue;
+
+        if (find(excluded_spells.begin(), excluded_spells.end(), spell)
+            != excluded_spells.end())
+        {
+            continue;
+        }
+
+        if (vehumet_supports_spell(spell)
+            && !you.has_spell(spell)
+            && is_player_spell(spell)
+            && spell_difficulty(spell) <= max_level
+            && spell_difficulty(spell) >= min_level)
+        {
+            if (!you.seen_spell[spell] && !_is_old_gift(spell))
+                eligible_spells.insert(spell);
+            else
+                backup_spells.insert(spell);
+        }
+    }
+    // Don't get stuck just because all spells have been seen/offered.
+    if (eligible_spells.empty())
+    {
+        if (backup_spells.empty())
+        {
+            // This is quite improbable to happen, but in this case just
+            // skip the gift and increment the gift counter.
+            if (gifts <= 12)
+            {
+                you.num_current_gifts[you.religion]++;
+                you.num_total_gifts[you.religion]++;
+            }
+        }
+        return backup_spells;
+    }
+    return eligible_spells;
+}
+
+static int _vehumet_weighting(spell_type spell)
+{
+    int bias = 100 + elemental_preference(spell, 10);
+    bias = min(max(bias, 10), 190);
+    return bias;
+}
+
+static spell_type _vehumet_find_spell_gift(set<spell_type> excluded_spells)
+{
+    set<spell_type> eligible_spells = _vehumet_eligible_gift_spells(excluded_spells);
+    spell_type spell = SPELL_NO_SPELL;
+    int total_weight = 0;
+    int this_weight = 0;
+    for (set<spell_type>::iterator it = eligible_spells.begin();
+         it != eligible_spells.end(); ++it)
+    {
+        this_weight = _vehumet_weighting(*it);
+        total_weight += this_weight;
+        if (x_chance_in_y(this_weight, total_weight))
+            spell = *it;
+    }
+    return (spell);
+}
+
+static set<spell_type> _vehumet_get_spell_gifts()
+{
+    set<spell_type> offers;
+    unsigned int num_offers = you.num_total_gifts[you.religion] == 12 ? 3 : 1;
+    while (offers.size() < num_offers)
+    {
+        spell_type offer = _vehumet_find_spell_gift(offers);
+        if (offer == SPELL_NO_SPELL)
+            break;
+        offers.insert(offer);
+    }
+    return offers;
+}
+
+///////////////////////////////
 bool do_god_gift(bool forced)
 {
     ASSERT(you.religion != GOD_NO_GOD);
@@ -2099,8 +2124,11 @@ bool do_god_gift(bool forced)
         case GOD_TROG:
         {
             // Break early if giving a gift now means it would be lost.
-            if (!feat_has_solid_floor(grd(you.pos())))
+            if (!(feat_has_solid_floor(grd(you.pos()))
+                || feat_is_watery(grd(you.pos())) && species_likes_water(you.species)))
+            {
                 break;
+            }
 
             // Should gift catnip instead.
             if (you.species == SP_FELID)
@@ -2156,9 +2184,9 @@ bool do_god_gift(bool forced)
             {
                 unsigned int threshold = MIN_YRED_SERVANT_THRESHOLD
                                          + you.num_current_gifts[you.religion] / 2;
-                threshold = std::max(threshold,
+                threshold = max(threshold,
                     static_cast<unsigned int>(MIN_YRED_SERVANT_THRESHOLD));
-                threshold = std::min(threshold,
+                threshold = min(threshold,
                     static_cast<unsigned int>(MAX_YRED_SERVANT_THRESHOLD));
 
                 if (yred_random_servants(threshold) != -1)
@@ -2188,12 +2216,11 @@ bool do_god_gift(bool forced)
 
         case GOD_KIKUBAAQUDGHA:
         case GOD_SIF_MUNA:
-        case GOD_VEHUMET:
+            int gift;
+            gift = NUM_BOOKS;
             // Break early if giving a gift now means it would be lost.
             if (!feat_has_solid_floor(grd(you.pos())))
                 break;
-
-            unsigned int gift = NUM_BOOKS;
 
             // Kikubaaqudgha gives the lesser Necromancy books in a quick
             // succession.
@@ -2214,26 +2241,6 @@ bool do_god_gift(bool forced)
             {
                 if (you.religion == GOD_SIF_MUNA)
                     gift = OBJ_RANDOM;
-                else if (you.religion == GOD_VEHUMET)
-                {
-                    if (!you.had_book[BOOK_CONJURATIONS])
-                        gift = BOOK_CONJURATIONS;
-                    else if (!you.had_book[BOOK_POWER])
-                        gift = BOOK_POWER;
-                    else if (!you.had_book[BOOK_ANNIHILATIONS])
-                        gift = BOOK_ANNIHILATIONS;  // Conjuration books.
-
-                    if (you.skills[SK_CONJURATIONS] < you.skills[SK_SUMMONINGS]
-                        || gift == NUM_BOOKS)
-                    {
-                        if (!you.had_book[BOOK_CALLINGS])
-                            gift = BOOK_CALLINGS;
-                        else if (!you.had_book[BOOK_SUMMONINGS])
-                            gift = BOOK_SUMMONINGS;
-                        else if (!you.had_book[BOOK_GRAND_GRIMOIRE])
-                            gift = BOOK_GRAND_GRIMOIRE; // Summoning books.
-                    }
-                }
             }
 
             if (gift != NUM_BOOKS)
@@ -2266,10 +2273,7 @@ bool do_god_gift(bool forced)
                     move_item_to_grid(&thing_created, you.pos(), true);
 
                     if (thing_created != NON_ITEM)
-                    {
                         success = true;
-                        mitm[thing_created].inscription = "god gift";
-                    }
                 }
 
                 if (success)
@@ -2281,19 +2285,64 @@ bool do_god_gift(bool forced)
                     you.num_total_gifts[you.religion]++;
                     // Timeouts are meaningless for Kiku.
                     if (you.religion != GOD_KIKUBAAQUDGHA)
-                    {
-                        // Vehumet gives books less readily.
-                        if (you.religion == GOD_VEHUMET)
-                            _inc_gift_timeout(10 + random2(10));
-
                         _inc_gift_timeout(40 + random2avg(19, 2));
-                    }
                     take_note(Note(NOTE_GOD_GIFT, you.religion));
                 }
             }                   // End of giving books.
             break;              // End of book gods.
+
+        case GOD_VEHUMET:
+            const int gifts = you.num_total_gifts[you.religion];
+            if (forced || !you.duration[DUR_VEHUMET_GIFT]
+                          && (you.piety >= piety_breakpoint(0) && gifts == 0
+                              || you.piety >= piety_breakpoint(0) + random2(6) + 18 * gifts && gifts <= 5
+                              || you.piety >= piety_breakpoint(4) && gifts <= 11 && one_chance_in(20)
+                              || you.piety >= 161 && gifts <= 12 && one_chance_in(20)))
+            {
+                set<spell_type> offers = _vehumet_get_spell_gifts();
+                if (!offers.empty())
+                {
+                    you.vehumet_gifts = offers;
+                    string prompt = " offers you knowledge of ";
+                    for (set<spell_type>::iterator it = offers.begin();
+                         it != offers.end(); ++it)
+                    {
+                        if (it != offers.begin())
+                        {
+                            if (offers.size() > 2)
+                                prompt += ",";
+                            prompt += " ";
+                            set<spell_type>::iterator next = it;
+                            next++;
+                            if (next == offers.end())
+                                prompt += "and ";
+                        }
+                        prompt += spell_title(*it);
+                        _add_to_old_gifts(*it);
+                        take_note(Note(NOTE_OFFERED_SPELL, *it));
+                    }
+                    prompt += ".";
+
+                    you.duration[DUR_VEHUMET_GIFT] = (100 + random2avg(100, 2)) * BASELINE_DELAY;
+                    if (gifts >= 5)
+                        _inc_gift_timeout(30 + random2avg(30, 2));
+                    you.num_current_gifts[you.religion]++;
+                    you.num_total_gifts[you.religion]++;
+
+                    simple_god_message(prompt.c_str());
+                    more();
+
+                    success = true;
+                }
+                else
+                    success = false;
+            }
+            break;
         }                       // switch (you.religion)
     }                           // End of gift giving.
+
+    if (success)
+        you.running.stop();
 
 #if defined(DEBUG_DIAGNOSTICS) || defined(DEBUG_GIFTS)
     if (old_num_current_gifts < you.num_current_gifts[you.religion])
@@ -2310,7 +2359,7 @@ bool do_god_gift(bool forced)
     return success;
 }
 
-std::string god_name(god_type which_god, bool long_name)
+string god_name(god_type which_god, bool long_name)
 {
     if (which_god == GOD_JIYVA)
         return (god_name_jiyva(long_name) +
@@ -2318,9 +2367,8 @@ std::string god_name(god_type which_god, bool long_name)
 
     if (long_name)
     {
-        const std::string shortname = god_name(which_god, false);
-        const std::string longname =
-            getMiscString(shortname + " lastname");
+        const string shortname = god_name(which_god, false);
+        const string longname = getMiscString(shortname + " lastname");
         return (longname.empty()? shortname : longname);
     }
 
@@ -2357,18 +2405,18 @@ std::string god_name(god_type which_god, bool long_name)
     return "";
 }
 
-std::string god_name_jiyva(bool second_name)
+string god_name_jiyva(bool second_name)
 {
-    std::string name = "Jiyva";
+    string name = "Jiyva";
     if (second_name)
         name += " " + you.jiyva_second_name;
 
     return name;
 }
 
-god_type str_to_god(const std::string &_name, bool exact)
+god_type str_to_god(const string &_name, bool exact)
 {
-    std::string target(_name);
+    string target(_name);
     trim_string(target);
     lowercase(target);
 
@@ -2380,12 +2428,12 @@ god_type str_to_god(const std::string &_name, bool exact)
     for (int i = 0; i < NUM_GODS; ++i)
     {
         god_type    god  = static_cast<god_type>(i);
-        std::string name = lowercase_string(god_name(god, false));
+        string name = lowercase_string(god_name(god, false));
 
         if (name == target)
             return god;
 
-        if (!exact && name.find(target) != std::string::npos)
+        if (!exact && name.find(target) != string::npos)
         {
             // Return nothing for ambiguous partial names.
             num_partials++;
@@ -2435,38 +2483,36 @@ void religion_turn_end()
     _place_delayed_monsters();
 }
 
-static void _replace(std::string& s,
-                     const std::string &find,
-                     const std::string &repl)
+static void _replace(string& s, const string &find, const string &repl)
 {
-    std::string::size_type start = 0;
-    std::string::size_type found;
+    string::size_type start = 0;
+    string::size_type found;
 
-    while ((found = s.find(find, start)) != std::string::npos)
+    while ((found = s.find(find, start)) != string::npos)
     {
         s.replace(found, find.length(), repl);
         start = found + repl.length();
     }
 }
 
-static void _erase_between(std::string& s,
-                           const std::string &left,
-                           const std::string &right)
+static void _erase_between(string& s, const string &left, const string &right)
 {
-    std::string::size_type left_pos;
-    std::string::size_type right_pos;
+    string::size_type left_pos;
+    string::size_type right_pos;
 
-    while ((left_pos = s.find(left)) != std::string::npos
-           && (right_pos = s.find(right, left_pos + left.size())) != std::string::npos)
+    while ((left_pos = s.find(left)) != string::npos
+           && (right_pos = s.find(right, left_pos + left.size())) != string::npos)
+    {
         s.erase(s.begin() + left_pos, s.begin() + right_pos + right.size());
+    }
 }
 
-std::string adjust_abil_message(const char *pmsg, bool allow_upgrades)
+string adjust_abil_message(const char *pmsg, bool allow_upgrades)
 {
-    if (crawl_state.game_is_zotdef() && strstr(pmsg, "Abyss"))
+    if (brdepth[BRANCH_ABYSS] == -1 && strstr(pmsg, "Abyss"))
         return "";
 
-    std::string pm = pmsg;
+    string pm = pmsg;
 
     // Message portions in [] sections are ability upgrades.
     if (allow_upgrades)
@@ -2504,7 +2550,7 @@ static bool _abil_chg_message(const char *pmsg, const char *youcanmsg,
     int old_piety = you.piety;
     you.piety = piety_breakpoint(breakpoint);
 
-    std::string pm = adjust_abil_message(pmsg);
+    string pm = adjust_abil_message(pmsg);
     if (pm.empty())
         return false;
 
@@ -2568,7 +2614,7 @@ int piety_scale(int piety)
     if (piety < 0)
         return -piety_scale(-piety);
 
-    if (player_effect_faith())
+    if (you.faith())
         return (piety + div_rand_round(piety, 3));
 
     return piety;
@@ -2578,9 +2624,6 @@ static void _gain_piety_point();
 void gain_piety(int original_gain, int denominator, bool force, bool should_scale_piety)
 {
     if (original_gain <= 0)
-        return;
-
-    if (crawl_state.game_is_sprint() && player_in_branch(BRANCH_ABYSS) && !force)
         return;
 
     // Xom uses piety differently...
@@ -2743,12 +2786,16 @@ static void _gain_piety_point()
                     simple_god_message(" will now cure all your mutations... once.");
                     break;
                 case GOD_SHINING_ONE:
+                    if (you.species == SP_FELID)
+                        break;
                     simple_god_message(" will now bless your weapon at an altar... once.");
                     break;
                 case GOD_KIKUBAAQUDGHA:
                     simple_god_message(" will now enhance your necromancy at an altar... once.");
                     break;
                 case GOD_LUGONU:
+                    if (you.species == SP_FELID)
+                        break;
                     simple_god_message(" will now corrupt your weapon at an altar... once.");
                     break;
                 case GOD_JIYVA:
@@ -2784,8 +2831,8 @@ void lose_piety(int pgn)
 
     // Apply hysteresis.
     const int old_hysteresis = you.piety_hysteresis;
-    you.piety_hysteresis = std::min<int>(
-        PIETY_HYSTERESIS_LIMIT, you.piety_hysteresis + pgn);
+    you.piety_hysteresis = min<int>(PIETY_HYSTERESIS_LIMIT,
+                                    you.piety_hysteresis + pgn);
     const int pgn_borrowed = (you.piety_hysteresis - old_hysteresis);
     pgn -= pgn_borrowed;
 #ifdef DEBUG_PIETY
@@ -2816,7 +2863,7 @@ void lose_piety(int pgn)
                 simple_god_message(
                     " is no longer ready to cure all your mutations.");
             }
-            else if (you.religion == GOD_SHINING_ONE)
+            else if (you.religion == GOD_SHINING_ONE && you.species != SP_FELID)
             {
                 simple_god_message(
                     " is no longer ready to bless your weapon.");
@@ -2826,7 +2873,7 @@ void lose_piety(int pgn)
                 simple_god_message(
                     " is no longer ready to enhance your necromancy.");
             }
-            else if (you.religion == GOD_LUGONU)
+            else if (you.religion == GOD_LUGONU && you.species != SP_FELID)
             {
                 simple_god_message(
                     " is no longer ready to corrupt your weapon.");
@@ -2905,7 +2952,7 @@ bool fedhas_neutralises(const monster* target)
     return (target && mons_is_plant(target));
 }
 
-static std::string _god_hates_your_god_reaction(god_type god, god_type your_god)
+static string _god_hates_your_god_reaction(god_type god, god_type your_god)
 {
     if (god_hates_your_god(god, your_god))
     {
@@ -2937,7 +2984,7 @@ void excommunication(god_type new_god)
 
     take_note(Note(NOTE_LOSE_GOD, old_god));
 
-    std::vector<ability_type> abilities = get_god_abilities(true);
+    vector<ability_type> abilities = get_god_abilities(true);
     for (unsigned int i = 0; i < abilities.size(); ++i)
     {
         you.stop_train.insert(abil_skill(abilities[i]));
@@ -3003,11 +3050,14 @@ void excommunication(god_type new_god)
             simple_god_message(" reclaims all of your granted undead slaves!",
                                GOD_YREDELEMNUL);
             add_daction(DACT_ALLY_YRED_SLAVE);
+            remove_all_companions(GOD_YREDELEMNUL);
         }
         _set_penance(old_god, 30);
         break;
 
     case GOD_VEHUMET:
+        you.vehumet_gifts.clear();
+        you.duration[DUR_VEHUMET_GIFT] = 0;
         _set_penance(old_god, 25);
         break;
 
@@ -3025,6 +3075,10 @@ void excommunication(god_type new_god)
         break;
 
     case GOD_BEOGH:
+        // You might have lost water walking at a bad time...
+        if (_need_water_walking())
+            fall_into_a_pool(you.pos(), true, grd(you.pos()));
+
         if (query_da_counter(DACT_ALLY_BEOGH))
         {
             simple_god_message("'s voice booms out, \"Who do you think you "
@@ -3032,11 +3086,8 @@ void excommunication(god_type new_god)
             mpr("All of your followers decide to abandon you.",
                 MSGCH_MONSTER_ENCHANT);
             add_daction(DACT_ALLY_BEOGH);
+            remove_all_companions(GOD_BEOGH);
         }
-
-        // You might have lost water walking at a bad time...
-        if (_need_water_walking())
-            fall_into_a_pool(you.pos(), true, grd(you.pos()));
 
         _set_penance(old_god, 50);
         break;
@@ -3063,15 +3114,13 @@ void excommunication(god_type new_god)
 
         // Leaving TSO for a non-good god will make all your followers
         // abandon you.  Leaving him for a good god will make your holy
-        // followers (his daeva and angel servants) indifferent, while
-        // leaving your other followers (blessed with friendliness by
-        // his power, but not his servants) alone.
+        // followers (daeva and angel servants) indifferent.
         if (!is_good_god(new_god))
             add_daction(DACT_ALLY_HOLY);
         else
             add_daction(DACT_HOLY_PETS_GO_NEUTRAL);
 
-        _set_penance(old_god, 50);
+        _set_penance(old_god, 30);
         break;
 
     case GOD_ZIN:
@@ -3081,7 +3130,7 @@ void excommunication(god_type new_god)
         if (env.sanctuary_time)
             remove_sanctuary();
 
-        // Leaving Zin for a non-good god will make all your followers
+        // Leaving Zin for a non-good god will make neutral holies
         // (originally from TSO) abandon you.
         if (!is_good_god(new_god))
             add_daction(DACT_ALLY_HOLY);
@@ -3094,8 +3143,8 @@ void excommunication(god_type new_god)
         if (you.duration[DUR_DIVINE_VIGOUR])
             elyvilon_remove_divine_vigour();
 
-        // Leaving Elyvilon for a non-good god will make all your
-        // followers (originally from TSO) abandon you.
+        // Leaving Elyvilon for a non-good god will make neutral holies
+        // (originally from TSO) abandon you.
         if (!is_good_god(new_god))
             add_daction(DACT_ALLY_HOLY);
 
@@ -3103,17 +3152,18 @@ void excommunication(god_type new_god)
         break;
 
     case GOD_JIYVA:
-        // Actually, doesn't unparalyze jellies.
+        // Actually, doesn't unparalyse jellies.
         you.duration[DUR_JELLY_PRAYER] = 0;
-
-        if (query_da_counter(DACT_ALLY_SLIME))
-        {
-            mpr("All of your fellow slimes turn on you.", MSGCH_MONSTER_ENCHANT);
-            add_daction(DACT_ALLY_SLIME);
-        }
 
         if (you.duration[DUR_SLIMIFY])
             you.duration[DUR_SLIMIFY] = 0;
+
+        if (query_da_counter(DACT_ALLY_SLIME))
+        {
+            mpr("All of your fellow slimes turn on you.",
+                MSGCH_MONSTER_ENCHANT);
+            add_daction(DACT_ALLY_SLIME);
+        }
 
         _set_penance(old_god, 30);
         break;
@@ -3121,7 +3171,8 @@ void excommunication(god_type new_god)
     case GOD_FEDHAS:
         if (query_da_counter(DACT_ALLY_PLANT))
         {
-            mpr("The plants of the dungeon turn on you.", MSGCH_GOD, GOD_FEDHAS);
+            mpr("The plants of the dungeon turn on you.",
+                MSGCH_MONSTER_ENCHANT);
             add_daction(DACT_ALLY_PLANT);
         }
         _set_penance(old_god, 30);
@@ -3131,8 +3182,8 @@ void excommunication(god_type new_god)
         if (you.transfer_skill_points > 0)
             ashenzari_end_transfer(false, true);
         you.duration[DUR_SCRYING] = 0;
-        you.exp_docked = exp_needed(std::min<int>(you.max_level, 27)  + 1)
-                       - exp_needed(std::min<int>(you.max_level, 27));
+        you.exp_docked = exp_needed(min<int>(you.max_level, 27)  + 1)
+                       - exp_needed(min<int>(you.max_level, 27));
         you.exp_docked_total = you.exp_docked;
         _set_penance(old_god, 50);
         break;
@@ -3164,10 +3215,8 @@ void excommunication(god_type new_god)
     check_selected_skills();
 }
 
-static std::string _sacrifice_message(std::string msg,
-                                      const std::string& itname,
-                                      bool glowing, bool plural,
-                                      piety_gain_t piety_gain)
+static string _sacrifice_message(string msg, const string& itname, bool glowing,
+                                 bool plural, piety_gain_t piety_gain)
 {
     if (glowing)
     {
@@ -3216,9 +3265,9 @@ void print_sacrifice_message(god_type god, const item_def &item,
             GOD_SHINING_ONE);
         return;
     }
-    const std::string itname = item.name(your ? DESC_YOUR : DESC_THE);
+    const string itname = item.name(your ? DESC_YOUR : DESC_THE);
     mpr(_sacrifice_message(_Sacrifice_Messages[god][piety_gain], itname,
-                           itname.find("glowing") != std::string::npos,
+                           itname.find("glowing") != string::npos,
                            item.quantity > 1,
                            piety_gain),
         MSGCH_GOD, god);
@@ -3227,7 +3276,7 @@ void print_sacrifice_message(god_type god, const item_def &item,
 void nemelex_death_message()
 {
     const piety_gain_t piety_gain = static_cast<piety_gain_t>
-            (std::min(random2(you.piety) / 30, (int)PIETY_LOTS));
+            (min(random2(you.piety) / 30, (int)PIETY_LOTS));
     mpr(_sacrifice_message(_Sacrifice_Messages[GOD_NEMELEX_XOBEH][piety_gain],
                            "Your body", you.backlit(), false, piety_gain));
 }
@@ -3336,6 +3385,26 @@ bool god_likes_item(god_type god, const item_def& item)
     }
 }
 
+static bool _transformed_player_can_join_god(god_type which_god)
+{
+    if ((is_good_god(which_god) || which_god == GOD_FEDHAS)
+        && you.form == TRAN_LICH)
+    {
+        return false;
+    }
+
+    if (which_god == GOD_ZIN && you.form != TRAN_NONE)
+        return false;
+
+    if (which_god == GOD_YREDELEMNUL
+        && (you.form == TRAN_STATUE || you.petrified()))
+    {   // it's rather hard to pray while petrified, though
+        return false;
+    }
+
+    return true;
+}
+
 bool player_can_join_god(god_type which_god)
 {
     if (you.species == SP_DEMIGOD)
@@ -3357,27 +3426,7 @@ bool player_can_join_god(god_type which_god)
     if (which_god == GOD_SIF_MUNA && !you.spell_no)
         return false;
 
-    return true;
-}
-
-static bool _transformed_player_can_join_god(god_type which_god)
-{
-    if ((is_good_god(which_god) || which_god == GOD_FEDHAS)
-        && you.form == TRAN_LICH)
-    {
-        return false;
-    }
-
-    if (which_god == GOD_ZIN && you.form != TRAN_NONE)
-        return false;
-
-    if (which_god == GOD_YREDELEMNUL
-        && (you.form == TRAN_STATUE || you.petrified()))
-    {   // it's rather hard to pray while petrified, though
-        return false;
-    }
-
-    return true;
+    return _transformed_player_can_join_god(which_god);
 }
 
 // Identify any interesting equipment when the player signs up with a
@@ -3419,10 +3468,22 @@ static void _god_welcome_identify_gear()
 void god_pitch(god_type which_god)
 {
     mprf("You %s the altar of %s.",
-         you.species == SP_NAGA ? "coil in front of" :
+         you.form == TRAN_WISP   ? "swirl around" :
+         you.form == TRAN_BAT    ? "perch on" :
+         you.flight_mode()       ? "hover solemnly before" :
+         you.form == TRAN_SPIDER ? "cling to" :
+         you.form == TRAN_STATUE ? "place yourself before" :
+         you.form == TRAN_ICE_BEAST
+             || you.form == TRAN_DRAGON
+             || you.form == TRAN_PIG    ? "bow your head before" :
+         you.form == TRAN_TREE   ? "sway towards" :
+         you.form == TRAN_FUNGUS ? "release spores on" :
+         you.form == TRAN_PORCUPINE ? "curl into a sanctuary of spikes before" :
+         you.form == TRAN_JELLY  ? "quiver devoutly before" :
+         you.species == SP_NAGA  ? "coil in front of" :
          // < TGWi> you curl up on the altar and go to sleep
-         you.species == SP_FELID  ? "sit before"
-                                : "kneel at",
+         you.species == SP_FELID ? "sit before"
+                                 : "kneel at",
          god_name(which_god).c_str());
     more();
 
@@ -3455,8 +3516,8 @@ void god_pitch(god_type which_god)
 
     if (which_god == GOD_LUGONU && you.penance[GOD_LUGONU])
     {
-        simple_god_message(" is most displeased with you!", which_god);
-        divine_retribution(GOD_LUGONU, true);
+        you.turn_is_over = false;
+        simple_god_message(" refuses to forgive you so easily!", which_god);
         return;
     }
 
@@ -3536,7 +3597,8 @@ void god_pitch(god_type which_god)
     // Chei worshippers start their stat gain immediately.
     if (you.religion == GOD_CHEIBRIADOS)
     {
-        simple_god_message(" begins to support your attributes as your movement slows.");
+        simple_god_message(" begins to support your attributes as your "
+                           "movement slows.");
         notify_stat_change("Cheibriados worship");
     }
 
@@ -3551,6 +3613,13 @@ void god_pitch(god_type which_god)
     // Elyvilon gives you invocations immediately.
     if (you.religion == GOD_ELYVILON)
         you.start_train.insert(SK_INVOCATIONS);
+
+    if (you.religion == GOD_OKAWARU
+        && player_mutation_level(MUT_DEMONIC_GUARDIAN))
+    {
+        mpr("Your demonic guardian will not assist you as long as you worship "
+            "Okawaru.", MSGCH_GOD);
+    }
 
     // When you start worshipping a good god, you make all non-hostile
     // unholy and evil beings hostile; when you start worshipping Zin,
@@ -3568,7 +3637,8 @@ void god_pitch(god_type which_god)
         && query_da_counter(DACT_ALLY_UNCLEAN_CHAOTIC))
     {
         add_daction(DACT_ALLY_UNCLEAN_CHAOTIC);
-        mpr("Your unclean and chaotic allies forsake you.", MSGCH_MONSTER_ENCHANT);
+        mpr("Your unclean and chaotic allies forsake you.",
+            MSGCH_MONSTER_ENCHANT);
     }
     else if (you.religion == GOD_TROG
              && query_da_counter(DACT_ALLY_SPELLCASTER))
@@ -3592,7 +3662,8 @@ void god_pitch(god_type which_god)
     {
         mpr("You can now call upon Fedhas to speed up the decay of corpses.",
             MSGCH_GOD);
-        mpr("The plants of the dungeon cease their hostilities.", MSGCH_GOD);
+        mpr("The plants of the dungeon cease their hostilities.",
+            MSGCH_MONSTER_ENCHANT);
     }
 
     if (you.worshipped[you.religion] < 100)
@@ -3628,16 +3699,26 @@ void god_pitch(god_type which_god)
         if (old_piety > 30)
             gain_piety(old_piety - 30, 2, true, false);
     }
-    else if (is_evil_god(you.religion))
+
+    // Warn if a good god is starting wrath now.
+    if (old_god != GOD_ELYVILON && you.penance[GOD_ELYVILON]
+        && god_hates_your_god(GOD_ELYVILON, you.religion))
     {
-        // Note: Using worshipped[] we could make this sort of grudge
-        // permanent instead of based off of penance. - bwr
-        if (you.penance[GOD_SHINING_ONE])
-        {
-            _set_penance(GOD_SHINING_ONE, 30);
-            god_speaks(GOD_SHINING_ONE,
-                       "\"You will pay for your evil ways, mortal!\"");
-        }
+        simple_god_message(" says: Your evil deeds will not go unpunished!",
+                           GOD_ELYVILON);
+    }
+    if (old_god != GOD_SHINING_ONE && you.penance[GOD_SHINING_ONE]
+        && god_hates_your_god(GOD_SHINING_ONE, you.religion))
+    {
+        simple_god_message(" says: You will pay for your evil ways, mortal!",
+                           GOD_SHINING_ONE);
+    }
+    if (old_god != GOD_ZIN && you.penance[GOD_ZIN]
+        && god_hates_your_god(GOD_ZIN, you.religion))
+    {
+        simple_god_message(make_stringf(" says: You will suffer for embracing such %s!",
+                                        is_chaotic_god(you.religion) ? "chaos" : "evil").c_str(),
+                           GOD_ZIN);
     }
 
     // Note that you.worshipped[] has already been incremented.
@@ -3762,10 +3843,12 @@ bool god_hates_killing(god_type god, const monster* mon)
 
 bool god_likes_fresh_corpses(god_type god)
 {
+    if (god == GOD_LUGONU)
+        return !player_in_branch(BRANCH_ABYSS);
+
     return (god == GOD_OKAWARU
             || god == GOD_MAKHLEB
-            || god == GOD_TROG
-            || god == GOD_LUGONU);
+            || god == GOD_TROG);
 }
 
 bool god_likes_spell(spell_type spell, god_type god)
@@ -4001,7 +4084,7 @@ void handle_god_time()
 // yet another wrapper for mpr() {dlb}:
 void simple_god_message(const char *event, god_type which_deity)
 {
-    std::string msg = uppercase_first(god_name(which_deity)) + event;
+    string msg = uppercase_first(god_name(which_deity)) + event;
     msg = apostrophise_fixup(msg);
     god_speaks(which_deity, msg.c_str());
 }
@@ -4286,7 +4369,7 @@ int get_tension(god_type god)
     // Tension goes up inversely proportional to the percentage of max
     // hp you have.
     tension *= (scale + 1) * you.hp_max;
-    tension /= std::max(you.hp_max + scale * you.hp, 1);
+    tension /= max(you.hp_max + scale * you.hp, 1);
 
     // Divides by 1 at level 1, 200 at level 27.
     const int exp_lev  = you.get_experience_level();
@@ -4310,7 +4393,7 @@ int get_tension(god_type god)
     if (you.cannot_act())
     {
         tension *= 10;
-        tension  = std::max(1, tension);
+        tension  = max(1, tension);
 
         return tension;
     }
@@ -4333,7 +4416,7 @@ int get_tension(god_type god)
         tension /= 3;
     }
 
-    return std::max(0, tension);
+    return max(0, tension);
 }
 
 int get_fuzzied_monster_difficulty(const monster *mons)
@@ -4348,12 +4431,12 @@ int get_fuzzied_monster_difficulty(const monster *mons)
 // Stuff for placing god gift monsters after the player's turn has ended.
 /////////////////////////////////////////////////////////////////////////////
 
-static std::vector<mgen_data>       _delayed_data;
-static std::deque<delayed_callback> _delayed_callbacks;
-static std::deque<unsigned int>     _delayed_done_trigger_pos;
-static std::deque<delayed_callback> _delayed_done_callbacks;
-static std::deque<std::string>      _delayed_success;
-static std::deque<std::string>      _delayed_failure;
+static vector<mgen_data>       _delayed_data;
+static deque<delayed_callback> _delayed_callbacks;
+static deque<unsigned int>     _delayed_done_trigger_pos;
+static deque<delayed_callback> _delayed_done_callbacks;
+static deque<string>      _delayed_success;
+static deque<string>      _delayed_failure;
 
 static void _delayed_monster(const mgen_data &mg, delayed_callback callback)
 {
@@ -4361,7 +4444,7 @@ static void _delayed_monster(const mgen_data &mg, delayed_callback callback)
     _delayed_callbacks.push_back(callback);
 }
 
-static void _delayed_monster_done(std::string success, std::string failure,
+static void _delayed_monster_done(string success, string failure,
                                   delayed_callback callback)
 {
     const unsigned int size = _delayed_data.size();
@@ -4394,14 +4477,21 @@ static void _place_delayed_monsters()
             (*cback)(mg, mon, placed);
 
         if (mon)
+        {
+            if (you.religion == GOD_YREDELEMNUL
+                || you.religion == GOD_BEOGH)
+            {
+                add_companion(mon);
+            }
             placed++;
+        }
 
         if (!_delayed_done_trigger_pos.empty()
             && _delayed_done_trigger_pos[0] == i)
         {
             cback = _delayed_done_callbacks[0];
 
-            std::string msg;
+            string msg;
             if (placed > 0)
                 msg = _delayed_success[0];
             else
@@ -4493,30 +4583,30 @@ static bool _cmp_god_by_name(god_type god1, god_type god2)
 
 // Vector of temple gods.
 // Sorted by name for the benefit of the overview.
-std::vector<god_type> temple_god_list()
+vector<god_type> temple_god_list()
 {
-    std::vector<god_type> god_list;
+    vector<god_type> god_list;
     for (int i = 0; i < NUM_GODS; i++)
     {
         god_type god = static_cast<god_type>(i);
         if (_is_temple_god(god))
             god_list.push_back(god);
     }
-    std::sort(god_list.begin(), god_list.end(), _cmp_god_by_name);
+    sort(god_list.begin(), god_list.end(), _cmp_god_by_name);
     return god_list;
 }
 
 // Vector of non-temple gods.
 // Sorted by name for the benefit of the overview.
-std::vector<god_type> nontemple_god_list()
+vector<god_type> nontemple_god_list()
 {
-    std::vector<god_type> god_list;
+    vector<god_type> god_list;
     for (int i = 0; i < NUM_GODS; i++)
     {
         god_type god = static_cast<god_type>(i);
         if (_is_nontemple_god(god))
             god_list.push_back(god);
     }
-    std::sort(god_list.begin(), god_list.end(), _cmp_god_by_name);
+    sort(god_list.begin(), god_list.end(), _cmp_god_by_name);
     return god_list;
 }

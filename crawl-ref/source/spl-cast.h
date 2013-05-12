@@ -17,7 +17,7 @@ enum spflag_type
     SPFLAG_GRID                 = 0x000004,      // use DIR_GRID targetting
     SPFLAG_DIR                  = 0x000008,      // use DIR_DIR targetting
     SPFLAG_TARG_OBJ             = 0x000010,      // use DIR_TARGET_OBJECT targ.
-    SPFLAG_TARGETTING_MASK       = 0x00001f,      // used to test for targetting
+    SPFLAG_TARGETTING_MASK      = 0x00001f,      // used to test for targetting
     SPFLAG_HELPFUL              = 0x000020,      // TARG_FRIENDS used
     SPFLAG_NEUTRAL              = 0x000040,      // TARG_ANY used
     SPFLAG_NOT_SELF             = 0x000080,      // aborts on isMe
@@ -71,19 +71,20 @@ void do_cast_spell_cmd(bool force);
 spret_type your_spells(spell_type spell, int powc = 0, bool allow_fail = true,
                        bool check_range = true);
 
+double get_miscast_chance(spell_type spell, int severity = 2);
 int failure_rate_colour(spell_type spell);
 int failure_rate_to_int(int fail);
 char* failure_rate_to_string(int fail);
 
-std::string spell_power_string(spell_type spell, bool rod = false);
-std::string spell_range_string(spell_type spell, bool rod = false);
-std::string spell_schools_string(spell_type spell);
-std::string spell_hunger_string(spell_type spell, bool rod = false);
-std::string spell_noise_string(spell_type spell);
+string spell_power_string(spell_type spell, bool rod = false);
+string spell_range_string(spell_type spell, bool rod = false);
+string spell_schools_string(spell_type spell);
+string spell_hunger_string(spell_type spell, bool rod = false);
+string spell_noise_string(spell_type spell);
 
 bool is_prevented_teleport(spell_type spell);
 
-bool spell_is_uncastable(spell_type spell, std::string &message);
-void spell_skills(spell_type spell, std::set<skill_type> &skills);
+bool spell_is_uncastable(spell_type spell, string &message);
+void spell_skills(spell_type spell, set<skill_type> &skills);
 
 #endif

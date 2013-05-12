@@ -570,6 +570,13 @@ void clrscr()
 
 void set_cursor_enabled(bool enabled)
 {
+#ifdef USE_TILE_WEB
+    if (cursor_is_enabled != enabled)
+    {
+        tiles.send_message("{\"msg\":\"text_cursor\",\"enabled\":%s}",
+                           enabled ? "true" : "false");
+    }
+#endif
     curs_set(cursor_is_enabled = enabled);
 }
 
@@ -817,7 +824,7 @@ void delay(unsigned int time)
 
 #ifdef USE_TILE_WEB
     tiles.redraw();
-    tiles.send_message("{msg:'delay',t:%d}", time);
+    tiles.send_message("{\"msg\":\"delay\",\"t\":%d}", time);
 #endif
 
     refresh();

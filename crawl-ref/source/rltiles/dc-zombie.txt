@@ -4,6 +4,7 @@ zombie_small MONS_ZOMBIE_SMALL
 zombie_large MONS_ZOMBIE_LARGE
 zombie_quadruped_small MONS_ZOMBIE_QUADRUPED_SMALL
 zombie_quadruped_large MONS_ZOMBIE_QUADRUPED_LARGE
+zombie_ogre MONS_ZOMBIE_OGRE
 zombie_toad MONS_ZOMBIE_TOAD
 zombie_bat MONS_ZOMBIE_BAT
 zombie_bee MONS_ZOMBIE_BEE
@@ -19,6 +20,7 @@ zombie_lizard MONS_ZOMBIE_LIZARD
 zombie_spider MONS_ZOMBIE_SPIDER
 zombie_dragon MONS_ZOMBIE_DRAGON
 zombie_kraken_head MONS_ZOMBIE_KRAKEN
+zombie_drake MONS_ZOMBIE_DRAKE
 zombie_hydra1 MONS_ZOMBIE_HYDRA
 zombie_hydra2
 zombie_hydra3
@@ -30,6 +32,10 @@ zombie_griffon MONS_ZOMBIE_GRIFFON
 zombie_quadruped_winged MONS_ZOMBIE_QUADRUPED_WINGED
 zombie_harpy MONS_ZOMBIE_HARPY
 zombie_octopode MONS_ZOMBIE_OCTOPODE
+%rim 0
+zombie_turtle MONS_ZOMBIE_TURTLE
+zombie_crab MONS_ZOMBIE_CRAB
+%rim 1
 
 %sdir mon/undead/skeletons
 ## Skeletons
@@ -37,13 +43,17 @@ skeleton_humanoid_small MONS_SKELETON_SMALL
 skeleton_humanoid_large MONS_SKELETON_LARGE
 skeleton_quadruped_small MONS_SKELETON_QUADRUPED_SMALL
 skeleton_quadruped_large MONS_SKELETON_QUADRUPED_LARGE
+skeleton_quadruped_winged MONS_SKELETON_QUADRUPED_WINGED
 skeleton_toad MONS_SKELETON_TOAD
+skeleton_lizard MONS_SKELETON_LIZARD
+skeleton_turtle MONS_SKELETON_TURTLE
 skeleton_bat MONS_SKELETON_BAT
 skeleton_fish MONS_SKELETON_FISH
 skeleton_centaur MONS_SKELETON_CENTAUR
 skeleton_naga MONS_SKELETON_NAGA
 skeleton_snake MONS_SKELETON_SNAKE
 skeleton_dragon MONS_SKELETON_DRAGON
+skeleton_drake MONS_SKELETON_DRAKE
 skeleton_hydra1 MONS_SKELETON_HYDRA
 skeleton_hydra2
 skeleton_hydra3
@@ -68,6 +78,7 @@ simulacrum_lizard MONS_SIMULACRUM_LIZARD
 simulacrum_spider MONS_SIMULACRUM_SPIDER
 simulacrum_dragon MONS_SIMULACRUM_DRAGON
 simulacrum_kraken MONS_SIMULACRUM_KRAKEN
+simulacrum_drake MONS_SIMULACRUM_DRAKE
 simulacrum_hydra1 MONS_SIMULACRUM_HYDRA
 simulacrum_hydra2
 simulacrum_hydra3
@@ -92,6 +103,7 @@ spectral_lizard MONS_SPECTRAL_LIZARD
 spectral_spider MONS_SPECTRAL_SPIDER
 spectral_dragon MONS_SPECTRAL_DRAGON
 spectral_kraken MONS_SPECTRAL_KRAKEN
+spectral_drake MONS_SPECTRAL_DRAKE
 spectral_hydra1 MONS_SPECTRAL_HYDRA
 spectral_hydra2
 spectral_hydra3

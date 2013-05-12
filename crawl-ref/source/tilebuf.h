@@ -52,7 +52,7 @@ class FontBuffer : public VertBuffer
 public:
     FontBuffer(FontWrapper *font);
     void add(const formatted_string &fs, float x, float y);
-    void add(const std::string &s, const VColour &col, float x, float y);
+    void add(const string &s, const VColour &col, float x, float y);
 protected:
     FontWrapper *m_font;
 };
@@ -62,9 +62,11 @@ class TileBuffer : public VertBuffer
 public:
     TileBuffer(const TilesTexture *tex = NULL);
 
-    void add_unscaled(tileidx_t idx, float x, float y, int ymax = TILE_Y);
+    void add_unscaled(tileidx_t idx, float x, float y, int ymax = TILE_Y,
+                      float scale = 1.0f);
     void add(tileidx_t idx, int x, int y,
-             int ox = 0, int oy = 0, bool centre = true, int ymax = -1);
+             int ox = 0, int oy = 0, bool centre = true, int ymax = -1,
+             float tile_x = TILE_X, float tile_y = TILE_Y);
 };
 
 class ColouredTileBuffer : public VertBuffer

@@ -15,6 +15,7 @@
 #include "invent.h"
 #include "itemprop.h"
 #include "items.h"
+#include "libutil.h"
 #include "options.h"
 #include "player.h"
 #include "stuff.h"
@@ -76,7 +77,7 @@ void player_quiver::get_desired_item(const item_def** item_out, int* slot_out) c
 // This differs from get_desired_item; that method can return
 // an item that is not in inventory, while this one cannot.
 // If no item can be found, return the reason why.
-int player_quiver::get_fire_item(std::string* no_item_reason) const
+int player_quiver::get_fire_item(string* no_item_reason) const
 {
     // Felids have no use for the quiver.
     if (you.species == SP_FELID)
@@ -93,7 +94,7 @@ int player_quiver::get_fire_item(std::string* no_item_reason) const
     // If not in inv, try the head of the fire order.
     if (slot == -1)
     {
-        std::vector<int> order;
+        vector<int> order;
         _get_fire_order(order, false, you.weapon(), false);
         if (!order.empty())
             slot = order[0];
@@ -102,7 +103,7 @@ int player_quiver::get_fire_item(std::string* no_item_reason) const
     // If we can't find anything, tell caller why.
     if (slot == -1)
     {
-        std::vector<int> full_fire_order;
+        vector<int> full_fire_order;
         _get_fire_order(full_fire_order, true, you.weapon(), false);
         if (no_item_reason == NULL)
         {
@@ -181,10 +182,12 @@ void choose_item_for_quiver()
         mpr("You can't grasp things well enough to throw them.");
         return;
     }
+
     int slot = prompt_invent_item("Quiver which item? (- for none, * to show all)",
                                   MT_INVLIST,
                                   OSEL_THROWABLE, true, true, true, '-',
-                                  you.equip[EQ_WEAPON], NULL, OPER_QUIVER);
+                                  you.equip[EQ_WEAPON], NULL, OPER_QUIVER,
+                                  false);
 
     if (prompt_failed(slot))
         return;
@@ -355,7 +358,7 @@ void player_quiver::_maybe_fill_empty_slot()
     const launch_retval desired_ret =
          (weapon && is_range_weapon(*weapon)) ? LRET_LAUNCHED : LRET_THROWN;
 
-    std::vector<int> order;
+    vector<int> order;
     _get_fire_order(order, false, weapon, false);
 
     if (unquiver_weapon && order.empty())
@@ -381,7 +384,7 @@ void player_quiver::_maybe_fill_empty_slot()
     }
 }
 
-void player_quiver::get_fire_order(std::vector<int>& v, bool manual) const
+void player_quiver::get_fire_order(vector<int>& v, bool manual) const
 {
     _get_fire_order(v, false, you.weapon(), manual);
 }
@@ -393,7 +396,7 @@ void player_quiver::get_fire_order(std::vector<int>& v, bool manual) const
 // fire order is empty.
 //
 // launcher determines what items match the 'launcher' fire_order type.
-void player_quiver::_get_fire_order(std::vector<int>& order,
+void player_quiver::_get_fire_order(vector<int>& order,
                                      bool ignore_inscription_etc,
                                      const item_def* launcher,
                                      bool manual) const
@@ -455,7 +458,7 @@ void player_quiver::_get_fire_order(std::vector<int>& order,
         }
     }
 
-    std::sort(order.begin(), order.end());
+    sort(order.begin(), order.end());
 
     for (unsigned int i = 0; i < order.size(); i++)
         order[i] &= 0xffff;
@@ -491,15 +494,7 @@ void player_quiver::load(reader& inf)
     ASSERT(count <= ARRAYSZ(m_last_used_of_type));
 
     for (unsigned int i = 0; i < count; i++)
-    {
         unmarshallItem(inf, m_last_used_of_type[i]);
-#if TAG_MAJOR_VERSION == 33
-        // We haven't always been so careful about making sure this was
-        // either OBJ_UNASSIGNED or valid.
-        if (m_last_used_of_type[i].quantity == 0)
-            m_last_used_of_type[i].base_type = OBJ_UNASSIGNED;
-#endif
-    }
 }
 
 // ----------------------------------------------------------------------
@@ -550,11 +545,8 @@ static bool _item_matches(const item_def &item, fire_type types,
     ASSERT(item.defined());
 
     if (types & FIRE_INSCRIBED)
-        if (item.inscription.find(manual ? "+F" : "+f", 0)
-            != std::string::npos)
-        {
+        if (item.inscription.find(manual ? "+F" : "+f", 0) != string::npos)
             return true;
-        }
 
     if (item.base_type == OBJ_MISSILES)
     {
@@ -608,8 +600,8 @@ static int _get_pack_slot(const item_def& item)
     // First try to find the exact same item.
     for (int i = 0; i < ENDOFPACK; i++)
     {
-        const item_def& inv_item = you.inv[i];
-        if (inv_item.quantity && _items_similar(item, you.inv[i], false)
+        const item_def &inv_item = you.inv[i];
+        if (inv_item.quantity && _items_similar(item, inv_item, false)
             && !_wielded_slot_no_quiver(i))
         {
             return i;
@@ -619,10 +611,14 @@ static int _get_pack_slot(const item_def& item)
     // If that fails, try to find an item sufficiently similar.
     for (int i = 0; i < ENDOFPACK; i++)
     {
-        const item_def& inv_item = you.inv[i];
-        if (inv_item.quantity && _items_similar(item, you.inv[i], true)
+        const item_def &inv_item = you.inv[i];
+        if (inv_item.quantity && _items_similar(item, inv_item, true)
             && !_wielded_slot_no_quiver(i))
         {
+            // =f prevents item from being in fire order.
+            if (strstr(inv_item.inscription.c_str(), "=f"))
+                return -1;
+
             return i;
         }
     }
@@ -657,9 +653,5 @@ static ammo_t _get_weapon_ammo_type(const item_def* weapon)
 
 static bool _items_similar(const item_def& a, const item_def& b, bool force)
 {
-    if (!force)
-        return (items_similar(a, b) && a.slot == b.slot);
-
-    // This is a reasonable implementation for now.
-    return items_stack(a, b, force);
+    return (items_similar(a, b) && (force || a.slot == b.slot));
 }

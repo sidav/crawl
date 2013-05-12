@@ -38,10 +38,16 @@ constricted CONSTRICTED
 berserk BERSERK
 glowing GLOWING
 slowed SLOWED
+hasted HASTED
+might MIGHT
+petrifying PETRIFYING
+petrified PETRIFIED
+blind BLIND
 %rim 0
 fleeing FLEEING
 may_stab_brand MAY_STAB_BRAND
 sleeping STAB_BRAND
+pain_mirror PAIN_MIRROR
 
 something_under SOMETHING_UNDER
 tried TRIED

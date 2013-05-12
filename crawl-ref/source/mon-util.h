@@ -11,7 +11,6 @@
 #include "enum.h"
 #include "mon-enum.h"
 #include "player.h"
-#include "monster.h"
 
 struct bolt;
 
@@ -174,8 +173,8 @@ static inline int get_resist(resists_t all, mon_resist_flags res)
 
 dungeon_feature_type habitat2grid(habitat_type ht);
 
-monsterentry *get_monster_data(monster_type mc) PURE;
-resists_t get_mons_class_resists(monster_type mc) PURE;
+monsterentry *get_monster_data(monster_type mc) IMMUTABLE;
+resists_t get_mons_class_resists(monster_type mc) IMMUTABLE;
 resists_t get_mons_resists(const monster* mon);
 int get_mons_resist(const monster* mon, mon_resist_flags res);
 
@@ -185,7 +184,7 @@ void init_monster_symbols();
 monster *monster_at(const coord_def &pos);
 
 // this is the old moname()
-std::string mons_type_name(monster_type type, description_level_type desc);
+string mons_type_name(monster_type type, description_level_type desc);
 
 bool give_monster_proper_name(monster* mon, bool orcs_only = true);
 
@@ -268,7 +267,6 @@ bool mons_class_can_regenerate(monster_type mc);
 bool mons_can_regenerate(const monster* mon);
 bool mons_class_can_display_wounds(monster_type mc);
 bool mons_can_display_wounds(const monster* mon);
-zombie_size_type zombie_class_size(monster_type cs);
 int mons_zombie_size(monster_type mc);
 monster_type mons_zombie_base(const monster* mon);
 bool mons_class_is_zombified(monster_type mc);
@@ -281,7 +279,7 @@ bool mons_class_can_use_stairs(monster_type mc);
 bool mons_can_use_stairs(const monster* mon);
 bool mons_enslaved_body_and_soul(const monster* mon);
 bool mons_enslaved_soul(const monster* mon);
-bool name_zombie(monster* mon, monster_type mc, const std::string &mon_name);
+bool name_zombie(monster* mon, monster_type mc, const string &mon_name);
 bool name_zombie(monster* mon, const monster* orig);
 
 int mons_power(monster_type mc);
@@ -299,7 +297,7 @@ void define_monster(monster* mons);
 
 void mons_pacify(monster* mon, mon_attitude_type att = ATT_GOOD_NEUTRAL);
 
-bool mons_should_fire(struct bolt &beam);
+bool mons_should_fire(bolt &beam);
 
 bool mons_has_los_ability(monster_type mon_type);
 bool mons_has_ranged_spell(const monster* mon, bool attack_only = false,
@@ -346,8 +344,9 @@ bool mons_eats_items(const monster* mon);
 bool mons_eats_corpses(const monster* mon);
 bool mons_eats_food(const monster* mon);
 monster_type mons_genus(monster_type mc);
-monster_type mons_detected_base(monster_type mt);
 monster_type mons_species(monster_type mc);
+monster_type draco_subspecies(const monster* mon);
+monster_type mons_detected_base(monster_type mt);
 
 bool mons_looks_stabbable(const monster* m);
 bool mons_looks_distracted(const monster* m);
@@ -364,6 +363,7 @@ bool mons_class_is_firewood(monster_type mc);
 bool mons_is_firewood(const monster* mon);
 bool mons_has_body(const monster* mon);
 bool mons_has_flesh(const monster* mon);
+bool mons_is_abyssal_only(monster_type mc);
 
 bool herd_monster(const monster* mon);
 
@@ -386,27 +386,26 @@ bool monster_shover(const monster* m);
 
 bool monster_senior(const monster* first, const monster* second,
                     bool fleeing = false);
-monster_type draco_subspecies(const monster* mon);
-std::string ugly_thing_colour_name(colour_t colour);
+string ugly_thing_colour_name(colour_t colour);
 colour_t ugly_thing_random_colour();
-int str_to_ugly_thing_colour(const std::string &s);
+int str_to_ugly_thing_colour(const string &s);
 colour_t random_monster_colour();
 int ugly_thing_colour_offset(colour_t colour);
-std::string  draconian_colour_name(monster_type mon_type);
-monster_type draconian_colour_by_name(const std::string &colour);
+string  draconian_colour_name(monster_type mon_type);
+monster_type draconian_colour_by_name(const string &colour);
 
-monster_type random_monster_at_grid(const coord_def& p);
+monster_type random_monster_at_grid(const coord_def& p, bool species = false);
 
 void         init_mon_name_cache();
-monster_type get_monster_by_name(std::string name, bool exact = false);
+monster_type get_monster_by_name(string name, bool exact = false);
 
-std::string do_mon_str_replacements(const std::string &msg,
-                                    const monster* mons, int s_type = -1);
+string do_mon_str_replacements(const string &msg, const monster* mons,
+                               int s_type = -1);
 
 mon_body_shape get_mon_shape(const monster* mon);
 mon_body_shape get_mon_shape(const monster_type mc);
 
-std::string get_mon_shape_str(const mon_body_shape shape);
+string get_mon_shape_str(const mon_body_shape shape);
 
 bool mons_class_can_pass(monster_type mc, const dungeon_feature_type grid);
 bool mons_can_open_door(const monster* mon, const coord_def& pos);
@@ -416,9 +415,6 @@ bool mons_can_traverse(const monster* mon, const coord_def& pos,
 
 mon_inv_type equip_slot_to_mslot(equipment_type eq);
 mon_inv_type item_to_mslot(const item_def &item);
-
-int scan_mon_inv_randarts(const monster* mon,
-                          artefact_prop_type ra_prop);
 
 bool player_or_mon_in_sanct(const monster* mons);
 bool mons_is_immotile(const monster* mons);
@@ -430,13 +426,20 @@ monster *monster_by_mid(mid_t m);
 
 bool mons_is_tentacle(monster_type mc);
 bool mons_is_tentacle_segment(monster_type mc);
+bool mons_is_tentacle_head(monster_type mc);
+monster* mons_get_parent_monster(monster* mons);
 void init_anon();
 actor *find_agent(mid_t m, kill_category kc);
 const char* mons_class_name(monster_type mc);
 void check_clinging();
 bool mons_is_tentacle_end(monster_type mtype);
+monster_type mons_tentacle_parent_type(const monster* mons);
+monster_type mons_tentacle_child_type(const monster* mons);
+bool mons_tentacle_adjacent(const monster* parent, const monster* child);
 mon_threat_level_type mons_threat_level(const monster *mon,
                                         bool real = false);
+
+bool mons_foe_is_marked(const monster* mons);
 
 void reset_all_monsters();
 #endif

@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <signal.h>
 
+#include "abyss.h"
 #include "clua.h"
 #include "coord.h"
 #include "coordit.h"
@@ -36,6 +37,7 @@
 #include "stuff.h"
 #include "travel.h"
 #include "hiscores.h"
+#include "version.h"
 #include "view.h"
 #include "zotdef.h"
 
@@ -78,19 +80,17 @@
 #endif
 
 
-static std::string _assert_msg;
+static string _assert_msg;
 
 static void _dump_compilation_info(FILE* file)
 {
-    std::string comp_info = compilation_info();
-    if (!comp_info.empty())
-    {
-        fprintf(file, "Compilation info:\n");
-        fprintf(file, "<<<<<<<<<<<\n");
-        fprintf(file, "%s", comp_info.c_str());
-        fprintf(file, ">>>>>>>>>>>\n\n");
-    }
+    fprintf(file, "Compilation info:\n");
+    fprintf(file, "<<<<<<<<<<<\n");
+    fprintf(file, "%s", compilation_info);
+    fprintf(file, ">>>>>>>>>>>\n\n");
 }
+
+extern abyss_state abyssal_state;
 
 static void _dump_level_info(FILE* file)
 {
@@ -99,9 +99,21 @@ static void _dump_level_info(FILE* file)
     fprintf(file, "branch = %d, depth = %d\n\n",
             (int)you.where_are_you, you.depth);
 
-    std::string place = level_id::current().describe();
+    string place = level_id::current().describe();
 
     fprintf(file, "Level id: %s\n", place.c_str());
+    if (player_in_branch(BRANCH_ABYSS))
+    {
+        fprintf(file, "Abyssal state:\n"
+                      "    major_coord = (%d,%d)\n"
+                      "    seed = 0x%" PRIx32 "\n"
+                      "    depth = %" PRId64 "\n"
+                      "    phase = %g\n"
+                      "    nuke_all = %d\n",
+                abyssal_state.major_coord.x, abyssal_state.major_coord.y,
+                abyssal_state.seed, abyssal_state.depth, abyssal_state.phase,
+                abyssal_state.nuke_all);
+    }
 
     debug_dump_levgen();
 }
@@ -139,9 +151,10 @@ static void _dump_player(FILE *file)
             you.magic_points, you.max_magic_points,
             you.hp_max_temp, you.mp_max_perm);
     fprintf(file, "Stats: %d (%d) %d (%d) %d (%d)\n",
-            you.strength(), you.max_strength(), you.intel(), you.max_intel(),
-            you.dex(), you.max_dex());
-    fprintf(file, "Position: %s, god:%s (%d), turn_is_over: %d, "
+            you.strength(false), you.max_strength(),
+            you.intel(false), you.max_intel(),
+            you.dex(false), you.max_dex());
+    fprintf(file, "Position: %s, god: %s (%d), turn_is_over: %d, "
                   "banished: %d\n",
             debug_coord_str(you.pos()).c_str(),
             god_name(you.religion).c_str(), (int) you.religion,
@@ -208,7 +221,7 @@ static void _dump_player(FILE *file)
                 you.skills[sk],
                 you.skill_points[sk],
                 you.skill_points[sk] - needed_min,
-                std::max(needed_max - needed_min, 0));
+                max(needed_max - needed_min, 0));
     }
     fprintf(file, "\n");
 
@@ -295,7 +308,7 @@ static void _dump_player(FILE *file)
         else if (!item.defined())
             continue;
 
-        const std::string name = item.name(DESC_PLAIN, false, true);
+        const string name = item.name(DESC_PLAIN, false, true);
 
         if (item.link != i)
         {
@@ -333,7 +346,7 @@ static void _dump_player(FILE *file)
         }
         const bool unknown = !item_type_known(you.inv[eq]);
         const bool melded  = you.melded[i];
-        std::string suffix = "";
+        string suffix = "";
         if (unknown || melded)
         {
             suffix = " (";
@@ -373,7 +386,7 @@ static void _dump_player(FILE *file)
 
 static void _debug_marker_scan()
 {
-    std::vector<map_marker*> markers = env.markers.get_all();
+    vector<map_marker*> markers = env.markers.get_all();
 
     for (unsigned int i = 0; i < markers.size(); ++i)
     {
@@ -401,8 +414,7 @@ static void _debug_marker_scan()
         }
 
         bool found = false;
-        std::vector<map_marker*> at_pos
-            = env.markers.get_markers_at(marker->pos);
+        vector<map_marker*> at_pos = env.markers.get_markers_at(marker->pos);
 
         for (unsigned int j = 0; j < at_pos.size(); ++j)
         {
@@ -426,7 +438,7 @@ static void _debug_marker_scan()
     const coord_def   end(GXM - MAPGEN_BORDER - 2, GYM - MAPGEN_BORDER - 2);
     for (rectangle_iterator ri(start, end); ri; ++ri)
     {
-        std::vector<map_marker*> at_pos = env.markers.get_markers_at(*ri);
+        vector<map_marker*> at_pos = env.markers.get_markers_at(*ri);
 
         for (unsigned int i = 0; i < at_pos.size(); ++i)
         {
@@ -457,7 +469,7 @@ static void _debug_marker_scan()
 
 static void _debug_dump_markers()
 {
-    std::vector<map_marker*> markers = env.markers.get_all();
+    vector<map_marker*> markers = env.markers.get_all();
 
     for (unsigned int i = 0; i < markers.size(); ++i)
     {
@@ -474,7 +486,7 @@ static void _debug_dump_markers()
 
 static void _debug_dump_lua_markers(FILE *file)
 {
-    std::vector<map_marker*> markers = env.markers.get_all();
+    vector<map_marker*> markers = env.markers.get_all();
 
     for (unsigned int i = 0; i < markers.size(); ++i)
     {
@@ -485,7 +497,7 @@ static void _debug_dump_lua_markers(FILE *file)
 
         map_lua_marker* lua_marker = dynamic_cast<map_lua_marker*>(marker);
 
-        std::string result = lua_marker->debug_to_string();
+        string result = lua_marker->debug_to_string();
 
         if (!result.empty() && result[result.size() - 1] == '\n')
             result = result.substr(0, result.size() - 1);
@@ -502,7 +514,7 @@ static void _debug_dump_lua_persist(FILE* file)
 {
     lua_stack_cleaner cln(dlua);
 
-    std::string result;
+    string result;
     if (!dlua.callfn("persist_to_string", 0, 1))
     {
         result = make_stringf("error (persist_to_string): %s",
@@ -518,7 +530,7 @@ static void _debug_dump_lua_persist(FILE* file)
 
 static void _dump_ver_stuff(FILE* file)
 {
-    fprintf(file, "Version: %s %s\n", CRAWL, Version::Long().c_str());
+    fprintf(file, "Version: %s %s\n", CRAWL, Version::Long);
 #if defined(UNIX)
     fprintf(file, "Platform: unix");
 #   if defined(TARGET_OS_MACOSX)
@@ -590,9 +602,9 @@ void do_crash_dump()
         return;
     }
 
-    std::string dir = (!Options.morgue_dir.empty() ? Options.morgue_dir :
-                       !SysEnv.crawl_dir.empty()   ? SysEnv.crawl_dir
-                                                   : "");
+    string dir = (!Options.morgue_dir.empty() ? Options.morgue_dir :
+                  !SysEnv.crawl_dir.empty()   ? SysEnv.crawl_dir
+                                              : "");
 
     if (!dir.empty() && dir[dir.length() - 1] != FILE_SEPARATOR)
         dir += FILE_SEPARATOR;
@@ -663,7 +675,7 @@ void do_crash_dump()
     {
         fprintf(file, "\nMessages:\n");
         fprintf(file, "<<<<<<<<<<<<<<<<<<<<<<\n");
-        std::string messages = get_last_messages(NUM_STORED_MESSAGES);
+        string messages = get_last_messages(NUM_STORED_MESSAGES);
         fprintf(file, "%s", messages.c_str());
         fprintf(file, ">>>>>>>>>>>>>>>>>>>>>>\n");
     }
@@ -683,6 +695,11 @@ void do_crash_dump()
 #endif
 #ifdef DEBUG_MONS_SCAN
     debug_mons_scan();
+#endif
+
+    // Dump Webtiles message buffer.
+#ifdef USE_TILE_WEB
+    tiles.dump();
 #endif
 
     // Now a screenshot

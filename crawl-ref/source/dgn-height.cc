@@ -18,6 +18,12 @@ void dgn_initialise_heightmap(int height)
         dgn_height_at(*ri) = height;
 }
 
+void dgn_height_set_at(const coord_def &c, int height)
+{
+    if (env.heightmap.get())
+        dgn_height_at(c) = height;
+}
+
 int resolve_range(int_range range, int nrolls)
 {
     return random_range(range.first, range.second, nrolls);
@@ -50,6 +56,9 @@ void dgn_island_centred_at(const coord_def &c,
 
 void dgn_smooth_height_at(coord_def c, int radius, int max_height)
 {
+    if (!in_bounds(c))
+        return;
+
     const int height = dgn_height_at(c);
     if (max_height != DGN_UNDEFINED_HEIGHT && height > max_height)
         return;
@@ -90,7 +99,7 @@ void dgn_smooth_heights(int radius, int npasses)
                 dgn_smooth_height_at(coord_def(2 * xspan - x - 1,
                                                2 * yspan - y - 1),
                                      radius);
-           }
+            }
     }
 }
 

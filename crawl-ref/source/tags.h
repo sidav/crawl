@@ -8,8 +8,6 @@
 
 #include <cstdio>
 
-#include "bitary.h"
-#include "tag-version.h"
 #include "package.h"
 
 struct show_type;
@@ -30,48 +28,6 @@ enum tag_type   // used during save/load process to identify data blocks
     TAG_SKIP
 };
 
-struct enum_info
-{
-    void (*collect)(std::vector<std::pair<int,std::string> >& prs);
-    int replacement;
-
-    struct enum_val
-    {
-        int value;
-        const char *name;
-    };
-
-    const enum_val *historical;
-    tag_minor_version non_historical_first;
-    char historic_bytes;
-};
-
-struct enum_write_state
-{
-    std::set<int> used;
-    std::map<int, std::string> names;
-    char store_type;
-
-    enum_write_state() : used(), names(), store_type(0) {}
-};
-
-struct enum_read_state
-{
-    std::map<int, int> mapping;
-    std::map<std::string, int> names;
-    char store_type;
-
-    enum_read_state() : mapping(), names(), store_type(0) {}
-};
-
-template<typename enm> struct enum_details;
-
-// TO ADD A NEW ENUM UNDER THE UMBRELLA OF marshallEnum:
-// * Create an enum_info instance
-// * Instanciate the enum_details template
-// * Change existing serialization to use marshallEnum
-// * Bump minor version
-
 /* ***********************************************************************
  * writer API
  * *********************************************************************** */
@@ -79,17 +35,16 @@ template<typename enm> struct enum_details;
 class writer
 {
 public:
-    writer(const std::string &filename, FILE* output,
-           bool ignore_errors = false)
+    writer(const string &filename, FILE* output, bool ignore_errors = false)
         : _filename(filename), _file(output), _chunk(0),
           _ignore_errors(ignore_errors), _pbuf(0), failed(false)
     {
         ASSERT(output);
     }
-    writer(std::vector<unsigned char>* poutput)
+    writer(vector<unsigned char>* poutput)
         : _filename(), _file(0), _chunk(0), _ignore_errors(false),
           _pbuf(poutput), failed(false) { ASSERT(poutput); }
-    writer(package *save, const std::string &chunkname)
+    writer(package *save, const string &chunkname)
         : _filename(), _file(0), _chunk(0), _ignore_errors(false),
           failed(false)
     {
@@ -109,17 +64,14 @@ private:
     void check_ok(bool ok);
 
 private:
-    std::string _filename;
+    string _filename;
     FILE* _file;
     chunk_writer *_chunk;
     bool _ignore_errors;
 
-    std::vector<unsigned char>* _pbuf;
+    vector<unsigned char>* _pbuf;
 
     bool failed;
-
-    std::map<const enum_info*, enum_write_state> used_enums;
-    friend void marshallEnumVal(writer&, const enum_info*, int);
 };
 
 void marshallByte    (writer &, int8_t);
@@ -128,23 +80,14 @@ void marshallInt     (writer &, int32_t);
 void marshallFloat   (writer &, float);
 void marshallUByte   (writer &, uint8_t);
 void marshallBoolean (writer &, bool);
-void marshallString  (writer &, const std::string &, int maxSize = 0);
-void marshallString4 (writer &, const std::string &);
+void marshallString  (writer &, const string &, int maxSize = 0);
+void marshallString4 (writer &, const string &);
 void marshallCoord   (writer &, const coord_def &);
 void marshallItem    (writer &, const item_def &, bool info = false);
 void marshallMonster (writer &, const monster&);
 void marshallMonsterInfo (writer &, const monster_info &);
 void marshallMapCell (writer &, const map_cell &);
 void marshall_level_id(writer& th, const level_id& id);
-
-void marshallEnumVal (writer &, const enum_info *, int);
-
-template<typename enm>
-static inline void marshallEnum(writer& wr, enm value)
-{
-    marshallEnumVal(wr, &enum_details<enm>::desc, static_cast<int>(value));
-}
-
 void marshallUnsigned(writer& th, uint64_t v);
 void marshallSigned(writer& th, int64_t v);
 
@@ -155,15 +98,15 @@ void marshallSigned(writer& th, int64_t v);
 class reader
 {
 public:
-    reader(const std::string &filename, int minorVersion = TAG_MINOR_INVALID);
+    reader(const string &filename, int minorVersion = TAG_MINOR_INVALID);
     reader(FILE* input, int minorVersion = TAG_MINOR_INVALID)
         : _file(input), _chunk(0), opened_file(false), _pbuf(0),
           _read_offset(0), _minorVersion(minorVersion) {}
-    reader(const std::vector<unsigned char>& input,
+    reader(const vector<unsigned char>& input,
            int minorVersion = TAG_MINOR_INVALID)
         : _file(0), _chunk(0), opened_file(false), _pbuf(&input),
           _read_offset(0), _minorVersion(minorVersion) {}
-    reader(package *save, const std::string &chunkname,
+    reader(package *save, const string &chunkname,
            int minorVersion = TAG_MINOR_INVALID);
     ~reader();
 
@@ -173,25 +116,22 @@ public:
     int getMinorVersion() const;
     void setMinorVersion(int minorVersion);
     bool valid() const;
-    void fail_if_not_eof(const std::string &name);
+    void fail_if_not_eof(const string &name);
     void close();
 
-    std::string filename() const { return _filename; }
+    string filename() const { return _filename; }
 
 private:
-    std::string _filename;
+    string _filename;
     FILE* _file;
     chunk_reader *_chunk;
     bool  opened_file;
-    const std::vector<unsigned char>* _pbuf;
+    const vector<unsigned char>* _pbuf;
     unsigned int _read_offset;
     int _minorVersion;
-
-    std::map<const enum_info*, enum_read_state> seen_enums;
-    friend int unmarshallEnumVal(reader &, const enum_info *);
 };
 
-class short_read_exception : std::exception {};
+class short_read_exception : exception {};
 
 int8_t      unmarshallByte    (reader &);
 int16_t     unmarshallShort   (reader &);
@@ -199,22 +139,14 @@ int32_t     unmarshallInt     (reader &);
 float       unmarshallFloat   (reader &);
 uint8_t     unmarshallUByte   (reader &);
 bool        unmarshallBoolean (reader &);
-std::string unmarshallString  (reader &, int maxSize = 1000);
-void        unmarshallString4 (reader &, std::string&);
+string      unmarshallString  (reader &, int maxSize = 1000);
+void        unmarshallString4 (reader &, string&);
 coord_def   unmarshallCoord   (reader &);
 void        unmarshallItem    (reader &, item_def &item);
 void        unmarshallMonster (reader &, monster& item);
 void        unmarshallMonsterInfo (reader &, monster_info &mi);
 void        unmarshallMapCell (reader &, map_cell& cell);
 level_id    unmarshall_level_id(reader& th);
-
-int         unmarshallEnumVal (reader &, const enum_info *);
-
-template<typename enm>
-static inline enm unmarshallEnum(writer& wr)
-{
-    return static_cast<enm>(unmarshallEnumVal(wr, &enum_details<enm>::desc));
-}
 
 uint64_t unmarshallUnsigned(reader& th);
 template<typename T>
@@ -242,6 +174,6 @@ void tag_read_char(reader &th, uint8_t format, uint8_t major, uint8_t minor);
  * misc
  * *********************************************************************** */
 
-std::string make_date_string(time_t in_date);
+string make_date_string(time_t in_date);
 
 #endif // TAGS_H

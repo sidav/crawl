@@ -133,11 +133,11 @@
     {  MST_LICH_III,
       {
        SPELL_BOLT_OF_DRAINING,
-       SPELL_ANIMATE_DEAD,
-       SPELL_SUMMON_UNDEAD,
-       SPELL_THROW_FROST,
+       SPELL_SLOW,
+       SPELL_INVISIBILITY,
+       SPELL_THROW_ICICLE,
        SPELL_LEHUDIBS_CRYSTAL_SPEAR,
-       SPELL_SUMMON_UNDEAD
+       SPELL_INVISIBILITY
       }
     },
 
@@ -165,23 +165,23 @@
 
     {  MST_VAMPIRE,
       {
-       SPELL_VAMPIRE_SUMMON,
+       SPELL_VAMPIRIC_DRAINING,
        SPELL_CONFUSE,
        SPELL_INVISIBILITY,
        SPELL_NO_SPELL,
-       SPELL_VAMPIRE_SUMMON,
-       SPELL_VAMPIRE_SUMMON
+       SPELL_NO_SPELL,
+       SPELL_VAMPIRIC_DRAINING,
       }
     },
 
     {  MST_VAMPIRE_KNIGHT,
       {
-       SPELL_VAMPIRE_SUMMON,
+       SPELL_BLINK_CLOSE,
        SPELL_PARALYSE,
        SPELL_HASTE,
        SPELL_INVISIBILITY,
-       SPELL_VAMPIRE_SUMMON,
-       SPELL_MINOR_HEALING
+       SPELL_NO_SPELL,
+       SPELL_VAMPIRIC_DRAINING
       }
     },
 
@@ -253,8 +253,8 @@
 
     {  MST_KRAKEN,
       {
-       SPELL_KRAKEN_TENTACLES,
-       SPELL_KRAKEN_TENTACLES,
+       SPELL_CREATE_TENTACLES,
+       SPELL_CREATE_TENTACLES,
        SPELL_NO_SPELL,
        SPELL_NO_SPELL,
        SPELL_NO_SPELL,
@@ -389,8 +389,8 @@
        SPELL_NO_SPELL,
        SPELL_CANTRIP,
        SPELL_SMITING,
-       SPELL_NO_SPELL,
-       SPELL_MINOR_HEALING
+       SPELL_HEAL_OTHER,
+       SPELL_NO_SPELL
       }
     },
 
@@ -400,8 +400,8 @@
        SPELL_SUMMON_DEMON,
        SPELL_SUMMON_DEMON,
        SPELL_SMITING,
-       SPELL_ANIMATE_DEAD,
-       SPELL_MINOR_HEALING
+       SPELL_HEAL_OTHER,
+       SPELL_MINOR_HEALING,
       }
     },
 
@@ -506,11 +506,11 @@
 
     {  MST_NEQOXEC,
       {
-       SPELL_POLYMORPH_OTHER,
+       SPELL_MALMUTATE,
        SPELL_NO_SPELL,
        SPELL_NO_SPELL,
        SPELL_BRAIN_FEED,
-       SPELL_CALL_IMP,
+       SPELL_SUMMON_MINOR_DEMON,
        SPELL_NO_SPELL
       }
     },
@@ -541,9 +541,9 @@
       {
        SPELL_ENERGY_BOLT,
        SPELL_SLOW,
-       SPELL_NO_SPELL,
-       SPELL_POLYMORPH_OTHER,
        SPELL_CONFUSE,
+       SPELL_MALMUTATE,
+       SPELL_DIG,
        SPELL_NO_SPELL
       }
     },
@@ -606,9 +606,9 @@
     {  MST_DEEP_ELF_SUMMONER,
       {
        SPELL_BLINK,
-       SPELL_CALL_IMP,
+       SPELL_SUMMON_MINOR_DEMON,
        SPELL_SUMMON_UFETUBUS,
-       SPELL_VAMPIRE_SUMMON,
+       SPELL_SUMMON_DEMON,
        SPELL_SUMMON_DEMON,
        SPELL_NO_SPELL
       }
@@ -664,7 +664,7 @@
        SPELL_BANISHMENT,
        SPELL_SUMMON_DEMON,
        SPELL_SUMMON_GREATER_DEMON,
-       SPELL_CALL_IMP,
+       SPELL_SUMMON_MINOR_DEMON,
        SPELL_NO_SPELL
       }
     },
@@ -704,10 +704,10 @@
 
     {  MST_KOBOLD_DEMONOLOGIST,
       {
-       SPELL_CALL_IMP,
+       SPELL_SUMMON_MINOR_DEMON,
        SPELL_SUMMON_DEMON,
        SPELL_CANTRIP,
-       SPELL_CALL_IMP,
+       SPELL_SUMMON_MINOR_DEMON,
        SPELL_SUMMON_DEMON,
        SPELL_CANTRIP           // this should be cute -- bw
       },
@@ -748,8 +748,8 @@
 
     {  MST_SHINING_EYE,
       {
-       SPELL_POLYMORPH_OTHER,
-       SPELL_POLYMORPH_OTHER,
+       SPELL_MALMUTATE,
+       SPELL_MALMUTATE,
        SPELL_NO_SPELL,
        SPELL_NO_SPELL,
        SPELL_NO_SPELL,
@@ -839,7 +839,7 @@
        SPELL_BOLT_OF_FIRE,
        SPELL_BOLT_OF_FIRE,
        SPELL_NO_SPELL,
-       SPELL_POLYMORPH_OTHER,
+       SPELL_MALMUTATE,
        SPELL_FIREBALL,
        SPELL_FIREBALL
       }
@@ -1080,14 +1080,14 @@
     },
 
     {  MST_MERFOLK_AQUAMANCER,
-       {
+      {
         SPELL_PRIMAL_WAVE,
         SPELL_STEAM_BALL,
         SPELL_NO_SPELL,
         SPELL_THROW_ICICLE,
         SPELL_NO_SPELL,
         SPELL_BLINK
-       }
+      }
     },
 
     {  MST_ALLIGATOR,
@@ -1166,7 +1166,7 @@
     { MST_EUSTACHIO,
       {
        SPELL_SUMMON_SMALL_MAMMALS,
-       SPELL_CALL_IMP,
+       SPELL_SUMMON_MINOR_DEMON,
        SPELL_BLINK,
        SPELL_NO_SPELL,
        SPELL_NO_SPELL,
@@ -1262,7 +1262,6 @@
       }
     },
 
-
     // demon lords
     {  MST_GERYON,
       {
@@ -1299,12 +1298,12 @@
 
     {  MST_ERESHKIGAL,
       {
-       SPELL_BOLT_OF_DRAINING,
        SPELL_BOLT_OF_COLD,
+       SPELL_SILENCE,
        SPELL_SUMMON_GREATER_DEMON,
        SPELL_SYMBOL_OF_TORMENT,
        SPELL_PARALYSE,
-       SPELL_MINOR_HEALING
+       SPELL_MAJOR_HEALING
       }
     },
 
@@ -1627,17 +1626,6 @@
       }
     },
 
-    {  MST_BLESSED_TOE,
-      {
-       SPELL_SUMMON_HOLIES,
-       SPELL_SUMMON_HOLIES,
-       SPELL_HEAL_OTHER,
-       SPELL_HOLY_WORD,
-       SPELL_SUMMON_HOLIES,
-       SPELL_NO_SPELL
-      }
-    },
-
     {  MST_SPIRIT,
       {
        SPELL_BLINK_AWAY,
@@ -1675,9 +1663,9 @@
       {
        SPELL_LEHUDIBS_CRYSTAL_SPEAR,
        SPELL_MESMERISE,
-       SPELL_BLINK,
-       SPELL_BRAIN_FEED,
-       SPELL_PAIN,
+       SPELL_BLINK_CLOSE,
+       SPELL_NO_SPELL,
+       SPELL_NO_SPELL,
        SPELL_VAMPIRIC_DRAINING,
       }
     },
@@ -1772,12 +1760,12 @@
 
     {  MST_HELLBINDER,
       {
-       SPELL_CALL_IMP,
+       SPELL_SUMMON_MINOR_DEMON,
        SPELL_SUMMON_DEMON,
        SPELL_HASTE,
        SPELL_HELLFIRE,
        SPELL_BLINK_AWAY,
-       SPELL_THROW_FLAME
+       SPELL_NO_SPELL
       }
     },
 
@@ -1789,6 +1777,138 @@
        SPELL_AIRSTRIKE,
        SPELL_BLINK_RANGE,
        SPELL_BLINK_RANGE
+      }
+    },
+
+    {  MST_SOUL_EATER,
+      {
+       SPELL_DRAIN_LIFE,
+       SPELL_MELEE,
+       SPELL_NO_SPELL,
+       SPELL_NO_SPELL,
+       SPELL_NO_SPELL,
+       SPELL_NO_SPELL
+      }
+    },
+
+    {  MST_WRETCHED_STAR,
+      {
+       SPELL_ISKENDERUNS_MYSTIC_BLAST,
+       SPELL_ISKENDERUNS_MYSTIC_BLAST,
+       SPELL_NO_SPELL,
+       SPELL_NO_SPELL,
+       SPELL_NO_SPELL,
+       SPELL_NO_SPELL
+      }
+    },
+
+    {  MST_TENTACLED_STARSPAWN,
+      {
+       SPELL_CREATE_TENTACLES,
+       SPELL_CREATE_TENTACLES,
+       SPELL_CREATE_TENTACLES,
+       SPELL_CREATE_TENTACLES,
+       SPELL_CREATE_TENTACLES,
+       SPELL_NO_SPELL
+      }
+    },
+
+    {  MST_FRANCES,
+      {
+       SPELL_THROW_ICICLE,
+       SPELL_SUMMON_DEMON,
+       SPELL_HASTE,
+       SPELL_IRON_SHOT,
+       SPELL_SUMMON_DEMON,
+       SPELL_HASTE
+      }
+    },
+
+    {  MST_THRASHING_HORROR,
+      {
+       SPELL_NO_SPELL,
+       SPELL_NO_SPELL,
+       SPELL_NO_SPELL,
+       SPELL_NO_SPELL,
+       SPELL_NO_SPELL,
+       SPELL_MIGHT
+      }
+    },
+
+    {  MST_JORGRUN,
+      {
+       SPELL_LRD,
+       SPELL_PETRIFY,
+       SPELL_NO_SPELL,
+       SPELL_SHATTER,
+       SPELL_DIG,
+       SPELL_NO_SPELL
+      }
+    },
+
+    {  MST_LAMIA,
+      {
+       SPELL_IOOD,
+       SPELL_MESMERISE,
+       SPELL_HASTE,
+       SPELL_POISON_ARROW,
+       SPELL_NO_SPELL,
+       SPELL_TELEPORT_SELF
+      }
+    },
+
+    {  MST_DEEP_TROLL_EARTH_MAGE,
+      {
+       SPELL_LRD,
+       SPELL_NO_SPELL,
+       SPELL_NO_SPELL,
+       SPELL_NO_SPELL,
+       SPELL_DIG,
+       SPELL_NO_SPELL,
+      }
+    },
+
+    {  MST_DEEP_TROLL_SHAMAN,
+      {
+       SPELL_NO_SPELL,
+       SPELL_NO_SPELL,
+       SPELL_NO_SPELL,
+       SPELL_HASTE_OTHER,
+       SPELL_MIGHT_OTHER,
+       SPELL_MINOR_HEALING,
+      }
+    },
+
+    {  MST_VAULT_SENTINEL,
+      {
+       SPELL_SENTINEL_MARK,
+       SPELL_SENTINEL_MARK,
+       SPELL_NO_SPELL,
+       SPELL_SENTINEL_MARK,
+       SPELL_NO_SPELL,
+       SPELL_NO_SPELL,
+      }
+    },
+
+    {  MST_IRONBRAND_CONVOKER,
+      {
+       SPELL_MIGHT_OTHER,
+       SPELL_MIGHT_OTHER,
+       SPELL_NO_SPELL,
+       SPELL_WORD_OF_RECALL,
+       SPELL_WORD_OF_RECALL,
+       SPELL_NO_SPELL,
+      }
+    },
+
+    {  MST_IRONHEART_PRESERVER,
+      {
+       SPELL_NO_SPELL,
+       SPELL_NO_SPELL,
+       SPELL_MINOR_HEALING,
+       SPELL_INJURY_BOND,
+       SPELL_NO_SPELL,
+       SPELL_MINOR_HEALING,
       }
     },
 

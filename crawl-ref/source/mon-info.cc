@@ -17,6 +17,7 @@
 #include "fight.h"
 #include "ghost.h"
 #include "itemname.h"
+#include "itemprop.h"
 #include "libutil.h"
 #include "message.h"
 #include "misc.h"
@@ -146,8 +147,18 @@ static monster_info_flags ench_to_mb(const monster& mons, enchant_type ench)
         return MB_DEATHS_DOOR;
     case ENCH_ROLLING:
         return MB_ROLLING;
+    case ENCH_STONESKIN:
+        return MB_STONESKIN;
     case ENCH_OZOCUBUS_ARMOUR:
         return MB_OZOCUBUS_ARMOUR;
+    case ENCH_WRETCHED:
+        return MB_WRETCHED;
+    case ENCH_SCREAMED:
+        return MB_SCREAMED;
+    case ENCH_WORD_OF_RECALL:
+        return MB_WORD_OF_RECALL;
+    case ENCH_INJURY_BOND:
+        return MB_INJURY_BOND;
     default:
         return NUM_MB_FLAGS;
     }
@@ -167,7 +178,7 @@ static bool _blocked_ray(const coord_def &where,
     return true;
 }
 
-static bool _is_public_key(std::string key)
+static bool _is_public_key(string key)
 {
     if (key == "helpless"
      || key == "wand_known"
@@ -250,7 +261,7 @@ static bool _tentacle_pos_unknown(const monster *tentacle,
 }
 
 static void _translate_tentacle_ref(monster_info& mi, const monster* m,
-                                    std::string key)
+                                    string key)
 {
     if (m->props.exists(key))
     {
@@ -265,9 +276,9 @@ static void _translate_tentacle_ref(monster_info& mi, const monster* m,
             // (distortion etc.), just treat them as not connected.
             if (adjacent(m->pos(), h_pos)
                 && other->type != MONS_KRAKEN
-                && other->type != MONS_ZOMBIE_LARGE
+                && other->type != MONS_ZOMBIE
                 && other->type != MONS_SPECTRAL_THING
-                && other->type != MONS_SIMULACRUM_LARGE
+                && other->type != MONS_SIMULACRUM
                 && !_tentacle_pos_unknown(other, m->pos()))
             {
                 mi.props[key] = h_pos - m->pos();
@@ -300,9 +311,7 @@ monster_info::monster_info(monster_type p_type, monster_type p_base_type)
 
     mbase_speed = mons_class_base_speed(type);
 
-    fly = mons_class_flies(type);
-    if (fly == FL_NONE)
-        fly = mons_class_flies(base_type);
+    fly = max(mons_class_flies(type), mons_class_flies(base_type));
 
     if (mons_class_wields_two_weapons(type)
         || mons_class_wields_two_weapons(base_type))
@@ -420,7 +429,9 @@ monster_info::monster_info(const monster* m, int milev)
             || type == MONS_SHEDU
             || type == MONS_KRAKEN_TENTACLE
             || type == MONS_KRAKEN_TENTACLE_SEGMENT
-            || type == MONS_ELDRITCH_TENTACLE_SEGMENT)
+            || type == MONS_ELDRITCH_TENTACLE_SEGMENT
+            || type == MONS_STARSPAWN_TENTACLE
+            || type == MONS_STARSPAWN_TENTACLE_SEGMENT)
         {
             number = 0;
         }
@@ -430,8 +441,7 @@ monster_info::monster_info(const monster* m, int milev)
 
         if (m->is_summoned())
             mb.set(MB_SUMMONED);
-
-        if (m->is_perm_summoned())
+        else if (m->is_perm_summoned())
             mb.set(MB_PERM_SUMMON);
     }
     else
@@ -556,7 +566,7 @@ monster_info::monster_info(const monster* m, int milev)
         mb.set(MB_STABBABLE);
     if (mons_looks_distracted(m))
         mb.set(MB_DISTRACTED);
-    if (liquefied(m->pos()) && m->ground_level() && !m->is_insubstantial())
+    if (m->liquefied_ground())
         mb.set(MB_SLOWED);
     if (m->is_wall_clinging())
         mb.set(MB_CLINGING);
@@ -744,7 +754,7 @@ monster_info::monster_info(const monster* m, int milev)
     client_id = m->get_client_id();
 }
 
-std::string monster_info::db_name() const
+string monster_info::db_name() const
 {
     if (type == MONS_DANCING_WEAPON && inv[MSLOT_WEAPON].get())
     {
@@ -757,15 +767,20 @@ std::string monster_info::db_name() const
     return get_monster_data(type)->name;
 }
 
-std::string monster_info::_core_name() const
+string monster_info::_core_name() const
 {
     monster_type nametype = type;
 
     switch (type)
     {
+    case MONS_ZOMBIE:
+    case MONS_SKELETON:
+    case MONS_SIMULACRUM:
+#if TAG_MAJOR_VERSION == 34
     case MONS_ZOMBIE_SMALL:     case MONS_ZOMBIE_LARGE:
     case MONS_SKELETON_SMALL:   case MONS_SKELETON_LARGE:
     case MONS_SIMULACRUM_SMALL: case MONS_SIMULACRUM_LARGE:
+#endif
     case MONS_SPECTRAL_THING:   case MONS_PILLAR_OF_SALT:
         nametype = base_type;
         break;
@@ -774,7 +789,7 @@ std::string monster_info::_core_name() const
         break;
     }
 
-    std::string s;
+    string s;
 
     if (is(MB_NAME_REPLACE))
         s = mname;
@@ -853,8 +868,8 @@ std::string monster_info::_core_name() const
     return s;
 }
 
-std::string monster_info::_apply_adjusted_description(description_level_type desc,
-                                                      const std::string& s) const
+string monster_info::_apply_adjusted_description(description_level_type desc,
+                                                 const string& s) const
 {
     if (desc == DESC_ITS)
         desc = DESC_THE;
@@ -868,9 +883,14 @@ std::string monster_info::_apply_adjusted_description(description_level_type des
     return apply_description(desc, s);
 }
 
-std::string monster_info::common_name(description_level_type desc) const
+string monster_info::common_name(description_level_type desc) const
 {
-    std::ostringstream ss;
+    const string core = _core_name();
+    const bool nocore = mons_class_is_zombified(type)
+                        && mons_is_unique(base_type)
+                        && base_type == mons_species(base_type);
+
+    ostringstream ss;
 
     if (props.exists("helpless"))
         ss << "helpless ";
@@ -878,7 +898,7 @@ std::string monster_info::common_name(description_level_type desc) const
     if (is(MB_SUBMERGED))
         ss << "submerged ";
 
-    if (type == MONS_SPECTRAL_THING && !is(MB_NAME_ZOMBIE))
+    if (type == MONS_SPECTRAL_THING && !is(MB_NAME_ZOMBIE) && !nocore)
         ss << "spectral ";
 
     if (type == MONS_BALLISTOMYCETE)
@@ -899,29 +919,39 @@ std::string monster_info::common_name(description_level_type desc) const
         ss << "-headed ";
     }
 
-    std::string core = _core_name();
-    bool nocore = (mons_class_is_zombified(type) && mons_is_unique(base_type)
-                   && base_type == mons_species(base_type));
     if (!nocore)
         ss << core;
 
     // Add suffixes.
     switch (type)
     {
+    case MONS_ZOMBIE:
+#if TAG_MAJOR_VERSION == 34
     case MONS_ZOMBIE_SMALL:
     case MONS_ZOMBIE_LARGE:
+#endif
         if (!is(MB_NAME_ZOMBIE))
             ss << (nocore ? "" : " ") << "zombie";
         break;
+    case MONS_SKELETON:
+#if TAG_MAJOR_VERSION == 34
     case MONS_SKELETON_SMALL:
     case MONS_SKELETON_LARGE:
+#endif
         if (!is(MB_NAME_ZOMBIE))
             ss << (nocore ? "" : " ") << "skeleton";
         break;
+    case MONS_SIMULACRUM:
+#if TAG_MAJOR_VERSION == 34
     case MONS_SIMULACRUM_SMALL:
     case MONS_SIMULACRUM_LARGE:
+#endif
         if (!is(MB_NAME_ZOMBIE))
             ss << (nocore ? "" : " ") << "simulacrum";
+        break;
+    case MONS_SPECTRAL_THING:
+        if (nocore)
+            ss << "spectre";
         break;
     case MONS_PILLAR_OF_SALT:
         ss << (nocore ? "" : " ") << "shaped pillar of salt";
@@ -938,7 +968,7 @@ std::string monster_info::common_name(description_level_type desc) const
             ss << " shaped shifter";
     }
 
-    std::string s;
+    string s;
     // only respect unqualified if nothing was added ("Sigmund" or "The spectral Sigmund")
     if (!is(MB_NAME_UNQUALIFIED) || has_proper_name() || ss.str() != core)
         s = _apply_adjusted_description(desc, ss.str());
@@ -965,15 +995,17 @@ const item_def* monster_info::get_mimic_item() const
     return inv[MSLOT_MISCELLANY].get();
 }
 
-std::string monster_info::mimic_name() const
+string monster_info::mimic_name() const
 {
-    std::string s;
+    string s;
     if (type == MONS_INEPT_ITEM_MIMIC || type == MONS_INEPT_FEATURE_MIMIC)
         s = "inept ";
     if (type == MONS_RAVENOUS_ITEM_MIMIC || type == MONS_RAVENOUS_FEATURE_MIMIC)
         s = "ravenous ";
-    if (type == MONS_MONSTROUS_ITEM_MIMIC || type == MONS_MONSTROUS_FEATURE_MIMIC)
+#if TAG_MAJOR_VERSION == 34
+    if (type == MONS_MONSTROUS_ITEM_MIMIC)
         s = "monstrous ";
+#endif
 
     if (props.exists("feat_type"))
         s += feat_type_name(get_mimic_feature());
@@ -1004,7 +1036,7 @@ bool monster_info::has_proper_name() const
             && !is(MB_NAME_REPLACE) && !is(MB_NAME_ADJECTIVE) && !is(MB_NAME_SUFFIX);
 }
 
-std::string monster_info::proper_name(description_level_type desc) const
+string monster_info::proper_name(description_level_type desc) const
 {
     if (has_proper_name())
     {
@@ -1017,14 +1049,14 @@ std::string monster_info::proper_name(description_level_type desc) const
         return common_name(desc);
 }
 
-std::string monster_info::full_name(description_level_type desc, bool use_comma) const
+string monster_info::full_name(description_level_type desc, bool use_comma) const
 {
     if (desc == DESC_NONE)
         return "";
 
     if (has_proper_name())
     {
-        std::string s = mname + (use_comma ? ", the " : " the ") + common_name();
+        string s = mname + (use_comma ? ", the " : " the ") + common_name();
         if (desc == DESC_ITS)
             s = apostrophise(s);
         return s;
@@ -1124,7 +1156,7 @@ bool monster_info::less_than(const monster_info& m1, const monster_info& m2,
     return false;
 }
 
-static std::string _verbose_info0(const monster_info& mi)
+static string _verbose_info0(const monster_info& mi)
 {
     if (mi.is(MB_BERSERK))
         return "berserk";
@@ -1181,15 +1213,15 @@ static std::string _verbose_info0(const monster_info& mi)
     return "";
 }
 
-static std::string _verbose_info(const monster_info& mi)
+static string _verbose_info(const monster_info& mi)
 {
-    std::string inf = _verbose_info0(mi);
+    string inf = _verbose_info0(mi);
     if (!inf.empty())
         inf = " (" + inf + ")";
     return inf;
 }
 
-std::string monster_info::pluralised_name(bool fullname) const
+string monster_info::pluralised_name(bool fullname) const
 {
     // Don't pluralise uniques, ever.  Multiple copies of the same unique
     // are unlikely in the dungeon currently, but quite common in the
@@ -1210,15 +1242,52 @@ std::string monster_info::pluralised_name(bool fullname) const
         return pluralise(mons_type_name(type, DESC_PLAIN));
     }
     else
-    {
         return pluralise(common_name());
-    }
 }
 
-void monster_info::to_string(int count, std::string& desc,
-                                  int& desc_colour, bool fullname) const
+enum _monster_list_colour_type
 {
-    std::ostringstream out;
+    _MLC_FRIENDLY, _MLC_NEUTRAL, _MLC_GOOD_NEUTRAL, _MLC_STRICT_NEUTRAL,
+    _MLC_TRIVIAL, _MLC_EASY, _MLC_TOUGH, _MLC_NASTY,
+    _NUM_MLC
+};
+
+static const char * const _monster_list_colour_names[_NUM_MLC] =
+{
+    "friendly", "neutral", "good_neutral", "strict_neutral",
+    "trivial", "easy", "tough", "nasty"
+};
+
+static int _monster_list_colours[_NUM_MLC] =
+{
+    GREEN, BROWN, BROWN, BROWN,
+    DARKGREY, LIGHTGREY, YELLOW, LIGHTRED,
+};
+
+bool set_monster_list_colour(string key, int colour)
+{
+    for (int i = 0; i < _NUM_MLC; ++i)
+    {
+        if (key == _monster_list_colour_names[i])
+        {
+            _monster_list_colours[i] = colour;
+            return true;
+        }
+    }
+    return false;
+}
+
+void clear_monster_list_colours()
+{
+    for (int i = 0; i < _NUM_MLC; ++i)
+        _monster_list_colours[i] = -1;
+}
+
+void monster_info::to_string(int count, string& desc,
+                             int& desc_colour, bool fullname) const
+{
+    ostringstream out;
+    _monster_list_colour_type colour_type = _NUM_MLC;
 
     if (count == 1)
         out << full_name();
@@ -1241,25 +1310,28 @@ void monster_info::to_string(int count, std::string& desc,
     {
     case ATT_FRIENDLY:
         //out << " (friendly)";
-        desc_colour = GREEN;
+        colour_type = _MLC_FRIENDLY;
         break;
     case ATT_GOOD_NEUTRAL:
+        //out << " (neutral)";
+        colour_type = _MLC_GOOD_NEUTRAL;
+        break;
     case ATT_NEUTRAL:
         //out << " (neutral)";
-        desc_colour = BROWN;
+        colour_type = _MLC_NEUTRAL;
         break;
     case ATT_STRICT_NEUTRAL:
          out << " (fellow slime)";
-         desc_colour = BROWN;
+         colour_type = _MLC_STRICT_NEUTRAL;
          break;
     case ATT_HOSTILE:
         // out << " (hostile)";
         switch (threat)
         {
-        case MTHRT_TRIVIAL: desc_colour = DARKGREY;  break;
-        case MTHRT_EASY:    desc_colour = LIGHTGREY; break;
-        case MTHRT_TOUGH:   desc_colour = YELLOW;    break;
-        case MTHRT_NASTY:   desc_colour = LIGHTRED;  break;
+        case MTHRT_TRIVIAL: colour_type = _MLC_TRIVIAL; break;
+        case MTHRT_EASY:    colour_type = _MLC_EASY;    break;
+        case MTHRT_TOUGH:   colour_type = _MLC_TOUGH;   break;
+        case MTHRT_NASTY:   colour_type = _MLC_NASTY;   break;
         default:;
         }
         break;
@@ -1267,13 +1339,19 @@ void monster_info::to_string(int count, std::string& desc,
 
     if (count == 1 && is(MB_EVIL_ATTACK))
         desc_colour = Options.evil_colour;
+    else if (colour_type < _NUM_MLC)
+        desc_colour = _monster_list_colours[colour_type];
+
+    // We still need something, or we'd get the last entry's colour.
+    if (desc_colour < 0)
+        desc_colour = LIGHTGREY;
 
     desc = out.str();
 }
 
-std::vector<std::string> monster_info::attributes() const
+vector<string> monster_info::attributes() const
 {
-    std::vector<std::string> v;
+    vector<string> v;
     if (is(MB_POISONED))
         v.push_back("poisoned");
     if (is(MB_SICK))
@@ -1334,13 +1412,13 @@ std::vector<std::string> monster_info::attributes() const
         v.push_back("inspiring fear");
     if (is(MB_BREATH_WEAPON))
     {
-        v.push_back(std::string("catching ")
+        v.push_back(string("catching ")
                     + pronoun(PRONOUN_POSSESSIVE) + " breath");
     }
     if (is(MB_WITHDRAWN))
     {
         v.push_back("regenerating health quickly");
-        v.push_back(std::string("protected by ")
+        v.push_back(string("protected by ")
                     + pronoun(PRONOUN_POSSESSIVE) + " shell");
     }
     if (is(MB_ATTACHED))
@@ -1350,7 +1428,7 @@ std::vector<std::string> monster_info::attributes() const
     if (is(MB_MUTE))
         v.push_back("permanently mute");
     if (is(MB_BLIND))
-        v.push_back("permanently blind");
+        v.push_back("blind");
     if (is(MB_DUMB))
         v.push_back("stupefied");
     if (is(MB_MAD))
@@ -1361,26 +1439,34 @@ std::vector<std::string> monster_info::attributes() const
         v.push_back("regenerating");
     if (is(MB_ROLLING))
         v.push_back("rolling");
+    if (is(MB_STONESKIN))
+        v.push_back("stone skin");
     if (is(MB_OZOCUBUS_ARMOUR))
         v.push_back("covered in an icy film");
+    if (is(MB_WRETCHED))
+        v.push_back("misshapen and mutated");
+    if (is(MB_WORD_OF_RECALL))
+        v.push_back("chanting recall");
+    if (is(MB_INJURY_BOND))
+        v.push_back("sheltered from injuries");
     return v;
 }
 
-std::string monster_info::wounds_description_sentence() const
+string monster_info::wounds_description_sentence() const
 {
-    const std::string wounds = wounds_description();
+    const string wounds = wounds_description();
     if (wounds.empty())
         return "";
     else
-        return std::string(pronoun(PRONOUN_SUBJECTIVE)) + " is " + wounds + ".";
+        return string(pronoun(PRONOUN_SUBJECTIVE)) + " is " + wounds + ".";
 }
 
-std::string monster_info::wounds_description(bool use_colour) const
+string monster_info::wounds_description(bool use_colour) const
 {
     if (dam == MDAM_OKAY)
         return "";
 
-    std::string desc = get_damage_level_string(holi, dam);
+    string desc = get_damage_level_string(holi, dam);
     if (use_colour)
     {
         const int col = channel_to_colour(MSGCH_MONSTER_DAMAGE, dam);
@@ -1389,9 +1475,9 @@ std::string monster_info::wounds_description(bool use_colour) const
     return desc;
 }
 
-std::string monster_info::constriction_description() const
+string monster_info::constriction_description() const
 {
-    std::string cinfo = "";
+    string cinfo = "";
     bool bymsg = false;
 
     if (constrictor_name != "")
@@ -1400,8 +1486,8 @@ std::string monster_info::constriction_description() const
         bymsg = true;
     }
 
-    std::string constricting = comma_separated_line(
-            constricting_name.begin(), constricting_name.end());
+    string constricting = comma_separated_line(constricting_name.begin(),
+                                               constricting_name.end());
 
     if (constricting != "")
     {
@@ -1505,7 +1591,7 @@ reach_type monster_info::reach_range() const
 
     const item_def *weapon = inv[MSLOT_WEAPON].get();
     if (weapon)
-        range = std::max(range, weapon_reach(*weapon));
+        range = max(range, weapon_reach(*weapon));
 
     return range;
 }
@@ -1552,7 +1638,7 @@ bool monster_info::cannot_move() const
 
 bool monster_info::airborne() const
 {
-    return (fly == FL_LEVITATE) || (fly == FL_FLY && !cannot_move());
+    return (fly == FL_LEVITATE) || (fly == FL_WINGED && !cannot_move());
 }
 
 bool monster_info::ground_level() const
@@ -1560,9 +1646,9 @@ bool monster_info::ground_level() const
     return (!airborne() && !is(MB_CLINGING));
 }
 
-void get_monster_info(std::vector<monster_info>& mons)
+void get_monster_info(vector<monster_info>& mons)
 {
-    std::vector<monster* > visible;
+    vector<monster* > visible;
     if (crawl_state.game_is_arena())
     {
         for (monster_iterator mi; mi; ++mi)
@@ -1574,12 +1660,12 @@ void get_monster_info(std::vector<monster_info>& mons)
     for (unsigned int i = 0; i < visible.size(); i++)
     {
         if (!mons_class_flag(visible[i]->type, M_NO_EXP_GAIN)
-            || visible[i]->type == MONS_KRAKEN_TENTACLE
+            || visible[i]->is_child_tentacle()
             || visible[i]->type == MONS_BALLISTOMYCETE
                 && visible[i]->number > 0)
         {
             mons.push_back(monster_info(visible[i]));
         }
     }
-    std::sort(mons.begin(), mons.end(), monster_info::less_than_wrapper);
+    sort(mons.begin(), mons.end(), monster_info::less_than_wrapper);
 }

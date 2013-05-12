@@ -106,7 +106,7 @@ static int _map_quality()
     // the explanation of this 51 vs max_piety of 200 is left as
     // an exercise to the reader
     if (you.religion == GOD_ASHENZARI && !player_under_penance())
-        passive = std::max(passive, you.piety / 51);
+        passive = max(passive, you.piety / 51);
     return passive;
 }
 
@@ -133,7 +133,7 @@ void set_terrain_seen(int x, int y)
         if (!is_boring_terrain(feat))
         {
             coord_def pos(x, y);
-            std::string desc = feature_description_at(pos, false, DESC_A);
+            string desc = feature_description_at(pos, false, DESC_A);
             take_note(Note(NOTE_SEEN_FEAT, 0, 0, desc.c_str()));
         }
     }
@@ -161,7 +161,7 @@ void set_terrain_visible(const coord_def &c)
 
 void clear_terrain_visibility()
 {
-    for (std::set<coord_def>::iterator i = env.visible.begin(); i != env.visible.end(); ++i)
+    for (set<coord_def>::iterator i = env.visible.begin(); i != env.visible.end(); ++i)
         env.map_knowledge(*i).flags &=~ MAP_VISIBLE_FLAG;
     env.visible.clear();
 }
@@ -175,9 +175,15 @@ void map_cell::set_detected_item()
     _item->colour    = Options.detected_item_colour;
 }
 
+static bool _floor_mf(map_feature mf)
+{
+    return mf == MF_FLOOR || mf == MF_WATER || mf == MF_LAVA;
+}
+
 map_feature get_cell_map_feature(const map_cell& cell)
 {
     map_feature mf = MF_SKIP;
+    bool mf_mons_no_exp = false;
     if (cell.invisible_monster())
         mf = MF_MONS_HOSTILE;
     else if (cell.monster() != MONS_NO_MONSTER)
@@ -197,7 +203,7 @@ map_feature get_cell_map_feature(const map_cell& cell)
         case ATT_HOSTILE:
         default:
             if (mons_class_flag(cell.monster(), M_NO_EXP_GAIN))
-                mf = MF_MONS_NO_EXP;
+                mf_mons_no_exp = true;
             else
                 mf = MF_MONS_HOSTILE;
             break;
@@ -210,10 +216,12 @@ map_feature get_cell_map_feature(const map_cell& cell)
         mf = get_feature_def(show).minimap;
     }
 
-    if (mf == MF_SKIP && cell.item())
-        mf = get_feature_def(*cell.item()).minimap;
     if (mf == MF_SKIP)
         mf = get_feature_def(cell.feat()).minimap;
+    if ((mf == MF_SKIP || _floor_mf(mf)) && cell.item())
+        mf = get_feature_def(*cell.item()).minimap;
+    if ((mf == MF_SKIP || _floor_mf(mf)) && mf_mons_no_exp)
+        mf = MF_MONS_NO_EXP;
     if (mf == MF_SKIP)
         mf = MF_UNSEEN;
 

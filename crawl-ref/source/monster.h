@@ -2,7 +2,6 @@
 #define MONSTER_H
 
 #include "actor.h"
-#include "bitary.h"
 #include "mon-ench.h"
 
 const int KRAKEN_TENTACLE_RANGE = 3;
@@ -10,7 +9,7 @@ const int KRAKEN_TENTACLE_RANGE = 3;
 
 #define MAX_DAMAGE_COUNTER 10000
 
-typedef std::map<enchant_type, mon_enchant> mon_enchant_list;
+typedef map<enchant_type, mon_enchant> mon_enchant_list;
 
 struct monsterentry;
 
@@ -26,7 +25,7 @@ public:
 
 public:
     // Possibly some of these should be moved into the hash table
-    std::string mname;
+    string mname;
 
     int hit_points;
     int max_hit_points;
@@ -40,7 +39,7 @@ public:
     coord_def firing_pos;
     coord_def patrol_point;
     mutable montravel_target_type travel_target;
-    std::vector<coord_def> travel_path;
+    vector<coord_def> travel_path;
     FixedVector<short, NUM_MONSTER_SLOTS> inv;
     monster_spells spells;
     mon_attitude_type attitude;
@@ -64,7 +63,7 @@ public:
     god_type god;                      // What god the monster worships, if
                                        // any.
 
-    std::auto_ptr<ghost_demon> ghost;  // Ghost information.
+    unique_ptr<ghost_demon> ghost;     // Ghost information.
 
     seen_context_type seen_context;    // Non-standard context for
                                        // AI_SEE_MONSTER
@@ -187,6 +186,11 @@ public:
     bool find_home_near_player();
     bool find_home_anywhere();
 
+    // The map that placed this monster.
+    bool has_originating_map() const;
+    string originating_map() const;
+    void set_originating_map(const string &);
+
     void set_ghost(const ghost_demon &ghost);
     void ghost_init(bool need_pos = true);
     void ghost_demon_init();
@@ -215,7 +219,7 @@ public:
     bool        extra_balanced() const;
     bool        can_pass_through_feat(dungeon_feature_type grid) const;
     bool        is_habitable_feat(dungeon_feature_type actual_grid) const;
-    bool        shove(const char* name);
+    bool        shove(const char* name = "");
     size_type   body_size(size_part_type psize = PSIZE_TORSO,
                           bool base = false) const;
     int         body_weight(bool base = false) const;
@@ -224,9 +228,14 @@ public:
     int         damage_type(int which_attack = -1);
     int         has_claws(bool allow_tran = true) const;
 
-    item_def *slot_item(equipment_type eq, bool include_melded=false);
+    int wearing(equipment_type slot, int type, bool calc_unid = true) const;
+    int wearing_ego(equipment_type slot, int type, bool calc_unid = true) const;
+    int scan_artefacts(artefact_prop_type which_property,
+                       bool calc_unid = true) const;
+
+    item_def *slot_item(equipment_type eq, bool include_melded=false) const;
     item_def *mslot_item(mon_inv_type sl) const;
-    item_def *weapon(int which_attack = -1);
+    item_def *weapon(int which_attack = -1) const;
     item_def *launcher();
     item_def *missiles();
     item_def *shield();
@@ -267,23 +276,21 @@ public:
 
     bool      can_use_missile(const item_def &item) const;
 
-    std::string name(description_level_type type,
-                     bool force_visible = false) const;
+    string name(description_level_type type, bool force_visible = false) const;
 
     // Base name of the monster, bypassing any mname setting. For an orc priest
     // named Arbolt, name() will return "Arbolt", but base_name() will return
     // "orc priest".
-    std::string base_name(description_level_type type,
-                          bool force_visible = false) const;
+    string base_name(description_level_type type,
+                     bool force_visible = false) const;
     // Full name of the monster.  For an orc priest named Arbolt, full_name()
     // will return "Arbolt the orc priest".
-    std::string full_name(description_level_type type,
-                          bool use_comma = false) const;
-    std::string pronoun(pronoun_type pro, bool force_visible = false) const;
-    std::string conj_verb(const std::string &verb) const;
-    std::string hand_name(bool plural, bool *can_plural = NULL) const;
-    std::string foot_name(bool plural, bool *can_plural = NULL) const;
-    std::string arm_name(bool plural, bool *can_plural = NULL) const;
+    string full_name(description_level_type type, bool use_comma = false) const;
+    string pronoun(pronoun_type pro, bool force_visible = false) const;
+    string conj_verb(const string &verb) const;
+    string hand_name(bool plural, bool *can_plural = NULL) const;
+    string foot_name(bool plural, bool *can_plural = NULL) const;
+    string arm_name(bool plural, bool *can_plural = NULL) const;
 
     bool fumbles_attack(bool verbose = true);
     bool cannot_fight() const;
@@ -295,14 +302,17 @@ public:
     void go_berserk(bool intentional, bool potion = false);
     void go_frenzy();
     bool berserk() const;
-    bool frenzied() const;
     bool has_lifeforce() const;
     bool can_mutate() const;
     bool can_safely_mutate() const;
+    bool can_polymorph() const;
     bool can_bleed(bool allow_tran = true) const;
-    bool mutate(const std::string &reason);
-    void banish(actor *agent, const std::string &who = "");
-    void expose_to_element(beam_type element, int strength = 0);
+    bool mutate(const string &reason);
+    bool polymorph(int pow);
+    void banish(actor *agent, const string &who = "");
+    void expose_to_element(beam_type element, int strength = 0,
+                           bool damage_inventory = true,
+                           bool slow_cold_blood = true);
 
     monster_type mons_species(bool zombie_base = false) const;
 
@@ -328,17 +338,18 @@ public:
     int res_water_drowning() const;
     int res_sticky_flame() const;
     int res_holy_energy(const actor *) const;
-    int res_negative_energy() const;
+    int res_negative_energy(bool intrinsic_only = false) const;
     int res_torment() const;
-    int res_acid() const;
+    int res_acid(bool calc_unid = true) const;
     int res_wind() const;
     int res_petrify(bool temp = true) const;
     int res_constrict() const;
     int res_magic() const;
-    bool no_tele(bool calc_unid = true, bool permit_id = true) const;
+    bool no_tele(bool calc_unid = true, bool permit_id = true,
+                 bool blink = false) const;
+    bool res_corr(bool calc_unid = true, bool items = true) const;
 
     flight_type flight_mode() const;
-    bool is_levitating() const;
     bool can_cling_to_walls() const;
     bool is_banished() const;
     bool is_web_immune() const;
@@ -370,6 +381,7 @@ public:
     bool glows_naturally() const;
     bool petrified() const;
     bool petrifying() const;
+    bool liquefied_ground() const;
 
     bool friendly() const;
     bool neutral() const;
@@ -378,7 +390,6 @@ public:
     bool wont_attack() const;
     bool pacified() const;
     bool withdrawn() const {return has_ench(ENCH_WITHDRAWN);};
-    int warding() const;
 
     bool rolling() const { return has_ench(ENCH_ROLLING); } ;
     bool has_spells() const;
@@ -387,6 +398,7 @@ public:
     bool has_evil_spell() const;
     bool has_unclean_spell() const;
     bool has_chaotic_spell() const;
+    bool has_corpse_violating_spell() const;
 
     bool has_attack_flavour(int flavour) const;
     bool has_damage_type(int dam_type);
@@ -396,12 +408,13 @@ public:
     bool can_speak();
 
     int armour_class() const;
+    int gdr_perc() const { return 0; }
     int melee_evasion(const actor *attacker, ev_ignore_type evit) const;
 
     bool poison(actor *agent, int amount = 1, bool force = false);
     bool sicken(int strength, bool unused = true);
     bool bleed(const actor *agent, int amount, int degree);
-    void paralyse(actor *, int str, std::string source = "");
+    void paralyse(actor *, int str, string source = "");
     void petrify(actor *);
     bool fully_petrify(actor *foe, bool quiet = false);
     void slow_down(actor *, int str);
@@ -422,11 +435,11 @@ public:
     void hibernate(int power = 0);
     void put_to_sleep(actor *attacker, int power = 0);
     void check_awaken(int disturbance);
-    int beam_resists(bolt &beam, int hurted, bool doEffects, std::string source = "");
+    int beam_resists(bolt &beam, int hurted, bool doEffects, string source = "");
 
     int stat_hp() const    { return hit_points; }
     int stat_maxhp() const { return max_hit_points; }
-    int stealth () const;
+    int stealth() const;
 
     int     shield_bonus() const;
     int     shield_block_penalty() const;
@@ -438,8 +451,8 @@ public:
     int     unadjusted_body_armour_penalty() const { return 0; }
     int     adjusted_body_armour_penalty(int, bool) const { return 0; }
     int     adjusted_shield_penalty(int) const { return 0; }
-    int     armour_tohit_penalty(bool) const { return 0; }
-    int     shield_tohit_penalty(bool) const { return 0; }
+    int     armour_tohit_penalty(bool, int) const { return 0; }
+    int     shield_tohit_penalty(bool, int) const { return 0; }
 
     actor_type atype() const { return ACT_MONSTER; }
     monster* as_monster() { return this; }
@@ -451,7 +464,7 @@ public:
     void check_speed();
     void upgrade_type(monster_type after, bool adjust_hd, bool adjust_hp);
 
-    std::string describe_enchantments() const;
+    string describe_enchantments() const;
 
     int action_energy(energy_use_type et) const;
 
@@ -467,6 +480,15 @@ public:
     bool check_clarity(bool silent) const;
     bool check_stasis(bool silent, bool calc_unid = true) const;
 
+    bool is_child_tentacle() const;
+    bool is_child_tentacle_of(const monster* mons) const;
+    bool has_child_tentacles() const;
+    bool is_child_monster() const;
+    bool is_parent_monster_of(const monster* mons) const;
+    bool is_child_tentacle_segment() const;
+
+    bool is_divine_companion() const;
+
 private:
     void init_with(const monster& mons);
     void swap_slots(mon_inv_type a, mon_inv_type b);
@@ -480,6 +502,10 @@ private:
     void unequip_weapon(item_def &item, int near, bool msg = true);
     void unequip_armour(item_def &item, int near);
     void unequip_jewellery(item_def &item, int near);
+    int armour_bonus(const item_def &item);
+
+    void id_if_worn(mon_inv_type mslot, object_class_type base_type,
+                    int sub_type) const;
 
     bool decay_enchantment(const mon_enchant &me, bool decay_degree = true);
 
@@ -490,7 +516,6 @@ private:
     bool check_set_valid_home(const coord_def &place,
                               coord_def &chosen,
                               int &nvalid) const;
-
 };
 
 #endif

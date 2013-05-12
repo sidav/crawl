@@ -85,6 +85,9 @@ Some examples of search strings:
 <w>D:[2-4]</w>       finds everything on Dungeon levels 2-4. Regexes are allowed!
               Note that D:[3-10] will not work as intended, since [x-y] is a
               regex character range.
+<w>\+3</w>           finds all items with a +3 enchantment
+<w>rC\+\+</w>        finds all items with an rC++ resistance. Note with these that
+              the + symbol had to be escaped as \+ due to Regex syntax.
 <w>Lair.*axe</w> and <w>axe && Lair</w> both show all axes in the Lair.
 
 Some shortcuts:
@@ -92,6 +95,7 @@ Some shortcuts:
 <w>..</w>            lists all items you know.
 <w>0</w> to <w>9</w>        lists all items at the specified waypoint.
 <w>*</w>             lists all items at all waypoints.
+<w>@(pattern)</w>    lists everything matching (pattern) on your current level.
 
 You can also examine shops and items in the search results by pressing <w>?</w> and
 then hitting the hotkey for the search result. This will give a description
@@ -107,16 +111,19 @@ or rods that contain the spell.
 You can search for artefact item properties (such as <w>prevents.*teleport</w>)
 to find artefacts that have the property.
 
-You can also search by some additional item properties: <w>artefact</w> will
-find identified artefacts, <w>ego</w> will find non-artefacts with a brand and
-unidentified items which may be branded, and <w>throwable</w> will find things
-you can throw. Skill names (such as <w>Polearms</w> or <w>Long Blades</w>) will
-find all weapons that train that skill.
+You can also search by some additional item properties: <w>artefact</w> or
+<w>artifact</w> will find identified artefacts, <w>ego</w> or <w>branded</w> will
+find non-artefacts with a brand and unidentified items which may be
+branded, <w>throwable</w> will find things you can throw, <w>stick</w> will
+find items that can be used with Sticks to Snakes, and <w>dropped</w> will
+find items you have dropped.
 
-If you have set annotate_item_class = true in your initfile, you can also
-search by item types such as <w>book</w> or <w>jewellery</w>. For armour slots,
-you can use <w>helmet</w> (all head gear), <w>gloves</w>, <w>shield</w>, and
-<w>body</w>.
+Skill names (such as <w>Polearms</w> or <w>Long Blades</w>) will find all
+weapons that train that skill.
+
+You can also search by item types such as <w>book</w> or <w>jewellery</w>. For
+armour slots, you can use <w>helmet</w> (all head gear), <w>gloves</w>,
+<w>shield</w>, and <w>body</w>.
 
 <h>Finding Dungeon Features:</h>
 
@@ -158,8 +165,8 @@ level-map
 <w><<</w> or <w>></w> : Cycle through up or down stairs.
 <w>^</w>      : Cycle through traps.
 <w>Tab</w>    : Cycle through shops and portals.
-<w>*</w>      : Cycle forward through stashes (by default, all items).
-<w>/</w>      : Cycle backward through stashes (by default, all items).
+<w>I</w>      : Cycle forward through all items.
+<w>O</w>      : Cycle backward through all items.
 <w>_</w>      : Cycle through altars.
 
 <h>Other</h>
@@ -233,22 +240,23 @@ By pressing its letter, you can cycle if and how a skill is trained:
 + selected
 <w>* focused</w>       Skill will train faster than others.
 
-Pressing Ctrl+letter selects one skill and deselects all the others.
-It's a useful shortcut when you want to train only one skill.
+Pressing a capital letter selects that skill and deselects all the others.
+This shortcut is useful when you want to train only one skill.
 
 Training can be done in two modes, which are toggled with the <w>/</w> key.
 * automatic:    Skills are trained based on your use of them.
 * manual:       Experience is spread evenly across all activated skills.
 
 How fast you train a skill is governed by the following factors:
-* aptitude: Shown <red>red</red> in the Apt column. Higher numbers mean that
+* aptitude: Shown <white>white</white> in the Apt column. Higher numbers mean that
       less experience is needed to advance a skill. Depends on species.
 * cross-training: Some skills are easier to learn when you already are
       proficient with a related one, e.g. Long and Short Blades.
       The aptitude bonus for crosstraining is indicated in <green>green</green>.
 * magic penalties: It is harder to learn an elemental skill if you are
       proficient in the opposing element (Air-Earth, Ice-Fire).
-      The aptitude penalty is indicated in <magenta>magenta</magenta>.
+      The aptitude penalty is indicated in <red>red</red>.
+
 On top of that, there are some effects which directly modify a skill, for
 example god powers. These skill modifiers are shown in <blue>blue</blue>.
 The training percentage (in <brown>brown</brown>) shows the relative amount of experience
@@ -261,7 +269,7 @@ Apart from (de)selecting skills, you also have the following toggles:
 <w>_</w> :   Shows/hides skill modifiers, e.g. from god powers.
 
                                <h>Training restrictions</h>
-Fighting, Throwing, Dodging, Stealth, Stabbing, Traps & Doors, Unarmed Combat,
+Fighting, Throwing, Dodging, Stealth, Stabbing, Traps, Unarmed Combat,
 and Spellcasting can always be trained. For the rest:
 * Weapon skills require carrying a weapon of the appropriate type.
 * Armour requires wearing an armour with an evasion penalty.

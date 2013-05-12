@@ -20,6 +20,7 @@
 #include "hints.h"
 #include "invent.h"
 #include "itemprop.h"
+#include "melee_attack.h"
 #include "mgen_data.h"
 #include "mon-behv.h"
 #include "mon-cast.h"
@@ -34,14 +35,6 @@
 #include "stuff.h"
 #include "terrain.h"
 #include "travel.h"
-
-#ifdef NOTE_DEBUG_CHAOS_BRAND
-    #define NOTE_DEBUG_CHAOS_EFFECTS
-#endif
-
-#ifdef NOTE_DEBUG_CHAOS_EFFECTS
-    #include "notes.h"
-#endif
 
 /* Handles melee combat between attacker and defender
  *
@@ -335,7 +328,7 @@ int resist_adjust_damage(actor *defender, beam_type flavour,
     else if (res < 0)
         resistible = resistible * (ranged? 15 : 20) / 10;
 
-    return std::max(resistible + irresistible, 0);
+    return max(resistible + irresistible, 0);
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -382,7 +375,7 @@ bool wielded_weapon_check(item_def *weapon, bool no_message)
         if (no_message)
             return false;
 
-        std::string prompt  = "Really attack while ";
+        string prompt  = "Really attack while ";
         if (unarmed_warning)
             prompt += "unarmed?";
         else
@@ -402,92 +395,64 @@ bool wielded_weapon_check(item_def *weapon, bool no_message)
     return true;
 }
 
-// Returns a value between 0 and 10 representing the weight given to str
-int weapon_str_weight(object_class_type wpn_class, int wpn_type)
+static bool _cleave_dont_harm(const actor* attacker, const actor* defender)
 {
-    int  ret;
+    return (mons_aligned(attacker, defender)
+            || attacker == &you && defender->wont_attack()
+            || defender == &you && attacker->wont_attack());
+}
+// Put the potential cleave targets into a list. Up to 3, taken in order by
+// rotating from the def position and stopping at the first solid feature.
+void get_cleave_targets(const actor* attacker, const coord_def& def, int dir,
+                        list<actor*> &targets)
+{
+    // Prevent scanning invalid coordinates if the attacker dies partway through
+    // a cleave (due to hitting explosive creatures, or perhaps other things)
+    if (!attacker->alive())
+        return;
 
-    const int wpn_skill  = weapon_skill(wpn_class, wpn_type);
-    const int hands      = hands_reqd(wpn_class, wpn_type, you.body_size());
+    const coord_def atk = attacker->pos();
+    coord_def atk_vector = def - atk;
 
-    // These are low values, because we'll be adding some bonus to the
-    // larger weapons later.  Remember also that 1-1/2-hand weapons get
-    // a bonus in player_weapon_str_weight() as well (can't be done
-    // here because this function is used for cases where the weapon
-    // isn't being used by the player).
-
-    // Reasonings:
-    // - Short Blades are the best for the dexterous... although they
-    //   are very limited in damage potential
-    // - Long Swords are better for the dexterous, the two-handed
-    //   swords are a 50/50 split; bastard swords are in between.
-    // - Staves: didn't want to punish the mages who want to use
-    //   these... made it a 50/50 split after the 2-hnd bonus
-    // - Polearms: Spears and tridents are the only ones that can
-    //   be used one handed and are poking weapons, which requires
-    //   more agility than strength.  The other ones also require a
-    //   fair amount of agility so they end up at 50/50 (most can poke
-    //   as well as slash... although slashing is not their strong
-    //   point).
-    // - Axes are weighted and edged and so require mostly strength,
-    //   but not as much as Maces and Flails, which are typically
-    //   blunt and spiked weapons.
-    switch (wpn_skill)
+    for (int i = 0; i < 3; ++i)
     {
-    case SK_SHORT_BLADES:     ret = 2; break;
-    case SK_LONG_BLADES:      ret = 3; break;
-    case SK_STAVES:           ret = 3; break;   // == 5 after 2-hand bonus
-    case SK_POLEARMS:         ret = 3; break;   // most are +2 for 2-hands
-    case SK_AXES:             ret = 6; break;
-    case SK_MACES_FLAILS:     ret = 7; break;
-    default:                  ret = 5; break;
+        atk_vector = rotate_adjacent(atk_vector, dir);
+        if (feat_is_solid(grd(atk + atk_vector)))
+            break;
+
+        actor * target = actor_at(atk + atk_vector);
+        if (target && !_cleave_dont_harm(attacker, target))
+            targets.push_back(target);
     }
-
-    // whips are special cased (because they are not much like maces)
-    if (is_whip_type(wpn_type))
-        ret = 2;
-    else if (wpn_type == WPN_QUICK_BLADE) // high dex is very good for these
-        ret = 1;
-
-    if (hands == HANDS_TWO)
-        ret += 2;
-
-    // most weapons are capped at 8
-    if (ret > 8)
-    {
-        // these weapons are huge, so strength plays a larger role
-        if (is_giant_club_type(wpn_type))
-            ret = 9;
-        else
-            ret = 8;
-    }
-
-    return ret;
 }
 
-// Returns a value from 0 to 10 representing the weight of strength to
-// dexterity for the players currently wielded weapon.
-int player_weapon_str_weight()
+void get_all_cleave_targets(const actor* attacker, const coord_def& def,
+                            list<actor*> &targets)
 {
-    const item_def* weapon = you.weapon();
+    if (feat_is_solid(grd(def)))
+        return;
 
-    // Unarmed, weighted slightly towards dex -- would have been more,
-    // but then we'd be punishing Trolls and Ghouls who are strong and
-    // get special unarmed bonuses.
-    if (!weapon)
-        return 4;
-
-    int ret = weapon_str_weight(weapon->base_type, weapon->sub_type);
-
-    if (hands_reqd(*weapon, you.body_size()) == HANDS_HALF && !you.shield())
-        ret += 1;
-
-    return ret;
+    int dir = coinflip() ? -1 : 1;
+    get_cleave_targets(attacker, def, dir, targets);
+    targets.reverse();
+    if (actor_at(def))
+        targets.push_back(actor_at(def));
+    get_cleave_targets(attacker, def, -dir, targets);
 }
 
-// weapon_dex_weight() + weapon_str_weight == 10, so we only need to
-// define one of these.
-int player_weapon_dex_weight(void)
+void attack_cleave_targets(actor* attacker, list<actor*> &targets,
+                           int attack_number, int effective_attack_number)
 {
-    return 10 - player_weapon_str_weight();
+    while (!targets.empty())
+    {
+        actor* def = targets.front();
+        if (attacker->alive() && def && def->alive()
+            && !_cleave_dont_harm(attacker, def))
+        {
+            melee_attack attck(attacker, def, attack_number,
+                               ++effective_attack_number, true);
+            attck.attack();
+        }
+        targets.pop_front();
+    }
 }

@@ -25,7 +25,7 @@ static mons_list _lua_get_mlist(lua_State *ls, int ndx)
     {
         const char *spec = lua_tostring(ls, ndx);
         mons_list mlist;
-        const std::string err = mlist.add_mons(spec);
+        const string err = mlist.add_mons(spec);
         if (!err.empty())
             luaL_error(ls, err.c_str());
         return mlist;
@@ -93,7 +93,7 @@ static int dgn_set_random_mon_list(lua_State *ls)
         return 0;
     }
 
-    std::vector<mons_spec> mons;
+    vector<mons_spec> mons;
     int num_lords = 0;
     for (int i = 0; i < num_mons; i++)
     {
@@ -107,12 +107,12 @@ static int dgn_set_random_mon_list(lua_State *ls)
             continue;
         }
 
-        std::string name;
+        string name;
         if (mon.place.is_valid())
         {
             if (!branch_has_monsters(mon.place.branch))
             {
-                std::string err;
+                string err;
                 err = make_stringf("mon #%d: Can't use a place with no natural "
                                    "monsters as a monster place.", i + 1);
                 luaL_argerror(ls, list_pos, err.c_str());
@@ -124,15 +124,23 @@ static int dgn_set_random_mon_list(lua_State *ls)
         {
             if (mon.type == RANDOM_MONSTER || mon.monbase == RANDOM_MONSTER)
             {
-                std::string err;
+                string err;
                 err = make_stringf("mon #%d: can't use random monster in "
                                    "list specifying random monsters", i + 1);
                 luaL_argerror(ls, list_pos, err.c_str());
                 return 0;
             }
-            if (mon.type == -1)
+#if TAG_MAJOR_VERSION == 34
+            if ((int)mon.type == -1)
                 mon.type = MONS_PROGRAM_BUG;
-            name = mons_type_name(static_cast<monster_type>(mon.type), DESC_PLAIN);
+#endif
+            if (mon.type == MONS_NO_MONSTER)
+                name = "nothing";
+            else
+            {
+                name = mons_type_name(static_cast<monster_type>(mon.type),
+                                      DESC_PLAIN);
+            }
         }
 
         mons.push_back(mon);
@@ -174,7 +182,7 @@ static int dgn_mons_from_mid(lua_State *ls)
 
     monster* mons = monster_by_mid(mid);
 
-    if (mons->type != -1)
+    if (mons->type != MONS_NO_MONSTER)
         push_monster(ls, mons);
     else
         lua_pushnil(ls);
@@ -203,7 +211,7 @@ static int dgn_create_monster(lua_State *ls)
     for (int i = 0, size = mlist.size(); i < size; ++i)
     {
         mons_spec mspec = mlist.get_monster(i);
-        if (monster *mon = dgn_place_monster(mspec, -1, c, false, false, false))
+        if (monster *mon = dgn_place_monster(mspec, c, false, false, false))
         {
             push_monster(ls, mon);
             return 1;

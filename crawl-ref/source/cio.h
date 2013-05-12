@@ -17,15 +17,15 @@ class input_history
 public:
     input_history(size_t size);
 
-    void new_input(const std::string &s);
+    void new_input(const string &s);
     void clear();
 
-    const std::string *prev();
-    const std::string *next();
+    const string *prev();
+    const string *next();
 
     void go_end();
 private:
-    typedef std::list<std::string> string_list;
+    typedef list<string> string_list;
 
     string_list             history;
     string_list::iterator   pos;
@@ -183,6 +183,12 @@ enum KEYS
     CK_CTRL_PGDN,
     CK_CTRL_TAB,
 
+#ifdef TOUCH_UI
+    // extra numpad keys for zoom
+    CK_NUMPAD_PLUS,
+    CK_NUMPAD_MINUS,
+#endif
+
     // Mouse codes.
     CK_MOUSE_MOVE  = -10009,
     CK_MOUSE_CMD,
@@ -192,6 +198,8 @@ enum KEYS
     CK_MOUSE_B4,
     CK_MOUSE_B5,
     CK_MOUSE_CLICK,
+    CK_TOUCH_DUMMY, // so a non-event can be passed from handle_mouse to the controlling code
+    CK_NO_KEY // so that the handle_mouse loop can be broken from early (for popups)
 };
 
 class cursor_control
@@ -225,7 +233,7 @@ public:
 
     int read_line(bool clear_previous = true);
 
-    std::string get_text() const;
+    string get_text() const;
 
     void set_input_history(input_history *ih);
     void set_keyproc(keyproc fn);
@@ -248,6 +256,8 @@ protected:
     coord_def       start;
     keyproc         keyfn;
     int             wrapcol;
+
+    string          tag; // For identification on the Webtiles client side
 
     // These are subject to change during editing.
     char            *cur;

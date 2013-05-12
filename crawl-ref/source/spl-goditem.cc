@@ -23,9 +23,11 @@
 #include "itemprop.h"
 #include "items.h"
 #include "map_knowledge.h"
+#include "mapdef.h"
 #include "mapmark.h"
 #include "message.h"
 #include "misc.h"
+#include "mon-abil.h"
 #include "mon-behv.h"
 #include "mon-stuff.h"
 #include "mon-util.h"
@@ -33,13 +35,16 @@
 #include "random.h"
 #include "religion.h"
 #include "spl-util.h"
+#include "state.h"
 #include "stuff.h"
 #include "terrain.h"
+#include "tiledef-dngn.h"
+#include "tilepick.h"
 #include "transform.h"
 #include "traps.h"
 #include "view.h"
 
-int identify(int power, int item_slot, std::string *pre_msg)
+int identify(int power, int item_slot, string *pre_msg)
 {
     int id_used = 1;
     int identified = 0;
@@ -75,7 +80,6 @@ int identify(int power, int item_slot, std::string *pre_msg)
 
         set_ident_type(item, ID_KNOWN_TYPE);
         set_ident_flags(item, ISFLAG_IDENT_MASK);
-        add_autoinscription(item);
 
         if (is_deck(item) && !top_card_is_known(item))
             deck_identify_first(item_slot);
@@ -173,11 +177,11 @@ static int _can_pacify_monster(const monster* mon, const int healed,
                                const int max_healed)
 {
 
-   int pacifiable = is_pacifiable(mon);
-   if (pacifiable < 0)
-       return pacifiable;
+    int pacifiable = is_pacifiable(mon);
+    if (pacifiable < 0)
+        return pacifiable;
 
-   if (healed < 1)
+    if (healed < 1)
         return 0;
 
     const int factor = (mons_intel(mon) <= I_ANIMAL)       ? 3 : // animals
@@ -215,9 +219,9 @@ static int _can_pacify_monster(const monster* mon, const int healed,
     return 0;
 }
 
-static std::vector<std::string> _desc_mindless(const monster_info& mi)
+static vector<string> _desc_mindless(const monster_info& mi)
 {
-    std::vector<std::string> descs;
+    vector<string> descs;
     if (mi.intel() <= I_PLANT)
         descs.push_back("mindless");
     return descs;
@@ -325,9 +329,11 @@ static int _healing_spell(int healed, int max_healed, bool divine_ability,
 
         int pgain = 0;
         if (!is_holy && !is_summoned && you.piety < MAX_PIETY)
+        {
             pgain = random2(mons->max_hit_points / (2 + you.piety / 20));
-        if (!pgain) // Always give a 50% chance of gaining a little piety.
-            pgain = coinflip();
+            if (!pgain) // Always give a 50% chance of gaining a little piety.
+                pgain = coinflip();
+        }
 
         // The feedback no longer tells you if you gained any piety this time,
         // it tells you merely the general rate.
@@ -373,15 +379,15 @@ static int _healing_spell(int healed, int max_healed, bool divine_ability,
 int cast_healing(int pow, int max_pow, bool divine_ability,
                  const coord_def& where, bool not_self, targ_mode_type mode)
 {
-    pow = std::min(50, pow);
-    max_pow = std::min(50, max_pow);
+    pow = min(50, pow);
+    max_pow = min(50, max_pow);
     return (_healing_spell(pow + roll_dice(2, pow) - 2, (3 * max_pow) - 2,
                            divine_ability, where, not_self, mode));
 }
 
 // Antimagic is sort of an anti-extension... it sets a lot of magical
 // durations to 1 so it's very nasty at times (and potentially lethal,
-// that's why we reduce levitation to 2, so that the player has a chance
+// that's why we reduce flight to 2, so that the player has a chance
 // to stop insta-death... sure the others could lead to death, but that's
 // not as direct as falling into deep water) -- bwr
 void antimagic()
@@ -392,25 +398,27 @@ void antimagic()
         DUR_FIRE_SHIELD, DUR_ICY_ARMOUR, DUR_REPEL_MISSILES,
         DUR_SWIFTNESS, DUR_CONTROL_TELEPORT,
         DUR_TRANSFORMATION, DUR_DEATH_CHANNEL, DUR_DEFLECT_MISSILES,
-        DUR_PHASE_SHIFT, DUR_SEE_INVISIBLE, DUR_WEAPON_BRAND, DUR_SILENCE,
-        DUR_CONDENSATION_SHIELD, DUR_STONESKIN, DUR_INSULATION, DUR_RESISTANCE,
+        DUR_PHASE_SHIFT, DUR_WEAPON_BRAND, DUR_SILENCE,
+        DUR_CONDENSATION_SHIELD, DUR_STONESKIN, DUR_RESISTANCE,
         DUR_SLAYING, DUR_STEALTH,
         DUR_MAGIC_SHIELD, DUR_PETRIFIED, DUR_LIQUEFYING, DUR_DARKNESS,
-        DUR_SHROUD_OF_GOLUBRIA
+        DUR_SHROUD_OF_GOLUBRIA, DUR_DISJUNCTION, DUR_SENTINEL_MARK
     };
 
     bool need_msg = false;
 
-    if (!you.permanent_levitation() && !you.permanent_flight()
-        && you.duration[DUR_LEVITATION] > 11)
+    if (!you.permanent_flight()
+        && you.duration[DUR_FLIGHT] > 11)
     {
-        you.duration[DUR_LEVITATION] = 11;
+        you.duration[DUR_FLIGHT] = 11;
         need_msg = true;
     }
 
-    if (!you.permanent_flight() && you.duration[DUR_CONTROLLED_FLIGHT] > 11)
+    // Don't dispel divine regeneration.
+    if (you.duration[DUR_REGENERATION] > 0
+        && !you.attribute[ATTR_DIVINE_REGENERATION])
     {
-        you.duration[DUR_CONTROLLED_FLIGHT] = 11;
+        you.duration[DUR_REGENERATION] = 1;
         need_msg = true;
     }
 
@@ -431,7 +439,7 @@ void antimagic()
     if (you.duration[DUR_PETRIFYING] > 0)
     {
         you.duration[DUR_PETRIFYING] = 0;
-        mpr("Your limbs stop stiffening.", MSGCH_DURATION);
+        mpr("You feel limber!", MSGCH_DURATION);
     }
 
     if (you.attribute[ATTR_DELAYED_FIREBALL])
@@ -442,7 +450,7 @@ void antimagic()
 
     // Post-berserk slowing isn't magic, so don't remove that.
     if (you.duration[DUR_SLOW] > you.duration[DUR_EXHAUSTED])
-        you.duration[DUR_SLOW] = std::max(you.duration[DUR_EXHAUSTED], 1);
+        you.duration[DUR_SLOW] = max(you.duration[DUR_EXHAUSTED], 1);
 
     for (unsigned int i = 0; i < ARRAYSZ(dur_list); ++i)
     {
@@ -467,7 +475,7 @@ void antimagic()
 
 int detect_traps(int pow)
 {
-    pow = std::min(50, pow);
+    pow = min(50, pow);
 
     // Trap detection moved to traps.cc. -am
     const int range = 8 + random2(8) + pow;
@@ -484,7 +492,7 @@ int detect_items(int pow)
     else
     {
         ASSERT(you.religion == GOD_ASHENZARI);
-        map_radius = std::min(you.piety / 20, LOS_RADIUS);
+        map_radius = min(you.piety / 20, LOS_RADIUS);
         if (map_radius <= 0)
             return 0;
     }
@@ -517,7 +525,7 @@ static void _fuzz_detect_creatures(int pow, int *fuzz_radius, int *fuzz_chance)
 {
     dprf("dc_fuzz: Power is %d", pow);
 
-    pow = std::max(1, pow);
+    pow = max(1, pow);
 
     *fuzz_radius = pow >= 50 ? 1 : 2;
 
@@ -606,7 +614,7 @@ int detect_creatures(int pow, bool telepathic)
     return creatures_found;
 }
 
-static bool _selectively_remove_curse(std::string *pre_msg)
+static bool _selectively_remove_curse(string *pre_msg)
 {
     bool used = false;
 
@@ -643,7 +651,7 @@ static bool _selectively_remove_curse(std::string *pre_msg)
     }
 }
 
-bool remove_curse(bool alreadyknown, std::string *pre_msg)
+bool remove_curse(bool alreadyknown, string *pre_msg)
 {
     if (you.religion == GOD_ASHENZARI && alreadyknown)
     {
@@ -698,7 +706,7 @@ bool remove_curse(bool alreadyknown, std::string *pre_msg)
     return success;
 }
 
-static bool _selectively_curse_item(bool armour, std::string *pre_msg)
+static bool _selectively_curse_item(bool armour, string *pre_msg)
 {
     while (1)
     {
@@ -730,7 +738,7 @@ static bool _selectively_curse_item(bool armour, std::string *pre_msg)
     }
 }
 
-bool curse_item(bool armour, bool alreadyknown, std::string *pre_msg)
+bool curse_item(bool armour, bool alreadyknown, string *pre_msg)
 {
     // make sure there's something to curse first
     int count = 0;
@@ -792,7 +800,7 @@ static bool _do_imprison(int pow, const coord_def& where, bool zin)
 
     bool proceed;
     monster *mon;
-    std::string targname;
+    string targname;
 
     if (zin)
     {
@@ -803,39 +811,50 @@ static bool _do_imprison(int pow, const coord_def& where, bool zin)
         bool success = true;
         bool none_vis = true;
 
+        vector<coord_def> veto_spots(8);
+        for (adjacent_iterator ai(where); ai; ++ai)
+            veto_spots.push_back(*ai);
+
+        // Check that any adjacent creatures can be pushed out of the way.
         for (adjacent_iterator ai(where); ai; ++ai)
         {
             // The tile is occupied.
-            if (actor *fatass = actor_at(*ai))
+            if (actor *act = actor_at(*ai))
             {
-                success = false;
-                if (you.can_see(fatass))
-                    none_vis = false;
-                break;
+                // Can't push ourselves.
+                coord_def newpos;
+                if (act->is_player()
+                    || !get_push_space(*ai, newpos, act, true, &veto_spots))
+                {
+                    success = false;
+                    if (you.can_see(act))
+                        none_vis = false;
+                    break;
+                }
+                else
+                    veto_spots.push_back(newpos);
             }
 
             // Make sure we have a legitimate tile.
             proceed = false;
             for (unsigned int i = 0; i < ARRAYSZ(safe_tiles) && !proceed; ++i)
-                if (grd(*ai) == safe_tiles[i] || feat_is_trap(grd(*ai), true))
-                    proceed = true;
-
-            if (!proceed && feat_is_reachable_past(grd(*ai)))
             {
-                success = false;
-                none_vis = false;
-                break;
+                if (feat_is_solid(grd(*ai)) && !feat_is_opaque(grd(*ai)))
+                {
+                    success = false;
+                    none_vis = false;
+                    break;
+                }
             }
         }
 
         if (!success)
         {
             mprf(none_vis ? "You briefly glimpse something next to %s."
-                          : "You need more space to imprison %s.",
-                 targname.c_str());
+                        : "You need more space to imprison %s.",
+                targname.c_str());
             return false;
         }
-
     }
 
     for (adjacent_iterator ai(where); ai; ++ai)
@@ -845,20 +864,36 @@ static bool _do_imprison(int pow, const coord_def& where, bool zin)
             continue;
 
         // The tile is occupied.
-        if (actor_at(*ai))
-            continue;
+        if (zin)
+        {
+            if (actor* act = actor_at(*ai))
+            {
+                coord_def newpos;
+                get_push_space(*ai, newpos, act, true);
+                act->move_to_pos(newpos);
+            }
+        }
 
         // Make sure we have a legitimate tile.
         proceed = false;
-        for (unsigned int i = 0; i < ARRAYSZ(safe_tiles) && !proceed; ++i)
-            if (grd(*ai) == safe_tiles[i] || feat_is_trap(grd(*ai), true))
-                proceed = true;
+        if (!zin && !monster_at(*ai))
+        {
+            for (unsigned int i = 0; i < ARRAYSZ(safe_tiles) && !proceed; ++i)
+                if (grd(*ai) == safe_tiles[i] || feat_is_trap(grd(*ai), true))
+                    proceed = true;
+        }
+        else if (zin && !feat_is_solid(grd(*ai)))
+            proceed = true;
 
         if (proceed)
         {
-            // All items are moved inside.
+            // All items are moved aside.
             if (igrd(*ai) != NON_ITEM)
-                move_items(*ai, where);
+            {
+                coord_def newpos;
+                get_push_space(*ai, newpos, NULL, true);
+                move_items(*ai, newpos);
+            }
 
             // All clouds are destroyed.
             if (env.cgrid(*ai) != EMPTY_CLOUD)
@@ -869,17 +904,33 @@ static bool _do_imprison(int pow, const coord_def& where, bool zin)
                 ptrap->destroy();
 
             // Actually place the wall.
-
             if (zin)
             {
-                // Make the walls silver.
-                grd(*ai) = DNGN_METAL_WALL;
-                env.grid_colours(*ai) = LIGHTGREY;
-
                 map_wiz_props_marker *marker = new map_wiz_props_marker(*ai);
                 marker->set_property("feature_description", "a gleaming silver wall");
                 marker->set_property("tomb", "Zin");
+
+                // Preserve the old feature, unless it's bare floor (or trap)
+                if (grd(*ai) != DNGN_FLOOR & !feat_is_trap(grd(*ai), true))
+                    marker->set_property("old_feat", dungeon_feature_name(grd(*ai)));
+
                 env.markers.add(marker);
+
+                // Make the walls silver.
+                grd(*ai) = DNGN_METAL_WALL;
+                env.grid_colours(*ai) = WHITE;
+                env.tile_flv(*ai).feat_idx =
+                        store_tilename_get_index("dngn_mirror_wall");
+                env.tile_flv(*ai).feat = TILE_DNGN_MIRROR_WALL;
+                if (env.map_knowledge(*ai).seen())
+                {
+                    env.map_knowledge(*ai).set_feature(DNGN_METAL_WALL);
+                    env.map_knowledge(*ai).clear_item();
+#ifdef USE_TILE
+                    env.tile_bk_bg(*ai) = TILE_DNGN_MIRROR_WALL;
+                    env.tile_bk_fg(*ai) = 0;
+#endif
+                }
             }
             // Tomb card
             else

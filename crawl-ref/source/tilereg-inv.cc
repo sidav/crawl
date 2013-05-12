@@ -36,12 +36,9 @@ InventoryRegion::InventoryRegion(const TileRegionInit &init) : GridRegion(init)
 void InventoryRegion::pack_buffers()
 {
     // Pack base separately, as it comes from a different texture...
-    unsigned int i = 0;
+    unsigned int i = 0 + (m_grid_page*mx*my - m_grid_page*2); // this has to match the logic in cursor_index()
     for (int y = 0; y < my; y++)
     {
-        if (i >= m_items.size())
-            break;
-
         for (int x = 0; x < mx; x++)
         {
             if (i >= m_items.size())
@@ -49,9 +46,16 @@ void InventoryRegion::pack_buffers()
 
             InventoryTile &item = m_items[i++];
 
+            if ((y==my-1 && x==mx-1 && item.tile) || (y==0 && x==0 && m_grid_page>0))
+            {
+                // draw a background for paging tiles
+                m_buf.add_dngn_tile(TILE_ITEM_SLOT, x, y);
+                continue;
+            }
+
             if (item.flag & TILEI_FLAG_FLOOR)
             {
-                if (i >= (unsigned int) mx * my)
+                if (i >= (unsigned int) mx * my * (m_grid_page+1) && item.tile)
                     break;
 
                 int num_floor = tile_dngn_count(env.tile_default.floor);
@@ -63,18 +67,28 @@ void InventoryRegion::pack_buffers()
         }
     }
 
-    i = 0;
+    i = 0 + (m_grid_page*mx*my - m_grid_page*2); // this also has to match the logic in cursor_index()
     for (int y = 0; y < my; y++)
     {
-        if (i >= m_items.size())
-            break;
-
         for (int x = 0; x < mx; x++)
         {
             if (i >= m_items.size())
                 break;
 
             InventoryTile &item = m_items[i++];
+
+            if (y==my-1 && x==mx-1 && item.tile)
+            {
+                // continuation to next page icon
+                m_buf.add_main_tile(TILE_UNSEEN_ITEM, x, y);
+                continue;
+            }
+            else if (y==0 && x==0 && m_grid_page>0)
+            {
+                // previous page icon
+                m_buf.add_main_tile(TILE_UNSEEN_ITEM, x, y);
+                continue;
+            }
 
             if (item.flag & TILEI_FLAG_EQUIP)
             {
@@ -105,7 +119,7 @@ void InventoryRegion::pack_buffers()
                 m_buf.add_main_tile(item.special, x, y, 0, 0);
 
             if (item.flag & TILEI_FLAG_TRIED)
-                m_buf.add_icons_tile(TILEI_TRIED, x, y, 0, TILE_Y / 2);
+                m_buf.add_icons_tile(TILEI_TRIED, x, y, 3, TILE_Y / 2);
 
             if (item.flag & TILEI_FLAG_INVALID)
                 m_buf.add_icons_tile(TILEI_MESH, x, y);
@@ -119,11 +133,33 @@ int InventoryRegion::handle_mouse(MouseEvent &event)
     if (!place_cursor(event, item_idx))
         return 0;
 
+    // handle paging
+    if (m_cursor.x==(mx-1) && m_cursor.y==(my-1) && event.button==MouseEvent::LEFT)
+    {
+        // next page
+        m_grid_page++;
+        update();
+        return CK_NO_KEY;
+    }
+    else if (m_cursor.x==0 && m_cursor.y==0 && m_grid_page>0 && event.button==MouseEvent::LEFT)
+    {
+        // prev page
+        m_grid_page--;
+        update();
+        return CK_NO_KEY;
+    }
+
     int idx = m_items[item_idx].idx;
 
     bool on_floor = m_items[item_idx].flag & TILEI_FLAG_FLOOR;
 
     ASSERT(idx >= 0);
+
+    if (tiles.is_using_small_layout())
+    {
+        // close the inventory tab after successfully clicking on an item
+        tiles.deactivate_tab();
+    }
 
     // TODO enne - this is all really only valid for the on-screen inventory
     // Do we subclass InventoryRegion for the onscreen and offscreen versions?
@@ -195,9 +231,11 @@ static bool _is_true_equipped_item(const item_def &item)
 // apart from dropping it.
 static bool _can_use_item(const item_def &item, bool equipped)
 {
+#if TAG_MAJOR_VERSION == 34
     // There's nothing you can do with an empty box if you can't unwield it.
     if (!equipped && item.sub_type == MISC_EMPTY_EBONY_CASKET)
         return false;
+#endif
 
     // Vampires can drain corpses.
     if (item.base_type == OBJ_CORPSES)
@@ -227,9 +265,8 @@ static bool _can_use_item(const item_def &item, bool equipped)
     return true;
 }
 
-static void _handle_wield_tip(std::string &tip, std::vector<command_type> &cmd,
-                              const std::string prefix = "",
-                              bool unwield = false)
+static void _handle_wield_tip(string &tip, vector<command_type> &cmd,
+                              const string prefix = "", bool unwield = false)
 {
     tip += prefix;
     if (unwield)
@@ -239,7 +276,7 @@ static void _handle_wield_tip(std::string &tip, std::vector<command_type> &cmd,
     cmd.push_back(CMD_WIELD_WEAPON);
 }
 
-bool InventoryRegion::update_tab_tip_text(std::string &tip, bool active)
+bool InventoryRegion::update_tab_tip_text(string &tip, bool active)
 {
     const char *prefix1 = active ? "" : "[L-Click] ";
     const char *prefix2 = active ? "" : "          ";
@@ -251,7 +288,7 @@ bool InventoryRegion::update_tab_tip_text(std::string &tip, bool active)
     return true;
 }
 
-bool InventoryRegion::update_tip_text(std::string& tip)
+bool InventoryRegion::update_tip_text(string& tip)
 {
     if (m_cursor == NO_CURSOR)
         return false;
@@ -259,6 +296,18 @@ bool InventoryRegion::update_tip_text(std::string& tip)
     unsigned int item_idx = cursor_index();
     if (item_idx >= m_items.size() || m_items[item_idx].empty())
         return false;
+
+    // page next/prev
+    if (_is_next_button(item_idx))
+    {
+        tip = "Next page\n[L-Click] Show next page of items";
+        return true;
+    }
+    else if (_is_prev_button(item_idx))
+    {
+        tip = "Previous page\n[L-Click] Show previous page of items";
+        return true;
+    }
 
     int idx = m_items[item_idx].idx;
 
@@ -268,7 +317,7 @@ bool InventoryRegion::update_tip_text(std::string& tip)
                     && mouse_control::current_mode() == MOUSE_MODE_COMMAND);
 
     // TODO enne - should the command keys here respect keymaps?
-    std::vector<command_type> cmd;
+    vector<command_type> cmd;
     if (m_items[item_idx].flag & TILEI_FLAG_FLOOR)
     {
         const item_def &item = mitm[idx];
@@ -340,8 +389,8 @@ bool InventoryRegion::update_tip_text(std::string& tip)
 
         if (_can_use_item(item, equipped))
         {
-            std::string tip_prefix = "\n[L-Click] ";
-            std::string tmp = "";
+            string tip_prefix = "\n[L-Click] ";
+            string tmp = "";
             if (equipped)
             {
                 if (wielded && !item_is_evokable(item))
@@ -530,7 +579,7 @@ bool InventoryRegion::update_tip_text(std::string& tip)
     return true;
 }
 
-bool InventoryRegion::update_alt_text(std::string &alt)
+bool InventoryRegion::update_alt_text(string &alt)
 {
     if (m_cursor == NO_CURSOR)
         return false;
@@ -557,7 +606,18 @@ bool InventoryRegion::update_alt_text(std::string &alt)
         return false;
 
     describe_info inf;
-    get_item_desc(*item, inf, true);
+    if (_is_next_button(item_idx))
+    {
+        // alt text for next page button
+        inf.title = "Next page";
+    }
+    else if (_is_prev_button(item_idx))
+    {
+        // alt text for prev page button
+        inf.title = "Previous page";
+    }
+    else
+        get_item_desc(*item, inf, true);
 
     alt_desc_proc proc(crawl_view.msgsz.x, crawl_view.msgsz.y);
     process_description<alt_desc_proc>(proc, inf);
@@ -580,7 +640,11 @@ void InventoryRegion::draw_tag()
 
     bool floor = m_items[curs_index].flag & TILEI_FLAG_FLOOR;
 
-    if (floor && mitm[idx].defined())
+    if (_is_next_button(curs_index))
+        draw_desc("Next page");
+    else if (_is_prev_button(curs_index))
+        draw_desc("Previous page");
+    else if (floor && mitm[idx].defined())
         draw_desc(mitm[idx].name(DESC_PLAIN).c_str());
     else if (!floor && you.inv[idx].defined())
         draw_desc(you.inv[idx].name(DESC_INVENTORY_EQUIP).c_str());
@@ -593,6 +657,9 @@ void InventoryRegion::activate()
         canned_msg(MSG_NOTHING_CARRIED);
         flush_prev_message();
     }
+
+    // switch to first page on activation
+    m_grid_page = 0;
 }
 
 static void _fill_item_info(InventoryTile &desc, const item_info &item)
@@ -652,10 +719,12 @@ void InventoryRegion::update()
     for (int i = you.visible_igrd(you.pos()); i != NON_ITEM; i = mitm[i].link)
         num_ground++;
 
+/* *** use paging instead
     // If the inventory is full, show at least one row of the ground.
-    int min_ground = std::min(num_ground, mx);
-    max_pack_items = std::min(max_pack_items, mx * my - min_ground);
-    max_pack_items = std::min(ENDOFPACK, max_pack_items);
+    int min_ground = min(num_ground, mx);
+    max_pack_items = min(max_pack_items, mx * my * (m_grid_page+1) - min_ground);
+    max_pack_items = min(ENDOFPACK, max_pack_items);
+*/
 
     ucs_t c;
     const char *tp = Options.tile_show_items.c_str();
@@ -707,11 +776,11 @@ void InventoryRegion::update()
         }
     } while (s);
 
-    int remaining = mx*my - m_items.size();
+    int remaining = mx*my*(m_grid_page+1) - m_items.size();
     int empty_on_this_row = mx - m_items.size() % mx;
 
     // If we're not on the last row...
-    if ((int)m_items.size() < mx * (my-1))
+    if ((int)m_items.size() < mx * (my-1)) // * (m_grid_page+1)) // let's deliberately not do this on page 2
     {
         if (num_ground > remaining - empty_on_this_row)
         {
@@ -737,8 +806,7 @@ void InventoryRegion::update()
             }
 
             // Add extra rows, if needed.
-            unsigned int ground_rows =
-                std::max((num_ground-1) / mx + 1, 1);
+            unsigned int ground_rows = max((num_ground-1) / mx + 1, 1);
 
             while ((int)(m_items.size() / mx + ground_rows) < my
                    && ((int)m_items.size()) < max_pack_items)
@@ -763,7 +831,7 @@ void InventoryRegion::update()
     {
         tp += s = utf8towc(&c, tp);
 
-        if ((int)m_items.size() >= mx * my)
+        if ((int)m_items.size() >= mx * my * (m_grid_page+1))
             break;
 
         bool show_any = !c;
@@ -772,7 +840,7 @@ void InventoryRegion::update()
         for (int i = you.visible_igrd(you.pos()); i != NON_ITEM;
              i = mitm[i].link)
         {
-            if ((int)m_items.size() >= mx * my)
+            if ((int)m_items.size() >= mx * my * (m_grid_page+1))
                 break;
 
             if (ground_shown[i] || !show_any && mitm[i].base_type != type)
@@ -787,7 +855,7 @@ void InventoryRegion::update()
         }
     } while (s);
 
-    while ((int)m_items.size() < mx * my)
+    while ((int)m_items.size() < mx * my) // * (m_grid_page+1)) // let's not do this for p2 either
     {
         InventoryTile desc;
         desc.flag = TILEI_FLAG_FLOOR;
@@ -795,4 +863,15 @@ void InventoryRegion::update()
     }
 }
 
+bool InventoryRegion::_is_prev_button(int idx)
+{
+    // idx is an index in m_items as returned by cursor_index()
+    return (m_grid_page>0 && idx == mx*my*m_grid_page-2*m_grid_page);
+}
+
+bool InventoryRegion::_is_next_button(int idx)
+{
+    // idx is an index in m_items as returned by cursor_index()
+    return (idx == mx*my*(m_grid_page+1)-1);
+}
 #endif

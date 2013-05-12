@@ -7,8 +7,9 @@
 **/
 
 #include "AppHdr.h"
-
 #include "ng-restr.h"
+
+#include "newgame_def.h"
 #include "species.h"
 #include "jobs.h"
 
@@ -22,7 +23,6 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
         case SP_DEEP_ELF:
         case SP_SLUDGE_ELF:
         case SP_MERFOLK:
-        case SP_HALFLING:
         case SP_KOBOLD:
         case SP_SPRIGGAN:
         case SP_NAGA:
@@ -273,18 +273,15 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
         {
         case SP_SLUDGE_ELF:
         case SP_DEEP_DWARF:
-        case SP_HILL_ORC:
         case SP_MERFOLK:
         case SP_HALFLING:
         case SP_KOBOLD:
-        case SP_SPRIGGAN:
         case SP_CENTAUR:
         case SP_OGRE:
         case SP_TROLL:
         case SP_MINOTAUR:
         case SP_GHOUL:
         case SP_VAMPIRE:
-        case SP_FELID:
             return CC_RESTRICTED;
         default:
             return CC_UNRESTRICTED;
@@ -461,32 +458,6 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
         case SP_MUMMY:
         case SP_GHOUL:
         case SP_VAMPIRE:
-            return CC_RESTRICTED;
-        default:
-            return CC_UNRESTRICTED;
-        }
-
-    case JOB_STALKER:
-        switch (speci)
-        {
-        case SP_HIGH_ELF:
-        case SP_DEEP_ELF:
-        case SP_DEEP_DWARF:
-        case SP_HILL_ORC:
-        case SP_MERFOLK:
-        case SP_HALFLING:
-        case SP_CENTAUR:
-        case SP_OGRE:
-        case SP_TROLL:
-        case SP_MINOTAUR:
-        case SP_TENGU:
-        case SP_BASE_DRACONIAN:
-        case SP_DEMIGOD:
-        case SP_DEMONSPAWN:
-        case SP_MUMMY:
-        case SP_GHOUL:
-        case SP_FELID:
-        case SP_OCTOPODE:
             return CC_RESTRICTED;
         default:
             return CC_UNRESTRICTED;

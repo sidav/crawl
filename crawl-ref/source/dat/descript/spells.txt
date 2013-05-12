@@ -116,10 +116,6 @@ This spell releases a massive electrical discharge that arcs from target to
 target until it grounds out. It may ground out harmlessly if there are no
 targets sufficiently close to the caster, however.
 %%%%
-Cigotuvi's Degeneration spell
-
-This spell transforms one creature into a pulsating mass of flesh.
-%%%%
 Condensation Shield spell
 
 This spell causes a disc of dense vapour to condense out of the air surrounding
@@ -184,6 +180,12 @@ This spell dims the light of the dungeon, reducing the range of vision. The
 area affected is quite large and it doesn't have sharp edges, thus the effect
 is unlikely to alert anyone not very close to the caster.
 %%%%
+Dazzling Spray spell
+
+This spell fires a spread of scintillating energy bolts from the caster's
+fingertips which can dazzle the vision of any living creature they strike,
+leaving them stumbling about blindly.
+%%%%
 Death Channel spell
 
 This spell raises living creatures slain by the caster and his or her allies
@@ -228,6 +230,12 @@ Dig spell
 
 This spell forms tunnels through unworked rock by liquefying it.
 %%%%
+Disjunction spell
+
+This spell destabilizes the space in a sphere around you for a while, causing
+anyone nearby to be randomly blinked. The chance of blinking depends on the
+distance from you, being nearly certain when directly adjacent.
+%%%%
 Dispel Undead spell
 
 This spell uses the very forces that bind an undead creature together to
@@ -252,13 +260,6 @@ Ensorcelled Hibernation spell
 
 This spell tries to lower its target's metabolic rate, inducing hypothermic
 hibernation.
-%%%%
-Evaporate spell
-
-This spell heats a potion to the point that it explodes when thrown. The
-resultant steam is then transmuted into a large cloud, the type of which varies
-from potion to potion. Of course, the volatile potion must be thrown
-immediately for the spell to work.
 %%%%
 Excruciating Wounds spell
 
@@ -291,6 +292,11 @@ Flight spell
 
 This spell grants to the caster the ability to fly through the air.
 %%%%
+Force Lance spell
+
+This spell fires a shaft of concussive force which can send its target hurtling
+backwards if the impact is not nullified by their defenses.
+%%%%
 Freeze spell
 
 This spell freezes a creature. This may temporarily slow the metabolism of a
@@ -306,11 +312,12 @@ Freezing Cloud spell
 
 This spell conjures up a large cloud of lethally cold vapour.
 %%%%
-Fulsome Distillation spell
+Fulminant Prism spell
 
-This spell extracts the vile and poisonous essences from a corpse. You probably
-don't want to drink the results. The type of potion produced corresponds
-roughly to the effects of eating said corpse.
+This spell conjures a prism which channels magical energy from its surroundings
+and unleashes it after a short while as a violent explosion of arcane force. Be
+warned that the prism is extremely fragile and any damage caused to it may
+result in premature detonation!
 %%%%
 Major Healing spell
 
@@ -343,6 +350,13 @@ Ice Storm spell
 This spell hurls a raging blizzard of ice, sleet and freezing gasses at the
 target, dealing partially irresistible cold damage in a large area.
 %%%%
+Ice Storm spell:quote
+
+“Neither Deluge Nor Ice Storm Nor The Black Silence Of The Netherhells Shall
+Stay These Messengers About Their Sacred Business. Do Not Ask Us About
+Sabre-Tooth Tigers, Tar Pits, Big Green Things With Teeth Or The Goddess Czol.”
+    -Anghammarad, “Going Postal”, Terry Pratchett.
+%%%%
 Ignite Poison spell
 
 This spell attempts to convert all nearby poison into liquid flame, burning
@@ -354,15 +368,19 @@ Inner Flame spell
 This spell fills an enemy with an intense fire, to be explosively released upon
 death. The size of the explosion caused is dependent on the size of the target.
 %%%%
-Insulation spell
-
-This spell protects the caster from electric shocks.
-%%%%
 Invisibility spell
 
 This spell hides a creature from the sight of others. While invisible you will
 gain magical contamination, which may eventually cause enough glow to make you
 visible again.
+%%%%
+Iskenderun's Battlesphere spell
+
+This spell conjures a small globe of magical energy linked to the caster's own
+reserves of power, which will hover alongside its creator and augment their
+destructive might. While the battlesphere cannot take independent action, it
+will fire volleys of energy at the caster's enemies in near-perfect sync with
+its creator's own destructive conjurations.
 %%%%
 Iskenderun's Mystic Blast spell
 
@@ -513,7 +531,8 @@ Petrify spell
 
 This spell attempts to petrify a monster. If successful, the monster is slowed
 down for a while until it is temporarily turned into stone. In this state, a
-monster will take less damage upon being hit.
+monster will take less damage upon being hit. It also precludes the use of
+wings, which can be quite unhealthy above lava.
 %%%%
 Phase Shift spell
 
@@ -535,10 +554,10 @@ Poisonous Cloud spell
 
 This spell conjures forth a great cloud of lethal gasses.
 %%%%
-Polymorph Other spell
+Polymorph spell
 
-This spell randomly alters the form of another creature. It is especially
-effective against shape-changing creatures.
+This spell randomly alters the form of a creature. It is especially effective
+against shape-changing creatures.
 %%%%
 Portal Projectile spell
 
@@ -575,14 +594,9 @@ This spell creates a short blast of high-velocity particles. It works best when
 the caster provides some source (by wielding a stone), but will do what it can
 with whatever ambient grit is available.
 %%%%
-See Invisible spell
-
-This spell enables the caster to perceive things that are shielded from
-ordinary sight.
-%%%%
 Shadow Creatures spell
 
-This spell weaves a creature from shadows and threads of Abyssal matter. The
+This spell weaves a creature from shadows and threads of ethereal matter. The
 creature thus brought into existence will recreate some type of creature found
 in the caster's immediate vicinity. The spell even creates appropriate
 equipment for the creature, which are given a lasting substance by their firm
@@ -591,9 +605,9 @@ contact with reality.
 Shatter spell
 
 This spell causes a burst of concussive force around the caster, which will
-damage most creatures, although those composed of stone, metal or crystal, or
-otherwise brittle, will particularly suffer. The magic has been known to
-adversely affect walls.
+damage most creatures, although those composed of stone, metal, crystal or
+otherwise brittle material will particularly suffer. The magic has been known
+to adversely affect walls.
 %%%%
 Shock spell
 
@@ -769,6 +783,10 @@ This spell throws a small bolt of flame.
 Throw Frost spell
 
 This spell throws a small bolt of frost.
+%%%%
+Thunderbolt spell
+
+This spell creates an arc of electricity.
 %%%%
 Tornado spell
 

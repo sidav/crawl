@@ -6,8 +6,6 @@
 #ifndef MONDEATH_H
 #define MONDEATH_H
 
-#include "mapmark.h"
-
 bool mons_is_pikel(monster* mons);
 void pikel_band_neutralise();
 
@@ -27,12 +25,10 @@ bool mons_is_phoenix(const monster* mons);
 void phoenix_died(monster* mons);
 void timeout_phoenix_markers(int duration);
 
-
-
 monster* get_shedu_pair(const monster* mons);
 bool shedu_pair_alive(const monster* mons);
 bool mons_is_shedu(const monster* mons);
 void shedu_do_resurrection(const monster *mons);
-void shedu_do_actual_resurrection (monster* mons);
+void shedu_do_actual_resurrection(monster* mons);
 
 #endif

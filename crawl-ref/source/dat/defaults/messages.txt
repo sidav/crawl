@@ -21,6 +21,7 @@ msc += $danger:^It .* you
 msc += $danger:you block its attack
 msc += $danger:constricts you
 msc += $danger:you convulse
+msc += $danger:You feel a build-up of mutagenic energy
 
 msc += $item_dmg:acid corrodes
 msc += $item_dmg:catch(es)? fire
@@ -46,7 +47,7 @@ msc += $warning:no longer ripe
 
 # Unimportant messages and combat clutter
 #
-msc += $boring:You start (resting|searching)
+msc += $boring:You start (resting|waiting)
 msc += $boring:Unknown command
 msc += $boring:disappears? in a puff of smoke
 msc += $boring:dissolves? into (sparkling lights|shadows)
@@ -61,7 +62,7 @@ force_more_message += You have reached level
 force_more_message += Your scales start
 force_more_message += You fall through a shaft
 
-## Reduce chance of drowning because levitation or form runs out:
+## Reduce chance of drowning because flight or form runs out:
 force_more_message += Careful!
 
 # Announcements of timed portal vaults (bazaar, labyrinths):

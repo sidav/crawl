@@ -17,7 +17,7 @@
 
 god_conduct_trigger::god_conduct_trigger(
     conduct_type c, int pg, bool kn, const monster* vict)
-  : conduct(c), pgain(pg), known(kn), enabled(true), victim(NULL)
+  : conduct(c), pgain(pg), known(kn), enabled(true), victim(nullptr)
 {
     if (vict)
     {
@@ -55,7 +55,8 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
 
     bool retval = false;
 
-    if (you.religion != GOD_NO_GOD && you.religion != GOD_XOM)
+    if (you.religion != GOD_NO_GOD && you.religion != GOD_XOM
+        && (you.religion != GOD_LUGONU || !player_in_branch(BRANCH_ABYSS)))
     {
         int piety_change = 0;
         int piety_denom = 1;
@@ -120,10 +121,20 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
             }
             break;
 
+        case DID_DESECRATE_HOLY_REMAINS:
+            if (you.religion == GOD_YREDELEMNUL)
+            {
+                simple_god_message(" appreciates your desecration of holy "
+                                   "remains.");
+                retval = true;
+                piety_change = 1;
+                break;
+            }
+            // deliberate fall through
+
         case DID_NECROMANCY:
         case DID_UNHOLY:
         case DID_ATTACK_HOLY:
-        case DID_DESECRATE_HOLY_REMAINS:
             switch (you.religion)
             {
             case GOD_ZIN:
@@ -137,7 +148,8 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
                     break;
                 }
 
-                if (thing_done == DID_ATTACK_HOLY && victim
+                if (thing_done == DID_ATTACK_HOLY
+                    && victim
                     && !testbits(victim->flags, MF_NO_REWARD)
                     && !testbits(victim->flags, MF_WAS_NEUTRAL))
                 {
@@ -203,13 +215,13 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
 
        case DID_KILL_PLANT:
        case DID_PLANT_KILLED_BY_SERVANT:
-           // Piety loss but no penance for killing a plant.
-           if (you.religion == GOD_FEDHAS)
-           {
-               retval = true;
-               piety_change = -level;
-           }
-           break;
+            // Piety loss but no penance for killing a plant.
+            if (you.religion == GOD_FEDHAS)
+            {
+                retval = true;
+                piety_change = -level;
+            }
+            break;
 
         case DID_ATTACK_NEUTRAL:
             switch (you.religion)
@@ -359,8 +371,8 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
                 retval = true;
                 piety_denom = level + 18 - you.experience_level / 2;
                 piety_change = piety_denom - 6;
-                piety_denom = std::max(piety_denom, 1);
-                piety_change = std::max(piety_change, 0);
+                piety_denom = max(piety_denom, 1);
+                piety_change = max(piety_change, 0);
                 break;
 
             default:
@@ -385,8 +397,8 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
                 piety_denom = level + 18 - (is_good_god(you.religion) ? 0 :
                                           you.experience_level / 2);
                 piety_change = piety_denom - 5;
-                piety_denom = std::max(piety_denom, 1);
-                piety_change = std::max(piety_change, 0);
+                piety_denom = max(piety_denom, 1);
+                piety_change = max(piety_change, 0);
                 break;
 
             default:
@@ -398,6 +410,7 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
             switch (you.religion)
             {
             case GOD_SHINING_ONE:
+            case GOD_VEHUMET:
             case GOD_MAKHLEB:
             case GOD_TROG:
             case GOD_KIKUBAAQUDGHA:
@@ -412,8 +425,8 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
                 piety_denom = level + 18 - (is_good_god(you.religion) ? 0 :
                                           you.experience_level / 2);
                 piety_change = piety_denom - 4;
-                piety_denom = std::max(piety_denom, 1);
-                piety_change = std::max(piety_change, 0);
+                piety_denom = max(piety_denom, 1);
+                piety_change = max(piety_change, 0);
                 break;
 
             default:
@@ -476,8 +489,8 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
                 retval = true;
                 piety_denom = level + 18 - you.experience_level / 2;
                 piety_change = piety_denom - 6;
-                piety_denom = std::max(piety_denom, 1);
-                piety_change = std::max(piety_change, 0);
+                piety_denom = max(piety_denom, 1);
+                piety_change = max(piety_change, 0);
 
                 const int speed_delta =
                     cheibriados_monster_player_speed_delta(victim);
@@ -529,6 +542,7 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
             case GOD_YREDELEMNUL:
             case GOD_KIKUBAAQUDGHA:
             case GOD_TROG:
+            case GOD_VEHUMET:
             case GOD_MAKHLEB:
             case GOD_BEOGH:
             case GOD_LUGONU:
@@ -616,7 +630,6 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
             {
             case GOD_YREDELEMNUL:
             case GOD_KIKUBAAQUDGHA:
-            case GOD_VEHUMET:
             case GOD_MAKHLEB:
             case GOD_BEOGH:
             case GOD_LUGONU:
@@ -624,8 +637,8 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
                 retval = true;
                 piety_denom = level + 10 - you.experience_level/3;
                 piety_change = piety_denom - 6;
-                piety_denom = std::max(piety_denom, 1);
-                piety_change = std::max(piety_change, 0);
+                piety_denom = max(piety_denom, 1);
+                piety_change = max(piety_change, 0);
                 break;
             default:
                 break;
@@ -635,7 +648,6 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
         case DID_LIVING_KILLED_BY_SERVANT:
             switch (you.religion)
             {
-            case GOD_VEHUMET:
             case GOD_MAKHLEB:
             case GOD_TROG:
             case GOD_BEOGH:
@@ -644,8 +656,8 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
                 retval = true;
                 piety_denom = level + 10 - you.experience_level/3;
                 piety_change = piety_denom - 6;
-                piety_denom = std::max(piety_denom, 1);
-                piety_change = std::max(piety_change, 0);
+                piety_denom = max(piety_denom, 1);
+                piety_change = max(piety_change, 0);
                 break;
             default:
                 break;
@@ -655,7 +667,6 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
         case DID_UNDEAD_KILLED_BY_UNDEAD_SLAVE:
             switch (you.religion)
             {
-            case GOD_VEHUMET:
             case GOD_MAKHLEB:
             case GOD_BEOGH:
             case GOD_LUGONU:
@@ -663,8 +674,8 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
                 retval = true;
                 piety_denom = level + 10 - you.experience_level/3;
                 piety_change = piety_denom - 6;
-                piety_denom = std::max(piety_denom, 1);
-                piety_change = std::max(piety_change, 0);
+                piety_denom = max(piety_denom, 1);
+                piety_change = max(piety_change, 0);
                 break;
             default:
                 break;
@@ -675,7 +686,6 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
             switch (you.religion)
             {
             case GOD_SHINING_ONE:
-            case GOD_VEHUMET:
             case GOD_MAKHLEB:
             case GOD_BEOGH:
             case GOD_LUGONU:
@@ -684,8 +694,8 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
                 piety_denom = level + 10 - (is_good_god(you.religion) ? 0 :
                                             you.experience_level/3);
                 piety_change = piety_denom - 6;
-                piety_denom = std::max(piety_denom, 1);
-                piety_change = std::max(piety_change, 0);
+                piety_denom = max(piety_denom, 1);
+                piety_change = max(piety_change, 0);
                 break;
             default:
                 break;
@@ -703,8 +713,8 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
                 retval = true;
                 piety_denom = level + 10 - you.experience_level/3;
                 piety_change = piety_denom - 6;
-                piety_denom = std::max(piety_denom, 1);
-                piety_change = std::max(piety_change, 0);
+                piety_denom = max(piety_denom, 1);
+                piety_change = max(piety_change, 0);
                 break;
             default:
                 break;
@@ -724,8 +734,8 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
                 piety_denom = level + 10 - (is_good_god(you.religion) ? 0 :
                                             you.experience_level/3);
                 piety_change = piety_denom - 6;
-                piety_denom = std::max(piety_denom, 1);
-                piety_change = std::max(piety_change, 0);
+                piety_denom = max(piety_denom, 1);
+                piety_change = max(piety_change, 0);
                 break;
             default:
                 break;
@@ -985,8 +995,8 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
                     break;
                 piety_denom = level / 2 + 6 - you.experience_level / 4;
                 piety_change = piety_denom - 4;
-                piety_denom = std::max(piety_denom, 1);
-                piety_change = std::max(piety_change, 0);
+                piety_denom = max(piety_denom, 1);
+                piety_change = max(piety_change, 0);
                 retval = true;
             }
             break;
@@ -999,10 +1009,10 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
         if (you.religion == GOD_OKAWARU
             // currently no constructs and plants
             && (thing_done == DID_KILL_LIVING
-             || thing_done == DID_KILL_UNDEAD
-             || thing_done == DID_KILL_DEMON
-             || thing_done == DID_KILL_HOLY)
-            && ! god_hates_attacking_friend(you.religion, victim))
+                || thing_done == DID_KILL_UNDEAD
+                || thing_done == DID_KILL_DEMON
+                || thing_done == DID_KILL_HOLY)
+            && !god_hates_attacking_friend(you.religion, victim))
         {
             piety_change = get_fuzzied_monster_difficulty(victim);
             dprf("fuzzied monster difficulty: %4.2f", piety_change * 0.01);

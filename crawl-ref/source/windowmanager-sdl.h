@@ -26,7 +26,6 @@ public:
 #endif
     virtual key_mod get_mod_state() const;
     virtual void set_mod_state(key_mod mod);
-    virtual int byte_order();
 
     // System time functions
     virtual void set_timer(unsigned int interval,
@@ -54,6 +53,12 @@ public:
                               tex_proc_func proc = NULL,
                               bool force_power_of_two = true);
 
+#ifdef __ANDROID__
+    // Android background/foreground functions
+    static void appPutToForeground();
+    static void appPutToBackground();
+#endif
+
 protected:
     // Helper functions
     SDL_Surface *load_image(const char *file) const;
@@ -62,6 +67,9 @@ protected:
     const SDL_VideoInfo* video_info;
     int _desktop_width;
     int _desktop_height;
+
+private:
+    void glDebug(const char *msg);
 };
 
 #endif // USE_SDL

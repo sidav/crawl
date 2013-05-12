@@ -181,6 +181,10 @@ Silver Blast cast
 
 @The_monster@ shoots forth a bolt of silver!
 %%%%
+Word of Recall cast
+
+@The_monster@ begins to recite a word of recall!
+%%%%
 #####################################################
 # Individual innate spells (breathing and spitting).
 #####################################################
@@ -236,6 +240,14 @@ You hear a spitting sound.
 Petrifying Cloud cast
 
 @The_monster@ breathes a plume of calcifying dust @at@ @target@.
+%%%%
+Chaos Breath cast
+
+@The_monster@ breathes @beam@ @at@ @target@.
+%%%%
+Frenzy cast
+
+@The_monster@ convulses with anger.
 ########################################################################
 # Unique monsters
 ########################################################################
@@ -367,6 +379,15 @@ eidolon cast targeted
 basilisk cast targeted
 
 @giant eyeball cast targeted@
+%%%%
+wretched star cast
+
+@The_monster@ glows turbulently.
+%%%%
+thrashing horror cast
+
+@The_monster@ churns violently!
+%%%%
 ########################################################################
 # Monster species and genus messages.
 ########################################################################
@@ -375,9 +396,9 @@ angel cast targeted
 
 @The_monster@ calls down the wrath of @possessive_God@ upon @target@.
 %%%%
-blessed toe cast targeted
+chaos butterfly cast
 
-@The_monster@ beseeches @possessive_God@ to heal @target@!
+@The_monster@ flaps its wings furiously.
 %%%%
 dragon cast targeted
 
@@ -462,6 +483,18 @@ You hear some strange, mumbled words.
 ######################################################
 # Generic priest, wizard and demonic casting messages.
 ######################################################
+%%%%
+Haste Other priest cast
+
+@The_monster@ calls upon @possessive_God@ to speed up @target@.
+%%%%
+Heal Other priest cast
+
+@The_monster@ calls upon @possessive_God@ to heal @target@.
+%%%%
+Might Other priest cast
+
+@The_monster@ calls upon @possessive_God@ to strengthen @target@.
 %%%%
 priest cast targeted
 

@@ -5,6 +5,9 @@
 #include "fixedarray.h"
 #include <vector>
 
+// Sets height to the given height, iff the env.heightmap is already initialized
+void dgn_height_set_at(const coord_def &c, int height = 0);
+
 // The caller is responsible for ensuring that env.heightmap is set.
 static inline short &dgn_height_at(const coord_def &c)
 {
@@ -13,7 +16,7 @@ static inline short &dgn_height_at(const coord_def &c)
 
 typedef FixedArray<bool, GXM, GYM> grid_bool;
 typedef FixedArray<short, GXM, GYM> grid_short;
-typedef std::pair<int, int> int_range;
+typedef pair<int, int> int_range;
 
 const int DGN_UNDEFINED_HEIGHT = -10000;
 
@@ -61,7 +64,7 @@ public:
     int atoll_roll;
 
     // The positions of the primary centre of each island.
-    std::vector<coord_def> islands;
+    vector<coord_def> islands;
 
     // The square of the minimum distance that must separate any two
     // island centres. This is not intended to prevent island overlap, only

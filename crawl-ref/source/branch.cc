@@ -54,7 +54,7 @@ bool is_connected_branch(level_id place)
     return is_connected_branch(place.branch);
 }
 
-branch_type str_to_branch(const std::string &branch, branch_type err)
+branch_type str_to_branch(const string &branch, branch_type err)
 {
     for (int i = 0; i < NUM_BRANCHES; ++i)
         if (branches[i].abbrevname && branches[i].abbrevname == branch)
@@ -68,11 +68,6 @@ int current_level_ambient_noise()
     return branches[you.where_are_you].ambient_noise;
 }
 
-bool branch_has_monsters(branch_type branch)
-{
-    return branches[branch].mons_rarity_function != mons_null_rare;
-}
-
 branch_type get_branch_at(const coord_def& pos)
 {
     return level_id::current().get_next_level_id(pos).branch;
@@ -80,9 +75,9 @@ branch_type get_branch_at(const coord_def& pos)
 
 bool branch_is_unfinished(branch_type branch)
 {
-    return branch == BRANCH_FOREST || branch == BRANCH_DWARVEN_HALL
-#if TAG_MAJOR_VERSION == 33
-           || branch == BRANCH_HIVE
+#if TAG_MAJOR_VERSION == 34
+    if (branch == BRANCH_UNUSED)
+        return true;
 #endif
-           ;
+    return branch == BRANCH_FOREST || branch == BRANCH_DWARVEN_HALL;
 }

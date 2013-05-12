@@ -15,6 +15,7 @@
 #include "files.h"
 #include "kills.h"
 #include "hiscores.h"
+#include "libutil.h"
 #include "message.h"
 #include "mutation.h"
 #include "options.h"
@@ -27,7 +28,7 @@
 
 #define NOTES_VERSION_NUMBER 1002
 
-std::vector<Note> note_list;
+vector<Note> note_list;
 
 // return the real number of the power (casting out nonexistent powers),
 // starting from 0, or -1 if the power doesn't exist
@@ -71,26 +72,22 @@ static int _dungeon_branch_depth(uint8_t branch)
 
 static bool _is_noteworthy_dlevel(unsigned short place)
 {
-    const uint8_t branch = (place >> 8) & 0xFF;
-    const int lev = (place & 0xFF);
+    branch_type branch = place_branch(place);
+    int lev = place_depth(place);
 
-    // The Abyss is noted a different way (since we care mostly about the cause).
+    // Entering the Abyss is noted a different way, since we care mostly about
+    // the cause.
     if (branch == BRANCH_ABYSS)
-        return false;
+        return lev == _dungeon_branch_depth(branch);
 
     // Other portal levels are always interesting.
     if (!is_connected_branch(static_cast<branch_type>(branch)))
         return true;
 
-    if (lev == _dungeon_branch_depth(branch)
-        || branch == BRANCH_MAIN_DUNGEON && (lev % 5) == 0
-        || branch == BRANCH_MAIN_DUNGEON && lev == 14
-        || branch != BRANCH_MAIN_DUNGEON && lev == 1)
-    {
-        return true;
-    }
-
-    return false;
+    return (lev == _dungeon_branch_depth(branch)
+            || branch == BRANCH_MAIN_DUNGEON && (lev % 5) == 0
+            || branch == BRANCH_MAIN_DUNGEON && lev == 14
+            || branch != BRANCH_MAIN_DUNGEON && lev == 1);
 }
 
 // Is a note worth taking?
@@ -123,7 +120,8 @@ static bool _is_noteworthy(const Note& note)
         || note.type == NOTE_PARALYSIS
         || note.type == NOTE_NAMED_ALLY
         || note.type == NOTE_ALLY_DEATH
-        || note.type == NOTE_FEAT_MIMIC)
+        || note.type == NOTE_FEAT_MIMIC
+        || note.type == NOTE_OFFERED_SPELL)
     {
         return true;
     }
@@ -214,12 +212,12 @@ static const char* _number_to_ordinal(int number)
     return ordinals[number-1];
 }
 
-std::string Note::describe(bool when, bool where, bool what) const
+string Note::describe(bool when, bool where, bool what) const
 {
-    std::ostringstream result;
+    ostringstream result;
 
     if (when)
-        result << std::setw(6) << turn << " ";
+        result << setw(6) << turn << " ";
 
     if (where)
     {
@@ -323,7 +321,8 @@ std::string Note::describe(bool when, bool where, bool what) const
             break;
         case NOTE_GOD_POWER:
             result << "Acquired "
-                   << god_name(static_cast<god_type>(first)) << "'s "
+                   << apostrophise(god_name(static_cast<god_type>(first)))
+                   << " "
                    << _number_to_ordinal(_real_god_power(first, second)+1)
                    << " power";
             break;
@@ -375,6 +374,11 @@ std::string Note::describe(bool when, bool where, bool what) const
         case NOTE_ALLY_DEATH:
             result << "Your ally " << name << " died";
             break;
+        case NOTE_OFFERED_SPELL:
+            result << "Offered knowledge of "
+                   << spell_title(static_cast<spell_type>(first))
+                   << " by Vehumet.";
+            break;
         default:
             result << "Buggy note description: unknown note type";
             break;
@@ -399,9 +403,9 @@ Note::Note(NOTE_TYPES t, int f, int s, const char* n, const char* d) :
     type(t), first(f), second(s)
 {
     if (n)
-        name = std::string(n);
+        name = string(n);
     if (d)
-        desc = std::string(d);
+        desc = string(d);
 
     turn         = you.num_turns;
     packed_place = get_packed_place();
@@ -421,7 +425,7 @@ void Note::check_milestone() const
         if (br != -1 && br != BRANCH_WIZLAB)
         {
             ASSERT(br >= 0 && br < NUM_BRANCHES);
-            std::string branch = place_name(packed_place, true, false).c_str();
+            string branch = place_name(packed_place, true, false).c_str();
             if (branch.find("The ") == 0)
                 branch[0] = tolower(branch[0]);
 
@@ -433,11 +437,11 @@ void Note::check_milestone() const
             else if (dep == _dungeon_branch_depth(br) || dep == 14
                      || br == BRANCH_ZIGGURAT)
             {
-                std::string level = place_name(packed_place, true, true);
+                string level = place_name(packed_place, true, true);
                 if (level.find("Level ") == 0)
                     level[0] = tolower(level[0]);
 
-                std::ostringstream branch_finale;
+                ostringstream branch_finale;
                 branch_finale << "reached " << level << ".";
                 mark_milestone(br == BRANCH_ZIGGURAT ? "zig" :
                                dep == 14 ? "br.mid" : "br.end",

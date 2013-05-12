@@ -27,7 +27,6 @@
 #include "godconduct.h"    // did_god_conduct
 #include "misc.h"
 #include "mgen_data.h"     // For Sceptre of Asmodeus evoke
-#include "mon-info.h"
 #include "mon-place.h"     // For Sceptre of Asmodeus evoke
 #include "mon-stuff.h"     // For Scythe of Curses cursing items
 #include "player.h"
@@ -139,7 +138,8 @@ static void _curses_miscast(actor* victim, int power, int fail)
 static void _CURSES_equip(item_def *item, bool *show_msgs, bool unmeld)
 {
     _equip_mpr(show_msgs, "A shiver runs down your spine.");
-    _curses_miscast(&you, random2(9), random2(70));
+    if (!unmeld)
+        _curses_miscast(&you, random2(9), random2(70));
 }
 
 static void _CURSES_world_reacts(item_def *item)
@@ -253,7 +253,7 @@ static bool _OLGREB_evoke(item_def *item, int* pract, bool* did_work,
     *pract    = 1;
     *did_work = true;
 
-    int power = 10 + you.skill(SK_EVOCATIONS, 8);
+    int power = div_rand_round(20 + you.skill(SK_EVOCATIONS, 20), 3);
 
     your_spells(SPELL_OLGREBS_TOXIC_RADIANCE, power, false);
 
@@ -281,7 +281,7 @@ static void _OLGREB_melee_effect(item_def* weapon, actor* attacker,
 
 static void _power_pluses(item_def *item)
 {
-    item->plus  = std::min(you.hp / 10, 27);
+    item->plus  = min(you.hp / 10, 27);
     item->plus2 = item->plus;
 }
 
@@ -331,8 +331,8 @@ static void _SINGING_SWORD_world_reacts(item_def *item)
     int tier = (tension <= 0) ? 1 : (tension < 40) ? 2 : 3;
     bool silent = silenced(you.pos());
 
-    std::string old_name = get_artefact_name(*item);
-    std::string new_name;
+    string old_name = get_artefact_name(*item);
+    string new_name;
     if (silent)
         new_name = "Sulking Sword";
     else if (tier < 3)
@@ -358,8 +358,12 @@ static void _SINGING_SWORD_world_reacts(item_def *item)
 
     const char *tenname[] =  {"silenced", "no_tension", "low_tension",
                               "high_tension", "SCREAM"};
-    std::string key = tenname[tier];
-    const std::string msg = getSpeakString("singing sword " + key);
+    const string key = tenname[tier];
+    string msg = getSpeakString("singing sword " + key);
+
+    msg = maybe_pick_random_substring(msg);
+    msg = maybe_capitalise_substring(msg);
+
     const int loudness[] = {0, 2, 15, 25, 35};
     item_noise(*item, msg, loudness[tier]);
 
@@ -420,35 +424,12 @@ static void _TROG_unequip(item_def *item, bool *show_msgs)
     _equip_mpr(show_msgs, "You feel less violent.");
 }
 
-static void _TROG_melee_effect(item_def* weapon, actor* attacker,
-                               actor* defender, bool mondied, int dam)
-{
-    if (coinflip() && !attacker->suppressed())
-        attacker->go_berserk(false);
-}
-
 ////////////////////////////////////////////////////
 
 static void _wucad_miscast(actor* victim, int power,int fail)
 {
     MiscastEffect(victim, WIELD_MISCAST, SPTYP_DIVINATION, power, fail,
                   "the Staff of Wucad Mu", NH_NEVER);
-}
-
-static void _wucad_pluses(item_def *item)
-{
-    item->plus  = std::min(you.intel() - 3, 22);
-    item->plus2 = std::min(you.intel() / 2, 13);
-}
-
-static void _WUCAD_MU_equip(item_def *item, bool *show_msgs, bool unmeld)
-{
-    _wucad_pluses(item);
-}
-
-static void _WUCAD_MU_world_reacts(item_def *item)
-{
-    _wucad_pluses(item);
 }
 
 static bool _WUCAD_MU_evoke(item_def *item, int* pract, bool* did_work,
@@ -492,7 +473,8 @@ static void _VAMPIRES_TOOTH_equip(item_def *item, bool *show_msgs, bool unmeld)
     {
         _equip_mpr(show_msgs,
                    "You feel a strange hunger, and smell blood in the air...");
-        make_hungry(4500, false, false);
+        if (!unmeld)
+            make_hungry(4500, false, false);
     }
     else if (you.species == SP_VAMPIRE)
         _equip_mpr(show_msgs, "You feel a bloodthirsty glee!");
@@ -570,7 +552,7 @@ static void _GONG_melee_effect(item_def* item, actor* wearer,
     if (silenced(wearer->pos()))
         return;
 
-    std::string msg = getSpeakString("shield of the gong");
+    string msg = getSpeakString("shield of the gong");
     if (msg.empty())
         msg = "You hear a strange loud sound.";
     mpr(msg.c_str(), MSGCH_SOUND);
@@ -607,7 +589,7 @@ static void _DEMON_AXE_melee_effect(item_def* item, actor* attacker,
                                     actor* defender, bool mondied, int dam)
 {
     if (one_chance_in(10))
-        cast_summon_demon(50+random2(100), attacker->deity());
+        cast_summon_demon(50+random2(100));
 
     if (attacker->is_player())
         did_god_conduct(DID_UNHOLY, 3);
@@ -633,14 +615,14 @@ found:
 
     if (!you.beheld_by(closest))
     {
-         mprf("Visions of slaying %s flood into your mind.",
-              closest->name(DESC_THE).c_str());
+        mprf("Visions of slaying %s flood into your mind.",
+             closest->name(DESC_THE).c_str());
 
-         // The monsters (if any) currently mesmerising the player do not include
-         // this monster. To avoid trapping the player, all other beholders
-         // are removed.
+        // The monsters (if any) currently mesmerising the player do not include
+        // this monster. To avoid trapping the player, all other beholders
+        // are removed.
 
-         you.clear_beholders();
+        you.clear_beholders();
     }
 
     if (you.confused())
@@ -696,7 +678,7 @@ static void _WYRMBANE_melee_effect(item_def* weapon, actor* attacker,
     // * bone dragon, Serpent of Hell (20)
     // * Tiamat (22)
     // * pghosts (up to 27)
-    int hd = std::min(defender->as_monster()->hit_dice, 18);
+    int hd = min(defender->as_monster()->hit_dice, 18);
     dprf("Killed a drac with hd %d.", hd);
     bool boosted = false;
     if (weapon->plus < hd)
@@ -738,9 +720,7 @@ static void _BRILLIANCE_unequip(item_def *item, bool *show_msgs)
 ///////////////////////////////////////////////////
 static void _DEVASTATOR_equip(item_def *item, bool *show_msgs, bool unmeld)
 {
-    if (unmeld)
-        return;
-    mpr("Time to introduce the shillelagh law.");
+    _equip_mpr(show_msgs, "Time to introduce the shillelagh law.");
 }
 
 
@@ -767,4 +747,66 @@ static void _BLACK_KNIGHT_HORSE_world_reacts(item_def *item)
 {
     if (one_chance_in(10))
         did_god_conduct(DID_UNHOLY, 1);
+}
+
+///////////////////////////////////////////////////
+static void _NIGHT_equip(item_def *item, bool *show_msgs, bool unmeld)
+{
+    update_vision_range();
+    _equip_mpr(show_msgs, "The light fades from your surroundings.");
+}
+
+static void _NIGHT_unequip(item_def *item, bool *show_msgs)
+{
+    update_vision_range();
+    _equip_mpr(show_msgs, "The light returns to your surroundings.");
+}
+
+///////////////////////////////////////////////////
+
+static void _plutonium_sword_miscast(actor* victim, int power, int fail)
+{
+    MiscastEffect(victim, MELEE_MISCAST, SPTYP_TRANSMUTATION, power, fail,
+                  "the plutonium sword", NH_NEVER);
+}
+
+static void _PLUTONIUM_SWORD_melee_effect(item_def* weapon, actor* attacker,
+                                          actor* defender, bool mondied, int dam)
+{
+    if (!mondied && one_chance_in(5))
+    {
+        mpr("Mutagenic energy flows through the plutonium sword!");
+        _plutonium_sword_miscast(defender, random2(9), random2(70));
+
+        if (attacker->is_player())
+            did_god_conduct(DID_CHAOS, 3);
+    }
+}
+
+///////////////////////////////////////////////////
+
+static void _WOE_melee_effect(item_def* weapon, actor* attacker,
+                              actor* defender, bool mondied, int dam)
+{
+    const char *verb = "bugger", *adv = "";
+    switch (random2(8))
+    {
+    case 0: verb = "cleave", adv = " in twain"; break;
+    case 1: verb = "pulverise", adv = " into thin bloody mist"; break;
+    case 2: verb = "hew", adv = " savagely"; break;
+    case 3: verb = "fatally mangle", adv = ""; break;
+    case 4: verb = "dissect", adv = " like a pig carcass"; break;
+    case 5: verb = "chop", adv = " into pieces"; break;
+    case 6: verb = "butcher", adv = " messily"; break;
+    case 7: verb = "slaughter", adv = " joyfully"; break;
+    }
+    if (you.see_cell(attacker->pos()) || you.see_cell(defender->pos()))
+    {
+        mprf("%s %s%s %s%s.", attacker->name(DESC_THE).c_str(), verb,
+            attacker->is_player() ? "" : "s", defender->name(DESC_THE).c_str(),
+            adv);
+    }
+
+    if (!mondied)
+        defender->hurt(attacker, defender->stat_hp());
 }

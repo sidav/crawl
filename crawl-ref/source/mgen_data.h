@@ -3,11 +3,11 @@
 
 #include "coord.h"
 #include "mgen_enum.h"
-#include "player.h"
 
 // Hash key for passing a weapon to be given to
 // a dancing weapon.
 #define TUKIMA_WEAPON "tukima-weapon"
+#define TUKIMA_POWER "tukima-power"
 
 // A structure with all the data needed to whip up a new monster.
 struct mgen_data
@@ -28,7 +28,7 @@ struct mgen_data
 
     // Who summoned this monster?  Important to know for death accounting
     // and the summon cap, if and when it goes in.  NULL is no summoner.
-    actor*          summoner;
+    const actor*    summoner;
 
     // For summoned monsters, this is a measure of how long the summon will
     // hang around, on a scale of 1-6, 6 being longest. Use 0 for monsters
@@ -76,11 +76,6 @@ struct mgen_data
     // The colour of the monster.
     int             colour;
 
-    // A measure of how powerful the generated monster should be (for
-    // randomly chosen monsters), usually equal to the absolute depth
-    // that the player is in the dungeon.
-    int             power;
-
     // How close to or far from the player the monster should be created.
     // Is usually used only when the initial position (pos) is unspecified.
     proximity_type  proximity;
@@ -105,11 +100,11 @@ struct mgen_data
     // These flags are MF_XXX, rather than MG_XXX flags.
     uint64_t        extra_flags;
 
-    std::string     mname;
+    string          mname;
 
     // This is used to account for non-actor summoners.  Blasted by an Ice
     // Fiend ... summoned by the effects of Hell.
-    std::string     non_actor_summoner;
+    string          non_actor_summoner;
 
     // This simply stores the initial shape-shifter type.
     monster_type    initial_shifter;
@@ -119,7 +114,7 @@ struct mgen_data
 
     mgen_data(monster_type mt = RANDOM_MONSTER,
               beh_type beh = BEH_HOSTILE,
-              actor* sner = 0,
+              const actor* sner = 0,
               int abj = 0,
               int st = 0,
               const coord_def &p = coord_def(-1, -1),
@@ -129,25 +124,25 @@ struct mgen_data
               monster_type base = MONS_NO_MONSTER,
               int monnumber = 0,
               int moncolour = BLACK,
-              int monpower = -1,
               proximity_type prox = PROX_ANYWHERE,
               level_id _place = level_id::current(),
               int mhd = 0, int mhp = 0,
               uint64_t extflags = 0,
-              std::string monname = "",
-              std::string nas = "",
+              string monname = "",
+              string nas = "",
               monster_type is = RANDOM_MONSTER)
 
         : cls(mt), base_type(base), behaviour(beh), summoner(sner),
           abjuration_duration(abj), summon_type(st), pos(p),
           preferred_grid_feature(DNGN_UNSEEN), foe(mfoe), flags(genflags),
           god(which_god), number(monnumber), colour(moncolour),
-          power(monpower), proximity(prox), place(_place), map_mask(0),
+          proximity(prox), place(_place), map_mask(0),
           hd(mhd), hp(mhp), extra_flags(extflags), mname(monname),
           non_actor_summoner(nas), initial_shifter(is), props()
     {
         ASSERT(summon_type == 0 || (abj >= 1 && abj <= 6)
                || mt == MONS_BALL_LIGHTNING || mt == MONS_ORB_OF_DESTRUCTION
+               || mt == MONS_BATTLESPHERE
                || summon_type == SPELL_STICKS_TO_SNAKES
                || summon_type == SPELL_DEATH_CHANNEL
                || summon_type == SPELL_SIMULACRUM);
@@ -171,7 +166,7 @@ struct mgen_data
     }
 
     static mgen_data hostile_at(monster_type mt,
-                                std::string nsummoner,
+                                string nsummoner,
                                 bool alert = false,
                                 int abj = 0,
                                 int st = 0,
@@ -183,7 +178,7 @@ struct mgen_data
     {
         return mgen_data(mt, BEH_HOSTILE, 0, abj, st, p,
                          alert ? MHITYOU : MHITNOT,
-                         genflags, ngod, base, 0, BLACK, -1,
+                         genflags, ngod, base, 0, BLACK,
                          PROX_ANYWHERE, level_id::current(), 0, 0, 0, "", nsummoner,
                          RANDOM_MONSTER);
     }

@@ -30,7 +30,7 @@ Terrain
 
  . - floor                                                    (DNGN_FLOOR)
  + - closed door                                        (DNGN_CLOSED_DOOR)
- = - secret door                                        (DNGN_SECRET_DOOR)
+ = - runed door                                          (DNGN_RUNED_DOOR)
 
  W - shallow water
  w - deep water - can be randomly turned into shallow water by the
@@ -54,7 +54,9 @@ Features
       { upstair is also the stair on which the player will enter the
       dungeon for entry vaults.
  )( - Stone stairs, set 2.
- ][ - Stone stairs, set 3.
+ ][ - Stone stairs, set 3 - minivaults often fail to get this pair if
+      the level isn't very interconnected or if any larger vaults are using
+      any stairs.
 
  >< - escape hatches - you can leave the level by these but will usually
       not land on stairs/hatches
@@ -175,10 +177,11 @@ DEPTH:    For random vaults, branch entry vaults, and minivaults, this
           or minivault, so you can control at what depths your vault gets
           placed.
 
-          A simple DEPTH: declaration that does not specify a branch
-          applies to all branches. A map declared with depth 7-20 could
-          be used in the Lair, for instance. (Lair:1 will be treated as
-          a depth of 12 if the Lair entrance is on D:11.)
+          A simple DEPTH: declaration that does not specify a branch applies
+          to all branches. A map declared with depth 7-20 could be used in the
+          Lair, for instance (Lair:1 will be treated as a depth of 12 if the
+          Lair entrance is on D:11). In general, you should avoid using such
+          unconstrained DEPTHs unless you know what you are doing.
 
           You can constrain a map by branch:
 
@@ -589,6 +592,13 @@ ITEM:     (list of items, separated by comma)
             mimic. The ":N" can also be omitted for a guaranteed mimic.
           * "no_mimic" prevents the item from being randomly turned into a
             mimic by the dungeon builder.
+          * "no_pickup" prevents monsters from picking up the item, for vaults
+            intending to have an impressive display of loot (although in most
+            cases monsters should be allowed to pick up and use loot against
+            the player).
+          * "tile:" and "wtile:" will set the item's inventory/ground and
+            worn (player/monster doll) tiles. Generally you'd want to set
+            both to ensure they match.
 
           WARNING: While checks are done to make sure that an armour ego
           isn't given to a weapon, a weapon ego to a missile, and so on, and
@@ -1354,8 +1364,6 @@ KMASK:    Z = no_monster_gen
              randomly converted from deep water (the default) to shallow.
           * "no_wall_fixup": prevents (rock) walls from being converted to
              the level's default wall type, such as in Vaults.
-          * "no_secret_doors": prevents a door from randomly being turned
-             into a secret door.
 
           For example
 

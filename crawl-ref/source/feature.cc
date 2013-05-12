@@ -7,7 +7,7 @@
 #include "options.h"
 #include "show.h"
 
-typedef std::map<show_type, feature_def> feat_map;
+typedef map<show_type, feature_def> feat_map;
 static feat_map Features;
 
 const feature_def &get_feature_def(show_type object)
@@ -134,23 +134,28 @@ static void _init_feat(feature_def &f, dungeon_feature_type feat)
             break;
 
         case DNGN_CLOSED_DOOR:
-        case DNGN_DETECTED_SECRET_DOOR:
             f.dchar   = DCHAR_DOOR_CLOSED;
             f.colour  = LIGHTGREY;
             f.minimap = MF_DOOR;
             break;
 
+        case DNGN_RUNED_DOOR:
+            f.dchar   = DCHAR_DOOR_CLOSED;
+            f.colour  = LIGHTBLUE;
+            f.minimap = MF_DOOR;
+            f.map_colour = LIGHTBLUE;
+            break;
+
+        case DNGN_SEALED_DOOR:
+            f.dchar   = DCHAR_DOOR_CLOSED;
+            f.colour  = LIGHTGREEN;
+            f.minimap = MF_DOOR;
+            f.map_colour = LIGHTGREEN;
+            break;
+
         case DNGN_METAL_WALL:
             f.dchar        = DCHAR_WALL;
             f.colour       = CYAN;
-            f.magic_symbol = Options.char_table[ DCHAR_WALL_MAGIC ];
-            f.minimap      = MF_WALL;
-            break;
-
-        case DNGN_SECRET_DOOR:
-            // Note: get_secret_door_appearance means this probably isn't used.
-            f.dchar        = DCHAR_WALL;
-            f.colour       = ETC_ROCK;
             f.magic_symbol = Options.char_table[ DCHAR_WALL_MAGIC ];
             f.minimap      = MF_WALL;
             break;
@@ -397,6 +402,13 @@ static void _init_feat(feature_def &f, dungeon_feature_type feat)
             f.colour     = ETC_RANDOM;
             f.dchar      = DCHAR_ARCH;
             f.map_colour = ETC_RANDOM;
+            f.minimap    = MF_STAIR_BRANCH;
+            break;
+
+        case DNGN_ABYSSAL_STAIR:
+            f.colour     = LIGHTCYAN;
+            f.dchar      = DCHAR_STAIRS_DOWN;
+            f.map_colour = LIGHTCYAN;
             f.minimap    = MF_STAIR_BRANCH;
             break;
 

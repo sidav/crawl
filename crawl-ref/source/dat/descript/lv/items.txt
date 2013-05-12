@@ -21,14 +21,6 @@ bolt
 
 Metāla šāviņš, kas īsāks par loka bultu, paredzēts šaušanai no stopa.
 %%%%
-book of card effects
-
-Burvestību grāmata.
-%%%%
-book of charms
-
-Burvestību grāmata.
-%%%%
 book of fixed level
 
 Burvestību grāmata.
@@ -73,7 +65,71 @@ dire flail
 
 Kaujas sprigulis ar garākiem asumiem un smagāku uzgali.
 %%%%
+glaive
+
+Nūja ar lielu un smagu asmeni vienā tās galā.
+%%%%
 gold piece
 
 Kaudze ar mirdzošām zelta monētām.
+%%%%
+grape
+
+Mazs auglis.
+%%%%
+lemon
+
+Dzeltens auglis.
+%%%%
+lychee
+
+Tropisks auglis.
+%%%%
+orange
+
+Gards un sulīgs oranžs auglis.
+%%%%
+pair of boots
+
+Zābaku pāris.
+%%%%
+pair of gauntlets
+
+Bruņucimdu pāris.
+%%%%
+pair of gloves
+
+Cimdu pāris.
+%%%%
+pear
+
+Gards sulīgs auglis.
+%%%%
+potion of poison
+
+Nejauki indīgs šķidrums.
+%%%%
+potion of strong poison
+
+Trakoti indīga dzira.
+%%%%
+ring of protection from cold
+
+Šis gredzens nodrošina aizsardzību pret aukstumu.
+%%%%
+decaying skeleton
+
+Trūdošs ģindenis.
+%%%%
+snozzcumber
+
+Riebīgs ģurķa formas dārzenis.
+%%%%
+strawberry
+
+Mazs, taču gards sarkans auglis.
+%%%%
+wizard hat
+
+Koniskas formas ādas cepure.
 %%%%

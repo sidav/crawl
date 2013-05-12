@@ -11,13 +11,14 @@
 
 #include "externs.h"
 
+#include "artefact.h"
 #include "cloud.h"
 #include "colour.h"
 #include "command.h"
 #include "delay.h"
+#include "describe.h"
 #include "env.h"
 #include "exercise.h"
-#include "fight.h"
 #include "fineff.h"
 #include "godconduct.h"
 #include "hints.h"
@@ -25,13 +26,16 @@
 #include "itemprop.h"
 #include "items.h"
 #include "item_use.h"
+#include "libutil.h"
 #include "macro.h"
 #include "message.h"
 #include "misc.h"
+#include "mon-behv.h"
 #include "mutation.h"
 #include "options.h"
 #include "shout.h"
 #include "skills2.h"
+#include "state.h"
 #include "stuff.h"
 #include "teleport.h"
 #include "terrain.h"
@@ -40,7 +44,7 @@
 #include "viewchar.h"
 
 static int  _fire_prompt_for_item();
-static bool _fire_validate_item(int selected, std::string& err);
+static bool _fire_validate_item(int selected, string& err);
 
 bool item_is_quivered(const item_def &item)
 {
@@ -49,7 +53,7 @@ bool item_is_quivered(const item_def &item)
 
 int get_next_fire_item(int current, int direction)
 {
-    std::vector<int> fire_order;
+    vector<int> fire_order;
     you.m_quiver->get_fire_order(fire_order, true);
 
     if (fire_order.empty())
@@ -85,8 +89,8 @@ public:
     virtual command_type get_command(int key = -1);
     virtual bool should_redraw() const { return need_redraw; }
     virtual void clear_redraw()        { need_redraw = false; }
-    virtual void update_top_prompt(std::string* p_top_prompt);
-    virtual std::vector<std::string> get_monster_desc(const monster_info& mi);
+    virtual void update_top_prompt(string* p_top_prompt);
+    virtual vector<string> get_monster_desc(const monster_info& mi);
 
 public:
     const item_def* active_item() const;
@@ -100,14 +104,14 @@ private:
     void pick_fire_item_from_inventory();
     void display_help();
 
-    std::string prompt;
-    std::string m_noitem_reason;
-    std::string internal_prompt;
+    string prompt;
+    string m_noitem_reason;
+    string internal_prompt;
     bool selected_from_inventory;
     bool need_redraw;
 };
 
-void fire_target_behaviour::update_top_prompt(std::string* p_top_prompt)
+void fire_target_behaviour::update_top_prompt(string* p_top_prompt)
 {
     *p_top_prompt = internal_prompt;
 }
@@ -122,14 +126,14 @@ const item_def* fire_target_behaviour::active_item() const
 
 void fire_target_behaviour::set_prompt()
 {
-    std::string old_prompt = internal_prompt; // Keep for comparison at the end.
+    string old_prompt = internal_prompt; // Keep for comparison at the end.
     internal_prompt.clear();
 
     // Figure out if we have anything else to cycle to.
     const int next_item = get_next_fire_item(m_slot, +1);
     const bool no_other_items = (next_item == -1 || next_item == m_slot);
 
-    std::ostringstream msg;
+    ostringstream msg;
 
     // Build the action.
     if (!active_item())
@@ -188,7 +192,7 @@ void fire_target_behaviour::cycle_fire_item(bool forward)
 void fire_target_behaviour::pick_fire_item_from_inventory()
 {
     need_redraw = true;
-    std::string err;
+    string err;
     const int selected = _fire_prompt_for_item();
     if (selected >= 0 && _fire_validate_item(selected, err))
     {
@@ -229,9 +233,9 @@ command_type fire_target_behaviour::get_command(int key)
     return targetting_behaviour::get_command(key);
 }
 
-std::vector<std::string> fire_target_behaviour::get_monster_desc(const monster_info& mi)
+vector<string> fire_target_behaviour::get_monster_desc(const monster_info& mi)
 {
-    std::vector<std::string> descs;
+    vector<string> descs;
     if (const item_def* item = active_item())
     {
         if (get_ammo_brand(*item) == SPMSL_SILVER && mi.is(MB_CHAOTIC))
@@ -248,7 +252,7 @@ static bool _fire_choose_item_and_target(int& slot, dist& target,
 
     if (was_chosen)
     {
-        std::string warn;
+        string warn;
         if (!_fire_validate_item(slot, warn))
         {
             mpr(warn.c_str());
@@ -304,7 +308,7 @@ static int _fire_prompt_for_item()
 }
 
 // Returns false and err text if this item can't be fired.
-static bool _fire_validate_item(int slot, std::string &err)
+static bool _fire_validate_item(int slot, string &err)
 {
     if (slot == you.equip[EQ_WEAPON]
         && is_weapon(you.inv[slot])
@@ -320,8 +324,8 @@ static bool _fire_validate_item(int slot, std::string &err)
     }
     else if (you.inv[slot].base_type == OBJ_ORBS)
     {
-       err = "You don't feel like leaving the orb behind!";
-       return false;
+        err = "You don't feel like leaving the orb behind!";
+        return false;
     }
     return true;
 }
@@ -385,16 +389,16 @@ static bool _autoswitch_to_ranged()
 
     FixedVector<item_def,ENDOFPACK>::const_pointer iter = you.inv.begin();
     for (;iter!=you.inv.end(); ++iter)
-       if (iter->launched_by(launcher))
-       {
-          if (!wield_weapon(true, item_slot))
-              return false;
+        if (iter->launched_by(launcher))
+        {
+            if (!wield_weapon(true, item_slot))
+                return false;
 
-          you.turn_is_over = true;
-          //XXX Hacky. Should use a delay instead.
-          macro_buf_add(command_to_key(CMD_FIRE));
-          return true;
-       }
+            you.turn_is_over = true;
+            //XXX Hacky. Should use a delay instead.
+            macro_buf_add(command_to_key(CMD_FIRE));
+            return true;
+        }
 
     return false;
 }
@@ -416,7 +420,7 @@ int get_ammo_to_shoot(int item, dist &target, bool teleport)
     if (!_fire_choose_item_and_target(item, target, teleport))
         return -1;
 
-    std::string warn;
+    string warn;
     if (!_fire_validate_item(item, warn))
     {
         mpr(warn.c_str());
@@ -457,7 +461,7 @@ void throw_item_no_quiver()
         return;
     }
 
-    std::string warn;
+    string warn;
     int slot = _fire_prompt_for_item();
 
     if (slot == -1)
@@ -483,30 +487,13 @@ static int _launcher_shield_slowdown(const item_def &launcher,
                                      const item_def *shield)
 {
     int speed_adjust = 100;
-    if (!shield)
+    if (!shield || hands_reqd(launcher, you.body_size()) == HANDS_ONE)
         return speed_adjust;
 
     const int shield_type = shield->sub_type;
-    hands_reqd_type hands = hands_reqd(launcher, you.body_size());
-
-    switch (hands)
-    {
-    default:
-    case HANDS_ONE:
-        break;
-
-    case HANDS_HALF:
-        speed_adjust = shield_type == ARM_BUCKLER  ? 105 :
-                       shield_type == ARM_SHIELD   ? 125 :
-                                                     150;
-        break;
-
-    case HANDS_TWO:
-        speed_adjust = shield_type == ARM_BUCKLER  ? 125 :
-                       shield_type == ARM_SHIELD   ? 150 :
-                                                     200;
-        break;
-    }
+    speed_adjust = shield_type == ARM_BUCKLER  ? 125 :
+                   shield_type == ARM_SHIELD   ? 150 :
+                                                 200;
 
     // Adjust for shields skill.
     if (speed_adjust > 100)
@@ -616,7 +603,8 @@ static bool _poison_hit_victim(bolt& beam, actor* victim, int dmg)
     if (levels <= 0)
         return false;
 
-    victim->poison(agent, levels);
+    if (victim->poison(agent, levels) && victim->is_monster())
+        behaviour_event(victim->as_monster(), ME_ANNOY, agent);
 
     return true;
 }
@@ -632,7 +620,7 @@ static bool _item_penetrates_victim(const bolt &beam, int &used)
 }
 
 static bool _silver_damages_victim(bolt &beam, actor* victim, int &dmg,
-                                   std::string &dmg_msg)
+                                   string &dmg_msg)
 {
     int mutated = 0;
 
@@ -713,11 +701,8 @@ static bool _dispersal_hit_victim(bolt& beam, actor* victim, int dmg)
 
     // Pick the square further away from the agent.
     const coord_def from = agent->pos();
-    if (in_bounds(pos2)
-        && distance(pos2, from) > distance(pos, from))
-    {
+    if (in_bounds(pos2) && distance2(pos2, from) > distance2(pos, from))
         pos = pos2;
-    }
 
     if (pos == victim->pos())
         return false;
@@ -750,8 +735,8 @@ static bool _dispersal_hit_victim(bolt& beam, actor* victim, int dmg)
         mon->apply_location_effects(oldpos);
         mon->check_redraw(oldpos);
 
-        const bool        seen = you.can_see(mon);
-        const std::string name = mon->name(DESC_THE);
+        const bool   seen = you.can_see(mon);
+        const string name = mon->name(DESC_THE);
         if (was_seen && seen)
             mprf("%s blinks!", name.c_str());
         else if (was_seen && !seen)
@@ -762,7 +747,7 @@ static bool _dispersal_hit_victim(bolt& beam, actor* victim, int dmg)
 }
 
 static bool _charged_damages_victim(bolt &beam, actor* victim, int &dmg,
-                                    std::string &dmg_msg)
+                                    string &dmg_msg)
 {
     if (victim->airborne() || victim->res_elec() > 0 || !one_chance_in(3))
         return false;
@@ -792,16 +777,13 @@ static bool _charged_damages_victim(bolt &beam, actor* victim, int &dmg,
     }
 
     if (feat_is_water(grd(victim->pos())))
-    {
-        add_final_effect(FINEFF_LIGHTNING_DISCHARGE, beam.agent(), 0,
-                         victim->pos(), 0);
-    }
+        (new lightning_fineff(beam.agent(), victim->pos()))->schedule();
 
     return false;
 }
 
 static bool _blessed_damages_victim(bolt &beam, actor* victim, int &dmg,
-                                    std::string &dmg_msg)
+                                    string &dmg_msg)
 {
     if (victim->undead_or_demonic())
     {
@@ -969,8 +951,8 @@ static bool _rage_hit_victim(bolt &beam, actor* victim, int dmg)
     return true;
 }
 
-bool setup_missile_beam(const actor *agent, bolt &beam, item_def &item,
-                        std::string &ammo_name, bool &returning)
+static bool _setup_missile_beam(const actor *agent, bolt &beam, item_def &item,
+                                string &ammo_name, bool &returning)
 {
     dungeon_char_type zapsym = NUM_DCHAR_TYPES;
     switch (item.base_type)
@@ -1235,28 +1217,28 @@ bool setup_missile_beam(const actor *agent, bolt &beam, item_def &item,
     // redundant "exploding".
     if (exploding)
     {
-         bolt *expl = new bolt(beam);
+        bolt *expl = new bolt(beam);
 
-         expl->is_explosion = true;
-         expl->damage       = dice_def(2, 5);
-         expl->ex_size      = 1;
+        expl->is_explosion = true;
+        expl->damage       = dice_def(2, 5);
+        expl->ex_size      = 1;
 
-         if (beam.flavour == BEAM_MISSILE)
-         {
-             expl->flavour = BEAM_FRAG;
-             expl->name   += " fragments";
+        if (beam.flavour == BEAM_MISSILE)
+        {
+            expl->flavour = BEAM_FRAG;
+            expl->name   += " fragments";
 
-             const std::string short_name =
-                 item.name(DESC_PLAIN, false, false, false, false,
-                           ISFLAG_IDENT_MASK | ISFLAG_COSMETIC_MASK
-                           | ISFLAG_RACIAL_MASK);
+            const string short_name =
+                item.name(DESC_PLAIN, false, false, false, false,
+                          ISFLAG_IDENT_MASK | ISFLAG_COSMETIC_MASK
+                          | ISFLAG_RACIAL_MASK);
 
-             expl->name = replace_all(expl->name, item.name(DESC_PLAIN),
-                                      short_name);
-         }
-         expl->name = "explosion of " + expl->name;
+            expl->name = replace_all(expl->name, item.name(DESC_PLAIN),
+                                     short_name);
+        }
+        expl->name = "explosion of " + expl->name;
 
-         beam.special_explosion = expl;
+        beam.special_explosion = expl;
     }
 
     if (exploding && item.special != SPMSL_EXPLODING)
@@ -1421,9 +1403,9 @@ bool throw_it(bolt &pbolt, int throw_2, bool teleport, int acc_bonus,
         set_item_ego_type(item, OBJ_WEAPONS, SPWPN_NORMAL);
     }
 
-    std::string ammo_name;
+    string ammo_name;
 
-    if (setup_missile_beam(&you, pbolt, item, ammo_name, returning))
+    if (_setup_missile_beam(&you, pbolt, item, ammo_name, returning))
     {
         you.turn_is_over = false;
         return false;
@@ -1460,11 +1442,11 @@ bool throw_it(bolt &pbolt, int throw_2, bool teleport, int acc_bonus,
     else
     {
         // Range based on mass & strength, between 1 and 9.
-        max_range = range = std::max(you.strength()-item_mass(thrown)/10 + 3, 1);
+        max_range = range = max(you.strength()-item_mass(thrown)/10 + 3, 1);
     }
 
-    range = std::min(range, (int)you.current_vision);
-    max_range = std::min(max_range, (int)you.current_vision);
+    range = min(range, (int)you.current_vision);
+    max_range = min(max_range, (int)you.current_vision);
 
     // For the tracer, use max_range. For the actual shot, use range.
     pbolt.range = max_range;
@@ -1537,14 +1519,14 @@ bool throw_it(bolt &pbolt, int throw_2, bool teleport, int acc_bonus,
         pbolt.set_target(thr);
 
     // baseHit and damage for generic objects
-    baseHit = std::min(0, you.strength() - item_mass(item) / 10);
+    baseHit = min(0, you.strength() - item_mass(item) / 10);
     baseDam = item_mass(item) / 100;
 
     // special: might be throwing generic weapon;
     // use base wep. damage, w/ penalty
     if (wepClass == OBJ_WEAPONS)
     {
-        baseDam = std::max(0, property(item, PWPN_DAMAGE) - 4);
+        baseDam = max(0, property(item, PWPN_DAMAGE) - 4);
         ammoHitBonus = item.plus;
         ammoDamBonus = item.plus2;
     }
@@ -1553,7 +1535,7 @@ bool throw_it(bolt &pbolt, int throw_2, bool teleport, int acc_bonus,
         skill_type sk = SK_THROWING;
         if (projected == LRET_LAUNCHED)
             sk = range_skill(*you.weapon());
-        ammoHitBonus = ammoDamBonus = std::min(3, you.skill_rdiv(sk, 1, 3));
+        ammoHitBonus = ammoDamBonus = min(3, you.skill_rdiv(sk, 1, 3));
     }
 
     int bow_brand = SPWPN_NORMAL;
@@ -1679,14 +1661,14 @@ bool throw_it(bolt &pbolt, int throw_2, bool teleport, int acc_bonus,
             strbonus = (strbonus * (2 * baseDam + ammoDamBonus)) / 20;
 
             // cap
-            strbonus = std::min(lnchDamBonus + 1, strbonus);
+            strbonus = min(lnchDamBonus + 1, strbonus);
 
             exDamBonus += strbonus;
             // Add skill for slings... helps to find those vulnerable spots.
             dice_mult = dice_mult * (14 + random2(1 + effSkill)) / 14;
 
             // Now kill the launcher damage bonus.
-            lnchDamBonus = std::min(0, lnchDamBonus);
+            lnchDamBonus = min(0, lnchDamBonus);
             break;
         }
 
@@ -1700,8 +1682,8 @@ bool throw_it(bolt &pbolt, int throw_2, bool teleport, int acc_bonus,
             // exDamBonus = 0;
 
             // Now kill the launcher damage and ammo bonuses.
-            lnchDamBonus = std::min(0, lnchDamBonus);
-            ammoDamBonus = std::min(0, ammoDamBonus);
+            lnchDamBonus = min(0, lnchDamBonus);
+            ammoDamBonus = min(0, ammoDamBonus);
             break;
 
         case SK_BOWS:
@@ -1715,7 +1697,7 @@ bool throw_it(bolt &pbolt, int throw_2, bool teleport, int acc_bonus,
 
             // Cap; reduced this cap, because we don't want to allow
             // the extremely-strong to quadruple the enchantment bonus.
-            strbonus = std::min(lnchDamBonus + 1, strbonus);
+            strbonus = min(lnchDamBonus + 1, strbonus);
 
             exDamBonus += strbonus;
 
@@ -1725,7 +1707,7 @@ bool throw_it(bolt &pbolt, int throw_2, bool teleport, int acc_bonus,
             dice_mult = dice_mult * (17 + random2(1 + effSkill)) / 17;
 
             // Now kill the launcher damage bonus.
-            lnchDamBonus = std::min(0, lnchDamBonus);
+            lnchDamBonus = min(0, lnchDamBonus);
             break;
         }
             // Crossbows are easy for unskilled people.
@@ -1864,7 +1846,7 @@ bool throw_it(bolt &pbolt, int throw_2, bool teleport, int acc_bonus,
                 break;
 
             case MI_DART:
-                // Darts also using throwing skills, now.
+                // Darts use throwing skill.
                 exHitBonus += skill_bump(SK_THROWING);
                 exDamBonus += you.skill(SK_THROWING, 3) / 5;
                 break;
@@ -1883,12 +1865,12 @@ bool throw_it(bolt &pbolt, int throw_2, bool teleport, int acc_bonus,
                 break;
 
             case MI_THROWING_NET:
-                // Nets use throwing skill.  They don't do any damage!
+                // Nets use throwing skill. They don't do any damage!
                 baseDam = 0;
                 exDamBonus = 0;
                 ammoDamBonus = 0;
 
-                // ...but accuracy is important for this one.
+                // ...but accuracy is important for them.
                 baseHit = 1;
                 exHitBonus += skill_bump(SK_THROWING, 7) / 2;
                 // Adjust for strength and dex.
@@ -1900,10 +1882,20 @@ bool throw_it(bolt &pbolt, int throw_2, bool teleport, int acc_bonus,
                 dice_mult = dice_mult * 130 / 100;
 
             practise(EX_WILL_THROW_MSL, wepType);
-            count_action(CACT_THROW, wepType);
+            count_action(CACT_THROW, wepType | (OBJ_MISSILES << 16));
         }
         else
+        {
             practise(EX_WILL_THROW_WEAPON);
+            if (item.base_type == OBJ_WEAPONS)
+                if (is_unrandom_artefact(item)
+                    && get_unrand_entry(item.special)->type_name)
+                {
+                    count_action(CACT_THROW, item.special | (OBJ_WEAPONS << 16));
+                }
+                else
+                    count_action(CACT_THROW, item.sub_type | (OBJ_WEAPONS << 16));
+        }
     }
 
     // Dexterity bonus, and possible skill increase for silly throwing.
@@ -1958,6 +1950,9 @@ bool throw_it(bolt &pbolt, int throw_2, bool teleport, int acc_bonus,
     // Add in bonus (only from Portal Projectile for now).
     if (acc_bonus != DEBUG_COOKIE)
         pbolt.hit += acc_bonus;
+
+    if (you.inaccuracy())
+        pbolt.hit -= 5;
 
     scale_dice(pbolt.damage);
 
@@ -2030,16 +2025,11 @@ bool throw_it(bolt &pbolt, int throw_2, bool teleport, int acc_bonus,
         pbolt.fire();
 
         msg::stream << item.name(DESC_THE) << " returns to your pack!"
-                    << std::endl;
+                    << endl;
 
         // Player saw the item return.
         if (!is_artefact(you.inv[throw_2]))
-        {
-            // Since this only happens for non-artefacts, also mark properties
-            // as known.
-            set_ident_flags(you.inv[throw_2],
-                            ISFLAG_KNOW_TYPE | ISFLAG_KNOW_PROPERTIES);
-        }
+            set_ident_flags(you.inv[throw_2], ISFLAG_KNOW_TYPE);
     }
     else
     {
@@ -2047,7 +2037,7 @@ bool throw_it(bolt &pbolt, int throw_2, bool teleport, int acc_bonus,
         if (returning && item_type_known(you.inv[throw_2]))
         {
             msg::stream << item.name(DESC_THE)
-                        << " fails to return to your pack!" << std::endl;
+                        << " fails to return to your pack!" << endl;
         }
         dec_inv_item_quantity(throw_2, 1);
         if (unwielded)
@@ -2068,7 +2058,7 @@ bool throw_it(bolt &pbolt, int throw_2, bool teleport, int acc_bonus,
     return hit;
 }
 
-void setup_monster_throw_beam(monster* mons, struct bolt &beam)
+void setup_monster_throw_beam(monster* mons, bolt &beam)
 {
     // FIXME we should use a sensible range here
     beam.range = you.current_vision;
@@ -2082,9 +2072,9 @@ void setup_monster_throw_beam(monster* mons, struct bolt &beam)
 }
 
 // msl is the item index of the thrown missile (or weapon).
-bool mons_throw(monster* mons, struct bolt &beam, int msl)
+bool mons_throw(monster* mons, bolt &beam, int msl)
 {
-    std::string ammo_name;
+    string ammo_name;
 
     bool returning = false;
     bool speed_brand = false;
@@ -2121,7 +2111,7 @@ bool mons_throw(monster* mons, struct bolt &beam, int msl)
     // FIXME we should actually determine a sensible range here
     beam.range         = you.current_vision;
 
-    if (setup_missile_beam(mons, beam, item, ammo_name, returning))
+    if (_setup_missile_beam(mons, beam, item, ammo_name, returning))
         return false;
 
     beam.aimed_at_spot = returning;
@@ -2145,7 +2135,7 @@ bool mons_throw(monster* mons, struct bolt &beam, int msl)
         ammoDamBonus = item.plus2;
     }
     else if (wepClass == OBJ_MISSILES)
-        ammoHitBonus = ammoDamBonus = std::min(3, div_rand_round(mons->hit_dice , 3));
+        ammoHitBonus = ammoDamBonus = min(3, div_rand_round(mons->hit_dice , 3));
 
     // Archers get a boost from their melee attack.
     if (mons->is_archer())
@@ -2330,7 +2320,7 @@ bool mons_throw(monster* mons, struct bolt &beam, int msl)
 
     // Now, if a monster is, for some reason, throwing something really
     // stupid, it will have baseHit of 0 and damage of 0.  Ah well.
-    std::string msg = mons->name(DESC_THE);
+    string msg = mons->name(DESC_THE);
     msg += ((projected == LRET_LAUNCHED) ? " shoots " : " throws ");
 
     if (!beam.name.empty() && projected == LRET_LAUNCHED)
@@ -2416,6 +2406,9 @@ bool mons_throw(monster* mons, struct bolt &beam, int msl)
         beam.damage.size = beam.damage.size * 120 / 100;
     }
 
+    if (mons->inaccuracy())
+        beam.hit -= 5;
+
     if (speed_brand)
         beam.damage.size = div_rand_round(beam.damage.size * 9, 10);
 
@@ -2454,17 +2447,12 @@ bool mons_throw(monster* mons, struct bolt &beam, int msl)
                         << (you.can_see(mons)?
                               ("to " + mons->name(DESC_THE))
                             : "from whence it came")
-                        << "!" << std::endl;
+                        << "!" << endl;
         }
 
         // Player saw the item return.
         if (!is_artefact(item))
-        {
-            // Since this only happens for non-artefacts, also mark properties
-            // as known.
-            set_ident_flags(mitm[msl],
-                            ISFLAG_KNOW_TYPE | ISFLAG_KNOW_PROPERTIES);
-        }
+            set_ident_flags(mitm[msl], ISFLAG_KNOW_TYPE);
     }
     else if (dec_mitm_item_quantity(msl, 1))
         mons->inv[slot] = NON_ITEM;
@@ -2479,7 +2467,7 @@ bool thrown_object_destroyed(item_def *item, const coord_def& where)
 {
     ASSERT(item != NULL);
 
-    std::string name = item->name(DESC_PLAIN, false, true, false);
+    string name = item->name(DESC_PLAIN, false, true, false);
 
     if (item->base_type != OBJ_MISSILES)
         return false;

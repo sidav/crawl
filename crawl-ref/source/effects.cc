@@ -22,6 +22,7 @@
 #include "areas.h"
 #include "artefact.h"
 #include "beam.h"
+#include "branch.h"
 #include "cloud.h"
 #include "colour.h"
 #include "coordit.h"
@@ -42,6 +43,7 @@
 #include "itemname.h"
 #include "itemprop.h"
 #include "items.h"
+#include "libutil.h"
 #include "makeitem.h"
 #include "map_knowledge.h"
 #include "message.h"
@@ -71,7 +73,9 @@
 #include "spl-util.h"
 #include "stairs.h"
 #include "state.h"
+#include "stuff.h"
 #include "terrain.h"
+#include "transform.h"
 #include "traps.h"
 #include "travel.h"
 #include "viewchar.h"
@@ -88,7 +92,7 @@ static void _holy_word_player(int pow, int caster, actor *attacker)
 
     // Holy word won't kill its user.
     if (attacker && attacker->is_player())
-        hploss = std::max(0, you.hp / 2 - 1);
+        hploss = max(0, you.hp / 2 - 1);
     else
         hploss = roll_dice(3, 15) + (random2(pow) / 3);
 
@@ -130,7 +134,7 @@ static void _holy_word_player(int pow, int caster, actor *attacker)
 void holy_word_monsters(coord_def where, int pow, int caster,
                         actor *attacker)
 {
-    pow = std::min(300, pow);
+    pow = min(300, pow);
 
     // Is the player in this cell?
     if (where == you.pos())
@@ -145,7 +149,7 @@ void holy_word_monsters(coord_def where, int pow, int caster,
 
     // Holy word won't kill its user.
     if (attacker == mons)
-        hploss = std::max(0, mons->hit_points / 2 - 1);
+        hploss = max(0, mons->hit_points / 2 - 1);
     else
         hploss = roll_dice(3, 15) + (random2(pow) / 10);
 
@@ -203,18 +207,14 @@ int torment_player(actor *attacker, int taux)
     if (!player_res_torment(false))
     {
         // Negative energy resistance can alleviate torment.
-        hploss = std::max(0, you.hp * (50 - player_prot_life() * 5) / 100 - 1);
+        hploss = max(0, you.hp * (50 - player_prot_life() * 5) / 100 - 1);
         // Statue form is only partial petrification.
         if (you.form == TRAN_STATUE)
             hploss /= 2;
     }
 
     // Kiku protects you from torment to a degree.
-    const bool kiku_shielding_player =
-        (you.religion == GOD_KIKUBAAQUDGHA
-        && !player_under_penance()
-        && you.piety > 80
-        && !you.gift_timeout); // no protection during pain branding weapon
+    const bool kiku_shielding_player = player_kiku_res_torment();
 
     if (kiku_shielding_player)
     {
@@ -308,7 +308,7 @@ int torment_monsters(coord_def where, actor *attacker, int taux)
     if (!mons->alive() || mons->res_torment())
         return retval;
 
-    int hploss = std::max(0, mons->hit_points / 2 - 1);
+    int hploss = max(0, mons->hit_points * (50 - mons->res_negative_energy() * 5) / 100 - 1);
 
     if (hploss)
     {
@@ -413,7 +413,7 @@ static bool _conduct_electricity_affects_actor(const bolt& beam,
 }
 
 static bool _conduct_electricity_damage(bolt &beam, actor* victim,
-                                        int &dmg, std::string &dmg_msg)
+                                        int &dmg, string &dmg_msg)
 {
     dmg = (10 + random2(15)) / 2;
     return false;
@@ -513,33 +513,39 @@ void cleansing_flame(int pow, int caster, coord_def where,
     beam.explode();
 }
 
-static std::string _who_banished(const std::string &who)
+static string _who_banished(const string &who)
 {
     return (who.empty() ? who : " (" + who + ")");
 }
 
-void banished(const std::string &who)
+void banished(const string &who)
 {
     ASSERT(!crawl_state.game_is_arena());
-    if (crawl_state.game_is_zotdef())
+    push_features_to_abyss();
+    if (brdepth[BRANCH_ABYSS] == -1)
         return;
 
-    mark_milestone("abyss.enter",
-                   "is cast into the Abyss!" + _who_banished(who));
+    if (!player_in_branch(BRANCH_ABYSS))
+    {
+        mark_milestone("abyss.enter",
+                       "is cast into the Abyss!" + _who_banished(who));
+    }
 
     if (player_in_branch(BRANCH_ABYSS))
     {
-        // Can't happen outside wizmode.
-        mpr("You feel trapped.");
+        down_stairs(DNGN_ABYSSAL_STAIR);
         return;
     }
 
-    const std::string what = "Cast into the Abyss" + _who_banished(who);
+    const string what = "Cast into the Abyss" + _who_banished(who);
     take_note(Note(NOTE_MESSAGE, 0, 0, what.c_str()), true);
 
     stop_delay(true);
-    push_features_to_abyss();
     down_stairs(DNGN_ENTER_ABYSS);  // heh heh
+
+    // Xom just might decide to interfere.
+    if (you.religion == GOD_XOM && who != "Xom" && who != "wizard command")
+        xom_maybe_reverts_banishment(false, false);
 }
 
 bool forget_spell(void)
@@ -622,8 +628,7 @@ void direct_effect(monster* source, spell_type spell,
 
         // Previous method of damage calculation (in line with player
         // airstrike) had absurd variance.
-        damage_taken = random2avg(damage_taken, 3);
-        damage_taken -= random2(defender->armour_class());
+        damage_taken = defender->apply_ac(random2avg(damage_taken, 3));
         break;
 
     case SPELL_BRAIN_FEED:
@@ -737,7 +742,6 @@ void random_uselessness(int scroll_slot)
         break;
 
     case 5:
-        temp_rand = random2(3);
         if (player_mutation_level(MUT_BEAK) || one_chance_in(3))
             mpr("Your brain hurts!");
         else if (you.species == SP_MUMMY || coinflip())
@@ -759,7 +763,7 @@ void random_uselessness(int scroll_slot)
     }
 }
 
-int recharge_wand(int item_slot, bool known, std::string *pre_msg)
+int recharge_wand(int item_slot, bool known, string *pre_msg)
 {
     do
     {
@@ -773,7 +777,7 @@ int recharge_wand(int item_slot, bool known, std::string *pre_msg)
 
         item_def &wand = you.inv[ item_slot ];
 
-        if (!item_is_rechargeable(wand, known, true))
+        if (!item_is_rechargeable(wand, known))
         {
             mpr("Choose an item to recharge, or Esc to abort.");
             if (Options.auto_list)
@@ -792,15 +796,15 @@ int recharge_wand(int item_slot, bool known, std::string *pre_msg)
             int charge_gain = wand_charge_value(wand.sub_type);
 
             const int new_charges =
-                std::max<int>(
+                max<int>(
                     wand.plus,
-                    std::min(charge_gain * 3,
+                    min(charge_gain * 3,
                              wand.plus +
                              1 + random2avg(((charge_gain - 1) * 3) + 1, 3)));
 
             const bool charged = (new_charges > wand.plus);
 
-            std::string desc;
+            string desc;
 
             if (charged && item_ident(wand, ISFLAG_KNOW_PLUSES))
             {
@@ -878,6 +882,7 @@ static bool _follows_orders(monster* mon)
 {
     return (mon->friendly()
             && mon->type != MONS_GIANT_SPORE
+            && mon->type != MONS_BATTLESPHERE
             && !mon->berserk()
             && !mons_is_projectile(mon->type));
 }
@@ -904,6 +909,30 @@ static void _set_allies_patrol_point(bool clear = false)
         mi->patrol_point = (clear ? coord_def(0, 0) : mi->pos());
         if (!clear)
             mi->behaviour = BEH_WANDER;
+        else
+            mi->behaviour = BEH_SEEK;
+    }
+}
+
+static void _set_allies_withdraw(const coord_def &target)
+{
+    coord_def delta = target - you.pos();
+    float mult = float(LOS_RADIUS * 2) / (float)max(abs(delta.x), abs(delta.y));
+    coord_def rally_point = clamp_in_bounds(coord_def(delta.x * mult, delta.y * mult) + you.pos());
+
+    for (monster_iterator mi(you.get_los()); mi; ++mi)
+    {
+        if (!_follows_orders(*mi))
+            continue;
+        mi->behaviour = BEH_WITHDRAW;
+        mi->target = target;
+        mi->patrol_point = rally_point;
+        mi->foe = MHITNOT;
+
+        mi->props.erase("last_pos");
+        mi->props.erase("idle_point");
+        mi->props.erase("idle_deadline");
+        mi->props.erase("blocked_deadline");
     }
 }
 
@@ -915,8 +944,8 @@ void yell(bool force)
     int mons_targd = MHITNOT;
     dist targ;
 
-    const std::string shout_verb = you.shout_verb();
-    std::string cap_shout = shout_verb;
+    const string shout_verb = you.shout_verb();
+    string cap_shout = shout_verb;
     cap_shout[0] = toupper(cap_shout[0]);
 
     int noise_level = 12; // "shout"
@@ -935,14 +964,16 @@ void yell(bool force)
     else if (shout_verb == "scream")
         noise_level = 16;
 
-    if (silenced(you.pos()) || you.cannot_speak())
+    if (you.cannot_speak() || !form_has_mouth())
         noise_level = 0;
 
     if (noise_level == 0)
     {
         if (force)
         {
-            if (shout_verb == "__NONE" || you.paralysed())
+            if (!form_has_mouth())
+                mpr("You have no mouth, and you must scream!");
+            else if (shout_verb == "__NONE" || you.paralysed())
             {
                 mprf("You feel a strong urge to %s, but "
                      "you are unable to make a sound!",
@@ -956,6 +987,8 @@ void yell(bool force)
                      shout_verb.c_str());
             }
         }
+        else if (!form_has_mouth())
+            mpr("You have no mouth!");
         else
             mpr("You are unable to make a sound!");
 
@@ -974,7 +1007,7 @@ void yell(bool force)
 
     if (!you.berserk())
     {
-        std::string previous;
+        string previous;
         if (!(you.prev_targ == MHITNOT || you.prev_targ == MHITYOU))
         {
             const monster* target = &menv[you.prev_targ];
@@ -986,7 +1019,7 @@ void yell(bool force)
         }
 
         mprf("Orders for allies: a - Attack new target.%s", previous.c_str());
-        mpr("                   s - Stop attacking.");
+        mpr("                   r - Retreat!             s - Stop attacking.");
         mpr("                   w - Wait here.           f - Follow me.");
     }
     mprf(" Anything else - Stay silent%s.",
@@ -999,13 +1032,21 @@ void yell(bool force)
     {
     case '!':    // for players using the old keyset
     case 't':
-        mprf(MSGCH_SOUND, "You %s for attention!", shout_verb.c_str());
+        mprf(MSGCH_SOUND, "You %s%s!",
+             shout_verb.c_str(),
+             you.berserk() ? " wildly" : " for attention");
         noisy(noise_level, you.pos());
         you.turn_is_over = true;
         return;
 
     case 'f':
     case 's':
+        if (you.berserk())
+        {
+            canned_msg(MSG_TOO_BERSERK);
+            return;
+        }
+
         mons_targd = MHITYOU;
         if (keyn == 'f')
         {
@@ -1018,6 +1059,12 @@ void yell(bool force)
         break;
 
     case 'w':
+        if (you.berserk())
+        {
+            canned_msg(MSG_TOO_BERSERK);
+            return;
+        }
+
         mpr("Wait here!");
         mons_targd = MHITNOT;
         _set_allies_patrol_point();
@@ -1081,14 +1128,45 @@ void yell(bool force)
 
             if (cancel)
             {
-                mpr("Yeah, whatever.");
+                canned_msg(MSG_NOTHING_THERE);
                 return;
             }
         }
         break;
 
+    case 'r':
+        if (you.berserk())
+        {
+            canned_msg(MSG_TOO_BERSERK);
+            return;
+        }
+
+        {
+            direction_chooser_args args;
+            args.restricts = DIR_TARGET;
+            args.mode = TARG_ANY;
+            args.needs_path = false;
+            args.top_prompt = "Retreat in which direction?";
+            direction(targ, args);
+        }
+
+        if (targ.isCancel)
+        {
+            canned_msg(MSG_OK);
+            return;
+        }
+
+        if (targ.isValid)
+        {
+            mpr("Fall back!");
+            mons_targd = MHITNOT;
+        }
+
+        _set_allies_withdraw(targ.target);
+        break;
+
     default:
-        mpr("Okely-dokely.");
+        canned_msg(MSG_OK);
         return;
     }
 
@@ -1148,7 +1226,7 @@ static void _hell_effects()
         return;
     }
 
-    std::string msg = getMiscString("hell_effect");
+    string msg = getMiscString("hell_effect");
     if (msg.empty())
         msg = "Something hellishly buggy happens.";
     msg_channel_type chan = MSGCH_PLAIN;
@@ -1188,7 +1266,7 @@ static void _hell_effects()
         {
         case BRANCH_DIS:
             if (summon_instead)
-                which_beastie = summon_any_demon(DEMON_GREATER);
+                which_beastie = summon_any_demon(RANDOM_DEMON_GREATER);
             else
                 which_miscast = SPTYP_EARTH;
             break;
@@ -1439,7 +1517,7 @@ void change_labyrinth(bool msg)
     int size = random_range(12, 24); // size of the shifted area (square)
     coord_def c1, c2; // upper left, lower right corners of the shifted area
 
-    std::vector<coord_def> targets;
+    vector<coord_def> targets;
 
     // Try 10 times for an area that is little mapped.
     for (int tries = 10; tries > 0; --tries)
@@ -1492,7 +1570,7 @@ void change_labyrinth(bool msg)
         mprf(MSGCH_DIAGNOSTICS, "Changing labyrinth from (%d, %d) to (%d, %d)",
              c1.x, c1.y, c2.x, c2.y);
 
-        std::string path_str = "";
+        string path_str = "";
         mpr("Here's the list of targets: ", MSGCH_DIAGNOSTICS);
         for (unsigned int i = 0; i < targets.size(); i++)
         {
@@ -1511,11 +1589,11 @@ void change_labyrinth(bool msg)
 #endif
 
     // How many switches we'll be doing.
-    const int max_targets = random_range(std::min((int) targets.size(), 12),
-                                         std::min((int) targets.size(), 45));
+    const int max_targets = random_range(min((int) targets.size(), 12),
+                                         min((int) targets.size(), 45));
 
     // Shuffle the targets, then pick the max_targets first ones.
-    std::random_shuffle(targets.begin(), targets.end(), random2);
+    random_shuffle(targets.begin(), targets.end(), random2);
 
     // For each of the chosen wall grids, calculate the path connecting the
     // two floor grids to either side, and block off one floor grid on this
@@ -1550,7 +1628,7 @@ void change_labyrinth(bool msg)
         }
 
         // Get the actual path.
-        const std::vector<coord_def> path = mp.backtrack();
+        const vector<coord_def> path = mp.backtrack();
 
         // Replace the wall with floor, but preserve the old grid in case
         // we find no floor grid to swap with.
@@ -1563,7 +1641,7 @@ void change_labyrinth(bool msg)
 
         // Add all floor grids meeting a couple of conditions to a vector
         // of potential switch points.
-        std::vector<coord_def> points;
+        vector<coord_def> points;
         for (unsigned int i = 0; i < path.size(); i++)
         {
             const coord_def p(path[i]);
@@ -1584,7 +1662,7 @@ void change_labyrinth(bool msg)
                 continue;
 
             // Do not pick a grid right next to the original wall.
-            if (std::abs(p.x-c.x) + std::abs(p.y-c.y) <= 1)
+            if (abs(p.x-c.x) + abs(p.y-c.y) <= 1)
                 continue;
 
             if (_feat_is_flanked_by_walls(p) && _deadend_check_wall(p))
@@ -1691,7 +1769,7 @@ void change_labyrinth(bool msg)
 
     // The directions are used to randomly decide where to place items that
     // have ended up in walls during the switching.
-    std::vector<coord_def> dirs;
+    vector<coord_def> dirs;
     dirs.push_back(coord_def(-1,-1));
     dirs.push_back(coord_def(0,-1));
     dirs.push_back(coord_def(1,-1));
@@ -1716,7 +1794,7 @@ void change_labyrinth(bool msg)
                  ri->x, ri->y);
         }
         // Search the eight possible directions in random order.
-        std::random_shuffle(dirs.begin(), dirs.end(), random2);
+        random_shuffle(dirs.begin(), dirs.end(), random2);
         for (unsigned int i = 0; i < dirs.size(); i++)
         {
             const coord_def p = *ri + dirs[i];
@@ -1792,7 +1870,7 @@ static void _rot_inventory_food(int time_delta)
     // Update all of the corpses and food chunks in the player's
     // inventory. {should be moved elsewhere - dlb}
     bool burden_changed_by_rot = false;
-    std::vector<char> rotten_items;
+    vector<char> rotten_items;
 
     int num_chunks         = 0;
     int num_chunks_gone    = 0;
@@ -1888,7 +1966,7 @@ static void _rot_inventory_food(int time_delta)
     //mv: messages when chunks/corpses become rotten
     if (!rotten_items.empty())
     {
-        std::string msg = "";
+        string msg = "";
 
         // Races that can't smell don't care, and trolls are stupid and
         // don't care.
@@ -1929,19 +2007,14 @@ static void _rot_inventory_food(int time_delta)
                 break;
             }
         }
-        else if (Options.list_rotten)
+        else
             msg = "Something in your inventory has become rotten.";
 
-        if (Options.list_rotten)
-        {
-            mprf(MSGCH_ROTTEN_MEAT, "%s (slot%s %s)",
-                 msg.c_str(),
-                 rotten_items.size() > 1 ? "s" : "",
-                 comma_separated_line(rotten_items.begin(),
-                                      rotten_items.end()).c_str());
-        }
-        else if (!msg.empty())
-            mpr(msg.c_str(), MSGCH_ROTTEN_MEAT);
+        mprf(MSGCH_ROTTEN_MEAT, "%s (slot%s %s)",
+             msg.c_str(),
+             rotten_items.size() > 1 ? "s" : "",
+             comma_separated_line(rotten_items.begin(),
+                                  rotten_items.end()).c_str());
 
         learned_something_new(HINT_ROTTEN_FOOD);
     }
@@ -1951,7 +2024,7 @@ static void _rot_inventory_food(int time_delta)
         if ((num_chunks_gone + num_bones_gone + num_corpses_gone
              + num_corpses_rotted) > 0)
         {
-            std::string msg;
+            string msg;
             if (num_chunks_gone == num_chunks
                 && num_bones_gone == num_bones
                 && (num_corpses_gone + num_corpses_rotted) == num_corpses)
@@ -1961,7 +2034,7 @@ static void _rot_inventory_food(int time_delta)
             else
                 msg = "Some of the ";
 
-            std::vector<std::string> strs;
+            vector<string> strs;
             if (num_chunks_gone > 0)
                 strs.push_back("chunks of flesh");
             if (num_bones_gone > 0)
@@ -2010,6 +2083,10 @@ void handle_time()
         && !crawl_state.game_is_zotdef())
     {
         spawn_random_monsters();
+        if (player_in_branch(BRANCH_ABYSS))
+          for (int i = 1; i < you.depth; ++i)
+                if (x_chance_in_y(i, 5))
+                    spawn_random_monsters();
     }
 
     // Labyrinth and Abyss maprot.
@@ -2102,22 +2179,6 @@ void handle_time()
     if (you.duration[DUR_FINESSE] && x_chance_in_y(4, 10))
         added_contamination++;
 
-    bool mutagenic_randart = false;
-    const int artefact_glow = player_effect_mutagenic();
-    if (artefact_glow)
-    {
-        // Reduced randart glow. Note that one randart will contribute
-        // 2 - 5 units of glow to artefact_glow. A randart with a mutagen
-        // index of 2 does about 0.58 points of contamination per turn.
-        // A randart with a mutagen index of 5 does about 0.7 points of
-        // contamination per turn.
-
-        const int mean_glow   = 500 + artefact_glow * 40;
-        const int actual_glow = mean_glow / 2 + random2(mean_glow);
-        added_contamination += div_rand_round(actual_glow, 1000);
-        mutagenic_randart = true;
-    }
-
     // The Orb adds .25 points per turn (effectively halving dissipation),
     // but won't cause glow on its own -- otherwise it'd spam the player
     // with messages about contamination oscillating near zero.
@@ -2128,9 +2189,9 @@ void handle_time()
     if (!you.duration[DUR_INVIS] && !you.duration[DUR_HASTE] && coinflip())
         added_contamination--;
 
-    // Only punish if contamination caused by mutagenic randarts.
-    // (Haste and invisibility already penalised earlier.)
-    contaminate_player(added_contamination, mutagenic_randart);
+    // Don't punish for this contamination.
+    // (Haste and invisibility already penalised earlier).
+    contaminate_player(added_contamination, false);
 
     // Only check for badness once every other turn.
     if (coinflip())
@@ -2166,8 +2227,7 @@ void handle_time()
                 beam.name         = "magical storm";
                 beam.beam_source  = NON_MONSTER;
                 beam.aux_source   = "a magical explosion";
-                beam.ex_size      = std::max(1, std::min(9,
-                                        you.magic_contamination / 15));
+                beam.ex_size      = max(1, min(9, you.magic_contamination / 15));
                 beam.ench_power   = you.magic_contamination * 5;
                 beam.is_explosion = true;
 
@@ -2276,12 +2336,13 @@ void handle_time()
         {
             you.attribute[ATTR_EVOL_XP] = 0;
             mpr("You feel a genetic drift.");
-            bool evol = mutate(coinflip() ? RANDOM_GOOD_MUTATION : RANDOM_MUTATION,
-                               "evolution",
-                               false, false, false, false, false, true);
+            bool evol = one_chance_in(5) ?
+                delete_mutation(RANDOM_BAD_MUTATION, "evolution", false) :
+                mutate(coinflip() ? RANDOM_GOOD_MUTATION : RANDOM_MUTATION,
+                       "evolution", false, false, false, false, false, true);
             // it would kill itself anyway, but let's speed that up
             if (one_chance_in(10)
-                && (!player_res_mutation_from_item()
+                && (!you.rmut_from_item()
                     || one_chance_in(10)))
             {
                 evol |= delete_mutation(MUT_EVOLUTION, "end of evolution", false);
@@ -2331,7 +2392,7 @@ static void _catchup_monster_moves(monster* mon, int turns)
 
     // probably too annoying even for DEBUG_DIAGNOSTICS
     dprf("mon #%d: range %d; "
-         "pos (%d,%d); targ %d(%d,%d); flags %"PRIx64,
+         "pos (%d,%d); targ %d(%d,%d); flags %" PRIx64,
          mon->mindex(), range, mon->pos().x, mon->pos().y,
          mon->foe, mon->target.x, mon->target.y, mon->flags);
 
@@ -2547,8 +2608,7 @@ void update_level(int elapsedTime)
             else
             {
                 // Set a lower ceiling of 0.1 on the regen rate.
-                const int regen_rate =
-                    std::max(mons_natural_regen_rate(*mi) * 2, 5);
+                const int regen_rate = max(mons_natural_regen_rate(*mi) * 2, 5);
 
                 mi->heal(div_rand_round(turns * regen_rate, 50));
             }
@@ -2560,7 +2620,7 @@ void update_level(int elapsedTime)
 
         _catchup_monster_moves(*mi, turns);
 
-        mi->foe_memory = std::max(mi->foe_memory - turns, 0);
+        mi->foe_memory = max(mi->foe_memory - turns, 0);
 
         if (turns >= 10 && mi->alive())
             mi->timeout_enchantments(turns / 10);
@@ -2573,41 +2633,6 @@ void update_level(int elapsedTime)
     for (int i = 0; i < MAX_CLOUDS; i++)
         delete_cloud(i);
 }
-
-static void _maybe_restart_fountain_flow(const coord_def& where,
-                                         const int tries)
-{
-    dungeon_feature_type grid = grd(where);
-
-    if (grid < DNGN_DRY_FOUNTAIN_BLUE || grid > DNGN_DRY_FOUNTAIN_BLOOD)
-        return;
-
-    for (int i = 0; i < tries; ++i)
-    {
-        if (!one_chance_in(100))
-            continue;
-
-        // Make it start flowing again.
-        grd(where) = static_cast<dungeon_feature_type> (grid
-                        - (DNGN_DRY_FOUNTAIN_BLUE - DNGN_FOUNTAIN_BLUE));
-
-        // XXX: why should the player magically know this?!
-        if (env.map_knowledge(where).seen())
-            env.map_knowledge(where).set_feature(grd(where));
-
-        // Clean bloody floor.
-        if (is_bloodcovered(where))
-            env.pgrid(where) &= ~(FPROP_BLOODY);
-
-        // Chance of cleaning adjacent squares.
-        for (adjacent_iterator ai(where); ai; ++ai)
-            if (is_bloodcovered(*ai) && one_chance_in(5))
-                env.pgrid(*ai) &= ~(FPROP_BLOODY);
-
-        break;
-   }
-}
-
 
 // A comparison struct for use in an stl priority queue.
 template<typename T>
@@ -2644,21 +2669,20 @@ static int _arc_decomposition(const coord_def & pos, int n_arcs)
     return static_cast<int> (theta / arc_angle);
 }
 
-int place_ring(std::vector<coord_def> &ring_points,
+int place_ring(vector<coord_def> &ring_points,
                const coord_def &origin,
                mgen_data prototype,
                int n_arcs,
                int arc_occupancy,
                int &seen_count)
 {
-    std::random_shuffle(ring_points.begin(),
-                        ring_points.end());
+    random_shuffle(ring_points.begin(), ring_points.end());
 
     int target_amount = ring_points.size();
     int spawned_count = 0;
     seen_count = 0;
 
-    std::vector<int> arc_counts(n_arcs, arc_occupancy);
+    vector<int> arc_counts(n_arcs, arc_occupancy);
 
     for (unsigned i = 0;
          spawned_count < target_amount && i < ring_points.size();
@@ -2683,25 +2707,24 @@ int place_ring(std::vector<coord_def> &ring_points,
 
 // Collect lists of points that are within LOS (under the given env map),
 // unoccupied, and not solid (walls/statues).
-void collect_radius_points(std::vector<std::vector<coord_def> > &radius_points,
+void collect_radius_points(vector<vector<coord_def> > &radius_points,
                            const coord_def &origin, const los_base* los)
 {
     radius_points.clear();
     radius_points.resize(LOS_RADIUS);
 
     // Just want to associate a point with a distance here for convenience.
-    typedef std::pair<coord_def, int> coord_dist;
+    typedef pair<coord_def, int> coord_dist;
 
     // Using a priority queue because squares don't make very good circles at
     // larger radii.  We will visit points in order of increasing euclidean
     // distance from the origin (not path distance).
-    std::priority_queue<coord_dist,
-                        std::vector<coord_dist>,
-                        greater_second<coord_dist> > fringe;
+    priority_queue<coord_dist, vector<coord_dist>,
+                   greater_second<coord_dist> > fringe;
 
     fringe.push(coord_dist(origin, 0));
 
-    std::set<int> visited_indices;
+    set<int> visited_indices;
 
     int current_r = 1;
     int current_thresh = current_r * (current_r + 1);
@@ -2771,7 +2794,7 @@ static int _mushroom_ring(item_def &corpse, int & seen_count,
 
     seen_count = 0;
 
-    std::vector<std::vector<coord_def> > radius_points;
+    vector<vector<coord_def> > radius_points;
 
     los_def los(corpse.pos, opc_solid);
 
@@ -2842,8 +2865,8 @@ int spawn_corpse_mushrooms(item_def& corpse,
 
     int placed_targets = 0;
 
-    std::queue<coord_def> fringe;
-    std::set<int> visited_indices;
+    queue<coord_def> fringe;
+    set<int> visited_indices;
 
     // Slight chance of spawning a ring of mushrooms around the corpse (and
     // skeletonising it) if the corpse square is unoccupied.
@@ -2949,7 +2972,7 @@ int spawn_corpse_mushrooms(item_def& corpse,
             break;
 
         // Wish adjacent_iterator had a random traversal.
-        std::random_shuffle(permutation, permutation+c_size);
+        random_shuffle(permutation, permutation+c_size);
 
         for (int count = 0; count < c_size; ++count)
         {
@@ -3002,11 +3025,11 @@ bool mushroom_spawn_message(int seen_targets, int seen_corpses)
 {
     if (seen_targets > 0)
     {
-        std::string what  = seen_targets  > 1 ? "Some toadstools"
-                                              : "A toadstool";
-        std::string where = seen_corpses  > 1 ? "nearby corpses" :
-                            seen_corpses == 1 ? "a nearby corpse"
-                                              : "the ground";
+        string what  = seen_targets  > 1 ? "Some toadstools"
+                                         : "A toadstool";
+        string where = seen_corpses  > 1 ? "nearby corpses" :
+                       seen_corpses == 1 ? "a nearby corpse"
+                                         : "the ground";
         mprf("%s grow%s from %s.",
              what.c_str(), seen_targets > 1 ? "" : "s", where.c_str());
 
@@ -3014,40 +3037,6 @@ bool mushroom_spawn_message(int seen_targets, int seen_corpses)
     }
 
     return false;
-}
-
-// Randomly decide whether or not to spawn a mushroom over the given
-// corpse.  Assumption: this is called before the rotting away logic in
-// update_corpses.  Some conditions in this function may set the corpse
-// timer to 0, assuming that the corpse will be turned into a
-// skeleton/destroyed on this update.
-static void _maybe_spawn_mushroom(item_def & corpse, int rot_time)
-{
-    if (crawl_state.disables[DIS_SPAWNS])
-        return;
-
-    // We won't spawn a mushroom within 10 turns of the corpse's being created
-    // or rotting away.
-    int low_threshold  = 5;
-    int high_threshold = FRESHEST_CORPSE - 15;
-
-    if (corpse.special < low_threshold || corpse.special > high_threshold)
-        return;
-
-    int spawn_time = (rot_time > corpse.special ? corpse.special : rot_time);
-
-    if (spawn_time > high_threshold)
-        spawn_time = high_threshold;
-
-    int step_size = 10;
-
-    int current_trials = spawn_time / step_size;
-    int trial_prob     = mushroom_prob(corpse);
-    int success_count  = binomial_generator(current_trials, trial_prob);
-
-    int seen_spawns;
-    spawn_corpse_mushrooms(corpse, success_count, seen_spawns);
-    mushroom_spawn_message(seen_spawns, you.see_cell(corpse.pos) ? 1 : 0);
 }
 
 //---------------------------------------------------------------
@@ -3077,9 +3066,6 @@ static void _update_corpses(int elapsedTime)
             continue;
         }
 
-        if (it.sub_type == CORPSE_BODY)
-            _maybe_spawn_mushroom(it, rot_time);
-
         if (rot_time >= it.special && !is_being_butchered(it))
         {
             if (it.base_type == OBJ_FOOD)
@@ -3099,23 +3085,6 @@ static void _update_corpses(int elapsedTime)
         else
             it.special -= rot_time;
     }
-
-    int fountain_checks = elapsedTime / 1000;
-    if (x_chance_in_y(elapsedTime % 1000, 1000))
-        fountain_checks += 1;
-
-    // Dry fountains may start flowing again.
-    if (fountain_checks > 0)
-    {
-        for (rectangle_iterator ri(1); ri; ++ri)
-        {
-            if (grd(*ri) >= DNGN_DRY_FOUNTAIN_BLUE
-                && grd(*ri) < DNGN_PERMADRY_FOUNTAIN)
-            {
-                _maybe_restart_fountain_flow(*ri, fountain_checks);
-            }
-        }
-    }
 }
 
 static void _recharge_rod(item_def &rod, int aut, bool in_inv)
@@ -3126,7 +3095,7 @@ static void _recharge_rod(item_def &rod, int aut, bool in_inv)
     // Skill calculations with a massive scale would overflow, cap it.
     // The worst case, a -3 rod, takes 17000 aut to fully charge.
     // -4 rods don't recharge at all.
-    aut = std::min(aut, MAX_ROD_CHARGE * ROD_CHARGE_MULT * 10);
+    aut = min(aut, MAX_ROD_CHARGE * ROD_CHARGE_MULT * 10);
 
     int rate = 4 + rod.special;
 
@@ -3149,7 +3118,7 @@ static void _recharge_rod(item_def &rod, int aut, bool in_inv)
     if (in_inv && rod.plus == rod.plus2)
     {
         msg::stream << "Your " << rod.name(DESC_QUALNAME) << " has recharged."
-                    << std::endl;
+                    << endl;
         if (is_resting())
             stop_running();
     }
@@ -3173,8 +3142,6 @@ void slime_wall_damage(actor* act, int delay)
 {
     ASSERT(act);
 
-    const int depth = player_in_branch(BRANCH_SLIME_PITS) ? you.depth : 1;
-
     int walls = 0;
     for (adjacent_iterator ai(act->pos()); ai; ++ai)
         if (env.grid(*ai) == DNGN_SLIMY_WALL)
@@ -3182,6 +3149,8 @@ void slime_wall_damage(actor* act, int delay)
 
     if (!walls)
         return;
+
+    const int depth = player_in_branch(BRANCH_SLIME_PITS) ? you.depth : 1;
 
     // Up to 1d6 damage per wall per slot.
     const int strength = div_rand_round(depth * walls * delay, BASELINE_DELAY);
@@ -3203,13 +3172,13 @@ void slime_wall_damage(actor* act, int delay)
         if (mons_is_slime(mon))
             return;
 
-         const int dam = resist_adjust_damage(mon, BEAM_ACID, mon->res_acid(),
+        const int dam = resist_adjust_damage(mon, BEAM_ACID, mon->res_acid(),
                                               roll_dice(2, strength));
-         if (dam > 0 && you.can_see(mon))
-         {
-             mprf((walls > 1) ? "The walls burn %s!" : "The wall burns %s!",
+        if (dam > 0 && you.can_see(mon))
+        {
+            mprf((walls > 1) ? "The walls burn %s!" : "The wall burns %s!",
                   mon->name(DESC_THE).c_str());
-         }
-         mon->hurt(NULL, dam, BEAM_ACID);
+        }
+        mon->hurt(NULL, dam, BEAM_ACID);
     }
 }

@@ -11,7 +11,7 @@ Blink ability
 
 Vous translocalise à une courte distance dans une direction aléatoire.
 %%%%
-Breathe Energy
+Breathe Dispelling Energy
 
 Crache un souffle d'énergie sur un monstre ciblé, qui pourra supprimer certains
 de ces enchantements.
@@ -119,18 +119,6 @@ contamination magique et peut vous rendre luminescent.
 Turn Visible
 
 Redevenir visible à nouveau.
-%%%%
-Evoke Levitation
-
-Commencer à léviter. Durant la lévitation, vous pouvez traverser en toute
-sécurité les eaux profondes et les obstacles similaires. soyez conscient que la
-lévitation peut s'achever à un moment inopportun et vous faire tomber vers
-votre mort. alors que vous lévitez, vous ne pouvez pas interagir avec les
-objets au sol ou les ramasser.
-%%%%
-Stop Levitating
-
-Arrête la lévitation.
 %%%%
 End Transformation
 
@@ -518,14 +506,13 @@ leurs tâches, les monstres erreront, les objets périssables se décomposeront,
 les plantes pousseront. Après un moment, vous reviendrez dans le flux temporel,
 tel que vous l'aviez quitté.
 %%%%
-Renounce Religion
-
-Renoncer à votre religion. Votre personnage quittera le service de son dieu (et
-généralement le met en colère).
-%%%%
 Request Jelly
 
 Crée une gelée neutre qui nettoiera le sol et digèrera les objets
+%%%%
+Jelly Paralyse
+
+Priez pour empêcher temporairement vos slimes d'absorber des objets.
 %%%%
 Slimify
 
@@ -549,6 +536,11 @@ Sacrifie une partie d'une de vos compétences pour en améliorer une autre.
 End Transfer Knowledge
 
 Abandon d'un transfert de compétence en cours.
+%%%%
+Renounce Religion
+
+Renoncer à votre religion. Votre personnage quittera le service de son dieu (et
+généralement le met en colère).
 %%%%
 Make dart trap
 

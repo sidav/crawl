@@ -37,7 +37,6 @@ FEATF(_feat_has_solid_floor, feat_has_solid_floor)
 FEATF(_feat_is_opaque, feat_is_opaque)
 FEATF(_feat_is_door, feat_is_door)
 FEATF(_feat_is_closed_door, feat_is_closed_door)
-FEATF(_feat_is_secret_door, feat_is_secret_door)
 FEATF(_feat_is_statue_or_idol, feat_is_statue_or_idol)
 FEATF(_feat_is_rock, feat_is_rock)
 FEATF(_feat_is_permarock, feat_is_permarock)
@@ -51,6 +50,7 @@ FEATF(_feat_is_travelable_stair, feat_is_travelable_stair)
 FEATF(_feat_is_gate, feat_is_gate)
 FEATF(_feat_is_water, feat_is_water)
 FEATF(_feat_is_watery, feat_is_watery)
+FEATF(_feat_is_lava, feat_is_lava)
 FEATF(_feat_is_altar, feat_is_altar)
 FEATF(_feat_is_player_altar, feat_is_player_altar)
 FEATF(_feat_is_branch_stairs, feat_is_branch_stairs)
@@ -64,7 +64,6 @@ const struct luaL_reg feat_dlib[] =
 { "is_opaque", _feat_is_opaque },
 { "is_door", _feat_is_door },
 { "is_closed_door", _feat_is_closed_door },
-{ "is_secret_door", _feat_is_secret_door },
 { "is_statue_or_idol", _feat_is_statue_or_idol },
 { "is_rock", _feat_is_rock },
 { "is_permarock", _feat_is_permarock },
@@ -78,6 +77,7 @@ const struct luaL_reg feat_dlib[] =
 { "is_gate", _feat_is_gate },
 { "is_water", _feat_is_water },
 { "is_watery", _feat_is_watery },
+{ "is_lava", _feat_is_lava },
 { "is_altar", _feat_is_altar },
 { "is_player_altar", _feat_is_player_altar },
 { "is_branch_stairs", _feat_is_branch_stairs },

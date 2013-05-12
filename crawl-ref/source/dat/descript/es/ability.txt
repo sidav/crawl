@@ -11,7 +11,7 @@ Blink ability
 
 Translocación aleatoria a corta distancia.
 %%%%
-Breathe Energy
+Breathe Dispelling Energy
 
 Exhalas una descarga de energía al monstruo que apuntes, posiblemente
 eliminando alguno de sus encantamientos.
@@ -68,7 +68,9 @@ Escupes ácido al monstruo que apuntes.
 %%%%
 Fly
 
-Empiezas a volar.
+Empiezas a volar. Durante el vuelo puedes sobrevolar agua y obstáculos
+similares. Se advierte, sin embargo, que el vuelo puede expirar en momentos
+inoportunos y causar que te precipites a tu muerte.
 %%%%
 Hellfire
 
@@ -119,16 +121,17 @@ Turn Visible
 
 Te vuelves visible de nuevo.
 %%%%
-Evoke Levitation
+Evoke Flight
 
-Comienzas a levitar. Durante la levitación puedes cruzar agua y obstáculos
-similares sin peligro. Quedas advertido, sin embargo, de que la levitación
-puede acabarse en un momento inoportuno y provocar una caída mortal. Mientras
-estés levitando no puedes interactuar con objetos en el suelo ni recogerlos.
+<Fly>
 %%%%
-Stop Levitating
+Stop Flying
 
-Paras de levitar.
+Paras de volar.
+%%%%
+Evoke Fog
+
+Expulsa una densa nube de humo para dificultar la visión.
 %%%%
 End Transformation
 
@@ -231,7 +234,6 @@ Animate Dead ability
 Reanimas a todos los cadáveres o esqueletos y los conviertes en tus seguidores.
 Date cuenta de que los zombies y los esqueletos no pueden dejar el nivel donde
 fueron creados.
-
 %%%%
 Drain Life
 
@@ -509,14 +511,14 @@ típico ritmo, los monstruos merodearán, los objetos perecederos se
 descompondrán, las plantas crecerán. Tras algo de tiempo, volverás con el mismo
 estado que tenías en el mismo segundo en que partiste.
 %%%%
-Renounce Religion
-
-Renuncias a tu fe. Esto hará a tu personaje abandonar a su dios (y normalmente
-enfadar a dicho dios).
-%%%%
 Request Jelly
 
 Creas una gelatina neutral que vagará por el suelo digiriendo objetos.
+%%%%
+Jelly Paralyse
+
+Rezas para detener temporalmente la consumición de objetos por parte de tus
+limos.
 %%%%
 Slimify
 
@@ -540,6 +542,11 @@ Sacrifica una parte de una de tus capacidades para mejorar otra.
 End Transfer Knowledge
 
 Cancelas una transferencia de capacidades.
+%%%%
+Renounce Religion
+
+Renuncias a tu fe. Esto hará a tu personaje abandonar a su dios (y normalmente
+enfadar a dicho dios).
 %%%%
 Make dart trap
 

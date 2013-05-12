@@ -14,11 +14,13 @@
 #include <stdio.h>
 #include <cmath>
 
+#include "art-enum.h"
 #include "artefact.h"
 #include "itemname.h"
 #include "itemprop.h"
 #include "items.h"
 #include "religion.h"
+#include "skills2.h"
 #include "spl-book.h"
 #include "spl-cast.h"
 #include "spl-util.h"
@@ -62,7 +64,7 @@ bool is_holy_item(const item_def& item)
 
     if (is_unrandom_artefact(item))
     {
-        unrandart_entry* entry = get_unrand_entry(item.special);
+        const unrandart_entry* entry = get_unrand_entry(item.special);
 
         if (entry->flags & UNRAND_FLAG_HOLY)
             return true;
@@ -95,7 +97,7 @@ bool is_unholy_item(const item_def& item)
 
     if (is_unrandom_artefact(item))
     {
-        unrandart_entry* entry = get_unrand_entry(item.special);
+        const unrandart_entry* entry = get_unrand_entry(item.special);
 
         if (entry->flags & UNRAND_FLAG_UNHOLY)
             return true;
@@ -105,9 +107,6 @@ bool is_unholy_item(const item_def& item)
     {
     case OBJ_WEAPONS:
         retval = is_demonic(item);
-        break;
-    case OBJ_SCROLLS:
-        retval = (item.sub_type == SCR_UNHOLY_CREATION);
         break;
     case OBJ_BOOKS:
     case OBJ_RODS:
@@ -159,7 +158,7 @@ bool is_corpse_violating_item(const item_def& item)
 
     if (is_unrandom_artefact(item))
     {
-        unrandart_entry* entry = get_unrand_entry(item.special);
+        const unrandart_entry* entry = get_unrand_entry(item.special);
 
         if (entry->flags & UNRAND_FLAG_CORPSE_VIOLATING)
             return true;
@@ -173,9 +172,6 @@ bool is_corpse_violating_item(const item_def& item)
         retval = (item_brand == SPWPN_REAPING);
         break;
     }
-    case OBJ_SCROLLS:
-        retval = (item.sub_type == SCR_UNHOLY_CREATION);
-        break;
     case OBJ_BOOKS:
     case OBJ_RODS:
         retval = _is_bookrod_type(item, is_corpse_violating_spell);
@@ -191,7 +187,7 @@ bool is_evil_item(const item_def& item)
 {
     if (is_unrandom_artefact(item))
     {
-        unrandart_entry* entry = get_unrand_entry(item.special);
+        const unrandart_entry* entry = get_unrand_entry(item.special);
 
         if (entry->flags & UNRAND_FLAG_EVIL)
             return true;
@@ -229,7 +225,7 @@ bool is_unclean_item(const item_def& item)
 {
     if (is_unrandom_artefact(item))
     {
-        unrandart_entry* entry = get_unrand_entry(item.special);
+        const unrandart_entry* entry = get_unrand_entry(item.special);
 
         if (entry->flags & UNRAND_FLAG_UNCLEAN)
             return true;
@@ -247,7 +243,7 @@ bool is_chaotic_item(const item_def& item)
 
     if (is_unrandom_artefact(item))
     {
-        unrandart_entry* entry = get_unrand_entry(item.special);
+        const unrandart_entry* entry = get_unrand_entry(item.special);
 
         if (entry->flags & UNRAND_FLAG_CHAOTIC)
             return true;
@@ -268,13 +264,10 @@ bool is_chaotic_item(const item_def& item)
         }
         break;
     case OBJ_WANDS:
-        retval = (item.sub_type == WAND_POLYMORPH_OTHER);
+        retval = (item.sub_type == WAND_POLYMORPH);
         break;
     case OBJ_POTIONS:
         retval = (item.sub_type == POT_MUTATION);
-        break;
-    case OBJ_SCROLLS:
-        retval = (item.sub_type == SCR_UNHOLY_CREATION);
         break;
     case OBJ_BOOKS:
     case OBJ_RODS:
@@ -332,9 +325,7 @@ bool is_hasty_item(const item_def& item)
         {
         const int item_brand = get_weapon_brand(item);
         retval = (item_brand == SPWPN_SPEED
-                  || item.sub_type == WPN_QUICK_BLADE
-                  || is_unrandom_artefact(item)
-                     && item.special == UNRAND_TROG);
+                  || item.sub_type == WPN_QUICK_BLADE);
         }
         break;
     case OBJ_ARMOUR:
@@ -497,6 +488,11 @@ conduct_type god_hates_item_handling(const item_def &item)
     case GOD_TROG:
         if (item_is_spellbook(item))
             return DID_SPELL_MEMORISE;
+        if (item.sub_type == BOOK_MANUAL && item_type_known(item)
+            && is_harmful_skill((skill_type)item.plus))
+        {
+            return DID_SPELL_PRACTISE;
+        }
         // Only Trog cares about spellsbooks vs rods.
         if (item.base_type == OBJ_RODS)
             return DID_NOTHING;

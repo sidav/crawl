@@ -271,19 +271,15 @@ void DungeonRegion::draw_minibars()
         ShapeBuffer buff;
 
         if (!on_screen(you.pos()))
-             return;
+            return;
 
         // FIXME: to_screen_coords could be made into two versions: one
         // that gives coords by pixel (the current one), one that gives
         // them by grid.
         coord_def player_on_screen;
         to_screen_coords(you.pos(), &player_on_screen);
-
-        static const float tile_width  = wx / mx;
-        static const float tile_height = wy / my;
-
-        player_on_screen.x = player_on_screen.x / static_cast<int>(tile_width);
-        player_on_screen.y = player_on_screen.y / static_cast<int>(tile_height);
+        player_on_screen.x = (player_on_screen.x-sx)/dx;
+        player_on_screen.y = (player_on_screen.y-sy)/dy;
 
         if (Options.tile_show_minimagicbar && you.max_magic_points > 0)
         {
@@ -309,7 +305,7 @@ void DungeonRegion::draw_minibars()
 
         if (Options.tile_show_minihealthbar)
         {
-            const float min_hp = std::max(0, you.hp);
+            const float min_hp = max(0, you.hp);
             const float health_divider = min_hp / (float) you.hp_max;
 
             const int hp_percent = (you.hp * 100) / you.hp_max;
@@ -372,7 +368,7 @@ static void _add_targetting_commands(const coord_def& pos)
     else
         cmd = CMD_TARGET_RIGHT;
 
-    for (int i = 0; i < std::abs(delta.x); i++)
+    for (int i = 0; i < abs(delta.x); i++)
         macro_buf_add_cmd(cmd);
 
     if (delta.y < 0)
@@ -380,14 +376,13 @@ static void _add_targetting_commands(const coord_def& pos)
     else
         cmd = CMD_TARGET_DOWN;
 
-    for (int i = 0; i < std::abs(delta.y); i++)
+    for (int i = 0; i < abs(delta.y); i++)
         macro_buf_add_cmd(cmd);
 
     macro_buf_add_cmd(CMD_TARGET_MOUSE_SELECT);
 }
 
-static const bool _is_appropriate_spell(spell_type spell,
-                                        const actor* target)
+static bool _is_appropriate_spell(spell_type spell, const actor* target)
 {
     ASSERT(is_valid_spell(spell));
 
@@ -437,8 +432,8 @@ static const bool _is_appropriate_spell(spell_type spell,
     return (friendly == helpful);
 }
 
-static const bool _is_appropriate_evokable(const item_def& item,
-                                           const actor* target)
+static bool _is_appropriate_evokable(const item_def& item,
+                                     const actor* target)
 {
     if (!item_is_evokable(item, false, false, true))
         return false;
@@ -466,7 +461,7 @@ static const bool _is_appropriate_evokable(const item_def& item,
     return _is_appropriate_spell(spell, target);
 }
 
-static const bool _have_appropriate_evokable(const actor* target)
+static bool _have_appropriate_evokable(const actor* target)
 {
     // Felids cannot use wands.
     if (you.species == SP_FELID)
@@ -481,14 +476,14 @@ static const bool _have_appropriate_evokable(const actor* target)
 
         if (_is_appropriate_evokable(item, target))
             return true;
-   }
+    }
 
     return false;
 }
 
 static item_def* _get_evokable_item(const actor* target)
 {
-    std::vector<const item_def*> list;
+    vector<const item_def*> list;
 
     for (int i = 0; i < ENDOFPACK; i++)
     {
@@ -509,7 +504,7 @@ static item_def* _get_evokable_item(const actor* target)
     menu.set_title("Wand to zap?");
     menu.load_items(list);
     menu.show();
-    std::vector<SelItem> sel = menu.get_selitems();
+    vector<SelItem> sel = menu.get_selitems();
 
     update_screen();
     redraw_screen();
@@ -558,7 +553,6 @@ static bool _spell_in_range(spell_type spell, actor* target)
 
     switch (spell)
     {
-    case SPELL_EVAPORATE:
     case SPELL_MEPHITIC_CLOUD:
     case SPELL_FIREBALL:
     case SPELL_FREEZING_CLOUD:
@@ -626,26 +620,8 @@ static bool _cast_spell_on_target(actor* target)
         return true;
     }
 
-    int item_slot = -1;
-    if (spell == SPELL_EVAPORATE)
-    {
-        const int pot = prompt_invent_item("Throw which potion?", MT_INVLIST,
-                                           OBJ_POTIONS);
-
-        if (prompt_failed(pot))
-            return false;
-        else if (you.inv[pot].base_type != OBJ_POTIONS)
-        {
-            mpr("This spell works only on potions!");
-            return false;
-        }
-        item_slot = you.inv[pot].slot;
-    }
-
     macro_buf_add_cmd(CMD_FORCE_CAST_SPELL);
     macro_buf_add(letter);
-    if (item_slot != -1)
-        macro_buf_add(item_slot);
 
     if (get_spell_flags(spell) & SPFLAG_TARGETTING_MASK)
         _add_targetting_commands(target->pos());
@@ -653,7 +629,7 @@ static bool _cast_spell_on_target(actor* target)
     return true;
 }
 
-static const bool _have_appropriate_spell(const actor* target)
+static bool _have_appropriate_spell(const actor* target)
 {
     for (size_t i = 0; i < you.spells.size(); i++)
     {
@@ -730,6 +706,42 @@ static bool _handle_zap_player(MouseEvent &event)
     return false;
 }
 
+void DungeonRegion::zoom(bool in)
+{
+    int sign = in ? 1 : -1;
+    int amt  = 4;
+    const int max_zoom = 64; // this needs to be a proportion, not a fixed amount!
+    const bool minimap_zoom = (sx>dx); // i.e. there's a border bigger than a tile (was dx<min_zoom+amt)
+
+    // if we try to zoom out too far, go to minimap instead
+    if (!in && minimap_zoom)
+        if (tiles.zoom_to_minimap())
+            return;
+
+    // if we zoomed in from min zoom, and the map's still up, switch off minimap instead
+    if (in && minimap_zoom)
+        if (tiles.zoom_from_minimap())
+            return;
+
+    // if we zoom out too much, stop
+    if (!in && minimap_zoom) //(dx + sign*amt < min_zoom)
+        return;
+    // if we zoom in too close, stop
+    if (dx + sign*amt > max_zoom)
+        return;
+
+    dx = dx + sign*amt;
+    dy = dy + sign*amt;
+
+    int old_wx = wx; int old_wy = wy;
+    recalculate();
+
+    place((old_wx-wx)/2+sx, (old_wy-wy)/2+sy, 0);
+
+    crawl_view.viewsz.x = mx;
+    crawl_view.viewsz.y = my;
+}
+
 int DungeonRegion::handle_mouse(MouseEvent &event)
 {
     tiles.clear_text_tags(TAG_CELL_DESC);
@@ -737,17 +749,34 @@ int DungeonRegion::handle_mouse(MouseEvent &event)
     if (!inside(event.px, event.py))
         return 0;
 
+#ifdef TOUCH_UI
+    if (event.event == MouseEvent::PRESS
+        && (event.mod & MOD_CTRL)
+        && (event.button == MouseEvent::SCROLL_UP || event.button == MouseEvent::SCROLL_DOWN))
+    {
+        zoom(event.button == MouseEvent::SCROLL_UP);
+    }
+#endif
+
     if (mouse_control::current_mode() == MOUSE_MODE_NORMAL
         && event.event == MouseEvent::PRESS
         && event.button == MouseEvent::LEFT)
     {
         m_last_clicked_grid = m_cursor[CURSOR_MOUSE];
+
+        int cx, cy;
+        mouse_pos(event.px, event.py, cx, cy);
+        const coord_def gc(cx + m_cx_to_gx, cy + m_cy_to_gy);
+        tiles.place_cursor(CURSOR_MOUSE, gc);
+
         return CK_MOUSE_CLICK;
     }
 
     if (mouse_control::current_mode() == MOUSE_MODE_NORMAL
         || mouse_control::current_mode() == MOUSE_MODE_MACRO
-        || mouse_control::current_mode() == MOUSE_MODE_MORE)
+        || mouse_control::current_mode() == MOUSE_MODE_MORE
+        || mouse_control::current_mode() == MOUSE_MODE_PROMPT
+        || mouse_control::current_mode() == MOUSE_MODE_YESNO)
     {
         return 0;
     }
@@ -762,7 +791,7 @@ int DungeonRegion::handle_mouse(MouseEvent &event)
 
     if (event.event == MouseEvent::MOVE)
     {
-        std::string desc = get_terse_square_desc(gc);
+        string desc = get_terse_square_desc(gc);
         // Suppress floor description
         if (desc == "floor")
             desc = "";
@@ -772,7 +801,7 @@ int DungeonRegion::handle_mouse(MouseEvent &event)
             const int cloudidx = env.cgrid(gc);
             if (cloudidx != EMPTY_CLOUD)
             {
-                std::string terrain_desc = desc;
+                string terrain_desc = desc;
                 desc = cloud_name_at_index(cloudidx);
 
                 if (!terrain_desc.empty())
@@ -820,18 +849,42 @@ int DungeonRegion::handle_mouse(MouseEvent &event)
                     return 0;
             }
 
+            // if there's an item, pick it up, otherwise wait 1 turn
             if (!(event.mod & MOD_SHIFT))
             {
                 const int o = you.visible_igrd(you.pos());
-                // More than a single item -> open menu right away.
-                if (o != NON_ITEM && mitm[o].link != NON_ITEM)
+                if (o == NON_ITEM)
                 {
-                    pickup_menu(o);
-                    flush_prev_message();
-                    redraw_screen();
-                    return CK_MOUSE_CMD;
+                    // if on stairs, travel them
+                    const dungeon_feature_type feat = grd(gc);
+                    switch (feat_stair_direction(feat))
+                    {
+                    case CMD_GO_DOWNSTAIRS:
+                    case CMD_GO_UPSTAIRS:
+                        return command_to_key(feat_stair_direction(feat));
+                    default:
+                        if (feat_is_altar(feat)
+                            && player_can_join_god(feat_altar_god(feat)))
+                        {
+                            return command_to_key(CMD_PRAY);
+                        }
+                    }
+                    // otherwise wait
+                    return command_to_key(CMD_MOVE_NOWHERE);
                 }
-                return command_to_key(CMD_PICKUP);
+                else
+                {
+                    // pick up menu
+                    // More than a single item -> open menu right away.
+                    if (o != NON_ITEM && mitm[o].link != NON_ITEM)
+                    {
+                        pickup_menu(o);
+                        flush_prev_message();
+                        redraw_screen();
+                        return CK_MOUSE_CMD;
+                    }
+                    return command_to_key(CMD_PICKUP);
+                }
             }
 
             const dungeon_feature_type feat = grd(gc);
@@ -956,7 +1009,7 @@ void DungeonRegion::place_cursor(cursor_type type, const coord_def &gc)
     }
 }
 
-bool DungeonRegion::update_tip_text(std::string &tip)
+bool DungeonRegion::update_tip_text(string &tip)
 {
     // TODO enne - it would be really nice to use the tutorial
     // descriptions here for features, monsters, etc...
@@ -1029,10 +1082,10 @@ bool DungeonRegion::update_tip_text(std::string &tip)
     return ret;
 }
 
-static std::string _check_spell_evokable(const actor* target,
-                                         std::vector<command_type> &cmd)
+static string _check_spell_evokable(const actor* target,
+                                    vector<command_type> &cmd)
 {
-    std::string str = "";
+    string str = "";
     if (_have_appropriate_spell(target))
     {
         str += "\n[Ctrl + L-Click] Cast spell (%)";
@@ -1041,7 +1094,7 @@ static std::string _check_spell_evokable(const actor* target,
 
     if (_have_appropriate_evokable(target))
     {
-        std::string key = "Alt";
+        string key = "Alt";
 #ifdef UNIX
         // On Unix systems the Alt key is already hogged by
         // the application window, at least when we're not
@@ -1056,19 +1109,19 @@ static std::string _check_spell_evokable(const actor* target,
     return str;
 }
 
-static void _add_tip(std::string &tip, std::string text)
+static void _add_tip(string &tip, string text)
 {
     if (!tip.empty())
         tip += "\n";
     tip += text;
 }
 
-bool tile_dungeon_tip(const coord_def &gc, std::string &tip)
+bool tile_dungeon_tip(const coord_def &gc, string &tip)
 {
     const int attack_dist = you.weapon() ?
         weapon_reach(*you.weapon()) : 2;
 
-    std::vector<command_type> cmd;
+    vector<command_type> cmd;
     tip = "";
     bool has_monster = false;
 
@@ -1169,6 +1222,36 @@ bool tile_dungeon_tip(const coord_def &gc, std::string &tip)
     // Right-click.
     if (gc == you.pos())
     {
+        const int o = you.visible_igrd(you.pos());
+        if (o == NON_ITEM)
+        {
+            // if on stairs, travel them
+            const dungeon_feature_type feat = grd(gc);
+            if (feat_stair_direction(feat) == CMD_GO_DOWNSTAIRS
+                || feat_stair_direction(feat) == CMD_GO_UPSTAIRS)
+            {
+                _add_tip(tip, "[L-Click] Use stairs (%)");
+                cmd.push_back(feat_stair_direction(feat));
+            }
+            else if (feat_is_altar(feat)
+                     && player_can_join_god(feat_altar_god(feat)))
+            {
+                _add_tip(tip, "[L-Click] Pray at altar (%)");
+                cmd.push_back(CMD_PRAY);
+            }
+            else
+            {
+                // otherwise wait
+                _add_tip(tip, "[L-Click] Wait one turn (%)");
+                cmd.push_back(CMD_MOVE_NOWHERE);
+            }
+        }
+        else
+        {
+            // pick up menu
+            // this is already added by the code above
+        }
+
         // Character overview.
         _add_tip(tip, "[R-Click] Overview (%)");
         cmd.push_back(CMD_RESISTS_SCREEN);
@@ -1192,7 +1275,7 @@ bool tile_dungeon_tip(const coord_def &gc, std::string &tip)
     return true;
 }
 
-bool DungeonRegion::update_alt_text(std::string &alt)
+bool DungeonRegion::update_alt_text(string &alt)
 {
     if (mouse_control::current_mode() != MOUSE_MODE_COMMAND)
         return false;
@@ -1220,7 +1303,7 @@ bool DungeonRegion::update_alt_text(std::string &alt)
     else
     {
         // For plain floor, output the stash description.
-        const std::string stash = get_stash_desc(gc);
+        const string stash = get_stash_desc(gc);
         if (!stash.empty())
             inf.body << "\n" << stash;
     }
@@ -1244,7 +1327,7 @@ void DungeonRegion::clear_text_tags(text_tag_type type)
     m_tags[type].clear();
 }
 
-void DungeonRegion::add_text_tag(text_tag_type type, const std::string &tag,
+void DungeonRegion::add_text_tag(text_tag_type type, const string &tag,
                                  const coord_def &gc)
 {
     TextTag t;

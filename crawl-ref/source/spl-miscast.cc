@@ -11,6 +11,7 @@
 
 #include <sstream>
 
+#include "branch.h"
 #include "colour.h"
 #include "cloud.h"
 #include "directn.h"
@@ -18,6 +19,7 @@
 #include "env.h"
 #include "kills.h"
 #include "libutil.h"
+#include "mapmark.h"
 #include "misc.h"
 #include "mon-place.h"
 #include "mgen_data.h"
@@ -37,6 +39,7 @@
 #include "transform.h"
 #include "view.h"
 #include "shout.h"
+#include "unwind.h"
 #include "viewchar.h"
 #include "xom.h"
 
@@ -48,9 +51,9 @@
 #define MAX_RECURSE 100
 
 MiscastEffect::MiscastEffect(actor* _target, int _source, spell_type _spell,
-                             int _pow, int _fail, std::string _cause,
+                             int _pow, int _fail, string _cause,
                              nothing_happens_when_type _nothing_happens,
-                             int _lethality_margin, std::string _hand_str,
+                             int _lethality_margin, string _hand_str,
                              bool _can_plural) :
     target(_target), source(_source), cause(_cause), spell(_spell),
     school(SPTYP_NONE), pow(_pow), fail(_fail), level(-1), kc(KC_NCATEGORIES),
@@ -69,9 +72,9 @@ MiscastEffect::MiscastEffect(actor* _target, int _source, spell_type _spell,
 
 MiscastEffect::MiscastEffect(actor* _target, int _source,
                              spschool_flag_type _school, int _level,
-                             std::string _cause,
+                             string _cause,
                              nothing_happens_when_type _nothing_happens,
-                             int _lethality_margin, std::string _hand_str,
+                             int _lethality_margin, string _hand_str,
                              bool _can_plural) :
     target(_target), source(_source), cause(_cause), spell(SPELL_NO_SPELL),
     school(_school), pow(-1), fail(-1), level(_level), kc(KC_NCATEGORIES),
@@ -90,9 +93,9 @@ MiscastEffect::MiscastEffect(actor* _target, int _source,
 
 MiscastEffect::MiscastEffect(actor* _target, int _source,
                              spschool_flag_type _school, int _pow, int _fail,
-                             std::string _cause,
+                             string _cause,
                              nothing_happens_when_type _nothing_happens,
-                             int _lethality_margin, std::string _hand_str,
+                             int _lethality_margin, string _hand_str,
                              bool _can_plural) :
     target(_target), source(_source), cause(_cause), spell(SPELL_NO_SPELL),
     school(_school), pow(_pow), fail(_fail), level(-1), kc(KC_NCATEGORIES),
@@ -131,7 +134,7 @@ void MiscastEffect::init()
 
     act_source = guilty = NULL;
 
-    const bool death_curse = (cause.find("death curse") != std::string::npos);
+    const bool death_curse = (cause.find("death curse") != string::npos);
 
     if (target->is_monster())
         target_known = you.can_see(target);
@@ -158,7 +161,7 @@ void MiscastEffect::init()
     else if (!invalid_monster_index(kill_source))
     {
         monster* mon_source = &menv[kill_source];
-        ASSERT(mon_source->type != -1);
+        ASSERT(mon_source->type != MONS_NO_MONSTER);
 
         act_source = guilty = mon_source;
 
@@ -207,8 +210,7 @@ void MiscastEffect::init()
                 kt = KILL_YOU_CONF;
             }
         }
-        else if (source == HELL_EFFECT_MISCAST
-                 || source == MISC_MISCAST)
+        else if (source == MISC_MISCAST)
             source_known = true, guilty = &you;
         else
             source_known = true;
@@ -224,7 +226,7 @@ void MiscastEffect::init()
             cause.replace(cause.begin(), cause.begin() + 2, "an indirect");
         else
             cause = replace_all(cause, "death curse", "indirect death curse");
-   }
+    }
 
     // source_known = false for MELEE_MISCAST so that melee miscasts
     // won't give a "nothing happens" message.
@@ -247,7 +249,7 @@ void MiscastEffect::init()
     beam.thrower     = kt;
 }
 
-std::string MiscastEffect::get_default_cause(bool attribute_to_user) const
+string MiscastEffect::get_default_cause(bool attribute_to_user) const
 {
     // This is only for true miscasts, which means both a spell and that
     // the source of the miscast is the same as the target of the miscast.
@@ -258,7 +260,7 @@ std::string MiscastEffect::get_default_cause(bool attribute_to_user) const
     if (source == NON_MONSTER)
     {
         ASSERT(target->is_player());
-        std::string str = "miscasting ";
+        string str = "miscasting ";
         str += spell_title(spell);
         return str;
     }
@@ -268,15 +270,12 @@ std::string MiscastEffect::get_default_cause(bool attribute_to_user) const
 
     if (attribute_to_user)
     {
-        return (std::string(you.can_see(act_source)?
-                            act_source->name(DESC_A)
-                            : "something")
+        return (string(you.can_see(act_source) ? act_source->name(DESC_A)
+                                               : "something")
                 + " miscasting " + spell_title(spell));
     }
     else
-    {
-        return std::string("miscast of ") + spell_title(spell);
-    }
+        return string("miscast of ") + spell_title(spell);
 }
 
 bool MiscastEffect::neither_end_silenced()
@@ -308,7 +307,7 @@ void MiscastEffect::do_miscast()
 
     if (spell != SPELL_NO_SPELL)
     {
-        std::vector<int> school_list;
+        vector<int> school_list;
         for (int i = 0; i <= SPTYP_LAST_EXPONENT; i++)
             if (spell_typematch(spell, 1 << i))
                 school_list.push_back(i);
@@ -416,7 +415,7 @@ void MiscastEffect::do_msg(bool suppress_nothing_happens)
 
     did_msg = true;
 
-    std::string msg;
+    string msg;
 
     if (!all_msg.empty())
         msg = all_msg;
@@ -426,7 +425,7 @@ void MiscastEffect::do_msg(bool suppress_nothing_happens)
     {
         msg = mon_msg;
         // Monster might be unseen with hands that can't be seen.
-        ASSERT(msg.find("@hand") == std::string::npos);
+        ASSERT(msg.find("@hand") == string::npos);
     }
     else
     {
@@ -436,7 +435,7 @@ void MiscastEffect::do_msg(bool suppress_nothing_happens)
         {
             msg = mon_msg_unseen;
             // Can't see the hands of invisible monsters.
-            ASSERT(msg.find("@hand") == std::string::npos);
+            ASSERT(msg.find("@hand") == string::npos);
         }
     }
 
@@ -615,9 +614,11 @@ void MiscastEffect::_potion_effect(potion_type pot_eff, int pot_pow)
 
 bool MiscastEffect::_send_to_abyss()
 {
-    if (player_in_branch(BRANCH_ABYSS) || source == HELL_EFFECT_MISCAST)
+    if ((player_in_branch(BRANCH_ABYSS) && x_chance_in_y(you.depth, brdepth[BRANCH_ABYSS]))
+        || source == HELL_EFFECT_MISCAST)
+    {
         return _malign_gateway(); // attempt to degrade to malign gateway
-
+    }
     target->banish(act_source, cause);
     return true;
 }
@@ -752,7 +753,7 @@ static bool _has_hair(actor* target)
             && you.species != SP_TENGU && !player_genus(GENPC_DRACONIAN));
 }
 
-static std::string _hair_str(actor* target, bool &plural)
+static string _hair_str(actor* target, bool &plural)
 {
     ASSERT(target->is_player());
 
@@ -827,7 +828,7 @@ void MiscastEffect::_conjuration(int severity)
         {
             // Player only (for now).
             bool plural;
-            std::string hair = _hair_str(target, plural);
+            string hair = _hair_str(target, plural);
             you_msg = make_stringf("Your %s stand%s on end.", hair.c_str(),
                                    plural ? "" : "s");
         }
@@ -902,8 +903,8 @@ void MiscastEffect::_conjuration(int severity)
     }
 }
 
-static void _your_hands_glow(actor* target, std::string& you_msg,
-                             std::string& mon_msg_seen, bool pluralise)
+static void _your_hands_glow(actor* target, string& you_msg,
+                             string& mon_msg_seen, bool pluralise)
 {
     you_msg      = "Your @hands@ ";
     mon_msg_seen = "@The_monster@'s @hands@ ";
@@ -988,32 +989,16 @@ void MiscastEffect::_enchantment(int severity)
         break;
 
     case 1:         // slightly annoying
-        switch (random2(crawl_state.game_is_arena() ? 1 : 2))
+        switch (random2(target->is_player() ? 2 : 1))
         {
         case 0:
-            if (target->is_player() && !liquefied(you.pos())
-                && you.ground_level())
-            {
-                you.attribute[ATTR_LEV_UNCANCELLABLE] = 1;
-                levitate_player(20);
-            }
-            else if (target->is_player())
-            {
-                // Reasoning: miscasts to get levitation to escape the effects of
-                // liquefaction = cheap.
-                random_uselessness();
-            }
+            if (target->is_player())
+                you.backlight();
             else
-            {
-                // There's no levitation enchantment for monsters, and,
-                // anyway, it's not nearly as inconvenient for monsters as
-                // for the player, so backlight them instead.
                 target_as_monster()->add_ench(mon_enchant(ENCH_CORONA, 20,
                                                           guilty));
-            }
             break;
         case 1:
-            // XXX: Something else for monsters?
             random_uselessness();
             break;
         }
@@ -1331,7 +1316,7 @@ void MiscastEffect::_summoning(int severity)
             break;
         case 4:
         case 5:
-            if (_create_monster(summon_any_demon(DEMON_LESSER), 5, true))
+            if (_create_monster(summon_any_demon(RANDOM_DEMON_LESSER), 5, true))
                 all_msg = "Something appears in a flash of light!";
             do_msg();
             break;
@@ -1359,7 +1344,7 @@ void MiscastEffect::_summoning(int severity)
 
         case 1:
         case 2:
-            if (_create_monster(summon_any_demon(DEMON_COMMON), 5, true))
+            if (_create_monster(summon_any_demon(RANDOM_DEMON_COMMON), 5, true))
                 all_msg = "Something forms from out of thin air!";
             do_msg();
             break;
@@ -1372,7 +1357,7 @@ void MiscastEffect::_summoning(int severity)
 
             for (int i = 1 + random2(2); i >= 0; --i)
             {
-                if (_create_monster(summon_any_demon(DEMON_LESSER), 5, true))
+                if (_create_monster(summon_any_demon(RANDOM_DEMON_LESSER), 5, true))
                     success = true;
             }
 
@@ -1405,7 +1390,7 @@ void MiscastEffect::_summoning(int severity)
                 break;
 
             case 1:
-                if (_create_monster(summon_any_demon(DEMON_GREATER), 0, true))
+                if (_create_monster(summon_any_demon(RANDOM_DEMON_GREATER), 0, true))
                     all_msg = "You sense a hostile presence.";
                 do_msg();
                 reroll = false;
@@ -1417,7 +1402,7 @@ void MiscastEffect::_summoning(int severity)
 
                 for (int i = 1 + random2(2); i >= 0; --i)
                 {
-                    if (_create_monster(summon_any_demon(DEMON_COMMON), 3, true))
+                    if (_create_monster(summon_any_demon(RANDOM_DEMON_COMMON), 3, true))
                         success = true;
                 }
 
@@ -1612,8 +1597,7 @@ void MiscastEffect::_necromancy(int severity)
     if (target->is_player() && you.religion == GOD_KIKUBAAQUDGHA
         && !player_under_penance() && you.piety >= piety_breakpoint(1))
     {
-        const bool death_curse =
-                     (cause.find("death curse") != std::string::npos);
+        const bool death_curse = (cause.find("death curse") != string::npos);
 
         if (spell != SPELL_NO_SPELL)
         {
@@ -1634,7 +1618,7 @@ void MiscastEffect::_necromancy(int severity)
             else
             {
                 simple_god_message(" partially averts the curse.");
-                severity = std::max(severity - 1, 0);
+                severity = max(severity - 1, 0);
             }
         }
     }
@@ -1934,7 +1918,7 @@ void MiscastEffect::_transmutation(int severity)
         {
             // Player only (for now).
             bool plural;
-            std::string hair = _hair_str(target, plural);
+            string hair = _hair_str(target, plural);
             you_msg = make_stringf("Your %s momentarily turn%s into snakes!",
                                    hair.c_str(), plural ? "" : "s");
         }
@@ -1943,7 +1927,7 @@ void MiscastEffect::_transmutation(int severity)
         break;
 
     case 1:         // slightly annoying
-        switch (random2(crawl_state.game_is_arena() ? 1 : 2))
+        switch (random2(target->is_player() ? 2 : 1))
         {
         case 0:
             you_msg      = "Your body is twisted painfully.";
@@ -1958,28 +1942,31 @@ void MiscastEffect::_transmutation(int severity)
 
     case 2:         // much more annoying
         // Last case for players only.
-        switch (random2(target->is_player() ? 4 : 3))
+        switch (random2(target->is_player() ? 5 : 4))
         {
         case 0:
+            if (target->polymorph(0)) // short duration
+                break;
+        case 1:
             you_msg      = "Your body is twisted very painfully!";
             mon_msg_seen = "@The_monster@'s body twists and writhes.";
             _ouch(3 + random2avg(23, 2));
             break;
-        case 1:
+        case 2:
             target->petrify(guilty);
             break;
-        case 2:
+        case 3:
             _potion_effect(POT_CONFUSION, 10);
             break;
-        case 3:
+        case 4:
             contaminate_player(random2avg(19, 3), spell != SPELL_NO_SPELL);
             break;
         }
         break;
 
     case 3:         // even nastier
-        if (target->is_monster())
-            target->mutate(cause); // Polymorph the monster, if possible.
+        if (coinflip() && target->polymorph(200))
+            break;
 
         switch (random2(3))
         {
@@ -1987,12 +1974,14 @@ void MiscastEffect::_transmutation(int severity)
             you_msg = "Your body is flooded with distortional energies!";
             mon_msg = "@The_monster@'s body is flooded with distortional "
                       "energies!";
-            if (_ouch(3 + random2avg(18, 2)) && target->alive()
-                && target->is_player())
-            {
-                contaminate_player(random2avg(35, 3),
-                                   spell != SPELL_NO_SPELL, false);
-            }
+            if (_ouch(3 + random2avg(18, 2)) && target->alive())
+                if (target->is_player())
+                {
+                    contaminate_player(random2avg(35, 3),
+                                       spell != SPELL_NO_SPELL, false);
+                }
+                else
+                    target->polymorph(0);
             break;
 
         case 1:
@@ -2010,21 +1999,23 @@ void MiscastEffect::_transmutation(int severity)
                 you_msg = "You feel very strange.";
                 delete_mutation(RANDOM_MUTATION, cause, true, false, false, false);
             }
+            else
+                target->polymorph(0);
             _ouch(5 + random2avg(23, 2));
             break;
 
         case 2:
-            // HACK: Avoid lethality before giving mutation, since
-            // afterwards a message would already have been given.
-            if (lethality_margin > 0
-                && (you.hp - lethality_margin) <= 27
-                && avoid_lethal(you.hp))
-            {
-                return;
-            }
-
             if (target->is_player())
             {
+                // HACK: Avoid lethality before giving mutation, since
+                // afterwards a message would already have been given.
+                if (lethality_margin > 0
+                    && (you.hp - lethality_margin) <= 27
+                    && avoid_lethal(you.hp))
+                {
+                    return;
+                }
+
                 you_msg = "Your body is distorted in a weirdly horrible way!";
                 // We don't need messages when the mutation fails,
                 // because we give our own (which is justified anyway as
@@ -2033,6 +2024,8 @@ void MiscastEffect::_transmutation(int severity)
                 if (coinflip())
                     give_bad_mutation(cause, false, false);
             }
+            else
+                target->mutate(cause);
             _ouch(5 + random2avg(23, 2));
             break;
         }
@@ -2189,7 +2182,7 @@ void MiscastEffect::_fire(int severity)
             {
                 monster* mon_target = target_as_monster();
                 mon_target->add_ench(mon_enchant(ENCH_STICKY_FLAME,
-                    std::min(4, 1 + random2(mon_target->hit_dice) / 2),
+                    min(4, 1 + random2(mon_target->hit_dice) / 2),
                     guilty));
             }
             break;
@@ -2207,7 +2200,7 @@ void MiscastEffect::_ice(int severity)
         (feat == DNGN_FLOOR || feat_altar_god(feat) != GOD_NO_GOD
          || feat_is_staircase(feat) || feat_is_water(feat));
 
-    const std::string feat_name = (feat == DNGN_FLOOR ? "the " : "") +
+    const string feat_name = (feat == DNGN_FLOOR ? "the " : "") +
         feature_description_at(target->pos(), false, DESC_THE);
 
     int num;
@@ -2293,7 +2286,7 @@ void MiscastEffect::_ice(int severity)
             else
                 do_msg();
             if (target->alive())
-                target->expose_to_element(BEAM_COLD, 2);
+                target->expose_to_element(BEAM_COLD, 2, true, false);
             break;
         }
         break;
@@ -2410,9 +2403,9 @@ void MiscastEffect::_earth(int severity)
             break;
         case 9:
         {
-            bool               pluralised = true;
-            std::string        feet       = you.foot_name(true, &pluralised);
-            std::ostringstream str;
+            bool          pluralised = true;
+            string        feet       = you.foot_name(true, &pluralised);
+            ostringstream str;
 
             str << "Your " << feet << (pluralised ? " feel" : " feels")
                 << " warm.";
@@ -2466,7 +2459,7 @@ void MiscastEffect::_earth(int severity)
                 mon_msg_unseen = "Rocks fall out of nowhere!";
                 break;
             }
-            _ouch(random2avg(13, 2) + 10 - random2(1 + target->armour_class()));
+            _ouch(target->apply_ac(random2avg(13, 2) + 10));
             break;
         }
         break;
@@ -2609,7 +2602,7 @@ void MiscastEffect::_air(int severity)
         {
             // Player only (for now).
             bool plural;
-            std::string hair = _hair_str(target, plural);
+            string hair = _hair_str(target, plural);
             you_msg = make_stringf("Your %s stand%s on end.", hair.c_str(),
                                    plural ? "" : "s");
             break;

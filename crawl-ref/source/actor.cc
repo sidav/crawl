@@ -5,11 +5,13 @@
 #include "artefact.h"
 #include "attack.h"
 #include "coord.h"
+#include "describe.h"
 #include "env.h"
 #include "fprop.h"
 #include "itemprop.h"
 #include "libutil.h"
 #include "los.h"
+#include "misc.h"
 #include "mon-death.h"
 #include "ouch.h"
 #include "player.h"
@@ -23,12 +25,6 @@ actor::~actor()
 {
     if (constricting)
         delete constricting;
-}
-
-bool actor::has_equipped(equipment_type eq, int sub_type) const
-{
-    const item_def *item = slot_item(eq, false);
-    return (item && item->sub_type == sub_type);
 }
 
 bool actor::will_trigger_shaft() const
@@ -46,7 +42,8 @@ level_id actor::shaft_dest(bool known = false) const
 
 bool actor::airborne() const
 {
-    return (is_levitating() || (flight_mode() == FL_FLY && !cannot_move()));
+    flight_type fly = flight_mode();
+    return (fly == FL_LEVITATE || fly == FL_WINGED && !cannot_move());
 }
 
 /**
@@ -161,25 +158,25 @@ void actor::set_position(const coord_def &c)
     areas_actor_moved(this, oldpos);
 }
 
-bool actor::can_hibernate(bool holi_only) const
+bool actor::can_hibernate(bool holi_only, bool intrinsic_only) const
 {
-    // Undead, nonliving, and plants don't sleep.
-    const mon_holy_type holi = holiness();
-    if (holi == MH_UNDEAD || holi == MH_NONLIVING || holi == MH_PLANT)
+    // Undead, nonliving, and plants don't sleep. If the monster is
+    // berserk or already asleep, it doesn't sleep either.
+    if (!can_sleep(holi_only))
         return false;
 
     if (!holi_only)
     {
-        // The monster is berserk or already asleep.
-        if (!can_sleep())
-            return false;
-
         // The monster is cold-resistant and can't be hibernated.
-        if (res_cold() > 0)
+        if (intrinsic_only && is_monster()
+                ? get_mons_resist(this->as_monster(), MR_RES_COLD) > 0
+                : res_cold() > 0)
+        {
             return false;
+        }
 
         // The monster has slept recently.
-        if (is_monster()
+        if (is_monster() && !intrinsic_only
             && static_cast<const monster* >(this)->has_ench(ENCH_SLEEP_WARY))
         {
             return false;
@@ -189,18 +186,22 @@ bool actor::can_hibernate(bool holi_only) const
     return true;
 }
 
-bool actor::can_sleep() const
+bool actor::can_sleep(bool holi_only) const
 {
     const mon_holy_type holi = holiness();
     if (holi == MH_UNDEAD || holi == MH_NONLIVING || holi == MH_PLANT)
         return false;
-    return !(berserk() || asleep());
+
+    if (!holi_only)
+        return !(berserk() || asleep());
+
+    return true;
 }
 
 void actor::shield_block_succeeded(actor *foe)
 {
     item_def *sh = shield();
-    unrandart_entry *unrand_entry;
+    const unrandart_entry *unrand_entry;
 
     if (sh
         && sh->base_type == OBJ_ARMOUR
@@ -239,13 +240,207 @@ int actor::body_weight(bool base) const
     }
 }
 
+bool actor::inaccuracy() const
+{
+    return !suppressed() && wearing(EQ_AMULET, AMU_INACCURACY);
+}
+
+bool actor::gourmand(bool calc_unid, bool items) const
+{
+    if (suppressed())
+        items = false;
+
+    return items && wearing(EQ_AMULET, AMU_THE_GOURMAND, calc_unid);
+}
+
+bool actor::conservation(bool calc_unid, bool items) const
+{
+    if (suppressed() || !items)
+        return false;
+
+    return wearing(EQ_AMULET, AMU_CONSERVATION, calc_unid)
+           || wearing_ego(EQ_ALL_ARMOUR, SPARM_PRESERVATION, calc_unid);
+}
+
+bool actor::res_corr(bool calc_unid, bool items) const
+{
+    if (suppressed())
+        items = false;
+
+    return items && (wearing(EQ_AMULET, AMU_RESIST_CORROSION)
+                     || wearing_ego(EQ_ALL_ARMOUR, SPARM_PRESERVATION,
+                                    calc_unid));
+}
+
+// This is a bit confusing. This is not the function that determines whether or
+// not an actor is capable of teleporting, only whether they are specifically
+// under the influence of the "notele" effect. See item_blocks_teleport() in
+// item_use.cc for a superset of this function.
+bool actor::has_notele_item(bool calc_unid) const
+{
+    if (suppressed())
+        return false;
+
+    return scan_artefacts(ARTP_PREVENT_TELEPORTATION, calc_unid);
+}
+
+bool actor::stasis(bool calc_unid, bool items) const
+{
+    if (suppressed())
+        items = false;
+
+    return items && wearing(EQ_AMULET, AMU_STASIS, calc_unid);
+}
+
+// permaswift effects like boots of running and lightning scales
+bool actor::run(bool calc_unid, bool items) const
+{
+    if (suppressed())
+        items = false;
+
+    return items && wearing_ego(EQ_BOOTS, SPARM_RUNNING, calc_unid);
+}
+
+bool actor::angry(bool calc_unid, bool items) const
+{
+    if (suppressed())
+        items = false;
+
+    return items && scan_artefacts(ARTP_ANGRY, calc_unid);
+}
+
+bool actor::clarity(bool calc_unid, bool items) const
+{
+    if (suppressed())
+        items = false;
+
+    return items && (wearing(EQ_AMULET, AMU_CLARITY, calc_unid)
+                     || scan_artefacts(ARTP_CLARITY, calc_unid));
+}
+
+bool actor::faith(bool calc_unid, bool items) const
+{
+    if (suppressed())
+        items = false;
+
+    return items && wearing(EQ_AMULET, AMU_FAITH, calc_unid);
+}
+
+bool actor::warding(bool calc_unid, bool items) const
+{
+    if (suppressed())
+        items = false;
+
+    // Note: when adding a new source of warding, please add it to
+    // melee_attack::attack_warded_off() as well.
+    return items && (wearing(EQ_AMULET, AMU_WARDING, calc_unid)
+                     || wearing(EQ_STAFF, STAFF_SUMMONING, calc_unid));
+}
+
+bool actor::archmagi(bool calc_unid, bool items) const
+{
+    if (suppressed())
+        items = false;
+
+    return items && wearing_ego(EQ_BODY_ARMOUR, SPARM_ARCHMAGI, calc_unid);
+}
+
+bool actor::no_cast(bool calc_unid, bool items) const
+{
+    if (suppressed())
+        items = false;
+
+    return items && scan_artefacts(ARTP_PREVENT_SPELLCASTING, calc_unid);
+}
+
+bool actor::rmut_from_item(bool calc_unid) const
+{
+    return !suppressed() && wearing(EQ_AMULET, AMU_RESIST_MUTATION, calc_unid);
+}
+
+bool actor::evokable_berserk(bool calc_unid) const
+{
+    return !suppressed() && (wearing(EQ_AMULET, AMU_RAGE, calc_unid)
+                             || scan_artefacts(ARTP_BERSERK, calc_unid));
+}
+
+bool actor::evokable_invis(bool calc_unid) const
+{
+    return !suppressed()
+           && (wearing(EQ_RINGS, RING_INVISIBILITY, calc_unid)
+               || wearing_ego(EQ_CLOAK, SPARM_DARKNESS, calc_unid)
+               || scan_artefacts(ARTP_INVISIBLE, calc_unid));
+}
+
+// Return an int so we know whether an item is the sole source.
+int actor::evokable_flight(bool calc_unid) const
+{
+    if (is_player() && you.form == TRAN_TREE)
+        return 0;
+
+    if (suppressed())
+        return 0;
+
+    return wearing(EQ_RINGS, RING_FLIGHT, calc_unid)
+           + wearing_ego(EQ_ALL_ARMOUR, SPARM_FLYING, calc_unid)
+           + scan_artefacts(ARTP_FLY, calc_unid);
+}
+
+int actor::spirit_shield(bool calc_unid, bool items) const
+{
+    if (suppressed() || !items)
+        return 0;
+
+    return wearing_ego(EQ_ALL_ARMOUR, SPARM_SPIRIT_SHIELD, calc_unid)
+           + wearing(EQ_AMULET, AMU_GUARDIAN_SPIRIT, calc_unid);
+}
+
+int actor::apply_ac(int damage, int max_damage, ac_type ac_rule,
+                    int stab_bypass) const
+{
+    int ac = max(armour_class() - stab_bypass, 0);
+    int gdr = gdr_perc();
+    int saved = 0;
+    switch (ac_rule)
+    {
+    case AC_NONE:
+        return damage; // no GDR, too
+    case AC_PROPORTIONAL:
+        ASSERT(stab_bypass == 0);
+        saved = damage - apply_chunked_AC(damage, ac);
+        saved = max(saved, div_rand_round(max_damage * gdr, 100));
+        return max(damage - saved, 0);
+
+    case AC_NORMAL:
+        saved = random2(1 + ac);
+        break;
+    case AC_HALF:
+        saved = random2(1 + ac) / 2;
+        ac /= 2;
+        gdr /= 2;
+        break;
+    case AC_TRIPLE:
+        saved = random2(1 + ac) + random2(1 + ac) + random2(1 + ac);
+        ac *= 3;
+        // apply GDR only twice rather than thrice, that's probably still waaay
+        // too good.  50% gives 75% rather than 100%, too.
+        gdr = 100 - gdr * gdr / 100;
+        break;
+    default:
+        die("invalid AC rule");
+    }
+
+    saved = max(saved, min(gdr * max_damage / 100, ac / 2));
+    return max(damage - saved, 0);
+}
+
 bool actor_slime_wall_immune(const actor *act)
 {
-    // res_acid is immunity only for monsters; players need Jiyva
-    return (act->is_player() ?
-              you.religion == GOD_JIYVA && !you.penance[GOD_JIYVA]
-            : act->res_acid());
+    return
+       act->is_player() && you.religion == GOD_JIYVA && !you.penance[GOD_JIYVA]
+       || act->res_acid() == 3;
 }
+
 /**
  * Accessor method to the clinging member.
  *
@@ -395,7 +590,7 @@ void actor::clear_far_constrictions()
     if (!constricting)
         return;
 
-    std::vector<mid_t> need_cleared;
+    vector<mid_t> need_cleared;
     constricting_t::iterator i;
     for (i = constricting->begin(); i != constricting->end(); ++i)
     {
@@ -404,7 +599,7 @@ void actor::clear_far_constrictions()
             need_cleared.push_back(i->first);
     }
 
-    std::vector<mid_t>::iterator j;
+    vector<mid_t>::iterator j;
     for (j = need_cleared.begin(); j != need_cleared.end(); ++j)
         stop_constricting(*j, false, false);
 }
@@ -505,7 +700,7 @@ void actor::handle_constriction()
         damage = defender->hurt(this, damage, BEAM_MISSILE, false);
         DIAG_ONLY(const int infdam = damage);
 
-        std::string exclams;
+        string exclams;
         if (damage <= 0 && is_player()
             && you.can_see(defender))
         {
@@ -558,4 +753,63 @@ void actor::handle_constriction()
             monster_die(defender->as_monster(), this);
         }
     }
+}
+
+string actor::describe_props() const
+{
+    ostringstream oss;
+
+    if (props.size() == 0)
+        return "";
+
+    for (CrawlHashTable::const_iterator i = props.begin(); i != props.end(); ++i)
+    {
+        if (i != props.begin())
+            oss <<  ", ";
+        oss << string(i->first) << ": ";
+
+        CrawlStoreValue val = i->second;
+
+        switch (val.get_type())
+        {
+            case SV_BOOL:
+                oss << val.get_bool();
+                break;
+            case SV_BYTE:
+                oss << val.get_byte();
+                break;
+            case SV_SHORT:
+                oss << val.get_short();
+                break;
+            case SV_INT:
+                oss << val.get_int();
+                break;
+            case SV_FLOAT:
+                oss << val.get_float();
+                break;
+            case SV_STR:
+                oss << val.get_string();
+                break;
+            case SV_COORD:
+            {
+                coord_def coord = val.get_coord();
+                oss << "(" << coord.x << ", " << coord.y << ")";
+                break;
+            }
+            case SV_MONST:
+            {
+                monster mon = val.get_monster();
+                oss << mon.name(DESC_PLAIN) << "(" << mon.mid << ")";
+                break;
+            }
+            case SV_INT64:
+                oss << val.get_int64();
+                break;
+
+            default:
+                oss << "???";
+                break;
+        }
+    }
+    return oss.str();
 }

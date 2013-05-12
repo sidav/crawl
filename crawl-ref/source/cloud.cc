@@ -18,22 +18,23 @@
 #include "coordit.h"
 #include "dungeon.h"
 #include "env.h"
-#include "fight.h"
 #include "fprop.h"
 #include "godconduct.h"
 #include "los.h"
+#include "losglobal.h"
+#include "melee_attack.h"
 #include "misc.h"
 #include "mon-behv.h"
-#include "monster.h"
 #include "mutation.h"
 #include "ouch.h"
-#include "player.h"
 #include "random.h"
 #include "religion.h"
 #include "state.h"
+#include "stuff.h"
 #include "terrain.h"
 #include "tiledef-gui.h"
 #include "tiledef-main.h"
+#include "unwind.h"
 
 static int _actor_cloud_damage(actor *act, const cloud_struct &cloud,
                                bool maximum_damage);
@@ -59,57 +60,6 @@ static int _actual_spread_rate(cloud_type type, int spread_rate)
     }
 }
 
-cloud_type beam2cloud(beam_type flavour)
-{
-    switch (flavour)
-    {
-    default:
-    case BEAM_NONE:
-        return CLOUD_NONE;
-    case BEAM_FIRE:
-    case BEAM_POTION_FIRE:
-        return CLOUD_FIRE;
-    case BEAM_POTION_MEPHITIC:
-        return CLOUD_MEPHITIC;
-    case BEAM_COLD:
-    case BEAM_POTION_COLD:
-        return CLOUD_COLD;
-    case BEAM_POISON:
-    case BEAM_POTION_POISON:
-        return CLOUD_POISON;
-    case BEAM_POTION_BLACK_SMOKE:
-        return CLOUD_BLACK_SMOKE;
-    case BEAM_POTION_GREY_SMOKE:
-        return CLOUD_GREY_SMOKE;
-    case BEAM_POTION_BLUE_SMOKE:
-        return CLOUD_BLUE_SMOKE;
-    case BEAM_POTION_PURPLE_SMOKE:
-        return CLOUD_PURPLE_SMOKE;
-    case BEAM_STEAM:
-    case BEAM_POTION_STEAM:
-        return CLOUD_STEAM;
-    case BEAM_MIASMA:
-    case BEAM_POTION_MIASMA:
-        return CLOUD_MIASMA;
-    case BEAM_CHAOS:
-        return CLOUD_CHAOS;
-    case BEAM_POTION_RAIN:
-        return CLOUD_RAIN;
-    case BEAM_POTION_MUTAGENIC:
-        return CLOUD_MUTAGENIC;
-    case BEAM_GLOOM:
-        return CLOUD_GLOOM;
-    case BEAM_RANDOM:
-        return CLOUD_RANDOM;
-    case BEAM_INK:
-        return CLOUD_INK;
-    case BEAM_HOLY_FLAME:
-        return CLOUD_HOLY_FLAMES;
-    case BEAM_PETRIFYING_CLOUD:
-        return CLOUD_PETRIFY;
-    }
-}
-
 static beam_type _cloud2beam(cloud_type flavour)
 {
     switch (flavour)
@@ -118,18 +68,12 @@ static beam_type _cloud2beam(cloud_type flavour)
     case CLOUD_NONE:         return BEAM_NONE;
     case CLOUD_FIRE:         return BEAM_FIRE;
     case CLOUD_FOREST_FIRE:  return BEAM_FIRE;
-    case CLOUD_MEPHITIC:     return BEAM_POTION_MEPHITIC;
+    case CLOUD_MEPHITIC:     return BEAM_MEPHITIC;
     case CLOUD_COLD:         return BEAM_COLD;
     case CLOUD_POISON:       return BEAM_POISON;
-    case CLOUD_BLACK_SMOKE:  return BEAM_POTION_BLACK_SMOKE;
-    case CLOUD_GREY_SMOKE:   return BEAM_POTION_GREY_SMOKE;
-    case CLOUD_BLUE_SMOKE:   return BEAM_POTION_BLUE_SMOKE;
-    case CLOUD_PURPLE_SMOKE: return BEAM_POTION_PURPLE_SMOKE;
     case CLOUD_STEAM:        return BEAM_STEAM;
     case CLOUD_MIASMA:       return BEAM_MIASMA;
     case CLOUD_CHAOS:        return BEAM_CHAOS;
-    case CLOUD_RAIN:         return BEAM_POTION_RAIN;
-    case CLOUD_MUTAGENIC:    return BEAM_POTION_MUTAGENIC;
     case CLOUD_GLOOM:        return BEAM_GLOOM;
     case CLOUD_INK:          return BEAM_INK;
     case CLOUD_HOLY_FLAMES:  return BEAM_HOLY_FLAME;
@@ -172,7 +116,7 @@ static void _los_cloud_changed(const coord_def& p, cloud_type t)
 static void _new_cloud(int cloud, cloud_type type, const coord_def& p,
                         int decay, kill_category whose, killer_type killer,
                         mid_t source, uint8_t spread_rate, int colour,
-                        std::string name, std::string tile, int excl_rad)
+                        string name, string tile, int excl_rad)
 {
     ASSERT(env.cloud[cloud].type == CLOUD_NONE);
     ASSERT(_killer_whose_match(whose, killer));
@@ -209,8 +153,8 @@ static void _place_new_cloud(cloud_type cltype, const coord_def& p, int decay,
                              kill_category whose, killer_type killer,
                              mid_t source,
                              int spread_rate = -1, int colour = -1,
-                             std::string name = "",
-                             std::string tile = "", int excl_rad = -1)
+                             string name = "",
+                             string tile = "", int excl_rad = -1)
 {
     if (env.cloud_no >= MAX_CLOUDS)
         return;
@@ -396,6 +340,8 @@ void manage_clouds()
 
 static void _maybe_leave_water(const cloud_struct& c)
 {
+    ASSERT(in_bounds(c.pos));
+
     // Rain clouds can occasionally leave shallow water or deepen it:
     // If we're near lava, chance of leaving water is lower;
     // if we're near deep water already, chance of leaving water
@@ -405,14 +351,15 @@ static void _maybe_leave_water(const cloud_struct& c)
     {
         dungeon_feature_type feat;
 
-       if (grd(c.pos) == DNGN_FLOOR)
-           feat = DNGN_SHALLOW_WATER;
-       else if (grd(c.pos) == DNGN_SHALLOW_WATER && you.pos() != c.pos
-                && one_chance_in(3) && !crawl_state.game_is_zotdef())
-           // Don't drown the player!
-           feat = DNGN_DEEP_WATER;
-       else
-           feat = grd(c.pos);
+        if (grd(c.pos) == DNGN_FLOOR)
+            feat = DNGN_SHALLOW_WATER;
+        else if (grd(c.pos) == DNGN_SHALLOW_WATER && you.pos() != c.pos
+                 && one_chance_in(3) && !crawl_state.game_is_zotdef()
+                 && !crawl_state.game_is_sprint())
+            // Don't drown the player!
+            feat = DNGN_DEEP_WATER;
+        else
+            feat = grd(c.pos);
 
         if (grd(c.pos) != feat)
         {
@@ -525,7 +472,7 @@ void swap_clouds(coord_def p1, coord_def p2)
 // exist at that point.
 void check_place_cloud(cloud_type cl_type, const coord_def& p, int lifetime,
                        const actor *agent, int spread_rate, int colour,
-                       std::string name, std::string tile, int excl_rad)
+                       string name, string tile, int excl_rad)
 {
     if (!in_bounds(p) || env.cgrid(p) != EMPTY_CLOUD)
         return;
@@ -539,8 +486,8 @@ void check_place_cloud(cloud_type cl_type, const coord_def& p, int lifetime,
 
 static int _steam_cloud_damage(int decay)
 {
-    decay = std::min(decay, 60);
-    decay = std::max(decay, 10);
+    decay = min(decay, 60);
+    decay = max(decay, 10);
 
     // Damage in range 3 - 16.
     return ((decay * 13 + 20) / 50);
@@ -575,7 +522,7 @@ static bool cloud_is_stronger(cloud_type ct, int cl)
 //   cloud under some circumstances.
 void place_cloud(cloud_type cl_type, const coord_def& ctarget, int cl_range,
                  const actor *agent, int _spread_rate, int colour,
-                 std::string name, std::string tile, int excl_rad)
+                 string name, string tile, int excl_rad)
 {
     if (is_sanctuary(ctarget) && !is_harmless_cloud(cl_type))
         return;
@@ -817,7 +764,7 @@ static bool _actor_cloud_immune(const actor *act, const cloud_struct &cloud)
     case CLOUD_MIASMA:
         return act->res_rotting() > 0;
     case CLOUD_PETRIFY:
-        return act->res_petrify() > 0;
+        return act->res_petrify();
     default:
         return false;
     }
@@ -882,20 +829,11 @@ bool _actor_apply_cloud_side_effects(actor *act,
         }
         if (player)
         {
-            bool affected = false;
             if (you.duration[DUR_FIRE_SHIELD] > 1)
             {
                 you.duration[DUR_FIRE_SHIELD] = 1;
-                affected = true;
+                return true;
             }
-
-            if (you.misled())
-            {
-                mpr("The rain washes away your illusions!", MSGCH_DURATION);
-                you.duration[DUR_MISLED] = 0;
-                affected = true;
-            }
-            return affected;
         }
         break;
 
@@ -964,9 +902,7 @@ bool _actor_apply_cloud_side_effects(actor *act,
                           cloud.cloud_name());
         }
         else
-        {
             poison_monster(mons, find_agent(cloud.source, cloud.whose));
-        }
         return true;
 
 
@@ -980,9 +916,7 @@ bool _actor_apply_cloud_side_effects(actor *act,
                 miasma_player(cloud.cloud_name());
         }
         else
-        {
             miasma_monster(mons, find_agent(cloud.source, cloud.whose));
-        }
         break;
 
     case CLOUD_MUTAGENIC:
@@ -1048,7 +982,7 @@ static int _cloud_damage_output(actor *actor,
     if (maximum_damage)
         return resist_adjusted_damage;
 
-    return std::max(0, resist_adjusted_damage - random2(actor->armour_class()));
+    return max(0, resist_adjusted_damage - random2(actor->armour_class()));
 }
 
 static int _actor_cloud_damage(actor *act,
@@ -1091,15 +1025,18 @@ int actor_apply_cloud(actor *act)
     const cloud_struct &cloud(env.cloud[cl]);
     const bool player = act->is_player();
     monster *mons = !player? act->as_monster() : NULL;
+    const beam_type cloud_flavour = _cloud2beam(cloud.type);
 
     if (_actor_cloud_immune(act, cloud))
+    {
+        maybe_id_resist(cloud_flavour);
         return 0;
+    }
 
     const int resist = _actor_cloud_resist(act, cloud);
     const int cloud_max_base_damage =
         _actor_cloud_base_damage(act, cloud, resist, true);
     const int final_damage = _actor_cloud_damage(act, cloud, false);
-    const beam_type cloud_flavour = _cloud2beam(cloud.type);
 
     if (player || final_damage > 0
         || _cloud_has_negative_side_effects(cloud.type))
@@ -1113,7 +1050,7 @@ int actor_apply_cloud(actor *act)
     }
 
     if (player && cloud_flavour != BEAM_NONE)
-        expose_player_to_element(cloud_flavour, 7);
+        expose_player_to_element(cloud_flavour, 7, true, false);
 
     const bool side_effects =
         _actor_apply_cloud_side_effects(act, cloud, final_damage);
@@ -1224,7 +1161,7 @@ bool in_what_cloud(cloud_type type)
     return false;
 }
 
-std::string cloud_name_at_index(int cloudno)
+string cloud_name_at_index(int cloudno)
 {
     if (!env.cloud[cloudno].name.empty())
         return env.cloud[cloudno].name;
@@ -1262,7 +1199,7 @@ static const char *_verbose_cloud_names[] =
     "sparse dust",
 };
 
-std::string cloud_type_name(cloud_type type, bool terse)
+string cloud_type_name(cloud_type type, bool terse)
 {
     COMPILE_CHECK(ARRAYSZ(_terse_cloud_names) == NUM_CLOUD_TYPES);
     COMPILE_CHECK(ARRAYSZ(_verbose_cloud_names) == NUM_CLOUD_TYPES);
@@ -1333,7 +1270,7 @@ void cloud_struct::set_killer(killer_type _killer)
     }
 }
 
-std::string cloud_struct::cloud_name(const std::string &defname,
+string cloud_struct::cloud_name(const string &defname,
                                      bool terse) const
 {
     return (!name.empty()    ? name :

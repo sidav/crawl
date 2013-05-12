@@ -16,17 +16,19 @@
 #include "database.h"
 #include "delay.h"
 #include "dactions.h"
-#include "directn.h"
+#include "describe.h"
 #include "effects.h"
 #include "env.h"
 #include "files.h"
 #include "food.h"
 #include "fprop.h"
 #include "godabil.h"
+#include "godcompanions.h"
 #include "goditem.h"
 #include "invent.h"
 #include "itemprop.h"
 #include "items.h"
+#include "losglobal.h"
 #include "libutil.h"
 #include "message.h"
 #include "misc.h"
@@ -36,15 +38,14 @@
 #include "mon-place.h"
 #include "mgen_data.h"
 #include "mon-stuff.h"
-#include "mon-util.h"
 #include "mutation.h"
 #include "notes.h"
+#include "ouch.h"
 #include "place.h"
 #include "player-stats.h"
 #include "random.h"
 #include "religion.h"
 #include "skill_menu.h"
-#include "skills2.h"
 #include "shopping.h"
 #include "shout.h"
 #include "spl-book.h"
@@ -55,7 +56,9 @@
 #include "stash.h"
 #include "state.h"
 #include "stuff.h"
+#include "target.h"
 #include "terrain.h"
+#include "unwind.h"
 #include "view.h"
 #include "viewgeom.h"
 
@@ -65,7 +68,7 @@
 
 static void _zin_saltify(monster* mon);
 
-std::string zin_recite_text(int* trits, size_t len, int prayertype, int step)
+string zin_recite_text(int* trits, size_t len, int prayertype, int step)
 {
     // 'prayertype':
     // This is in enum.h; there are currently five prayers.
@@ -90,7 +93,7 @@ std::string zin_recite_text(int* trits, size_t len, int prayertype, int step)
     int chapter = 1 + trits[0] + trits[1] * 3 + trits[2] * 9;
     int verse = 1 + trits[3] + trits[4] * 3 + trits[5] * 9 + trits[6] * 27;
 
-    std::string sinner_text[12] =
+    string sinner_text[12] =
     {
         "hordes of the Abyss",
         "bastard children of Xom",
@@ -106,7 +109,7 @@ std::string zin_recite_text(int* trits, size_t len, int prayertype, int step)
         "forces of darkness",
     };
 
-    std::string sin_text[12] =
+    string sin_text[12] =
     {
         "chaotic",
         "discordant",
@@ -122,7 +125,7 @@ std::string zin_recite_text(int* trits, size_t len, int prayertype, int step)
         "sacrilegious",
     };
 
-    std::string long_sin_text[12] =
+    string long_sin_text[12] =
     {
         "chaos",
         "discord",
@@ -138,7 +141,7 @@ std::string zin_recite_text(int* trits, size_t len, int prayertype, int step)
         "sacrilege",
     };
 
-    std::string virtue_text[12] =
+    string virtue_text[12] =
     {
         "ordered",
         "harmonic",
@@ -154,7 +157,7 @@ std::string zin_recite_text(int* trits, size_t len, int prayertype, int step)
         "obedient",
     };
 
-    std::string long_virtue_text[12] =
+    string long_virtue_text[12] =
     {
         "order",
         "harmony",
@@ -170,7 +173,7 @@ std::string zin_recite_text(int* trits, size_t len, int prayertype, int step)
         "obedience",
     };
 
-    std::string smite_text[9] =
+    string smite_text[9] =
     {
         "purify",
         "censure",
@@ -183,7 +186,7 @@ std::string zin_recite_text(int* trits, size_t len, int prayertype, int step)
         "rebuke",
     };
 
-    std::string smitten_text[9] =
+    string smitten_text[9] =
     {
         "purified",
         "censured",
@@ -196,18 +199,17 @@ std::string zin_recite_text(int* trits, size_t len, int prayertype, int step)
         "rebuked",
     };
 
-    std::string sinner = sinner_text[trits[3] + prayertype * 3];
-    std::string sin[2] = {sin_text[trits[6] + prayertype * 3],
-                          long_sin_text[trits[6] + prayertype * 3]};
-    std::string virtue[2] = {virtue_text[trits[6] + prayertype * 3],
-                             long_virtue_text[trits[6] + prayertype * 3]};
-    std::string smite[2] = {smite_text[(trits[4] + trits[5] * 3)],
-                            smitten_text[(trits[4] + trits[5] * 3)]};
+    string sinner = sinner_text[trits[3] + prayertype * 3];
+    string sin[2] = {sin_text[trits[6] + prayertype * 3],
+                     long_sin_text[trits[6] + prayertype * 3]};
+    string virtue[2] = {virtue_text[trits[6] + prayertype * 3],
+                        long_virtue_text[trits[6] + prayertype * 3]};
+    string smite[2] = {smite_text[(trits[4] + trits[5] * 3)],
+                       smitten_text[(trits[4] + trits[5] * 3)]};
 
-    std::string turn[4] = {"This is only here because arrays start from 0.",
-                           "Zin is a buggy god.",
-                           "Please report this.",
-                           "This isn't right at all."};
+    string turn[4] = {"This is only here because arrays start from 0.",
+                      "Zin is a buggy god.", "Please report this.",
+                      "This isn't right at all."};
 
     switch (chapter)
     {
@@ -394,17 +396,17 @@ std::string zin_recite_text(int* trits, size_t len, int prayertype, int step)
             break;
     }
 
-    std::string recite = "Hail Satan.";
+    string recite = "Hail Satan.";
 
     if (step == -1)
     {
-        std::string bookname = (prayertype == RECITE_CHAOTIC)  ?  "Abominations"  :
-                               (prayertype == RECITE_IMPURE)   ?  "Ablutions"     :
-                               (prayertype == RECITE_HERETIC)  ?  "Apostates"     :
-                               (prayertype == RECITE_UNHOLY)   ?  "Anathema"      :
-                               (prayertype == RECITE_ALLY)     ?  "Alliances"     :
-                                                                  "Bugginess";
-        std::ostringstream numbers;
+        string bookname = (prayertype == RECITE_CHAOTIC)  ?  "Abominations"  :
+                          (prayertype == RECITE_IMPURE)   ?  "Ablutions"     :
+                          (prayertype == RECITE_HERETIC)  ?  "Apostates"     :
+                          (prayertype == RECITE_UNHOLY)   ?  "Anathema"      :
+                          (prayertype == RECITE_ALLY)     ?  "Alliances"     :
+                                                             "Bugginess";
+        ostringstream numbers;
         numbers << chapter;
         numbers << ":";
         numbers << verse;
@@ -545,7 +547,7 @@ static int _zin_check_recite_to_single_monster(const monster *mon,
             eligibility[RECITE_HERETIC]++;
 
         // ...as are evil gods.
-        if (is_evil_god(mon->god) || mon->god == GOD_NAMELESS)
+        if (is_evil_god(mon->god) || is_unknown_god(mon->god))
             eligibility[RECITE_HERETIC]++;
 
         // (The above mean that worshipers will be treated as
@@ -589,7 +591,7 @@ static int _zin_check_recite_to_single_monster(const monster *mon,
     }
 
 #ifdef DEBUG_DIAGNOSTICS
-    std::string elig;
+    string elig;
     for (int i = 0; i < NUM_RECITE_TYPES; i++)
         elig += '0' + eligibility[i];
     dprf("Eligibility: %s", elig.c_str());
@@ -708,7 +710,7 @@ int zin_check_recite_to_monsters(recite_type *prayertype)
 
     while (true)
     {
-        int keyn = tolower(getch_ck());
+        int keyn = toalower(getch_ck());
 
         if (keyn >= 'a' && keyn < 'a' + menu_cnt)
         {
@@ -1265,7 +1267,7 @@ bool zin_vitalisation()
         lessen_hunger(250, false);
 
     // Add divine stamina.
-    const int stamina_amt = std::max(1, you.skill_rdiv(SK_INVOCATIONS, 1, 3));
+    const int stamina_amt = max(1, you.skill_rdiv(SK_INVOCATIONS, 1, 3));
     you.attribute[ATTR_DIVINE_STAMINA] = stamina_amt;
     you.set_duration(DUR_DIVINE_STAMINA, 60 + roll_dice(2, 10));
 
@@ -1347,8 +1349,8 @@ void tso_divine_shield()
         if (you.shield()
             || you.duration[DUR_CONDENSATION_SHIELD])
         {
-            mprf("Your shield is strengthened by %s's divine power.",
-                 god_name(GOD_SHINING_ONE).c_str());
+            mprf("Your shield is strengthened by %s divine power.",
+                 apostrophise(god_name(GOD_SHINING_ONE)).c_str());
         }
         else
             mpr("A divine shield forms around you!");
@@ -1431,7 +1433,7 @@ void elyvilon_remove_divine_vigour()
 
 bool vehumet_supports_spell(spell_type spell)
 {
-    if (spell_typematch(spell, SPTYP_CONJURATION | SPTYP_SUMMONING))
+    if (spell_typematch(spell, SPTYP_CONJURATION))
         return true;
 
     // Conjurations work by conjuring up a chunk of short-lived matter and
@@ -1439,7 +1441,7 @@ bool vehumet_supports_spell(spell_type spell)
     // by no means it has a monopoly for being destructive.
     // Vehumet loves all direct physical destruction.
     if (spell == SPELL_SHATTER
-        || spell == SPELL_FRAGMENTATION // LRD
+        || spell == SPELL_LRD
         || spell == SPELL_SANDBLAST
         || spell == SPELL_AIRSTRIKE
         || spell == SPELL_TORNADO
@@ -1474,7 +1476,7 @@ bool trog_burn_spellbooks()
 
     int totalpiety = 0;
     int totalblocked = 0;
-    std::vector<coord_def> mimics;
+    vector<coord_def> mimics;
 
     for (radius_iterator ri(you.pos(), LOS_RADIUS, true, true, true); ri; ++ri)
     {
@@ -1509,13 +1511,9 @@ bool trog_burn_spellbooks()
                 continue;
             }
 
-            // Piety increases by 2 for books never cracked open, else 1.
-            // Conversely, rarity influences the duration of the pyre.
-            if (!item_type_known(*si))
-                totalpiety += 2;
-            else
-                totalpiety++;
+            totalpiety += 2;
 
+            // Rarity influences the duration of the pyre.
             rarity += book_rarity(si->sub_type);
 
             dprf("Burned spellbook rarity: %d", rarity);
@@ -1537,7 +1535,7 @@ bool trog_burn_spellbooks()
                 continue;
             }
 
-            const int duration = std::min(4 + count + random2(rarity/2), 23);
+            const int duration = min(4 + count + random2(rarity/2), 23);
             place_cloud(CLOUD_FIRE, *ri, duration, &you);
 
             mprf(MSGCH_GOD, "The spellbook%s burst%s into flames.",
@@ -1556,7 +1554,7 @@ bool trog_burn_spellbooks()
         mprf("The spellbook%s fail%s to ignite!",
              totalblocked == 1 ? ""  : "s",
              totalblocked == 1 ? "s" : "");
-        for (std::vector<coord_def>::iterator it = mimics.begin();
+        for (vector<coord_def>::iterator it = mimics.begin();
              it != mimics.end(); ++it)
         {
             discover_mimic(*it, false);
@@ -1578,20 +1576,20 @@ bool beogh_water_walk()
             && you.piety >= piety_breakpoint(4));
 }
 
-bool jiyva_can_paralyse_jellies()
-{
-    return (you.religion == GOD_JIYVA && !player_under_penance()
-            && you.piety >= piety_breakpoint(2));
-}
-
 void jiyva_paralyse_jellies()
 {
+    mprf(MSGCH_PRAY, "You %s prayer to %s.",
+         you.duration[DUR_JELLY_PRAYER] ? "renew your" : "offer a",
+         god_name(you.religion).c_str());
+
+    you.duration[DUR_JELLY_PRAYER] = 200;
+
     int jelly_count = 0;
     for (radius_iterator ri(you.pos(), LOS_RADIUS); ri; ++ri)
     {
         monster* mon = monster_at(*ri);
 
-        if (mon != NULL && mons_is_slime(mon))
+        if (mon != NULL && mons_is_slime(mon) && !mon->is_shapeshifter())
         {
             mon->add_ench(mon_enchant(ENCH_PARALYSIS, 0,
                                       &you, 200));
@@ -1699,7 +1697,7 @@ void yred_drain_life()
 
     hp_gain /= 2;
 
-    hp_gain = std::min(pow * 2, hp_gain);
+    hp_gain = min(pow * 2, hp_gain);
 
     if (hp_gain)
     {
@@ -1713,10 +1711,10 @@ void yred_make_enslaved_soul(monster* mon, bool force_hostile)
     ASSERT(mons_enslaved_body_and_soul(mon));
 
     add_daction(DACT_OLD_ENSLAVED_SOULS_POOF);
+    remove_enslaved_soul_companion();
 
-    const std::string whose =
-        you.can_see(mon) ? apostrophise(mon->name(DESC_THE))
-                         : mon->pronoun(PRONOUN_POSSESSIVE);
+    const string whose = you.can_see(mon) ? apostrophise(mon->name(DESC_THE))
+                                          : mon->pronoun(PRONOUN_POSSESSIVE);
 
     // Remove the monster's soul-enslaving enchantment, as it's no
     // longer needed.
@@ -1744,7 +1742,7 @@ void yred_make_enslaved_soul(monster* mon, bool force_hostile)
     // be rerolled to match.
     if (mon->hit_dice != orig.hit_dice)
     {
-        mon->hit_dice = std::max(orig.hit_dice, 1);
+        mon->hit_dice = max(orig.hit_dice, 1);
         roll_zombie_hp(mon);
     }
 
@@ -1762,6 +1760,7 @@ void yred_make_enslaved_soul(monster* mon, bool force_hostile)
     name_zombie(mon, &orig);
 
     mons_make_god_gift(mon, GOD_YREDELEMNUL);
+    add_companion(mon);
 
     mon->attitude = !force_hostile ? ATT_FRIENDLY : ATT_HOSTILE;
     behaviour_event(mon, ME_ALERT, force_hostile ? &you : 0);
@@ -1820,8 +1819,12 @@ bool kiku_receive_corpses(int pow, coord_def where)
         int adjusted_power = 0;
         for (int i = 0; i < 200 && !mons_class_can_be_zombified(mon_type); ++i)
         {
-            adjusted_power = std::min(pow / 4, random2(random2(pow)));
-            mon_type = pick_local_zombifiable_monster(adjusted_power);
+            adjusted_power = min(pow / 4, random2(random2(pow)));
+            // Pick a place based on the power.  This may be below the branch's
+            // start, that's ok.
+            level_id lev(you.where_are_you, adjusted_power
+                - absdungeon_depth(you.where_are_you, 0));
+            mon_type = pick_local_zombifiable_monster(lev);
         }
 
         // Create corpse object.
@@ -1911,7 +1914,7 @@ bool fedhas_passthrough(const monster* target)
 {
     return (target
             && fedhas_passthrough_class(target->type)
-            && (target->type != MONS_OKLOB_PLANT
+            && (mons_species(target->type) != MONS_OKLOB_PLANT
                 || target->attitude != ATT_HOSTILE));
 }
 
@@ -1919,15 +1922,15 @@ bool fedhas_passthrough(const monster_info* target)
 {
     return (target
             && fedhas_passthrough_class(target->type)
-            && (target->type != MONS_OKLOB_PLANT
+            && (mons_species(target->type) != MONS_OKLOB_PLANT
                 || target->attitude != ATT_HOSTILE));
 }
 
 // Fedhas worshipers can shoot through non-hostile plants, can a
 // particular beam go through a particular monster?
-bool fedhas_shoot_through(const bolt & beam, const monster* victim)
+bool fedhas_shoot_through(const bolt& beam, const monster* victim)
 {
-    actor * originator = beam.agent();
+    actor *originator = beam.agent();
     if (!victim || !originator)
         return false;
 
@@ -1972,12 +1975,12 @@ int fedhas_fungal_bloom()
         if (!can_spawn_mushrooms(*i))
             continue;
 
-        if (target && target->mons_species() != MONS_TOADSTOOL)
+        if (target && target->type != MONS_TOADSTOOL)
         {
             bool piety = !target->is_summoned();
             switch (mons_genus(target->mons_species()))
             {
-            case MONS_ZOMBIE_SMALL:
+            case MONS_ZOMBIE:
                 // Maybe turn a zombie into a skeleton.
                 if (mons_skeleton(mons_zombie_base(target)))
                 {
@@ -2088,7 +2091,7 @@ int fedhas_fungal_bloom()
     if (processed_count)
     {
         simple_god_message(" appreciates your contribution to the "
-                           "ecosystem.", GOD_FEDHAS);
+                           "ecosystem.");
         // Doubling the expected value per sacrifice to approximate the
         // extra piety gain blood god worshipers get for the initial kill.
         // -cao
@@ -2102,23 +2105,26 @@ int fedhas_fungal_bloom()
     return processed_count;
 }
 
-static bool _create_plant(coord_def & target, int hp_adjust = 0)
+static bool _create_plant(coord_def& target, int hp_adjust = 0)
 {
     if (actor_at(target) || !mons_class_can_pass(MONS_PLANT, grd(target)))
         return 0;
 
-    if (monster *plant = create_monster(mgen_data
-                                     (MONS_PLANT,
-                                      BEH_FRIENDLY,
-                                      &you,
-                                      0,
-                                      0,
-                                      target,
-                                      MHITNOT,
-                                      MG_FORCE_PLACE,
-                                      GOD_FEDHAS)))
+    if (monster *plant = create_monster(mgen_data(MONS_PLANT,
+                                            BEH_FRIENDLY,
+                                            &you,
+                                            0,
+                                            0,
+                                            target,
+                                            MHITNOT,
+                                            MG_FORCE_PLACE,
+                                            GOD_FEDHAS)))
     {
+        plant->flags |= MF_NO_REWARD;
         plant->flags |= MF_ATT_CHANGE_ATTEMPT;
+
+        mons_make_god_gift(plant, GOD_FEDHAS);
+
         plant->max_hit_points += hp_adjust;
         plant->hit_points += hp_adjust;
 
@@ -2174,8 +2180,8 @@ bool fedhas_sunlight()
                 erase_any(env.sunlight, i);
                 break;
             }
-        env.sunlight.push_back(std::pair<coord_def, int>(*ai,
-            you.elapsed_time + (distance(*ai, base) <= 1 ? SUNLIGHT_DURATION
+        env.sunlight.push_back(pair<coord_def, int>(*ai,
+            you.elapsed_time + (distance2(*ai, base) <= 1 ? SUNLIGHT_DURATION
                                 : SUNLIGHT_DURATION / 2)));
 
         temp_bolt.explosion_draw_cell(*ai);
@@ -2243,7 +2249,7 @@ void process_sunlights(bool future)
             }
         }
 
-        until = std::min(until, time_cap);
+        until = min(until, time_cap);
         int from = you.elapsed_time - you.time_taken;
 
         // Deterministic roll, to guarantee evaporation when shined long enough.
@@ -2251,7 +2257,7 @@ void process_sunlights(bool future)
         to_hash.place = get_packed_place();
         to_hash.coord = c;
         to_hash.game_start = you.birth_time;
-        int h = hash(&to_hash, sizeof(to_hash)) % SUNLIGHT_DURATION;
+        int h = hash32(&to_hash, sizeof(to_hash)) % SUNLIGHT_DURATION;
 
         if ((from + h) / SUNLIGHT_DURATION == (until + h) / SUNLIGHT_DURATION)
             continue;
@@ -2317,17 +2323,17 @@ static bool less_second(const T & left, const T & right)
     return (left.second < right.second);
 }
 
-typedef std::pair<coord_def, int> point_distance;
+typedef pair<coord_def, int> point_distance;
 
 // Find the distance from origin to each of the targets, those results
 // are stored in distances (which is the same size as targets). Exclusion
 // is a set of points which are considered disconnected for the search.
-static void _path_distance(const coord_def & origin,
-                           const std::vector<coord_def> & targets,
-                           std::set<int> exclusion,
-                           std::vector<int> & distances)
+static void _path_distance(const coord_def& origin,
+                           const vector<coord_def>& targets,
+                           set<int> exclusion,
+                           vector<int>& distances)
 {
-    std::queue<point_distance> fringe;
+    queue<point_distance> fringe;
     fringe.push(point_distance(origin,0));
     distances.clear();
     distances.resize(targets.size(), INT_MAX);
@@ -2369,23 +2375,23 @@ static void _path_distance(const coord_def & origin,
 
 // Find the minimum distance from each point of origin to one of the targets
 // The distance is stored in 'distances', which is the same size as origins.
-static void _point_point_distance(const std::vector<coord_def> & origins,
-                                  const std::vector<coord_def> & targets,
-                                  std::vector<int> & distances)
+static void _point_point_distance(const vector<coord_def>& origins,
+                                  const vector<coord_def>& targets,
+                                  vector<int>& distances)
 {
     distances.clear();
     distances.resize(origins.size(), INT_MAX);
 
     // Consider all points of origin as blocked (you can search outward
     // from one, but you can't form a path across a different one).
-    std::set<int> base_exclusions;
+    set<int> base_exclusions;
     for (unsigned i = 0; i < origins.size(); ++i)
     {
         int idx = origins[i].x + origins[i].y * X_WIDTH;
         base_exclusions.insert(idx);
     }
 
-    std::vector<int> current_distances;
+    vector<int> current_distances;
     for (unsigned i = 0; i < origins.size(); ++i)
     {
         // Find the distance from the point of origin to each of the targets.
@@ -2406,11 +2412,11 @@ static void _point_point_distance(const std::vector<coord_def> & origins,
 // We claim danger is proportional to the minimum distances from the point to a
 // (hostile) monster. This function carries out at most 7 searches to calculate
 // the distances in question.
-bool prioritise_adjacent(const coord_def &target, std::vector<coord_def> & candidates)
+bool prioritise_adjacent(const coord_def &target, vector<coord_def>& candidates)
 {
     radius_iterator los_it(target, LOS_RADIUS, true, true, true);
 
-    std::vector<coord_def> mons_positions;
+    vector<coord_def> mons_positions;
     // collect hostile monster positions in LOS
     for (; los_it; ++los_it)
     {
@@ -2425,15 +2431,15 @@ bool prioritise_adjacent(const coord_def &target, std::vector<coord_def> & candi
 
     if (mons_positions.empty())
     {
-        std::random_shuffle(candidates.begin(), candidates.end());
+        random_shuffle(candidates.begin(), candidates.end());
         return true;
     }
 
-    std::vector<int> distances;
+    vector<int> distances;
 
     _point_point_distance(candidates, mons_positions, distances);
 
-    std::vector<point_distance> possible_moves(candidates.size());
+    vector<point_distance> possible_moves(candidates.size());
 
     for (unsigned i = 0; i < possible_moves.size(); ++i)
     {
@@ -2441,7 +2447,7 @@ bool prioritise_adjacent(const coord_def &target, std::vector<coord_def> & candi
         possible_moves[i].second = distances[i];
     }
 
-    std::sort(possible_moves.begin(), possible_moves.end(),
+    sort(possible_moves.begin(), possible_moves.end(),
               less_second<point_distance>);
 
     for (unsigned i = 0; i < candidates.size(); ++i)
@@ -2450,13 +2456,12 @@ bool prioritise_adjacent(const coord_def &target, std::vector<coord_def> & candi
     return true;
 }
 
-static bool _prompt_amount(int max, int& selected, const std::string& prompt)
+static bool _prompt_amount(int max, int& selected, const string& prompt)
 {
     selected = max;
     while (true)
     {
-        msg::streams(MSGCH_PROMPT) << prompt << " (" << max << " max) "
-                                   << std::endl;
+        msg::streams(MSGCH_PROMPT) << prompt << " (" << max << " max) " << endl;
 
         const int keyin = get_ch();
 
@@ -2484,7 +2489,7 @@ static bool _prompt_amount(int max, int& selected, const std::string& prompt)
     return max;
 }
 
-static int _collect_fruit(std::vector<std::pair<int,int> >& available_fruit)
+static int _collect_fruit(vector<pair<int,int> >& available_fruit)
 {
     int total = 0;
 
@@ -2493,21 +2498,20 @@ static int _collect_fruit(std::vector<std::pair<int,int> >& available_fruit)
         if (you.inv[i].defined() && is_fruit(you.inv[i]))
         {
             total += you.inv[i].quantity;
-            available_fruit.push_back(std::make_pair(you.inv[i].quantity, i));
+            available_fruit.push_back(make_pair(you.inv[i].quantity, i));
         }
     }
-    std::sort(available_fruit.begin(), available_fruit.end());
+    sort(available_fruit.begin(), available_fruit.end());
 
     return total;
 }
 
-static void _decrease_amount(std::vector<std::pair<int, int> >& available,
-                             int amount)
+static void _decrease_amount(vector<pair<int, int> >& available, int amount)
 {
     const int total_decrease = amount;
     for (unsigned int i = 0; i < available.size() && amount > 0; i++)
     {
-        const int decrease_amount = std::min(available[i].first, amount);
+        const int decrease_amount = min(available[i].first, amount);
         amount -= decrease_amount;
         dec_inv_item_quantity(available[i].second, decrease_amount);
     }
@@ -2524,11 +2528,11 @@ static void _decrease_amount(std::vector<std::pair<int, int> >& available,
 bool fedhas_plant_ring_from_fruit()
 {
     // How much fruit is available?
-    std::vector<std::pair<int, int> > collected_fruit;
+    vector<pair<int, int> > collected_fruit;
     int total_fruit = _collect_fruit(collected_fruit);
 
     // How many adjacent open spaces are there?
-    std::vector<coord_def> adjacent;
+    vector<coord_def> adjacent;
     for (adjacent_iterator adj_it(you.pos()); adj_it; ++adj_it)
     {
         if (mons_class_can_pass(MONS_PLANT, env.grid(*adj_it))
@@ -2538,8 +2542,7 @@ bool fedhas_plant_ring_from_fruit()
         }
     }
 
-    const int max_use = std::min(total_fruit,
-                                 static_cast<int>(adjacent.size()));
+    const int max_use = min(total_fruit, static_cast<int>(adjacent.size()));
 
     // Don't prompt if we can't do anything (due to having no fruit or
     // no squares to place plants on).
@@ -2586,12 +2589,8 @@ bool fedhas_plant_ring_from_fruit()
     // are higher than that number.
 #ifndef USE_TILE_LOCAL
     unsigned not_used = adjacent.size() - unsigned(target_count);
-    for (unsigned i = adjacent.size() - not_used;
-         i < adjacent.size();
-         i++)
-    {
+    for (unsigned i = adjacent.size() - not_used; i < adjacent.size(); i++)
         view_update_at(adjacent[i]);
-    }
 #endif
 #ifdef USE_TILE
     // For tiles we have to clear all overlays and redraw the ones
@@ -2731,10 +2730,10 @@ int fedhas_rain(const coord_def &target)
 // and make 1 giant spore per corpse.  Spores are given the input as
 // their starting behavior; the function returns the number of corpses
 // processed.
-int fedhas_corpse_spores(beh_type behavior, bool interactive)
+int fedhas_corpse_spores(beh_type attitude, bool interactive)
 {
     int count = 0;
-    std::vector<stack_iterator> positions;
+    vector<stack_iterator> positions;
 
     for (radius_iterator rad(you.pos(), LOS_RADIUS, true, true, true); rad;
          ++rad)
@@ -2761,7 +2760,6 @@ int fedhas_corpse_spores(beh_type behavior, bool interactive)
     for (unsigned i = 0; i < positions.size(); ++i)
     {
 #ifndef USE_TILE_LOCAL
-
         coord_def temp = grid2view(positions[i]->pos);
         cgotoxy(temp.x, temp.y, GOTO_DNGN);
 
@@ -2786,21 +2784,27 @@ int fedhas_corpse_spores(beh_type behavior, bool interactive)
     for (unsigned i = 0; i < positions.size(); ++i)
     {
         count++;
-        if (monster *rc = create_monster(mgen_data(MONS_GIANT_SPORE,
-                                          behavior,
-                                          &you,
-                                          0,
-                                          0,
-                                          positions[i]->pos,
-                                          MHITNOT,
-                                          MG_FORCE_PLACE,
-                                          GOD_FEDHAS)))
+
+        if (monster *plant = create_monster(mgen_data(MONS_GIANT_SPORE,
+                                               attitude,
+                                               &you,
+                                               0,
+                                               0,
+                                               positions[i]->pos,
+                                               MHITNOT,
+                                               MG_FORCE_PLACE,
+                                               GOD_FEDHAS)))
         {
-            rc->flags |= MF_ATT_CHANGE_ATTEMPT;
-            if (behavior == BEH_FRIENDLY)
+            plant->flags |= MF_NO_REWARD;
+
+            if (attitude == BEH_FRIENDLY)
             {
-                rc->behaviour = BEH_WANDER;
-                rc->foe = MHITNOT;
+                plant->flags |= MF_ATT_CHANGE_ATTEMPT;
+
+                mons_make_god_gift(plant, GOD_FEDHAS);
+
+                plant->behaviour = BEH_WANDER;
+                plant->foe = MHITNOT;
             }
         }
 
@@ -2839,12 +2843,13 @@ struct monster_conversion
 // structure for it.  Return true (and fill in possible_monster) if the
 // monster can be upgraded, and return false otherwise.
 static bool _possible_evolution(const monster* input,
-                                monster_conversion & possible_monster)
+                                monster_conversion& possible_monster)
 {
     switch (input->type)
     {
     case MONS_PLANT:
     case MONS_BUSH:
+    case MONS_BURNING_BUSH:
         possible_monster.new_type = MONS_OKLOB_PLANT;
         possible_monster.fruit_cost = 1;
         break;
@@ -2878,18 +2883,23 @@ bool mons_is_evolvable(const monster* mon)
     return _possible_evolution(mon, temp);
 }
 
-static bool _place_ballisto(const coord_def & pos)
+static bool _place_ballisto(const coord_def& pos)
 {
-    if (create_monster(mgen_data(MONS_BALLISTOMYCETE,
-                                                  BEH_FRIENDLY,
-                                                  &you,
-                                                  0,
-                                                  0,
-                                                  pos,
-                                                  MHITNOT,
-                                                  MG_FORCE_PLACE,
-                                                  GOD_FEDHAS)))
+    if (monster *plant = create_monster(mgen_data(MONS_BALLISTOMYCETE,
+                                                      BEH_FRIENDLY,
+                                                      &you,
+                                                      0,
+                                                      0,
+                                                      pos,
+                                                      MHITNOT,
+                                                      MG_FORCE_PLACE,
+                                                      GOD_FEDHAS)))
     {
+        plant->flags |= MF_NO_REWARD;
+        plant->flags |= MF_ATT_CHANGE_ATTEMPT;
+
+        mons_make_god_gift(plant, GOD_FEDHAS);
+
         remove_mold(pos);
         mpr("The mold grows into a ballistomycete.");
         mpr("Your piety has decreased.");
@@ -2949,9 +2959,9 @@ bool fedhas_evolve_flora()
         return false;
     }
 
-    monster* const target = monster_at(spelld.target);
+    monster* const plant = monster_at(spelld.target);
 
-    if (!target)
+    if (!plant)
     {
         if (!is_moldy(spelld.target)
             || !mons_class_can_pass(MONS_BALLISTOMYCETE,
@@ -2967,20 +2977,22 @@ bool fedhas_evolve_flora()
 
     }
 
-    if (!_possible_evolution(target, upgrade))
+    if (!_possible_evolution(plant, upgrade))
     {
-        if (target->type == MONS_GIANT_SPORE)
+        if (plant->type == MONS_GIANT_SPORE)
             mpr("You can evolve only complete plants, not seeds.");
-        else  if (mons_is_plant(target))
-            simple_monster_message(target, " has already reached "
-                                   "the pinnacle of evolution.");
+        else  if (mons_is_plant(plant))
+        {
+            simple_monster_message(plant, " has already reached the pinnacle"
+                                   " of evolution.");
+        }
         else
             mpr("Only plants or fungi may be evolved.");
 
         return false;
     }
 
-    std::vector<std::pair<int, int> > collected_fruit;
+    vector<pair<int, int> > collected_fruit;
     if (upgrade.fruit_cost)
     {
         const int total_fruit = _collect_fruit(collected_fruit);
@@ -2998,12 +3010,12 @@ bool fedhas_evolve_flora()
         return false;
     }
 
-    switch (target->type)
+    switch (plant->type)
     {
     case MONS_PLANT:
     case MONS_BUSH:
     {
-        std::string evolve_desc = " can now spit acid";
+        string evolve_desc = " can now spit acid";
         int skill = you.skill(SK_INVOCATIONS);
         if (skill >= 20)
             evolve_desc += " continuously";
@@ -3015,22 +3027,22 @@ bool fedhas_evolve_flora()
             evolve_desc += " somewhat quickly";
         evolve_desc += ".";
 
-        simple_monster_message(target, evolve_desc.c_str());
+        simple_monster_message(plant, evolve_desc.c_str());
         break;
     }
 
     case MONS_OKLOB_SAPLING:
-        simple_monster_message(target, " appears stronger.");
+        simple_monster_message(plant, " appears stronger.");
         break;
 
     case MONS_FUNGUS:
     case MONS_TOADSTOOL:
-        simple_monster_message(target,
+        simple_monster_message(plant,
                                " can now pick up its mycelia and move.");
         break;
 
     case MONS_BALLISTOMYCETE:
-        simple_monster_message(target, " appears agitated.");
+        simple_monster_message(plant, " appears agitated.");
         env.level_state |= LSTATE_GLOW_MOLD;
         break;
 
@@ -3038,24 +3050,28 @@ bool fedhas_evolve_flora()
         break;
     }
 
-    target->upgrade_type(upgrade.new_type, true, true);
-    target->god = GOD_FEDHAS;
-    target->attitude = ATT_FRIENDLY;
-    target->flags |= MF_NO_REWARD;
-    target->flags |= MF_ATT_CHANGE_ATTEMPT;
-    behaviour_event(target, ME_ALERT);
-    mons_att_changed(target);
+    plant->upgrade_type(upgrade.new_type, true, true);
+
+    plant->flags |= MF_NO_REWARD;
+    plant->flags |= MF_ATT_CHANGE_ATTEMPT;
+
+    mons_make_god_gift(plant, GOD_FEDHAS);
+
+    plant->attitude = ATT_FRIENDLY;
+
+    behaviour_event(plant, ME_ALERT);
+    mons_att_changed(plant);
 
     // Try to remove slowly dying in case we are upgrading a
     // toadstool, and spore production in case we are upgrading a
     // ballistomycete.
-    target->del_ench(ENCH_SLOWLY_DYING);
-    target->del_ench(ENCH_SPORE_PRODUCTION);
+    plant->del_ench(ENCH_SLOWLY_DYING);
+    plant->del_ench(ENCH_SPORE_PRODUCTION);
 
-    if (target->type == MONS_HYPERACTIVE_BALLISTOMYCETE)
-        target->add_ench(ENCH_EXPLODING);
+    if (plant->type == MONS_HYPERACTIVE_BALLISTOMYCETE)
+        plant->add_ench(ENCH_EXPLODING);
 
-    target->hit_dice += you.skill_rdiv(SK_INVOCATIONS);
+    plant->hit_dice += you.skill_rdiv(SK_INVOCATIONS);
 
     if (upgrade.fruit_cost)
         _decrease_amount(collected_fruit, upgrade.fruit_cost);
@@ -3074,22 +3090,20 @@ static int _lugonu_warp_monster(monster* mon, int pow)
     if (mon == NULL)
         return 0;
 
+    if (coinflip())
+        return 0;
+
     if (!mon->friendly())
         behaviour_event(mon, ME_ANNOY, &you);
 
-    int res_margin = mon->check_res_magic(pow * 2);
-    if (res_margin > 0)
-    {
-        mprf("%s%s",
-             mon->name(DESC_THE).c_str(),
-             mons_resist_string(mon, res_margin));
-        return 1;
-    }
-
     const int damage = 1 + random2(pow / 6);
     if (mons_genus(mon->type) == MONS_BLINK_FROG)
+    {
+        mprf("%s basks in the distortional energy.",
+             mon->name(DESC_THE).c_str());
         mon->heal(damage, false);
-    else if (mon->check_res_magic(pow) <= 0)
+    }
+    else
     {
         mon->hurt(&you, damage);
         if (!mon->alive())

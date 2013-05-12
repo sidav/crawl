@@ -1,6 +1,6 @@
 define(["jquery", "comm", "client", "./enums",
-        "./dungeon_renderer", "./cell_renderer"],
-function ($, comm, client, enums, dungeon_renderer, cr) {
+        "./dungeon_renderer", "./cell_renderer", "./util"],
+function ($, comm, client, enums, dungeon_renderer, cr, util) {
     var chunk_size = 50;
 
     // Helpers
@@ -22,7 +22,7 @@ function ($, comm, client, enums, dungeon_renderer, cr) {
 
     function set_item_contents(item, elem)
     {
-        elem.html(formatted_string_to_html(item_text(item)));
+        elem.html(util.formatted_string_to_html(item_text(item)));
         var col = item_colour(item);
         elem.removeClass();
         elem.addClass("level" + item.level);
@@ -53,55 +53,6 @@ function ($, comm, client, enums, dungeon_renderer, cr) {
 
             elem.prepend(canvas);
         }
-    }
-
-    var cols = {
-        "black": 0,
-        "blue": 1,
-        "green": 2,
-        "cyan": 3,
-        "red": 4,
-        "magenta": 5,
-        "brown": 6,
-        "lightgrey": 7,
-        "lightgray": 7,
-        "darkgrey": 8,
-        "darkgray": 8,
-        "lightblue": 9,
-        "lightgreen": 10,
-        "lightcyan": 11,
-        "lightred": 12,
-        "lightmagenta": 13,
-        "yellow": 14,
-        "white": 15
-    };
-
-    function formatted_string_to_html(str)
-    {
-        var other_open = false;
-        return str.replace(/<(\/?[a-z]+)>/ig, function (str, p1) {
-            var closing = false;
-            if (p1.match(/^\//))
-            {
-                p1 = p1.substr(1);
-                closing = true;
-            }
-            if (p1 in cols)
-            {
-                if (closing)
-                    return "</span>";
-                else
-                {
-                    var text = "<span class='fg" + cols[p1] + "'>";
-                    if (other_open)
-                        text = "</span>" + text;
-                    other_open = true;
-                    return text;
-                }
-            }
-            else
-                return str;
-        }).replace(/<</g, "<");
     }
 
     var menu_stack = [];
@@ -172,7 +123,7 @@ function ($, comm, client, enums, dungeon_renderer, cr) {
             }
         }
 
-        menu_div.append("<div id='menu_more'>" + formatted_string_to_html(menu.more)
+        menu_div.append("<div id='menu_more'>" + util.formatted_string_to_html(menu.more)
                         + "</div>");
 
         content_div.scroll(menu_scroll_handler);
@@ -182,7 +133,6 @@ function ($, comm, client, enums, dungeon_renderer, cr) {
 
         client.show_dialog("#menu");
 
-        update_visible_indices();
         if (menu.flags & enums.menu_flag.START_AT_END)
         {
             scroll_bottom_to_item(menu.items.length - 1, true);
@@ -190,9 +140,9 @@ function ($, comm, client, enums, dungeon_renderer, cr) {
         else if (menu.jump_to)
         {
             scroll_to_item(menu.jump_to, true);
+        } else {
+            scroll_to_item(0, true);
         }
-        // Hide -more- if at the bottom
-        menu_scroll_handler();
     }
 
     function prepare_item_range(start, end, no_request, container)
@@ -354,9 +304,9 @@ function ($, comm, client, enums, dungeon_renderer, cr) {
         contents.scrollTop(item.elem.offset().top - baseline);
 
         menu.anchor_last = false;
-        menu.first_visible = index;
         if (!was_server_initiated)
             menu.server_scroll = false;
+        menu_scroll_handler();
     }
 
     function scroll_bottom_to_item(item_or_index, was_server_initiated)
@@ -376,9 +326,9 @@ function ($, comm, client, enums, dungeon_renderer, cr) {
                            - baseline - contents.innerHeight());
 
         menu.anchor_last = true;
-        menu.last_visible = index;
         if (!was_server_initiated)
             menu.server_scroll = false;
+        menu_scroll_handler();
     }
 
     function update_visible_indices()
@@ -396,12 +346,24 @@ function ($, comm, client, enums, dungeon_renderer, cr) {
             var item_bottom = item_top + item.elem.outerHeight();
             if (item_top <= top && item_bottom >= top)
             {
-                menu.first_visible = Number(i) + 1;
+                var candidate = Number(i) + 1;
+                while (menu.items[candidate] == null &&
+                       candidate <= menu.last_present)
+                {
+                    candidate++;
+                }
+                menu.first_visible = candidate;
                 if (menu.last_visible !== null) return;
             }
             if (item_top <= bottom && item_bottom >= bottom)
             {
-                menu.last_visible = Number(i) - 1;
+                var candidate = Number(i) - 1;
+                while (menu.items[candidate] == null &&
+                       candidate >= menu.first_present)
+                {
+                    candidate--;
+                }
+                menu.last_visible = candidate;
                 if (menu.first_visible !== null) return;
             }
         }
@@ -580,7 +542,6 @@ function ($, comm, client, enums, dungeon_renderer, cr) {
             scroll_bottom_to_item(menu.last_visible, true);
         else
             scroll_to_item(menu.first_visible, true);
-        menu_scroll_handler();
     }
 
     function menu_scroll_handler()
@@ -603,10 +564,13 @@ function ($, comm, client, enums, dungeon_renderer, cr) {
 
     function menu_keydown_handler(event)
     {
-        if (event.altKey || event.shiftkey)
-            return;
-
         if (!menu || menu.type === "crt") return;
+
+        if (event.altKey || event.shiftkey) {
+            if (update_server_scroll_timeout)
+                update_server_scroll();
+            return;
+        }
 
         if (event.ctrlKey)
         {
@@ -619,6 +583,8 @@ function ($, comm, client, enums, dungeon_renderer, cr) {
                 event.preventDefault();
                 return false;
             }
+            if (update_server_scroll_timeout)
+                update_server_scroll();
             return;
         }
 
@@ -653,6 +619,9 @@ function ($, comm, client, enums, dungeon_renderer, cr) {
             event.preventDefault();
             return false;
         }
+
+        if (update_server_scroll_timeout)
+            update_server_scroll();
     }
 
     function menu_keypress_handler(event)
@@ -664,8 +633,8 @@ function ($, comm, client, enums, dungeon_renderer, cr) {
         switch (chr)
         {
         case "-":
-            if (menu.tag == "inventory")
-                return true; // Don't capture - for wield prompts
+            if (menu.tag == "inventory" || menu.tag == "stash")
+                break; // Don't capture - for wield prompts or stash search
 
         case "<":
         case ";":
@@ -680,10 +649,16 @@ function ($, comm, client, enums, dungeon_renderer, cr) {
             event.preventDefault();
             return false;
         }
+
+        if (update_server_scroll_timeout)
+            update_server_scroll();
     }
 
     function item_click_handler(event)
     {
+        if (update_server_scroll_timeout)
+            update_server_scroll();
+
         var item = $(this).data("item");
         if (!item) return;
         if (item.hotkeys && item.hotkeys.length)

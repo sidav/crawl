@@ -60,9 +60,10 @@ void finished_eating_message(int food_type);
 
 int you_max_hunger();
 int you_min_hunger();
+bool you_foodless();
 
 void handle_starvation();
-std::string hunger_cost_string(const int hunger);
+string hunger_cost_string(const int hunger);
 void end_nausea();
 
 maybe_bool drop_spoiled_chunks(int weight_needed, bool whole_slot = false);

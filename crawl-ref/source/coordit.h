@@ -3,15 +3,14 @@
 
 #include "coord-circle.h"
 
-class rectangle_iterator :
-    public std::iterator<std::forward_iterator_tag, coord_def>
+class rectangle_iterator : public iterator<forward_iterator_tag, coord_def>
 {
 public:
     rectangle_iterator(const coord_def& corner1, const coord_def& corner2);
     explicit rectangle_iterator(int x_border_dist, int y_border_dist = -1);
-    operator bool() const;
-    coord_def operator *() const;
-    const coord_def* operator->() const;
+    operator bool() const PURE;
+    coord_def operator *() const PURE;
+    const coord_def* operator->() const PURE;
 
     void operator ++ ();
     void operator ++ (int);
@@ -27,24 +26,23 @@ class circle_iterator
 public:
     circle_iterator(const circle_def &circle_);
 
-    operator bool() const;
-    coord_def operator*() const;
+    operator bool() const PURE;
+    coord_def operator *() const PURE;
 
-    void operator++();
-    void operator++(int);
+    void operator ++ ();
+    void operator ++ (int);
 };
 
-/*
- * radius_iterator: Iterator over coordinates in a more-or-less
- *                  circular region.
+/**
+ * @class radius_iterator
+ * Iterator over coordinates in a more-or-less circular region.
  *
  * The region can be any circle_def; furthermore, the cells can
  * be restricted to lie within some LOS field (need not be
  * centered at the same point), and to exclude the center.
  */
 class los_base;
-class radius_iterator : public std::iterator<std::forward_iterator_tag,
-                        coord_def>
+class radius_iterator : public iterator<forward_iterator_tag, coord_def>
 {
 public:
     // General constructor.
@@ -56,15 +54,14 @@ public:
     radius_iterator(const coord_def& center, int radius,
                     bool roguelike_metric = true,
                     bool require_los = true,
-                    bool exclude_center = false,
-                    const los_base* los = NULL);
+                    bool exclude_center = false);
     // Just iterate over a LOS field.
     radius_iterator(const los_base* los,
                     bool exclude_center = false);
 
-    operator bool() const;
-    coord_def operator *() const;
-    const coord_def* operator->() const;
+    operator bool() const PURE;
+    coord_def operator *() const PURE;
+    const coord_def *operator->() const PURE;
 
     void operator ++ ();
     void operator ++ (int);
@@ -96,28 +93,29 @@ public:
     radius_iterator(pos, 1, C_POINTY, NULL, _exclude_center) {}
 };
 
-/* distance_iterator: Iterates over coordinates in integer ranges.  Unlike other
- *                  iterators, it tries hard to not favorize any particular
- *                  direction (unless fair = false, when it saves some CPU).
+/* @class distance_iterator
+ * Iterates over coordinates in integer ranges.
+ *
+ * Unlike other iterators, it tries hard to not favorize any
+ * particular direction (unless fair = false, when it saves some CPU).
  */
-class distance_iterator :
-    public std::iterator<std::forward_iterator_tag, coord_def>
+class distance_iterator : public iterator<forward_iterator_tag, coord_def>
 {
 public:
     distance_iterator(const coord_def& _center,
                     bool _fair = true,
                     bool exclude_center = true,
                     int _max_radius = GDM);
-    operator bool() const;
-    coord_def operator *() const;
-    const coord_def* operator->() const;
+    operator bool() const PURE;
+    coord_def operator *() const PURE;
+    const coord_def *operator->() const PURE;
 
-    const distance_iterator& operator ++();
+    const distance_iterator &operator ++();
     void operator ++(int);
     int radius() const;
 private:
     coord_def center, current;
-    std::vector<coord_def> lists[3], *vcur, *vnear, *vfar;
+    vector<coord_def> lists[3], *vcur, *vnear, *vfar;
     int r, max_radius;
     int threshold;
     unsigned int icur, iend;

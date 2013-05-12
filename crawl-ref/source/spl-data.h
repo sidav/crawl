@@ -129,12 +129,12 @@ struct spell_desc
 
 {
     SPELL_DIG, "Dig",
-     SPTYP_TRANSMUTATION | SPTYP_EARTH,
+     SPTYP_EARTH,
      SPFLAG_DIR_OR_TARGET | SPFLAG_NOT_SELF | SPFLAG_NEUTRAL,
      4,
      200,
      LOS_RADIUS, LOS_RADIUS,
-     -4, // Dig needs to be silent for stalker
+     0,
      NULL,
      false,
      true
@@ -193,9 +193,9 @@ struct spell_desc
 },
 
 {
-    SPELL_POLYMORPH_OTHER, "Polymorph Other",
+    SPELL_POLYMORPH, "Polymorph",
      SPTYP_TRANSMUTATION | SPTYP_HEXES,
-     SPFLAG_DIR_OR_TARGET | SPFLAG_NOT_SELF | SPFLAG_CHAOTIC,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_CHAOTIC,
      4,
      200,
      LOS_RADIUS, LOS_RADIUS,
@@ -313,6 +313,19 @@ struct spell_desc
 },
 
 {
+    SPELL_DISJUNCTION, "Disjunction",
+     SPTYP_TRANSLOCATION,
+     SPFLAG_ESCAPE,
+     8,
+     200,
+     -1, -1,
+     0,
+     NULL,
+     false,
+     true
+},
+
+{
     SPELL_FREEZING_CLOUD, "Freezing Cloud",
      SPTYP_CONJURATION | SPTYP_ICE | SPTYP_AIR,
      SPFLAG_GRID | SPFLAG_AREA,
@@ -419,11 +432,11 @@ struct spell_desc
 {
     SPELL_SMITING, "Smiting",
      SPTYP_NONE,
-     SPFLAG_TARGET | SPFLAG_NOT_SELF, // divine ability, rod, monsters
+     SPFLAG_TARGET | SPFLAG_NOT_SELF, // divine ability, monsters
      4,
      200,
      LOS_RADIUS, LOS_RADIUS,
-     4, // SPTYP_NONE spells have no default noise level
+     4,
      "Smite",
      false,
      false
@@ -900,6 +913,20 @@ struct spell_desc
 },
 
 {
+    SPELL_FRENZY, "Frenzy",
+     SPTYP_CHARMS,
+     SPFLAG_HASTY | SPFLAG_MONSTER,
+     3,
+     0,
+     -1, -1,
+     0,
+     NULL,
+     false,
+     false
+},
+
+
+{
     SPELL_DISPEL_UNDEAD, "Dispel Undead",
      SPTYP_NECROMANCY,
      SPFLAG_DIR_OR_TARGET,
@@ -912,6 +939,7 @@ struct spell_desc
      false
 },
 
+#if TAG_MAJOR_VERSION == 34
 {
     SPELL_FULSOME_DISTILLATION, "Fulsome Distillation",
      SPTYP_TRANSMUTATION | SPTYP_NECROMANCY,
@@ -924,6 +952,7 @@ struct spell_desc
      false,
      true
 },
+#endif
 
 {
     SPELL_POISON_ARROW, "Poison Arrow",
@@ -978,11 +1007,11 @@ struct spell_desc
      false
 },
 
+#if TAG_MAJOR_VERSION == 34
 {
     SPELL_CIGOTUVIS_DEGENERATION, "Cigotuvi's Degeneration",
      SPTYP_TRANSMUTATION | SPTYP_NECROMANCY,
-     SPFLAG_DIR_OR_TARGET | SPFLAG_NOT_SELF | SPFLAG_CHAOTIC
-         | SPFLAG_CORPSE_VIOLATING,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_NOT_SELF | SPFLAG_CHAOTIC,
      5,
      200,
      LOS_RADIUS, LOS_RADIUS,
@@ -991,6 +1020,7 @@ struct spell_desc
      false,
      false
 },
+#endif
 
 {
     SPELL_STING, "Sting",
@@ -1022,8 +1052,8 @@ struct spell_desc
     SPELL_TUKIMAS_DANCE, "Tukima's Dance",
      SPTYP_HEXES,
      SPFLAG_NONE,
-     3,
-     150,
+     5,
+     100,
      -1, -1,
      0,
      NULL,
@@ -1187,6 +1217,7 @@ struct spell_desc
      true
 },
 
+#if TAG_MAJOR_VERSION == 34
 {
     SPELL_INSULATION, "Insulation",
      SPTYP_CHARMS | SPTYP_AIR,
@@ -1199,6 +1230,7 @@ struct spell_desc
      false,
      true
 },
+#endif
 
 {
     SPELL_CURE_POISON, "Cure Poison",
@@ -1238,21 +1270,6 @@ struct spell_desc
      false,
      true
 },
-
-#if TAG_MAJOR_VERSION == 33
-{
-    SPELL_PROJECTED_NOISE, "Projected Noise",
-     SPTYP_HEXES,
-     SPFLAG_NONE,
-     2,
-     0,
-     LOS_RADIUS, LOS_RADIUS,
-     0,
-     NULL,
-     false,
-     false
-},
-#endif
 
 {
     SPELL_DEBUGGING_RAY, "Debugging Ray",
@@ -1323,7 +1340,7 @@ struct spell_desc
     SPELL_BLADE_HANDS, "Blade Hands",
      SPTYP_TRANSMUTATION,
      SPFLAG_HELPFUL | SPFLAG_BATTLE | SPFLAG_CHAOTIC,
-     5,  // only removes weapon, so I raised this from 4 -- bwr
+     5,
      200,
      -1, -1,
      0,
@@ -1349,7 +1366,7 @@ struct spell_desc
     SPELL_ICE_FORM, "Ice Form",
      SPTYP_ICE | SPTYP_TRANSMUTATION,
      SPFLAG_HELPFUL | SPFLAG_CHAOTIC,
-     4, // doesn't allow for equipment, so I lowered this from 5 -- bwr
+     4,
      200,
      -1, -1,
      0,
@@ -1466,7 +1483,7 @@ struct spell_desc
 {
     SPELL_SHADOW_CREATURES, "Shadow Creatures",
      SPTYP_SUMMONING,
-     SPFLAG_UNHOLY,
+     SPFLAG_NONE,
      5,
      0,
      -1, -1,
@@ -1606,6 +1623,7 @@ struct spell_desc
      false
 },
 
+#if TAG_MAJOR_VERSION == 34
 {
     SPELL_SEE_INVISIBLE, "See Invisible",
      SPTYP_CHARMS,
@@ -1618,6 +1636,7 @@ struct spell_desc
      false,
      true
 },
+#endif
 
 {
     SPELL_PHASE_SHIFT, "Phase Shift",
@@ -1649,7 +1668,7 @@ struct spell_desc
     SPELL_WARP_BRAND, "Warp Weapon",
      SPTYP_CHARMS | SPTYP_TRANSLOCATION,
      SPFLAG_HELPFUL | SPFLAG_BATTLE,
-     5,     // this is high for a reason - Warp brands are very powerful.
+     5,
      200,
      -1, -1,
      0,
@@ -1736,6 +1755,7 @@ struct spell_desc
      false
 },
 
+#if TAG_MAJOR_VERSION == 34
 {
     SPELL_EVAPORATE, "Evaporate",
      SPTYP_FIRE | SPTYP_TRANSMUTATION,
@@ -1748,9 +1768,10 @@ struct spell_desc
      true,
      false
 },
+#endif
 
 {
-    SPELL_FRAGMENTATION, "Lee's Rapid Deconstruction",
+    SPELL_LRD, "Lee's Rapid Deconstruction",
      SPTYP_EARTH,
      SPFLAG_GRID,
      5,
@@ -1768,7 +1789,7 @@ struct spell_desc
      SPFLAG_DIR_OR_TARGET | SPFLAG_NOT_SELF | SPFLAG_BATTLE,
      1,
      50,
-     2, 2,                      // Special-cased!
+     2, 2, // more with wielded stones
      0,
      NULL,
      true,
@@ -1777,7 +1798,7 @@ struct spell_desc
 
 {
     SPELL_CONDENSATION_SHIELD, "Condensation Shield",
-     SPTYP_ICE | SPTYP_TRANSMUTATION,
+     SPTYP_ICE,
      SPFLAG_HELPFUL,
      4,
      200,
@@ -1844,7 +1865,7 @@ struct spell_desc
     SPELL_EXCRUCIATING_WOUNDS, "Excruciating Wounds",
      SPTYP_CHARMS | SPTYP_NECROMANCY,
      SPFLAG_HELPFUL | SPFLAG_BATTLE,
-     5,     // fairly high level - potentially one of the best brands
+     5,
      200,
      -1, -1,
      0,
@@ -1892,7 +1913,18 @@ struct spell_desc
      false
 },
 
-// From here on, all spells are monster-only spells.
+{
+    SPELL_FULMINANT_PRISM, "Fulminant Prism",
+     SPTYP_CONJURATION | SPTYP_HEXES,
+     SPFLAG_GRID | SPFLAG_AREA | SPFLAG_NOT_SELF,
+     5,
+     100,
+     5, 5,
+     0,
+     NULL,
+     true,
+     false
+},
 
 {
     SPELL_PARALYSE, "Paralyse",
@@ -1947,6 +1979,7 @@ struct spell_desc
      false
 },
 
+#if TAG_MAJOR_VERSION == 34
 {
     SPELL_VAMPIRE_SUMMON, "Vampire Summon",
      SPTYP_SUMMONING,
@@ -1959,6 +1992,7 @@ struct spell_desc
      false,
      false
 },
+#endif
 
 {
     SPELL_BRAIN_FEED, "Brain Feed",
@@ -2084,7 +2118,7 @@ struct spell_desc
      1,
      0,
      -1, -1,
-     1, // SPTYP_NONE spells have no default noise level
+     1,
      NULL,
      false,
      false
@@ -2145,7 +2179,7 @@ struct spell_desc
 {
     SPELL_BLINK_OTHER, "Blink Other",
      SPTYP_TRANSLOCATION,
-     SPFLAG_ESCAPE | SPFLAG_DIR_OR_TARGET | SPFLAG_MONSTER,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_NOT_SELF | SPFLAG_ESCAPE | SPFLAG_MONSTER,
      2,
      0,
      LOS_RADIUS, LOS_RADIUS,
@@ -2158,7 +2192,7 @@ struct spell_desc
 {
     SPELL_BLINK_OTHER_CLOSE, "Blink Other Close",
      SPTYP_TRANSLOCATION,
-     SPFLAG_TARGET | SPFLAG_MONSTER,
+     SPFLAG_TARGET | SPFLAG_NOT_SELF | SPFLAG_MONSTER,
      2,
      0,
      LOS_RADIUS, LOS_RADIUS,
@@ -2235,6 +2269,19 @@ struct spell_desc
 },
 
 {
+    SPELL_CHAOS_BREATH, "Chaos Breath",
+     SPTYP_CONJURATION | SPTYP_RANDOM,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_MONSTER | SPFLAG_INNATE | SPFLAG_NOISY,
+     5,
+     0,
+     6, 6,
+     0,
+     NULL,
+     true,
+     false
+},
+
+{
     SPELL_COLD_BREATH, "Cold Breath",
      SPTYP_CONJURATION | SPTYP_ICE,
      SPFLAG_DIR_OR_TARGET | SPFLAG_MONSTER | SPFLAG_INNATE | SPFLAG_NOISY,
@@ -2287,7 +2334,7 @@ struct spell_desc
 },
 
 {
-    SPELL_KRAKEN_TENTACLES, "Spawn Tentacles",
+    SPELL_CREATE_TENTACLES, "Spawn Tentacles",
      SPTYP_SUMMONING,
      SPFLAG_MONSTER,
      5,
@@ -2328,14 +2375,14 @@ struct spell_desc
 {
     SPELL_HASTE_OTHER, "Haste Other",
      SPTYP_HEXES,
-     SPFLAG_DIR_OR_TARGET | SPFLAG_HELPFUL | SPFLAG_HASTY,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_NOT_SELF | SPFLAG_HELPFUL | SPFLAG_HASTY,
      6,
      200,
      LOS_RADIUS, LOS_RADIUS,
      0,
      NULL,
      true,
-     false
+     true
 },
 
 {
@@ -2521,6 +2568,19 @@ struct spell_desc
 },
 
 {
+    SPELL_MIGHT_OTHER, "Might Other",
+     SPTYP_CHARMS,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_NOT_SELF | SPFLAG_HELPFUL,
+     5,
+     200,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     true,
+     true
+},
+
+{
     SPELL_SUNRAY, "Sunray",
      SPTYP_CONJURATION,
      SPFLAG_DIR_OR_TARGET,
@@ -2598,6 +2658,7 @@ struct spell_desc
      false,
 },
 
+#if TAG_MAJOR_VERSION == 34
 {
     SPELL_RESURRECT, "Resurrection",
      SPTYP_NONE,
@@ -2610,6 +2671,7 @@ struct spell_desc
      true,
      false
 },
+#endif
 
 {
     SPELL_HOLY_LIGHT, "Holy Light",
@@ -2625,61 +2687,7 @@ struct spell_desc
 },
 
 {
-    SPELL_SUMMON_HOLIES, "Summon Holies",
-     SPTYP_SUMMONING,
-     SPFLAG_MONSTER,
-     5,
-     0,
-     -1, -1,
-     0,
-     NULL,
-     false,
-     false
-},
-
-#if TAG_MAJOR_VERSION == 33
-{
-    SPELL_SUMMON_GREATER_HOLY, "Summon Greater Holy",
-     SPTYP_SUMMONING,
-     SPFLAG_MONSTER,
-     9,
-     0,
-     -1, -1,
-     0,
-     NULL,
-     false,
-     false
-},
-#endif
-
-{
-    SPELL_HOLY_WORD, "Holy Word",
-     SPTYP_NONE,
-     SPFLAG_AREA,
-     6,
-     0,
-     -1, -1,
-     0,
-     NULL,
-     false,
-     false
-},
-
-{
     SPELL_HEAL_OTHER, "Heal Other",
-     SPTYP_NONE,
-     SPFLAG_DIR_OR_TARGET | SPFLAG_HELPFUL,
-     6,
-     200,
-     LOS_RADIUS, LOS_RADIUS,
-     0,
-     NULL,
-     true,
-     false
-},
-
-{
-    SPELL_SACRIFICE, "Sacrifice",
      SPTYP_NONE,
      SPFLAG_DIR_OR_TARGET | SPFLAG_NOT_SELF | SPFLAG_HELPFUL,
      6,
@@ -2688,7 +2696,7 @@ struct spell_desc
      0,
      NULL,
      true,
-     false
+     true
 },
 
 {
@@ -2745,7 +2753,7 @@ struct spell_desc
 
 {
     SPELL_LEDAS_LIQUEFACTION, "Leda's Liquefaction",
-     SPTYP_EARTH | SPTYP_TRANSMUTATION,
+     SPTYP_EARTH | SPTYP_HEXES,
      SPFLAG_AREA,
      4,
      200,
@@ -2909,6 +2917,124 @@ struct spell_desc
      0,
      NULL,
      true,
+     false
+},
+
+{
+    SPELL_BATTLESPHERE, "Iskenderun's Battlesphere",
+      SPTYP_CONJURATION | SPTYP_CHARMS,
+      SPFLAG_NONE,
+      4,
+      100,
+      -1, -1,
+      0,
+      NULL,
+      false,
+      true
+},
+
+{
+    SPELL_SUMMON_MINOR_DEMON, "Summon Minor Demon",
+     SPTYP_SUMMONING,
+     SPFLAG_UNHOLY | SPFLAG_BATTLE,
+     2,
+     200,
+     -1, -1,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_MALMUTATE, "Malmutate",
+     SPTYP_TRANSMUTATION | SPTYP_HEXES,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_NOT_SELF | SPFLAG_CHAOTIC,
+     6,
+     200,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     true,
+     false
+},
+
+{
+    SPELL_SUMMON_TWISTER, "Summon Twister",
+     SPTYP_SUMMONING | SPTYP_AIR,
+     SPFLAG_UNCLEAN | SPFLAG_MONSTER,
+     9,
+     0,
+     -1, -1,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_DAZZLING_SPRAY, "Dazzling Spray",
+     SPTYP_CONJURATION | SPTYP_HEXES,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_NOT_SELF,
+     3,
+     100,
+     6, 6,
+     0,
+     NULL,
+     true,
+     false
+},
+
+{
+    SPELL_FORCE_LANCE, "Force Lance",
+     SPTYP_CONJURATION,
+     SPFLAG_DIR_OR_TARGET,
+     2,
+     50,
+     3, 3,
+     0,
+     NULL,
+     true,
+     false
+},
+
+{
+    SPELL_SENTINEL_MARK, "Sentinel's Mark",
+     SPTYP_HEXES,
+     SPFLAG_DIR_OR_TARGET,
+     5,
+     200,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     true,
+     false
+},
+
+// Ironbrand Convoker version (delayed activation, recalls only humanoids)
+{
+    SPELL_WORD_OF_RECALL, "Word of Recall",
+     SPTYP_SUMMONING | SPTYP_TRANSLOCATION,
+     SPFLAG_NONE,
+     3,
+     0,
+     -1, -1,
+     0,
+     NULL,
+     false,
+     true
+},
+
+{
+    SPELL_INJURY_BOND, "Injury Bond",
+     SPTYP_CHARMS,
+     SPFLAG_AREA | SPFLAG_HELPFUL,
+     5,
+     200,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     false,
      false
 },
 

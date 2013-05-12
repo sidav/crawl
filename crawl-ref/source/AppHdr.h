@@ -21,6 +21,15 @@
 
 #include "platform.h"
 #include <stdint.h>
+namespace std {};
+using namespace std;
+
+#if defined(__cplusplus) && __cplusplus < 201103
+# define unique_ptr auto_ptr
+template<typename T>
+static inline T move(T x) { return x; } // good enough for our purposes
+# define nullptr NULL
+#endif
 
 #ifdef TARGET_COMPILER_VC
 /* Disable warning about:
@@ -66,13 +75,6 @@
     #define UNIX
     #endif
 #endif
-
-//
-// OS X's Terminal.app has color handling problems; dark grey is
-// especially bad, so we'll want to remap that. OS X is otherwise
-// Unix-ish, so we shouldn't need other special handling.
-//
-#define COL_TO_REPLACE_DARKGREY     BLUE
 
 //
 // MinGW
@@ -132,16 +134,6 @@
     //
     // #define SOUND_PLAY_COMMAND "/usr/bin/play -v .5 \"%s\" 2>/dev/null &"
 
-    // For cases when the game will be played on terms that don't support the
-    // curses "bold == lighter" 16 colour mode. -- bwr
-    //
-    // Darkgrey is a particular problem in the 8 colour mode.  Popular values
-    // for replacing it around here are: WHITE, BLUE, and MAGENTA.  This
-    // option has no affect in 16 colour mode. -- bwr
-    //
-    // #define USE_8_COLOUR_TERM_MAP
-    // #define COL_TO_REPLACE_DARKGREY     MAGENTA
-
     #include "libunix.h"
 
 #elif defined(TARGET_OS_WINDOWS)
@@ -164,7 +156,7 @@
     // #define WINMM_PLAY_SOUNDS
 
     // Use Perl-compatible regular expressions. libpcre must be available and
-    // linked in.  This is optional.
+    // linked in.  Required in the absence of POSIX regexes.
     #ifndef REGEX_PCRE
     #define REGEX_PCRE
     #endif
@@ -177,7 +169,9 @@
 # define _WIN32_WINNT 0x501
 #endif
 
+// See the GCC __attribute__ documentation for what these mean.
 // Note: clang does masquerade as GNUC.
+
 #if defined(__GNUC__)
 # define NORETURN __attribute__ ((noreturn))
 #elif defined(_MSC_VER)
@@ -188,9 +182,12 @@
 
 #if defined(__GNUC__)
 # define PURE __attribute__ ((pure))
+# define IMMUTABLE __attribute__ ((const))
 #else
 # define PURE
+# define IMMUTABLE
 #endif
+
 
 // =========================================================================
 //  Defines for dgamelaunch-specific things.
@@ -342,7 +339,6 @@
 // =========================================================================
 //  Game Play Defines
 // =========================================================================
-// use Abyss morphing
 
 // number of older messages stored during play and in save files
 #define NUM_STORED_MESSAGES   1000
@@ -368,7 +364,7 @@
 // If you are installing Crawl for multiple users, define SAVE_DIR
 // to the directory where saves, bones, and score file will go...
 // end it with a '/'. Only one system user should be able to access
-// these -- usually this means you should place them in ~/crawl/
+// these -- usually this means you should place them in ~/.crawl/
 // unless it's a DGL build.
 
 #if !defined(DB_NDBM) && !defined(DB_DBH) && !defined(USE_SQLITE_DBM)
@@ -412,8 +408,6 @@ static inline void UNUSED(const volatile T &)
 #endif
 
 #include "externs.h"
-#include "unwind.h"
-#include "version.h"
 
 #ifdef TARGET_COMPILER_VC
 # include "libw32c.h"

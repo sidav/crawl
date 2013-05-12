@@ -6,8 +6,27 @@
 #ifndef ZAP_DATA_H
 #define ZAP_DATA_H
 
+/*
+struct zap_info
 {
-    ZAP_FLAME,
+    zap_type ztype;
+    const char* name;           // NULL means handled specially
+    int power_cap;
+    dam_deducer* damage;
+    tohit_deducer* tohit;       // Enchantments have power modifier here
+    int colour;
+    bool is_enchantment;
+    beam_type flavour;
+    dungeon_char_type glyph;
+    bool always_obvious;
+    bool can_beam;
+    bool is_explosion;
+    int hit_loudness;
+}
+*/
+
+{
+    ZAP_THROW_FLAME,
     "puff of flame",
     50,
     new dicedef_calculator<2, 4, 1, 10>,
@@ -23,7 +42,7 @@
 },
 
 {
-    ZAP_FROST,
+    ZAP_THROW_FROST,
     "puff of frost",
     50,
     new dicedef_calculator<2, 4, 1, 10>,
@@ -39,7 +58,7 @@
 },
 
 {
-    ZAP_SLOWING,
+    ZAP_SLOW,
     "",
     100,
     NULL,
@@ -55,7 +74,7 @@
 },
 
 {
-    ZAP_HASTING,
+    ZAP_HASTE,
     "",
     100,
     NULL,
@@ -71,7 +90,7 @@
 },
 
 {
-    ZAP_MAGIC_DARTS,
+    ZAP_MAGIC_DART,
     "magic dart",
     25,
     new dicedef_calculator<1, 3, 1, 5>,
@@ -103,7 +122,7 @@
 },
 
 {
-    ZAP_PARALYSIS,
+    ZAP_PARALYSE,
     "",
     100,
     NULL,
@@ -119,7 +138,7 @@
 },
 
 {
-    ZAP_FIRE,
+    ZAP_BOLT_OF_FIRE,
     "bolt of fire",
     200,
     new calcdice_calculator<6, 18, 2, 3>,
@@ -135,7 +154,7 @@
 },
 
 {
-    ZAP_COLD,
+    ZAP_BOLT_OF_COLD,
     "bolt of cold",
     200,
     new calcdice_calculator<6, 18, 2, 3>,
@@ -167,7 +186,7 @@
 },
 
 {
-    ZAP_CONFUSION,
+    ZAP_CONFUSE,
     "",
     100,
     NULL,
@@ -199,7 +218,7 @@
 },
 
 {
-    ZAP_DIGGING,
+    ZAP_DIG,
     "",
     100,
     NULL,
@@ -211,7 +230,7 @@
     false,
     true,
     false,
-    0
+    4
 },
 
 {
@@ -231,11 +250,11 @@
 },
 
 {
-    ZAP_TELEPORTATION,
+    ZAP_TELEPORT_OTHER,
     "",
     100,
     NULL,
-    NULL,
+    new tohit_calculator<0, 3, 2>,
     BLACK,
     true,
     BEAM_TELEPORT,
@@ -247,7 +266,7 @@
 },
 
 {
-    ZAP_LIGHTNING,
+    ZAP_LIGHTNING_BOLT,
     "bolt of lightning",
     200,
     new calcdice_calculator<1, 11, 3, 5>,
@@ -263,7 +282,7 @@
 },
 
 {
-    ZAP_POLYMORPH_OTHER,
+    ZAP_POLYMORPH,
     "",
     100,
     NULL,
@@ -282,7 +301,7 @@
     ZAP_VENOM_BOLT,
     "bolt of poison",
     200,
-    new calcdice_calculator<4, 15, 1, 2>,
+    new calcdice_calculator<4, 16, 3, 5>,
     new tohit_calculator<8, 1, 20>,
     LIGHTGREEN,
     false,
@@ -295,7 +314,7 @@
 },
 
 {
-    ZAP_NEGATIVE_ENERGY,
+    ZAP_BOLT_OF_DRAINING,
     "bolt of negative energy",
     200,
     new calcdice_calculator<4, 15, 3, 5>,
@@ -311,7 +330,7 @@
 },
 
 {
-    ZAP_CRYSTAL_SPEAR,
+    ZAP_LEHUDIBS_CRYSTAL_SPEAR,
     "crystal spear",
     200,
     new calcdice_calculator<10, 23, 1, 1>,
@@ -327,7 +346,7 @@
 },
 
 {
-    ZAP_BEAM_OF_ENERGY,
+    ZAP_BOLT_OF_INACCURACY,
     "narrow beam of energy",
     1000,
     new calcdice_calculator<10, 40, 1, 1>,
@@ -343,7 +362,7 @@
 },
 
 {
-    ZAP_MYSTIC_BLAST,
+    ZAP_ISKENDERUNS_MYSTIC_BLAST,
     "orb of energy",
     100,
     new calcdice_calculator<2, 12, 1, 3>,
@@ -407,6 +426,22 @@
 },
 
 {
+    ZAP_STICKY_FLAME_RANGE,
+    "sticky flame",
+    100,
+    new dicedef_calculator<2, 3, 1, 12>,
+    new tohit_calculator<AUTOMATIC_HIT>,
+    RED,
+    false,
+    BEAM_FIRE,
+    DCHAR_FIRED_ZAP,
+    true,
+    false,
+    false,
+    1
+},
+
+{
     ZAP_DISPEL_UNDEAD,
     "",
     100,
@@ -439,7 +474,7 @@
 },
 
 {
-    ZAP_DEGENERATION,
+    ZAP_CIGOTUVIS_DEGENERATION,
     "",
     100,
     NULL,
@@ -504,7 +539,7 @@
 
 {
     ZAP_STRIKING,
-    "force bolt",
+    "concussive force",
     50,
     new dicedef_calculator<1, 8, 1, 5>,
     new tohit_calculator<8, 1, 10>,
@@ -535,7 +570,7 @@
 },
 
 {
-    ZAP_ELECTRICITY,
+    ZAP_SHOCK,
     "zap",
     25,
     new dicedef_calculator<1, 3, 1, 4>,
@@ -666,7 +701,7 @@
 
 {
     ZAP_BREATHE_POWER,
-    "bolt of energy",
+    "bolt of dispelling energy",
     50,
     new dicedef_calculator<3, 3, 1, 3>,
     new tohit_calculator<5, 1, 6>,
@@ -713,7 +748,7 @@
 },
 
 {
-    ZAP_DISINTEGRATION,
+    ZAP_DISINTEGRATE,
     "",
     100,
     new calcdice_calculator<3, 15, 3, 4>,
@@ -873,10 +908,10 @@
 },
 
 {
-    ZAP_MAGMA,
+    ZAP_BOLT_OF_MAGMA,
     "bolt of magma",
     200,
-    new calcdice_calculator<4, 15, 3, 5>,
+    new calcdice_calculator<4, 16, 2, 3>,
     new tohit_calculator<8, 1, 25>,
     RED,
     false,
@@ -970,22 +1005,6 @@
 },
 
 {
-    ZAP_SUNRAY,
-    "ray of light",
-    200,
-    new calcdice_calculator<4, 15, 1, 1>,
-    new tohit_calculator<5, 1, 20>,
-    ETC_HOLY,
-    false,
-    BEAM_LIGHT,
-    DCHAR_FIRED_BOLT,
-    true,
-    true,
-    false,
-    6 // XXX: Less noise because it's poison?
-},
-
-{
     ZAP_HOLY_LIGHT,
     "beam of light",
     200,
@@ -1002,23 +1021,7 @@
 },
 
 {
-    ZAP_HOLY_BREATH,
-    "holy breath",
-    50,
-    new dicedef_calculator<3, 2, 1, 6>,
-    new tohit_calculator<6, 1, 6>,
-    ETC_HOLY,
-    false,
-    BEAM_HOLY_FLAME,
-    DCHAR_FIRED_ZAP,
-    true,
-    true,
-    false,
-    0 // Explosion does the noise.
-},
-
-{
-    ZAP_BREATHE_STICKY_FLAME, // same data as spell but has different effects on hit
+    ZAP_BREATHE_STICKY_FLAME,
     "splash of liquid fire",
     100,
     new dicedef_calculator<2, 3, 1, 12>,
@@ -1041,7 +1044,7 @@
     new tohit_calculator<6, 1, 6>,
     GREEN,
     false,
-    BEAM_POTION_MEPHITIC,
+    BEAM_MEPHITIC,
     DCHAR_FIRED_ZAP,
     true,
     true,
@@ -1066,19 +1069,34 @@
 },
 
 {
-    ZAP_BLAST_OF_SILVER,
-    "silver light",
-    200,
-    new calcdice_calculator<3, 10, 1, 2>,
-    new tohit_calculator<40>,
-    LIGHTGRAY,
+    ZAP_DAZZLING_SPRAY,
+    "spray of energy",
+    50,
+    new calcdice_calculator<2, 8, 1, 4>,
+    new tohit_calculator<9, 1, 7>,
+    LIGHTMAGENTA,
     false,
-    BEAM_BOLT_OF_ZIN,
+    BEAM_MMISSILE,
     DCHAR_FIRED_ZAP,
-    false,
-    false,
     true,
-    0 // Noise comes from explosion
+    false,
+    false,
+    3
 },
 
+{
+    ZAP_FORCE_LANCE,
+    "lance of force",
+    50,
+    new dicedef_calculator<2, 3, 1, 12>,
+    new tohit_calculator<10, 1, 10>,
+    CYAN,
+    false,
+    BEAM_MMISSILE,
+    DCHAR_FIRED_MISSILE,
+    true,
+    false,
+    false,
+    3
+},
 #endif

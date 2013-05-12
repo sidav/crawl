@@ -307,10 +307,8 @@ static void _give_wanderer_book(skill_type skill, int & slot)
             book_type = BOOK_MINOR_MAGIC;
             break;
         case 1:
-            book_type = BOOK_CONJURATIONS;
-            break;
         case 2:
-            book_type = BOOK_YOUNG_POISONERS;
+            book_type = BOOK_CONJURATIONS;
             break;
         }
         break;
@@ -336,7 +334,7 @@ static void _give_wanderer_book(skill_type skill, int & slot)
         break;
 
     case SK_TRANSMUTATIONS:
-        switch (random2(3))
+        switch (random2(2))
         {
         case 0:
             book_type = BOOK_GEOMANCY;
@@ -344,47 +342,19 @@ static void _give_wanderer_book(skill_type skill, int & slot)
         case 1:
             book_type = BOOK_CHANGES;
             break;
-        case 2:
-            book_type = BOOK_STALKING;
-            break;
         }
         break;
 
     case SK_FIRE_MAGIC:
-        switch (random2(3))
-        {
-        case 0:
-        case 1:
-            book_type = BOOK_FLAMES;
-            break;
-        case 2:
-            book_type = BOOK_MINOR_MAGIC;
-            break;
-        }
+        book_type = BOOK_FLAMES;
         break;
 
     case SK_ICE_MAGIC:
-        switch (random2(2))
-        {
-        case 0:
-            book_type = BOOK_FROST;
-            break;
-        case 1:
-            book_type = BOOK_CONJURATIONS;
-            break;
-        }
+        book_type = BOOK_FROST;
         break;
 
     case SK_AIR_MAGIC:
-        switch (random2(2))
-        {
-        case 0:
-            book_type = BOOK_AIR;
-            break;
-        case 1:
-            book_type = BOOK_CONJURATIONS;
-            break;
-        }
+        book_type = BOOK_AIR;
         break;
 
     case SK_EARTH_MAGIC:
@@ -585,7 +555,7 @@ static void _wanderer_good_equipment(skill_type & skill, int & slot)
 
     case SK_DODGING:
     case SK_STEALTH:
-    case SK_TRAPS_DOORS:
+    case SK_TRAPS:
     case SK_STABBING:
     case SK_UNARMED_COMBAT:
     case SK_INVOCATIONS:
@@ -667,7 +637,7 @@ static void _give_wanderer_spell(skill_type skill)
 }
 
 static void _wanderer_decent_equipment(skill_type & skill,
-                                       std::set<skill_type> & gift_skills,
+                                       set<skill_type> & gift_skills,
                                        int & slot)
 {
     const skill_type combined_weapon_skills[] =
@@ -682,7 +652,7 @@ static void _wanderer_decent_equipment(skill_type & skill,
     if ((skill == SK_DODGING || skill == SK_STEALTH)
         && gift_skills.find(SK_ARMOUR) != gift_skills.end())
     {
-        skill = SK_TRAPS_DOORS;
+        skill = SK_TRAPS;
     }
 
     // Give the player knowledge of only one spell.
@@ -692,7 +662,7 @@ static void _wanderer_decent_equipment(skill_type & skill,
         {
             if (you.spells[i] != SPELL_NO_SPELL)
             {
-                skill = SK_TRAPS_DOORS;
+                skill = SK_TRAPS;
                 break;
             }
         }
@@ -720,7 +690,7 @@ static void _wanderer_decent_equipment(skill_type & skill,
     // Don't give a gift from the same skill twice; just default to
     // a curing potion/teleportation scroll.
     if (gift_skills.find(skill) != gift_skills.end())
-        skill = SK_TRAPS_DOORS;
+        skill = SK_TRAPS;
 
     switch ((int)skill)
     {
@@ -768,7 +738,7 @@ static void _wanderer_decent_equipment(skill_type & skill,
         _give_wanderer_spell(skill);
         break;
 
-    case SK_TRAPS_DOORS:
+    case SK_TRAPS:
     case SK_STABBING:
     case SK_UNARMED_COMBAT:
     case SK_INVOCATIONS:
@@ -792,7 +762,7 @@ static void _wanderer_cover_equip_holes(int & slot)
 
     if (you.equip[EQ_WEAPON] == -1)
     {
-        weapon_type weapon = (coinflip() ? WPN_CLUB : WPN_STAFF);
+        weapon_type weapon = WPN_CLUB;
         if (you.dex() > you.strength() || you.skills[SK_STABBING])
             weapon = WPN_DAGGER;
 
@@ -874,7 +844,7 @@ void create_wanderer(void)
 
     // Regardless of roles, players get a couple levels in these skills.
     const skill_type util_skills[] =
-        { SK_THROWING, SK_STABBING, SK_TRAPS_DOORS, SK_STEALTH,
+        { SK_THROWING, SK_STABBING, SK_TRAPS, SK_STEALTH,
           SK_SHIELDS, SK_EVOCATIONS, SK_INVOCATIONS };
 
     int util_size = ARRAYSZ(util_skills);
@@ -909,7 +879,7 @@ void create_wanderer(void)
 
     // Keep track of what skills we got items from, mostly to prevent
     // giving a good and then a normal version of the same weapon.
-    std::set<skill_type> gift_skills;
+    set<skill_type> gift_skills;
 
     // Wanderers get 1 good thing, a couple average things, and then
     // 1 last stage to fill any glaring equipment holes (no clothes,

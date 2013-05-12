@@ -16,6 +16,7 @@
 #include "env.h"
 #include "fprop.h"
 #include "exclude.h"
+#include "losglobal.h"
 #include "mon-act.h"
 #include "mon-death.h"
 #include "mon-iter.h"
@@ -23,7 +24,6 @@
 #include "mon-pathfind.h"
 #include "mon-speak.h"
 #include "mon-stuff.h"
-#include "mon-util.h"
 #include "ouch.h"
 #include "random.h"
 #include "state.h"
@@ -40,7 +40,7 @@ static void _guess_invis_foe_pos(monster* mon)
     const actor* foe          = mon->get_foe();
     const int    guess_radius = mons_sense_invis(mon) ? 3 : 2;
 
-    std::vector<coord_def> possibilities;
+    vector<coord_def> possibilities;
 
     // NOTE: This depends on ignoring clouds, so that cells hidden by
     // opaque clouds are included as a possibility for the foe's location.
@@ -65,7 +65,7 @@ static void _mon_check_foe_invalid(monster* mon)
         if (actor *foe = mon->get_foe())
         {
             const monster* foe_mons = foe->as_monster();
-            if (foe_mons->alive()
+            if (foe_mons->alive() && summon_can_attack(mon, foe)
                 && (mon->friendly() != foe_mons->friendly()
                     || mon->neutral() != foe_mons->neutral()))
             {
@@ -106,7 +106,7 @@ static void _set_firing_pos(monster* mon, coord_def target)
     const int current_distance = mon->pos().distance_from(target);
 
     // We don't consider getting farther away unless already very close.
-    const int max_range = std::max(ideal_range, current_distance);
+    const int max_range = max(ideal_range, current_distance);
 
     int best_distance = INT_MAX;
     int best_distance_to_ideal_range = INT_MAX;
@@ -133,11 +133,11 @@ static void _set_firing_pos(monster* mon, coord_def target)
 
         if (distance < best_distance
             || distance == best_distance
-               && std::abs(range - ideal_range) < best_distance_to_ideal_range)
+               && abs(range - ideal_range) < best_distance_to_ideal_range)
         {
             best_pos = p;
             best_distance = distance;
-            best_distance_to_ideal_range = std::abs(range - ideal_range);
+            best_distance_to_ideal_range = abs(range - ideal_range);
         }
     }
 
@@ -196,8 +196,8 @@ void handle_behaviour(monster* mon)
     bool isScared   = mon->has_ench(ENCH_FEAR);
     bool isPacified = mon->pacified();
     bool patrolling = mon->is_patrolling();
-    static std::vector<level_exit> e;
-    static int                     e_index = -1;
+    static vector<level_exit> e;
+    static int                e_index = -1;
 
     // Zotdef rotting
     if (crawl_state.game_is_zotdef())
@@ -301,7 +301,9 @@ void handle_behaviour(monster* mon)
     if (isFriendly
         && (mon->foe == MHITNOT || mon->foe == MHITYOU)
         && !mon->berserk()
-        && mon->type != MONS_GIANT_SPORE)
+        && mon->behaviour != BEH_WITHDRAW
+        && mon->type != MONS_GIANT_SPORE
+        && mon->type != MONS_BATTLESPHERE)
     {
         if  (!crawl_state.game_is_zotdef())
         {
@@ -351,6 +353,10 @@ void handle_behaviour(monster* mon)
         if (mon->foe == MHITNOT && crawl_state.game_is_zotdef())
             mon->foe = MHITYOU;
     }
+
+    // Friendly summons will come back to the player if they go out of sight.
+    if (!summon_can_attack(mon))
+        mon->target = you.pos();
 
     // Monsters do not attack themselves. {dlb}
     if (mon->foe == mon->mindex())
@@ -428,10 +434,12 @@ void handle_behaviour(monster* mon)
             break;
 
         case BEH_LURK:
-            // Lurking mimics stay put when player is away.
-            if (mons_is_mimic(mon->type) && !proxPlayer)
-                break;
-            //Else Fall through
+            // Make sure trapdoor spiders are not hiding in plain sight
+            if (mon->type == MONS_TRAPDOOR_SPIDER && !mon->submerged())
+                mon->add_ench(ENCH_SUBMERGED);
+
+            // Fall through to get a target, but don't change to wandering.
+
         case BEH_SEEK:
             // No foe?  Then wander or seek the player.
             if (mon->foe == MHITNOT)
@@ -441,7 +449,8 @@ void handle_behaviour(monster* mon)
                     || isNeutral || patrolling
                     || mon->type == MONS_GIANT_SPORE)
                 {
-                    new_beh = BEH_WANDER;
+                    if (mon->behaviour != BEH_LURK)
+                        new_beh = BEH_WANDER;
                 }
                 else
                 {
@@ -458,6 +467,15 @@ void handle_behaviour(monster* mon)
                      && mon->is_travelling()
                      && mon->travel_target == MTRAV_PLAYER))
             {
+                // If their foe is marked, the monster always knows exactly
+                // where they are.
+                if (mons_foe_is_marked(mon))
+                {
+                    mon->target = you.pos();
+                    try_pathfind(mon);
+                    break;
+                }
+
                 // Maybe the foe is just invisible.
                 if (mon->target.origin() && afoe && mon->near_foe())
                 {
@@ -514,7 +532,7 @@ void handle_behaviour(monster* mon)
                                 mon->target = PLAYER_POS;  // infallible tracking in zotdef
                             else
                             {
-                                if (x_chance_in_y(300, you.skill(SK_STEALTH, 100))
+                                if (x_chance_in_y(50, you.stealth())
                                     || you.penance[GOD_ASHENZARI] && coinflip())
                                 {
                                     mon->target = you.pos();
@@ -560,17 +578,17 @@ void handle_behaviour(monster* mon)
             switch (mons_intel(mon))
             {
             case I_HIGH:
-                mon->foe_memory = 100 + random2(200);
+                mon->foe_memory = random_range(700, 1300);
                 break;
             case I_NORMAL:
-                mon->foe_memory = 50 + random2(100);
+                mon->foe_memory = random_range(300, 700);
                 break;
             case I_ANIMAL:
             case I_INSECT:
-                mon->foe_memory = 25 + random2(75);
+                mon->foe_memory = random_range(250, 550);
                 break;
             case I_PLANT:
-                mon->foe_memory = 10 + random2(50);
+                mon->foe_memory = random_range(100, 300);
                 break;
             }
 
@@ -583,8 +601,9 @@ void handle_behaviour(monster* mon)
                 if (mons_class_flag(mon->type, M_MAINTAIN_RANGE)
                     && !mon->berserk())
                 {
-                    // Get to firing range even if we are close.
-                    _set_firing_pos(mon, you.pos());
+                    if (mon->attitude != ATT_FRIENDLY)
+                        // Get to firing range even if we are close.
+                        _set_firing_pos(mon, you.pos());
                 }
                 else if (!mon->firing_pos.zero()
                     && mon->see_cell_no_trans(mon->target))
@@ -682,8 +701,18 @@ void handle_behaviour(monster* mon)
             // Batty monsters don't automatically reseek so that
             // they'll flitter away, we'll reset them just before
             // they get movement in handle_monsters() instead. -- bwr
-            if (proxFoe && !mons_is_batty(mon))
+            if (proxFoe && !mons_is_batty(mon) || mons_foe_is_marked(mon))
             {
+                new_beh = BEH_SEEK;
+                break;
+            }
+
+            // Creatures not currently pursuing another foe are
+            // alerted by a sentinel's mark
+            if (mon->foe == MHITNOT && you.duration[DUR_SENTINEL_MARK]
+                && !isFriendly && !isNeutral && !isPacified)
+            {
+                new_foe = MHITYOU;
                 new_beh = BEH_SEEK;
                 break;
             }
@@ -697,6 +726,7 @@ void handle_behaviour(monster* mon)
             // leave the level, in case their current choice is blocked.
             if (!proxFoe && mon->foe != MHITNOT
                    && one_chance_in(isSmart ? 60 : 20)
+                   && !mons_foe_is_marked(mon)
                 || isPacified && one_chance_in(isSmart ? 40 : 120))
             {
                 new_foe = MHITNOT;
@@ -779,10 +809,95 @@ void handle_behaviour(monster* mon)
                     new_beh = BEH_WANDER;
             }
             else
-            {
                 mon->target = foepos;
-            }
             break;
+
+        case BEH_WITHDRAW:
+        {
+            if (!isFriendly)
+            {
+                new_beh = BEH_WANDER;
+                break;
+            }
+
+            bool stop_retreat = false;
+            // We've approached our next destination, re-evaluate
+            if (distance2(mon->target, mon->pos()) <= 3)
+            {
+                // Continue on to the rally point
+                if (mon->target != mon->patrol_point)
+                    mon->target = mon->patrol_point;
+                // Reached rally point, stop withdrawing
+                else
+                    stop_retreat = true;
+
+            }
+            else if (distance2(mon->pos(), you.pos()) > dist_range(LOS_RADIUS + 2))
+            {
+                // We're too far from the player. Idle around and wait for
+                // them to catch up.
+                if (!mon->props.exists("idle_point"))
+                {
+                    mon->props["idle_point"] = mon->pos();
+                    mon->props["idle_deadline"] = you.elapsed_time + 200;
+                }
+
+                mon->target = clamp_in_bounds(
+                                    mon->props["idle_point"].get_coord()
+                                    + coord_def(random_range(-2, 2),
+                                                random_range(-2, 2)));
+
+                if (you.elapsed_time >= mon->props["idle_deadline"].get_int())
+                    stop_retreat = true;
+            }
+            else
+            {
+                // Be more lenient about player distance if a monster is
+                // idling (to prevent it from repeatedly resetting idle
+                // time if its own wanderings bring it closer to the player)
+                if (mon->props.exists("idle_point")
+                    && distance2(mon->pos(), you.pos()) < dist_range(LOS_RADIUS))
+                {
+                    mon->props.erase("idle_point");
+                    mon->props.erase("idle_deadline");
+                    mon->target = mon->patrol_point;
+                }
+
+                if (mon->pos() == mon->props["last_pos"].get_coord())
+                {
+                    if (!mon->props.exists("blocked_deadline"))
+                        mon->props["blocked_deadline"] = you.elapsed_time + 30;
+
+                    if (!mon->props.exists("idle_deadline"))
+                        mon->props["idle_deadline"] = you.elapsed_time + 200;
+
+                    if (you.elapsed_time >= mon->props["blocked_deadline"].get_int()
+                        || you.elapsed_time >= mon->props["idle_deadline"].get_int())
+                    {
+                        stop_retreat = true;
+                    }
+                }
+                else
+                {
+                    mon->props.erase("blocked_deadline");
+                    mon->props.erase("idle_deadline");
+                }
+            }
+
+            if (stop_retreat)
+            {
+                new_beh = BEH_SEEK;
+                new_foe = MHITYOU;
+                mon->props.erase("last_pos");
+                mon->props.erase("idle_point");
+                mon->props.erase("blocked_deadline");
+                mon->props.erase("idle_deadline");
+            }
+            else
+                mon->props["last_pos"] = mon->pos();
+
+            break;
+        }
 
         default:
             return;     // uh oh
@@ -811,30 +926,23 @@ void handle_behaviour(monster* mon)
 static bool _mons_check_foe(monster* mon, const coord_def& p,
                             bool friendly, bool neutral)
 {
-    if (!in_bounds(p))
-        return false;
+    // We don't check for the player here because otherwise wandering
+    // monsters will always attack you.
 
-    if (p == you.pos())
-    {
-        // The player: We don't return true here because
-        // otherwise wandering monsters will always
-        // attack the player.
-        return false;
-    }
+    // -- But why should they always attack monsters? -- 1KB
 
-    if (monster* foe = monster_at(p))
+    monster* foe = monster_at(p);
+    if (foe && foe != mon
+        && (foe->friendly() != friendly
+            || neutral && !foe->neutral())
+        && mon->can_see(foe)
+        && !mons_is_projectile(foe->type)
+        && summon_can_attack(mon, p)
+        && (friendly || !is_sanctuary(p))
+        && (crawl_state.game_is_zotdef() || !mons_is_firewood(foe)))
+            // Zotdef allies take out firewood
     {
-        if (foe != mon
-            && mon->can_see(foe)
-            && !mons_is_projectile(foe->type)
-            && (friendly || !is_sanctuary(p))
-            && (foe->friendly() != friendly
-                || neutral && !foe->neutral())
-            && (crawl_state.game_is_zotdef() || !mons_is_firewood(foe)))
-                // Zotdef allies take out firewood
-        {
-            return true;
-        }
+        return true;
     }
     return false;
 }
@@ -843,7 +951,9 @@ static bool _mons_check_foe(monster* mon, const coord_def& p,
 static void _set_nearest_monster_foe(monster* mon)
 {
     // These don't look for foes.
-    if (mon->good_neutral() || mon->strict_neutral())
+    if (mon->good_neutral() || mon->strict_neutral()
+            || mon->behaviour == BEH_WITHDRAW
+            || mon->type == MONS_BATTLESPHERE)
         return;
 
     const bool friendly = mon->friendly();
@@ -851,7 +961,7 @@ static void _set_nearest_monster_foe(monster* mon)
 
     for (int k = 1; k <= LOS_RADIUS; ++k)
     {
-        std::vector<coord_def> monster_pos;
+        vector<coord_def> monster_pos;
         for (int i = -k; i <= k; ++i)
             for (int j = -k; j <= k; (abs(i) == k ? j++ : j += 2*k))
             {
@@ -892,16 +1002,15 @@ void behaviour_event(monster* mon, mon_event_type event, const actor *src,
 
     const beh_type old_behaviour = mon->behaviour;
 
-    int fleeThreshold = std::min(mon->max_hit_points / 4, 20);
+    int fleeThreshold = min(mon->max_hit_points / 4, 20);
 
     bool isSmart          = (mons_intel(mon) > I_ANIMAL);
-    bool isMobile         = !mons_is_stationary(mon);
     bool wontAttack       = mon->wont_attack();
     bool sourceWontAttack = false;
     bool setTarget        = false;
     bool breakCharm       = false;
     bool was_sleeping     = mon->asleep();
-    std::string msg;
+    string msg;
     int src_idx           = src ? src->mindex() : MHITNOT; // AXE ME
 
     if (src)
@@ -944,6 +1053,11 @@ void behaviour_event(monster* mon, mon_event_type event, const actor *src,
 
     case ME_WHACK:
     case ME_ANNOY:
+
+        // Orders to withdraw take precedence over interruptions
+        if (mon->behaviour == BEH_WITHDRAW)
+            break;
+
         // Will turn monster against <src>, unless they
         // are BOTH friendly or good neutral AND stupid,
         // or else fleeing anyway.  Hitting someone over
@@ -987,7 +1101,7 @@ void behaviour_event(monster* mon, mon_event_type event, const actor *src,
             else if (mon->asleep())
                 mon->behaviour = BEH_SEEK;
 
-            if (src == &you)
+            if (src == &you && mon->type != MONS_BATTLESPHERE)
             {
                 mon->attitude = ATT_HOSTILE;
                 breakCharm    = true;
@@ -1013,6 +1127,10 @@ void behaviour_event(monster* mon, mon_event_type event, const actor *src,
         {
             break;
         }
+
+        // Orders to withdraw take precedence over interruptions
+        if (mon->behaviour == BEH_WITHDRAW)
+            break;
 
         // Avoid moving friendly giant spores out of BEH_WANDER.
         if (mon->friendly() && mon->type == MONS_GIANT_SPORE)
@@ -1128,7 +1246,7 @@ void behaviour_event(monster* mon, mon_event_type event, const actor *src,
                 mon->foe = MHITYOU;
                 msg = "PLAIN:@The_monster@ returns to your side!";
             }
-            else if (mon->type != MONS_KRAKEN_TENTACLE)
+            else if (!mon->is_child_tentacle())
             {
                 msg = getSpeakString(mon->name(DESC_PLAIN) + " cornered");
                 if (msg.empty())
@@ -1140,7 +1258,7 @@ void behaviour_event(monster* mon, mon_event_type event, const actor *src,
         break;
 
     case ME_HURT:
-        // Smart monsters, undead, plants, and nonliving monsters cannot flee.
+        // Monsters with the M_FLEES flag can flee at low HP.
         // Cannot flee if cornered.
         // Monster can flee if HP is less than 1/4 maxhp or less than 20 hp
         // (whichever is lower). Chance starts quite low, and is near 100% at 1.
@@ -1151,11 +1269,7 @@ void behaviour_event(monster* mon, mon_event_type event, const actor *src,
         //   at 19 hp: 5% chance of fleeing
         //   at 10 hp: 50% chance of fleeing
         //   (chance increases by 5% for every hp lost.)
-        if (!isSmart && isMobile
-            && mon->holiness() != MH_UNDEAD
-            && mon->holiness() != MH_PLANT
-            && mon->holiness() != MH_NONLIVING
-            && !mons_class_flag(mon->type, M_NO_FLEE)
+        if (mons_class_flag(mon->type, M_FLEES)
             && !mons_is_cornered(mon)
             && !mon->berserk()
             && x_chance_in_y(fleeThreshold - mon->hit_points, fleeThreshold))
@@ -1171,7 +1285,7 @@ void behaviour_event(monster* mon, mon_event_type event, const actor *src,
     if (setTarget && src)
     {
         mon->target = src_pos;
-        if (src->is_player())
+        if (src->is_player() && mon->type != MONS_BATTLESPHERE)
         {
             // Why only attacks by the player change attitude? -- 1KB
             mon->attitude = ATT_HOSTILE;
@@ -1226,4 +1340,28 @@ void make_mons_stop_fleeing(monster* mon)
 {
     if (mons_is_retreating(mon))
         behaviour_event(mon, ME_CORNERED);
+}
+
+//Make all monsters lose track of a given target after a few turns
+void shake_off_monsters(const actor* target)
+{
+    //If the player is under Ashenzari penance, monsters will not
+    //lose track of them so easily
+    if (target->is_player() && you.penance[GOD_ASHENZARI])
+        return;
+
+    for (monster_iterator mi; mi; ++mi)
+    {
+        monster* m = mi->as_monster();
+        if (m->foe == target->mindex() && m->foe_memory > 0)
+        {
+            // Set foe_memory to a small non-zero amount so that monsters can
+            // still close in on your old location, rather than immediately
+            // realizing their target is gone, even if they took stairs while
+            // out of sight
+            dprf("Monster %d forgot about foe %d. (Previous foe_memory: %d)",
+                    m->mindex(), target->mindex(), m->foe_memory);
+            m->foe_memory = min(m->foe_memory, 7);
+        }
+    }
 }

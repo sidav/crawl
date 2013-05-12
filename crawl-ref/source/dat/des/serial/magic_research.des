@@ -16,7 +16,7 @@
 # Schools not covered: Charms, Conjurations. Too little to work with right now.
 # Other magic concepts might be interesting; additions are always welcome!
 
-default-depth: D:18-26, Vaults:1-7, Elf:1-4
+default-depth: D:18-27, Vaults:1-4, Elf:1-2
 
 {{
 function init_research(e)
@@ -39,7 +39,7 @@ function init_research(e)
   e.subst('efg = v')
   e.subst('hi = b')
   e.colour('v = white')
-  e.tile('n = DNGN_TRANSPARENT_WALL_WHITE')
+  e.tile('n = DNGN_TRANSPARENT_STONE_WHITE')
   e.subst (', = .')
 end
 }}
@@ -78,7 +78,7 @@ ENDMAP
 
 NAME:   hangedman_research_thermodynamics
 TAGS:   no_pool_fixup
-MONS:   small simulacrum, large simulacrum, azure jelly, ice statue
+MONS:   simulacrum, simulacrum, azure jelly, ice statue
 KMONS:  D = ice statue
 KITEM:  D = randbook disc:ice numspells:5 / \
             randbook disc:ice numspells:6, star_item
@@ -171,8 +171,8 @@ ENDMAP
 
 NAME:    hangedman_research_thanatology
 MONS:    macabre mass hd:4 / small abomination
-MONS:    large zombie / large skeleton
-MONS:    spectral thing, large simulacrum
+MONS:    zombie / skeleton
+MONS:    spectral thing, simulacrum
 KMONS:   D = curse skull
 KITEM:   D = randbook disc:necromancy numspells:5 / \
              randbook disc:necromancy numspells:6, star_item
@@ -198,25 +198,26 @@ ENDMAP
 
 NAME:    hangedman_research_metamorphosis
 MONS:    wolf spider, ice beast, vampire bat, hog
-MONS:    stone golem, pulsating lump, shining eye
+MONS:    stone golem, insubstantial wisp, jelly
+KMONS:   8 = spider
+KMONS:   9 = porcupine
+# no monster trees, liches are sentient spellcasters
 KMONS:   D = dragon
 KITEM:   D = randbook disc:transmutation numspells:5 / \
              randbook disc:transmutation numspells:6, star_item
-MARKER:  ' = lua:fog_machine { cloud_type = "mutagenic fog", pow_min = 100, \
-             pow_max = 100, delay = 10, size = 1, walk_dist = 0, excl_rad = 0 }
-COLOUR:  .'01234567D = lightmagenta
-FTILE:   .'m+01234567D = FLOOR_NERVES
+COLOUR:  .01234567D = lightmagenta
+FTILE:   .m+01234567D = FLOOR_NERVES
 SHUFFLE: 12, 34
 : init_research(_G)
 MAP
 @,,,@,,,@
 abcn+ncba
-b'm...m'b
+b.m...m.b
 c1m...m2c
 d3mm.mm4d
 a.0+5+0.a
 b.mmmmm.b
-c'67D76'c
+c.67D76.c
 dcbadacbd
 ENDMAP
 

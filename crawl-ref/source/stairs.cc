@@ -4,6 +4,7 @@
 
 #include <sstream>
 
+#include "abyss.h"
 #include "areas.h"
 #include "branch.h"
 #include "chardump.h"
@@ -32,6 +33,8 @@
 #include "random.h"
 #include "spl-clouds.h"
 #include "spl-damage.h"
+#include "spl-other.h"
+#include "spl-summoning.h"
 #include "spl-transloc.h"
 #include "stash.h"
 #include "state.h"
@@ -142,20 +145,19 @@ static bool _stair_moves_pre(dungeon_feature_type stair)
 
     // When the effect is still strong, the chance to actually catch a stair
     // is smaller. (Assuming the duration starts out at 500.)
-    const int dur = std::max(0, you.duration[DUR_REPEL_STAIRS_CLIMB] - 200);
+    const int dur = max(0, you.duration[DUR_REPEL_STAIRS_CLIMB] - 200);
     pct += dur/20;
 
     if (!x_chance_in_y(pct, 100))
         return false;
 
     // Get feature name before sliding stair over.
-    std::string stair_str =
-        feature_description_at(you.pos(), false, DESC_THE, false);
+    string stair_str = feature_description_at(you.pos(), false, DESC_THE, false);
 
     if (!slide_feature_over(you.pos(), coord_def(-1, -1), false))
         return false;
 
-    std::string verb = stair_climb_verb(stair);
+    string verb = stair_climb_verb(stair);
 
     mprf("%s moves away as you attempt to %s it!", stair_str.c_str(),
          verb.c_str());
@@ -186,30 +188,27 @@ static void _climb_message(dungeon_feature_type stair, bool going_up,
         else
         {
             mprf("You %s downwards.",
-                 you.flight_mode() == FL_FLY ? "fly" :
-                     (you.airborne() ? "float" : "slide"));
+                 you.flight_mode() ? "fly" : "slide");
         }
     }
     else if (feat_is_gate(stair))
     {
         mprf("You %s %s through the gate.",
-             you.flight_mode() == FL_FLY ? "fly" :
-                   (you.airborne() ? "float" : "go"),
+             you.flight_mode() ? "fly" : "go",
              going_up ? "up" : "down");
     }
     else
     {
         mprf("You %s %swards.",
-             you.flight_mode() == FL_FLY ? "fly" :
-                   (you.airborne() ? "float" : "climb"),
+             you.flight_mode() ? "fly" : "climb",
              going_up ? "up" : "down");
     }
 }
 
 static void _clear_golubria_traps()
 {
-    std::vector<coord_def> traps = find_golubria_on_level();
-    for (std::vector<coord_def>::const_iterator it = traps.begin(); it != traps.end(); ++it)
+    vector<coord_def> traps = find_golubria_on_level();
+    for (vector<coord_def>::const_iterator it = traps.begin(); it != traps.end(); ++it)
     {
         trap_def *trap = find_trap(*it);
         if (trap && trap->type == TRAP_GOLUBRIA)
@@ -217,7 +216,17 @@ static void _clear_golubria_traps()
     }
 }
 
-static void _leaving_level_now(dungeon_feature_type stair_used)
+static void _clear_prisms()
+{
+    for (int i = 0; i < MAX_MONSTERS; ++i)
+    {
+        monster* mons = &menv[i];
+        if (mons->type == MONS_FULMINANT_PRISM)
+            mons->reset();
+    }
+}
+
+void leaving_level_now(dungeon_feature_type stair_used)
 {
     process_sunlights(true);
 
@@ -232,13 +241,15 @@ static void _leaving_level_now(dungeon_feature_type stair_used)
 
     // Note the name ahead of time because the events may cause markers
     // to be discarded.
-    const std::string newtype =
-        env.markers.property_at(you.pos(), MAT_ANY, "dst");
+    const string newtype = env.markers.property_at(you.pos(), MAT_ANY, "dst");
 
     dungeon_events.fire_position_event(DET_PLAYER_CLIMBS, you.pos());
     dungeon_events.fire_event(DET_LEAVING_LEVEL);
 
     _clear_golubria_traps();
+    _clear_prisms();
+
+    end_recall();
 }
 
 static void _update_travel_cache(const level_id& old_level,
@@ -306,6 +317,12 @@ void up_stairs(dungeon_feature_type force_stair)
                                        : grd(you.pos()));
     const level_id  old_level = level_id::current();
 
+    if (you.form == TRAN_TREE)
+    {
+        canned_msg(MSG_CANNOT_MOVE);
+        return;
+    }
+
     // Up and down both work for shops.
     if (stair_find == DNGN_ENTER_SHOP)
     {
@@ -361,7 +378,7 @@ void up_stairs(dungeon_feature_type force_stair)
     clear_trapping_net();
 
     // Checks are done, the character is committed to moving between levels.
-    _leaving_level_now(stair_find);
+    leaving_level_now(stair_find);
 
     // Interlevel travel data.
     const bool collect_travel_data = can_travel_interlevel();
@@ -409,9 +426,7 @@ void up_stairs(dungeon_feature_type force_stair)
 
     const dungeon_feature_type stair_taken = stair_find;
 
-    if (you.flight_mode() == FL_LEVITATE && !feat_is_gate(stair_find))
-        mpr("You float upwards... And bob straight up to the ceiling!");
-    else if (you.flight_mode() == FL_FLY && !feat_is_gate(stair_find))
+    if (you.flight_mode() && !feat_is_gate(stair_find))
         mpr("You fly upwards.");
     else
         _climb_message(stair_find, true, old_level.branch);
@@ -426,7 +441,7 @@ void up_stairs(dungeon_feature_type force_stair)
              || old_level.branch == BRANCH_VESTIBULE_OF_HELL)
             && !you.branches_left[old_level.branch])
         {
-            std::string old_branch_string = branches[old_level.branch].longname;
+            string old_branch_string = branches[old_level.branch].longname;
             if (old_branch_string.find("The ") == 0)
                 old_branch_string[0] = tolower(old_branch_string[0]);
             mark_milestone("br.exit", "left " + old_branch_string + ".",
@@ -476,7 +491,7 @@ level_id stair_destination(coord_def pos, bool for_real)
 // portal vault entrance (and is ignored for other types of features), and
 // for_real is true if we are actually traversing the feature rather than
 // merely asking what is on the other side.
-level_id stair_destination(dungeon_feature_type feat, const std::string &dst,
+level_id stair_destination(dungeon_feature_type feat, const string &dst,
                            bool for_real)
 {
     if (branches[you.where_are_you].exit_stairs == feat)
@@ -528,6 +543,9 @@ level_id stair_destination(dungeon_feature_type feat, const std::string &dst,
         else
             die("hell exit without return destination");
 
+    case DNGN_ABYSSAL_STAIR:
+        ASSERT(you.where_are_you == BRANCH_ABYSS);
+        push_features_to_abyss();
     case DNGN_ESCAPE_HATCH_DOWN:
     case DNGN_STONE_STAIRS_DOWN_I:
     case DNGN_STONE_STAIRS_DOWN_II:
@@ -570,11 +588,7 @@ level_id stair_destination(dungeon_feature_type feat, const std::string &dst,
     case DNGN_EXIT_PANDEMONIUM:
         if (you.level_stack.empty())
         {
-#if TAG_MAJOR_VERSION == 33
-            if (you.wizard || you.props.exists("ticket_to_D:1"))
-#else
             if (you.wizard)
-#endif
             {
                 if (for_real)
                 {
@@ -587,7 +601,9 @@ level_id stair_destination(dungeon_feature_type feat, const std::string &dst,
                 level_id::current().describe().c_str());
         }
         return you.level_stack.back().id;
-
+    case DNGN_ENTER_ABYSS:
+        push_features_to_abyss();
+        break;
     default:
         break;
     }
@@ -603,7 +619,7 @@ level_id stair_destination(dungeon_feature_type feat, const std::string &dst,
 }
 
 static void _player_change_level_downstairs(dungeon_feature_type stair_find,
-                                            const std::string &dst)
+                                            const string &dst)
 {
     level_id lev = stair_destination(stair_find, dst, true);
     if (!lev.is_valid())
@@ -630,6 +646,12 @@ void down_stairs(dungeon_feature_type force_stair)
                             && get_trap_type(you.pos()) == TRAP_SHAFT
                         || force_stair == DNGN_TRAP_NATURAL);
     level_id shaft_dest;
+
+    if (you.form == TRAN_TREE)
+    {
+        canned_msg(MSG_CANNOT_MOVE);
+        return;
+    }
 
     // Up and down both work for shops.
     if (stair_find == DNGN_ENTER_SHOP)
@@ -681,13 +703,6 @@ void down_stairs(dungeon_feature_type force_stair)
         const bool known_trap = (grd(you.pos()) != DNGN_UNDISCOVERED_TRAP
                                  && !force_stair);
 
-        if (you.flight_mode() == FL_LEVITATE && !force_stair)
-        {
-            if (known_trap)
-                mpr("You can't fall through a shaft while levitating.");
-            return;
-        }
-
         if (!is_valid_shaft_level())
         {
             if (known_trap)
@@ -715,9 +730,9 @@ void down_stairs(dungeon_feature_type force_stair)
                                     + short_place_name(shaft_dest) + ".");
         }
 
-        if (you.flight_mode() != FL_FLY || force_stair)
+        if (!you.flight_mode() || force_stair)
             mpr("You fall through a shaft!");
-        if (you.flight_mode() == FL_FLY && !force_stair)
+        if (you.flight_mode() && !force_stair)
             mpr("You dive down through the shaft.");
 
         // Shafts are one-time-use.
@@ -727,7 +742,7 @@ void down_stairs(dungeon_feature_type force_stair)
 
     if (stair_find == DNGN_ENTER_ZOT && !you.opened_zot)
     {
-        std::vector<int> runes;
+        vector<int> runes;
         for (int i = 0; i < NUM_RUNE_TYPES; i++)
             if (you.runes[i])
                 runes.push_back(i);
@@ -749,7 +764,7 @@ void down_stairs(dungeon_feature_type force_stair)
 
         ASSERT(runes.size() >= 3);
 
-        std::random_shuffle(runes.begin(), runes.end());
+        random_shuffle(runes.begin(), runes.end());
         mprf("You insert the %s rune into the lock.", rune_type_name(runes[0]));
 #ifdef USE_TILE_LOCAL
         tiles.add_overlay(you.pos(), tileidx_zap(GREEN));
@@ -787,10 +802,10 @@ void down_stairs(dungeon_feature_type force_stair)
     clear_trapping_net();
 
     // Markers might be deleted when removing portals.
-    const std::string dst = env.markers.property_at(you.pos(), MAT_ANY, "dst");
+    const string dst = env.markers.property_at(you.pos(), MAT_ANY, "dst");
 
     // Fire level-leaving trigger.
-    _leaving_level_now(stair_find);
+    leaving_level_now(stair_find);
 
     // Not entirely accurate - the player could die before
     // reaching the Abyss.
@@ -853,10 +868,10 @@ void down_stairs(dungeon_feature_type force_stair)
     {
         mpr("You pass through the gate.");
         take_note(Note(NOTE_MESSAGE, 0, 0,
-            stair_find == DNGN_EXIT_ABYSS ? "Escaped the Abyss." :
-            stair_find == DNGN_EXIT_PANDEMONIUM ? "Escaped the Pandemonium." :
-            stair_find == DNGN_EXIT_THROUGH_ABYSS ? "Escaped into the Abyss." :
-            "Buggered into bugdom."), true);
+            stair_find == DNGN_EXIT_ABYSS ? "Escaped the Abyss" :
+            stair_find == DNGN_EXIT_PANDEMONIUM ? "Escaped Pandemonium" :
+            stair_find == DNGN_EXIT_THROUGH_ABYSS ? "Escaped into the Abyss" :
+            "Buggered into bugdom"), true);
 
         if (!you.wizard || !crawl_state.is_replaying_keys())
             more();
@@ -906,6 +921,11 @@ void down_stairs(dungeon_feature_type force_stair)
         break;
 
     case BRANCH_ABYSS:
+        if (old_level.branch == BRANCH_ABYSS)
+        {
+            mpr("You plunge deeper into the Abyss.", MSGCH_BANISHMENT);
+            break;
+        }
         if (!force_stair)
             mpr("You enter the Abyss!");
 
@@ -915,6 +935,8 @@ void down_stairs(dungeon_feature_type force_stair)
             mpr("You feel Cheibriados slowing down the madness of this place.",
                 MSGCH_GOD, GOD_CHEIBRIADOS);
         }
+
+        // Re-entering the Abyss halves accumulated speed.
         you.abyss_speed /= 2;
         learned_something_new(HINT_ABYSS);
         break;
@@ -1061,7 +1083,7 @@ static void _update_level_state()
 {
     env.level_state = 0;
 
-    std::vector<coord_def> golub = find_golubria_on_level();
+    vector<coord_def> golub = find_golubria_on_level();
     if (!golub.empty())
         env.level_state += LSTATE_GOLUBRIA;
 
@@ -1091,5 +1113,5 @@ void new_level(bool restore)
     cancel_tornado();
 
     if (player_in_branch(BRANCH_ZIGGURAT))
-        you.zig_max = std::max(you.zig_max, you.depth);
+        you.zig_max = max(you.zig_max, you.depth);
 }

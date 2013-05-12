@@ -15,9 +15,7 @@ static int _clamp_stealth(int stealth)
     else if (stealth < -3)
         return -3;
     else
-    {
         return stealth;
-    }
 }
 
 // Monster stealth is a value between:
@@ -32,7 +30,7 @@ static int _clamp_stealth(int stealth)
 //
 int monster::stealth() const
 {
-    int base_stealth = -(std::min((int) body_size(), 6) - 3);
+    int base_stealth = -(min((int) body_size(), 6) - 3);
 
     int actual_stealth = base_stealth;
 
@@ -40,13 +38,11 @@ int monster::stealth() const
     if (holiness() == MH_UNDEAD)
     {
         // Zombies are less stealthy.
-        if (type == MONS_ZOMBIE_SMALL)
-            actual_stealth--;
-
-        // Larger zombies even more so.
-        else if (type == MONS_ZOMBIE_LARGE)
-            actual_stealth -= 2;
-
+        if (type == MONS_ZOMBIE)
+        {
+            // Large zombies even more so.
+            actual_stealth -= mons_zombie_size(base_monster);
+        }
         // Other undead are otherwise stealthy.
         else
             actual_stealth++;

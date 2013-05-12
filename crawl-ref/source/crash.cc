@@ -21,7 +21,7 @@
     defined(TARGET_OS_NETBSD) || \
     defined(TARGET_OS_OPENBSD) || \
     defined(TARGET_COMPILER_CYGWIN) || \
-    defined(ANDROID) //Backtrace not supported in ANDROID
+    defined(__ANDROID__)
         #undef BACKTRACE_SUPPORTED
 #endif
 #endif
@@ -102,9 +102,9 @@ static void _crash_signal_handler(int sig_num)
 
         fprintf(stderr, "Recursive crash.\n");
 
-        std::string dir = (!Options.morgue_dir.empty() ? Options.morgue_dir :
-                           !SysEnv.crawl_dir.empty()   ? SysEnv.crawl_dir
-                                                       : "");
+        string dir = (!Options.morgue_dir.empty() ? Options.morgue_dir :
+                      !SysEnv.crawl_dir.empty()   ? SysEnv.crawl_dir
+                                                  : "");
 
         if (!dir.empty() && dir[dir.length() - 1] != FILE_SEPARATOR)
             dir += FILE_SEPARATOR;
@@ -268,7 +268,7 @@ void write_stack_trace(FILE* file, int ignore_count)
 {
     void* frames[50];
 
-#if defined (TARGET_OS_MACOSX)
+#if defined(TARGET_OS_MACOSX)
     backtrace_t backtrace;
     backtrace_symbols_t backtrace_symbols;
     backtrace = nasty_cast<backtrace_t, void*>(dlsym(RTLD_DEFAULT, "backtrace"));
@@ -300,10 +300,10 @@ void write_stack_trace(FILE* file, int ignore_count)
     fprintf(file, "Obtained %d stack frames.\n", num_frames);
 
     // Now we prettify the printout to even show demangled C++ function names.
-    std::string bt = "";
+    string bt = "";
     for (int i = 0; i < num_frames; i++)
     {
-#if defined (TARGET_OS_MACOSX)
+#if defined(TARGET_OS_MACOSX)
         char *addr = ::strstr(symbols[i], "0x");
         char *mangled = ::strchr(addr, ' ') + 1;
         char *offset = ::strchr(addr, '+');

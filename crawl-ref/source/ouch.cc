@@ -28,6 +28,7 @@
 #include "beam.h"
 #include "chardump.h"
 #include "delay.h"
+#include "describe.h"
 #include "dgnevent.h"
 #include "effects.h"
 #include "env.h"
@@ -41,6 +42,7 @@
 #include "itemname.h"
 #include "itemprop.h"
 #include "items.h"
+#include "libutil.h"
 #include "macro.h"
 #include "message.h"
 #include "mgen_data.h"
@@ -52,6 +54,7 @@
 #include "notes.h"
 #include "player.h"
 #include "player-stats.h"
+#include "potion.h"
 #include "random.h"
 #include "religion.h"
 #include "shopping.h"
@@ -67,7 +70,6 @@
 #include "xom.h"
 
 static void _end_game(scorefile_entry &se);
-static void _item_corrode(int slot);
 
 static void _maybe_melt_player_enchantments(beam_type flavour, int damage)
 {
@@ -103,7 +105,7 @@ static void _maybe_melt_player_enchantments(beam_type flavour, int damage)
 }
 
 // NOTE: DOES NOT check for hellfire!!!
-int check_your_resists(int hurted, beam_type flavour, std::string source,
+int check_your_resists(int hurted, beam_type flavour, string source,
                        bolt *beam, bool doEffects)
 {
     int resist;
@@ -111,7 +113,7 @@ int check_your_resists(int hurted, beam_type flavour, std::string source,
 
     dprf("checking resistance: flavour=%d", flavour);
 
-    std::string kaux = "";
+    string kaux = "";
     if (beam)
     {
         source = beam->get_source_name();
@@ -217,7 +219,7 @@ int check_your_resists(int hurted, beam_type flavour, std::string source,
         // TSO's protection.
         if (you.religion == GOD_SHINING_ONE && you.piety > resist * 50)
         {
-            int unhurted = std::min(hurted, (you.piety * hurted) / 150);
+            int unhurted = min(hurted, (you.piety * hurted) / 150);
 
             if (unhurted > 0)
                 hurted -= unhurted;
@@ -296,11 +298,11 @@ int check_your_resists(int hurted, beam_type flavour, std::string source,
         // For mutation damage, we want to count innate mutations for
         // the demonspawn, but not for other species.
         int mutated = how_mutated(you.species == SP_DEMONSPAWN, true);
-        int multiplier = std::min(mutated * 5, 100);
+        int multiplier = min(mutated * 5, 100);
         if (you.is_chaotic() || player_is_shapechanged())
             multiplier = 100; // full damage
         else if (you.is_undead || is_chaotic_god(you.religion))
-            multiplier = std::max(multiplier, 33);
+            multiplier = max(multiplier, 33);
 
         hurted = hurted * multiplier / 100;
 
@@ -315,7 +317,7 @@ int check_your_resists(int hurted, beam_type flavour, std::string source,
 
             if (one_chance_in(3)
                 // delete_mutation() handles MUT_MUTATION_RESISTANCE but not the amulet
-                && (!player_res_mutation_from_item()
+                && (!you.rmut_from_item()
                     || one_chance_in(10)))
             {
                 // silver stars only, if this ever changes we may want to give
@@ -357,8 +359,7 @@ int check_your_resists(int hurted, beam_type flavour, std::string source,
     return hurted;
 }
 
-void splash_with_acid(int acid_strength, bool corrode_items,
-                      std::string hurt_message)
+void splash_with_acid(int acid_strength, bool corrode_items, string hurt_message)
 {
     int dam = 0;
     const bool wearing_cloak = player_wearing_slot(EQ_CLOAK);
@@ -370,14 +371,12 @@ void splash_with_acid(int acid_strength, bool corrode_items,
 
         if (!cloak_protects)
         {
-            if (!player_wearing_slot(slot) && slot != EQ_SHIELD)
+            item_def *item = you.slot_item(static_cast<equipment_type>(slot));
+            if (!item && slot != EQ_SHIELD)
                 dam++;
 
-            if (player_wearing_slot(slot) && corrode_items
-                && x_chance_in_y(acid_strength + 1, 20))
-            {
-                _item_corrode(you.equip[slot]);
-            }
+            if (item && corrode_items && x_chance_in_y(acid_strength + 1, 20))
+                corrode_item(*item, &you);
         }
     }
 
@@ -400,118 +399,6 @@ void splash_with_acid(int acid_strength, bool corrode_items,
             canned_msg(MSG_YOU_RESIST);
 
         ouch(post_res_dam, NON_MONSTER, KILLED_BY_ACID);
-    }
-}
-
-void weapon_acid(int acid_strength)
-{
-    int hand_thing = -1;
-
-    if (!you.melded[EQ_WEAPON])
-        hand_thing = you.equip[EQ_WEAPON];
-
-    if (hand_thing == -1 && !you.melded[EQ_GLOVES])
-        hand_thing = you.equip[EQ_GLOVES];
-
-    if (hand_thing == -1)
-    {
-        msg::stream << "Your " << you.hand_name(true) << " burn!" << std::endl;
-        ouch(roll_dice(1, acid_strength), NON_MONSTER, KILLED_BY_ACID);
-    }
-    else if (x_chance_in_y(acid_strength + 1, 20))
-        _item_corrode(hand_thing);
-}
-
-static void _item_corrode(int slot)
-{
-    bool it_resists = false;
-    bool suppress_msg = false;
-    item_def& item = you.inv[slot];
-
-    // Artefacts don't corrode.
-    if (is_artefact(item))
-        return;
-
-    // Anti-corrosion items protect against 90% of corrosion.
-    if (player_res_corr() && !one_chance_in(10))
-    {
-        dprf("Amulet protects.");
-        return;
-    }
-
-    int how_rusty = ((item.base_type == OBJ_WEAPONS) ? item.plus2 : item.plus);
-    // Already very rusty.
-    if (how_rusty < -5)
-        return;
-
-    // determine possibility of resistance by object type {dlb}:
-    switch (item.base_type)
-    {
-    case OBJ_ARMOUR:
-        if ((item.sub_type == ARM_CRYSTAL_PLATE_ARMOUR
-             || get_equip_race(item) == ISFLAG_DWARVEN)
-            && !one_chance_in(5))
-        {
-            it_resists = true;
-            suppress_msg = false;
-        }
-        break;
-
-    case OBJ_WEAPONS:
-        if (get_equip_race(item) == ISFLAG_DWARVEN && !one_chance_in(5))
-        {
-            it_resists = true;
-            suppress_msg = false;
-        }
-        break;
-
-    default:
-        // Other items can't corrode.
-        return;
-    }
-
-    // determine chance of corrosion {dlb}:
-    if (!it_resists)
-    {
-        const int chance = abs(how_rusty);
-
-        // The embedded equation may look funny, but it actually works well
-        // to generate a pretty probability ramp {6%, 18%, 34%, 58%, 98%}
-        // for values [0,4] which closely matches the original, ugly switch.
-        // {dlb}
-        if (chance >= 0 && chance <= 4)
-            it_resists = x_chance_in_y(2 + (4 << chance) + chance * 8, 100);
-        else
-            it_resists = true;
-
-        // If the checks get this far, you should hear about it. {dlb}
-        suppress_msg = false;
-    }
-
-    // handle message output and item damage {dlb}:
-    if (!suppress_msg)
-    {
-        if (it_resists)
-            mprf("%s resists.", item.name(DESC_YOUR).c_str());
-        else
-            mprf("The acid corrodes %s!", item.name(DESC_YOUR).c_str());
-    }
-
-    if (!it_resists)
-    {
-        how_rusty--;
-        xom_is_stimulated(50);
-
-        if (item.base_type == OBJ_WEAPONS)
-            item.plus2 = how_rusty;
-        else
-            item.plus  = how_rusty;
-
-        if (item.base_type == OBJ_ARMOUR)
-            you.redraw_armour_class = true;
-
-        if (you.equip[EQ_WEAPON] == slot)
-            you.wield_change = true;
     }
 }
 
@@ -561,6 +448,11 @@ static bool _expose_invent_to_element(beam_type flavour, int strength)
     if (target_class == OBJ_UNASSIGNED)
         return false;
 
+    // Wisp form semi-melds all of inventory, making it unusable for you,
+    // but also immune to destruction.  No message is needed.
+    if (you.form == TRAN_WISP)
+        return false;
+
     // Fedhas worshipers are exempt from the food destruction effect
     // of spores.
     if (flavour == BEAM_SPORE
@@ -586,7 +478,7 @@ static bool _expose_invent_to_element(beam_type flavour, int strength)
         {
             // Conservation doesn't help against harpies' devouring food.
             if (flavour != BEAM_DEVOUR_FOOD
-                && player_item_conserve() && !one_chance_in(10))
+                && you.conservation() && !one_chance_in(10))
             {
                 continue;
             }
@@ -614,7 +506,7 @@ static bool _expose_invent_to_element(beam_type flavour, int strength)
             }
 
             // Get name and quantity before destruction.
-            const std::string item_name = you.inv[i].name(DESC_PLAIN);
+            const string item_name = you.inv[i].name(DESC_PLAIN);
             const int quantity = you.inv[i].quantity;
             num_dest = 0;
 
@@ -680,9 +572,10 @@ static bool _expose_invent_to_element(beam_type flavour, int strength)
 
     if (jiyva_block)
     {
-        mprf("%s shields %s delectables from destruction.",
-             god_name(GOD_JIYVA).c_str(),
-             (total_dest > 0) ? "some of your" : "your");
+        simple_god_message(
+            make_stringf(" shields %s delectables from destruction.",
+                         (total_dest > 0) ? "some of your" : "your").c_str(),
+            GOD_JIYVA);
     }
 
     if (!total_dest)
@@ -718,13 +611,16 @@ bool expose_items_to_element(beam_type flavour, const coord_def& where,
         if (si->base_type == target_class
             || target_class == OBJ_FOOD && si->base_type == OBJ_CORPSES)
         {
-            if (x_chance_in_y(strength, 100))
+            for (int j = 0; j < si->quantity; ++j)
             {
-                num_dest++;
-                if (!dec_mitm_item_quantity(si->index(), 1)
-                    && is_blood_potion(*si))
+                if (x_chance_in_y(strength, 100))
                 {
-                    remove_oldest_blood_potion(*si);
+                    num_dest++;
+                    if (!dec_mitm_item_quantity(si->index(), 1)
+                        && is_blood_potion(*si))
+                    {
+                       remove_oldest_blood_potion(*si);
+                    }
                 }
             }
         }
@@ -779,14 +675,32 @@ bool expose_items_to_element(beam_type flavour, const coord_def& where,
 //
 // XXX: This function is far from perfect and a work in progress.
 bool expose_player_to_element(beam_type flavour, int strength,
-                              bool damage_inventory)
+                              bool damage_inventory, bool slow_dracs)
 {
     _maybe_melt_player_enchantments(flavour, strength ? strength : 10);
+
+    if (flavour == BEAM_COLD && slow_dracs && player_genus(GENPC_DRACONIAN)
+        && you.res_cold() <= 0 && coinflip())
+    {
+        you.slow_down(0, strength);
+    }
 
     if (strength <= 0 || !damage_inventory)
         return false;
 
     return _expose_invent_to_element(flavour, strength);
+}
+
+static void _lose_level_abilities()
+{
+    if (you.attribute[ATTR_PERM_FLIGHT]
+        && !you.racial_permanent_flight()
+        && !you.wearing_ego(EQ_ALL_ARMOUR, SPARM_FLYING))
+    {
+        you.increase_duration(DUR_FLIGHT, 50, 100);
+        you.attribute[ATTR_PERM_FLIGHT] = 0;
+        mpr("You feel your flight won't last long.", MSGCH_WARN);
+    }
 }
 
 void lose_level()
@@ -810,6 +724,7 @@ void lose_level()
 
     calc_hp();
     calc_mp();
+    _lose_level_abilities();
 
     char buf[200];
     sprintf(buf, "HP: %d/%d MP: %d/%d",
@@ -818,7 +733,7 @@ void lose_level()
 
     you.redraw_title = true;
     you.redraw_experience = true;
-#ifdef USE_TILES_LOCAL
+#ifdef USE_TILE_LOCAL
     // In case of intrinsic ability changes.
     tiles.layout_statcol();
     redraw_screen();
@@ -845,6 +760,7 @@ bool drain_exp(bool announce_full)
 
     if (you.experience == 0)
     {
+        mpr("You are drained of all life!");
         ouch(INSTANT_DEATH, NON_MONSTER, KILLED_BY_DRAINING);
 
         // Return in case death was escaped via wizard mode.
@@ -853,6 +769,7 @@ bool drain_exp(bool announce_full)
 
     if (you.experience_level == 1)
     {
+        mpr("You feel drained.");
         you.experience = 0;
 
         return true;
@@ -865,8 +782,8 @@ bool drain_exp(bool announce_full)
     // TSO's protection.
     if (you.religion == GOD_SHINING_ONE && you.piety > protection * 50)
     {
-        unsigned int undrained = std::min(exp_drained,
-                                      (you.piety * exp_drained) / 150);
+        unsigned int undrained = min(exp_drained,
+                                     (you.piety * exp_drained) / 150);
 
         if (undrained > 0)
         {
@@ -994,8 +911,7 @@ static void _yred_mirrors_injury(int dam, int death_source)
         if (dam <= 0 || invalid_monster_index(death_source))
             return;
 
-        add_final_effect(FINEFF_MIRROR_DAMAGE, &menv[death_source], &you,
-                         coord_def(0, 0), dam);
+        (new mirror_damage_fineff(&menv[death_source], &you, dam))->schedule();
     }
 }
 
@@ -1054,18 +970,37 @@ static void _maybe_spawn_jellies(int dam, const char* aux,
     }
 }
 
-static void _pain_recover_mp(int dam)
+static void _powered_by_pain(int dam)
 {
-    if (you.mutation[MUT_POWERED_BY_PAIN]
-        && (you.magic_points < you.max_magic_points))
-    {
-        if (random2(dam) > 2 + 3 * player_mutation_level(MUT_POWERED_BY_PAIN)
-            || dam >= you.hp_max / 2)
-        {
-            int gain_mp = roll_dice(3, 2 + 3 * player_mutation_level(MUT_POWERED_BY_PAIN));
+    const int level = player_mutation_level(MUT_POWERED_BY_PAIN);
 
-            mpr("You focus.");
-            inc_mp(gain_mp);
+    if (you.mutation[MUT_POWERED_BY_PAIN]
+        && (random2(dam) > 2 + 3 * level
+            || dam >= you.hp_max / 2))
+    {
+        switch (random2(4))
+        {
+        case 0:
+        case 1:
+        {
+            if (you.magic_points < you.max_magic_points)
+            {
+                mpr("You focus on the pain.");
+                int mp = roll_dice(3, 2 + 3 * level);
+                mpr("You feel your power returning.");
+                inc_mp(mp);
+                break;
+            }
+            break;
+        }
+        case 2:
+            mpr("You focus on the pain.");
+            potion_effect(POT_MIGHT, level * 20);
+            break;
+        case 3:
+            mpr("You focus on the pain.");
+            potion_effect(POT_AGILITY, level * 20);
+            break;
         }
     }
 }
@@ -1114,6 +1049,7 @@ static void _wizard_restore_life()
         if (you.stat(static_cast<stat_type>(i)) <= 0)
         {
             you.stat_loss[i] = 0;
+            you.stat_zero[i] = 0;
             you.redraw_stats[i] = true;
         }
     }
@@ -1137,6 +1073,17 @@ void ouch(int dam, int death_source, kill_method_type death_type,
 
     if (you.dead) // ... but eligible for revival
         return;
+
+    if (dam != INSTANT_DEATH && !invalid_monster_index(death_source)
+        && menv[death_source].has_ench(ENCH_WRETCHED))
+    {
+        // An abstract boring simulation of reduced stats/etc due to bad muts
+        // reducing the monster's melee damage, spell power, etc.  This is
+        // wrong eg. for clouds that would be smaller and with a shorter
+        // duration but do the same damage, etc.
+        int degree = menv[death_source].get_ench(ENCH_WRETCHED).degree;
+        dam = div_rand_round(dam * (10 - min(degree, 5)), 10);
+    }
 
     if (dam != INSTANT_DEATH && you.species == SP_DEEP_DWARF)
     {
@@ -1177,14 +1124,14 @@ void ouch(int dam, int death_source, kill_method_type death_type,
 
     if (dam != INSTANT_DEATH)
     {
-        if (player_spirit_shield() && death_type != KILLED_BY_POISON)
+        if (you.spirit_shield() && death_type != KILLED_BY_POISON)
         {
             // round off fairly (important for taking 1 damage at a time)
             int mp = div_rand_round(dam * you.magic_points,
                                     you.hp + you.magic_points);
             // but don't kill the player with round-off errors
-            mp = std::max(mp, dam + 1 - you.hp);
-            mp = std::min(mp, you.magic_points);
+            mp = max(mp, dam + 1 - you.hp);
+            mp = min(mp, you.magic_points);
 
             dam -= mp;
             dec_mp(mp);
@@ -1227,7 +1174,7 @@ void ouch(int dam, int death_source, kill_method_type death_type,
             _xom_checks_damage(death_type, dam, death_source);
 
             // for note taking
-            std::string damage_desc;
+            string damage_desc;
             if (!see_source)
                 damage_desc = make_stringf("something (%d)", dam);
             else
@@ -1237,12 +1184,12 @@ void ouch(int dam, int death_source, kill_method_type death_type,
                     .death_description(scorefile_entry::DDV_TERSE);
             }
 
-            take_note(
-                      Note(NOTE_HP_CHANGE, you.hp, you.hp_max, damage_desc.c_str()));
+            take_note(Note(NOTE_HP_CHANGE, you.hp, you.hp_max,
+                           damage_desc.c_str()));
 
             _yred_mirrors_injury(dam, death_source);
             _maybe_spawn_jellies(dam, aux, death_type, death_source);
-            _pain_recover_mp(dam);
+            _powered_by_pain(dam);
 
             return;
         } // else hp <= 0
@@ -1310,7 +1257,7 @@ void ouch(int dam, int death_source, kill_method_type death_type,
     {
         if (crawl_state.test || you.wizard)
         {
-            const std::string death_desc
+            const string death_desc
                 = se.death_description(scorefile_entry::DDV_VERBOSE);
 
             dprf("Damage: %d; Hit points: %d", dam, you.hp);
@@ -1365,10 +1312,6 @@ void ouch(int dam, int death_source, kill_method_type death_type,
     crawl_state.need_save       = false;
     crawl_state.updating_scores = true;
 
-#if TAG_MAJOR_VERSION <= 33
-    note_montiers();
-#endif
-
     // Prevent bogus notes.
     activate_notes(false);
 
@@ -1388,11 +1331,11 @@ void ouch(int dam, int death_source, kill_method_type death_type,
     _end_game(se);
 }
 
-std::string morgue_name(std::string char_name, time_t when_crawl_got_even)
+string morgue_name(string char_name, time_t when_crawl_got_even)
 {
-    std::string name = "morgue-" + char_name;
+    string name = "morgue-" + char_name;
 
-    std::string time = make_file_time(when_crawl_got_even);
+    string time = make_file_time(when_crawl_got_even);
     if (!time.empty())
         name += "-" + time;
 
@@ -1407,7 +1350,7 @@ static void _delete_files()
     you.save = 0;
 }
 
-void screen_end_game(std::string text)
+void screen_end_game(string text)
 {
     crawl_state.cancel_cmd_all();
     _delete_files();
@@ -1437,7 +1380,6 @@ void _end_game(scorefile_entry &se)
             continue;
         set_ident_flags(you.inv[i], ISFLAG_IDENT_MASK);
         set_ident_type(you.inv[i], ID_KNOWN_TYPE);
-        add_autoinscription(you.inv[i]);
     }
 
     _delete_files();
@@ -1501,7 +1443,8 @@ void _end_game(scorefile_entry &se)
             hints_death_screen();
     }
 
-    if (!dump_char(morgue_name(you.your_name, se.get_death_time()), true, &se))
+    if (!dump_char(morgue_name(you.your_name, se.get_death_time()),
+                   true, true, &se))
     {
         mpr("Char dump unsuccessful! Sorry about that.");
         if (!crawl_state.seen_hups)
@@ -1531,7 +1474,7 @@ void _end_game(scorefile_entry &se)
     cprintf("Goodbye, %s.", you.your_name.c_str());
     cprintf("\n\n    "); // Space padding where # would go in list format
 
-    std::string hiscore = hiscores_format_single_long(se, true);
+    string hiscore = hiscores_format_single_long(se, true);
 
     const int lines = count_occurrences(hiscore, "\n") + 1;
 

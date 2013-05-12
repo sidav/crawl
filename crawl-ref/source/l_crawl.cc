@@ -15,6 +15,7 @@ module "crawl"
 #include "cluautil.h"
 #include "l_libs.h"
 
+#include "chardump.h"
 #include "cio.h"
 #include "command.h"
 #include "delay.h"
@@ -26,16 +27,21 @@ module "crawl"
 #include "itemname.h"
 #include "libutil.h"
 #include "macro.h"
+#include "menu.h"
 #include "message.h"
 #include "notes.h"
 #include "options.h"
+#include "ouch.h"
 #include "output.h"
+#include "perlin.h"
 #include "player.h"
 #include "random.h"
 #include "religion.h"
+#include "state.h"
 #include "stuff.h"
 #include "tutorial.h"
 #include "view.h"
+#include "worley.h"
 
 #ifdef UNIX
 #include <sys/time.h>
@@ -446,7 +452,7 @@ static int crawl_bindkey(lua_State *ls)
         return 0;
 
     lua_pushvalue(ls, 2);
-    std::string name = clua.setuniqregistry();
+    string name = clua.setuniqregistry();
     if (lua_gettop(ls) != 2)
     {
         fprintf(stderr, "Stack top has changed!\n");
@@ -472,7 +478,7 @@ static int crawl_msgch_num(lua_State *ls)
 static int crawl_msgch_name(lua_State *ls)
 {
     int num = luaL_checkint(ls, 1);
-    std::string name = channel_to_str(num);
+    string name = channel_to_str(num);
     lua_pushstring(ls, name.c_str());
     return 1;
 }
@@ -600,7 +606,7 @@ static int crawl_trim(lua_State *ls)
     const char *s = luaL_checkstring(ls, 1);
     if (!s)
         return 0;
-    std::string text = s;
+    string text = s;
     trim_string(text);
     lua_pushstring(ls, text.c_str());
     return 1;
@@ -613,7 +619,9 @@ static int crawl_split(lua_State *ls)
     if (!s || !token)
         return 0;
 
-    std::vector<std::string> segs = split_string(token, s);
+    vector<string> segs = split_string(token, s);
+    if (lua_isboolean(ls, 3) && lua_toboolean(ls, 3))
+        reverse(segs.begin(), segs.end());
     lua_newtable(ls);
     for (int i = 0, count = segs.size(); i < count; ++i)
     {
@@ -664,6 +672,76 @@ LUARET1(crawl_x_chance_in_y, boolean, x_chance_in_y(luaL_checkint(ls, 1),
                                                     luaL_checkint(ls, 2)))
 LUARET1(crawl_div_rand_round, number, div_rand_round(luaL_checkint(ls, 1),
                                                      luaL_checkint(ls, 2)))
+LUARET1(crawl_random_real, number, random_real())
+
+static int crawl_worley(lua_State *ls)
+{
+    double px = lua_tonumber(ls,1);
+    double py = lua_tonumber(ls,2);
+    double pz = lua_tonumber(ls,3);
+
+    worley::noise_datum n = worley::noise(px,py,pz);
+    lua_pushnumber(ls, n.distance[0]);
+    lua_pushnumber(ls, n.distance[1]);
+    lua_pushnumber(ls, n.id[0]);
+    lua_pushnumber(ls, n.id[1]);
+    lua_pushnumber(ls, n.pos[0][0]);
+    lua_pushnumber(ls, n.pos[0][1]);
+    lua_pushnumber(ls, n.pos[0][2]);
+    lua_pushnumber(ls, n.pos[1][0]);
+    lua_pushnumber(ls, n.pos[1][1]);
+    lua_pushnumber(ls, n.pos[1][2]);
+    return 10;
+}
+
+// Supports 2D-4D Simplex noise. The first two parameters are required
+// for 2D noise, the next two are optional for 3D or 4D.
+// TODO: Could support octaves here but maybe it can be handled more
+// flexibly in lua
+static int crawl_simplex(lua_State *ls)
+{
+    int dims = 0;
+    double vals[4];
+    if (lua_isnumber(ls,1))
+    {
+        vals[dims] = lua_tonumber(ls,1);
+        dims++;
+    }
+    if (lua_isnumber(ls,2))
+    {
+        vals[dims] = lua_tonumber(ls,2);
+        dims++;
+    }
+    if (lua_isnumber(ls,3))
+    {
+        vals[dims] = lua_tonumber(ls,3);
+        dims++;
+    }
+    if (lua_isnumber(ls,4))
+    {
+        vals[dims] = lua_tonumber(ls,4);
+        dims++;
+    }
+
+    double result;
+    switch (dims)
+    {
+    case 2:
+        result = perlin::noise(vals[0],vals[1]);
+        break;
+    case 3:
+        result = perlin::noise(vals[0],vals[1],vals[2]);
+        break;
+    case 4:
+        result = perlin::noise(vals[0],vals[1],vals[2],vals[3]);
+        break;
+    default:
+        return 0; // TODO: Throw error?
+    }
+    lua_pushnumber(ls, result);
+
+    return 1;
+}
 
 static int crawl_is_tiles(lua_State *ls)
 {
@@ -683,6 +761,17 @@ static int crawl_is_webtiles(lua_State *ls)
     return 1;
 }
 
+static int crawl_is_touch_ui(lua_State *ls)
+{
+#ifdef TOUCH_UI
+    lua_pushboolean(ls, true);
+#else
+    lua_pushboolean(ls, false);
+#endif
+
+    return 1;
+}
+
 static int crawl_get_command(lua_State *ls)
 {
     if (lua_gettop(ls) == 0)
@@ -693,7 +782,7 @@ static int crawl_get_command(lua_State *ls)
 
     const command_type cmd = name_to_command(luaL_checkstring(ls, 1));
 
-    std::string cmd_name = command_to_string(cmd, true);
+    string cmd_name = command_to_string(cmd, true);
     if (strcmp(cmd_name.c_str(), "<") == 0)
         cmd_name = "<<";
 
@@ -767,7 +856,7 @@ static int crawl_err_trace(lua_State *ls)
     {
         // This code from lua.c:traceback() (mostly)
         const char *errs = lua_tostring(ls, 1);
-        std::string errstr = errs? errs : "";
+        string errstr = errs? errs : "";
         lua_getfield(ls, LUA_GLOBALSINDEX, "debug");
         if (!lua_istable(ls, -1))
         {
@@ -811,6 +900,8 @@ static int crawl_warn_list_append(lua_State *ls)
     warn_list_append.insert(key);
     return 0;
 }
+
+LUAWRAP(crawl_dump_char, dump_char(you.your_name, true))
 
 #ifdef WIZARD
 static int crawl_call_dlua(lua_State *ls)
@@ -885,6 +976,9 @@ static const struct luaL_reg crawl_clib[] =
     { "random_range",   crawl_random_range },
     { "random_element", crawl_random_element },
     { "div_rand_round", crawl_div_rand_round },
+    { "random_real",    crawl_random_real },
+    { "worley",         crawl_worley },
+    { "simplex",        crawl_simplex },
     { "redraw_screen",  crawl_redraw_screen },
     { "c_input_line",   crawl_c_input_line},
     { "getch",          crawl_getch },
@@ -915,11 +1009,13 @@ static const struct luaL_reg crawl_clib[] =
     { "stat_gain_prompt", crawl_stat_gain_prompt },
     { "is_tiles",       crawl_is_tiles },
     { "is_webtiles",    crawl_is_webtiles },
+    { "is_touch_ui",    crawl_is_touch_ui },
     { "err_trace",      crawl_err_trace },
     { "get_command",    crawl_get_command },
     { "endgame",        crawl_endgame },
     { "tutorial_msg",   crawl_tutorial_msg },
     { "warn_list_append", crawl_warn_list_append },
+    { "dump_char",      crawl_dump_char },
 #ifdef WIZARD
     { "call_dlua",      crawl_call_dlua },
 #endif
@@ -995,7 +1091,7 @@ LUAFN(_crawl_millis)
 }
 #endif
 
-static std::string _crawl_make_name(lua_State *ls)
+static string _crawl_make_name(lua_State *ls)
 {
     // A quick wrapper around itemname:make_name. Seed is random_int().
     // Possible parameters: all caps, max length, char start. By default
@@ -1026,14 +1122,14 @@ static int _crawl_god_speaks(lua_State *ls)
     const char *god_name = luaL_checkstring(ls, 1);
     if (!god_name)
     {
-        std::string err = "god_speaks requires a god!";
+        string err = "god_speaks requires a god!";
         return luaL_argerror(ls, 1, err.c_str());
     }
 
     god_type god = str_to_god(god_name);
     if (god == GOD_NO_GOD)
     {
-        std::string err = make_stringf("'%s' matches no god.", god_name);
+        string err = make_stringf("'%s' matches no god.", god_name);
         return luaL_argerror(ls, 1, err.c_str());
     }
 

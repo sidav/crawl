@@ -14,6 +14,7 @@
 #include "stuff.h"
 #include "tiledef-dngn.h"
 #include "tiledef-icons.h"
+#include "tiledef-main.h"
 #include "tilepick.h"
 #include "viewgeom.h"
 
@@ -44,10 +45,8 @@ void SpellRegion::draw_tag()
 
     const spell_type spell = (spell_type) idx;
     char* failure = failure_rate_to_string(spell_fail(spell));
-    std::string desc = make_stringf("%d MP    %s    (%s)",
-                                    spell_mana(spell),
-                                    spell_title(spell),
-                                    failure);
+    string desc = make_stringf("%d MP    %s    (%s)", spell_mana(spell),
+                               spell_title(spell), failure);
     free(failure);
     draw_desc(desc.c_str());
 }
@@ -61,6 +60,10 @@ int SpellRegion::handle_mouse(MouseEvent &event)
     const spell_type spell = (spell_type) m_items[item_idx].idx;
     if (event.button == MouseEvent::LEFT)
     {
+        // close tab again if using small layout
+        if (tiles.is_using_small_layout())
+            tiles.deactivate_tab();
+
         m_last_clicked_item = item_idx;
         tiles.set_need_redraw();
         if (!cast_a_spell(false, spell))
@@ -76,7 +79,7 @@ int SpellRegion::handle_mouse(MouseEvent &event)
     return 0;
 }
 
-bool SpellRegion::update_tab_tip_text(std::string &tip, bool active)
+bool SpellRegion::update_tab_tip_text(string &tip, bool active)
 {
     const char *prefix1 = active ? "" : "[L-Click] ";
     const char *prefix2 = active ? "" : "          ";
@@ -88,7 +91,7 @@ bool SpellRegion::update_tab_tip_text(std::string &tip, bool active)
     return true;
 }
 
-bool SpellRegion::update_tip_text(std::string& tip)
+bool SpellRegion::update_tip_text(string& tip)
 {
     if (m_cursor == NO_CURSOR)
         return false;
@@ -98,7 +101,7 @@ bool SpellRegion::update_tip_text(std::string& tip)
         return false;
 
     int flag = m_items[item_idx].flag;
-    std::vector<command_type> cmd;
+    vector<command_type> cmd;
     if (flag & TILEI_FLAG_INVALID)
         tip = "You cannot cast this spell right now.";
     else
@@ -114,7 +117,7 @@ bool SpellRegion::update_tip_text(std::string& tip)
     return true;
 }
 
-bool SpellRegion::update_alt_text(std::string &alt)
+bool SpellRegion::update_alt_text(string &alt)
 {
     if (m_cursor == NO_CURSOR)
         return false;
@@ -151,6 +154,9 @@ int SpellRegion::get_max_slots()
 
 void SpellRegion::pack_buffers()
 {
+    if (m_items.size()==0)
+        return;
+
     const int max_spells = get_max_slots();
 
     // Pack base separately, as it comes from a different texture...
@@ -187,6 +193,10 @@ void SpellRegion::pack_buffers()
             if (item.flag & TILEI_FLAG_CURSOR)
                 m_buf.add_icons_tile(TILEI_CURSOR, x, y);
 
+            // Vehumet gift
+            if (item.flag & TILEI_FLAG_EQUIP)
+                m_buf.add_main_tile(TILE_ITEM_SLOT_VEHUMET, x, y);
+
             if (item.quantity != -1)
                 draw_number(x, y, item.quantity);
 
@@ -204,7 +214,7 @@ void SpellRegion::update()
     if (mx * my == 0)
         return;
 
-    const unsigned int max_spells = std::min(22, mx*my);
+    const unsigned int max_spells = min(22, mx*my);
 
     for (int i = 0; i < 52; ++i)
     {
@@ -218,7 +228,7 @@ void SpellRegion::update()
         desc.idx      = (int) spell;
         desc.quantity = spell_mana(spell);
 
-        std::string temp;
+        string temp;
         if (is_prevented_teleport(spell)
             || spell_is_uncastable(spell, temp)
             || spell_mana(spell) > you.magic_points)

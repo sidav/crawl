@@ -10,8 +10,6 @@
 #include "externs.h"
 #include "enum.h"
 
-struct bolt;
-
 enum fire_type
 {
     FIRE_NONE      = 0x0000,
@@ -39,9 +37,6 @@ int get_ammo_to_shoot(int item, dist &target, bool teleport = false);
 void fire_thing(int item = -1);
 void throw_item_no_quiver(void);
 
-bool setup_missile_beam(const actor *actor, bolt &beam, item_def &item,
-                        std::string &ammo_name, bool &returning);
-
 bool throw_it(bolt &pbolt, int throw_2, bool teleport = false,
               int acc_bonus = 0, dist *target = NULL);
 
@@ -49,6 +44,6 @@ bool thrown_object_destroyed(item_def *item, const coord_def& where);
 int launcher_final_speed(const item_def &launcher,
                          const item_def *shield, bool scaled = true);
 
-void setup_monster_throw_beam(monster* mons, struct bolt &beam);
-bool mons_throw(monster* mons, struct bolt &beam, int msl);
+void setup_monster_throw_beam(monster* mons, bolt &beam);
+bool mons_throw(monster* mons, bolt &beam, int msl);
 #endif

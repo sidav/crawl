@@ -7,7 +7,7 @@ unbekannten Ursprungs.
 book
 
 Ein Buch mit Zaubersprüchen unbekannten Ursprungs. Geschrieben für wahre
-Meister sind einleitende Kenntnisse in der okkulten Kunst des Zauberns
+Meister, sind einleitende Kenntnisse in der okkulten Kunst des Zauberns
 erforderlich, um jeglichen Gebrauch des Wälzers zu machen. Nimm dich in Acht,
 denn mit einigen der mächtigeren Zauberbücher ist nicht zu spaßen.
 %%%%
@@ -20,6 +20,18 @@ potion
 
 Ein unetikettiertes Fläschchen, das eine einzelne Dosis einer unbekannten
 Flüssigkeit enthält.
+%%%%
+potion:quote
+
+"Da gab ich, so belehrt durch meine Kunst,
+ Ihr einen Schlaftrunk; er bewies sich wirksam
+ Nach meiner Absicht, denn er goss den Schein
+ Des Todes ueber sie.  Indessen schrieb ich
+ An Romeo, dass er sich herbegaebe
+ Und huelf aus dem erborgten Grab sie holen
+ In dieser Schreckensnacht, als um die Zeit,
+ Wo jenes Trankes Kraft erloesche."
+    -William Shakespeare, _Romeo und Julia_
 %%%%
 ring
 
@@ -37,7 +49,7 @@ scroll
 
 Eine von magischen Schriftzügen bedeckte Schriftrolle.
 %%%%
-magical staff
+staff
 
 Ein auf magische Weise verbesserter Schlagstock.
 %%%%

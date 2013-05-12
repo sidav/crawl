@@ -5,25 +5,27 @@
 
 #include "AppHdr.h"
 
-#include "abyss.h"
-
 #include <cmath>
 #include <cstdlib>
 #include <algorithm>
+#include <queue>
 
 #include "abyss.h"
 #include "areas.h"
 #include "artefact.h"
-#include "cellular.h"
+#include "branch.h"
 #include "cloud.h"
 #include "colour.h"
 #include "coordit.h"
 #include "dbg-scan.h"
+#include "dgn-proclayouts.h"
 #include "dungeon.h"
 #include "env.h"
+#include "files.h"
 #include "itemprop.h"
 #include "items.h"
 #include "l_defs.h"
+#include "libutil.h"
 #include "los.h"
 #include "makeitem.h"
 #include "mapmark.h"
@@ -31,8 +33,10 @@
 #include "message.h"
 #include "mgen_data.h"
 #include "misc.h"
+#include "mon-abil.h"
 #include "mon-iter.h"
 #include "mon-pathfind.h"
+#include "mon-pick.h"
 #include "mon-place.h"
 #include "mon-transit.h"
 #include "mon-util.h"
@@ -41,7 +45,6 @@
 #include "random.h"
 #include "religion.h"
 #include "shopping.h"
-#include "sprint.h"
 #include "stash.h"
 #include "state.h"
 #include "terrain.h"
@@ -56,17 +59,20 @@
 const coord_def ABYSS_CENTRE(GXM / 2, GYM / 2);
 
 static const int ABYSSAL_RUNE_MAX_ROLL = 200;
+static const int ABYSSAL_RUNE_MIN_LEVEL = 3;
 
 abyss_state abyssal_state;
 
-static std::vector<dungeon_feature_type> abyssal_features;
-static std::list<monster*> displaced_monsters;
+static ProceduralLayout *abyssLayout = nullptr, *levelLayout = nullptr;
+
+typedef priority_queue<ProceduralSample, vector<ProceduralSample>, ProceduralSamplePQCompare> sample_queue;
+
+static sample_queue abyss_sample_queue;
+static vector<dungeon_feature_type> abyssal_features;
+static list<monster*> displaced_monsters;
 
 static void abyss_area_shift(void);
 static void _push_items(void);
-
-// The feature chosen last turn, ignoring terrain modification.
-static feature_grid _previous_abyss_feature;
 
 // If not_seen is true, don't place the feature where it can be seen from
 // the centre.  Returns the chosen location, or INVALID_COORD if it
@@ -101,8 +107,6 @@ static coord_def _place_feature_near(const coord_def &centre,
     }
     return INVALID_COORD;
 }
-
-//#define DEBUG_ABYSS
 
 // Returns a feature suitable for use in the proto-Abyss level.
 static dungeon_feature_type _abyss_proto_feature()
@@ -157,86 +161,21 @@ static void _write_abyssal_features()
     }
 
     _push_items();
+    abyssal_features.clear();
 }
 
 // Returns the roll to use to check if we want to create an abyssal rune.
 static int _abyssal_rune_roll()
 {
-    if (you.runes[RUNE_ABYSSAL])
+    if (you.runes[RUNE_ABYSSAL] || you.depth < ABYSSAL_RUNE_MIN_LEVEL)
         return -1;
-
-    // The longer the player's hung around in the Abyss, the more
-    // likely the rune. Never generate a new rune if the player
-    // already found one, but make the Abyssal rune eligible for
-    // generation again if the player fails to find or pick it up.
-
-    // If the player leaves the Abyss turns_on_level resets to 0. So
-    // hang in there if you want your Abyssal rune fix quick. :P
-
-    // Worshippers of Lugonu with decent piety will attract the rune
-    // to themselves.
-
-    // In general, the base chance of an abyssal rune is 1/200 for
-    // every item roll (the item roll is 1/200 for every floor square
-    // in the abyss). Once the player has spent more than 500 turns on
-    // level, the abyss rune chance increases linearly every 228 turns
-    // up to a maximum of 34/200 (17%) per item roll after ~8000
-    // turns.
-
-    // For Lugonu worshippers, the base chance of an abyssal rune is 1
-    // in 200 as for other players, but the rune chance increases
-    // linearly after 50 turns on the level, up to the same 34/200
-    // (17%) chance after ~2000 turns.
-
     const bool lugonu_favoured =
         (you.religion == GOD_LUGONU && !player_under_penance()
-         && you.piety > 120);
+         && you.piety >= piety_breakpoint(4));
 
-    const int cutoff = lugonu_favoured ? 50 : 500;
-    const int scale = lugonu_favoured ? 57 : 228;
+    const double depth = you.depth + lugonu_favoured;
 
-    const int odds =
-        std::min(1 + std::max((env.turns_on_level - cutoff) / scale, 0), 34);
-#ifdef DEBUG_ABYSS
-    dprf("Abyssal rune odds: %d in %d (%.2f%%)",
-         odds, ABYSSAL_RUNE_MAX_ROLL, odds * 100.0 / ABYSSAL_RUNE_MAX_ROLL);
-#endif
-    return odds;
-}
-
-static void _abyss_create_room(const map_mask &abyss_genlevel_mask)
-{
-    const int largest_room_dimension = 10;
-
-    // Pick the corners
-    const coord_def tl(
-        random_range(MAPGEN_BORDER,
-                     GXM - 1 - (MAPGEN_BORDER + largest_room_dimension)),
-        random_range(MAPGEN_BORDER,
-                     GYM - 1 - (MAPGEN_BORDER + largest_room_dimension)));
-    const coord_def roomsize(random_range(1, largest_room_dimension),
-                             random_range(1, largest_room_dimension));
-    const coord_def br = tl + roomsize;
-
-    // Check if the room is taken.
-    for (rectangle_iterator ri(tl, br); ri; ++ri)
-        if (!abyss_genlevel_mask(*ri))
-            return;
-
-    // Make the room.
-    for (rectangle_iterator ri(tl, br); ri; ++ri)
-        grd(*ri) = DNGN_FLOOR;
-}
-
-static void _abyss_create_rooms(const map_mask &abyss_genlevel_mask,
-                                int rooms_to_do)
-{
-    for (int i = 0; i < rooms_to_do; ++i)
-    {
-        if (one_chance_in(100))
-            break;
-        _abyss_create_room(abyss_genlevel_mask);
-    }
+    return (int) pow(100.0, depth/(1 + brdepth[BRANCH_ABYSS]));
 }
 
 static void _abyss_erase_stairs_from(const vault_placement *vp)
@@ -263,8 +202,8 @@ static bool _abyss_place_map(const map_def *mdef)
     return did_place;
 }
 
-static bool _abyss_place_vault_tagged(const map_mask &abyss_genlevel_mask,
-                                      const std::string &tag)
+static bool _abyss_place_vault_tagged(const map_bitmask &abyss_genlevel_mask,
+                                      const string &tag)
 {
     const map_def *map = random_map_for_tag(tag, false, true);
     if (map)
@@ -275,7 +214,7 @@ static bool _abyss_place_vault_tagged(const map_mask &abyss_genlevel_mask,
     return false;
 }
 
-static bool _abyss_place_rune_vault(const map_mask &abyss_genlevel_mask)
+static bool _abyss_place_rune_vault(const map_bitmask &abyss_genlevel_mask)
 {
     // Make sure we're not about to link bad items.
     debug_item_scan();
@@ -289,7 +228,7 @@ static bool _abyss_place_rune_vault(const map_mask &abyss_genlevel_mask)
     return result;
 }
 
-static bool _abyss_place_rune(const map_mask &abyss_genlevel_mask,
+static bool _abyss_place_rune(const map_bitmask &abyss_genlevel_mask,
                               bool use_vaults)
 {
     // Use a rune vault if there's one.
@@ -331,7 +270,7 @@ static bool _abyss_place_rune(const map_mask &abyss_genlevel_mask,
 }
 
 // Returns true if items can be generated on the given square.
-static bool _abyss_square_accepts_items(const map_mask &abyss_genlevel_mask,
+static bool _abyss_square_accepts_items(const map_bitmask &abyss_genlevel_mask,
                                         coord_def p)
 {
     return (abyss_genlevel_mask(p)
@@ -340,21 +279,16 @@ static bool _abyss_square_accepts_items(const map_mask &abyss_genlevel_mask,
             && !map_masked(p, MMT_VAULT));
 }
 
-static int _abyss_create_items(const map_mask &abyss_genlevel_mask,
+static int _abyss_create_items(const map_bitmask &abyss_genlevel_mask,
                                bool placed_abyssal_rune,
                                bool use_vaults)
 {
     // During game start, number and level of items mustn't be higher than
-    // that on level 1. Abyss in sprint games has no items.
+    // that on level 1.
     int num_items = 150, items_level = 52;
     int items_placed = 0;
 
-    if (crawl_state.game_is_sprint())
-    {
-        num_items   = 0;
-        items_level = 0;
-    }
-    else if (you.char_direction == GDT_GAME_START)
+    if (you.char_direction == GDT_GAME_START)
     {
         num_items   = 3 + roll_dice(3, 11);
         items_level = 0;
@@ -362,7 +296,7 @@ static int _abyss_create_items(const map_mask &abyss_genlevel_mask,
 
     const int abyssal_rune_roll = _abyssal_rune_roll();
     bool should_place_abyssal_rune = false;
-    std::vector<coord_def> chosen_item_places;
+    vector<coord_def> chosen_item_places;
     for (rectangle_iterator ri(MAPGEN_BORDER); ri; ++ri)
     {
         if (_abyss_square_accepts_items(abyss_genlevel_mask, *ri))
@@ -423,58 +357,18 @@ void push_features_to_abyss()
     for (int x = -LOS_RADIUS; x <= LOS_RADIUS; x++)
     {
         for (int y = -LOS_RADIUS; y <= LOS_RADIUS; y++)
-         {
-             coord_def p(x, y);
-             if (p.abs() > LOS_RADIUS * LOS_RADIUS + 1)
-                 continue;
+        {
+            coord_def p(x, y);
+            if (p.abs() > LOS_RADIUS * LOS_RADIUS + 1)
+                continue;
 
-             p += you.pos();
+            p += you.pos();
 
-             dungeon_feature_type feature = map_bounds(p) ? grd(p) : DNGN_UNSEEN;
-
-             if (feat_is_gate(feature))
-                 feature = DNGN_STONE_ARCH;
-
-             if (feat_is_stair(feature))
-                 feature = (one_chance_in(3) ? DNGN_STONE_ARCH : DNGN_FLOOR);
-
-             if (feat_is_altar(feature))
-                 feature = (one_chance_in(9) ? DNGN_ALTAR_XOM : DNGN_FLOOR);
-
-             if (feature == DNGN_ENTER_SHOP)
-                 feature = DNGN_ABANDONED_SHOP;
-
-             if (feat_is_trap(feature, true))
-                 feature = DNGN_FLOOR;
-
-             switch (feature)
-             {
-                 // demote permarock
-                 case DNGN_PERMAROCK_WALL:
-                     feature = DNGN_ROCK_WALL;
-                     break;
-                 case DNGN_CLEAR_PERMAROCK_WALL:
-                     feature = DNGN_CLEAR_ROCK_WALL;
-                     break;
-                 case DNGN_SLIMY_WALL:
-                     feature = DNGN_GREEN_CRYSTAL_WALL;
-                 default:
-                     // handle more terrain types.
-                     break;
-             }
-             abyssal_features.push_back(feature);
+            dungeon_feature_type feature = map_bounds(p) ? grd(p) : DNGN_UNSEEN;
+            feature = sanitize_feature(feature);
+                 abyssal_features.push_back(feature);
         }
     }
-}
-
-// Returns N so that the chance of placing an abyss exit on any given
-// square is 1 in N.
-static int _abyss_exit_chance()
-{
-    int exit_chance = 7500;
-    if (crawl_state.game_is_sprint())
-        exit_chance = sprint_modify_abyss_exit_chance(exit_chance);
-    return exit_chance;
 }
 
 static bool _abyss_check_place_feat(coord_def p,
@@ -482,7 +376,7 @@ static bool _abyss_check_place_feat(coord_def p,
                                     int *feats_wanted,
                                     bool *use_map,
                                     dungeon_feature_type which_feat,
-                                    const map_mask &abyss_genlevel_mask)
+                                    const map_bitmask &abyss_genlevel_mask)
 {
     if (!which_feat)
         return false;
@@ -491,6 +385,13 @@ static bool _abyss_check_place_feat(coord_def p,
 
     if (place_feat && feats_wanted)
         ++*feats_wanted;
+
+    // Don't place features in bubbles.
+    int wall_count = 0;
+    for (adjacent_iterator ai(p); ai; ++ai)
+        wall_count += feat_is_solid(grd(p));
+    if (wall_count > 6)
+        return false;
 
     // There's no longer a need to check for features under items,
     // since we're working on fresh grids that are guaranteed
@@ -627,13 +528,13 @@ static void _push_displaced_monster(monster* mon)
 
 static void _place_displaced_monsters()
 {
-    std::list<monster*>::iterator mon_itr;
+    list<monster*>::iterator mon_itr;
 
     for (mon_itr = displaced_monsters.begin();
          mon_itr != displaced_monsters.end(); ++mon_itr)
     {
         monster* mon = *mon_itr;
-        if (!mon->find_home_near_place(mon->pos()))
+        if (mon->alive() && !mon->find_home_near_place(mon->pos()))
         {
             maybe_bloodify_square(mon->pos());
             if (you.can_see(mon))
@@ -706,10 +607,8 @@ static void _abyss_wipe_square_at(coord_def p, bool saveMonsters=false)
     grd(p) = DNGN_UNSEEN;
 
     // Nuke items.
-#ifdef DEBUG_ABYSS
     if (igrd(p) != NON_ITEM)
-        dprf("Nuke item stack at (%d, %d)", p.x, p.y);
-#endif
+        dprf(DIAG_ABYSS, "Nuke item stack at (%d, %d)", p.x, p.y);
     lose_item_stack(p);
 
     // Nuke monster.
@@ -744,7 +643,7 @@ static void _abyss_wipe_square_at(coord_def p, bool saveMonsters=false)
 
 // Removes monsters, clouds, dungeon features, and items from the
 // level, torching all squares for which the supplied mask is false.
-static void _abyss_wipe_unmasked_area(const map_mask &abyss_preserve_mask)
+static void _abyss_wipe_unmasked_area(const map_bitmask &abyss_preserve_mask)
 {
     for (rectangle_iterator ri(MAPGEN_BORDER); ri; ++ri)
         if (!abyss_preserve_mask(*ri))
@@ -758,10 +657,9 @@ static void _abyss_move_entities_at(coord_def src, coord_def dst)
 }
 
 // Move all vaults within the mask by the specified delta.
-static void _abyss_move_masked_vaults_by_delta(const map_mask &mask,
-                                               const coord_def delta)
+static void _abyss_move_masked_vaults_by_delta(const coord_def delta)
 {
-    std::set<int> vault_indexes;
+    set<int> vault_indexes;
     for (rectangle_iterator ri(MAPGEN_BORDER); ri; ++ri)
     {
         const int vi = env.level_map_ids(*ri);
@@ -769,7 +667,7 @@ static void _abyss_move_masked_vaults_by_delta(const map_mask &mask,
             vault_indexes.insert(vi);
     }
 
-    for (std::set<int>::const_iterator i = vault_indexes.begin();
+    for (set<int>::const_iterator i = vault_indexes.begin();
          i != vault_indexes.end(); ++i)
     {
         vault_placement &vp(*env.level_vaults[*i]);
@@ -791,7 +689,7 @@ static void _abyss_move_masked_vaults_by_delta(const map_mask &mask,
 // b) source and target areas may overlap
 //
 static void _abyss_move_entities(coord_def target_centre,
-                                 map_mask *shift_area_mask)
+                                 map_bitmask *shift_area_mask)
 {
     const coord_def source_centre = you.pos();
     const coord_def delta = (target_centre - source_centre).sgn();
@@ -809,9 +707,9 @@ static void _abyss_move_entities(coord_def target_centre,
     coord_def end(GXM - 1 - MAPGEN_BORDER, GYM - 1 - MAPGEN_BORDER);
 
     if (direction.x == -1)
-        std::swap(start.x, end.x);
+        swap(start.x, end.x);
     if (direction.y == -1)
-        std::swap(start.y, end.y);
+        swap(start.y, end.y);
 
     end += direction;
 
@@ -820,15 +718,15 @@ static void _abyss_move_entities(coord_def target_centre,
         for (int x = start.x; x != end.x; x += direction.x)
         {
             const coord_def src(x, y);
-            if (!(*shift_area_mask)(src))
+            if (!shift_area_mask->get(src))
                 continue;
 
-            (*shift_area_mask)(src) = false;
+            shift_area_mask->set(src, false);
 
             const coord_def dst = src - source_centre + target_centre;
             if (map_bounds_with_margin(dst, MAPGEN_BORDER))
             {
-                (*shift_area_mask)(dst) = true;
+                shift_area_mask->set(dst);
                 // Wipe the dstination clean before dropping things on it.
                 _abyss_wipe_square_at(dst);
                 _abyss_move_entities_at(src, dst);
@@ -841,57 +739,56 @@ static void _abyss_move_entities(coord_def target_centre,
         }
     }
 
-    _abyss_move_masked_vaults_by_delta(*shift_area_mask,
-                                       target_centre - source_centre);
+    _abyss_move_masked_vaults_by_delta(target_centre - source_centre);
 }
 
-static void _abyss_expand_mask_to_cover_vault(map_mask *mask,
+static void _abyss_expand_mask_to_cover_vault(map_bitmask *mask,
                                               int map_index)
 {
     dprf("Expanding mask to cover vault %d (nvaults: %u)",
          map_index, (unsigned int)env.level_vaults.size());
     const vault_placement &vp = *env.level_vaults[map_index];
     for (vault_place_iterator vpi(vp); vpi; ++vpi)
-        (*mask)(*vpi) = true;
+        mask->set(*vpi);
 }
 
-// Identifies the smallest movement circle around the given source that can
-// be shifted without breaking up any vaults.
+// Identifies the smallest square around the given source that can be
+// shifted without breaking up any vaults.
 static void _abyss_identify_area_to_shift(coord_def source, int radius,
-                                          map_mask *mask)
+                                          map_bitmask *mask)
 {
-    mask->init(false);
+    mask->reset();
 
-    std::set<int> affected_vault_indexes;
+    set<int> affected_vault_indexes;
     for (radius_iterator ri(source, radius, C_SQUARE); ri; ++ri)
     {
         if (!map_bounds_with_margin(*ri, MAPGEN_BORDER))
             continue;
 
-        (*mask)(*ri) = true;
+        mask->set(*ri);
 
         const int map_index = env.level_map_ids(*ri);
         if (map_index != INVALID_MAP_INDEX)
             affected_vault_indexes.insert(map_index);
     }
 
-    for (std::set<int>::const_iterator i = affected_vault_indexes.begin();
+    for (set<int>::const_iterator i = affected_vault_indexes.begin();
          i != affected_vault_indexes.end(); ++i)
     {
         _abyss_expand_mask_to_cover_vault(mask, *i);
     }
 }
 
-static void _abyss_invert_mask(map_mask *mask)
+static void _abyss_invert_mask(map_bitmask *mask)
 {
     for (rectangle_iterator ri(0); ri; ++ri)
-        (*mask)(*ri) = !(*mask)(*ri);
+        mask->set(*ri, !mask->get(*ri));
 }
 
 // Moves everything in the given radius around the player (where radius=0 =>
 // only the player) to another part of the level, centred on target_centre.
 // Everything not in the given radius is wiped to DNGN_UNSEEN and the provided
-// map_mask is set to true for all wiped squares.
+// map_bitmask is set to true for all wiped squares.
 //
 // Things that are moved:
 // 1. Dungeon terrain
@@ -915,16 +812,11 @@ static void _abyss_invert_mask(map_mask *mask)
 static void _abyss_shift_level_contents_around_player(
     int radius,
     coord_def target_centre,
-    map_mask &abyss_destruction_mask)
+    map_bitmask &abyss_destruction_mask)
 {
     const coord_def source_centre = you.pos();
 
     abyssal_state.major_coord += (source_centre - ABYSS_CENTRE);
-
-    // We could shift around the remembered previous features, but for now
-    // we'll just recompute them; shifts should be infrequent enough that
-    // this isn't a big CPU hit.
-    recompute_saved_abyss_features();
 
     ASSERT(radius >= LOS_RADIUS);
     // This should only really happen due to wizmode blink/movement.
@@ -964,16 +856,42 @@ static void _abyss_shift_level_contents_around_player(
 
 static void _abyss_generate_monsters(int nmonsters)
 {
-    mgen_data mons;
-    mons.proximity  = PROX_AWAY_FROM_PLAYER;
+    if (crawl_state.disables[DIS_SPAWNS])
+        return;
+
+    mgen_data mg;
+    mg.proximity = PROX_ANYWHERE;
 
     for (int mcount = 0; mcount < nmonsters; mcount++)
     {
-        mons.cls = pick_random_monster_for_place(BRANCH_ABYSS, MONS_NO_MONSTER,
-                                                 false, false, false);
-        if (!invalid_monster_type(mons.cls))
-            mons_place(mons);
+        mg.cls = pick_random_monster(level_id::current());
+        if (!invalid_monster_type(mg.cls))
+            mons_place(mg);
     }
+}
+
+static bool _abyss_teleport_within_level()
+{
+    // Try to find a good spot within the shift zone.
+    for (int i = 0; i < 100; i++)
+    {
+        const coord_def newspot =
+            dgn_random_point_in_margin(MAPGEN_BORDER
+                                       + ABYSS_AREA_SHIFT_RADIUS
+                                       + 1);
+
+        if ((grd(newspot) == DNGN_FLOOR
+             || grd(newspot) == DNGN_SHALLOW_WATER)
+            && !monster_at(newspot)
+            && env.cgrid(newspot) == EMPTY_CLOUD)
+        {
+            dprf(DIAG_ABYSS, "Abyss same-area teleport to (%d,%d).",
+                 newspot.x, newspot.y);
+            you.moveto(newspot);
+            return true;
+        }
+    }
+    return false;
 }
 
 void maybe_shift_abyss_around_player()
@@ -994,8 +912,8 @@ void maybe_shift_abyss_around_player()
 #ifdef DEBUG_DIAGNOSTICS
     int j = 0;
     for (int i = 0; i < MAX_ITEMS; ++i)
-         if (mitm[i].defined())
-             ++j;
+        if (mitm[i].defined())
+            ++j;
 
     dprf("Number of items present: %d", j);
 
@@ -1018,117 +936,215 @@ void save_abyss_uniques()
         }
 }
 
-static bool _abyss_teleport_within_level()
+static bool _in_wastes(const coord_def &p)
 {
-    // Try to find a good spot within the shift zone.
-    for (int i = 0; i < 100; i++)
-    {
-        const coord_def newspot =
-            dgn_random_point_in_margin(MAPGEN_BORDER
-                                       + ABYSS_AREA_SHIFT_RADIUS
-                                       + 1);
+    return (p.x > 0 && p.x < 0x7FFFFFF && p.y > 0 && p.y < 0x7FFFFFF);
+}
 
-        if ((grd(newspot) == DNGN_FLOOR
-             || grd(newspot) == DNGN_SHALLOW_WATER)
-            && !monster_at(newspot)
-            && env.cgrid(newspot) == EMPTY_CLOUD)
+static level_id _get_real_level()
+{
+    push_rng_state();
+    seed_rng(abyssal_state.seed);
+    vector<level_id> levels;
+    for (int i = BRANCH_MAIN_DUNGEON; i < NUM_BRANCHES; ++i)
+    {
+        if (i == BRANCH_SHOALS || i == BRANCH_ABYSS)
+            continue;
+        for (int j = 0; j < brdepth[i]; ++j)
         {
-#ifdef DEBUG_ABYSS
-            dprf("Abyss same-area teleport to (%d,%d).",
-                 newspot.x, newspot.y);
-#endif
-            you.moveto(newspot);
-            return true;
+            const level_id id(static_cast<branch_type>(i), j);
+            if (is_existing_level(id))
+                levels.push_back(id);
         }
     }
-    return false;
+    if (levels.empty())
+    {
+        // Let this fail later on.
+        return level_id(static_cast<branch_type>(BRANCH_MAIN_DUNGEON), 1);
+    }
+    int pick = random2(levels.size());
+    pop_rng_state();
+    return levels[pick];
 }
 
-static dungeon_feature_type _abyss_grid(const coord_def &p, double depth,
-                                        cloud_type &cloud, int &cloud_lifetime)
+static ProceduralSample _abyss_grid(const coord_def &p)
 {
-    double x = (p.x + abyssal_state.major_coord.x);
-    double y = (p.y + abyssal_state.major_coord.y);
-
-    const dungeon_feature_type terrain_elements[] =
+    const coord_def pt = p + abyssal_state.major_coord;
+    const static WastesLayout wastes;
+    if (_in_wastes(pt))
     {
-        DNGN_ROCK_WALL,
-        DNGN_ROCK_WALL,
-        DNGN_ROCK_WALL,
-        DNGN_ROCK_WALL,
-        DNGN_STONE_WALL,
-        DNGN_STONE_WALL,
-        DNGN_METAL_WALL,
-        DNGN_GREEN_CRYSTAL_WALL,
-        DNGN_LAVA,
-        DNGN_DEEP_WATER,
-        DNGN_SHALLOW_WATER,
-        DNGN_SHALLOW_WATER,
+        ProceduralSample sample = wastes(pt, abyssal_state.depth);
+        abyss_sample_queue.push(sample);
+        return sample;
+    }
+    const static DiamondLayout diamond30(3,0);
+    const static DiamondLayout diamond21(2,1);
+    const static ColumnLayout column2(2);
+    const static ColumnLayout column26(2,6);
+    const static ProceduralLayout* regularLayouts[] =
+    {
+        &diamond30, &diamond21, &column2, &column26,
     };
-    const int n_terrain_elements = ARRAYSZ(terrain_elements);
-
-    const int NUM_CLOUDS = 6;
-    const cloud_type clouds[NUM_CLOUDS] =
+    const static vector<const ProceduralLayout*> layout_vec(regularLayouts,
+        regularLayouts + 4);
+    const static WorleyLayout worley(123456, layout_vec);
+    const static RoilingChaosLayout chaosA(8675309, 450);
+    const static RoilingChaosLayout chaosB(7654321, 400);
+    const static RoilingChaosLayout chaosC(24324,   380);
+    const static RoilingChaosLayout chaosD(24816,   500);
+    const static NewAbyssLayout newAbyssLayout(7629);
+    const ProceduralLayout* mixedLayouts[] =
     {
-        CLOUD_BLACK_SMOKE,
-        CLOUD_GREY_SMOKE,
-        CLOUD_BLUE_SMOKE,
-        CLOUD_PURPLE_SMOKE,
-        CLOUD_TLOC_ENERGY,
-        CLOUD_MIST
+        &chaosA, &worley, &chaosB, &chaosC, &chaosD, &newAbyssLayout,
     };
-
-    const double scale = 1.0 / 2.2;
-    const double sub_scale_x = 17.0;
-    const double sub_scale_y = 31.0;
-    const double sub_scale_depth = 0.1;
-
-    worley::noise_datum noise = worley::worley(x * scale, y * scale, depth);
-    dungeon_feature_type feat = DNGN_FLOOR;
-
-    worley::noise_datum sub_noise = worley::worley(x * sub_scale_x,
-                                                   y * sub_scale_y,
-                                                   depth * sub_scale_depth);
-
-    int dist = noise.distance[0] * 100;
-    bool isWall = (dist > 118 || dist < 30);
-
-    if (noise.id[0] + noise.id[1] % 2  == 0)
-        isWall = sub_noise.id[0] % 2;
-
-    if (sub_noise.id[0] % 3 == 0)
-        isWall = !isWall;
-
-    if (isWall)
+    const static vector<const ProceduralLayout*> mixed_vec(mixedLayouts, mixedLayouts + 6);
+    const static WorleyLayout layout(4321, mixed_vec);
+    const ProceduralLayout* baseLayouts[] = { &newAbyssLayout, &layout };
+    const static vector<const ProceduralLayout*> base_vec(baseLayouts, baseLayouts + 2);
+    const static WorleyLayout baseLayout(314159, base_vec, 5.0);
+    const static RiverLayout rivers(1800, baseLayout);
+    if (abyssLayout == NULL)
     {
-        int fuzz = (sub_noise.id[1] % 3 ? 0 : sub_noise.id[1] % 2 + 1);
-        int id = (noise.id[0] + fuzz) % n_terrain_elements;
-        feat = terrain_elements[id];
+        const level_id lid = _get_real_level();
+        levelLayout = new LevelLayout(lid, 5, rivers);
+        const ProceduralLayout* complex_layout[] = { levelLayout, &rivers };
+        const static vector<const ProceduralLayout*> complex_vec(complex_layout, complex_layout + 2);
+        abyssLayout = new WorleyLayout(23571113, complex_vec, 6.1);
     }
 
-    if (feat == DNGN_FLOOR && !(noise.id[1] % 3))
-    {
-        // Only used if the feature actually changed.
-        cloud = clouds[sub_noise.id[1] % NUM_CLOUDS];
-        cloud_lifetime = (noise.id[1] % 4)+2;
-    }
-    else
-    {
-        cloud = CLOUD_NONE;
-        cloud_lifetime = 0;
-    }
-
-    _previous_abyss_feature[p.x][p.y] = feat;
-    return feat;
+    const ProceduralSample sample = (*abyssLayout)(pt, abyssal_state.depth);
+    ASSERT(sample.feat() > DNGN_UNSEEN);
+    abyss_sample_queue.push(sample);
+    return sample;
 }
 
-static void _abyss_apply_terrain(const map_mask &abyss_genlevel_mask,
-                                 bool morph = false)
+static cloud_type _cloud_from_feat(const dungeon_feature_type &ft)
 {
-    if (one_chance_in(3) && !morph)
-        _abyss_create_rooms(abyss_genlevel_mask, random_range(1, 10));
+    switch (ft)
+    {
+        case DNGN_CLOSED_DOOR:
+        case DNGN_METAL_WALL:
+            return CLOUD_GREY_SMOKE;
+        case DNGN_GREEN_CRYSTAL_WALL:
+        case DNGN_ROCK_WALL:
+        case DNGN_SLIMY_WALL:
+        case DNGN_STONE_WALL:
+        case DNGN_PERMAROCK_WALL:
+            return (coinflip() ? CLOUD_BLUE_SMOKE : CLOUD_PURPLE_SMOKE);
+        case DNGN_CLEAR_ROCK_WALL:
+        case DNGN_CLEAR_STONE_WALL:
+        case DNGN_CLEAR_PERMAROCK_WALL:
+        case DNGN_GRATE:
+            return CLOUD_MIST;
+        case DNGN_ORCISH_IDOL:
+        case DNGN_GRANITE_STATUE:
+        case DNGN_LAVA:
+            return CLOUD_BLACK_SMOKE;
+        case DNGN_DEEP_WATER:
+        case DNGN_SHALLOW_WATER:
+        case DNGN_FOUNTAIN_BLUE:
+            return (one_chance_in(5) ? CLOUD_RAIN : CLOUD_BLUE_SMOKE);
+        case DNGN_FOUNTAIN_SPARKLING:
+            return CLOUD_RAIN;
+        default:
+            return CLOUD_NONE;
+    }
+}
 
-    const int exit_chance = _abyss_exit_chance();
+static void _update_abyss_terrain(const coord_def &p,
+    const map_bitmask &abyss_genlevel_mask, bool morph)
+{
+    const coord_def rp = p - abyssal_state.major_coord;
+    // ignore dead coordinates
+    if (!in_bounds(rp))
+        return;
+
+    const dungeon_feature_type currfeat = grd(rp);
+
+    // Don't decay vaults.
+    if (map_masked(rp, MMT_VAULT))
+        return;
+
+    switch (currfeat)
+    {
+        case DNGN_EXIT_ABYSS:
+        case DNGN_ABYSSAL_STAIR:
+            return;
+        default:
+            break;
+    }
+
+    if (feat_is_altar(currfeat))
+        return;
+
+    if (!abyss_genlevel_mask(rp))
+        return;
+
+    if (currfeat != DNGN_UNSEEN && !morph)
+        return;
+
+    // What should have been there previously?  It might not be because
+    // of external changes such as digging.
+    const ProceduralSample sample = _abyss_grid(rp);
+
+    // Enqueue the update, but don't morph.
+    if (_abyssal_rune_at(rp))
+        return;
+
+    dungeon_feature_type feat = sample.feat();
+
+    // Don't replace open doors with closed doors!
+    if (feat_is_door(currfeat) && feat_is_door(feat))
+        return;
+
+    // Veto dangerous terrain.
+    if (you.pos() == rp)
+    {
+        if (feat == DNGN_DEEP_WATER)
+            feat = DNGN_SHALLOW_WATER;
+        if (feat == DNGN_LAVA)
+            feat = DNGN_FLOOR;
+    }
+
+    // If the selected grid is already there, *or* if we're morphing and
+    // the selected grid should have been there, do nothing.
+    if (feat != currfeat)
+    {
+        grd(rp) = feat;
+        if (feat == DNGN_FLOOR && in_los_bounds_g(rp))
+        {
+            cloud_type cloud = _cloud_from_feat(currfeat);
+            int cloud_life = (_in_wastes(abyssal_state.major_coord) ? 5 : 2) + random2(2);
+            if (cloud != CLOUD_NONE)
+                check_place_cloud(_cloud_from_feat(currfeat), rp, cloud_life, 0, 3);
+        }
+        monster* mon = monster_at(rp);
+        if (mon && !monster_habitable_grid(mon, feat))
+            _push_displaced_monster(mon);
+    }
+}
+
+static int _abyssal_stair_chance()
+{
+    return 3500 - (200 * you.depth / 3);
+}
+
+static void _nuke_all_terrain(bool vaults)
+{
+    for (rectangle_iterator ri(MAPGEN_BORDER); ri; ++ri)
+    {
+        if (vaults && env.level_map_mask(*ri) & MMT_VAULT)
+            continue;
+        env.level_map_mask(*ri) = MMT_NUKED;
+    }
+}
+
+static void _abyss_apply_terrain(const map_bitmask &abyss_genlevel_mask,
+                                 bool morph = false, bool now = false)
+{
+    // The chance is reciprocal to these numbers.
+    const int exit_chance = you.runes[RUNE_ABYSSAL] ? 1250
+                            : 7500 - 1250 * (you.depth - 1);
 
     // Except for the altar on the starting position, don't place any altars.
     const int altar_chance = you.char_direction != GDT_GAME_START? 10000 : 0;
@@ -1136,122 +1152,107 @@ static void _abyss_apply_terrain(const map_mask &abyss_genlevel_mask,
     int exits_wanted  = 0;
     int altars_wanted = 0;
     bool use_abyss_exit_map = true;
+    bool used_queue = false;
+    if (morph && !abyss_sample_queue.empty())
+    {
+        int ii = 0;
+        used_queue = true;
+        while (!abyss_sample_queue.empty()
+            && abyss_sample_queue.top().changepoint() < abyssal_state.depth)
+        {
+            ++ii;
+            coord_def p = abyss_sample_queue.top().coord();
+            _update_abyss_terrain(p, abyss_genlevel_mask, morph);
+            abyss_sample_queue.pop();
+        }
+/*
+        if (ii)
+            dprf(DIAG_ABYSS, "Examined %d features.", ii);
+*/
+    }
 
-    const double abyss_depth = abyssal_state.depth;
-
+    int ii = 0;
+    int delta = you.time_taken * (you.abyss_speed + 40) / 200;
     for (rectangle_iterator ri(MAPGEN_BORDER); ri; ++ri)
     {
         const coord_def p(*ri);
-
-        if (you.pos() == p || !abyss_genlevel_mask(p))
+        const coord_def abyss_coord = p + abyssal_state.major_coord;
+        bool nuked = map_masked(p, MMT_NUKED);
+        if (used_queue && !nuked)
             continue;
 
-        // Don't decay vaults.
-        if (map_masked(p, MMT_VAULT))
-            continue;
-
-        // Don't morph a cell with the Rune or the exit.
-        if (_abyssal_rune_at(p) || grd(p) == DNGN_EXIT_ABYSS)
-            continue;
-
-        // Don't morph altars and stone arches.
-        if (grd(p) == DNGN_STONE_ARCH || feat_is_altar(grd(p)))
-            continue;
-
-        if (grd(p) != DNGN_UNSEEN && !morph)
-            continue;
-
-        cloud_type cloud = CLOUD_NONE;
-        int cloud_lifetime = 0;
-
-        // What should have been there previously?  It might not be because
-        // of external changes such as digging.
-        const dungeon_feature_type oldfeat = _previous_abyss_feature[p.x][p.y];
-        const dungeon_feature_type feat = _abyss_grid(p, abyss_depth,
-                                                      cloud, cloud_lifetime);
-
-        // If the selected grid is already there, *or* if we're morphing and
-        // the selected grid should have been there, do nothing.
-        if (feat != grd(p) && (!morph || feat != oldfeat))
+        if (nuked && (now || x_chance_in_y(delta, 50)) || !nuked && !used_queue)
         {
-            // _abyss_grid is responsible for ensuring clouds are selected
-            // only on floor grids.
-            if (cloud != CLOUD_NONE && in_los_bounds_g(p))
-                check_place_cloud(cloud, p, cloud_lifetime, 0);
-
-            grd(p) = feat;
-
-            monster* mon = monster_at(p);
-            if (mon && !monster_habitable_grid(mon, feat))
-                _push_displaced_monster(mon);
+            ++ii;
+            _update_abyss_terrain(abyss_coord, abyss_genlevel_mask, morph);
+            env.level_map_mask(p) &= ~MMT_NUKED;
         }
-
         if (morph)
             continue;
 
         // Place abyss exits, stone arches, and altars to liven up the scene
         // (only on area creation, not on morphing).
         (_abyss_check_place_feat(p, exit_chance,
-                                 &exits_wanted,
-                                 &use_abyss_exit_map,
-                                 DNGN_EXIT_ABYSS,
-                                 abyss_genlevel_mask)
-         ||
-         _abyss_check_place_feat(p, altar_chance,
-                                 &altars_wanted,
-                                 NULL,
-                                 _abyss_pick_altar(),
-                                 abyss_genlevel_mask)
-         ||
-         _abyss_check_place_feat(p, 10000, NULL, NULL,
-                                 DNGN_STONE_ARCH,
-                                 abyss_genlevel_mask));
+                                &exits_wanted,
+                                &use_abyss_exit_map,
+                                DNGN_EXIT_ABYSS,
+                                abyss_genlevel_mask)
+        ||
+        _abyss_check_place_feat(p, altar_chance,
+                                &altars_wanted,
+                                NULL,
+                                _abyss_pick_altar(),
+                                abyss_genlevel_mask)
+        ||
+        (level_id::current().depth < 5 &&
+        _abyss_check_place_feat(p, _abyssal_stair_chance(), NULL, NULL,
+                                DNGN_ABYSSAL_STAIR,
+                                abyss_genlevel_mask)));
     }
+    if (ii)
+        dprf(DIAG_ABYSS, "Nuked %d features", ii);
+    dungeon_feature_type feat = grd(you.pos());
+    if (!you.can_pass_through_feat(feat) || is_feat_dangerous(feat))
+        you.shove();
 }
 
-void recompute_saved_abyss_features()
-{
-    // Junk variables for unused out-parameters.
-    cloud_type cloud = CLOUD_NONE;
-    int cloud_lifetime = 0;
-
-    for (rectangle_iterator ri(MAPGEN_BORDER); ri; ++ri)
-    {
-        const coord_def p = *ri;
-        _abyss_grid(p, abyssal_state.depth, cloud, cloud_lifetime);
-    }
-}
-
-static int _abyss_place_vaults(const map_mask &abyss_genlevel_mask)
+static int _abyss_place_vaults(const map_bitmask &abyss_genlevel_mask)
 {
     unwind_vault_placement_mask vaultmask(&abyss_genlevel_mask);
 
     int vaults_placed = 0;
 
-    const int maxvaults = 4;
-    for (int i = 0; i < maxvaults; ++i)
+    const int maxvaults = 6;
+    int tries = 0;
+    while (vaults_placed < maxvaults)
     {
         const map_def *map = random_map_for_tag("abyss", false, true);
         if (!map)
             break;
 
-        if (_abyss_place_map(map) && !one_chance_in(2 + (++vaults_placed)))
+        if (!_abyss_place_map(map) || map->has_tag("extra"))
+        {
+            if (tries++ >= 100)
+                break;
+
+            continue;
+        }
+
+        if (!one_chance_in(2 + (++vaults_placed)))
             break;
     }
 
     return vaults_placed;
 }
 
-static void _generate_area(const map_mask &abyss_genlevel_mask)
+static void _generate_area(const map_bitmask &abyss_genlevel_mask)
 {
     // Any rune on the floor prevents the abyssal rune from being generated.
     const bool placed_abyssal_rune =
         find_floor_item(OBJ_MISCELLANY, MISC_RUNE_OF_ZOT);
 
-#ifdef DEBUG_ABYSS
-    dprf("_generate_area(). turns_on_level: %d, rune_on_floor: %s",
+    dprf(DIAG_ABYSS, "_generate_area(). turns_on_level: %d, rune_on_floor: %s",
          env.turns_on_level, placed_abyssal_rune? "yes" : "no");
-#endif
 
     _abyss_apply_terrain(abyss_genlevel_mask);
 
@@ -1268,26 +1269,47 @@ static void _generate_area(const map_mask &abyss_genlevel_mask)
         link_items();
     }
     _abyss_create_items(abyss_genlevel_mask, placed_abyssal_rune, use_vaults);
-    generate_random_blood_spatter_on_level(&abyss_genlevel_mask);
     setup_environment_effects();
 
     // Abyss has a constant density.
     env.density = 0;
 }
 
+static void _initialize_abyss_state()
+{
+    abyssal_state.major_coord.x = random_int() & 0x7FFFFFFF;
+    abyssal_state.major_coord.y = random_int() & 0x7FFFFFFF;
+    abyssal_state.seed = random_int() & 0x7FFFFFFF;
+    abyssal_state.phase = 0.0;
+    abyssal_state.depth = random_int() & 0x7FFFFFFF;
+    abyssal_state.nuke_all = false;
+    abyss_sample_queue = sample_queue(ProceduralSamplePQCompare());
+}
+
+void set_abyss_state(coord_def coord, uint32_t depth)
+{
+    abyssal_state.major_coord = coord;
+    abyssal_state.depth = depth;
+    abyssal_state.seed = random_int() & 0x7FFFFFFF;
+    abyssal_state.phase = 0.0;
+    abyssal_state.nuke_all = true;
+    abyss_sample_queue = sample_queue(ProceduralSamplePQCompare());
+    you.moveto(ABYSS_CENTRE);
+    map_bitmask abyss_genlevel_mask(true);
+    _abyss_apply_terrain(abyss_genlevel_mask, true, true);
+}
+
 static void abyss_area_shift(void)
 {
-#ifdef DEBUG_ABYSS
-    dprf("area_shift() - player at pos (%d, %d)",
+    dprf(DIAG_ABYSS, "area_shift() - player at pos (%d, %d)",
          you.pos().x, you.pos().y);
-#endif
 
     {
         xom_abyss_feature_amusement_check xomcheck;
 
         // Use a map mask to track the areas that the shift destroys and
         // that must be regenerated by _generate_area.
-        map_mask abyss_genlevel_mask;
+        map_bitmask abyss_genlevel_mask;
         _abyss_shift_level_contents_around_player(
             ABYSS_AREA_SHIFT_RADIUS, ABYSS_CENTRE, abyss_genlevel_mask);
         forget_map(true);
@@ -1298,7 +1320,8 @@ static void abyss_area_shift(void)
     }
 
     // Place some monsters to keep the abyss party going.
-    _abyss_generate_monsters(15);
+    int num_monsters = 15 + you.depth * (1 + coinflip());
+    _abyss_generate_monsters(num_monsters);
 
     // And allow monsters in transit another chance to return.
     place_transiting_monsters();
@@ -1307,14 +1330,20 @@ static void abyss_area_shift(void)
     check_map_validity();
 }
 
-static void _initialize_abyss_state()
+void destroy_abyss()
 {
-    abyssal_state.major_coord.x = random2(0x7FFFFFFF);
-    abyssal_state.major_coord.y = random2(0x7FFFFFFF);
-    abyssal_state.phase = 0.0;
-    abyssal_state.depth = 0.0;
-    for (rectangle_iterator ri(MAPGEN_BORDER); ri; ++ri)
-        _previous_abyss_feature[ri->x][ri->y] = NUM_FEATURES;
+    if (abyssLayout)
+    {
+        delete abyssLayout;
+        abyssLayout = nullptr;
+        /* memory leak!
+           Due to static contructors being called only once, only the first
+           real level referenced will be used, even after a restart_after_game.
+           Restoring the leak so people can play trunk while we talk.
+        delete levelLayout;
+        levelLayout = nullptr;
+        */
+    }
 }
 
 static colour_t _roll_abyss_floor_colour()
@@ -1364,16 +1393,16 @@ static colour_t _roll_abyss_rock_colour()
 static void _abyss_generate_new_area()
 {
     _initialize_abyss_state();
+    dprf("Abyss Coord (%d, %d)", abyssal_state.major_coord.x, abyssal_state.major_coord.y);
     remove_sanctuary(false);
 
     env.floor_colour = _roll_abyss_floor_colour();
     env.rock_colour = _roll_abyss_rock_colour();
     tile_init_flavour();
 
-    map_mask abyss_genlevel_mask(false);
+    map_bitmask abyss_genlevel_mask;
     _abyss_wipe_unmasked_area(abyss_genlevel_mask);
     dgn_erase_unused_vault_placements();
-    ASSERT(env.cloud_no == 0);
 
     you.moveto(ABYSS_CENTRE);
     abyss_genlevel_mask.init(true);
@@ -1406,6 +1435,7 @@ void generate_abyss()
 {
     env.level_build_method += " abyss";
     env.level_layout_types.insert("abyss");
+    destroy_abyss();
 
 retry:
     _initialize_abyss_state();
@@ -1415,8 +1445,11 @@ retry:
     // Generate the initial abyss without vaults. Vaults are horrifying.
     _abyss_generate_new_area();
     _write_abyssal_features();
-    map_mask abyss_genlevel_mask(1);
+    map_bitmask abyss_genlevel_mask(true);
     _abyss_apply_terrain(abyss_genlevel_mask);
+
+    for (rectangle_iterator ri(MAPGEN_BORDER); ri; ++ri)
+        ASSERT(grd(*ri) > DNGN_UNSEEN);
     check_map_validity();
 
     // If we're starting out in the Abyss, make sure the starting grid is
@@ -1444,35 +1477,35 @@ retry:
         }
     }
 
-    generate_random_blood_spatter_on_level();
     setup_environment_effects();
+}
+
+static void _increase_depth()
+{
+    int delta = you.time_taken * (you.abyss_speed + 40) / 200;
+    if (you.religion != GOD_CHEIBRIADOS || you.penance[GOD_CHEIBRIADOS])
+        delta *= 2;
+    if (you.duration[DUR_TELEPORT])
+        delta *= 5;
+    const double theta = abyssal_state.phase;
+    double depth_change = delta * (0.2 + 2.8 * pow(sin(theta/2), 10.0));
+    abyssal_state.depth += depth_change;
+    abyssal_state.phase += delta / 100.0;
+    if (abyssal_state.phase > M_PI)
+        abyssal_state.phase -= M_PI;
 }
 
 void abyss_morph(double duration)
 {
+    if (abyssal_state.nuke_all)
+    {
+        _nuke_all_terrain(false);
+        abyssal_state.nuke_all = false;
+    }
     if (!player_in_branch(BRANCH_ABYSS))
         return;
-
-    // Between .02 and .07 per ten ticks, half that for Chei worshippers.
-    double delta_t = you.time_taken * (you.abyss_speed + 40.0) / 20000.0;
-    if (you.religion == GOD_CHEIBRIADOS)
-        delta_t /= 2.0;
-
-    const double theta = abyssal_state.phase;
-
-    // Up to 3 times the old rate of change, as low as 1/5, with an average of
-    // 89%.  Period of 2*pi, so from 90 to 314 turns depending on abyss speed
-    // (double for Chei worshippers).  Starts in the middle of a cool period.
-    // Increasing the exponent reduces the lengths of the unstable periods.  It
-    // should be an even integer.
-    abyssal_state.depth += delta_t * (0.2 + 2.8 * pow(sin(theta/2), 10.0));
-
-    // Phase mod pi.
-    abyssal_state.phase += delta_t;
-    if (abyssal_state.phase > M_PI)
-        abyssal_state.phase -= M_PI;
-
-    map_mask abyss_genlevel_mask(1);
+    _increase_depth();
+    map_bitmask abyss_genlevel_mask(true);
     dgn_erase_unused_vault_placements();
     _abyss_apply_terrain(abyss_genlevel_mask, true);
     _place_displaced_monsters();
@@ -1483,16 +1516,24 @@ void abyss_morph(double duration)
 void abyss_teleport(bool new_area)
 {
     xom_abyss_feature_amusement_check xomcheck;
-
-    if (!new_area && _abyss_teleport_within_level())
+    if (!new_area)
+    {
+        _abyss_teleport_within_level();
+        abyss_area_shift();
+        _initialize_abyss_state();
+        _nuke_all_terrain(true);
+        forget_map(false);
+        clear_excludes();
+        more();
         return;
+    }
 
-#ifdef DEBUG_ABYSS
-    dprf("New area Abyss teleport.");
-#endif
-
-    // Teleport to a new area of the abyss.
+    dprf(DIAG_ABYSS, "New area Abyss teleport.");
     _abyss_generate_new_area();
+    _write_abyssal_features();
+    forget_map(false);
+    clear_excludes();
+    more();
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -1515,7 +1556,7 @@ static void _place_corruption_seed(const coord_def &pos, int duration)
 static void _initialise_level_corrupt_seeds(int power)
 {
     const int low = power * 40 / 100, high = power * 140 / 100;
-    const int nseeds = random_range(-1, std::min(2 + power / 110, 4), 2);
+    const int nseeds = random_range(-1, min(2 + power / 110, 4), 2);
 
     const int aux_seed_radius = 4;
 
@@ -1539,6 +1580,11 @@ static void _initialise_level_corrupt_seeds(int power)
         if (!where.origin())
             _place_corruption_seed(where, random_range(low, high, 2) + 300);
     }
+}
+
+static bool _incorruptible(monster_type mt)
+{
+    return mons_is_abyssal_only(mt) || mons_class_holiness(mt) == MH_HOLY;
 }
 
 // Create a corruption spawn at the given position. Returns false if further
@@ -1568,15 +1614,11 @@ static bool _spawn_corrupted_servant_near(const coord_def &pos)
             continue;
         }
 
-        // Got a place, summon the beast.
-        monster_type mons = pick_random_monster(level_id(BRANCH_ABYSS));
-        if (invalid_monster_type(mons))
-            return false;
-
+        monster_type mons = pick_monster(level_id(BRANCH_ABYSS), _incorruptible);
+        ASSERT(mons);
         mgen_data mg(mons, beh, 0, 5, 0, p);
         mg.non_actor_summoner = "Lugonu's corruption";
         mg.place = BRANCH_ABYSS;
-
         return create_monster(mg);
     }
 
@@ -1592,7 +1634,7 @@ static void _apply_corruption_effect(map_marker *marker, int duration)
     if (cmark->duration < 1)
         return;
 
-    const int neffects = std::max(div_rand_round(duration, 5), 1);
+    const int neffects = max(div_rand_round(duration, 5), 1);
 
     for (int i = 0; i < neffects; ++i)
     {
@@ -1607,8 +1649,7 @@ static void _apply_corruption_effect(map_marker *marker, int duration)
 
 void run_corruption_effects(int duration)
 {
-    std::vector<map_marker*> markers =
-        env.markers.get_all(MAT_CORRUPTION_NEXUS);
+    vector<map_marker*> markers = env.markers.get_all(MAT_CORRUPTION_NEXUS);
 
     for (int i = 0, size = markers.size(); i < size; ++i)
     {
@@ -1701,7 +1742,6 @@ static void _corrupt_square(const corrupt_env &cenv, const coord_def &c)
         feat = _abyss_proto_feature();
 
     if (feat_is_trap(feat, true)
-        || feat == DNGN_SECRET_DOOR
         || feat == DNGN_UNSEEN
         || (feat_is_traversable(grd(c)) && !feat_is_traversable(feat)
             && coinflip()))
@@ -1724,6 +1764,23 @@ static void _corrupt_square(const corrupt_env &cenv, const coord_def &c)
     if (feat == DNGN_EXIT_ABYSS)
         feat = DNGN_ENTER_ABYSS;
 
+    // If we are trying to place a wall on top of a creature or item, try to
+    // move it aside. If this fails, simply place floor instead.
+    actor* act = actor_at(c);
+    if (feat_is_solid(feat) && (igrd(c) != NON_ITEM || act))
+    {
+        coord_def newpos;
+        get_push_space(c, newpos, act, true);
+        if (!newpos.origin())
+        {
+            move_items(c, newpos);
+            if (act)
+                actor_at(c)->move_to_pos(newpos);
+        }
+        else
+            feat = DNGN_FLOOR;
+    }
+
     dungeon_terrain_changed(c, feat, true, preserve_feat, true);
     if (feat == DNGN_ROCK_WALL)
         env.grid_colours(c) = cenv.rock_colour;
@@ -1744,8 +1801,8 @@ static void _corrupt_square(const corrupt_env &cenv, const coord_def &c)
 
 static void _corrupt_level_features(const corrupt_env &cenv)
 {
-    std::vector<coord_def> corrupt_seeds;
-    std::vector<map_marker*> corrupt_markers =
+    vector<coord_def> corrupt_seeds;
+    vector<map_marker*> corrupt_markers =
         env.markers.get_all(MAT_CORRUPTION_NEXUS);
 
     for (int i = 0, size = corrupt_markers.size(); i < size; ++i)
@@ -1768,7 +1825,7 @@ static void _corrupt_level_features(const corrupt_env &cenv)
         // the feature still gets a chance to resist if it's a wall.
         const int corrupt_perc_chance =
             idistance2 <= ground_zero_radius2 ? 100 :
-            std::max(1, 100 - (idistance2 - ground_zero_radius2) * 70 / 57);
+            max(1, 100 - (idistance2 - ground_zero_radius2) * 70 / 57);
 
         if (random2(100) < corrupt_perc_chance && _is_grid_corruptible(*ri))
             _corrupt_square(cenv, *ri);

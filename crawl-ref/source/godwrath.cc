@@ -19,9 +19,11 @@
 #include "food.h"
 #include "ghost.h"
 #include "godabil.h"
+#include "itemprop.h"
 #include "libutil.h"
 #include "message.h"
 #include "misc.h"
+#include "mon-iter.h"
 #include "mon-util.h"
 #include "mon-place.h"
 #include "terrain.h"
@@ -59,18 +61,13 @@ static bool _yred_random_zombified_hostile()
     const bool skel = one_chance_in(4);
 
     monster_type z_base;
-    monster_type z_type;
 
     do
         z_base = pick_random_zombie();
     while (skel && !mons_skeleton(z_base));
 
-    if (mons_zombie_size(z_base) == Z_BIG)
-        z_type = skel ? MONS_SKELETON_LARGE : MONS_ZOMBIE_LARGE;
-    else
-        z_type = skel ? MONS_SKELETON_SMALL : MONS_ZOMBIE_SMALL;
-
-    mgen_data temp = mgen_data::hostile_at(z_type, "the anger of Yredelemnul",
+    mgen_data temp = mgen_data::hostile_at(skel ? MONS_SKELETON : MONS_ZOMBIE,
+                                           "the anger of Yredelemnul",
                                            true, 0, 0, you.pos(), 0,
                                            GOD_YREDELEMNUL, z_base);
 
@@ -123,7 +120,7 @@ static bool _tso_retribution()
 
         for (; how_many > 0; --how_many)
         {
-            if (summon_holy_warrior(100, god, 0, true, true, true))
+            if (summon_holy_warrior(100, true))
                 success = true;
         }
 
@@ -208,10 +205,10 @@ static bool _zin_retribution()
             confuse_player(3 + random2(10), false);
             break;
         case 1:
-            you.hibernate();
+            you.put_to_sleep(NULL, 30 + random2(20));
             break;
         case 2:
-            paralyse_player("the wrath of Zin", 3 + random2(10));
+            paralyse_player("the wrath of Zin");
             break;
         }
         break;
@@ -553,7 +550,7 @@ static bool _trog_retribution()
 
             while (points > 0)
             {
-                int cost = std::min(random2(8) + 3, points);
+                int cost = min(random2(8) + 3, points);
 
                 // quick reduction for large values
                 if (points > 20 && coinflip())
@@ -715,7 +712,7 @@ static bool _beogh_retribution()
 
         if (num_created > 0)
         {
-            std::ostringstream msg;
+            ostringstream msg;
             msg << " throws "
                 << (num_created == 1 ? "an implement" : "implements")
                 << " of " << (am_orc ? "orc slaying" : "electrocution")
@@ -861,54 +858,60 @@ static bool _lugonu_retribution()
         // No return.
     }
 
-    if (random2(you.experience_level) > 7 && !one_chance_in(5))
+    bool success = false;
+    bool major = (you.experience_level > (4 + random2(12)) && !one_chance_in(5));
+    int how_many = (major ? random2(you.experience_level / 9 + 1)
+                          : 1 + you.experience_level /7);
+
+    for (; how_many > 0; --how_many)
     {
         mgen_data temp =
-            mgen_data::hostile_at(random_choose(MONS_GREEN_DEATH,
-                                  MONS_BLIZZARD_DEMON, MONS_BALRUG, -1),
-                                  "the touch of Lugonu",
-                                  true, 0, 0, you.pos(), 0, god);
+            mgen_data::hostile_at(
+                random_choose_weighted(
+                    15 - (you.experience_level/2),  MONS_ABOMINATION_SMALL,
+                    (you.experience_level/2),       MONS_ABOMINATION_LARGE,
+                    6,                              MONS_THRASHING_HORROR,
+                    3,                              MONS_ANCIENT_ZYME,
+                    0),
+                "the touch of Lugonu",
+                true, 0, 0, you.pos(), 0, god);
 
         temp.extra_flags |= (MF_NO_REWARD | MF_HARD_RESET);
 
-        bool success = create_monster(temp, false);
-        simple_god_message(success ? " sends a demon after you!"
-                                   : "'s demon is unavoidably detained.", god);
+        if (create_monster(temp, false))
+            success = true;
     }
-    else
+
+    if (major)
     {
-        bool success = false;
-        int how_many = 1 + (you.experience_level / 7);
+        mgen_data temp =
+        mgen_data::hostile_at(random_choose(
+                                MONS_TENTACLED_STARSPAWN,
+                                MONS_WRETCHED_STAR,
+                                MONS_STARCURSED_MASS,
+                                -1),
+                                "the touch of Lugonu",
+                                true, 0, 0, you.pos(), 0, god);
 
-        for (; how_many > 0; --how_many)
-        {
-            mgen_data temp =
-                mgen_data::hostile_at(random_choose(MONS_HELLWING, MONS_NEQOXEC,
-                                      MONS_ORANGE_DEMON, MONS_SMOKE_DEMON,
-                                      MONS_YNOXINUL, -1),
-                                      "the touch of Lugonu",
-                                      true, 0, 0, you.pos(), 0, god);
+        temp.extra_flags |= (MF_NO_REWARD | MF_HARD_RESET);
 
-            temp.extra_flags |= (MF_NO_REWARD | MF_HARD_RESET);
-
-            if (create_monster(temp, false))
-                success = true;
-        }
-
-        simple_god_message(success ? " sends minions to punish you."
-                                   : "'s minions fail to arrive.", god);
+        if (create_monster(temp, false))
+            success = true;
     }
+
+    simple_god_message(success ? " sends minions to punish you."
+                                : "'s minions fail to arrive.", god);
 
     return false;
 }
 
 static bool _vehumet_retribution()
 {
-    // conjuration/summoning theme
+    // conjuration theme
     const god_type god = GOD_VEHUMET;
 
     simple_god_message("'s vengeance finds you.", god);
-    MiscastEffect(&you, -god, coinflip() ? SPTYP_CONJURATION : SPTYP_SUMMONING,
+    MiscastEffect(&you, -god, SPTYP_CONJURATION,
                    8 + you.experience_level, random2avg(98, 3),
                    "the wrath of Vehumet");
     return true;
@@ -1081,7 +1084,7 @@ static bool _fedhas_retribution()
 
         // We are going to spawn some oklobs but first we need to find
         // out a little about the situation.
-        std::vector<std::vector<coord_def> > radius_points;
+        vector<vector<coord_def> > radius_points;
         collect_radius_points(radius_points, you.pos(),
                               you.get_los_no_trans());
 
@@ -1226,7 +1229,6 @@ bool divine_retribution(god_type god, bool no_bonus, bool force)
         mprf(MSGCH_DIAGNOSTICS, "No retribution defined for %s.",
              god_name(god).c_str());
 #endif
-        do_more    = false;
         return false;
     }
 
@@ -1287,9 +1289,9 @@ bool do_god_revenge(conduct_type thing_done, const monster *victim)
 }
 
 // Currently only used when orcish idols have been destroyed.
-static std::string _get_beogh_speech(const std::string key)
+static string _get_beogh_speech(const string key)
 {
-    std::string result = getSpeakString("Beogh " + key);
+    string result = getSpeakString("Beogh " + key);
 
     if (result.empty())
         return "Beogh is angry!";
@@ -1353,9 +1355,9 @@ static void _tso_blasts_cleansing_flame(const char *message)
 }
 
 // Currently only used when holy beings have been killed.
-static std::string _get_tso_speech(const std::string key)
+static string _get_tso_speech(const string key)
 {
-    std::string result = getSpeakString("the Shining One " + key);
+    string result = getSpeakString("the Shining One " + key);
 
     if (result.empty())
         return "The Shining One is angry!";
@@ -1373,7 +1375,7 @@ static bool _tso_holy_revenge()
         && ((is_evil_god(you.religion) && one_chance_in(6))
             || one_chance_in(8)))
     {
-        std::string revenge;
+        string revenge;
 
         if (is_evil_god(you.religion))
             revenge = _get_tso_speech("holy evil");
@@ -1398,12 +1400,12 @@ static bool _ely_holy_revenge(const monster *victim)
 
     god_acting gdact(GOD_ELYVILON, true);
 
-    std::string msg = getSpeakString("Elyvilon holy");
+    string msg = getSpeakString("Elyvilon holy");
     if (msg.empty())
         msg = "Elyvilon is displeased.";
     mpr(msg.c_str(), MSGCH_GOD, GOD_ELYVILON);
 
-    std::vector<monster*> patients;
+    vector<monster*> patients;
     for (monster_iterator mi(you.get_los()); mi; ++mi)
     {
         // healer not necromancer
@@ -1423,7 +1425,7 @@ static bool _ely_holy_revenge(const monster *victim)
         return false;
 
     mpr("Elyvilon touches your foes with healing grace.");
-    for (std::vector<monster*>::const_iterator mi = patients.begin();
+    for (vector<monster*>::const_iterator mi = patients.begin();
          mi != patients.end(); ++mi)
     {
         simple_monster_message(*mi, " is healed.");
@@ -1459,7 +1461,7 @@ static void _god_smites_you(god_type god, const char *message,
             }
         }
 
-        std::string aux;
+        string aux;
 
         if (death_type != KILLED_BY_BEOGH_SMITING
             && death_type != KILLED_BY_TSO_SMITING)
@@ -1487,7 +1489,7 @@ void ash_reduce_penance(int amount)
     if (!you.penance[GOD_ASHENZARI] || !you.exp_docked_total)
         return;
 
-    int lost = std::min(amount / 2, you.exp_docked);
+    int lost = min(amount / 2, you.exp_docked);
     you.exp_docked -= lost;
 
     int new_pen = (((int64_t)you.exp_docked * 50) + you.exp_docked_total - 1)

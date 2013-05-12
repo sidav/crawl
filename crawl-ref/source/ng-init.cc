@@ -19,6 +19,8 @@
 #include "religion.h"
 #include "state.h"
 #include "store.h"
+#include "stuff.h"
+#include "version.h"
 
 #ifdef DEBUG_DIAGNOSTICS
 #define DEBUG_TEMPLES
@@ -26,21 +28,20 @@
 
 static uint8_t _random_potion_description()
 {
-    int desc, colour;
+    int desc;
 
-    do
-    {
-        desc = random2(PDQ_NQUALS * PDC_NCOLOURS);
+    desc = random2(PDQ_NQUALS * PDC_NCOLOURS);
 
-        if (coinflip())
-            desc %= PDC_NCOLOURS;
+    if (coinflip())
+        desc %= PDC_NCOLOURS;
 
-        colour = PCOLOUR(desc);
+    // nature and colour correspond to primary and secondary in
+    // itemname.cc.
 
-        // nature and colour correspond to primary and secondary in
-        // itemname.cc.
-    }
-    while (colour == PDC_CLEAR); // only water can be clear
+#if TAG_MAJOR_VERSION == 34
+    if (PCOLOUR(desc) == PDC_CLEAR) // only water can be clear, re-roll
+        return _random_potion_description();
+#endif
 
     return desc;
 }
@@ -53,7 +54,7 @@ void initialise_branch_depths()
     for (int branch = BRANCH_ECUMENICAL_TEMPLE; branch < NUM_BRANCHES; ++branch)
     {
         const Branch *b = &branches[branch];
-        if (crawl_state.game_is_sprint() || branch_is_unfinished(b->id))
+        if (branch_is_unfinished(b->id))
             startdepth[branch] = -1;
         else
             startdepth[branch] = random_range(b->mindepth, b->maxdepth);
@@ -77,7 +78,6 @@ void initialise_branch_depths()
     {
         brdepth.init(-1);
         brdepth[BRANCH_MAIN_DUNGEON] = 1;
-        brdepth[BRANCH_ABYSS] = 1;
         return;
     }
 
@@ -92,10 +92,6 @@ void initialise_branch_depths()
 
     for (int i = 0; i < NUM_BRANCHES; i++)
         brdepth[i] = branches[i].numlevels;
-
-    // In trunk builds, test variable-length branches.
-    if (numcmp(Version::Long().c_str(), "0.11-b") == -1)
-        brdepth[BRANCH_ELVEN_HALLS] = random_range(3, 4);
 }
 
 #define MAX_OVERFLOW_LEVEL 9
@@ -115,10 +111,10 @@ void initialise_temples()
             = const_cast<map_def*>(random_map_for_place(ecumenical, false));
 
         if (main_temple == NULL)
-            end (1, false, "No temples?!");
+            end(1, false, "No temples?!");
 
         // Without all this find_glyph() returns 0.
-        std::string err;
+        string err;
               main_temple->load();
               main_temple->reinit();
         err = main_temple->run_lua(true);
@@ -149,7 +145,7 @@ void initialise_temples()
 
     you.props[TEMPLE_MAP_KEY] = main_temple->name;
 
-    const std::vector<coord_def> altar_coords
+    const vector<coord_def> altar_coords
         = main_temple->find_glyph('B');
     const unsigned int main_temple_size = altar_coords.size();
 
@@ -167,11 +163,11 @@ void initialise_temples()
     ///////////////////////////////////
     // Now set up the overflow temples.
 
-    std::vector<god_type> god_list = temple_god_list();
+    vector<god_type> god_list = temple_god_list();
 
-    std::random_shuffle(god_list.begin(), god_list.end());
+    random_shuffle(god_list.begin(), god_list.end());
 
-    std::vector<god_type> overflow_gods;
+    vector<god_type> overflow_gods;
 
     while (god_list.size() > main_temple_size)
     {
@@ -265,8 +261,6 @@ void initialise_item_descriptions()
     // Must remember to check for already existing colours/combinations.
     you.item_description.init(255);
 
-    you.item_description[IDESC_POTIONS][POT_WATER] = PDESCS(PDC_CLEAR);
-    set_ident_type(OBJ_POTIONS, POT_WATER, ID_KNOWN_TYPE);
     you.item_description[IDESC_POTIONS][POT_PORRIDGE]
         = _get_random_porridge_desc();
     you.item_description[IDESC_POTIONS][POT_BLOOD]

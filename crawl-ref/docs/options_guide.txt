@@ -44,79 +44,83 @@ The contents of this text are:
 3-g     Travel and Exploration.
                 travel_delay, explore_delay, travel_avoid_terrain,
                 explore_greedy, explore_stop, explore_stop_pickup_ignore,
-                explore_wall_bias, explore_improved, travel_key_stop,
-                tc_reachable, tc_dangerous, tc_disconnected,
+                explore_wall_bias, explore_improved, auto_sacrifice,
+                travel_key_stop, tc_reachable, tc_dangerous, tc_disconnected,
                 tc_excluded, tc_exclude_circle,
                 runrest_ignore_message, runrest_stop_message,
                 runrest_ignore_poison, runrest_ignore_monster,
                 trapwalk_safe_hp, rest_wait_both, auto_exclude
-3-h     Floor items.
-                annotate_item_class, annotate_item_dropped
-3-i     Command Enhancements.
+3-h     Command Enhancements.
                 auto_list, auto_switch, easy_open, easy_unequip,
                 equip_unequip, easy_confirm, allow_self_target,
                 confirm_butcher, prefer_safe_chunks, easy_eat_chunks,
                 easy_eat_gourmand, easy_eat_contaminated, auto_drop_chunks,
                 prompt_for_swap, easy_quit_item_prompts,
                 easy_exit_menu, sort_menus, spell_slot, autofight_stop,
-                autofight_throw
-3-j     Message and Display Improvements.
+                autofight_throw, autofight_throw_nomove
+3-i     Message and Display Improvements.
                 hp_warning, mp_warning, hp_colour, mp_colour, stat_colour,
                 status_caption_colour, enemy_hp_colour, clear_messages,
                 show_more, small_more, show_inventory_weights,
                 show_newturn_mark, show_gold_turns, show_game_turns,
-                item_stack_summary_minimum, list_rotten,
+                item_stack_summary_minimum,
                 mlist_min_height, msg_min_height, msg_max_height,
-                messages_at_top, show_no_ctele, skill_focus,
+                messages_at_top, skill_focus,
                 mlist_allow_alternate_layout, mlist_targetting,
-                menu_colour, menu_colour_prefix_class, menu_colour_shops,
-                message_colour, force_more_message,
-                msg_condense_repeats, msg_condense_short, show_travel_trail
-3-k     Missiles.
+                menu_colour, message_colour, force_more_message,
+                msg_condense_repeats, msg_condense_short, show_travel_trail,
+                monster_list_colour
+3-j     Missiles.
                 fire_items_start, fire_order
-3-l     Message Channels.
+3-k     Message Channels.
                 plain, prompt, god, pray, duration, danger, food, warning,
                 recovery, talk, talk_visual, intrinsic_gain, mutation,
                 monster_spell, monster_enchant, friend_spell, friend_enchant,
                 monster_damage, rotten_meat, equipment, floor, multiturn,
                 examine, examine_filter, diagnostics, error, tutorial
-3-m     Inscriptions.
-                autoinscribe, autoinscribe_artefacts, autoinscribe_cursed
-3-n     Macro related Options.
+3-l     Inscriptions.
+                autoinscribe, autoinscribe_cursed
+3-m     Macro related Options.
                 flush.failure, flush.command, flush.message,
                 additional_macro_file, bindkey
-3-o     Tiles Options.
+3-n     Tiles Options.
                 tile_show_items, tile_skip_title, tile_menu_icons,
                 tile_player_col, tile_monster_col, tile_neutral_col,
                 tile_peaceful_col, tile_friendly_col, tile_plant_col,
-                tile_item_col, tile_unseen_col, tile_floor_col, tile_wall_col,
-                tile_mapped_wall_col, tile_door_col, tile_downstairs_col,
-                tile_upstairs_col, tile_feature_col, tile_trap_col,
-                tile_water_col, tile_lava_col, tile_excluded_col,
-                tile_excl_centre_col, tile_update_rate, tile_runrest_rate,
-                tile_key_repeat_delay, tile_tooltip_ms, tile_tag_pref,
-                tile_full_screen, tile_window_width, tile_window_height,
-                tile_map_pixels, tile_force_overlay, tile_font_crt_file,
-                tile_font_stat_file, tile_font_msg_file, tile_font_tip_file,
-                tile_font_lbl_file, tile_font_crt_size, tile_font_stat_size,
-                tile_font_msg_size, tile_font_tip_size, tile_font_lbl_size,
+                tile_item_col, tile_unseen_col, tile_floor_col,
+                tile_wall_col, tile_mapped_wall_col, tile_door_col,
+                tile_downstairs_col, tile_upstairs_col,
+                tile_feature_col, tile_trap_col, tile_water_col,
+                tile_lava_col, tile_excluded_col,
+                tile_excl_centre_col, tile_update_rate,
+                tile_runrest_rate, tile_key_repeat_delay,
+                tile_tooltip_ms, tile_tag_pref, tile_full_screen,
+                tile_window_width, tile_window_height,
+                tile_map_pixels, tile_cell_pixels, tile_force_overlay,
+                tile_font_crt_file, tile_font_stat_file,
+                tile_font_msg_file, tile_font_tip_file,
+                tile_font_lbl_file, tile_font_crt_size,
+                tile_font_stat_size, tile_font_msg_size,
+                tile_font_tip_size, tile_font_lbl_size,
                 tile_font_ft_light, tile_show_minihealthbar,
                 tile_show_minimagicbar, tile_show_demon_tier,
                 tile_layout_priority, tile_force_regenerate_levels
 4-  Character Dump.
-4-a     Items and Kills.
+4-a     Saving.
+                dump_on_save
+4-b     Items and Kills.
                 kill_map, dump_kill_places, dump_kill_breakdowns,
                 dump_item_origins, dump_item_origin_price, dump_message_count,
                 dump_order, dump_book_spells
-4-b     Notes.
+4-c     Notes.
                 user_note_prefix, note_items, note_monsters,
-                ood_interesting, note_hp_percent, note_skill_levels,
-                note_all_skill_levels, note_skill_max, note_xom_effects,
-                note_messages, note_chat_messages
+                note_hp_percent, note_skill_levels, note_all_skill_levels,
+                note_skill_max, note_xom_effects, note_messages,
+                note_chat_messages
 5-  Miscellaneous.
 5-a     All OS.
-                mouse_input, wiz_mode, char_set, classic_item_colours,
-                colour, cset, feature, mon_glyph, use_fake_player_cursor,
+                mouse_input, wiz_mode, char_set, colour, cset, feature,
+                mon_glyph, item_glyph, use_fake_player_cursor,
                 show_player_species
 
 5-b     DOS and Windows.
@@ -230,8 +234,10 @@ and, for Tiles,
 A number of options can have a list of values. Most but not all of these
 options allow setting multiple values in a single line, separated by commas.
 It is possible to reset, add items to, or remove items from such an option.
-   Add values to the list:
+   Add values to the end of the list (append):
       drop_filter += useless, enchant
+   Add values to the beginning of the list (prepend):
+      drop_filter ^= rotting
    Remove values from the list (exact match only):
       drop_filter -= enchant
    Reset (empty) the list:
@@ -253,6 +259,20 @@ your syntax to obtain either the current or the future behaviour:
 
 A few list options already have the future behaviour for "opt = value"; these
 options are flagged as "Overriding list options" in their descriptions.
+
+For many options, such as drop_filter, there is effectively no difference
+between appending and prepending. However, other options, such as
+message_colour, do care about the order of items; these will be noted as
+"Ordered list options" in their descriptions. In most cases, earlier items
+take precedence over later ones, so += defers to existing matches (including
+defaults) while ^= overrides them. So, for example, with the sequence of
+options:
+   message_colour =
+   message_colour += cyan:hits
+   message_colour ^= red:crimson
+   message_colour += yellow:killer
+the message "The crimson imp hits you!" will be displayed in red, while "The
+killer bee hits you!" will be displayed in cyan.
 
 0-e     Aliases and variables.
 ------------------------------
@@ -355,8 +375,8 @@ macro_dir = settings/
         For tile games, wininit.txt will also be stored here.
         It should end with the path delimiter.
 
-sound += <regex>:<path to sound file>, <regex>:<path>, ...
-        (List option)
+sound ^= <regex>:<path to sound file>, <regex>:<path>, ...
+        (Ordered list option)
         Plays the sound file if a message contains regex. The regex
         should not include commas or colons. For example
              sound += LOW HITPOINT WARNING:sound\sounds2\danger3.wav
@@ -382,7 +402,8 @@ autopickup = $?!+"/%
         " or =  Jewellery
         !       Potions
         + or :  Books
-        \ or |  Staves
+        |       Staves
+        \       Rods
         0       Orbs
         }       Misc. items
         X       Corpses
@@ -393,8 +414,8 @@ autopickup = $?!+"/%
         items). If you teleport or blink onto a square with interesting
         items, these will not be picked up.
 
-autopickup_exceptions += <pickup-regex, >don't-pickup-regex, ...
-        (List option)
+autopickup_exceptions ^= <pickup-regex, >don't-pickup-regex, ...
+        (Ordered list option)
         A set of regexes that force matching items to be picked up (if
         prefixed with <), or never picked up (if prefixed with >).
         Excludes (>) take precedence over includes (<), so if the same
@@ -764,8 +785,8 @@ explore_delay = -1
 
 travel_avoid_terrain = (shallow water | deep water)
         Prevent travel from routing through shallow water. By default,
-        this option is commented out. For merfolk and/or characters with
-        permanent levitation,
+        this option is disabled. For merfolk and/or characters with
+        permanent flight,
              travel_avoid_terrain = shallow water, deep water
         will prevent travel or explore from going through any water.
         This option is not a true list option; in particular, it is not
@@ -775,10 +796,9 @@ explore_greedy = true
         Greedy explore travels to items that are eligible for
         autopickup in addition to exploring the level, but is
         otherwise identical to regular explore. Explore greed is
-        disabled if you're temporarily unable to pick up items
-        (from uncontrolled levitation, for instance).
+        disabled if autopickup is off (Ctrl-A).
 
-explore_stop  = items,stairs,shops,altars,portals,branches
+explore_stop  = items,stairs,shops,altars,portals,branches,runed_doors
 explore_stop += greedy_pickup_smart,greedy_visited_item_stack
 explore_stop += greedy_sacrificeable
         (Overriding list option)
@@ -826,7 +846,7 @@ explore_stop += greedy_sacrificeable
             nothing eligible for autopickup.
 
         greedy_sacrificeable: Visit and stop at stacks containing items which
-            can be sacrificied to your god.
+            can be sacrificed to your god.
 
         glowing_items: like items, but only for items which are
             glowing/runed/embroidered/etc.
@@ -835,22 +855,11 @@ explore_stop += greedy_sacrificeable
 
         runes: like items, but only for runes.
 
-sacrifice_before_explore = false
-        When set to true, if you are standing on items which can be sacricied
-        when you start auto-explore, they will be automatically sacrificied.
-        It can also be set to "prompt", in which case you will have a
-        confirmation prompt before the items are sacrificed.
-        This option has no effect when explore_stop hasn't greedy_sacrificeable.
-
 explore_stop_pickup_ignore += <regex>, <regex>, ...
         (List option)
         If explore_stop has greedy_pickup or greedy_pickup_smart set,
         then picking up any items matching any of the regexes in the list
-        will *not* stop auto-explore. For example, by default curare-
-        tipped needles are automatically picked up to keep them out of
-        the hands of monsters, even if you don't have a blowgun, so to
-        not stop auto-explore because of this use
-        "explore_stop_pickup_ignore += curare".
+        will *not* stop auto-explore.
 
         This options has no affect on items which were thrown by the
         player.
@@ -867,6 +876,17 @@ explore_improved = false
         by about 0.9%, sometimes actually speeding it up slightly and
         sometimes increasing the turns taken by up to 5%, with
         pathological cases causing a 13% increase.
+
+auto_sacrifice = false
+       If set to true, eligible items will be automatically sacrificed during
+       auto-explore.
+       When set to "before_explore", if you are standing on items which can be
+       sacrificed when you start auto-explore, they will be automatically
+       sacrificed.
+       It can also be set to "prompt", in which case you will have a
+       confirmation prompt before the items are sacrificed.
+       This option has no effect when explore_stop doesn't include
+       greedy_sacrificeable.
 
 travel_key_stop = true
         If set to true then travel will stop at any keypress.
@@ -914,6 +934,8 @@ runrest_stop_message += <regex>, <regex>, ...
         
         Resetting either option has the effect of resetting both.
 
+        Resetting either option has the effect of resetting both.
+
         Note also that runrest_ignore_message has no effect on what
         explore_stop stops for.
 
@@ -923,18 +945,19 @@ runrest_ignore_poison = <poison damage>:<minimum hp>
         means shift-running and resting only. Only one runrest_ignore_poison
         line is considered. Note that for this work, you should also tell
         Crawl to ignore the "You feel sick" messages. For example,
-             runrest_ignore_message = You feel.*sick
+             runrest_ignore_message ^= You feel.*sick
              runrest_ignore_poison = 4:100
 
-runrest_ignore_monster += <string>:<distance>, <string>:<distance>, ...
-        (List option)
-        Any monster containing the string will only interrupt your
-        activity if the distance between you and the monster is
-        less than the specified number. E.g. with
-             runrest_ignore_monster += fish:3
+runrest_ignore_monster ^= <regex>:<distance>, <regex>:<distance>, ...
+        (Ordered list option)
+        Any monster matching the regular expression will only interrupt your
+        activity if the distance between you and the monster is less than the
+        specified number. E.g. with
+             runrest_ignore_monster ^= fish:3
         all of big fish, jellyfish, giant goldfish and lavafish will be
         considered safe for travel, explore and resting as long as the
-        distance is at least 3.
+        distance is at least 3. If a monster matches multiple expressions,
+        its distance is compared with the first match.
 
 trapwalk_safe_hp = <trap_name>:<minimum_hp>, ...
         Any square containing one of the listed trap types will be
@@ -963,20 +986,7 @@ auto_exclude += <monster name>, <monster name>, ...
         monster dies or wakes up while you are in sight, this exclusion
         is automatically removed again.
 
-3-h     Floor items.
-----------------
-
-You can search for items all around the dungeon with Ctrl-F. It accepts not
-only the real name but can also take certain "annotations":
-
-annotate_item_class = false
-        Automatically annotates items with their object class, e.g. weapon
-        or wand, for floor item searching.
-
-annotate_item_dropped = false
-        Annotates dropped items with {dropped} for floor searching.
-
-3-i     Command Enhancements.
+3-h     Command Enhancements.
 -----------------------------
 
 auto_list = true
@@ -1022,8 +1032,7 @@ allow_self_target = (yes | no | prompt)
         you cannot target yourself with such spells. When set to
         'prompt' (the default), you will be required to confirm
         self-targetting. This option has no effect on area-effect
-        spells, such as Mephitic Cloud or Evaporate, where you
-        are always a valid target.
+        spells, such as Mephitic Cloud, where you are always a valid target.
 
 confirm_butcher = (always | never | auto)
         If auto (default) you will be prompted for which corpses to butcher if
@@ -1036,6 +1045,7 @@ prefer_safe_chunks = true
         The (e)at command will prompt for all chunks on the floor and in your
         inventory, sorted by age. If this option is set to true, clean chunks
         will be offered before contaminated ones even if the latter are older.
+        Rotten chunks will be offered after clean or contaminated ones.
         Poisonous, mutagenic, rot-inducing, and chunks forbidden by
         your religion will always be offered last.
 
@@ -1218,19 +1228,21 @@ sort_menus = [menu:](true | false | auto:X)[:sort_order]
         the last one matching will always take precedence, i.e. "any"
         as last setting would override any of the others.
 
-spell_slot += <regex>:<list of spell letters>
-        (List option, one value per line)
+spell_slot ^= <regex>:<list of spell letters>
+        (Ordered list option, one value per line)
         When you memorise any spell that matches the regex, it will
         assign itself to the first available letter in the list. (If
         all letters in the list are occupied for each regex the spell
         matches, it will use the default ordering abc...xyzABC..XYZ.)
+        If a spell matches multiple expressions, only the first is
+        considered.
 
         Examples:
         * if you want Haste to be placed on H:
-            spell_slot += Haste:H
+            spell_slot ^= Haste:H
         * if you want Deflect Missiles to be placed on r normally or R if
           r is unavailable:
-            spell_slot += Deflect:rR
+            spell_slot ^= Deflect:rR
         * if you want to change the default spell slot assignment
           to use capital letters: (place this after all other
           spell_slot lines):
@@ -1252,7 +1264,7 @@ autofight_throw_nomove = true
         rather than ===hit_closest; this is usually bound to shift-Tab.
 
 
-3-j     Messages and Display Enhancements.
+3-i     Messages and Display Enhancements.
 ------------------------------------------
 
 hp_warning = 10
@@ -1327,7 +1339,7 @@ show_gold_turns = true
         option is ignored. Use the tile_layout_priority option instead.
 
 show_game_turns = true
-        By default, the turn counter in the stat area display game turns, which
+        By default, the turn counter in the stat area displays game turns, which
         means absolute turns of constant duration. Most actions take one turn,
         but some are quicker (putting a ring, wielding a weapon, ...) and
         others are slower (ending a transformation, changing armour,...). The
@@ -1335,7 +1347,8 @@ show_game_turns = true
         count.
         When set to false, the turn counter will display player turns instead,
         which is the number of actions done, regardless of their duration. It
-        is this turn count which is used for scoring.
+        is this turn count which is used for scoring (and this turn count is
+        always visible on the % overview screen).
 
 item_stack_summary_minimum = 5
         If you step over a stack with this number or more of items in
@@ -1346,14 +1359,6 @@ item_stack_summary_minimum = 5
         Known artefacts will be coloured in yellow; glowing or runed
         items will be in white, unless you already know that they are
         not ego items.
-
-list_rotten = true
-        Setting this to true will print a list of inventory slots for
-        all corpses and chunks that have become rotten along with the
-        rotting message, in the form of
-          "You smell something rotten. (slots f and m)"
-        Additionally, this option will make a default message appear
-        for Trolls, as well.
 
 mlist_min_height = 4
         If there is extra space available for the message area and
@@ -1389,14 +1394,14 @@ mlist_targetting = false
         feature on and off. This option controls the initial setting
         at game start or reload.
 
-menu_colour += <match>:<colour>:<regex>, <colour>:<regex>, ...
-        (List option)
+menu_colour ^= <match>:<colour>:<regex>, <colour>:<regex>, ...
+        (Ordered list option)
         This prints a line (of the inventory, a menu, or the discoveries
         screen) containing regex in the stated colour. There can be
         several statements in a list, and also several menu_colour
         lines. When using several menu_colour lines, the colour of the
         _first_ matching regex is applied. For a list of colours, check
-        the colour option in 6-a.
+        the colour option in 5-a.
 
         The match specifies which listings are affected by the
         colouring. If you specify 'any', or completely skip the <match>:
@@ -1419,8 +1424,11 @@ menu_colour += <match>:<colour>:<regex>, <colour>:<regex>, ...
            known           (You recognize the item's subtype.)
            unidentified    (You don't recognize the item's subtype.)
 
+        Items are also prefixed with their base type (armour, weapon, wand,
+        etc.)
+
         The following only apply to items whose subtype is known.
-           evil_item       (Your god would hate it if you used this item.)
+           forbidden       (Your god would hate it if you used this item.)
 
            emergency_item  (This item is invaluable in emergencies.)
            good_item       (This item is generally a good item.)
@@ -1428,7 +1436,6 @@ menu_colour += <match>:<colour>:<regex>, <colour>:<regex>, ...
            bad_item        (This item is generally a bad item.)
            useless_item    (This item is of no use to you.)
 
-           evil_eating     (Eating this item is punished by the good gods.)
            inedible        (You cannot eat this, or get no nutrition from it.)
            preferred       (The food type your character prefers, for example
                             for herbivores/carnivores.)
@@ -1443,58 +1450,41 @@ menu_colour += <match>:<colour>:<regex>, <colour>:<regex>, ...
 
         When looking for menu_colour matches, these prefixes are prepended to
         the actual item name, e.g. in the form of
-           identified evil_item wand of draining (4)
+           identified forbidden wand of draining (4)
            unidentified equipped artefact sparkling ring (left hand)
 
         The same prefixes can also be used for highlighting prompts pertaining
         to items matching the description, or to define autopickup_exceptions.
 
         If you want to colour all items that contain a certain prefix, use
-          menu_colour += lightgreen:poisonous
+          menu_colour ^= lightgreen:poisonous
 
-        To colour worn stuff and highlight cursed items, take
+        To colour worn stuff and highlight cursed items (except where other,
+        presumably more important, message colours match), use
           menu_colour += inventory:lightred:equipped.* cursed
           menu_colour += inventory:green:equipped
           menu_colour += inventory:red: cursed
 
         To colour identified artefacts, try
-          menu_colour += inventory:white:( [-+] the)
+          menu_colour ^= inventory:white:( [-+] the)
         or
-          menu_colour += inventory:white:identified.*artefact
+          menu_colour ^= inventory:white:identified.*artefact
 
         If you frequently die because you forget to use emergency items,
         try
-          menu_colour += inventory:cyan:emergency_item
-          menu_colour += inventory:lightcyan:wand of (fire|cold|draining)
-
-        To quickly check what potions were trashed by a mummy curse, use
-          menu_colour += inventory:lightred:potions? of (degeneration|decay)
+          menu_colour ^= inventory:cyan:emergency_item
+          menu_colour ^= inventory:lightcyan:wand of (fire|cold|draining)
 
         If you'd like to see rotting chunks and corpses at a glance, use
-          menu_colour += inventory:red: rotting
+          menu_colour ^= inventory:red: rotting
 
         menu_colour can also be applied to colour the in-game notes (to
         be read with '?:'). The following line will show level ups in
         white:
-          menu_colour += notes:white:Reached XP level
+          menu_colour ^= notes:white:Reached XP level
 
-menu_colour_prefix_class = true
-        Setting this option to true will prefix the string against which
-        menu_colour regexes are matched (not the string displayed) with
-        the item's object type: armour, weapon, wand, etc.
-
-        Note that the prefix is put before the the *entire* string which
-        is displayed, so if you're wielding a uncursed dagger which has
-        the 'a' slot, the string the regexes will match against is
-        "weapon  a - an uncursed dagger (weapon)".
-
-menu_colour_shops = true
-        If this option is set to true the shop menu will be coloured
-        according to the menu colours (using tags "shop" or "any");
-        otherwise the lines are coloured alternately white or lightgrey.
-
-message_colour += <colour>:<channel>:<regex>, <colour>:<regex>, ...
-        (List option)
+message_colour ^= <colour>:<channel>:<regex>, <colour>:<regex>, ...
+        (Ordered list option)
         message_colour allows you to override colours for individual
         messages. For instance, if you find the low hp warning to be
         insufficiently attention grabbing, you could do something like
@@ -1529,17 +1519,38 @@ show_travel_trail = true
         the Clear Map command (Ctrl-C) clears the trail instead of the map
         (pressing it a second time then clears the map as usual).
 
-show_no_ctele = true
-        If set, -cTele will be displayed in the status light area when
-        teleport control is not possible.
-
 skill_focus = true
         When set to true, skills cycle between disabled, enabled and focus in
         the skill screen. When set to false, they only toggle between enabled
         and disabled. Setting the option to "toggle" adds a toggle to the skill
         screen to change the behaviour in-game.
 
-3-k     Missiles.
+monster_list_colour += <key>:<colour>, <key>:<colour>
+monster_list_colour -= <key>
+        (Overriding list option)
+        Change the colours used to display monster names in the monster list.
+        Valid keys, and their default colours, are:
+
+           Monster attitudes:
+             friendly       - green
+             neutral        - brown ("indifferent")
+             good_neutral   - brown ("peaceful")
+             strict_neutral - brown ("fellow slime")
+
+           Threat levels for hostile monsters:
+             trivial        - darkgrey
+             easy           - lightgrey
+             tough          - yellow
+             nasty          - lightred
+
+         Removing a key with -= currently has the same effect as setting its
+         colour to lightgrey.
+
+         Note that, for TSO worshippers, monsters whom it is forbidden to
+         attack will appear in the "evil colour" (magenta by default)
+         regardless of this option.
+
+3-j     Missiles.
 -----------------
 
 fire_items_start = a
@@ -1549,7 +1560,7 @@ fire_items_start = a
 fire_order  = launcher, return
 fire_order += javelin / dart / stone / rock / spear / net / handaxe / dagger
 fire_order += inscribed
-        (Overriding list option)
+        (Overriding ordered list option)
         Controls the order of items autoselected for firing. Items
         should be separated by commas and items that appear first get
         higher priority.
@@ -1571,7 +1582,7 @@ fire_order += inscribed
 
 (See also pickup_thrown in 3-a.)
 
-3-l     Message Channels.
+3-k     Message Channels.
 -------------------------
 
 Crawl communicates to the players with its message window. Every message
@@ -1626,35 +1637,41 @@ option).
 The only multi-colour channels currently are monster_damage and god. All
 other channels are defaulted to on.
 
-3-m     Inscriptions.
+3-l     Inscriptions.
 ---------------------
 
 See the "Inscriptions" section of the crawl manual for more information
 about inscriptions.
 
 autoinscribe += <regex>:<inscription>
-        (List option, one value per line)
-        Any item whose description contains the regex will be
-        automatically inscribed (if autopickup is toggled on).
+        (Ordered list option, one value per line)
+        Any item whose description contains the regex will be automatically
+        inscribed (if autopickup is toggled on).
 
         For example, it can be used to avoid accidentally using charges of
         important wands, as in
              autoinscribe += wand of heal wounds:!V
 
-        The menu colour prefixes (evil_item etc.) can also be used here.
+        The menu colour prefixes (forbidden etc.) can also be used here.
         For example:
              autoinscribe += (bad|dangerous)_item.*scroll:!r
         will prevent accidentally reading any identified bad or
         potentially dangerous scrolls.
 
-autoinscribe_artefacts = true
-        Automatically inscribes identified artefacts with their properties.
+        Unlike most ordered list options, multiple matching entries all have
+        an effect: the order only determines the order of the inscriptions.
 
 autoinscribe_cursed = true
         Automatically inscribes items with "was cursed" when using a scroll of
         remove curse.
 
-3-n     Macro related Options.
+show_god_gift = unident|yes|no
+        Appends {god gift} to items that originated as one. If set to
+        "unident", items will lose this tag once their properties are
+        fully known. Regardless of this setting, you can see the item's
+        origin in its description.
+
+3-m     Macro related Options.
 ------------------------------
 
 flush.failure = true
@@ -1686,7 +1703,7 @@ bindkey = [^D] CMD_BUTCHER
         bind the same command to different keys.
         For a full list of possible commands, see keybind.txt.
 
-3-o     Tiles Options.
+3-n     Tiles Options.
 ----------------------
 In non-tile games the tile options are ignored.
 
@@ -1798,6 +1815,17 @@ tile_map_pixels = 3
         downside is that traveling by clicking on the minimap becomes much
         harder.
 
+tile_cell_pixels = 32
+        The width and height of tiles in the dungeon view. If you want
+        to see the tiles in all their glory and have a large
+        resolution, set this to 48 or even 64; but note that tiles
+        will be automatically scaled down to fit the visible area on
+        the screen.
+
+tile_filter_scaling = false
+        Used in conjonction with tile_cell_pixels. Setting it to true filter
+        the textures resulting in a smoother but blurrier image.
+
 tile_force_overlay = false
         Setting this option to true will force the message window to appear as
         an overlay on top of the screen. If you use this option, making your
@@ -1844,7 +1872,7 @@ tile_show_demon_tier = true
         builds.
 
 tile_layout_priority = minimap, inventory, gold_turn, command, spell, monster
-        (Overriding list option)
+        (Overriding ordered list option)
         This option allows you to control the order in which elements are
         placed on the right of the screen, below the stat area. On small
         resolution, there won't be enough room for everything, so only the
@@ -1867,7 +1895,14 @@ tile_force_regenerate_levels = false
 4-  Character Dump.
 ===================
 
-4-a     Items and Kills.
+4-a     Saving.
+---------------
+
+dump_on_save = true
+        If set to true, a character dump will automatically be created or
+        updated when the game is saved.
+
+4-b     Items and Kills.
 ------------------------
 
 The character dump or morgue files end with a list of all monsters that
@@ -1915,8 +1950,8 @@ dump_message_count = 20
 
 dump_order  = header,hiscore,stats,misc,notes,inventory,
 dump_order += skills,spells,overview,mutations,messages,screenshot,
-dump_order += monlist,kills
-        (Overriding list option)
+dump_order += monlist,kills,action_counts
+        (Overriding ordered list option)
         Controls the order of sections in the dump.
 
         Two optional dump sections are "turns_by_place" and
@@ -1931,16 +1966,12 @@ dump_order += monlist,kills
         which happens when you die, quit or win (or in ordinary dumps
         while in wizard mode).
 
-        Also, "action_counts" will count various actions you have done (such
-        as casting a spell or using a weapon type), in total and per every
-        three experience levels.
-
 dump_book_spells = true
         By default all randart spellbooks in inventory will have all their
         spells listed in the dump. If this option is set to true, spells will
         also be dumped for non-randart spellbooks.
 
-4-b     Notes.
+4-c     Notes.
 --------------
 
 Crawl can automatically log certain events during play. You can read
@@ -1991,10 +2022,9 @@ note_hp_percent = 5
         hit points, a note will be taken. There is some code to avoid
         repetitions of notes based on the same incident.
 
-note_skill_levels = 1,5,13,27
+note_skill_levels = 1,5,10,15,27
         This sets which skill levels are noteworthy. It's a single line,
-        although you can use += as a continuation. The default is levels
-        1, 5, 10, 15, 27.
+        although you can use += as a continuation.
 
 note_all_skill_levels = false
         This is a shortcut for note_skill_levels = 1,2,..,27. If you set
@@ -2024,7 +2054,7 @@ note_messages += <regex>, <regex>, ...
 note_chat_messages = false
         If set to false, this will disable logging of chat messages
         from other players. (This setting only applies on the online
-        servers.)
+        servers).
 
 
 5-  Miscellaneous.
@@ -2092,7 +2122,7 @@ cset = <dungeon_character_name : symbol>
 
         The possible entries for dungeon_character_name are:
            wall, wall_magic, floor, floor_magic, door_open, door_closed,
-           trap, stairs_down, stairs_up, altar, arch, fountain, wavy,
+           trap, stairs_down, stairs_up, grate, altar, arch, fountain, wavy,
            statue, invis_exposed, item_detected, item_orb, item_weapon,
            item_armour, item_wand, item_food, item_scroll, item_ring,
            item_potion, item_missile, item_book, item_stave,
@@ -2105,7 +2135,8 @@ cset = <dungeon_character_name : symbol>
         portals. "floor_magic" and "wall_magic" are used to display
         magic-mapped squares on the level map. "invis_exposed" is the
         character for water creatures submerged in shallow water, or
-        invisible creatures wading in shallow water.
+        invisible creatures wading in shallow water. "wavy" is water and
+        lava.
 
         Symbols can be specified using a letter, or by its ASCII/Unicode
         code: a decimal number or a hexadecimal one (prefixed with x).
@@ -2167,17 +2198,10 @@ mon_glyph = <monster name or symbol> : <colour> <glyph>
 
         You can customise symbols based on monster names or their
         existing symbols. For instance, if you want to put elves on E
-        and efreeti on e, you can do this:
+        and elementals on e, you can do this:
 
              mon_glyph = e : E
              mon_glyph = E : e
-
-        If you want to change the symbol for a monster that uses a space
-        as a symbol, specify an underscore on the left:
-
-             mon_glyph = _ : #
-
-        (That changes shades to use #.)
 
         You can specify a different symbol, or a colour, or both, in any
         order. Here are more examples:
@@ -2211,6 +2235,18 @@ mon_glyph = <monster name or symbol> : <colour> <glyph>
              demonspawn
              demigod
              halfling
+
+item_glyph = <regexp> : <colour> <glyph>
+        Customizes the symbol and/or colour of all items matching the regexp.
+        Unlike mon_glyph, this is a partial name match.
+
+        Items are prefixed by tags, both those from stash tracking and from
+        menu colouring. Thus, you can colour {artefact} or useless_item.
+
+        Multiple rules can modify a single item, which is useful if you want
+        to change the colour and glyph separately:
+            item_glyph += corpse : x625
+            item_glyph += poisonous.* corpse : lightgreen
 
 use_fake_player_cursor = true
         Makes the main view highlight the player without using the

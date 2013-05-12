@@ -58,6 +58,9 @@
 #    WEBDIR        -- place to hold the Webtiles client data. Can be either
 #                     relative to prefix or absolute.
 #
+#    ANDROID       -- perform an Android build (see docs/develop/android.txt)
+#    TOUCH_UI      -- enable UI behaviour more compatible with touch-screens
+#
 #
 # Requirements:
 #    For tile builds, you need pkg-config.
@@ -74,9 +77,9 @@ GAME = crawl
 MAKEFLAGS += -rR # This only works for recursive makes, i.e. contribs ...
 .SUFFIXES:       # ... so zap the suffix list to neutralize most predifined rules, too
 
-.PHONY: all test install clean clean-contrib clean-rltiles distclean debug debug-lite \
-        profile package-source source build-windows package-windows rest docs greet \
-        api
+.PHONY: all test install clean clean-contrib clean-rltiles clean-android \
+        distclean debug debug-lite profile package-source source \
+        build-windows package-windows rest docs greet api android
 
 include Makefile.obj
 
@@ -116,17 +119,17 @@ CFOPTIMIZE := -O2
 
 endif # USE_ICC
 
-ifdef LTO
-CFOPTIMIZE += -flto=jobserver -fwhole-program
-endif
-
 CFOTHERS := -pipe $(EXTERNAL_FLAGS)
 CFWARN := -Wall -Wformat-security
 CFWARN_L := -Wundef
 
 DEFINES := $(EXTERNAL_DEFINES)
 
+ifdef ANDROID
+LDFLAGS := $(EXTERNAL_LDFLAGS) $(LDFLAGS)
+else
 LDFLAGS := $(EXTERNAL_LDFLAGS)
+endif
 
 #
 # The GCC and GXX variables are set later.
@@ -150,8 +153,6 @@ DOXYGEN = doxygen
 DOXYGEN_SIMPLE_CONF = crawl_simple.doxy
 DOXYGEN_ALL_CONF = crawl_all.doxy
 DOXYGEN_HTML_GEN = html/
-TX-MKINI = util/tx-mkini.pl
-TX-MKTXT = util/tx-mktxt.pl
 
 export AR
 export RANLIB
@@ -300,6 +301,9 @@ SQLITE_LIB := -lsqlite3
 ifdef TILES
 TILES_ANY = YesPlease
 OBJECTS += $(TILES_OBJECTS) $(GLTILES_OBJECTS)
+  ifdef WEBTILES
+    OBJECTS += $(error Web and local tiles are exclusive)
+  endif
 endif
 
 ifdef WEBTILES
@@ -322,7 +326,9 @@ endif
 ifdef WIN32
 EXTRA_OBJECTS += icon.o
 else
+ifndef ANDROID
 EXTRA_LIBS += -pthread
+endif
 endif
 
 ifndef TILES
@@ -527,6 +533,42 @@ CFOPTIMIZE += -march=native
 endif
 endif
 
+ifdef LTO
+CFOPTIMIZE += -flto=jobserver -fwhole-program
+  # FIXME: this check is fragile, and should be done via a full compile test.
+  ifeq ($(shell $(GXX) -x c++ /dev/null -fno-fat-lto-objects 2>&1 | grep 'unrecognized command line option'),)
+    CFOPTIMIZE += -fno-fat-lto-objects
+  endif
+endif
+
+# Okay, we have to assume we're on something else that
+# uses standard UNIX-like methods for finding libs.
+#
+# For instance, on Linux and most other UNIX-likes,
+# the app pkg-config can provide the appropriate
+# CFLAGS and LDFLAGS.
+#
+
+ifndef NO_PKGCONFIG
+ifeq ($(shell which pkg-config 2> /dev/null),)
+NO_PKGCONFIG = YesPlease
+endif
+endif
+
+ifdef ANDROID
+  BUILD_LUA=
+  BUILD_SQLITE=
+  BUILD_ZLIB=
+  BUILD_SDL=
+  BUILD_FREETYPE=
+  NO_PKGCONFIG=Y
+else
+
+ifndef BUILD_LUA
+  ifdef NO_PKGCONFIG
+    BUILD_LUA = yes
+  endif
+endif
 ifndef BUILD_LUA
   ifdef NO_PKGCONFIG
     BUILD_LUA = yes
@@ -573,6 +615,7 @@ ifndef BUILD_ZLIB
 else
   LIBS += $(LIBZ)
 endif
+endif #ANDROID
 
 RLTILES = rltiles
 INCLUDES_L += -I$(RLTILES)
@@ -590,6 +633,10 @@ ifdef TILES
 DEFINES_L += -DUSE_TILE
 DEFINES_L += -DUSE_TILE_LOCAL
 
+ifdef TOUCH_UI
+DEFINES_L += -DTOUCH_UI
+endif
+
 ifdef BUILD_SDL
 INCLUDES_L += -Icontrib/install/$(ARCH)/include/SDL
 endif
@@ -601,20 +648,6 @@ DEFINES_L += -DUSE_SDL -DUSE_GL -DUSE_FT
 
 ifdef GLES
 DEFINES_L += -DUSE_GLES
-endif
-
-# Okay, we have to assume we're on something else that
-# uses standard UNIX-like methods for finding libs.
-#
-# For instance, on Linux and most other UNIX-likes,
-# the app pkg-config can provide the appropriate
-# CFLAGS and LDFLAGS.
-#
-
-ifndef NO_PKGCONFIG
-ifeq ($(shell which pkg-config 2> /dev/null),)
-NO_PKGCONFIG = YesPlease
-endif
 endif
 
 ifndef NO_PKGCONFIG
@@ -636,7 +669,9 @@ LIBS += -lSDL_image $(SDL_LDFLAGS) $(FREETYPE_LDFLAGS)
 endif # pkg-config
 
 ifdef GLES
+ifndef ANDROID
 LIBS += -lSDL_gles -lEGL -lGLES_CM
+endif
 else
 ifneq ($(uname_S),Darwin)
 ifeq (,$(findstring MINGW,$(uname_S)))
@@ -788,11 +823,11 @@ ifneq ($(strip $(DATADIR)),)
     endif
   endif
   CFOTHERS_L += -DDATA_DIR_PATH=\"$(abspath $(DATADIR))/\"
-  FONTDIR = $(abspath $(DATADIR))dat/tiles/
+  FONTDIR = $(abspath $(DATADIR))/dat/tiles/
 else
   ifneq ($(prefix),)
 	DATADIR := $(strip $(prefix))/$(strip $(DATADIR))
-        FONTDIR = $(strip $(prefix))/$(strip $(DATADIR))dat/tiles/
+        FONTDIR = $(strip $(prefix))/$(strip $(DATADIR))/dat/tiles/
   else
     ifneq ($(DESTDIR),)
         FONTDIR = dat/tiles/
@@ -831,9 +866,9 @@ ifdef PROPORTIONAL_FONT
     INSTALL_FONTS += $(PROPORTIONAL_FONT)
   endif
 else
-  SYS_PROPORTIONAL_FONT = $(shell find /usr/share/fonts -iname $(OUR_PROPORTIONAL_FONT)|head -n 1)
+  SYS_PROPORTIONAL_FONT = $(shell dir=/usr/share/fonts; [ -d $$dir ] && find $$dir -iname $(OUR_PROPORTIONAL_FONT)|head -n 1)
   ifeq (,$(SYS_PROPORTIONAL_FONT))
-    SYS_PROPORTIONAL_FONT = $(shell find /usr/local/share/fonts -iname $(OUR_PROPORTIONAL_FONT)|head -n 1)
+    SYS_PROPORTIONAL_FONT = $(shell dir=/usr/local/share/fonts ; [ -d $$dir ] && find $$dir -iname $(OUR_PROPORTIONAL_FONT)|head -n 1)
   endif
   ifneq (,$(SYS_PROPORTIONAL_FONT))
     ifeq (,$(COPY_FONTS))
@@ -854,9 +889,9 @@ ifdef MONOSPACED_FONT
     INSTALL_FONTS += $(MONOSPACED_FONT)
   endif
 else
-  SYS_MONOSPACED_FONT = $(shell find /usr/share/fonts -iname $(OUR_MONOSPACED_FONT)|head -n 1)
+  SYS_MONOSPACED_FONT = $(shell dir=/usr/share/fonts; [ -d $$dir ] && find $$dir -iname $(OUR_MONOSPACED_FONT)|head -n 1)
   ifeq (,$(SYS_MONOSPACED_FONT))
-    SYS_MONOSPACED_FONT = $(shell find /usr/local/share/fonts -iname $(OUR_MONOSPACED_FONT)|head -n 1)
+    SYS_MONOSPACED_FONT = $(shell dir=/usr/local/share/fonts; [ -d $$dir ] && find $$dir -iname $(OUR_MONOSPACED_FONT)|head -n 1)
   endif
   ifneq (,$(SYS_MONOSPACED_FONT))
     ifeq (,$(COPY_FONTS))
@@ -924,7 +959,11 @@ ifdef REPORT
 CFOTHERS += -ftime-report
 endif
 
+ifdef ANDROID
+CFLAGS   := $(CFOPTIMIZE) $(CFOTHERS) $(CFWARN) $(CFLAGS)
+else
 CFLAGS   := $(CFOPTIMIZE) $(CFOTHERS) $(CFWARN)
+endif
 CFLAGS_L := $(CFOPTIMIZE_L) $(DEFINES_L) $(CFWARN_L) $(INCLUDES_L) $(CFOTHERS_L)
 ALL_CFLAGS := $(CFLAGS) $(CFLAGS_L)
 YACC_CFLAGS  := $(ALL_CFLAGS) -Wno-unused-function -Wno-sign-compare -DYYENABLE_NLS=0 -DYYLTYPE_IS_TRIVIAL=0
@@ -1054,9 +1093,6 @@ greet:
 
 docs: $(GENERATED_DOCS)
 
-test:
-	./$(GAME) -test > /dev/null
-
 
 # Webtiles data
 .PHONY: webserver clean-webserver
@@ -1149,7 +1185,7 @@ endif
 
 # This information is included in crash reports, and is printed with
 # "crawl -version"
-compflag.h: $(OBJECTS:.o=.cc) util/gen-cflg.pl
+compflag.h: $(OBJECTS:.o=.cc) util/gen-cflg.pl .cflags
 	$(QUIET_GEN)util/gen-cflg.pl compflag.h "$(ALL_CFLAGS)" "$(LDFLAGS)" "$(HOST)" "$(ARCH)"
 
 build.h: $(OBJECTS:.o=.cc) util/gen_ver.pl
@@ -1221,6 +1257,14 @@ endif
 ##########################################################################
 # The actual build targets
 #
+ifdef ANDROID
+  # during build, data goes in a different directory to when crawl runs!
+  prefix_fp = ..
+  datadir_fp = ../AndroidData
+  savedir_fp = ../AndroidData
+  shareddir_fp =
+endif
+
 install: all
 ifeq ($(DESTDIR)$(prefix),)
 	@echo Neither "DESTDIR" nor "prefix" defined -- nowhere to install to, aborting.
@@ -1232,7 +1276,6 @@ endif
 	mkdir -p $(datadir_fp)/dat/des
 	mkdir -p $(datadir_fp)/dat/dlua
 	mkdir -p $(datadir_fp)/dat/clua
-	mkdir -p $(datadir_fp)/dat/lua
 	mkdir -p $(datadir_fp)/dat/database
 	mkdir -p $(datadir_fp)/dat/defaults
 	mkdir -p $(datadir_fp)/dat/descript
@@ -1241,7 +1284,7 @@ endif
 	mkdir -p $(datadir_fp)/docs/license
 	mkdir -p $(datadir_fp)/settings
 	$(COPY_R) dat/des/* $(datadir_fp)/dat/des/
-	$(COPY)   dat/dlua/*.lua $(datadir_fp)/dat/dlua/
+	$(COPY_R) dat/dlua/* $(datadir_fp)/dat/dlua/
 	echo "-- Autogenerated list of maps to load and compile:" \
 	    >$(datadir_fp)/dat/dlua/loadmaps.lua
 	find dat -name '*.des'|sed s:dat/::| \
@@ -1249,7 +1292,6 @@ endif
 	    do echo "dgn.load_des_file('$$x')"; \
 	    done >>$(datadir_fp)/dat/dlua/loadmaps.lua
 	$(COPY)   dat/clua/*.lua $(datadir_fp)/dat/clua/
-	$(COPY)   dat/lua/*.lua $(datadir_fp)/dat/lua/
 	$(COPY_R) dat/database/* $(datadir_fp)/dat/database/
 	$(COPY_R) dat/defaults/* $(datadir_fp)/dat/defaults/
 	$(COPY_R) dat/descript/* $(datadir_fp)/dat/descript/
@@ -1304,16 +1346,22 @@ ifeq ($(USE_DGAMELAUNCH),)
 endif
 endif
 
-clean: clean-rltiles clean-webserver tx-clean
+clean: clean-rltiles clean-webserver clean-android
 	+$(MAKE) -C $(UTIL) clean
 	$(RM) $(GAME) $(GAME).exe $(GENERATED_FILES) $(EXTRA_OBJECTS) libw32c.o\
 	    libunix.o $(ALL_OBJECTS) $(ALL_OBJECTS:.o=.d) *.ixx  \
-	    .contrib-libs .cflags AppHdr.h.gch AppHdr.h.d
+	    .contrib-libs .cflags AppHdr.h.gch AppHdr.h.d util/fake_pty \
+            rltiles/tiledef-unrand.cc
 	$(RM) -r build-win
 	$(RM) -r build
 
 clean-contrib:
 	+$(MAKE) -C contrib clean
+
+clean-android:
+	$(RM) ../icon.png ../libapplication.so
+	$(RM) -r ../AndroidData
+	$(RM) -r ../bin
 
 distclean: clean clean-contrib clean-rltiles
 	$(RM) -r morgue saves
@@ -1407,8 +1455,8 @@ $(foreach t,$(CONTRIB_LIBS),$(if $(wildcard $t),,$(shell rm -f .contrib-libs)))
 #############################################################################
 # Build unrandart data
 art-data.h: art-data.txt util/art-data.pl art-func.h
-	$(QUIET_GEN)util/art-data.pl
-art-enum.h: art-data.h
+	util/art-data.pl
+art-enum.h rltiles/dc-unrand.txt rltiles/tiledef-unrand.cc: art-data.h
 
 mon-mst.h: mon-spll.h util/gen-mst.pl
 	$(QUIET_GEN)util/gen-mst.pl
@@ -1431,146 +1479,19 @@ l_moninf.o: mi-enum.h
 macro.o: cmd-name.h
 
 #############################################################################
-# Translation files
-#
-# Only support a single dir for now
-TX = tx
-TX-CONFIG = .tx/config
-TX-SET = $(TX) set --auto-local --source-lang en_AU -t INI --mode=reviewed --execute
-TX-DIR = dat/descript
-
-# List of languages
-TX-LANG = $(filter-out en, $(notdir $(wildcard $(TX-DIR)/??)))
-
-# Text source files under git versioning
-TX-TSOURCES = $(wildcard $(TX-DIR)/*.txt)
-TX-TTRANS = $(foreach lang, $(TX-LANG), $(wildcard $(TX-DIR)/$(lang)/*.txt))
-TX-TXT = $(TX-TSOURCES) $(TX-TTRANS)
-
-# Files generated from the source. To be pushed to transifex
-TX-SOURCES = $(TX-TSOURCES:.txt=.ini)
-TX-TRANS = $(TX-TTRANS:.txt=.ini)
-TX-INI = $(TX-SOURCES) $(TX-TRANS)
-
-# What file to used to generate the quote files to push to transifex
-# We add placeholder entries in it to allow users to submit new quotes
-TX-QUOTES = $(TX-DIR)/quotes.ini
-TX-QUOTES-ALL = $(TX-DIR)/quotes-all.ini
-TX-HAVE-QUOTES = $(foreach name, branches features items monsters unident, $(TX-DIR)/$(name).ini)
-
-# Files pulled from transifex. It is different than TX-TRANS, because it can
-# contain new files for which we have no .txt yet
-TX-NEW-TRANS = $(foreach lang, $(TX-LANG), $(wildcard $(TX-DIR)/$(lang)/*.ini))
-TX-NEW-TEXT = $(filter-out, quotes, $(wildcard $(TX-DIR)/en/*.ini))
-TX-NEW-QUOTES = $(TX-DIR)/en/quotes.ini
-TX-NEW = $(TX-NEW-TRANS) $(TX-NEW-TEXT) $(TX-NEW-QUOTES)
-
-TX-COMMIT-AUTHOR = "Translators <crawl-ref-discuss@lists.sourceforge.net>"
-
-.PHONY: tx-clean tx-txt tx-init tx-setup tx-check tx-pull tx-push tx-sync
-
-tx-clean:
-	@echo "Removing transifex temporary files"
-	@$(RM) $(TX-INI) $(TX-QUOTES-ALL) $(TX-NEW)
-
-$(TX-QUOTES-ALL): $(TX-QUOTES) $(TX-HAVE-QUOTES)
-	util/tx-quotes.pl $(TX-QUOTES) $(TX-QUOTES-ALL) $(TX-HAVE-QUOTES)
-
-# XXX for database file, we'll need a conditional to remove the -u option.
-%.ini: %.txt
-	$(TX-MKINI) -u $*.txt
-
-tx-txt:
-	-if [ "$(TX-NEW-TRANS)" != "" ]; then\
-		$(TX-MKTXT) -w $(TX-NEW-TRANS);\
-	fi
-	-if [ "$(TX-NEW-TEXT)" != "" ]; then\
-		$(TX-MKTXT) -mw -d $(TX-DIR) $(TX-NEW-TEXT);\
-	fi
-	-if [ "$(TX-NEW-QUOTES)" != "" ]; then\
-		$(TX-MKTXT) -amw -d $(TX-DIR) $(TX-NEW-QUOTES);\
-	fi
-
-tx-init:
-	$(RM) $(TX-CONFIG)
-	if [ -d .tx ]; then\
-		rmdir --ignore-fail-on-non-empty .tx;\
-	fi
-	$(MAKE) tx-setup
-
-tx-setup: $(TX-SOURCES) $(TX-QUOTES-ALL)
-	if [ ! -e $(TX-CONFIG) ]; then\
-		$(TX) init;\
-	fi
-	for FILE in $(TX-SOURCES); do\
-		DIR=$$(dirname $$FILE);\
-		RES=$$(basename $$FILE .ini);\
-		grep -q dcss.$$RES .tx/config;\
-		if [ $$? -ne 0 ]; then\
-			if [ $$RES = quotes ]; then\
-				SRC=$$DIR/quotes-all.ini;\
-			else\
-				SRC=$$DIR/$$RES.ini;\
-			fi;\
-			$(TX-SET) -r dcss.$$RES --source-file $$SRC "$$DIR/<lang>/$$RES.ini";\
-		fi;\
-	done
-
-tx-check: $(TX-INI)
-	@if $(TX-MKTXT) -mtw $(TX-SOURCES) && $(TX-MKTXT) -tw $(TX-TRANS); then\
-		exit 0;\
-	fi;\
-	echo "Changes detected when converting to transifex format.";\
-	git diff --quiet HEAD -- $(TX-TXT) || echo "Warning: some of the text files have uncommited changes!";\
-	read -p "Attempt automatic fix? (Y/n) " RESP;\
-	if [ "$$RESP" = n -o "$$RESP" = N ]; then\
-		exit 1;\
-	fi;\
-	$(TX-MKTXT) -mw $(TX-SOURCES);\
-	$(TX-MKTXT) -w $(TX-TRANS);\
-
-tx-commit:
-	@if git diff --quiet $(TX-TXT); then\
-		exit 0;\
-	fi;\
-	git diff $(TX-TXT);\
-	read -p "Commit? (Y/n) " RESP;\
-	if [ "$$RESP" = n -o "$$RESP" = N ]; then\
-		exit 1;\
-	fi;\
-	if [ -z "$(TX-COMMIT-MSG)" ]; then\
-		MSG="Transifex.";\
-	else\
-		MSG="$(TX-COMMIT-MSG)";\
-	fi;\
-	git add $(TX-TXT);\
-	git commit -e -s -m "$$MSG" --author=$(TX-COMMIT-AUTHOR)
-
-tx-pull:
-	@echo "Cleaning up downloaded translations.";\
-	$(RM) $(TX-NEW)
-	tx pull -a --minimum-perc=1 --mode=reviewed
-
-tx-push: $(TX-INI) $(TX-QUOTES-ALL)
-	$(TX-MKINI) -umd $(TX-DIR)/en $(TX-TSOURCES)
-	tx push -s
-	tx push -t --skip
-
-tx-sync:
-	$(MAKE) tx-check
-	@$(MAKE) tx-commit TX-COMMIT-MSG="Transifex format fix."
-	$(MAKE) tx-pull
-	$(MAKE) tx-txt
-	@$(MAKE) tx-commit TX-COMMIT-MSG="Transifex sync."
-	$(MAKE) tx-push
-
-#############################################################################
 # RLTiles
 #
 
-.PHONY: build-rltiles
+#.PHONY: build-rltiles
 build-rltiles: .contrib-libs $(RLTILES)/dc-unrand.txt
+ifdef ANDROID
+        # force submake to run properly
+	+$(MAKE) -C $(RLTILES) all ANDROID=1 TILES=1 V=1
+        # prove that tiles were generated properly
+	grep tile_info rltiles/*.cc| head
+else
 	+$(MAKE) -C $(RLTILES) all ARCH=$(ARCH) TILES=$(TILES)$(WEBTILES)
+endif
 
 $(TILEDEFSRCS) $(TILEDEFHDRS) $(ORIGTILEFILES): build-rltiles
 
@@ -1650,7 +1571,9 @@ package-windows:
 ifneq (x$(SRC_VERSION),x$(shell cat build-win/version.txt 2>/dev/null))
 	+$(MAKE) build-windows
 endif
-	makensis -NOCD -DVERSION=$(SRC_VERSION) util/crawl.nsi
+	if $(GXX) -dumpmachine|grep -q x86_64; \
+	  then WINARCH=win64; else WINARCH=win32; fi; \
+	makensis -NOCD -DVERSION=$(SRC_VERSION) -DWINARCH="$$WINARCH" util/crawl.nsi
 
 build-windows:
 ifneq ($(GAME),crawl.exe)
@@ -1689,3 +1612,35 @@ mac-app-tiles: all
 
 mac-app-console: all
 	+$(MAKE) -j1 -C mac -f Makefile.app-bundle
+
+#############################################################################
+# Building the Android package
+#
+PROJECT_DIR=contrib/sdl-android/project
+SRC_LINK=$(PROJECT_DIR)/jni/application/src
+ifeq (,$(wildcard $(PROJECT_DIR)/ant.properties))
+	GENERATED_APK=project/bin/MainActivity-debug.apk
+else
+	GENERATED_APK=project/bin/MainActivity-release.apk
+endif
+
+android:
+	if [ ! -e $(SRC_LINK) ]; then \
+		ln -s `cd ..; pwd` $(SRC_LINK); \
+	fi
+	@cd contrib/sdl-android && ./build.sh && \
+	mv $(GENERATED_APK) ../../crawl_tiles_android-$(SRC_VERSION).apk
+
+#############################################################################
+# Canned tests
+#
+
+TESTS=test woken_rest unwoken_rest fireworks cerebov pan_lords miscasts kraken
+test: $(foreach i, $(TESTS), test-$(i))
+
+test-%: $(GAME) util/fake_pty
+	util/fake_pty test/stress/run $*
+	@echo "Finished: $*"
+
+util/fake_pty: util/fake_pty.c
+	$(if $(HOSTCC),$(HOSTCC),$(CC)) -Wall $< -o $@ -lutil
