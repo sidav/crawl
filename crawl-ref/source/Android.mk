@@ -112,7 +112,7 @@ target.cc teleport.cc terrain.cc throw.cc tilebuf.cc tilefont.cc tilepick.cc \
 tiletex.cc tileview.cc tileweb.cc \
 transform.cc traps.cc travel.cc tutorial.cc uncancel.cc unicode.cc version.cc view.cc \
 viewchar.cc viewgeom.cc viewmap.cc wcwidth.cc windowmanager-sdl.cc wiz-dgn.cc \
-wiz-fsim.cc wiz-item.cc wiz-mon.cc wiz-you.cc woreley.cc xom.cc zotdef.cc \
+wiz-fsim.cc wiz-item.cc wiz-mon.cc wiz-you.cc worley.cc xom.cc zotdef.cc \
 \
 $(RLTILES_DIR)/tiledef-dngn.cc  $(RLTILES_DIR)/tiledef-feat.cc  $(RLTILES_DIR)/tiledef-floor.cc  \
 $(RLTILES_DIR)/tiledef-gui.cc  $(RLTILES_DIR)/tiledef-icons.cc  $(RLTILES_DIR)/tiledef-main.cc  \
