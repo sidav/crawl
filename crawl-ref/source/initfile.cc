@@ -381,6 +381,13 @@ static species_type _str_to_species(const string &str)
     if (ret == SP_UNKNOWN)
         ret = str_to_species(str);
 
+    if (!is_valid_species(ret)
+        || (species_genus(ret) == GENPC_DRACONIAN
+            && ret != SP_BASE_DRACONIAN))
+{
+        ret = SP_UNKNOWN;
+}
+
     if (ret == SP_UNKNOWN)
         fprintf(stderr, "Unknown species choice: %s\n", str.c_str());
 
@@ -845,9 +852,18 @@ void game_options::reset_options()
 
     pickup_thrown          = true;
 
+#ifdef DGAMELAUNCH
+    travel_delay           = -1;
+    explore_delay          = -1;
+    rest_delay             = -1;
+    show_travel_trail       = true;
+#else
     travel_delay           = 20;
     explore_delay          = -1;
+    rest_delay             = 0;
     show_travel_trail       = false;
+#endif
+
     travel_stair_cost      = 500;
 
     arena_delay            = 600;
@@ -970,9 +986,10 @@ void game_options::reset_options()
     if (wiz_mode != WIZ_NO)
         wiz_mode         = WIZ_NEVER;
 #else
-    wiz_mode         = WIZ_NO;
+    wiz_mode             = WIZ_NO;
 #endif
     terp_files.clear();
+    no_save              = false;
 #endif
 
 #ifdef USE_TILE
@@ -3169,6 +3186,15 @@ void game_options::read_option_line(const string &str, bool runscript)
         if (explore_delay > 2000)
             explore_delay = 2000;
     }
+    else if (key == "rest_delay")
+    {
+        // Read explore delay in milliseconds.
+        rest_delay = atoi(field.c_str());
+        if (rest_delay < -1)
+            rest_delay = -1;
+        if (rest_delay > 2000)
+            rest_delay = 2000;
+    }
     else BOOL_OPTION(show_travel_trail);
     else if (key == "level_map_cursor_step")
     {
@@ -3285,7 +3311,9 @@ void game_options::read_option_line(const string &str, bool runscript)
     else BOOL_OPTION(travel_key_stop);
     else if (key == "auto_sacrifice")
     {
-        if (field == "prompt" || field == "ask")
+        if (field == "prompt_ignore")
+            auto_sacrifice = OPT_PROMPT_IGNORE;
+        else if (field == "prompt" || field == "ask")
             auto_sacrifice = OPT_PROMPT;
         else if (field == "before_explore")
             auto_sacrifice = OPT_BEFORE_EXPLORE;

@@ -2293,12 +2293,12 @@ static void _build_dungeon_level(dungeon_feature_type dest_stairs_type)
 
         _place_traps();
 
-        // Place items.
-        _builder_items();
-
         // Place monsters.
         if (!crawl_state.game_is_zotdef())
             _builder_monsters();
+
+        // Place items.
+        _builder_items();
 
         _fixup_walls();
     }
@@ -2398,7 +2398,8 @@ static void _check_doors()
             if (feat_is_solid(grd(*rai)))
                 solid_count++;
 
-        _set_grd(*ri, solid_count < 2 ? DNGN_FLOOR : DNGN_CLOSED_DOOR);
+        if (solid_count < 2)
+            _set_grd(*ri, DNGN_FLOOR);
     }
 }
 
@@ -4225,7 +4226,7 @@ int dgn_place_item(const item_spec &spec,
         else if (adjust_type && base_type == OBJ_RANDOM)
         {
             base_type = _acquirement_item_classes[random2(
-                            you.species == SP_FELID ? NC_KITTEHS :
+                            (you.species == SP_FELID && acquire) ? NC_KITTEHS :
                             NC_LESSER_LIFE_FORMS)];
         }
     }
