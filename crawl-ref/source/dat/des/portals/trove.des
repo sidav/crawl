@@ -189,7 +189,7 @@ end
 -- mapping scrolls with a low chance of silence, vulnerability or acquirement (lowest)
 function trove.good_scroll (e)
     e.item([[scroll of enchant weapon i / scroll of enchant weapon ii /
-             scroll of enchant weapon iii w:5 / scroll of vorpalise weapon w:3 /
+             scroll of enchant weapon iii w:5 / scroll of brand weapon w:3 /
              scroll of enchant armour / scroll of identify w:20 /
              scroll of magic mapping w:5 / scroll of blinking / scroll of silence w:2 /
              scroll of recharging / scroll of acquirement w:1 / scroll of teleportation w:20 /
@@ -739,7 +739,7 @@ TAGS:    no_item_gen no_monster_gen allow_dup no_species_fe
 WEIGHT:  1
 ORIENT:  encompass
 ######## There should be a better way than listing all of the unrandarts...
-ITEM:    chain mail unrand:lears_chain_mail                                  /\
+ITEM:    chain mail unrand:lears_hauberk                                     /\
          randart plate armour w:50                                           /\
          plate armour unrand:maxwells_patent_armour                          /\
          randart fire dragon armour                                          /\
@@ -771,7 +771,6 @@ ITEM:    ring of evasion unrand:ring_of_shaolin / any randart jewellery w:60 /\
          cap unrand:hat_of_the_bear_spirit                                   /\
          wizard hat unrand:hat_of_the_alchemist / randart pair of gloves     /\
          wizard hat unrand:hat_of_pondering / randart pair of boots          /\
-         pair of boots unrand:boots_of_the_assassin                          /\
          pair of gloves unrand:gauntlets_of_war                              /\
          pair of gloves unrand:fencers_gloves                                /\
          naga barding unrand:lightning_scales                                /\
@@ -780,13 +779,12 @@ ITEM:    dagger unrand:vampires_tooth / dagger unrand:dagger_of_chilly_death /\
          dagger unrand:spriggans_knife / eudemon blade unrand:sword_of_jihad /\
          dagger unrand:morg / great sword unrand:sword_of_the_doom_knight    /\
          great sword unrand:sword_of_power / demon blade unrand:bloodbane    /\
-         scimitar unrand:scimitar_of_flaming_death / war axe unrand:arga     /\
-         dagger unrand:knife_of_accuracy / broad axe unrand:obsidian_axe     /\
-         triple sword unrand:plutonium_sword                                 /\
+         scimitar unrand:scimitar_of_flaming_death / broad axe unrand:arga   /\
+         broad axe unrand:obsidian_axe / triple sword unrand:plutonium_sword /\
          demon blade unrand:leech / long sword unrand:sword_of_zonguldrok    /\
          staff of poison unrand:staff_of_olgreb / scythe unrand:finisher     /\
          quarterstaff unrand:elemental_staff / mace unrand:devastator        /\
-         staff of channeling unrand:staff_of_wucad_mu                        /\
+         staff of energy unrand:staff_of_wucad_mu                            /\
          glaive unrand:glaive_of_prune / spear unrand:lehudibs_crystal_spear /\
          spear unrand:spear_of_the_botono / long sword unrand:singing_sword  /\
          battleaxe unrand:wrath_of_trog / glaive unrand:glaive_of_the_guard  /\
@@ -799,7 +797,7 @@ ITEM:    dagger unrand:vampires_tooth / dagger unrand:dagger_of_chilly_death /\
          crossbow unrand:hellfire / crossbow unrand:sniper                   /\
          longbow unrand:piercer / longbow unrand:storm_bow                   /\
          long sword unrand:autumn_katana / sabre unrand:captains_cutlass     /\
-         randart demon blade  / blowgun unrand:blowgun_of_the_assassin
+         randart demon blade / blowgun unrand:blowgun_of_the_assassin
 SHUFFLE: def
 : trove.setup_features(_G)
 MAP
@@ -821,8 +819,7 @@ WEIGHT:  5
 ORIENT:  encompass
 ITEM:    potion of curing / potion of heal wounds / \
          potion of curing q:2 / potion of heal wounds q:2
-ITEM:    potion of experience / potion of gain strength / \
-         potion of gain intelligence / potion of gain dexterity
+ITEM:    potion of experience / potion of beneficial mutation w:30
 ITEM:    potion of might / potion of resistance / \
          potion of magic / potion of speed / \
          potion of might q:2 / potion of resistance q:2 / \

@@ -38,6 +38,13 @@ function hyper.place.build_rooms(build,usage_grid,options)
 
   -- Init local variables
   local results, rooms_placed, times_failed, total_failed, room_count, total_rooms_placed = { }, 0, 0, 0, build.max_rooms or options.max_rooms or 10, options.rooms_placed or 0
+
+  if hyper.profile then
+    profiler.push("PlaceRoom", { failed = times_failed })
+  end
+
+  local post_place = (build.post_placement_callback or options.post_placement_callback)
+
   -- Keep trying to place rooms until we've had max_room_tries fail in a row or we reach the max
   while rooms_placed < room_count and times_failed < options.max_room_tries do
     local placed = false
@@ -60,9 +67,7 @@ function hyper.place.build_rooms(build,usage_grid,options)
         rooms_placed = rooms_placed + 1
         total_rooms_placed = total_rooms_placed + 1
         options.rooms_placed = total_rooms_placed
-        times_failed = 0 -- Reset fail count
         -- Perform analysis for stairs (and perform inner wall substitution if applicable)
-        local post_place = (build.post_placement_callback or options.post_placement_callback)
         if post_place ~= nil then post_place(usage_grid,room,result,options) end
 
         table.insert(results,result)
@@ -71,6 +76,14 @@ function hyper.place.build_rooms(build,usage_grid,options)
           if room.generator_used.placed_count == nil then room.generator_used.placed_count = 0 end
           room.generator_used.placed_count = room.generator_used.placed_count + 1
         end
+
+        if hyper.profile then
+          profiler.pop()
+          profiler.push("PlaceRoom", { failed = total_failed, failed_in_a_row = times_failed })
+        end
+
+        times_failed = 0 -- Reset fail count
+
       end
 
     end
@@ -82,6 +95,12 @@ function hyper.place.build_rooms(build,usage_grid,options)
 
     -- dump_usage_grid_v3(usage_grid)
 
+  end
+
+  if hyper.profile then
+    profiler.pop()
+    profiler.push("PlacedRooms", { failed = total_failed, placed = rooms_placed })
+    profiler.pop()
   end
 
   -- TODO: Return some useful stats in results (total placements, total failures, so forth)
@@ -96,6 +115,10 @@ function hyper.place.place_room(room,build,usage_grid,options)
   local done = false
 
   local state
+
+  if hyper.profile then
+    profiler.push("PlaceRoom")
+  end
 
   -- TODO: Can optimise this (and a few other similarly cascading selectors) by copying such options down onto the generator.
   -- TODO: Further to this, could be handy to override individual callbacks in the strategy rather than just the whole thing
@@ -124,6 +147,11 @@ function hyper.place.place_room(room,build,usage_grid,options)
     end
   end
   if not done then return { placed = false } end
+
+  if hyper.profile then
+    profiler.pop()
+  end
+
   return { placed = done, coords_list = state.coords, state = state }
 end
 
@@ -136,12 +164,12 @@ function hyper.place.process_room_place(anchor, place, room, strategy, build, us
   -- Figure out the mapped x and y vectors of the room relative to its orient
   local room_final_x_dir = (dir - 1) % 4
   local room_final_y_dir = (dir - 2) % 4
-  local room_final_x_normal = hyper.normals[room_final_x_dir + 1]
-  local room_final_y_normal = hyper.normals[room_final_y_dir + 1]
+  local room_final_x_normal = vector.normals[room_final_x_dir + 1]
+  local room_final_y_normal = vector.normals[room_final_y_dir + 1]
 
   -- Now we can use those vectors along with the position of the connecting wall within the room, to find out where the (0,0) corner
   -- of the room lies on the map (and use that coord for subsequent calculations within the room grid)
-  local room_base = hyper.math.mapped_vector_add(pos, { x = -(origin.x), y = -(origin.y) }, room_final_x_normal, room_final_y_normal)
+  local room_base = vector.add_mapped(pos, { x = -(origin.x), y = -(origin.y) }, room_final_x_normal, room_final_y_normal)
 
   -- State object to send to callbacks
   local state = {
@@ -177,7 +205,7 @@ function hyper.place.process_room_place(anchor, place, room, strategy, build, us
   for m = 0, room.size.y-1, 1 do
     for n = 0, room.size.x-1, 1 do
       local coord = { room_pos = { x = n, y = m } }
-      coord.grid_pos = hyper.math.mapped_vector_add(room_base, coord.room_pos, room_final_x_normal, room_final_y_normal)
+      coord.grid_pos = vector.add_mapped(room_base, coord.room_pos, room_final_x_normal, room_final_y_normal)
       coord.grid_usage = hyper.usage.get_usage(usage_grid, coord.grid_pos.x, coord.grid_pos.y)
       coord.room_cell = hyper.usage.get_usage(room.grid,coord.room_pos.x,coord.room_pos.y)
 
@@ -258,10 +286,12 @@ function hyper.place.apply_room(state,room,build,usage_grid,options)
 
     local room_cell,grid_cell,grid_coord = coord.room_cell,coord.grid_usage,coord.grid_pos
     -- Update directions
+    -- TODO: Should ensure cells always have anchors then following line isn't needed
+    if room_cell.anchors == nil then room_cell.anchors = {} end
     for a,anchor in ipairs(room_cell.anchors) do
       local u_wall_dir = (anchor.normal.dir + final_orient) % 4
-      anchor.normal = hyper.normals[u_wall_dir+1]
-      anchor.grid_pos = hyper.math.mapped_vector_add(state.base, anchor.pos, state.normals.x, state.normals.y)
+      anchor.normal = vector.normals[u_wall_dir+1]
+      anchor.grid_pos = vector.add_mapped(state.base, anchor.pos, state.normals.x, state.normals.y)
     end
     -- Manage overlays
     -- TODO: There is a bunch of stuff we've lost here and need to reinstate....
@@ -275,7 +305,7 @@ function hyper.place.apply_room(state,room,build,usage_grid,options)
         if grid_cell.room == usage.room then
           -- Original wall
           table.insert(door_connections, wall_info)
-        else
+        elseif room_cell.anchors ~= nil and room_cell.anchors[1] ~= nil then
           -- Incidental overlay
           table.insert(incidental_connections[room_cell.anchors[1].normal.dir], wall_info)
         end
@@ -310,8 +340,8 @@ function hyper.place.apply_room(state,room,build,usage_grid,options)
     -- Lookup the two corners of the room and map to oriented coords to find the top-leftmost and bottom-rightmost coords relative to dungeon orientation.
     local v1,v2 = vault_pos,{ x = vault_pos.x + vault_room.size.x - 1, y = vault_pos.y + vault_room.size.y - 1 }
 
-    local c1 = hyper.math.mapped_vector_add(room_base,v1,state.normals.x, state.normals.y)
-    local c2 = hyper.math.mapped_vector_add(room_base,v2,state.normals.x, state.normals.y)
+    local c1 = vector.add_mapped(room_base,v1,state.normals.x, state.normals.y)
+    local c2 = vector.add_mapped(room_base,v2,state.normals.x, state.normals.y)
 
     -- Vault origin found by min coords
     local origin = { x = math.min(c1.x,c2.x), y = math.min(c1.y,c2.y) }
@@ -338,7 +368,7 @@ end
 
 -- TODO: This callback only actually applies to V, right now at least. It's reference as a callback in vaults_default_options and should
 -- move to hyper_vaults along with anything else V-specific prior to merge ...?
-function analyse_vault_post_placement(usage_grid,room,result,options)
+function hyper.place.analyse_vault_post_placement(usage_grid,room,result,options)
   local perform_subst = true
   if room.preserve_wall or room.wall_type == nil then perform_subst = false end
   result.stairs = { }
@@ -361,8 +391,10 @@ function analyse_vault_post_placement(usage_grid,room,result,options)
 end
 
 -- TODO: This is the post-everything function for V so we can be very
---       specific about how stairs are handled, but really it doesn't do any harm to run on all layouts ...?
-function place_vaults_rooms(results,usage_grid, options)
+-- specific about how stairs are handled. It probably shouldn't be in
+-- this include since it relies on the post-placement-analysis from V
+-- and typically we want to let stairs place randomly anyway.
+function hyper.place.restore_stairs(results, usage_grid, options)
 
   -- Now we need some stairs
   local stairs = { }

@@ -54,11 +54,10 @@ public:
     monster_type  base_monster;        // zombie base monster, draconian colour
     unsigned int  number;              // #heads (hydra), etc.
     int           colour;
+    mid_t         summoner;
 
     int foe_memory;                    // how long to 'remember' foe x,y
                                        // once they go out of sight.
-
-    int shield_blocks;                 // Count of shield blocks this round.
 
     god_type god;                      // What god the monster worships, if
                                        // any.
@@ -110,7 +109,7 @@ public:
     void moveto(const coord_def& c, bool clear_net = true);
     bool move_to_pos(const coord_def &newpos, bool clear_net = true);
     bool blink_to(const coord_def& c, bool quiet = false);
-
+    bool blink_to(const coord_def& c, bool quiet, bool jump);
     kill_category kill_alignment() const;
 
     int  foe_distance() const;
@@ -238,7 +237,7 @@ public:
     item_def *weapon(int which_attack = -1) const;
     item_def *launcher();
     item_def *missiles();
-    item_def *shield();
+    item_def *shield() const;
 
     bool      can_wield(const item_def &item,
                         bool ignore_curse = false,
@@ -298,16 +297,19 @@ public:
     int  skill(skill_type skill, int scale = 1, bool real = false) const;
 
     void attacking(actor *other);
+    bool can_go_frenzy() const;
     bool can_go_berserk() const;
     void go_berserk(bool intentional, bool potion = false);
-    void go_frenzy();
+    bool go_frenzy(actor *source);
     bool berserk() const;
+    bool berserk_or_insane() const;
     bool has_lifeforce() const;
     bool can_mutate() const;
     bool can_safely_mutate() const;
     bool can_polymorph() const;
     bool can_bleed(bool allow_tran = true) const;
-    bool mutate(const string &reason);
+    bool is_stationary() const;
+    bool malmutate(const string &reason);
     bool polymorph(int pow);
     void banish(actor *agent, const string &who = "");
     void expose_to_element(beam_type element, int strength = 0,
@@ -363,7 +365,7 @@ public:
     bool is_icy() const;
     bool is_fiery() const;
     bool is_skeletal() const;
-    bool is_spiny() const;
+    int spiny_degree() const;
     bool paralysed() const;
     bool cannot_move() const;
     bool cannot_act() const;
@@ -378,6 +380,8 @@ public:
     int liquefying_radius2 () const;
     int umbra_radius2 () const;
     int suppression_radius2 () const;
+    int soul_aura_radius2 () const;
+    int heat_radius2 () const;
     bool glows_naturally() const;
     bool petrified() const;
     bool petrifying() const;
@@ -412,10 +416,10 @@ public:
     int melee_evasion(const actor *attacker, ev_ignore_type evit) const;
 
     bool poison(actor *agent, int amount = 1, bool force = false);
-    bool sicken(int strength, bool unused = true);
+    bool sicken(int strength, bool unused = true, bool quiet = false);
     bool bleed(const actor *agent, int amount, int degree);
     void paralyse(actor *, int str, string source = "");
-    void petrify(actor *);
+    void petrify(actor *, bool force = false);
     bool fully_petrify(actor *foe, bool quiet = false);
     void slow_down(actor *, int str);
     void confuse(actor *, int strength);
@@ -423,7 +427,8 @@ public:
     bool rot(actor *, int amount, int immediate = 0, bool quiet = false);
     int hurt(const actor *attacker, int amount,
              beam_type flavour = BEAM_MISSILE,
-             bool cleanup_dead = true);
+             bool cleanup_dead = true,
+             bool attacker_effects = true);
     bool heal(int amount, bool max_too = false);
     void blame_damage(const actor *attacker, int amount);
     void blink(bool allow_partial_control = true);
@@ -434,6 +439,7 @@ public:
 
     void hibernate(int power = 0);
     void put_to_sleep(actor *attacker, int power = 0);
+    void weaken(actor *attacker, int pow);
     void check_awaken(int disturbance);
     int beam_resists(bolt &beam, int hurted, bool doEffects, string source = "");
 
@@ -488,6 +494,9 @@ public:
     bool is_child_tentacle_segment() const;
 
     bool is_divine_companion() const;
+    bool is_projectile() const;
+    // Jumping spiders (jump instead of blink)
+    bool is_jumpy() const;
 
 private:
     void init_with(const monster& mons);

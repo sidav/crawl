@@ -267,11 +267,15 @@ bool is_chaotic_item(const item_def& item)
         retval = (item.sub_type == WAND_POLYMORPH);
         break;
     case OBJ_POTIONS:
-        retval = (item.sub_type == POT_MUTATION);
+        retval = (item.sub_type == POT_MUTATION
+                  || item.sub_type == POT_BENEFICIAL_MUTATION);
         break;
     case OBJ_BOOKS:
     case OBJ_RODS:
         retval = _is_bookrod_type(item, is_chaotic_spell);
+        break;
+    case OBJ_MISCELLANY:
+        retval = (item.sub_type == MISC_BOX_OF_BEASTS);
         break;
     default:
         break;
@@ -300,7 +304,7 @@ static bool _is_potentially_hasty_item(const item_def& item)
     case OBJ_MISSILES:
         {
         const int item_brand = get_ammo_brand(item);
-        if (item_brand == SPMSL_CHAOS || item_brand == SPMSL_RAGE)
+        if (item_brand == SPMSL_CHAOS || item_brand == SPMSL_FRENZY)
             return true;
         }
         break;

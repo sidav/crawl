@@ -31,6 +31,7 @@
 #include "libutil.h"
 #include "message.h"
 #include "player.h"
+#include "religion.h"
 #include "shopping.h"
 #include "showsymb.h"
 #include "stuff.h"
@@ -219,11 +220,22 @@ string InvEntry::get_text(bool need_cursor) const
     if (Options.tile_menu_icons && Options.show_inventory_weights)
         max_chars_in_line = get_number_of_cols() * 4 / 9 - 2;
 #endif
+
+    int colour_tag_adjustment = 0;
+    if (InvEntry::show_glyph)
+    {
+        // colour tags have to be taken into account for terminal width
+        // calculations on the ^x screen (monsters/items/features in LOS)
+        string colour_tag = colour_to_str(get_item_glyph(item).col);
+        colour_tag_adjustment = colour_tag.size() * 2 + 5;
+    }
+
     if (Options.show_inventory_weights)
     {
         max_chars_in_line -= 1;
         const int w_weight = 10; //length of " (999 aum)"
-        int excess = strwidth(tstr.str()) + text.size() + w_weight - max_chars_in_line;
+        int excess = strwidth(tstr.str()) - colour_tag_adjustment
+                     + text.size() + w_weight - max_chars_in_line;
         if (excess > 0)
             tstr << text.substr(0, max<int>(0, text.size() - excess - 2)) << "..";
         else
@@ -235,16 +247,8 @@ string InvEntry::get_text(bool need_cursor) const
     if (Options.show_inventory_weights)
     {
         const int mass = item_mass(*item) * item->quantity;
-        int colour_tag_adjustment = 0;
-        if (InvEntry::show_glyph)
-        {
-            // colour tags have to be taken into account for terminal width
-            // calculations on the ^x screen (monsters/items/features in LOS)
-            string colour_tag = colour_to_str(item->colour);
-            colour_tag_adjustment = colour_tag.size() * 2 + 5;
-        }
-
-        //Note: If updating the " (%i aum)" format, remember to update w_weight above.
+        // Note: If updating the " (%i aum)" format, remember to update
+        // w_weight above.
         tstr << setw(max_chars_in_line - strwidth(tstr.str())
                      + colour_tag_adjustment)
              << right
@@ -480,7 +484,7 @@ static string _no_selectables_message(int item_selector)
         return "You aren't carrying any potions.";
     case OBJ_SCROLLS:
     case OBJ_BOOKS:
-        return "You aren't carrying any books or scrolls.";
+        return "You aren't carrying any spellbooks or scrolls.";
     case OBJ_WANDS:
         return "You aren't carrying any wands.";
     case OBJ_JEWELLERY:
@@ -499,6 +503,8 @@ static string _no_selectables_message(int item_selector)
         return "You aren't wearing any piece of uncursed armour.";
     case OSEL_UNCURSED_WORN_JEWELLERY:
         return "You aren't wearing any piece of uncursed jewellery.";
+    case OSEL_BRANDABLE_WEAPON:
+        return "You aren't carrying any weapons that can be branded.";
     }
 
     return "You aren't carrying any such object.";
@@ -636,10 +642,10 @@ bool InvMenu::allow_easy_exit() const
     return (type == MT_KNOW || Menu::allow_easy_exit());
 }
 
-template <string (*proc)(const InvEntry *a)>
+template <const string &(InvEntry::*method)() const>
 static int compare_item_str(const InvEntry *a, const InvEntry *b)
 {
-    return proc(a).compare(proc(b));
+    return (a->*method)().compare((b->*method)());
 }
 
 template <typename T, T (*proc)(const InvEntry *a)>
@@ -648,19 +654,32 @@ static int compare_item(const InvEntry *a, const InvEntry *b)
     return (int(proc(a)) - int(proc(b)));
 }
 
+template <typename T, T (InvEntry::*method)() const>
+static int compare_item(const InvEntry *a, const InvEntry *b)
+{
+    return (int((a->*method)()) - int((b->*method)()));
+}
+
+template <typename T, T (InvEntry::*method)() const>
+static int compare_item_rev(const InvEntry *a, const InvEntry *b)
+{
+    return (int((b->*method)()) - int((a->*method)()));
+}
+
+template <item_sort_fn cmp>
+static int compare_reverse(const InvEntry *a, const InvEntry *b)
+{
+    return -cmp(a, b);
+}
+
 // C++ needs anonymous subs already!
-string sort_item_basename(const InvEntry *a)
-{
-    return a->get_basename();
-}
-string sort_item_qualname(const InvEntry *a)
-{
-    return a->get_qualname();
-}
-string sort_item_fullname(const InvEntry *a)
-{
-    return a->get_fullname();
-}
+// Some prototypes to prevent warnings; we can't make these static because
+// they're used as template parameters.
+int sort_item_qty(const InvEntry *a);
+int sort_item_slot(const InvEntry *a);
+bool sort_item_identified(const InvEntry *a);
+bool sort_item_charged(const InvEntry *a);
+
 int sort_item_qty(const InvEntry *a)
 {
     return a->quantity;
@@ -668,36 +687,6 @@ int sort_item_qty(const InvEntry *a)
 int sort_item_slot(const InvEntry *a)
 {
     return a->item->link;
-}
-
-int sort_item_freshness(const InvEntry *a)
-{
-    return a->item_freshness();
-}
-
-bool sort_item_curse(const InvEntry *a)
-{
-    return a->is_item_cursed();
-}
-
-bool sort_item_glowing(const InvEntry *a)
-{
-    return !a->is_item_glowing();
-}
-
-bool sort_item_ego(const InvEntry *a)
-{
-    return !a->is_item_ego();
-}
-
-bool sort_item_art(const InvEntry *a)
-{
-    return !a->is_item_art();
-}
-
-bool sort_item_equipped(const InvEntry *a)
-{
-    return !a->is_item_equipped();
 }
 
 bool sort_item_identified(const InvEntry *a)
@@ -749,19 +738,19 @@ void init_item_sort_comparators(item_sort_comparators &list, const string &set)
         item_sort_fn cmp;
     } cmp_map[]  =
       {
-          { "basename",  compare_item_str<sort_item_basename> },
-          { "qualname",  compare_item_str<sort_item_qualname> },
-          { "fullname",  compare_item_str<sort_item_fullname> },
-          { "curse",     compare_item<bool, sort_item_curse> },
-          { "glowing",   compare_item<bool, sort_item_glowing> },
-          { "ego",       compare_item<bool, sort_item_ego> },
-          { "art",       compare_item<bool, sort_item_art> },
-          { "equipped",  compare_item<bool, sort_item_equipped> },
+          { "basename",  compare_item_str<&InvEntry::get_basename> },
+          { "qualname",  compare_item_str<&InvEntry::get_qualname> },
+          { "fullname",  compare_item_str<&InvEntry::get_fullname> },
+          { "curse",     compare_item<bool, &InvEntry::is_item_cursed> },
+          { "glowing",   compare_item_rev<bool, &InvEntry::is_item_glowing> },
+          { "ego",       compare_item_rev<bool, &InvEntry::is_item_ego> },
+          { "art",       compare_item_rev<bool, &InvEntry::is_item_art> },
+          { "equipped",  compare_item_rev<bool, &InvEntry::is_item_equipped> },
           { "identified",compare_item<bool, sort_item_identified> },
           { "charged",   compare_item<bool, sort_item_charged>},
           { "qty",       compare_item<int, sort_item_qty> },
           { "slot",      compare_item<int, sort_item_slot> },
-          { "freshness", compare_item<int, sort_item_freshness> }
+          { "freshness", compare_item<int, &InvEntry::item_freshness> }
       };
 
     list.clear();
@@ -787,7 +776,7 @@ void init_item_sort_comparators(item_sort_comparators &list, const string &set)
     if (list.empty())
     {
         list.push_back(
-            item_comparator(compare_item_str<sort_item_fullname>));
+            item_comparator(compare_item_str<&InvEntry::get_fullname>));
     }
 }
 
@@ -811,14 +800,15 @@ void InvMenu::sort_menu(vector<InvEntry*> &invitems,
 
 menu_letter InvMenu::load_items(const vector<const item_def*> &mitems,
                                 MenuEntry *(*procfn)(MenuEntry *me),
-                                menu_letter ckey)
+                                menu_letter ckey, bool sort)
 {
     FixedVector< int, NUM_OBJECT_CLASSES > inv_class(0);
     for (int i = 0, count = mitems.size(); i < count; ++i)
         inv_class[ mitems[i]->base_type ]++;
 
     vector<InvEntry*> items_in_class;
-    const menu_sort_condition *cond = find_menu_sort_condition();
+    const menu_sort_condition *cond = NULL;
+    if (sort) cond = find_menu_sort_condition();
 
     for (int i = 0; i < NUM_OBJECT_CLASSES; ++i)
     {
@@ -837,8 +827,8 @@ menu_letter InvMenu::load_items(const vector<const item_def*> &mitems,
                 if (!glyphs.empty())
                 {
                     // longest string
-                    const string str = "Magical Staves and Rods";
-                    subtitle += string(strwidth(str) - strwidth(subtitle) + 1,
+                    const string str = "Magical Staves ";
+                    subtitle += string(strwidth(str) - strwidth(subtitle),
                                        ' ');
                     subtitle += "(select all with <w>";
                     for (unsigned int k = 0; k < glyphs.size(); ++k)
@@ -1191,7 +1181,8 @@ static bool _item_class_selected(const item_def &i, int selector)
         return (itype == OBJ_WEAPONS && can_cut_meat(i));
 
     case OBJ_SCROLLS:
-        return (itype == OBJ_SCROLLS || itype == OBJ_BOOKS);
+        return (itype == OBJ_SCROLLS
+                || (itype == OBJ_BOOKS && i.sub_type != BOOK_MANUAL));
 
     case OSEL_RECHARGE:
         return item_is_rechargeable(i, true);
@@ -1203,7 +1194,7 @@ static bool _item_class_selected(const item_def &i, int selector)
         return is_enchantable_armour(i, true, true);
 
     case OBJ_FOOD:
-        return (itype == OBJ_FOOD && !is_inedible(i));
+        return itype == OBJ_FOOD && !is_inedible(i);
 
     case OSEL_VAMP_EAT:
         return (itype == OBJ_CORPSES && i.sub_type == CORPSE_BODY
@@ -1233,6 +1224,9 @@ static bool _item_class_selected(const item_def &i, int selector)
 
     case OSEL_UNCURSED_WORN_JEWELLERY:
         return (!i.cursed() && item_is_equipped(i) && itype == OBJ_JEWELLERY);
+
+    case OSEL_BRANDABLE_WEAPON:
+        return is_brandable_weapon(i, true);
 
     default:
         return false;
@@ -1417,7 +1411,7 @@ vector<SelItem> prompt_invent_items(
 
     if (auto_list)
     {
-        need_prompt = need_getch = false;
+        need_getch = false;
         keyin       = '?';
     }
 
@@ -1470,11 +1464,13 @@ vector<SelItem> prompt_invent_items(
             if ((selmode & MF_SINGLESELECT) || key_is_escape(ch))
             {
                 keyin       = ch;
+                need_prompt = false;
                 need_getch  = false;
             }
             else
             {
                 keyin       = 0;
+                need_prompt = true;
                 need_getch  = true;
             }
 
@@ -1493,7 +1489,6 @@ vector<SelItem> prompt_invent_items(
 
             need_redraw = !(keyin == '?' || keyin == '*'
                             || keyin == ',' || keyin == '+');
-            need_prompt = need_redraw;
         }
         else if (isadigit(keyin))
         {
@@ -1707,7 +1702,7 @@ bool needs_handle_warning(const item_def &item, operation_types oper)
     if (oper == OPER_REMOVE
         && item.base_type == OBJ_JEWELLERY
         && item.sub_type == AMU_FAITH
-        && you.religion != GOD_NO_GOD)
+        && !you_worship(GOD_NO_GOD))
     {
         return true;
     }
@@ -1877,7 +1872,7 @@ int prompt_invent_item(const char *prompt,
 
     if (auto_list)
     {
-        need_prompt = need_getch = false;
+        need_getch = false;
 
         if (any_items_to_select(type_expect))
             keyin = '?';
@@ -1935,13 +1930,12 @@ int prompt_invent_item(const char *prompt,
                 keyin = '?';
             }
 
+            need_prompt = false;
             need_getch  = false;
 
             // Don't redraw if we're just going to display another listing
             need_redraw = (keyin != '?' && keyin != '*')
                           && !(count && auto_list && isadigit(keyin));
-
-            need_prompt = need_redraw;
 
             if (!items.empty())
             {
@@ -2130,7 +2124,7 @@ bool item_is_evokable(const item_def &item, bool reach, bool known,
 
     case OBJ_STAVES:
         if (!known && !item_type_known(item)
-            || item.sub_type == STAFF_CHANNELING
+            || item.sub_type == STAFF_ENERGY
                && item_type_known(item))
         {
             if (!wielded)
@@ -2159,7 +2153,7 @@ bool item_is_evokable(const item_def &item, bool reach, bool known,
 
         if (item.sub_type != MISC_LANTERN_OF_SHADOWS
 #if TAG_MAJOR_VERSION == 34
-            && item.sub_type != MISC_EMPTY_EBONY_CASKET
+            && item.sub_type != MISC_BUGGY_EBONY_CASKET
 #endif
             && item.sub_type != MISC_RUNE_OF_ZOT)
         {

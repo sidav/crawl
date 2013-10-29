@@ -58,7 +58,7 @@ struct menu_letter
     }
 };
 
-// XXX Use inheritence instead of duplicate code
+// XXX Use inheritance instead of duplicate code
 struct menu_letter2
 {
     char letter;
@@ -177,7 +177,7 @@ public:
         else if (selected())
             selected_qty = 0;
         else if (quantity)
-            selected_qty = (qty == -1? quantity : qty);
+            selected_qty = (qty == -1 ? quantity : qty);
     }
 
     virtual string get_filter_text() const
@@ -198,10 +198,10 @@ public:
     string alt_text;
 
     ToggleableMenuEntry(const string &txt = string(),
-                         const string &alt_txt = string(),
-                         MenuEntryLevel lev = MEL_ITEM,
-                         int qty = 0, int hotk = 0,
-                         bool preselect = false) :
+                        const string &alt_txt = string(),
+                        MenuEntryLevel lev = MEL_ITEM,
+                        int qty = 0, int hotk = 0,
+                        bool preselect = false) :
         MenuEntry(txt, lev, qty, hotk, preselect), alt_text(alt_txt) {}
 
     void toggle() { text.swap(alt_text); }
@@ -342,8 +342,10 @@ public:
     bool draw_title_suffix(const formatted_string &fs, bool titlefirst = true);
     void update_title();
 
-    // Sets a replacement for the --more-- string.
+    // Sets a replacement for the default -more- string.
     void set_more(const formatted_string &more);
+    // Shows a stock message about scrolling the menu instead of -more-
+    void set_more();
     const formatted_string &get_more() const { return more; }
 
     void set_highlighter(MenuHighlighter *h);
@@ -431,6 +433,9 @@ protected:
     virtual void draw_stock_item(int index, const MenuEntry *me) const;
 
 #ifdef USE_TILE_WEB
+    void webtiles_set_title(const formatted_string title);
+    void webtiles_set_suffix(const formatted_string title);
+
     void webtiles_update_item(int index) const;
     void webtiles_update_title() const;
     void webtiles_update_scroll_pos() const;
@@ -442,6 +447,10 @@ protected:
 
     int _webtiles_section_start;
     int _webtiles_section_end;
+
+    bool _webtiles_title_changed;
+    formatted_string _webtiles_title;
+    formatted_string _webtiles_suffix;
 
     inline int webtiles_section_start() const
     {
@@ -587,7 +596,7 @@ public:
 
     virtual void set_bounds(const coord_def& min_coord, const coord_def& max_coord);
     virtual void set_bounds_no_multiply(const coord_def& min_coord,
-                                         const coord_def& max_coord);
+                                        const coord_def& max_coord);
     virtual void move(const coord_def& delta);
     virtual const coord_def& get_min_coord() const { return m_min_coord; }
     virtual const coord_def& get_max_coord() const { return m_max_coord; }
@@ -670,7 +679,7 @@ public:
 
     virtual void set_bounds(const coord_def& min_coord, const coord_def& max_coord);
     virtual void set_bounds_no_multiply(const coord_def& min_coord,
-                                         const coord_def& max_coord);
+                                        const coord_def& max_coord);
 
     virtual void render();
 

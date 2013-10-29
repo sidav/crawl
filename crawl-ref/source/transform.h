@@ -17,6 +17,7 @@ bool form_can_wear(transformation_type form = you.form);
 bool form_can_fly(transformation_type form = you.form);
 bool form_can_swim(transformation_type form = you.form);
 bool form_likes_water(transformation_type form = you.form);
+bool form_likes_lava(transformation_type form = you.form);
 bool form_can_butcher_barehanded(transformation_type form = you.form);
 bool form_changed_physiology(transformation_type form = you.form);
 bool form_can_use_wand(transformation_type form = you.form);
@@ -30,8 +31,8 @@ bool form_keeps_mutations(transformation_type form = you.form);
 
 bool feat_dangerous_for_form(transformation_type which_trans,
                              dungeon_feature_type feat);
-bool transform(int pow, transformation_type which_trans, bool force = false,
-               bool just_check = false);
+bool transform(int pow, transformation_type which_trans,
+               bool involuntary = false, bool just_check = false);
 
 // skip_move: don't make player re-enter current cell
 void untransform(bool skip_wielding = false, bool skip_move = false);

@@ -22,7 +22,8 @@ end
 
 NAME:   the_violet_keep_of_menkaure
 DESC:   Sprint II: "The Violet Keep of Menkaure"
-TAGS:   sprint no_item_gen no_trap_gen no_monster_gen no_pool_fixup no_rotate no_hmirror no_vmirror
+ORDER:  2
+TAGS:   sprint no_item_gen no_trap_gen no_pool_fixup no_rotate no_hmirror no_vmirror
 ORIENT: encompass
 SHUFFLE: 123
 SUBST:  ' = '......
@@ -415,7 +416,7 @@ KFEAT:  y = stone_wall
 MARKER: z = lua: timed_marker {  \
                  low=4000, high=4400, msg=messager, floor = 'floor' }
 KFEAT:  z = stone_wall
-MONS:   patrolling polar bear, patrolling rotting hulk, patrolling swamp drake, patrolling crystal golem, patrolling toenail golem, patrolling iron golem
+MONS:   patrolling polar bear, patrolling plague shambler, patrolling swamp drake, patrolling crystal golem, patrolling toenail golem, patrolling iron golem
 KMONS:  a = patrolling yellow wasp
 KITEM:  m = gold q:81
 KMONS:  m = patrolling yaktaur

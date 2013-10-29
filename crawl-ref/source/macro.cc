@@ -108,7 +108,7 @@ static KeymapContext _context_for_command(command_type cmd);
 
 static inline int userfunc_index(int key)
 {
-    int index = (key <= USERFUNCBASE? USERFUNCBASE - key : -1);
+    int index = (key <= USERFUNCBASE ? USERFUNCBASE - key : -1);
     return (index < 0 || index >= (int) userfunctions.size()? -1 : index);
 }
 
@@ -389,7 +389,7 @@ static string vtostr(const keyseq &seq)
 }
 
 /*
- * Add a macro (suprise, suprise).
+ * Add a macro (surprise, surprise).
  */
 static void macro_add(macromap &mapref, keyseq key, keyseq action)
 {
@@ -473,7 +473,7 @@ void macro_buf_add(int key, bool reverse, bool expanded)
  */
 void macro_buf_add_cmd(command_type cmd, bool reverse)
 {
-    ASSERT(cmd > CMD_NO_CMD && cmd < CMD_MIN_SYNTHETIC);
+    ASSERT_RANGE(cmd, CMD_NO_CMD + 1, CMD_MIN_SYNTHETIC);
 
     // There should be plenty of room between the synthetic keys
     // (KEY_MACRO_MORE_PROTECT == -10) and USERFUNCBASE (-10000) for

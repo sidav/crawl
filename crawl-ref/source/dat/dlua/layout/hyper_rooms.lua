@@ -9,6 +9,10 @@ hyper.rooms = {}
 -- Picks a generator from a weighted table of generators and builds a room with it
 function hyper.rooms.pick_room(build,options)
 
+  if hyper.profile then
+    profiler.push("PickRoom")
+  end
+
   -- This callback filters out generators based on standard options which we support for all generators
   local function weight_callback(generator)
     -- max_rooms controls how many rooms _this_ generator can place before it stops
@@ -37,11 +41,7 @@ function hyper.rooms.pick_room(build,options)
     tries = tries + 1
     veto = false
 
-    -- Do we analyse this room? Usually necessary but we might not need it e.g. abyss layouts where we randomly overlap a ton of stuff.
-    local analyse = true
-    if chosen.analyse ~= nil then analyse = chosen.analyse end
-
-    room = hyper.rooms.make_room(options,chosen,analyse)
+    room = hyper.rooms.make_room(options,chosen)
 
     -- Allow veto callback to throw this room out (e.g. on size, exits)
     -- TODO: This veto is still unused and I don't have a use case, maybe should delete it.
@@ -51,12 +51,20 @@ function hyper.rooms.pick_room(build,options)
 
   end
 
+  if hyper.profile then
+    profiler.pop({ tries = tries })
+  end
+
   return room
 end
 
 -- Makes a room object from a generator table. Optionally perform analysis
 -- (default true) to determine open and connectable squares.
-function hyper.rooms.make_room(options,generator,perform_analysis)
+function hyper.rooms.make_room(options,generator)
+
+  if hyper.profile then
+    profiler.push("MakeRoom")
+  end
 
   -- Code rooms
   if generator.generator == "code" then
@@ -67,12 +75,29 @@ function hyper.rooms.make_room(options,generator,perform_analysis)
     room = hyper.rooms.make_tagged_room(generator,options)
   end
 
+  if hyper.profile then
+    profiler.pop()
+    profiler.push("AnalyseRoom")
+  end
+
   if room == nil then return nil end
-  -- Analyse room before transform so the transform can know about exits
-  if perform_analysis then
+
+  -- Do we analyse this room? Usually necessary but we might not need
+  -- it e.g. random placement layouts where it doesn't matter so much
+  local analyse = true
+  if generator.analyse ~= nil then analyse = generator.analyse end
+
+  if analyse then
     hyper.rooms.analyse_room(room,options)
   end
-  -- Optionally transform the room. This is used to add walls for V and other layouts but can be disabled.
+
+  if hyper.profile then
+    profiler.pop()
+    profiler.push("TransformRoom")
+  end
+
+  -- Optionally transform the room. This is used to add walls for V
+  -- and other layouts but a transform doesn't have to be provided.
   local transform = generator.room_transform or options.room_transform
   if transform ~= nil then
     room = transform(room,options)
@@ -81,8 +106,17 @@ function hyper.rooms.make_room(options,generator,perform_analysis)
     end
   end
 
+  if hyper.profile then
+    profiler.pop()
+    profiler.push("AnalyseRoomInternal")
+  end
+
   if generator.analyse_interal then
     hyper.usage.analyse_grid_usage(room.grid,options)
+  end
+
+  if hyper.profile then
+    profiler.pop()
   end
 
   if hyper.debug then
@@ -173,7 +207,7 @@ function hyper.rooms.make_tagged_room(chosen,options)
     -- single orient tag makes the other walls ineligible
     room.tags = {}
     for n = 0, 3, 1 do
-      if dgn.has_tag(room.map,"vaults_orient_" .. hyper.normals[n+1].name) then
+      if dgn.has_tag(room.map,"vaults_orient_" .. vector.normals[n+1].name) then
         room.has_orient = true
         room.tags[n] = true
       end
@@ -203,6 +237,11 @@ function hyper.rooms.analyse_room(room,options)
 
   local inspect_cells = {}
   local has_exits = false
+
+  if hyper.profile then
+    profiler.push("FirstPass")
+  end
+
   for m = 0, room.size.y-1, 1 do
     for n = 0, room.size.x-1, 1 do
       local cell = hyper.usage.get_usage(room.grid,n,m)
@@ -217,6 +256,11 @@ function hyper.rooms.analyse_room(room,options)
     end
   end
 
+  if hyper.profile then
+    profiler.pop()
+    profiler.push("SecondPass")
+  end
+
   -- Loop through the cells again now we know has_exits, and store all connected cells in our list of walls for later.
   for i,inspect in ipairs(inspect_cells) do
     local cell = inspect.cell
@@ -224,7 +268,7 @@ function hyper.rooms.analyse_room(room,options)
 
     if not has_exits or cell.exit then
       -- Analyse squares around it
-      for i,normal in ipairs(room.allow_diagonals and hyper.directions or hyper.normals) do
+      for i,normal in ipairs(room.allow_diagonals and vector.directions or vector.normals) do
         local near_pos = { x = n + normal.x,y = m + normal.y }
         local near_cell = hyper.usage.get_usage(room.grid,near_pos.x,near_pos.y)
         if near_cell == nil or near_cell.space then
@@ -255,6 +299,10 @@ function hyper.rooms.analyse_room(room,options)
       hyper.usage.set_usage(room.grid,n,m,cell)
     end
   end
+
+  if hyper.profile then
+    profiler.pop()
+  end
 end
 
 -- Transforms a room by returning a new room sized 2 bigger with walls added next to all open edge squares
@@ -284,7 +332,7 @@ function hyper.rooms.add_walls(room, options)
       else
         -- Otherwise check if we're bordering any open squares and therefore need to draw a wall.
         local any_open = false
-        for i,normal in ipairs(hyper.directions) do
+        for i,normal in ipairs(vector.directions) do
           local near_cell = hyper.usage.get_usage(room.grid,n+normal.x-1,m+normal.y-1)
           if near_cell == nil then near_cell = { space = true } end
           if not near_cell.space and not near_cell.solid then
@@ -299,7 +347,7 @@ function hyper.rooms.add_walls(room, options)
           -- TODO: Allow diagonal doors here too. Diagonals are problematic (in the previous loop and in analyse_room) because we'd get overlapping anchors
           --       with adjacent walls, this really doesn't sound good.
           local wall_usage = { feature = "rock_wall", wall = true, protect = true }
-          for i,normal in ipairs(hyper.normals) do
+          for i,normal in ipairs(vector.normals) do
             local near = hyper.usage.get_usage(room.grid,n+normal.x-1,m+normal.y-1)
             if near ~= nil and near.connected then
               wall_usage.carvable = true
@@ -343,7 +391,7 @@ function hyper.rooms.add_buffer(room, options)
       else
         -- Otherwise check if we're bordering any non-space and therefore need to create a buffer
         local any_open = false
-        for i,normal in ipairs(hyper.directions) do
+        for i,normal in ipairs(vector.directions) do
           local near_cell = hyper.usage.get_usage(room.grid,n+normal.x-1,m+normal.y-1)
           if near_cell == nil then near_cell = { space = true } end
           if not near_cell.space then

@@ -90,20 +90,25 @@ function wizlab_portal (e)
     local timeout_turns_long = crawl.random_range(2700, 3300)
     local timeout_turns_short = timeout_turns_long/10
     local messager =
-        timed_msg {
-            visible = true,
-            -- $F{xxx} will be substituted with the 'entity' property of the timed
-            -- marker, or with the desc property (if entity is not set).
-            messages = time_messages(timeout_turns_short,
-                            "$F{The} shimmers.",
-                            "$F{The} vibrates and hums gently.",
-                            "$F{The} is slightly opaque.",
-                            "$F{The} is almost invisible now.")
+      timed_msg {
+           initmsg = { "You hear the crackle of arcane power.",
+                       "There is an entrance to a wizard's laboratory on"
+                       .. " this level! Hurry and find it before the "
+                       .. "portal closes forever!" },
+        finalmsg = "The crackle of the magical portal is almost imperceptible now.",
+
+        verb = 'crackle',
+        noisemaker = 'magical portal',
+        ranges = {
+          { 5000, 'rapid ' },  { 4000, '' },
+          { 2500, 'slow ' }, { 1500, 'irregular ' },
+          { 0, 'erratic ' }
+        }
     }
 
     e.lua_marker('O',
       timed_marker {
-        disappear = "The portal disappears completely.",
+        disappear = "The flow of magic halts.",
         desc = "magical portal",
         entity = 'portal',
         dst = 'WizLab',
@@ -176,31 +181,15 @@ function wizlab_eringya_grow(data, triggerable, triggerer, marker, ev)
 
   local count = 0
 
-  if crawl.one_chance_in(5) then
-    -- Fruit!
-    for spot in iter.adjacent_iterator() do
-      if not feat.is_solid(spot:xy()) and feat.has_solid_floor(spot:xy())
-         and crawl.one_chance_in(3) then
-        dgn.create_item(spot.x, spot.y, "pear / apple / choko / apricot / orange"
-                          .. "/ banana / strawberry q:4 / lemon / rambutan "
-                          .. "/ grape q:7 / sultana q:9 / lychee")
-        count = count + 1
-      end
+  for spot in iter.adjacent_iterator() do
+    if not feat.is_solid(spot:xy()) and feat.has_solid_floor(spot:xy())
+       and not crawl.one_chance_in(3) then
+      dgn.create_monster(spot.x, spot.y, "toadstool")
+      count = count + 1
     end
-    if count > 0 then
-      crawl.mpr("Fruit sprouts up around you!")
-    end
-  else
-    for spot in iter.adjacent_iterator() do
-      if not feat.is_solid(spot:xy()) and feat.has_solid_floor(spot:xy())
-         and not crawl.one_chance_in(3) then
-        dgn.create_monster(spot.x, spot.y, "toadstool")
-        count = count + 1
-      end
-    end
-    if count > 0 then
-      crawl.mpr("Toadstools sprout up around you!")
-    end
+  end
+  if count > 0 then
+    crawl.mpr("Toadstools sprout up around you!")
   end
 end
 
@@ -409,7 +398,7 @@ end
 
 }}
 
-default-depth: D:22-27, Elf, Crypt, Vaults:1-4
+default-depth: D:22-, Elf, Crypt, Vaults:1-4
 
 ###############################################################################
 # Portal entrances.
@@ -432,7 +421,7 @@ wwbm..O..mbww
 ENDMAP
 
 NAME:       mu_enter_wizlab_2
-DEPTH:      D:22-27, Elf, Crypt, Vaults:1-4
+DEPTH:      D:22-, Elf, Crypt, Vaults:1-4
 SHUFFLE:    tU
 TILE:       m = dngn_transparent_wall_green
 COLOUR:     m = lightgreen
@@ -580,7 +569,7 @@ xxxxxxxxxxxxx
 ENDMAP
 
 NAME:     infiniplex_enter_wizlab_glasses
-DEPTH:    D:22-27, Elf, Crypt, Vaults:1-4
+DEPTH:    D:22-, Elf, Crypt, Vaults:1-4
 FTILE:    GO_ = floor_rough_magenta
 TILE:     m = dngn_transparent_wall_green
 COLOUR:   m = lightgreen
@@ -598,7 +587,7 @@ MAP
 ENDMAP
 
 NAME:     infiniplex_enter_wizlab_water
-DEPTH:    D:22-27, Elf, Crypt, Vaults:1-4
+DEPTH:    D:22-, Elf, Crypt, Vaults:1-4
 FTILE:    cnO_ = floor_rough_magenta
 TILE:     n = dngn_transparent_stone_magenta
 COLOUR:   n = lightmagenta
@@ -619,7 +608,7 @@ ww......ww
 ENDMAP
 
 NAME:     infiniplex_enter_wizlab_spiral
-DEPTH:    D:22-27, Elf, Crypt, Vaults:1-4
+DEPTH:    D:22-, Elf, Crypt, Vaults:1-4
 SUBST:    G : xG.
 SUBST:    x : xx.
 MARKER:   ! = lua:fog_machine { \
@@ -786,7 +775,7 @@ ENDMAP
 NAME:       wizlab_eringya
 ORIENT:     encompass
 TAGS:       no_item_gen no_monster_gen no_rotate allow_dup
-MONS:       centaur col:green, centaur warrior col:lightgreen
+MONS:       centaur, centaur warrior
 MONS:       oklob plant
 MONS:       stone golem name:vine_covered name_adjective col:lightgreen \
             tile:mons_vine_golem
@@ -1162,10 +1151,13 @@ COLOUR:     W = green
 :           door_verb_open="You part the %s%s.",
 :           door_verb_close="You squeeze the %s%s shut."
 :           })
-KITEM:      $ = w:45 potion of mutation / w:5 potion of gain strength / \
-            w:5 potion of gain dexterity / w:5 potion of gain intelligence / \
-            w:1 potion of cure mutation
+KITEM:      $ = w:60 potion of mutation / w:10 potion of beneficial mutation / \
+            w:5 potion of cure mutation
+KITEM:      & = potion of beneficial mutation
+KITEM:      ~ = potion of cure mutation
+NSUBST:     $ = 1:& / 1:~ / *:$
 KITEM:      * = gold
+NSUBST:     % = 1:% / *:*
 KITEM:      % = amulet of resist mutation good_item
 KITEM:      : = randbook disc:transmutation owner:Cigotuvi
 KITEM:      ^ = book of transfigurations / randbook disc:transmutation
@@ -1189,16 +1181,16 @@ c.....ccc+ccccc..cccc+cccccccccccc......Wcccc
 ccLLLccc..ccccuuu.cm...m..d..ccccc+cccccccccc
 cccccccc..ccc..!...m.x.m.a..cccccc""ccccccccc
 cc$$cccc..ccc.uuu..m...m...ccccccc""cc**%**cc
-c$$$$cc...cccc....cm...m.cccWccccc""c...cee.c
+c$$$$cc...cccc....cm...m.cccWccccc""c...c...c
 c$$$$+...cccccc..cccc+cccc...Wcccc""c...c...c
-c$$$$c...ccccccccc.m...m.xx...Wccc""cmm+c+mmc
-cc$ccccc+cccccccc..m.x.m...u..Wccc""c.......c
-ccccccc...cccc...a.m...m....x.cc.c""c.......c
-cccc.........c..b..m...mc....cc..c""c...!...c
-c.xJ...ccc...cc..cccc+cccc..cc...c""c......cc
-c...ccccccc+cccccc.m.....ccccJJJJc""+.....ccc
-cc...ccccc'''cccc..m.....uccJJJJJc""ccccccccc
-cc...ccc''''''cc.!.m.....<uc.....+"""""""""cc
+c$$$$c...ccccccccc.m...m.xx...Wccc""ccc+c+ccc
+cc$ccccc+cccccccc..m.x.m...u..Wccc""c...e...c
+ccccccc...cccc...a.m...m....x.cc%c""c...J...c
+cccc.........c..b..m...mc....cc**c""c..JJJe.c
+c.xJ...ccc...cc..cccc+cccc..ccc+cc""c..JJ..cc
+c...ccccccc+cccccc.m.....cccc.JJJc""+.....ccc
+cc...ccccc'''cccc..m.....ucce.JJJc""ccccccccc
+cc...ccc''''''cc.!.m.....<uce....+"""""""""cc
 c..cccc''''''''cc.......cuccc....cc"""""""""c
 c..ccc'''''''''cccccc+cccccccccccccccccccc""c
 c..cc''''''''''ccccc...ccccccc""""""""""""""c
@@ -1412,7 +1404,7 @@ TAGS:       no_item_gen no_monster_gen no_rotate allow_dup
 SUBST:      T = t.
 KMONS:      8 = orange crystal statue name:Statue_of_Wucad_Mu n_rpl n_the \
                 hd:20 hp:300 tile:mons_wucad_mu_statue
-KITEM:      8 = staff of channeling unrand:staff_of_wucad_mu, book of enchantments
+KITEM:      8 = staff of energy unrand:staff_of_wucad_mu, book of enchantments
 COLOUR:     =c = darkgrey
 COLOUR:     t = lightred / red w:3
 TILE:       t = dngn_tree_lightred / dngn_tree_red w:4 / dngn_tree_yellow w:4
@@ -1433,8 +1425,7 @@ KMONS:      1234567 = nothing
 LROCKCOL:   darkgrey
 ITEM:       potion of experience, manual of fighting / manual of armour / manual of \
             spellcasting, manual of staves / manual of fighting / manual of dodging,\
-            potion of gain dexterity / potion of gain strength / potion of gain \
-            intelligence
+            potion of beneficial mutation
 LFLOORCOL:  white
 KMONS:      F = human name:monk n_suf col:white hd:10 dur:2 sum:shadow_creatures \
             nas:old_memories tile:mons_human_monk seen / deep troll name:monk n_suf \

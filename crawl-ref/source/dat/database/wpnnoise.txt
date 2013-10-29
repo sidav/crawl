@@ -288,8 +288,6 @@ a very strange noise.
 
 someone snoring.
 
-the sound of rushing water.
-
 someone calling for help!
 
 strange voices.
@@ -1530,11 +1528,11 @@ _loudly_
 
 loudly
 
-deafening
+deafeningly
 
-ear-piercing
+ear-piercingly
 
-ear-splitting
+ear-splittingly
 %%%%
 _beastly_adjective_
 

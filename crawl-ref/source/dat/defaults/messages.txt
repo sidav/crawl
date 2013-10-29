@@ -41,6 +41,20 @@ msc += $warning:floor suddenly vibrates
 msc += $warning:a sudden draft
 msc += $warning:coins.*counted
 msc += $warning:tolling.*bell
+msc += $warning:roar of battle
+msc += $warning:creaking.*oriflamme
+msc += $warning:oriflamme is probably
+msc += $warning:wave of frost
+msc += $warning:crackling.*melting
+msc += $warning:hiss.*sand
+msc += $warning:sound.*rushing water
+msc += $warning:rusting.*drain
+msc += $warning:drain falling apart
+msc += $warning:heat about you
+msc += $warning:falling.*rocks
+msc += $warning:rumble.*avalanche of rocks
+msc += $warning:crackle.*arcane power
+msc += $warning:crackle.*magical portal
 msc += lightcyan:LOW MAGIC WARNING
 msc += $warning:fails to return
 msc += $warning:no longer ripe
@@ -51,10 +65,14 @@ msc += $boring:You start (resting|waiting)
 msc += $boring:Unknown command
 msc += $boring:disappears? in a puff of smoke
 msc += $boring:dissolves? into (sparkling lights|shadows)
+msc += $boring:crumbles away
 #
 msc += $boring:plain:miss(es)? (the|you|it)
 msc += $boring:but (do no|doesn't do any) damage
 msc += $boring:(prevent|prevents) you from hitting
+msc += $boring:nimbly evade
+msc += $boring:waved at by a branch
+msc += $boring:lunges up near
 
 ## Messages so important to require a --more--
 
@@ -65,9 +83,15 @@ force_more_message += You fall through a shaft
 ## Reduce chance of drowning because flight or form runs out:
 force_more_message += Careful!
 
-# Announcements of timed portal vaults (bazaar, labyrinths):
+# Announcements of timed portal vaults:
 force_more_message += interdimensional caravan
 force_more_message += distant snort
+force_more_message += roar of battle
+force_more_message += wave of frost
+force_more_message += hiss of flowing sand
+force_more_message += sound of rushing water
+force_more_message += oppressive heat about you
+force_more_message += crackle of arcane power
 
 # Abyss exits and rune
 force_more_message += Found a gateway leading out of the Abyss

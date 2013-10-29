@@ -5,8 +5,6 @@
 
 #include "AppHdr.h"
 
-#include "debug.h"
-
 #include <errno.h>
 #include <signal.h>
 
@@ -28,6 +26,7 @@
 #include "message.h"
 #include "monster.h"
 #include "mon-util.h"
+#include "mutation.h"
 #include "options.h"
 #include "religion.h"
 #include "skills2.h"
@@ -75,7 +74,11 @@
 #undef max
 
 #ifdef USE_TILE_LOCAL
-#include <SDL/SDL_syswm.h>
+#ifdef TARGET_COMPILER_VC
+# include <SDL_syswm.h>
+#else
+# include <SDL/SDL_syswm.h>
+#endif
 #endif
 #endif
 
@@ -107,7 +110,7 @@ static void _dump_level_info(FILE* file)
         fprintf(file, "Abyssal state:\n"
                       "    major_coord = (%d,%d)\n"
                       "    seed = 0x%" PRIx32 "\n"
-                      "    depth = %" PRId64 "\n"
+                      "    depth = %" PRIu32 "\n"
                       "    phase = %g\n"
                       "    nuke_all = %d\n",
                 abyssal_state.major_coord.x, abyssal_state.major_coord.y,
@@ -270,15 +273,36 @@ static void _dump_player(FILE *file)
 
     fprintf(file, "Mutations:\n");
     for (int i = 0; i < NUM_MUTATIONS; ++i)
-        if (you.mutation[i] > 0)
-            fprintf(file, "    #%d: %d\n", i, you.mutation[i]);
+    {
+        mutation_type mut = static_cast<mutation_type>(i);
+        int normal = you.mutation[i];
+        int innate = you.innate_mutations[i];
+        int temp   = you.temp_mutations[i];
 
-    fprintf(file, "\n");
+        // Normally innate and temp imply normal, but a crash handler should
+        // expect the spanish^Wunexpected.
+        if (!normal && !innate && !temp)
+            continue;
 
-    fprintf(file, "Demon mutations:\n");
-    for (int i = 0; i < NUM_MUTATIONS; ++i)
-        if (you.innate_mutations[i] > 0)
-            fprintf(file, "    #%d: %d\n", i, you.innate_mutations[i]);
+        if (const char* name = mutation_name(mut))
+            fprintf(file, "    %s: %d", name, normal);
+        else
+            fprintf(file, "    unknown #%d: %d", i, normal);
+
+        if (innate)
+            if (innate == normal)
+                fprintf(file, " (innate)");
+            else
+                fprintf(file, " (%d innate)", innate);
+
+        if (temp)
+            if (temp == normal)
+                fprintf(file, " (temporary)");
+            else
+                fprintf(file, " (%d temporary)", temp);
+
+        fprintf(file, "\n");
+    }
 
     fprintf(file, "\n");
 
@@ -675,7 +699,7 @@ void do_crash_dump()
     {
         fprintf(file, "\nMessages:\n");
         fprintf(file, "<<<<<<<<<<<<<<<<<<<<<<\n");
-        string messages = get_last_messages(NUM_STORED_MESSAGES);
+        string messages = get_last_messages(NUM_STORED_MESSAGES, true);
         fprintf(file, "%s", messages.c_str());
         fprintf(file, ">>>>>>>>>>>>>>>>>>>>>>\n");
     }
@@ -742,7 +766,7 @@ void do_crash_dump()
 //---------------------------------------------------------------
 // BreakStrToDebugger
 //---------------------------------------------------------------
-static NORETURN void _BreakStrToDebugger(const char *mesg, bool assert)
+NORETURN static void _BreakStrToDebugger(const char *mesg, bool assert)
 {
 #if defined(USE_TILE_LOCAL) && defined(TARGET_OS_WINDOWS)
     SDL_SysWMinfo SysInfo;
@@ -781,9 +805,11 @@ static NORETURN void _BreakStrToDebugger(const char *mesg, bool assert)
 // AssertFailed
 //
 //---------------------------------------------------------------
-NORETURN void AssertFailed(const char *expr, const char *file, int line)
+NORETURN void AssertFailed(const char *expr, const char *file, int line,
+                           const char *text, ...)
 {
     char mesg[512];
+    va_list args;
 
     const char *fileName = file + strlen(file); // strip off path
 
@@ -795,7 +821,25 @@ NORETURN void AssertFailed(const char *expr, const char *file, int line)
 
     _assert_msg = mesg;
 
-    _BreakStrToDebugger(mesg, true);
+    // Compose additional information that was passed
+    if (text)
+    {
+        // Write the args into the format specified by text
+        char detail[512];
+        va_start(args, text);
+        vsnprintf(detail, sizeof(detail), text, args);
+        va_end(args);
+        // Build the final result
+        char final_mesg[1024];
+        snprintf(final_mesg, sizeof(final_mesg), "%s (%s)", mesg, detail);
+        _assert_msg = final_mesg;
+        _BreakStrToDebugger(final_mesg, true);
+    }
+    else
+    {
+        _assert_msg = mesg;
+        _BreakStrToDebugger(mesg, true);
+    }
 }
 #endif
 

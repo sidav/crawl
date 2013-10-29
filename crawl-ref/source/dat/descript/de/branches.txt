@@ -40,15 +40,6 @@ legendären magischen Fähigkeiten dieses Volkes bewusst sein.
 
 Die Elfenhallen sind drei Ebenen tief.
 %%%%
-Dwarven Hall
-
-Diese meisterhaft bearbeiteten Steinhallen sind die Behausungen der
-Tiefenzwerge. Ihre außergewöhnlichen Fähigkeiten der Metallbearbeitung
-erlaubten ihnen Unmengen an Waffen zu schmieden um sie gegen Leute wie dich
-einzusetzen.
-
-Doch es ist nur eine einzelne Ebene.
-%%%%
 Lair
 
 Die meisten Abenteurer finden die Höhle der Bestien als eine spannende
@@ -105,13 +96,15 @@ zwischen der Höhle 3 und Höhle 6.
 %%%%
 Slime Pits
 
-Das gestaltlose Reich der Säure, Quallen und des Schleims. Jegliche Spur von
-Intelligenz löste sich vor langer Zeit auf. Dennoch, Gerüchten zu Folge sollen
-tief unten riesige Reichtümer liegen, welche in einer geheimen säurefesten
-Kammer ohne Türen oder Fenstern gesichert aufbewahrt sind.
+Der amorphe Bereich von Säuren, Gelees und Schlämmen. Jede Spur von
+intelligenten Wesen ist lange aufgelöst worden. Und doch, es gibt Gerüchte von
+großen Schätzen tief unten, verborgen sicher weg in heimlichen Räumen ohne Tür
+oder Fenster für Säure, um darin zu lecken. Es ist weithin bekannt, dass sogar
+die Wände dieses schrecklichen Platzes mit schmerzhafter Säure tropfen, mehr
+kaustisch wachsend, wie Sie hinuntersteigen.
 
-Die Schleimgruben sind sechs Ebenen tief und beinhalten die Schleimige Rune.
-Der Eingang befindet sich zwischen dem Versteck 6 und 8.
+Die Schlamm-Gruben sind sechs Niveaus tief und enthalten die schleimige Rune.
+Der Zugang ist zwischen Höhle:6 und Höhle:8.
 %%%%
 Vaults
 
@@ -128,17 +121,19 @@ Irgendwann einmal, in den Nachtstunden, wollten alle Dolche, Äxte und
 Stangenwaffen zusammen Walzer tanzen und von Schlachtfeldern frei von Mann und
 Bestie. Diese Zeit ist vorüber, nur die Waffen sind noch dort.
 
-Die Halle der Klingen hat eine einzige Ebene und kann zwischen Gewölbe 4 und
-Gewölbe 6 gefunden werden.
+Die Halle der Klingen hat eine einzige Ebene und kann zwischen Gewölbe 3 und
+Gewölbe 4 gefunden werden.
 %%%%
 Crypt
 
-Eine riesige Lagerstätte für die Antiken Toten. Die Luft ist frostig und
-stinkt, die Wände kalt und feucht. Überall sind großzügig Knochen verstreut und
-die Totenklage der gequälten Seelen der lauten Toten schallt von überall her.
+Eine riesige Lagerstätte für die alten Toten. Die Luft ist frostig und
+übelriechend, die Wände kalt und feucht. Knochen sind großzügig überall
+verstreut und der ganze Ort erhallt mit dem Wehklagen der gequälten Seelen der
+unruhigen Toten.
 
-Die Krypta ist fünf Ebenen tief und kann zwischen de Ebenen des Gewölbes 2 und
-4 gefunden werden. Sie beinhaltet den Eingang zu den Grabstätten.
+Die Krypta ist fünf Ebenen tief. Das Verlies beinhaltet entweder die Krypta
+oder den Wald; wenn die Krypta vorhanden ist, kann sie zwischen Gewölbe:2 und
+Gewölbe:3 gefunden werden, und enthält den Eingang zum Grab.
 %%%%
 Tomb
 
@@ -195,7 +190,7 @@ Eine Bereich der Verliese die so entsetzlich, so voller Wahnsinn, Raserei und
 Irrsinn sind, das sie vor zufällig Vorbeireisenden sicher verschlossen wurden.
 Nur die wirklich verrücktesten Abenteurer würden ernsthaft versuchen die
 benötigten Schlüssel zu sammeln, das Siegel zu brechen und tiefer vorzudringen
-- nur in der vergeblichen Hoffnung auf ein legendäres Artefakt das noch nie ein
+– nur in der vergeblichen Hoffnung auf ein legendäres Artefakt das noch nie ein
 andere gesehen hat.
 
 Das Reich von Zot ist fünf Ebenen tief und kann nur betreten werden wenn man
@@ -203,7 +198,15 @@ mindestens drei Runen bei sich trägt.
 %%%%
 Forest
 
-Diese Bäume greifen an!
+Unter diesem dunklen und unheimlichen Wald liegen die Höhlen der Spriggans,
+Faune, Tengu und andere Kreaturen die bereit sind den Verstand der
+Eindringlinge, die nicht bereit sind, ihren Willen aufzuzwingen.
+Leistungsstarke illusorische und behindernde Magier sind die Norm, nicht die
+Ausnahme.
+
+Der verzauberte Wald ist fünf Ebenen tief. Das Verlies verfügt entweder über
+eine Krypta oder den Wald, wenn der Wald vorhanden ist, kann er zwischen
+Gewölbe:2 und Gewölbe:3 gefunden werden, und enthält den Eingang zum Grab.
 %%%%
 Abyss
 
@@ -258,7 +261,7 @@ böswilligen Köpfen aus Gründen, die schon lange in der Geschichte verloren
 gingen. Alte Geschichten erzählen, dass das Labyrinth als Gefängnis für einen
 furchterregenden Minotaurus geschaffen wurde. Die neusten Geschichten erzählen,
 dass diese Bestie noch immer dort haust und den einzigen Ausgang des
-Labyrinthes bewacht - und auch von einer großen Sammlung an Schätzen, welche
+Labyrinthes bewacht – und auch von einer großen Sammlung an Schätzen, welche
 von den Körpern törichter Abenteurer genommen wurden, die sich dort verirrten
 und verhungerten. Siehe dich in den sich verändernden und verdrehenden Gängen
 des Labyrinthes vor, oder deine Besitztümer enden im Schatzhort des Minotauren.
@@ -279,7 +282,7 @@ Trove
 
 Irgendwann einmal erschuf ein geschäftstüchtiger Dieb und Zauberer, aus furcht
 bei einem Verbrechen erwischt zu werden, ein System aus Portalen, welche zu den
-geheimen Schatzsammlungen und -kammern der Reichen führten. Zu verängstigt sie
+geheimen Schatzsammlungen und – kammern der Reichen führten. Zu verängstigt sie
 selbst zu plündern, erhob er einen Wucherpreis für jeden, der diese Schätze
 durchwühlen wollte. Der schlaue Architekt entwarf seine Portale so, dass die
 Teilnehmer in die für sie am besten passenden Kammern geleitet wurden.
@@ -324,8 +327,8 @@ dumpfe Grollen der Vulkane scheint nie abzuklingen.
 %%%%
 Wizlab
 
-Vor langer Zeit fanden oder erschufen die mächtigsten Magier - viele von denen
-du vielleicht schon gehört hast - kleinere Reiche, welche vom Rest der Welt
+Vor langer Zeit fanden oder erschufen die mächtigsten Magier – viele von denen
+du vielleicht schon gehört hast – kleinere Reiche, welche vom Rest der Welt
 abgeschnitten waren. Dort isolierten sie sich selbst im Streben nach noch
 größerem magischem Wissen und Macht. Die Magier sind lange fort, aber viele
 ihrer geheimnisvollen Labore, gefüllt mit den Ergebnissen ihrer Experimente,

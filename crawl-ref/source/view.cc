@@ -859,6 +859,7 @@ static int player_view_update_at(const coord_def &gc)
     else
         env.tile_bk_fg(gc) = env.tile_fg(ep);
     env.tile_bk_bg(gc) = env.tile_bg(ep);
+    env.tile_bk_cloud(gc) = env.tile_cloud(ep);
 #endif
 
     return ret;
@@ -901,7 +902,7 @@ static void _draw_outside_los(screen_cell_t *cell, const coord_def &gc)
     cell->colour = g.col;
 
 #ifdef USE_TILE
-    tileidx_out_of_los(&cell->tile.fg, &cell->tile.bg, gc);
+    tileidx_out_of_los(&cell->tile.fg, &cell->tile.bg, &cell->tile.cloud, gc);
 #endif
 }
 
@@ -927,6 +928,7 @@ static void _draw_player(screen_cell_t *cell,
 #ifdef USE_TILE
     cell->tile.fg = env.tile_fg(ep) = tileidx_player();
     cell->tile.bg = env.tile_bg(ep);
+    cell->tile.cloud = env.tile_cloud(ep);
     if (anim_updates)
         tile_apply_animations(cell->tile.bg, &env.tile_flv(gc));
 #else
@@ -945,6 +947,7 @@ static void _draw_los(screen_cell_t *cell,
 #ifdef USE_TILE
     cell->tile.fg = env.tile_fg(ep);
     cell->tile.bg = env.tile_bg(ep);
+    cell->tile.cloud = env.tile_cloud(ep);
     if (anim_updates)
         tile_apply_animations(cell->tile.bg, &env.tile_flv(gc));
 #else
@@ -1039,10 +1042,6 @@ void viewwindow(bool show_updates, bool tiles_only)
         cell++;
     }
 
-    // Leaving it this way because short flashes can occur in long ones,
-    // and this simply works without requiring a stack.
-    you.flash_colour = BLACK;
-    you.flash_where = 0;
     you.last_view_update = you.num_turns;
 #ifndef USE_TILE_LOCAL
 #ifdef USE_TILE_WEB
@@ -1060,6 +1059,11 @@ void viewwindow(bool show_updates, bool tiles_only)
     tiles.load_dungeon(crawl_view.vbuf, crawl_view.vgrdc);
     tiles.update_tabs();
 #endif
+
+    // Leaving it this way because short flashes can occur in long ones,
+    // and this simply works without requiring a stack.
+    you.flash_colour = BLACK;
+    you.flash_where = 0;
 
     // Reset env.show if we munged it.
     if (_show_terrain)

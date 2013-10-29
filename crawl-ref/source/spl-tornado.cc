@@ -132,6 +132,7 @@ spret_type cast_tornado(int powc, bool fail)
         && !yesno("There are friendlies around, are you sure you want to hurt them?",
                   true, 'n'))
     {
+        canned_msg(MSG_OK);
         return SPRET_ABORT;
     }
 
@@ -155,11 +156,14 @@ spret_type cast_tornado(int powc, bool fail)
 static bool _mons_is_unmovable(const monster *mons)
 {
     // hard to explain uprooted oklobs surviving
-    if (mons_is_stationary(mons))
+    if (mons->is_stationary())
         return true;
     // we'd have to rotate everything
-    if (mons_is_tentacle(mons->type) || mons_is_tentacle_head(mons_base_type(mons)))
+    if (mons_is_tentacle_or_tentacle_segment(mons->type)
+        || mons_is_tentacle_head(mons_base_type(mons)))
+    {
         return true;
+    }
     return false;
 }
 
@@ -345,16 +349,18 @@ void tornado_damage(actor *caster, int dur)
                         if (standing)
                             float_player();
                     }
-                    int dmg = victim->apply_ac(
-                                div_rand_round(roll_dice(9, rpow), 15),
-                                0, AC_PROPORTIONAL);
-                    if (dur < 0)
-                        dmg = 0;
-                    dprf("damage done: %d", dmg);
-                    if (victim->is_player())
-                        ouch(dmg, caster->mindex(), KILLED_BY_BEAM, "tornado");
-                    else
-                        victim->hurt(caster, dmg);
+
+                    if (dur > 0)
+                    {
+                        int dmg = victim->apply_ac(
+                                    div_rand_round(roll_dice(9, rpow), 15),
+                                    0, AC_PROPORTIONAL);
+                        dprf("damage done: %d", dmg);
+                        if (victim->is_player())
+                            ouch(dmg, caster->mindex(), KILLED_BY_BEAM, "tornado");
+                        else
+                            victim->hurt(caster, dmg);
+                    }
                 }
 
                 if (victim->alive() && !leda && dur > 0)

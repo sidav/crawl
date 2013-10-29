@@ -4,9 +4,6 @@
  *             spl-util.cc.
 **/
 
-#ifndef SPLDATA_H
-#define SPLDATA_H
-
 /*
 struct spell_desc
 {
@@ -99,19 +96,6 @@ struct spell_desc
      NULL,
      false,
      true
-},
-
-{
-    SPELL_STRIKING, "Striking",
-     0,
-     SPFLAG_DIR_OR_TARGET | SPFLAG_BATTLE, // rod of striking
-     1,
-     50,
-     5, 5,
-     0,
-     NULL,
-     true,
-     false
 },
 
 {
@@ -386,7 +370,7 @@ struct spell_desc
      -1, -1,
      0,
      NULL,
-     true,
+     false,
      false
 },
 
@@ -443,7 +427,7 @@ struct spell_desc
 },
 
 {
-    SPELL_SUMMON_SMALL_MAMMALS, "Summon Small Mammals",
+    SPELL_SUMMON_SMALL_MAMMAL, "Summon Small Mammal",
      SPTYP_SUMMONING,
      SPFLAG_BATTLE,
      1,
@@ -912,6 +896,7 @@ struct spell_desc
      false
 },
 
+#if TAG_MAJOR_VERSION == 34
 {
     SPELL_FRENZY, "Frenzy",
      SPTYP_CHARMS,
@@ -924,7 +909,7 @@ struct spell_desc
      false,
      false
 },
-
+#endif
 
 {
     SPELL_DISPEL_UNDEAD, "Dispel Undead",
@@ -1377,7 +1362,7 @@ struct spell_desc
 
 {
     SPELL_DRAGON_FORM, "Dragon Form",
-     SPTYP_FIRE | SPTYP_TRANSMUTATION,
+     SPTYP_TRANSMUTATION,
      SPFLAG_HELPFUL | SPFLAG_CHAOTIC,
      7,
      200,
@@ -1918,7 +1903,7 @@ struct spell_desc
      SPTYP_CONJURATION | SPTYP_HEXES,
      SPFLAG_GRID | SPFLAG_AREA | SPFLAG_NOT_SELF,
      5,
-     100,
+     200,
      5, 5,
      0,
      NULL,
@@ -2060,7 +2045,7 @@ struct spell_desc
 },
 
 {
-    SPELL_SUMMON_BEAST, "Summon Beast",
+    SPELL_SUMMON_HELL_BEAST, "Summon Hell Beast",
      SPTYP_SUMMONING,
      SPFLAG_UNHOLY | SPFLAG_MONSTER,
      4,
@@ -2086,7 +2071,7 @@ struct spell_desc
 },
 
 {
-    SPELL_POISON_SPLASH, "Poison Splash",
+    SPELL_SPIT_POISON, "Spit Poison",
      SPTYP_POISON,
      SPFLAG_DIR_OR_TARGET | SPFLAG_MONSTER | SPFLAG_INNATE | SPFLAG_NOISY,
      2,
@@ -2151,7 +2136,7 @@ struct spell_desc
 },
 
 {
-    SPELL_MIASMA, "Miasma",
+    SPELL_MIASMA_BREATH, "Miasma Breath",
      SPTYP_CONJURATION,
      SPFLAG_DIR_OR_TARGET | SPFLAG_UNCLEAN | SPFLAG_MONSTER,
      6,
@@ -2216,7 +2201,7 @@ struct spell_desc
 },
 
 {
-    SPELL_ACID_SPLASH, "Acid Splash",
+    SPELL_SPIT_ACID, "Spit Acid",
      SPTYP_CONJURATION,
      SPFLAG_DIR_OR_TARGET | SPFLAG_MONSTER | SPFLAG_INNATE | SPFLAG_NOISY,
      5,
@@ -2463,6 +2448,7 @@ struct spell_desc
      false
 },
 
+#if TAG_MAJOR_VERSION == 34
 {
     SPELL_SUMMON_RAKSHASA, "Summon Rakshasa",
      SPTYP_SUMMONING,
@@ -2475,6 +2461,7 @@ struct spell_desc
      false,
      false
 },
+#endif
 
 {
     SPELL_MISLEAD, "Mislead",
@@ -2607,8 +2594,8 @@ struct spell_desc
 },
 
 {
-    SPELL_SUMMON_CANIFORMS, "Summon Caniforms",
-     SPTYP_SUMMONING,
+    SPELL_DRUIDS_CALL, "Druid's Call",
+     SPTYP_CHARMS,
      SPFLAG_MONSTER,
      6,
      0,
@@ -2657,21 +2644,6 @@ struct spell_desc
      false,
      false,
 },
-
-#if TAG_MAJOR_VERSION == 34
-{
-    SPELL_RESURRECT, "Resurrection",
-     SPTYP_NONE,
-     SPFLAG_DIR_OR_TARGET | SPFLAG_NOT_SELF | SPFLAG_HELPFUL,
-     6,
-     200,
-     LOS_RADIUS, LOS_RADIUS,
-     0,
-     NULL,
-     true,
-     false
-},
-#endif
 
 {
     SPELL_HOLY_LIGHT, "Holy Light",
@@ -2726,7 +2698,7 @@ struct spell_desc
 },
 
 {
-    SPELL_MIRROR_DAMAGE, "Mirror Damage",
+    SPELL_INJURY_MIRROR, "Injury Mirror",
      SPTYP_NONE,
      SPFLAG_DIR_OR_TARGET | SPFLAG_HELPFUL,
      4,
@@ -2804,9 +2776,9 @@ struct spell_desc
 },
 
 {
-    SPELL_MELEE, "melee",
+    SPELL_MELEE, "Melee",
      0,
-     SPFLAG_TESTING,
+     SPFLAG_BATTLE,
      1,
      0,
      -1, -1,
@@ -2989,9 +2961,9 @@ struct spell_desc
     SPELL_FORCE_LANCE, "Force Lance",
      SPTYP_CONJURATION,
      SPFLAG_DIR_OR_TARGET,
-     2,
-     50,
-     3, 3,
+     5,
+     100,
+     4, 4,
      0,
      NULL,
      true,
@@ -3039,6 +3011,279 @@ struct spell_desc
 },
 
 {
+    SPELL_GHOSTLY_FLAMES, "Ghostly Flames",
+     SPTYP_CONJURATION | SPTYP_NECROMANCY,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_MONSTER | SPFLAG_UNHOLY,
+     5,
+     200,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_GHOSTLY_FIREBALL, "Ghostly Fireball",
+     SPTYP_CONJURATION | SPTYP_NECROMANCY,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_MONSTER | SPFLAG_UNHOLY,
+     5,
+     200,
+     6, 6,
+     0,
+     NULL,
+     true,
+     false
+},
+
+{
+    SPELL_CALL_LOST_SOUL, "Call Lost Soul",
+     SPTYP_SUMMONING | SPTYP_NECROMANCY,
+     SPFLAG_UNHOLY | SPFLAG_BATTLE | SPFLAG_MONSTER,
+     5,
+     200,
+     -1, -1,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_DIMENSION_ANCHOR, "Dimension Anchor",
+     SPTYP_TRANSLOCATION | SPTYP_HEXES,
+     SPFLAG_DIR_OR_TARGET,
+     4,
+     200,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     true,
+     false
+},
+
+{
+    SPELL_BLINK_ALLIES_ENCIRCLE, "Blink Allies Encircling",
+     SPTYP_TRANSLOCATION,
+     SPFLAG_AREA,
+     6,
+     200,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_AWAKEN_VINES, "Awaken Vines",
+     SPTYP_HEXES,
+     SPFLAG_AREA | SPFLAG_MONSTER,
+     6,
+     200,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_CONTROL_WINDS, "Control Winds",
+     SPTYP_CHARMS | SPTYP_AIR,
+     SPFLAG_AREA | SPFLAG_MONSTER,
+     6,
+     200,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_THORN_VOLLEY, "Volley of Thorns",
+     SPTYP_CONJURATION | SPTYP_EARTH,
+     SPFLAG_DIR_OR_TARGET,
+     4,
+     100,
+     6, 6,
+     0,
+     NULL,
+     true,
+     false
+},
+
+{
+    SPELL_WALL_OF_BRAMBLES, "Wall of Brambles",
+     SPTYP_CONJURATION | SPTYP_EARTH,
+     SPFLAG_AREA | SPFLAG_MONSTER,
+     5,
+     100,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_WATERSTRIKE, "Waterstrike",
+     SPTYP_ICE,
+     SPFLAG_TARGET | SPFLAG_NOT_SELF | SPFLAG_BATTLE | SPFLAG_MONSTER,
+     4,
+     200,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_HASTE_PLANTS, "Haste Plants",
+     SPTYP_CHARMS,
+     SPFLAG_AREA | SPFLAG_HELPFUL,
+     6,
+     200,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_WIND_BLAST, "Wind Blast",
+     SPTYP_AIR,
+     SPFLAG_AREA,
+     3,
+     200,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_STRIP_RESISTANCE, "Strip Resistance",
+     SPTYP_HEXES,
+     SPFLAG_DIR_OR_TARGET,
+     5,
+     200,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     true,
+     false
+},
+
+{
+    SPELL_INFUSION, "Infusion",
+     SPTYP_CHARMS,
+     SPFLAG_BATTLE,
+     1,
+     50,
+     -1, -1,
+     0,
+     NULL,
+     false,
+     true
+},
+
+{
+    SPELL_SONG_OF_SLAYING, "Song of Slaying",
+     SPTYP_CHARMS,
+     SPFLAG_BATTLE,
+     2,
+     200,
+     -1, -1,
+     0,
+     NULL,
+     false,
+     true
+},
+
+{
+    SPELL_SONG_OF_SHIELDING, "Song of Shielding",
+     SPTYP_CHARMS,
+     SPFLAG_BATTLE,
+     4,
+     100,
+     -1, -1,
+     0,
+     NULL,
+     false,
+     true
+},
+
+{
+    SPELL_SPECTRAL_WEAPON, "Spectral Weapon",
+     SPTYP_HEXES | SPTYP_CHARMS,
+     SPFLAG_BATTLE,
+     3,
+     100,
+     -1, -1,
+     0,
+     NULL,
+     false,
+     true
+},
+
+{
+    SPELL_SUMMON_VERMIN, "Summon Vermin",
+     SPTYP_SUMMONING,
+     SPFLAG_MONSTER,
+     5,
+     0,
+     -1, -1,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_MALIGN_OFFERING, "Malign Offering",
+     SPTYP_NECROMANCY,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_NOT_SELF,
+     5,
+     200,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     true,
+     false
+},
+
+{
+    SPELL_SEARING_RAY, "Searing Ray",
+     SPTYP_CONJURATION,
+     SPFLAG_DIR_OR_TARGET,
+     2,
+     50,
+     4, 4,
+     0,
+     NULL,
+     true,
+     false
+},
+
+{
+    SPELL_DISCORD, "Discord",
+     SPTYP_HEXES,
+     SPFLAG_AREA | SPFLAG_HASTY,
+     8,
+     200,
+     -1, -1,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
     SPELL_NO_SPELL, "nonexistent spell",
      0,
      SPFLAG_TESTING,
@@ -3050,5 +3295,3 @@ struct spell_desc
      false,
      false
 },
-
-#endif

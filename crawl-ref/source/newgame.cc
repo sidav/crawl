@@ -30,6 +30,7 @@
 #include "species.h"
 #include "state.h"
 #include "stuff.h"
+#include "version.h"
 
 #ifdef USE_TILE_LOCAL
 #include "tilereg-crt.h"
@@ -151,42 +152,18 @@ static void _print_character_info(const newgame_def* ng)
     cprintf("%s\n", _welcome(ng).c_str());
 }
 
-// Determines if a species is valid.
+// Determines if a species is a valid choice for a new game.
 static bool _is_species_valid_choice(species_type species)
 {
-    if (species < 0 || species > NUM_SPECIES)
-        return false;
-
-    if (species >= SP_ELF) // These are all invalid.
-        return false;
-
-#if 0
-    if (species == SP_MY_NEW_TRUNK_ONLY_EXPERIMENT
-        && Version::ReleaseType() != VER_ALPHA)
+    if ((species == SP_LAVA_ORC || species == SP_DJINNI)
+        && Version::ReleaseType != VER_ALPHA)
     {
         return false;
     }
-#endif
 
     // Non-base draconians cannot be selected either.
-    if (species >= SP_RED_DRACONIAN && species < SP_BASE_DRACONIAN)
-        return false;
-
-    return true;
-}
-
-// Determines if a job is valid.
-static bool _is_job_valid_choice(job_type job)
-{
-    if (job < 0 || job > NUM_JOBS)
-        return false;
-
-#if TAG_MAJOR_VERSION == 34
-    if (job == JOB_STALKER)
-        return false;
-#endif
-
-    return true;
+    return is_valid_species(species)
+        && !(species >= SP_RED_DRACONIAN && species < SP_BASE_DRACONIAN);
 }
 
 #ifdef ASSERTS
@@ -312,7 +289,7 @@ static void _resolve_job(newgame_def* ng, const newgame_def* ng_choice)
             // any valid job will do
             do
                 ng->job = job_type(random2(NUM_JOBS));
-            while (!_is_job_valid_choice(ng->job));
+            while (!is_job_valid_choice(ng->job));
         }
         else
         {
@@ -324,6 +301,7 @@ static void _resolve_job(newgame_def* ng, const newgame_def* ng_choice)
                 if (is_good_combination(ng->species, job, false)
                     && one_chance_in(++good_choices))
                 {
+                    ASSERT(is_job_valid_choice(job));
                     ng->job = job;
                 }
             }
@@ -595,11 +573,14 @@ static void _construct_species_menu(const newgame_def* ng,
     coord_def min_coord(0,0);
     coord_def max_coord(0,0);
 
-    for (int i = 0; i < ng_num_species(); ++i)
+    for (int i = 0, pos = 0; i < ng_num_species(); ++i, ++pos)
     {
         const species_type species = get_species(i);
         if (!_is_species_valid_choice(species))
+        {
+            --pos;
             continue;
+        }
 
         tmp = new TextItem();
         text.clear();
@@ -626,21 +607,21 @@ static void _construct_species_menu(const newgame_def* ng,
         }
         else
         {
-            text = index_to_letter(i);
+            text = index_to_letter(pos);
             text += " - ";
             text += species_name(species);
         }
         // Fill to column width - 1
         text.append(COLUMN_WIDTH - text.size() - 1 , ' ');
         tmp->set_text(text);
-        ASSERT(i < items_in_column * 3);
-        min_coord.x = X_MARGIN + (i / items_in_column) * COLUMN_WIDTH;
-        min_coord.y = 3 + i % items_in_column;
+        ASSERT(pos < items_in_column * 3);
+        min_coord.x = X_MARGIN + (pos / items_in_column) * COLUMN_WIDTH;
+        min_coord.y = 3 + pos % items_in_column;
         max_coord.x = min_coord.x + text.size();
         max_coord.y = min_coord.y + 1;
         tmp->set_bounds(min_coord, max_coord);
 
-        tmp->add_hotkey(index_to_letter(i));
+        tmp->add_hotkey(index_to_letter(pos));
         tmp->set_id(species);
         tmp->set_description_text(unwrap_desc(getGameStartDescription(species_name(species))));
         menu->attach_item(tmp);
@@ -1022,7 +1003,7 @@ static void _construct_backgrounds_menu(const newgame_def* ng,
             "Zealot",
             coord_def(15, 0), 20,
             {JOB_BERSERKER, JOB_ABYSSAL_KNIGHT, JOB_CHAOS_KNIGHT,
-             JOB_DEATH_KNIGHT, JOB_PRIEST, JOB_HEALER, JOB_UNKNOWN,
+             JOB_DEATH_KNIGHT, JOB_HEALER, JOB_UNKNOWN, JOB_UNKNOWN,
              JOB_UNKNOWN, JOB_UNKNOWN}
         },
         {
@@ -1939,9 +1920,11 @@ static void _construct_gamemode_map_menu(const mapref_vector& maps,
     }
 }
 
-static bool _cmp_map_by_name(const map_def* m1, const map_def* m2)
+// Compare two maps by their ORDER: header, falling back to desc or name if equal.
+static bool _cmp_map_by_order(const map_def* m1, const map_def* m2)
 {
-    return (m1->desc_or_name() < m2->desc_or_name());
+    return m1->order < m2->order
+           || m1->order == m2->order && m1->desc_or_name() < m2->desc_or_name();
 }
 
 static void _prompt_gamemode_map(newgame_def* ng, newgame_def* ng_choice,
@@ -1956,7 +1939,7 @@ static void _prompt_gamemode_map(newgame_def* ng, newgame_def* ng_choice,
     menu.attach_object(freeform);
     menu.set_active_object(freeform);
 
-    sort(maps.begin(), maps.end(), _cmp_map_by_name);
+    sort(maps.begin(), maps.end(), _cmp_map_by_order);
     _construct_gamemode_map_menu(maps, defaults, freeform);
 
     BoxMenuHighlighter* highlighter = new BoxMenuHighlighter(&menu);

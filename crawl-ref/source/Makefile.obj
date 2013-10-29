@@ -39,6 +39,7 @@ describe.o \
 dgl-message.o \
 dgn-delve.o \
 dgn-height.o \
+dgn-irregular-box.o \
 dgn-labyrinth.o \
 dgn-layouts.o \
 dgn-overview.o \
@@ -134,6 +135,7 @@ mon-abil.o \
 mon-act.o \
 mon-behv.o \
 mon-cast.o \
+mon-chimera.o \
 mon-clone.o \
 mon-death.o \
 mon-ench.o \
@@ -195,6 +197,7 @@ spl-goditem.o \
 spl-miscast.o \
 spl-monench.o \
 spl-other.o \
+spl-pick.o \
 spl-selfench.o \
 spl-summoning.o \
 spl-tornado.o \
@@ -286,23 +289,6 @@ json.o
 YACC_OBJECTS = \
 util/levcomp.tab.o \
 util/levcomp.lex.o
-
-INI_OBJECTS = \
-dat/descript/ability.ini \
-dat/descript/backgrounds.ini \
-dat/descript/branches.ini \
-dat/descript/cards.ini \
-dat/descript/commands.ini \
-dat/descript/features.ini \
-dat/descript/gods.ini \
-dat/descript/items.ini \
-dat/descript/monsters.ini \
-dat/descript/quotes.ini \
-dat/descript/skills.ini \
-dat/descript/species.ini \
-dat/descript/spells.ini \
-dat/descript/unident.ini \
-dat/descript/unrand.ini
 
 ALL_OBJECTS = $(OBJECTS) $(TILES_OBJECTS) $(GLTILES_OBJECTS) \
 $(WEBTILES_OBJECTS) $(YACC_OBJECTS) $(TILEDEFOBJS) \

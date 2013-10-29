@@ -10,6 +10,7 @@
 #include "cio.h"
 #include "command.h"
 #include "describe.h"
+#include "evoke.h"
 #include "fontwrapper-ft.h"
 #include "hints.h"
 #include "libutil.h"
@@ -290,7 +291,7 @@ COLORS SkillMenuEntry::get_colour() const
         return YELLOW;
     else if (!you.training[m_sk])
         return DARKGREY;
-    else if (you.manual_skill == m_sk)
+    else if (skill_has_manual(m_sk))
     {
         if (is_set(SKMF_APTITUDE))
             return LIGHTGREEN;
@@ -331,7 +332,7 @@ void SkillMenuEntry::set_aptitude()
 {
     string text = "<white>";
 
-    const bool manual = you.manual_skill == m_sk;
+    const bool manual = skill_has_manual(m_sk);
     const int apt = species_apt(m_sk, you.species);
     const bool show_all = skm.get_state(SKM_SHOW) == SKM_SHOW_ALL;
 
@@ -393,7 +394,7 @@ void SkillMenuEntry::set_level()
     else
         level = you.skill(m_sk, 10, real);
 
-    if (mastered())
+    if (mastered() && !you.attribute[ATTR_XP_DRAIN])
         m_level->set_text(make_stringf("%d", level / 10));
     else
         m_level->set_text(make_stringf("%4.1f", level / 10.0));
@@ -558,8 +559,14 @@ string SkillMenuSwitch::get_help()
         }
         else
         {
-            return "Skills reduced by the power of Ashenzari are in "
-                   "<magenta>magenta</magenta>. ";
+            vector<string> causes;
+            if (you.attribute[ATTR_XP_DRAIN])
+                causes.push_back("draining");
+            if (player_under_penance(GOD_ASHENZARI))
+                causes.push_back("the power of Ashenzari");
+            return "Skills reduced by "
+                   + comma_separated_line(causes.begin(), causes.end())
+                   + " are in <magenta>magenta</magenta>. ";
         }
     case SKM_VIEW_TRAINING:
         if (skm.is_set(SKMF_SIMPLE))
@@ -688,6 +695,16 @@ void SkillMenu::init(int flag)
         m_skill_backup.save();
         you.auto_training = false;
         reset_training();
+
+        for (int i = 0; i < NUM_SKILLS; ++i)
+        {
+            const skill_type sk = skill_type(i);
+            if (!is_useless_skill(sk) && !you.can_train[sk])
+            {
+                you.can_train.set(sk);
+                you.train[sk] = false;
+            }
+        }
     }
 
 #ifdef USE_TILE_LOCAL

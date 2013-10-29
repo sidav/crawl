@@ -143,6 +143,24 @@ const uint64_t M_WEB_SENSE         = (uint64_t)1<<43;
 // tries to maintain LOS/2 range from its target
 const uint64_t M_MAINTAIN_RANGE    = (uint64_t)1<<44;
 
+// flesh is not usable for making zombies
+const uint64_t M_NO_ZOMBIE         = (uint64_t)1<<45;
+
+// cannot be placed by any means, even in the arena, etc.
+const uint64_t M_CANT_SPAWN        = (uint64_t)1<<46;
+
+// derived undead can't be randomly generated
+const uint64_t M_NO_GEN_DERIVED    = (uint64_t)1<<47;
+
+// tries to maintain range unless target is incapacitated
+const uint64_t M_STABBER           = (uint64_t)1<<48;
+
+// hybridized monster composed of other monster parts
+const uint64_t M_HYBRID            = (uint64_t)1<<49;
+
+// monster is always alerted to hostiles, and does not forget them over time
+const uint64_t M_VIGILANT          = (uint64_t)1<<50;
+
 // Same for flags for actual monsters.
 typedef uint64_t monster_flag_type;
 const uint64_t MF_NO_REWARD          = BIT(0);  // no benefit from killing
@@ -215,4 +233,5 @@ const uint64_t MF_SENSED             = BIT(33); // Player has been warned
 const uint64_t MF_NAME_NOCORPSE      = BIT(34); // mname should not be used for corpses
 const uint64_t MF_SEEN_RANGED        = BIT(35); // known to have a ranged attack
 
+const uint64_t MF_POLYMORPHED        = BIT(36); // this monster has been polymorphed.
 #endif

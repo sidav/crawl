@@ -49,6 +49,8 @@ struct player_info
 
     int hp, hp_max, real_hp_max;
     int mp, mp_max;
+    int contam;
+    int heat;
 
     int armour_class;
     int evasion;
@@ -132,7 +134,7 @@ public:
     void write_message(PRINTF(1, ));
     void finish_message();
     void send_message(PRINTF(1, ));
-    void flush_messages();
+    void flush_messages(bool joining_only=false);
 
     bool has_receivers() { return !m_dest_addrs.empty(); }
     bool is_controlled_from_web() { return m_controlled_from_web; }
@@ -231,6 +233,7 @@ protected:
     coord_def m_origin;
 
     bool m_view_loaded;
+    bool m_player_on_level;
 
     FixedArray<screen_cell_t, GXM, GYM> m_current_view;
     coord_def m_current_gc;

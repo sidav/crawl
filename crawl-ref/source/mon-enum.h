@@ -57,6 +57,7 @@ enum attack_type
     AT_SNAP,
     AT_SPLASH,
     AT_POUNCE,
+    AT_REACH_STING,
     AT_CHERUB,
 
     AT_SHOOT,       // Attack representing missile damage for M_ARCHER.
@@ -106,6 +107,14 @@ enum attack_flavour
     AF_ANTIMAGIC,
     AF_PAIN,
     AF_ENSNARE,
+    AF_DROWN,
+    AF_PURE_FIRE,
+    AF_DRAIN_SPEED,
+    AF_VULN,
+    AF_PLAGUE,
+    AF_WEAKNESS_POISON,
+    AF_SHADOWSTAB,
+    AF_WATERPORT,
 };
 
 // Non-spell "summoning" types to give to monster::mark_summoned(), or
@@ -129,7 +138,7 @@ enum mon_intel_type             // Must be in increasing intelligence order
 {
     I_PLANT = 0,
     I_INSECT,
-    I_REPTILE = I_INSECT, // just for documentation
+    I_REPTILE,
     I_ANIMAL,
     I_NORMAL,
     I_HIGH,
@@ -144,6 +153,7 @@ enum habitat_type
     HT_LAVA,             // Lava critters
     HT_ROCK,             // Rock critters
     HT_INCORPOREAL,      // Incorporeal things
+    HT_FOREST,           // Forest critters
 
     NUM_HABITATS
 };
@@ -201,6 +211,7 @@ enum mon_resist_flags
     MR_RES_STEAM         = 1 << 28,
 
     // vulnerabilities
+    MR_VUL_WATER         = 1 << 29,
     MR_VUL_ELEC          = mrd(MR_RES_ELEC, -1),
     MR_VUL_POISON        = mrd(MR_RES_POISON, -1),
     MR_VUL_FIRE          = mrd(MR_RES_FIRE, -1),

@@ -27,6 +27,10 @@
 #include "tilepick.h"
 #endif
 
+// Don't make this larger than 255 without changing the type of you.stat_zero
+// in player.h as well as the associated marshalling code in tags.cc
+const int STATZERO_TURN_CAP = 200;
+
 int player::stat(stat_type s, bool nonneg) const
 {
     const int val = max_stat(s) - stat_loss[s];
@@ -159,7 +163,7 @@ void jiyva_stat_action()
     int current_capacity = carrying_capacity(BS_UNENCUMBERED);
     int carrying_strength = cur_stat[0] + (you.burden - current_capacity + 207)/208;
     int evp = you.unadjusted_body_armour_penalty();
-    target_stat[0] = max(max(9, 2 + 3 * evp), 2 + carrying_strength);
+    target_stat[0] = max(max(9, evp), 2 + carrying_strength);
     target_stat[1] = 9;
     target_stat[2] = 9;
     int remaining = stat_total - 18 - target_stat[0];
@@ -186,12 +190,12 @@ void jiyva_stat_action()
         }
         // If you are in really heavy armour, then you already are getting a
         // lot of Str and more won't help much, so weight magic more.
-        other_weights = max(other_weights - (evp >= 5 ? 4 : 1) * magic_weights/2, 0);
+        other_weights = max(other_weights - (evp >= 15 ? 4 : 1) * magic_weights/2, 0);
         magic_weights = div_rand_round(remaining * magic_weights, magic_weights + other_weights);
         other_weights = remaining - magic_weights;
         target_stat[1] += magic_weights;
         // Choose Str or Dex based on how heavy your armour is.
-        target_stat[(evp >= 5) ? 0 : 2] += other_weights;
+        target_stat[(evp >= 15) ? 0 : 2] += other_weights;
     }
     // Add a little fuzz to the target.
     for (int x = 0; x < 3; ++x)
@@ -356,7 +360,7 @@ static int _strength_modifier()
     if (you.duration[DUR_DIVINE_STAMINA])
         result += you.attribute[ATTR_DIVINE_STAMINA];
 
-    result += che_stat_boost();
+    result += chei_stat_boost();
 
     if (!you.suppressed())
     {
@@ -371,10 +375,12 @@ static int _strength_modifier()
     }
 
     // mutations
-    result += player_mutation_level(MUT_STRONG)
-              - player_mutation_level(MUT_WEAK);
+    result += 2 * (player_mutation_level(MUT_STRONG)
+                  - player_mutation_level(MUT_WEAK));
+#if TAG_MAJOR_VERSION == 34
     result += player_mutation_level(MUT_STRONG_STIFF)
               - player_mutation_level(MUT_FLEXIBLE_WEAK);
+#endif
     result -= player_mutation_level(MUT_THIN_SKELETAL_STRUCTURE)
               ? player_mutation_level(MUT_THIN_SKELETAL_STRUCTURE) - 1 : 0;
 
@@ -383,7 +389,6 @@ static int _strength_modifier()
     {
     case TRAN_STATUE:          result +=  2; break;
     case TRAN_DRAGON:          result += 10; break;
-    case TRAN_LICH:            result +=  3; break;
     case TRAN_BAT:             result -=  5; break;
     default:                                 break;
     }
@@ -401,7 +406,7 @@ static int _int_modifier()
     if (you.duration[DUR_DIVINE_STAMINA])
         result += you.attribute[ATTR_DIVINE_STAMINA];
 
-    result += che_stat_boost();
+    result += chei_stat_boost();
 
     if (!you.suppressed())
     {
@@ -416,8 +421,8 @@ static int _int_modifier()
     }
 
     // mutations
-    result += player_mutation_level(MUT_CLEVER)
-              - player_mutation_level(MUT_DOPEY);
+    result += 2 * (player_mutation_level(MUT_CLEVER)
+                  - player_mutation_level(MUT_DOPEY));
 
     return result;
 }
@@ -432,7 +437,7 @@ static int _dex_modifier()
     if (you.duration[DUR_DIVINE_STAMINA])
         result += you.attribute[ATTR_DIVINE_STAMINA];
 
-    result += che_stat_boost();
+    result += chei_stat_boost();
 
     if (!you.suppressed())
     {
@@ -447,11 +452,12 @@ static int _dex_modifier()
     }
 
     // mutations
-    result += player_mutation_level(MUT_AGILE)
-              - player_mutation_level(MUT_CLUMSY);
+    result += 2 * (player_mutation_level(MUT_AGILE)
+                  - player_mutation_level(MUT_CLUMSY));
+#if TAG_MAJOR_VERSION == 34
     result += player_mutation_level(MUT_FLEXIBLE_WEAK)
               - player_mutation_level(MUT_STRONG_STIFF);
-
+#endif
     result += 2 * player_mutation_level(MUT_THIN_SKELETAL_STRUCTURE);
     result -= player_mutation_level(MUT_ROUGH_BLACK_SCALES);
 
@@ -535,6 +541,11 @@ bool lose_stat(stat_type which_stat, int stat_loss, bool force,
     {
         you.stat_loss[which_stat] = min<int>(100,
                                         you.stat_loss[which_stat] + stat_loss);
+        if (you.stat_zero[which_stat])
+        {
+            mprf(MSGCH_DANGER, "You convulse from lack of %s!", stat_desc(which_stat, SD_NAME));
+            ouch(5 + random2(you.hp_max / 10), NON_MONSTER, _statloss_killtype(which_stat), cause);
+        }
         _handle_stat_change(which_stat, cause, see_source);
         return true;
     }
@@ -626,21 +637,14 @@ static void _normalize_stat(stat_type stat)
     you.base_stats[stat] = min<int8_t>(you.base_stats[stat], 72);
 }
 
-// Number of turns of stat at zero you start with.
-#define STAT_ZERO_START 10
-// Number of turns of stat at zero you can survive.
-#define STAT_DEATH_TURNS 100
-// Number of turns of stat at zero after which random paralysis starts.
-#define STAT_DEATH_START_PARA 50
-
 static void _handle_stat_change(stat_type stat, const char* cause, bool see_source)
 {
-    ASSERT(stat >= 0 && stat < NUM_STATS);
+    ASSERT_RANGE(stat, 0, NUM_STATS);
 
     if (you.stat(stat) <= 0 && you.stat_zero[stat] == 0)
     {
-        you.stat_zero[stat] = STAT_ZERO_START;
-        you.stat_zero_cause[stat] = cause;
+        // Turns required for recovery once the stat is restored, randomised slightly.
+        you.stat_zero[stat] = 10 + random2(10);
         mprf(MSGCH_WARN, "You have lost your %s.", stat_desc(stat, SD_NAME));
         take_note(Note(NOTE_MESSAGE, 0, 0, make_stringf("Lost %s.",
             stat_desc(stat, SD_NAME)).c_str()), true);
@@ -680,14 +684,15 @@ static void _handle_stat_change(const char* aux, bool see_source)
 // Called once per turn.
 void update_stat_zero()
 {
-    stat_type para_stat = NUM_STATS;
-    int num_para = 0;
     for (int i = 0; i < NUM_STATS; ++i)
     {
         stat_type s = static_cast<stat_type>(i);
         if (you.stat(s) <= 0)
-            you.stat_zero[s]++;
-        else if (you.stat_zero[s] > 0)
+        {
+            if (you.stat_zero[s] < STATZERO_TURN_CAP)
+                you.stat_zero[s]++;
+        }
+        else if (you.stat_zero[s])
         {
             you.stat_zero[s]--;
             if (you.stat_zero[s] == 0)
@@ -700,38 +705,5 @@ void update_stat_zero()
         }
         else // no stat penalty at all
             continue;
-
-        if (you.stat_zero[i] > STAT_DEATH_TURNS)
-        {
-            ouch(INSTANT_DEATH, NON_MONSTER,
-                 _statloss_killtype(s), you.stat_zero_cause[i].c_str());
-        }
-
-        int paramax = STAT_DEATH_TURNS - STAT_DEATH_START_PARA;
-        int paradiff = max(you.stat_zero[i] - STAT_DEATH_START_PARA, 0);
-        if (x_chance_in_y(paradiff*paradiff, 2*paramax*paramax))
-        {
-            para_stat = s;
-            num_para++;
-        }
-    }
-
-    switch (num_para)
-    {
-    case 0:
-        break;
-    case 1:
-        if (you.duration[DUR_PARALYSIS])
-            break;
-        mprf(MSGCH_WARN, "You faint for lack of %s.",
-                         stat_desc(para_stat, SD_NAME));
-        you.increase_duration(DUR_PARALYSIS, 1 + roll_dice(1,3));
-        break;
-    default:
-        if (you.duration[DUR_PARALYSIS])
-            break;
-        mpr("Your lost attributes cause you to faint.", MSGCH_WARN);
-        you.increase_duration(DUR_PARALYSIS, 1 + roll_dice(num_para, 3));
-        break;
     }
 }

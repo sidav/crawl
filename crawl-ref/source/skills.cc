@@ -42,8 +42,8 @@
 // Note that they don't have to be equal, but it is important to make
 // sure that they're set so that the spending limit will always allow
 // for 1 skill point to be earned.
-#define MAX_COST_LIMIT           250
-#define MAX_SPENDING_LIMIT       250
+#define MAX_COST_LIMIT           265
+#define MAX_SPENDING_LIMIT       265
 
 static int _train(skill_type exsk, int &max_exp, bool simu = false);
 static void _train_skills(int exp, const int cost, const bool simu);
@@ -64,14 +64,13 @@ unsigned int skill_cost_needed(int level)
 int calc_skill_cost(int skill_cost_level)
 {
     const int cost[] = { 1, 2, 3, 4, 5,            // 1-5
-                         7, 9, 12, 15, 18,         // 6-10
-                         28, 40, 56, 76, 100,      // 11-15
-                         130, 165, 195, 215, 230,  // 16-20
-                         240, 248, 250, 250, 250,  // 21-25
-                         250, 250 };
+                         7, 8, 9, 13, 22,         // 6-10
+                         37, 48, 73, 98, 125,      // 11-15
+                         145, 170, 190, 212, 225,  // 16-20
+                         240, 255, 260, 265, 265,  // 21-25
+                         265, 265 };
 
-    ASSERT(skill_cost_level >= 1);
-    ASSERT(skill_cost_level <= 27);
+    ASSERT_RANGE(skill_cost_level, 1, 27 + 1);
     return cost[skill_cost_level - 1];
 }
 
@@ -299,7 +298,7 @@ static void _check_inventory_skills()
 {
     for (int i = 0; i < ENDOFPACK; ++i)
     {
-        // Exit early if ther's no more skill to check.
+        // Exit early if there's no more skill to check.
         if (you.stop_train.empty())
             return;
 
@@ -322,7 +321,7 @@ static void _check_spell_skills()
 {
     for (int i = 0; i < MAX_KNOWN_SPELLS; i++)
     {
-        // Exit early if ther's no more skill to check.
+        // Exit early if there's no more skill to check.
         if (you.stop_train.empty())
             return;
 
@@ -356,7 +355,7 @@ static void _check_abil_skills()
     }
 }
 
-static string _skill_names(skill_set &skills)
+string skill_names(skill_set &skills)
 {
     string s;
     int i = 0;
@@ -365,12 +364,13 @@ static string _skill_names(skill_set &skills)
     {
         ++i;
         s += skill_name(*it);
-        if (i == size)
-            s += ".";
-        else if (i == size - 1)
-            s += " and ";
-        else
-            s+= ", ";
+        if (i < size)
+        {
+            if (i == size - 1)
+                s += " and ";
+            else
+                s+= ", ";
+        }
     }
     return s;
 }
@@ -386,7 +386,7 @@ static void _check_start_train()
 
         if (!you.can_train[*it] && you.train[*it])
             skills.insert(*it);
-        you.can_train[*it] = true;
+        you.can_train.set(*it);
     }
 
     reset_training();
@@ -399,7 +399,7 @@ static void _check_start_train()
             ++it;
 
     if (!skills.empty())
-        mpr("You resume training " + _skill_names(skills));
+        mpr("You resume training " + skill_names(skills) + ".");
 
     you.start_train.clear();
 }
@@ -411,9 +411,6 @@ static void _check_stop_train()
     _check_spell_skills();
     _check_abil_skills();
 
-    if (you.manual_skill != SK_NONE)
-        you.stop_train.erase(you.manual_skill);
-
     if (you.stop_train.empty())
         return;
 
@@ -423,15 +420,17 @@ static void _check_stop_train()
     {
         if (is_invalid_skill(*it))
             continue;
+        if (skill_has_manual(*it))
+            continue;
 
         if (skill_trained(*it) && you.training[*it])
             skills.insert(*it);
-        you.can_train[*it] = false;
+        you.can_train.set(*it, false);
     }
 
     if (!skills.empty())
     {
-        mpr("You stop training " + _skill_names(skills));
+        mpr("You stop training " + skill_names(skills) + ".");
         check_selected_skills();
     }
 
@@ -458,8 +457,6 @@ bool training_restricted(skill_type sk)
     case SK_ARMOUR:
     case SK_DODGING:
     case SK_STEALTH:
-    case SK_STABBING:
-    case SK_TRAPS:
     case SK_UNARMED_COMBAT:
     case SK_SPELLCASTING:
         return false;
@@ -477,7 +474,7 @@ void init_can_train()
     // Clear everything out, in case this isn't the first game.
     you.start_train.clear();
     you.stop_train.clear();
-    you.can_train.init(false);
+    you.can_train.reset();
 
     for (int i = 0; i < NUM_SKILLS; ++i)
     {
@@ -486,7 +483,7 @@ void init_can_train()
         if (is_useless_skill(sk))
             continue;
 
-        you.can_train[sk] = true;
+        you.can_train.set(sk);
         if (training_restricted(sk))
             you.stop_train.insert(sk);
     }
@@ -577,13 +574,13 @@ void init_training()
     skills.init(0);
     for (int i = 0; i < NUM_SKILLS; ++i)
         if (skill_trained(i))
-            skills[i] = pow(you.skill_points[i], 2.0);
+            skills[i] = sqr(you.skill_points[i]);
 
     _scale_array(skills, EXERCISE_QUEUE_SIZE, true);
     _init_queue(you.exercises, skills);
 
     for (int i = 0; i < NUM_SKILLS; ++i)
-        skills[i] = pow(you.skill_points[i], 2.0);
+        skills[i] = sqr(you.skill_points[i]);
 
     _scale_array(skills, EXERCISE_QUEUE_SIZE, true);
     _init_queue(you.exercises_all, skills);
@@ -818,7 +815,7 @@ static void _train_skills(int exp, const int cost, const bool simu)
     {
         // We randomize the order, to avoid a slight bias to first skills.
         // Being trained first can make a difference if skill cost increases.
-        random_shuffle(training_order.begin(), training_order.end());
+        shuffle_array(training_order);
         for (vector<skill_type>::iterator it = training_order.begin();
              it != training_order.end(); ++it)
         {
@@ -974,14 +971,17 @@ static int _train(skill_type exsk, int &max_exp, bool simu)
         return 0;
 
     // Bonus from manual
-    if (exsk == you.manual_skill)
+    int slot;
+    int bonus_left = skill_inc;
+    while (bonus_left > 0 && (slot = manual_slot_for_skill(exsk)) != -1)
     {
-        item_def& manual(you.inv[you.manual_index]);
-        const int bonus = min<int>(skill_inc, manual.plus2);
+        item_def& manual(you.inv[slot]);
+        const int bonus = min<int>(bonus_left, manual.plus2);
         skill_inc += bonus;
+        bonus_left -= bonus;
         manual.plus2 -= bonus;
         if (!manual.plus2 && !simu)
-            stop_studying_manual(true);
+            finish_manual(slot);
     }
 
     const skill_type old_best_skill = best_skill(SK_FIRST_SKILL, SK_LAST_SKILL);
@@ -1043,7 +1043,7 @@ void set_skill_level(skill_type skill, double amount)
 
         // When reducing, we don't want to stop right at the limit, unless
         // we're at skill cost level 0.
-        if (reduced and you.skill_cost_level)
+        if (reduced && you.skill_cost_level)
             ++max_xp;
 
         int cost = calc_skill_cost(you.skill_cost_level);

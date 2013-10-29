@@ -16,10 +16,6 @@ Scythe of Curses
 
 Tässä aseessa on karmea ja hyvin ärsyttävä kirous.
 %%%%
-Sword of Cerebov
-
-Oudot liekit peittävät sen kieron terän.
-%%%%
 Staff of Dispater
 
 Tämä legendaarinen esine voi vapauttaa Helvetin voimat.
@@ -72,17 +68,9 @@ boots of the Assassin
 
 Pehmeät, Salamurhaajien killan suunnittelemat kengät.
 %%%%
-Lear's chain mail
-
-Ketjupanssari, mutta puhdasta kultaa!
-%%%%
 Maxwell's patent armour
 
 Oudon näköinen panssari.
-%%%%
-mask of the Dragon
-
-Sininen naamio.
 %%%%
 fencer's gloves
 

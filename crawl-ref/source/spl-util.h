@@ -41,7 +41,7 @@ enum spell_highlight_colours
     COL_MEMORIZED    = LIGHTGRAY,   // spell has been memorized
     COL_USELESS      = DARKGRAY,    // ability would have no useful effect
     COL_INAPPLICABLE = COL_USELESS, // ability cannot be meanifully applied (eg, no targets)
-    COL_FORBIDDEN    = LIGHTRED,    // The player's god hates this abilty
+    COL_FORBIDDEN    = LIGHTRED,    // The player's god hates this ability
 
     COL_EMPOWERED    = LIGHTGREEN,  // The ability is made stronger by the player's status
     COL_FAVORED      = GREEN,       // the player's god likes this ability
@@ -95,7 +95,7 @@ typedef int cloud_func(coord_def where, int pow, int spreadrate,
                        cloud_type type, const actor* agent, int colour,
                        string name, string tile, int excl_rad);
 
-int apply_area_visible(cell_func cf, int power, actor *agent = NULL);
+int apply_area_visible(cell_func cf, int power, actor *agent);
 
 int apply_monsters_around_square(monster_func mf, const coord_def& where,
                                  int power);

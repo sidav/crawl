@@ -149,6 +149,9 @@ static void _update_feat_at(const coord_def &gp)
     if (disjunction_haloed(gp))
         env.map_knowledge(gp).flags |= MAP_DISJUNCT;
 
+    if (heated(gp))
+        env.map_knowledge(gp).flags |= MAP_HOT;
+
     if (is_sanctuary(gp))
     {
         if (testbits(env.pgrid(gp), FPROP_SANCTUARY_1))
@@ -210,12 +213,16 @@ static show_item_type _item_to_show_code(const item_def &item)
     case OBJ_FOOD:       return SHOW_ITEM_FOOD;
     case OBJ_SCROLLS:    return SHOW_ITEM_SCROLL;
     case OBJ_JEWELLERY:
-        return (jewellery_is_amulet(item)? SHOW_ITEM_AMULET : SHOW_ITEM_RING);
+        return (jewellery_is_amulet(item) ? SHOW_ITEM_AMULET : SHOW_ITEM_RING);
     case OBJ_POTIONS:    return SHOW_ITEM_POTION;
     case OBJ_BOOKS:      return SHOW_ITEM_BOOK;
     case OBJ_STAVES:     return SHOW_ITEM_STAVE;
     case OBJ_RODS:       return SHOW_ITEM_STAVE;
-    case OBJ_MISCELLANY: return SHOW_ITEM_MISCELLANY;
+    case OBJ_MISCELLANY:
+        if (item.sub_type == MISC_RUNE_OF_ZOT)
+            return SHOW_ITEM_RUNE;
+        else
+            return SHOW_ITEM_MISCELLANY;
     case OBJ_CORPSES:    return SHOW_ITEM_CORPSE;
     case OBJ_GOLD:       return SHOW_ITEM_GOLD;
     case OBJ_DETECTED:   return SHOW_ITEM_DETECTED;
@@ -391,7 +398,7 @@ static void _update_monster(monster* mons)
             env.map_knowledge(gp).set_invisible_monster();
         }
 
-        // Being submerged isnot the same as invisibility.
+        // Being submerged is not the same as invisibility.
         if (mons->submerged())
             return;
 
@@ -401,8 +408,7 @@ static void _update_monster(monster* mons)
             you.attribute[ATTR_SEEN_INVIS_SEED] = random_int();
         }
 
-        bool show_location = (mons->friendly()
-                              || (mons->constricted_by == MID_PLAYER));
+        bool show_location = (mons->constricted_by == MID_PLAYER);
 
         // maybe show unstealthy invis monsters
         if (show_location
@@ -451,7 +457,7 @@ static void _update_monster(monster* mons)
 
 void show_update_at(const coord_def &gp, bool terrain_only)
 {
-    if (you.see_cell(gp))
+    if (you.see_cell(gp)) // XXX this prevents detecting invisible monsters
         env.map_knowledge(gp).clear_data();
     else if (!env.map_knowledge(gp).known())
         return;

@@ -145,7 +145,7 @@ static int _make_mimic_item(object_class_type type)
     case OBJ_POTIONS:
         do
             item.sub_type = random2(NUM_POTIONS);
-        while (is_blood_potion(item) || is_fizzing_potion(item));
+        while (is_blood_potion(item));
         break;
 
     case OBJ_BOOKS:
@@ -177,7 +177,7 @@ void wizard_create_spec_monster_name()
 {
     char specs[1024];
     mpr("Enter monster name (or MONS spec): ", MSGCH_PROMPT);
-    if (cancelable_get_line_autohist(specs, sizeof specs) || !*specs)
+    if (cancellable_get_line_autohist(specs, sizeof specs) || !*specs)
     {
         canned_msg(MSG_OK);
         return;
@@ -191,7 +191,7 @@ void wizard_create_spec_monster_name()
         string newerr;
         // Try for a partial match, but not if the user accidentally entered
         // only a few letters.
-        monster_type partial = get_monster_by_name(specs);
+        monster_type partial = get_monster_by_name(specs, true);
         if (strlen(specs) >= 3 && partial != MONS_NO_MONSTER)
         {
             mlist.clear();
@@ -259,7 +259,7 @@ void wizard_create_spec_monster_name()
     // Wizmode users should be able to conjure up uniques even if they
     // were already created. Yay, you can meet 3 Sigmunds at once! :p
     if (mons_is_unique(type) && you.unique_creatures[type])
-        you.unique_creatures[type] = false;
+        you.unique_creatures.set(type, false);
 
     if (!dgn_place_monster(mspec, place, true, false))
     {
@@ -478,7 +478,7 @@ void wizard_spawn_control()
         mprf(MSGCH_PROMPT, "Set monster spawn rate to what? (now %d, lower value = higher rate) ",
              env.spawn_random_rate);
 
-        if (!cancelable_get_line(specs, sizeof(specs)))
+        if (!cancellable_get_line(specs, sizeof(specs)))
         {
             const int rate = atoi(specs);
             if (rate || specs[0] == '0')
@@ -506,7 +506,7 @@ void wizard_spawn_control()
         mprf(MSGCH_PROMPT, "Spawn how many random monsters (max %d)? ",
              max_spawn);
 
-        if (!cancelable_get_line(specs, sizeof(specs)))
+        if (!cancellable_get_line(specs, sizeof(specs)))
         {
             const int num = min(atoi(specs), max_spawn);
             if (num > 0)
@@ -612,7 +612,7 @@ void debug_stethoscope(int mon)
 
     mprf(MSGCH_DIAGNOSTICS,
          "hab=%s beh=%s(%d) foe=%s(%d) mem=%d target=(%d,%d) "
-         "firing_pos=(%d,%d) god=%s",
+         "firing_pos=(%d,%d) patrol_point=(%d,%d) god=%s",
          ((hab == HT_LAND)                       ? "land" :
           (hab == HT_AMPHIBIOUS)                 ? "amphibious" :
           (hab == HT_WATER)                      ? "water" :
@@ -638,6 +638,7 @@ void debug_stethoscope(int mon)
          mons.foe_memory,
          mons.target.x, mons.target.y,
          mons.firing_pos.x, mons.firing_pos.y,
+         mons.patrol_point.x, mons.patrol_point.y,
          god_name(mons.god).c_str());
 
     // Print resistances.
@@ -683,6 +684,30 @@ void debug_stethoscope(int mon)
     if (found_spell)
         mprf(MSGCH_DIAGNOSTICS, "spells: %s", spl.str().c_str());
 
+    ostringstream inv;
+    bool found_item = false;
+    for (int k = 0; k < NUM_MONSTER_SLOTS; ++k)
+    {
+        if (mons.inv[k] != NON_ITEM)
+        {
+            if (found_item)
+                inv << ", ";
+
+            found_item = true;
+
+            inv << k << ": ";
+
+            if (mons.inv[k] >= MAX_ITEMS)
+                inv << " buggy item";
+            else
+                inv << item_base_name(mitm[mons.inv[k]]);
+
+            inv << " (" << static_cast<int>(mons.inv[k]) << ")";
+        }
+    }
+    if (found_item)
+        mprf(MSGCH_DIAGNOSTICS, "inv: %s", inv.str().c_str());
+
     if (mons_is_ghost_demon(mons.type))
     {
         ASSERT(mons.ghost.get());
@@ -710,8 +735,9 @@ void wizard_dismiss_all_monsters(bool force_all)
     char buf[1024] = "";
     if (!force_all)
     {
-        mpr("Regex of monsters to dismiss (ENTER for all): ", MSGCH_PROMPT);
-        bool validline = !cancelable_get_line_autohist(buf, sizeof buf);
+        mpr("What monsters to dismiss (ENTER for all, \"harmful\", \"mobile\" or a regex)? ",
+            MSGCH_PROMPT);
+        bool validline = !cancellable_get_line_autohist(buf, sizeof buf);
 
         if (!validline)
         {
@@ -1339,7 +1365,7 @@ void debug_miscast(int target_index)
 
     char specs[100];
     mpr("Miscast which school or spell, by name? ", MSGCH_PROMPT);
-    if (cancelable_get_line_autohist(specs, sizeof specs) || !*specs)
+    if (cancellable_get_line_autohist(specs, sizeof specs) || !*specs)
     {
         canned_msg(MSG_OK);
         return;
@@ -1394,7 +1420,7 @@ void debug_miscast(int target_index)
              MSGCH_PROMPT);
     }
 
-    if (cancelable_get_line_autohist(specs, sizeof specs) || !*specs)
+    if (cancellable_get_line_autohist(specs, sizeof specs) || !*specs)
     {
         canned_msg(MSG_OK);
         return;
@@ -1444,7 +1470,7 @@ void debug_miscast(int target_index)
         return;
     }
 
-    // Supress "nothing happens" message for monster miscasts which are
+    // Suppress "nothing happens" message for monster miscasts which are
     // only harmless messages, since a large number of those are missing
     // monster messages.
     nothing_happens_when_type nothing = NH_DEFAULT;

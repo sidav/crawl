@@ -8,7 +8,6 @@ enum armour_type
     ARM_RING_MAIL,
     ARM_SCALE_MAIL,
     ARM_CHAIN_MAIL,
-    ARM_SPLINT_MAIL,
     ARM_PLATE_ARMOUR,
 
     ARM_CLOAK,
@@ -84,7 +83,9 @@ enum brand_type // item_def.special
     SPWPN_FREEZING,
     SPWPN_HOLY_WRATH,
     SPWPN_ELECTROCUTION,
+#if TAG_MAJOR_VERSION == 34
     SPWPN_ORC_SLAYING,
+#endif
     SPWPN_DRAGON_SLAYING,
     SPWPN_VENOM,
     SPWPN_PROTECTION,
@@ -216,15 +217,15 @@ enum launch_retval
 enum misc_item_type
 {
     MISC_BOTTLED_EFREET,
-    MISC_AIR_ELEMENTAL_FAN,
+    MISC_FAN_OF_GALES,
     MISC_LAMP_OF_FIRE,
-    MISC_STONE_OF_EARTH_ELEMENTALS,
+    MISC_STONE_OF_TREMORS,
     MISC_LANTERN_OF_SHADOWS,
     MISC_HORN_OF_GERYON,
     MISC_BOX_OF_BEASTS,
     MISC_CRYSTAL_BALL_OF_ENERGY,
 #if TAG_MAJOR_VERSION == 34
-    MISC_EMPTY_EBONY_CASKET,
+    MISC_BUGGY_EBONY_CASKET,
 #endif
     MISC_DISC_OF_STORMS,
 
@@ -245,6 +246,9 @@ enum misc_item_type
 
     MISC_QUAD_DAMAGE, // Sprint only
 
+    MISC_PHIAL_OF_FLOODS,
+    MISC_SACK_OF_SPIDERS,
+
     NUM_MISCELLANY, // mv: used for random generation
     MISC_FIRST_DECK = MISC_DECK_OF_ESCAPE,
     MISC_LAST_DECK  = MISC_DECK_OF_DEFENCE,
@@ -262,6 +266,9 @@ enum missile_type
     MI_LARGE_ROCK,
     MI_SLING_BULLET,
     MI_THROWING_NET,
+#if TAG_MAJOR_VERSION == 34
+    MI_PIE,
+#endif
 
     NUM_MISSILES,
     MI_NONE             // was MI_EGGPLANT... used for launch type detection
@@ -317,7 +324,7 @@ enum scroll_type
     SCR_FOG,
     SCR_ACQUIREMENT,
     SCR_ENCHANT_WEAPON_II,
-    SCR_VORPALISE_WEAPON,
+    SCR_BRAND_WEAPON,
     SCR_RECHARGING,
     SCR_ENCHANT_WEAPON_III,
     SCR_HOLY_WORD,
@@ -372,13 +379,16 @@ enum special_missile_type // to separate from weapons in general {dlb}
     SPMSL_EXPLODING,
     SPMSL_STEEL,
     SPMSL_SILVER,
-    SPMSL_PARALYSIS,                   // paralysis, needle only from here in
-    SPMSL_SLOW,                        // makes slow
-    SPMSL_SLEEP,                       // sleep
-    SPMSL_CONFUSION,                   // confusing
-    SPMSL_SICKNESS,                    // sickness/disease
-    SPMSL_RAGE,                        // berserk rage
+    SPMSL_PARALYSIS,                   // needle only from here on
+    SPMSL_SLOW,
+    SPMSL_SLEEP,
+    SPMSL_CONFUSION,
+#if TAG_MAJOR_VERSION == 34
+    SPMSL_SICKNESS,
+#endif
+    SPMSL_FRENZY,
     NUM_REAL_SPECIAL_MISSILES,
+    SPMSL_BLINDING,
     NUM_SPECIAL_MISSILES,
 };
 
@@ -404,7 +414,9 @@ enum stave_type
     STAFF_SUMMONING,
     STAFF_AIR,
     STAFF_EARTH,
+#if TAG_MAJOR_VERSION == 34
     STAFF_CHANNELING,
+#endif
     NUM_STAVES,
 };
 
@@ -412,9 +424,9 @@ enum rod_type
 {
     ROD_LIGHTNING,
     ROD_SWARM,
-    ROD_DESTRUCTION_I,
-    ROD_DESTRUCTION_II,
-    ROD_DESTRUCTION_III,
+    ROD_FIERY_DESTRUCTION,
+    ROD_FRIGID_DESTRUCTION,
+    ROD_DESTRUCTION,
     ROD_INACCURACY,
     ROD_WARDING,
     ROD_DEMONOLOGY,
@@ -431,9 +443,7 @@ enum weapon_type
     WPN_MACE,
     WPN_FLAIL,
     WPN_MORNINGSTAR,
-#if TAG_MAJOR_VERSION == 34
-    WPN_SPIKED_FLAIL,
-#endif
+    WPN_ROD, // base item for magical rods only
     WPN_DIRE_FLAIL,
     WPN_EVENINGSTAR,
     WPN_GREAT_MACE,

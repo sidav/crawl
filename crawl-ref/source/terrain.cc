@@ -44,6 +44,9 @@
 #include "traps.h"
 #include "view.h"
 #include "viewchar.h"
+#include "mapmark.h"
+
+static bool _revert_terrain_to(coord_def pos, dungeon_feature_type newfeat);
 
 actor* actor_at(const coord_def& c)
 {
@@ -142,7 +145,9 @@ bool feat_is_travelable_stair(dungeon_feature_type feat)
     case DNGN_ENTER_GEHENNA:
     case DNGN_ENTER_COCYTUS:
     case DNGN_ENTER_TARTARUS:
+#if TAG_MAJOR_VERSION == 34
     case DNGN_ENTER_DWARVEN_HALL:
+#endif
     case DNGN_ENTER_ORCISH_MINES:
     case DNGN_ENTER_LAIR:
     case DNGN_ENTER_SLIME_PITS:
@@ -158,7 +163,9 @@ bool feat_is_travelable_stair(dungeon_feature_type feat)
     case DNGN_ENTER_SHOALS:
     case DNGN_ENTER_SPIDER_NEST:
     case DNGN_ENTER_FOREST:
+#if TAG_MAJOR_VERSION == 34
     case DNGN_RETURN_FROM_DWARVEN_HALL:
+#endif
     case DNGN_RETURN_FROM_ORCISH_MINES:
     case DNGN_RETURN_FROM_LAIR:
     case DNGN_RETURN_FROM_SLIME_PITS:
@@ -231,7 +238,9 @@ command_type feat_stair_direction(dungeon_feature_type feat)
     case DNGN_STONE_STAIRS_UP_III:
     case DNGN_ESCAPE_HATCH_UP:
     case DNGN_EXIT_DUNGEON:
+#if TAG_MAJOR_VERSION == 34
     case DNGN_RETURN_FROM_DWARVEN_HALL:
+#endif
     case DNGN_RETURN_FROM_ORCISH_MINES:
     case DNGN_RETURN_FROM_LAIR:
     case DNGN_RETURN_FROM_SLIME_PITS:
@@ -270,7 +279,9 @@ command_type feat_stair_direction(dungeon_feature_type feat)
     case DNGN_ENTER_PANDEMONIUM:
     case DNGN_EXIT_PANDEMONIUM:
     case DNGN_TRANSIT_PANDEMONIUM:
+#if TAG_MAJOR_VERSION == 34
     case DNGN_ENTER_DWARVEN_HALL:
+#endif
     case DNGN_ENTER_ORCISH_MINES:
     case DNGN_ENTER_LAIR:
     case DNGN_ENTER_SLIME_PITS:
@@ -404,7 +415,7 @@ bool feat_is_altar(dungeon_feature_type grid)
 bool feat_is_player_altar(dungeon_feature_type grid)
 {
     // An ugly hack, but that's what religion.cc does.
-    return (you.religion != GOD_NO_GOD
+    return (!you_worship(GOD_NO_GOD)
             && feat_altar_god(grid) == you.religion);
 }
 
@@ -712,8 +723,9 @@ bool is_valid_border_feat(dungeon_feature_type feat)
 // Other features can be defined as mimic in vaults.
 bool is_valid_mimic_feat(dungeon_feature_type feat)
 {
-    // Don't risk trapping the player inside a portal vault.
-    if (feat == DNGN_EXIT_PORTAL_VAULT)
+    // Don't risk trapping the player inside a portal vault, don't destroy
+    // runed doors either.
+    if (feat == DNGN_EXIT_PORTAL_VAULT || feat == DNGN_RUNED_DOOR)
         return false;
 
     if (feat_is_portal(feat) || feat_is_gate(feat))
@@ -848,6 +860,7 @@ void dgn_move_entities_at(coord_def src, coord_def dst,
 #ifdef USE_TILE
     env.tile_bk_fg(dst) = env.tile_bk_fg(src);
     env.tile_bk_bg(dst) = env.tile_bk_bg(src);
+    env.tile_bk_cloud(dst) = env.tile_bk_cloud(src);
 #endif
     env.tile_flv(dst) = env.tile_flv(src);
 
@@ -1086,7 +1099,8 @@ static void _announce_swap(coord_def pos1, coord_def pos2)
 bool swap_features(const coord_def &pos1, const coord_def &pos2,
                    bool swap_everything, bool announce)
 {
-    ASSERT(in_bounds(pos1) && in_bounds(pos2));
+    ASSERT_IN_BOUNDS(pos1);
+    ASSERT_IN_BOUNDS(pos2);
     ASSERT(pos1 != pos2);
 
     if (is_sanctuary(pos1) || is_sanctuary(pos2))
@@ -1284,7 +1298,7 @@ static bool _ok_dest_cell(const actor* orig_actor,
 bool slide_feature_over(const coord_def &src, coord_def preferred_dest,
                         bool announce)
 {
-    ASSERT(in_bounds(src));
+    ASSERT_IN_BOUNDS(src);
 
     const dungeon_feature_type orig_feat = grd(src);
     const actor* orig_actor = actor_at(src);
@@ -1585,14 +1599,20 @@ static const char *dngn_feature_names[] =
 "teleporter", "enter_portal_vault", "exit_portal_vault",
 "expired_portal",
 
-"enter_dwarven_hall", "enter_orcish_mines", "enter_lair",
+#if TAG_MAJOR_VERSION == 34
+"enter_dwarven_hall",
+#endif
+"enter_orcish_mines", "enter_lair",
 "enter_slime_pits", "enter_vaults", "enter_crypt",
 "enter_hall_of_blades", "enter_zot", "enter_temple",
 "enter_snake_pit", "enter_elven_halls", "enter_tomb",
 "enter_swamp", "enter_shoals", "enter_spider_nest",
 "enter_forest", "",
 
-"return_from_dwarven_hall", "return_from_orcish_mines",
+#if TAG_MAJOR_VERSION == 34
+"return_from_dwarven_hall",
+#endif
+"return_from_orcish_mines",
 "return_from_lair", "return_from_slime_pits",
 "return_from_vaults", "return_from_crypt",
 "return_from_hall_of_blades", "return_from_zot",
@@ -1619,6 +1639,9 @@ static const char *dngn_feature_names[] =
 "abyssal_stair",
 "badly_sealed_door",
 #endif
+
+"sealed_stair_up",
+"sealed_stair_down",
 };
 
 dungeon_feature_type dungeon_feature_by_name(const string &name)
@@ -1683,9 +1706,9 @@ void nuke_wall(const coord_def& p)
 
     remove_mold(p);
 
-    grd(p) = (grd(p) == DNGN_MANGROVE) ? DNGN_SHALLOW_WATER : DNGN_FLOOR;
+    _revert_terrain_to(p, ((grd(p) == DNGN_MANGROVE) ? DNGN_SHALLOW_WATER
+                                                     : DNGN_FLOOR));
     env.level_map_mask(p) |= MMT_NUKED;
-    set_terrain_changed(p);
 }
 
 /*
@@ -1813,4 +1836,181 @@ bool is_boring_terrain(dungeon_feature_type feat)
         return true;
 
     return false;
+}
+
+void temp_change_terrain(coord_def pos, dungeon_feature_type newfeat, int dur,
+                         terrain_change_type type, const monster* mon)
+{
+    dungeon_feature_type old_feat = grd(pos);
+    vector<map_marker*> markers = env.markers.get_markers_at(pos);
+    for (int i = 0, size = markers.size(); i < size; ++i)
+    {
+        if (markers[i]->get_type() == MAT_TERRAIN_CHANGE)
+        {
+            map_terrain_change_marker* marker =
+                    dynamic_cast<map_terrain_change_marker*>(markers[i]);
+
+            // If change type matches, just modify old one; no need to add new one
+            if (marker->change_type == type)
+            {
+                if (marker->new_feature == newfeat)
+                {
+                    if (marker->duration < dur)
+                    {
+                        marker->duration = dur;
+                        if (mon)
+                            marker->mon_num = mon->mid;
+                    }
+                }
+                else
+                {
+                    marker->new_feature = newfeat;
+                    marker->duration = dur;
+                    if (mon)
+                        marker->mon_num = mon->mid;
+                }
+                return;
+            }
+            else
+                old_feat = marker->old_feature;
+        }
+    }
+
+    map_terrain_change_marker *marker =
+        new map_terrain_change_marker(pos, old_feat, newfeat, dur, type);
+    if (mon)
+        marker->mon_num = mon->mid;
+    env.markers.add(marker);
+    env.markers.clear_need_activate();
+    dungeon_terrain_changed(pos, newfeat, true, false, true);
+}
+
+static bool _revert_terrain_to(coord_def pos, dungeon_feature_type newfeat)
+{
+    vector<map_marker*> markers = env.markers.get_markers_at(pos);
+
+    bool found_marker = false;
+    for (int i = 0, size = markers.size(); i < size; ++i)
+    {
+        if (markers[i]->get_type() == MAT_TERRAIN_CHANGE)
+        {
+            found_marker = true;
+            map_terrain_change_marker* marker =
+                    dynamic_cast<map_terrain_change_marker*>(markers[i]);
+
+            // Don't revert sealed doors to normal doors if we're trying to
+            // remove the door altogether
+            if (marker->change_type == TERRAIN_CHANGE_DOOR_SEAL
+                && newfeat == DNGN_FLOOR)
+            {
+                env.markers.remove(marker);
+            }
+            else
+            {
+                newfeat = marker->old_feature;
+                if (marker->new_feature == grd(pos))
+                    env.markers.remove(marker);
+            }
+        }
+    }
+
+    grd(pos) = newfeat;
+    set_terrain_changed(pos);
+
+    if (found_marker)
+    {
+        tile_clear_flavour(pos);
+        tile_init_flavour(pos);
+    }
+
+    return true;
+}
+
+bool revert_terrain_change(coord_def pos, terrain_change_type ctype)
+{
+    vector<map_marker*> markers = env.markers.get_markers_at(pos);
+    dungeon_feature_type newfeat = DNGN_UNSEEN;
+
+    for (int i = 0, size = markers.size(); i < size; ++i)
+    {
+        if (markers[i]->get_type() == MAT_TERRAIN_CHANGE)
+        {
+            map_terrain_change_marker* marker =
+                    dynamic_cast<map_terrain_change_marker*>(markers[i]);
+
+            if (marker->change_type == ctype)
+            {
+                if (!newfeat)
+                    newfeat = marker->old_feature;
+                env.markers.remove(marker);
+            }
+            else
+                newfeat = marker->new_feature;
+        }
+    }
+
+    // Don't revert opened sealed doors.
+    if (feat_is_door(newfeat) && grd(pos) == DNGN_OPEN_DOOR)
+        newfeat = DNGN_UNSEEN;
+
+    if (newfeat != DNGN_UNSEEN)
+    {
+        dungeon_terrain_changed(pos, newfeat, true, false, true);
+        return true;
+    }
+    else
+        return false;
+}
+
+bool plant_forbidden_at(const coord_def &p, bool connectivity_only)
+{
+    // ....  Prevent this arrangement by never placing a plant in a way that
+    // #P##  locally disconnects two adjacent cells.  We scan clockwise around
+    // ##.#  p looking for maximal contiguous sequences of traversable cells.
+    // #?##  If we find more than one (and they don't join up cyclically),
+    //       reject the configuration so the plant doesn't disconnect floor.
+    //
+    // ...   We do reject many non-problematic cases, such as this one; dpeg
+    // #P#   suggests doing a connectivity check in ruination after placing
+    // ...   plants, and removing cut-point plants then.
+
+    // First traversable index, last consecutive traversable index, and
+    // the next traversable index after last+1.
+    int first = -1, last = -1, next = -1;
+    int passable = 0;
+    for (int i = 0; i < 8; i++)
+    {
+        coord_def q = p + Compass[i];
+
+        if (feat_is_traversable(grd(q), true))
+        {
+            ++passable;
+            if (first < 0)
+                first = i;
+            else if (last >= 0 && next < 0)
+            {
+                // Found a maybe-disconnected traversable cell.  This is only
+                // acceptable if it might connect up at the end.
+                if (first == 0)
+                    next = i;
+                else
+                    return true;
+            }
+        }
+        else
+        {
+            if (first >= 0 && last < 0)
+                last = i - 1;
+            else if (next >= 0)
+                return true;
+        }
+    }
+
+    // ?#.  Forbid this arrangement when the ? squares are walls.
+    // #P#  If multiple plants conspire to do something similar, that's
+    // ##?  fine: we just want to avoid the most common occurrences.
+    //      This would be an info leak (that at least one ? is not a wall)
+    //      were it not for the previous check.
+
+    return (passable <= 1 && !connectivity_only);
 }

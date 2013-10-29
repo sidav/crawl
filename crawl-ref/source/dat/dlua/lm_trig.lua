@@ -27,11 +27,11 @@
 -- on each triggering only a single, randomly chosen slave will have
 -- on_trigger() called.
 --
--- Ordinarily, a master marker which listens to position-dependant events will
+-- Ordinarily, a master marker which listens to position-dependent events will
 -- only be triggered by events which happen at the master's position.  To make
 -- the master marker also listen to events which happen at the locations of the
 -- slave markers, set the property "listen_to_slaves" to anything but the empty
--- strign true.  This will cause all of the slave markers to be triggered
+-- string true.  This will cause all of the slave markers to be triggered
 -- whenever any of the slave markers are triggered.  To only trigger the slave
 -- where the event happened, also set the property "only_at_slave" to anything
 -- but the empty string.
@@ -587,10 +587,6 @@ end
 -- * entered_level: Called when player enters the level, after all level
 --      setup code has completed.
 --
--- * wall_hit: Wait for the wall to be "hit", either with a weapon (Ctrl+Dir),
---      with a MMISSILE spell (magic dart, crystal spear), or with a ranged
---      missile (stones, etc).
---
 -- * door_opened, door_closed: Called whenever doors are opened and closed by
 --      the player, or whenever they are opened by monsters (monsters do not
 --      close doors).
@@ -773,10 +769,6 @@ function DgnTriggerer:player_move(triggerable, marker, ev)
 end
 
 function DgnTriggerer:player_los(triggerable, marker, ev)
-  triggerable:do_trigger(self, marker, ev)
-end
-
-function DgnTriggerer:wall_hit(triggerable, marker, ev)
   triggerable:do_trigger(self, marker, ev)
 end
 

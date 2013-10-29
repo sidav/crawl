@@ -63,6 +63,7 @@ static spell_type search_order_conj[] = {
     SPELL_FORCE_LANCE,
     SPELL_THROW_FLAME,
     SPELL_THROW_FROST,
+    SPELL_FREEZE,
     SPELL_PAIN,
     SPELL_STING,
     SPELL_SHOCK,
@@ -99,7 +100,7 @@ static spell_type search_order_third[] = {
     SPELL_INVISIBILITY,
     SPELL_SUMMON_SCORPIONS,
     SPELL_CALL_IMP,
-    SPELL_SUMMON_SMALL_MAMMALS,
+    SPELL_SUMMON_SMALL_MAMMAL,
     SPELL_MALIGN_GATEWAY,
     SPELL_CONTROLLED_BLINK,
     SPELL_BLINK,
@@ -117,6 +118,9 @@ static spell_type search_order_misc[] = {
     SPELL_BANISHMENT,
     SPELL_FREEZING_CLOUD,
     SPELL_OZOCUBUS_REFRIGERATION,
+    SPELL_OLGREBS_TOXIC_RADIANCE,
+    SPELL_MASS_CONFUSION,
+    SPELL_ENGLACIATION,
     SPELL_DISPEL_UNDEAD,
     SPELL_CONJURE_BALL_LIGHTNING,
     SPELL_PARALYSE,
@@ -161,6 +165,7 @@ void ghost_demon::reset()
     cycle_colours    = false;
     colour           = BLACK;
     fly              = FL_NONE;
+    acting_part      = MONS_0;
 }
 
 void ghost_demon::init_random_demon()
@@ -212,7 +217,9 @@ void ghost_demon::init_random_demon()
             // some brands inappropriate (e.g. holy wrath)
         }
         while (brand == SPWPN_HOLY_WRATH
+#if TAG_MAJOR_VERSION == 34
                || brand == SPWPN_ORC_SLAYING
+#endif
                || brand == SPWPN_DRAGON_SLAYING
                || brand == SPWPN_PROTECTION
                || brand == SPWPN_EVASION
@@ -706,6 +713,61 @@ void ghost_demon::init_dancing_weapon(const item_def& weapon, int power)
     damage = max(1, damage * power / 100);
 }
 
+void ghost_demon::init_spectral_weapon(const item_def& weapon,
+                                       int power, int wpn_skill)
+{
+    int damg  = property(weapon, PWPN_DAMAGE);
+
+    if (power > 100)
+        power = 100;
+
+    // skill is on a 10 scale
+    if (wpn_skill > 270)
+        wpn_skill = 270;
+
+    colour = weapon.colour;
+    fly = FL_LEVITATE;
+
+    // Hit dice (to hit) scales with weapon skill alone.
+    // Damage scales with weapon skill, but how well depends on spell power.
+    // Defenses scale with spell power alone.
+    // Appropriate investment is rewarded with a stronger spectral weapon.
+
+    xl = max(wpn_skill / 10, 1);
+
+    // At 0 power, weapon skill is 1/3 as effective as on the player
+    // At max power, weapon skill is as effective as on the player.
+    // Power has a linear effect between those endpoints.
+    // It's possible this ends up too strong,
+    // but 100 power on Hexes/Charms will take significant investment
+    // most players wouldn't otherwise get.
+    //
+    // Damage multiplier table:
+    //     |            weapon skill
+    // pow |   3       9       15      21      27
+    // --- |   -----   ----    ----    ----    ----
+    // 0   |   1.04    1.12    1.20    1.28    1.36
+    // 10  |   1.05    1.14    1.24    1.34    1.43
+    // 20  |   1.06    1.17    1.28    1.39    1.50
+    // 30  |   1.06    1.19    1.32    1.45    1.58
+    // 40  |   1.07    1.22    1.36    1.50    1.65
+    // 50  |   1.08    1.24    1.40    1.56    1.72
+    // 60  |   1.09    1.26    1.44    1.62    1.79
+    // 70  |   1.10    1.29    1.48    1.67    1.87
+    // 80  |   1.10    1.31    1.52    1.73    1.94
+    // 90  |   1.11    1.34    1.56    1.79    2.01
+    // 100 |   1.12    1.36    1.60    1.84    2.08
+    damage  = damg;
+    int scale = 250 * 150 / (50 + power);
+    damage *= scale + wpn_skill;
+    damage /= scale;
+
+    speed   = 30;
+    ev      = 10 + div_rand_round(power,10);
+    ac      = 2 + div_rand_round(power,10);
+    max_hp  = 10 + div_rand_round(power,3);
+}
+
 static bool _know_spell(spell_type spell)
 {
     return (you.has_spell(spell) && spell_fail(spell) < 50);
@@ -980,151 +1042,4 @@ int ghost_level_to_rank(const int xl)
     if (xl < 26) return 5;
     if (xl < 27) return 6;
     return 7;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// Laboratory rats!
-
-string adjective_for_labrat_colour(colour_t l_colour)
-{
-    switch (l_colour)
-    {
-    case CYAN:           return "armoured";
-    case YELLOW:         return "beastly";
-    case RED:            return "fiery";
-    case LIGHTCYAN:      return "gaseous";
-    case LIGHTRED:       return "parasitic";
-    case LIGHTBLUE:      return "airborne";
-    case LIGHTMAGENTA:   return "mutated";
-    case MAGENTA:        return "shifting";
-    case GREEN:          return "venomous";
-    case LIGHTGRAY:      return "";
-    default:
-        die("invalid labrat adjective");
-        break;
-    }
-
-    return "";
-}
-
-#ifdef USE_TILE
-int tile_offset_for_labrat_colour(colour_t l_colour)
-{
-    switch (l_colour)
-    {
-    case LIGHTGRAY:      return 0;
-    case CYAN:           return 1;
-    case YELLOW:         return 2;
-    case RED:            return 3;
-    case LIGHTCYAN:      return 4;
-    case LIGHTRED:       return 5;
-    case LIGHTBLUE:      return 6;
-    case LIGHTMAGENTA:   return 7;
-    case MAGENTA:        return 8;
-    case GREEN:          return 9;
-    default:
-        return 0;
-    }
-}
-#endif
-
-colour_t colour_for_labrat_adjective(string adjective)
-{
-    if (adjective == "armoured")    return CYAN;
-    if (adjective == "beastly")     return YELLOW;
-    if (adjective == "fiery")       return RED;
-    if (adjective == "gaseous")     return LIGHTCYAN;
-    if (adjective == "parasitic")   return LIGHTRED;
-    if (adjective == "airborne")    return LIGHTBLUE;
-    if (adjective == "mutated")     return LIGHTMAGENTA;
-    if (adjective == "shifting")    return MAGENTA;
-    if (adjective == "venomous")    return GREEN;
-    if (adjective == "plain")       return LIGHTGRAY;
-
-    return BLACK;
-}
-
-static const colour_t labrat_colour_values[] = {
-    CYAN, YELLOW, RED, LIGHTCYAN, LIGHTRED, LIGHTBLUE, LIGHTMAGENTA, MAGENTA, GREEN
-};
-
-static colour_t _labrat_random_colour()
-{
-    return RANDOM_ELEMENT(labrat_colour_values);
-}
-
-void ghost_demon::init_labrat(colour_t force_colour)
-{
-    // Base init for "plain" laboratory rats. Kept in line with mon-data.h.
-    xl = 5;
-    max_hp = hit_points(xl, 3, 5);
-    ac = 5;
-    ev = 5;
-    speed = 12;
-    colour = force_colour;
-    damage = 9 + random2(3);
-
-    if (colour == BLACK)
-        colour = _labrat_random_colour();
-
-    spells.init(SPELL_NO_SPELL);
-
-    resists = 0;
-
-    switch (colour)
-    {
-    case CYAN: // armoured
-        ac = 20;
-        speed = 9;
-        break;
-    case YELLOW: // beastly
-        xl = 4 + random2(4);
-        ac = 2 + random2(5);
-        ev = 7 + random2(5);
-        speed = 10 + random2(8);
-        break;
-    case RED: // fiery
-        att_flav = AF_FIRE;
-        spells[0] = SPELL_FIRE_BREATH;
-        spellcaster = true;
-        resists |= MR_RES_FIRE * 3 | MR_RES_STICKY_FLAME;
-        break;
-    case LIGHTCYAN: // gaseous
-        spells[0] = SPELL_MEPHITIC_CLOUD;
-        spellcaster = true;
-        resists |= MR_RES_POISON; // otherwise it'll confuse itself
-        break;
-    case LIGHTRED: // leeching
-        att_flav = AF_VAMPIRIC;
-        break;
-    case LIGHTBLUE: // floating
-        fly = FL_LEVITATE;
-        spells[0] = SPELL_SHOCK;
-        spellcaster = true;
-        resists |= MR_RES_ELEC;
-        speed = 15;
-        ev = 15;
-        break;
-    case LIGHTMAGENTA: // mutated
-    {
-        att_flav = AF_MUTATE;
-        const attack_type possibles[] = { AT_CLAW, AT_PECK,
-                AT_TENTACLE_SLAP, AT_TRUNK_SLAP, AT_SNAP, AT_SPLASH };
-        att_type = RANDOM_ELEMENT(possibles);
-        break;
-    }
-    case MAGENTA:
-        spells[0] = spells[1] = spells[2] = spells[3] =
-            spells[4] = spells[5] = SPELL_BLINK;
-        spellcaster = true;
-        break;
-    case GREEN:
-        att_flav = AF_POISON;
-        resists |= MR_RES_POISON * 3;
-        break;
-    case LIGHTGRAY:
-        break;
-    default:
-        break;
-    }
 }

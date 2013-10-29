@@ -103,6 +103,8 @@ spret_type cast_sublimation_of_blood(int pow, bool fail)
             mpr("A conflicting enchantment prevents the spell from "
                 "coming into effect.");
         }
+        else if (you.species == SP_DJINNI)
+            mpr("Draw from your essence to power your essence... yeah right.");
         else if (!you.can_bleed(false))
         {
             mpr("You don't have enough blood to draw power from your "
@@ -192,19 +194,7 @@ void start_recall(int type)
     you.recall_list.clear();
     for (monster_iterator mi; mi; ++mi)
     {
-        if (mi->type == MONS_NO_MONSTER)
-            continue;
-
-        if (!mi->friendly())
-            continue;
-
-        if (mons_class_is_stationary(mi->type)
-            || mons_is_conjured(mi->type))
-        {
-            continue;
-        }
-
-        if (!monster_habitable_grid(*mi, DNGN_FLOOR))
+        if (!mons_is_recallable(&you, *mi))
             continue;
 
         if (type == 1) // undead
@@ -257,7 +247,7 @@ void recall_orders(monster *mons)
     // Don't wander
     mons->behaviour = BEH_SEEK;
 
-    // Don't persue distant enemies
+    // Don't pursue distant enemies
     const actor *foe = mons->get_foe();
     if (foe && !you.can_see(foe))
         mons->foe = MHITYOU;
@@ -334,6 +324,12 @@ void end_recall()
 // Cast_phase_shift: raises evasion (by 8 currently) via Translocations.
 spret_type cast_phase_shift(int pow, bool fail)
 {
+    if (you.duration[DUR_DIMENSION_ANCHOR])
+    {
+        mpr("You are anchored firmly to the material plane!");
+        return SPRET_ABORT;
+    }
+
     fail_check();
     if (!you.duration[DUR_PHASE_SHIFT])
         mpr("You feel the strange sensation of being on two planes at once.");
@@ -444,7 +440,7 @@ spret_type cast_intoxicate(int pow, bool fail)
         mpr("Your head spins!");
     }
 
-    apply_area_visible(_intoxicate_monsters, pow);
+    apply_area_visible(_intoxicate_monsters, pow, &you);
     return SPRET_SUCCESS;
 }
 
@@ -489,6 +485,14 @@ spret_type cast_stoneskin(int pow, bool fail)
     if (you.duration[DUR_ICY_ARMOUR])
     {
         mpr("This spell conflicts with another spell still in effect.");
+        return SPRET_ABORT;
+    }
+
+    if (you.species == SP_LAVA_ORC)
+    {
+        // We can't get here from normal casting, and probably don't want
+        // a message from the Helm card.
+        // mprf("Your skin is naturally stony.");
         return SPRET_ABORT;
     }
 

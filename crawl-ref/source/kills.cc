@@ -5,6 +5,9 @@
 
 #include "AppHdr.h"
 
+#include "kills.h"
+#include "l_libs.h"
+
 #include <algorithm>
 
 #include "describe.h"
@@ -17,7 +20,6 @@
 #include "place.h"
 #include "travel.h"
 #include "tags.h"
-#include "kills.h"
 #include "clua.h"
 #include "options.h"
 #include "unwind.h"
@@ -100,9 +102,9 @@ void KillMaster::load(reader& inf)
 void KillMaster::record_kill(const monster* mon, int killer, bool ispet)
 {
     const kill_category kc =
-        YOU_KILL(killer)? KC_YOU :
-        ispet?            KC_FRIENDLY :
-                          KC_OTHER;
+        YOU_KILL(killer) ? KC_YOU :
+        ispet            ? KC_FRIENDLY :
+                           KC_OTHER;
     categorized_kills[kc].record_kill(mon);
 }
 
@@ -152,8 +154,8 @@ string KillMaster::kill_info() const
         add_kill_info(killtext,
                        kills,
                        count,
-                       i == KC_YOU? NULL :
-                                    category_name((kill_category) i),
+                       i == KC_YOU ? NULL
+                                   : category_name((kill_category) i),
                        needseparator);
         needseparator = true;
     }
@@ -637,7 +639,7 @@ kill_ghost::kill_ghost(const monster* mon)
 string kill_ghost::info() const
 {
     return ghost_name
-           + (Options.dump_kill_places != KDO_NO_PLACES?
+           + (Options.dump_kill_places != KDO_NO_PLACES ?
                 " (" + short_place_name(place) + ")" : string(""));
 }
 

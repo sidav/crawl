@@ -341,19 +341,18 @@ SHUFFLE: [{(
 NSUBST:  A= 2= + / 2= +x / *= x
 NSUBST:  B= 2= + / 2= +x / *= x
 NSUBST:  C= 2= + / *= +x
-SUBST:  @ = @+
-MONS:    toadstool
+SUBST:   @ = @+
 MAP
 xxx@xxx@xxx@xxx
-x.111.B0B.111.x
-xCx1xAxxxAx1xCx
-@.x.A11111A.x.@
-x1x.x1[1(1x.x1x
-x1xBx11>11xBx1x
-x1x.x11{11x.x1x
-@.x.A11111A.x.@
-xCx1xAxxxAx1xCx
-x.111.B0B.111.x
+x.....B0B.....x
+xCx.xAxxxAx.xCx
+@.x.A.....A.x.@
+x.x.x.[.(.x.x.x
+x.xBx..>..xBx.x
+x.x.x..{..x.x.x
+@.x.A.....A.x.@
+xCx.xAxxxAx.xCx
+x.....B0B.....x
 xxx@xxx@xxx@xxx
 ENDMAP
 
@@ -542,7 +541,7 @@ MARKER:  E = lua:fog_machine{\
              size = 12, start_clouds = 1, \
              cloud_type = "black smoke"}
 SUBST:   E = e , e = e n:1
-FTILE:   e = floor_orc
+FTILE:   e = floor_mud
 COLOUR:  e = brown
 SUBST:   e =.
 SHUFFLE: XZ
@@ -736,44 +735,6 @@ MAP
 ENDMAP
 
 ###############################################################################
-# A gallery of extinct species
-# Includes 4 formerly playable races which aren't represented as normal monsters.
-# With much stolen from kb_entry_jail
-NAME:    evilmike_entry_obsolete
-TAGS:    entry no_monster_gen
-WEIGHT:  1
-ORIENT:  float
-SHUFFLE: ABC
-KFEAT:   ABC = floor
-KMONS:  A = gnome ; nothing
-KMONS:  B = elf col:darkgrey name:grey n_adj n_spe n_des ; nothing
-KMONS:  C = dwarf name:hill n_adj n_spe n_des ; nothing
-KMONS:  D = dwarf name:mountain n_adj n_spe n_des ; nothing
-FTILE:  .m+T = floor_vault
-TILE:   X = wall_vines
-COLOUR: .= lightgrey
-SUBST:  ':., X=x
-SUBST:  T:T.
-SUBST:  T=TTV
-MAP
-xxxxxxxxxxxxxxx
-xxxxxxxxxAxxxxx
-xxxxXXXXXmXxxxx
-xxxXX.....XXxxx
-xxBm...T...XXxx
-xxXX........Xxx
-xxX...ccc...Xxx
-xxX.T.c{+.T.+'@
-xxX...ccc...Xxx
-xxXX........Xxx
-xxCm...T...XXxx
-xxxXX.....XXxxx
-xxxxXXXXXmXxxxx
-xxxxxxxxxDxxxxx
-xxxxxxxxxxxxxxx
-ENDMAP
-
-###############################################################################
 
 NAME: nicolae_entry_kraken_aquarium_a
 TAGS: entry no_monster_gen no_pool_fixup no_trap_gen no_item_gen generate_awake
@@ -961,4 +922,3 @@ XXxxxxxxx'xxxxx'x'JxxXX   XXxxGHIxx
    XXXXxxxxXXXxxxxxxXX     Xxxxxxxx
       XXXXXX XXXXXXXXX     XXxxxxx
 ENDMAP
-

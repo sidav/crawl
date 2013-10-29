@@ -106,14 +106,34 @@ TilesFramework::~TilesFramework()
 static void _init_consoles()
 {
 #ifdef TARGET_OS_WINDOWS
+    // Windows has an annoying habbit of disconnecting GUI apps from
+    // consoles at startup, and insisting that console apps start with
+    // consoles.
+    //
+    // We build tiles as a GUI app, so we work around this by
+    // reconnecting ourselves to the parent process's console (if
+    // any), on capable systems.
+
+    // The AttachConsole() function is XP/2003 Server and up, so we
+    // need to do the GetModuleHandle()/GetProcAddress() dance.
     typedef BOOL (WINAPI *ac_func)(DWORD);
     ac_func attach_console = (ac_func)GetProcAddress(
         GetModuleHandle(TEXT("kernel32.dll")), "AttachConsole");
 
     if (attach_console)
     {
-        // Redirect output to the console
-        attach_console((DWORD)-1);
+        // Direct output to the console if it isn't already directed
+        // somewhere.
+
+        // Grab our parent's console (if any), unless we somehow
+        // already have a console.
+        attach_console((DWORD)-1); // ATTACH_PARENT_PROCESS
+
+        // FIXME: this overrides redirection.
+        //
+        // We can get the current stdout/stderr handles with
+        // GetStdHandle, but we can't check their validity by
+        // comparing against either INVALID_HANDLE_VALUE or 0 ...
         freopen("CONOUT$", "wb", stdout);
         freopen("CONOUT$", "wb", stderr);
     }
@@ -1057,21 +1077,22 @@ bool TilesFramework::is_using_small_layout()
 #ifdef TOUCH_UI
     switch (Options.tile_use_small_layout)
     {
-    case OPT_YES:
+    case MB_TRUE:
         return true;
-    case OPT_NO:
+    case MB_FALSE:
         return false;
-    case OPT_AUTO:
+    case MB_MAYBE:
     default:
 #ifdef __ANDROID__
-        Options.tile_use_small_layout = (SDL_ANDROID_GetY16Inches()<40) ? OPT_YES : OPT_NO; // about 2.5" high
+        Options.tile_use_small_layout = (SDL_ANDROID_GetY16Inches()<40) ?
+            MB_TRUE : MB_FALSE; // about 2.5" high
 #else
-        Options.tile_use_small_layout = (m_windowsz.x<=480) ? OPT_YES : OPT_NO;
+        Options.tile_use_small_layout = (m_windowsz.x<=480) ? MB_TRUE : MB_FALSE;
 #endif
-        return Options.tile_use_small_layout == OPT_YES;
+        return Options.tile_use_small_layout == MB_TRUE;
     }
 #else
-    return Options.tile_use_small_layout == OPT_YES;
+    return Options.tile_use_small_layout == MB_TRUE;
 #endif
 }
 void TilesFramework::zoom_dungeon(bool in)
@@ -1167,7 +1188,7 @@ void TilesFramework::place_minimap()
 
 int TilesFramework::calc_tab_lines(const int num_elements)
 {
-    // Integer divison rounded up
+    // Integer division rounded up
     return (num_elements - 1) / m_region_tab->mx + 1;
 }
 
@@ -1318,6 +1339,14 @@ void TilesFramework::layout_statcol()
         m_region_tab->place(m_stat_col, m_windowsz.y - m_region_tab->wy);
 
         m_statcol_bottom = m_region_tab->sy - m_tab_margin;
+
+        // Lava orc temperature bar and zot points.
+        if (you.species == SP_LAVA_ORC)
+            ++crawl_view.hudsz.y;
+        if (crawl_state.game_is_zotdef())
+            ++crawl_view.hudsz.y;
+        m_region_stat->resize(m_region_stat->mx, crawl_view.hudsz.y);
+        m_statcol_top += m_region_stat->dy;
 
         for (int i = 0, size = Options.tile_layout_priority.size(); i < size; ++i)
         {

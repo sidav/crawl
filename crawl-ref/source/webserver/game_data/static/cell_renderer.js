@@ -12,8 +12,9 @@ function ($, view_data, main, tileinfo_player, icons, dngn, enums, map_knowledge
     }
 
     var fg_term_colours, bg_term_colours;
+    var healthy, hp_spend, magic, magic_spend;
 
-    function determine_term_colours()
+    function determine_colours()
     {
         fg_term_colours = [];
         bg_term_colours = [];
@@ -26,6 +27,11 @@ function ($, view_data, main, tileinfo_player, icons, dngn, enums, map_knowledge
             bg_term_colours.push(elem.css("background-color"));
             elem.detach();
         }
+
+        healthy = $("#stats_hp_bar_full").css("background-color");
+        hp_spend = $("#stats_hp_bar_decrease").css("background-color");
+        magic = $("#stats_mp_bar_full").css("background-color");
+        magic_spend = "black";
     }
 
     function in_water(cell)
@@ -166,6 +172,7 @@ function ($, view_data, main, tileinfo_player, icons, dngn, enums, map_knowledge
 
             cell.fg = enums.prepare_fg_flags(cell.fg || 0);
             cell.bg = enums.prepare_bg_flags(cell.bg || 0);
+            cell.cloud = enums.prepare_fg_flags(cell.cloud || 0);
             cell.flv = cell.flv || {};
             cell.flv.f = cell.flv.f || 0;
             cell.flv.s = cell.flv.s || 0;
@@ -186,6 +193,51 @@ function ($, view_data, main, tileinfo_player, icons, dngn, enums, map_knowledge
 
             var fg_idx = cell.fg.value;
             var is_in_water = in_water(cell);
+
+            // draw clouds
+            if (cell.cloud.value && cell.cloud.value < dngn.FEAT_MAX)
+            {
+                // If there will be a front/back cloud pair, draw
+                // the underlying one with correct alpha
+                if (fg_idx)
+                {
+                    this.ctx.save();
+                    try
+                    {
+                        this.ctx.globalAlpha = 0.6;
+                        this.set_nonsubmerged_clip(x, y, 20);
+                        this.draw_main(cell.cloud.value, x, y);
+                    }
+                    finally
+                    {
+                        this.ctx.restore();
+                    }
+
+                    this.ctx.save();
+                    try
+                    {
+                        this.ctx.globalAlpha = 0.2;
+                        this.set_submerged_clip(x, y, 20);
+                        this.draw_main(cell.cloud.value, x, y);
+                    }
+                    finally
+                    {
+                        this.ctx.restore();
+                    }
+                }
+                else
+                {
+                    try
+                    {
+                        this.ctx.globalAlpha = 1.0;
+                        this.draw_main(cell.cloud.value, x, y);
+                    }
+                    finally
+                    {
+                        this.ctx.restore();
+                    }
+                }
+            }
 
             // Canvas doesn't support applying an alpha gradient
             // to an image while drawing; so to achieve the same
@@ -263,12 +315,41 @@ function ($, view_data, main, tileinfo_player, icons, dngn, enums, map_knowledge
 
             this.draw_foreground(x, y, map_cell);
 
+            // draw clouds over stuff
+            if (fg_idx && cell.cloud.value
+                && cell.cloud.value < dngn.FEAT_MAX)
+            {
+                this.ctx.save();
+                try
+                {
+                    this.ctx.globalAlpha = 0.4;
+                    this.set_nonsubmerged_clip(x, y, 20);
+                    this.draw_main(cell.cloud.value, x, y);
+                }
+                finally
+                {
+                    this.ctx.restore();
+                }
+
+                this.ctx.save();
+                try
+                {
+                    this.ctx.globalAlpha = 0.8;
+                    this.set_submerged_clip(x, y, 20);
+                    this.draw_main(cell.cloud.value, x, y);
+                }
+                finally
+                {
+                    this.ctx.restore();
+                }
+            }
+
             this.render_flash(x, y);
 
             this.render_cursors(cx, cy, x, y);
 
-            if (fg_idx == tileinfo_player.PLAYER &&
-                this.display_mode != "glyphs")
+            if (cx == player.pos.x && cy == player.pos.y
+                && map_knowledge.player_on_level())
             {
                 this.draw_minibars(x, y);
             }
@@ -291,14 +372,6 @@ function ($, view_data, main, tileinfo_player, icons, dngn, enums, map_knowledge
         // adapted from DungeonRegion::draw_minibars in tilereg_dgn.cc
         draw_minibars: function(x, y)
         {
-            var healthy = "#00FF00";
-            //  damaged = "#FFFF00";
-            //  wounded = "#960000";
-            var hp_spend= "#FF0000";
-
-            var magic = "#0000FF";
-            var magic_spend = "#000000";
-
             // don't draw if hp and mp is full
             if (player.hp == player.hp_max
                 && player.mp == player.mp_max)
@@ -306,7 +379,8 @@ function ($, view_data, main, tileinfo_player, icons, dngn, enums, map_knowledge
                 return;
             }
 
-            var hp_bar_offset = 2;
+            var bar_height = Math.floor(this.cell_height/16);
+            var hp_bar_offset = bar_height;
 
             // TODO: use different colors if heavily wounded, like in the tiles version
             if (player.mp_max > 0) {
@@ -314,14 +388,14 @@ function ($, view_data, main, tileinfo_player, icons, dngn, enums, map_knowledge
                 if (mp_percent < 0) mp_percent = 0;
 
                 this.ctx.fillStyle = magic_spend;
-                this.ctx.fillRect(x, y + this.cell_height - 2,
-                                  this.cell_width, 2);
+                this.ctx.fillRect(x, y + this.cell_height - bar_height,
+                                  this.cell_width, bar_height);
 
                 this.ctx.fillStyle = magic;
-                this.ctx.fillRect(x, y + this.cell_height - 2,
-                                  this.cell_width * mp_percent, 2);
+                this.ctx.fillRect(x, y + this.cell_height - bar_height,
+                                  this.cell_width * mp_percent, bar_height);
 
-                hp_bar_offset += 2;
+                hp_bar_offset += bar_height;
             }
 
             var hp_percent = player.hp / player.hp_max;
@@ -329,11 +403,11 @@ function ($, view_data, main, tileinfo_player, icons, dngn, enums, map_knowledge
 
             this.ctx.fillStyle = hp_spend;
             this.ctx.fillRect(x, y + this.cell_height - hp_bar_offset,
-                              this.cell_width, 2);
+                              this.cell_width, bar_height);
 
             this.ctx.fillStyle = healthy;
             this.ctx.fillRect(x, y + this.cell_height - hp_bar_offset,
-                              this.cell_width * hp_percent, 2);
+                              this.cell_width * hp_percent, bar_height);
         },
 
         render_cell: function()
@@ -559,6 +633,8 @@ function ($, view_data, main, tileinfo_player, icons, dngn, enums, map_knowledge
                 {
                     if (cell.sanctuary)
                         this.draw_dngn(dngn.SANCTUARY, x, y);
+                    if (cell.heat_aura)
+                        this.draw_dngn(dngn.HEAT_AURA + cell.heat_aura - 1, x, y);
                     if (cell.silenced)
                         this.draw_dngn(dngn.SILENCED, x, y);
                     if (cell.suppressed)
@@ -650,6 +726,9 @@ function ($, view_data, main, tileinfo_player, icons, dngn, enums, map_knowledge
 
             if (fg.NET)
                 this.draw_icon(icons.TRAP_NET, x, y);
+
+            if (fg.WEB)
+                this.draw_icon(icons.TRAP_WEB, x, y);
 
             if (fg.S_UNDER)
                 this.draw_icon(icons.SOMETHING_UNDER, x, y);
@@ -762,8 +841,11 @@ function ($, view_data, main, tileinfo_player, icons, dngn, enums, map_knowledge
                 status_shift += 10;
             }
 
+            // Anim. weap. and summoned might overlap, but that's okay
             if (fg.ANIM_WEP)
                 this.draw_icon(icons.ANIMATED_WEAPON, x, y);
+            if (fg.SUMMONED)
+                this.draw_icon(icons.SUMMONED, x, y);
 
             if (bg.UNSEEN && (bg.value || fg.value))
                 this.draw_icon(icons.MESH, x, y);
@@ -903,7 +985,7 @@ function ($, view_data, main, tileinfo_player, icons, dngn, enums, map_knowledge
 
     $(document).off("game_init.cell_renderer")
         .on("game_init.cell_renderer", function () {
-            determine_term_colours();
+            determine_colours();
         });
 
     return {

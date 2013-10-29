@@ -222,9 +222,6 @@ ifeq ($(uname_S),Darwin)
 	endif
 	COPY_FONTS = yes
 endif
-ifdef USE_LUAJIT
-	BUILD_LUA := YesPlease
-endif
 ifdef USE_ICC
 	NO_RDYNAMIC := YesPlease
 endif
@@ -443,6 +440,7 @@ ifdef BUILD_UNIVERSAL
 # [ds] 10.4 SDK g++-4.0 + x86_64 runs into SDL compile issues.
 CFLAGS_ARCH := -arch i386 -arch ppc -faltivec
 CFLAGS_DEPCC_ARCH := -arch i386
+NO_INLINE_DEPGEN := YesPlease
 else
 CFLAGS_ARCH := -arch $(MARCH)
 endif
@@ -458,8 +456,9 @@ CXX += -gcc-name=gcc-$(GCC_VER) -gxx-name=g++-$(GCC_VER)
 endif
 
 ifndef CROSSHOST
-HOSTCC = $(CC)
-HOSTCXX = $(CXX)
+# Don't need a universal build of host tools, so use DEPCC.
+HOSTCC = $(DEPCC)
+HOSTCXX = $(DEPCXX)
 export HOSTCC
 export HOSTCXX
 endif
@@ -530,17 +529,23 @@ else
   ifneq (,$(shell $(GXX) --version|grep 'g++.*4\.2\.'))
     # OS X uses a buggy ancient version of gcc without fixes from even
     # subsequent point releases of 4.2.
-    CFOPTIMIZE := -O1
+    CFOPTIMIZE := -O0
   else
     CFOPTIMIZE := -O2
   endif
 endif
 
 ifdef LTO
-CFOPTIMIZE += -flto=jobserver -fwhole-program
-  # FIXME: this check is fragile, and should be done via a full compile test.
-  ifeq ($(shell $(GXX) -x c++ /dev/null -fno-fat-lto-objects 2>&1 | grep 'unrecognized command line option'),)
-    CFOPTIMIZE += -fno-fat-lto-objects
+  ifeq ($(shell $(GXX) -v 2>&1|grep clang),)
+    CFOPTIMIZE += -flto=jobserver -fwhole-program
+    # FIXME: this check is fragile, and should be done via a full compile test.
+    ifeq ($(shell $(GXX) -x c++ /dev/null -fno-fat-lto-objects 2>&1 | grep 'unrecognized command line option'),)
+      CFOPTIMIZE += -fno-fat-lto-objects
+    endif
+  else
+    # Clang uses a different syntax than gcc, using -O4 instead.  This means
+    # you can't select a different level of optimization to go with LTO.
+    CFOPTIMIZE := $(patsubst -O%,,$(CFOPTIMIZE)) -O4
   endif
 endif
 
@@ -573,18 +578,26 @@ ifndef BUILD_LUA
   endif
 endif
 ifndef BUILD_LUA
-  ifneq ($(shell $(PKGCONFIG) lua5.1 --exists || echo no),)
-    ifneq ($(shell $(PKGCONFIG) lua --exists || echo no),)
-      BUILD_LUA = yes
+  ifneq ($(USE_LUAJIT),)
+    ifeq ($(shell $(PKGCONFIG) luajit --exists || echo no),)
+      LUA_PACKAGE = luajit
     else
-      ifeq ($(shell $(PKGCONFIG) lua --modversion | head -c 3),5.1)
-        LUA_PACKAGE = lua
-      else
-        BUILD_LUA = yes
-      endif
+      BUILD_LUA = yes
     endif
   else
-    LUA_PACKAGE = lua5.1
+    ifneq ($(shell $(PKGCONFIG) lua5.1 --exists || echo no),)
+      ifneq ($(shell $(PKGCONFIG) lua --exists || echo no),)
+        BUILD_LUA = yes
+      else
+        ifeq ($(shell $(PKGCONFIG) lua --modversion | head -c 3),5.1)
+          LUA_PACKAGE = lua
+        else
+          BUILD_LUA = yes
+        endif
+      endif
+    else
+      LUA_PACKAGE = lua5.1
+    endif
   endif
 endif
 ifndef BUILD_LUA
@@ -686,7 +699,8 @@ INCLUDES_L += $(PNG_INCLUDE) $(FREETYPE_INCLUDE) $(SDL_INCLUDE)
 endif # TILES
 
 # On clang, unknown -Wfoo is merely a warning, thus -Werror.
-CFWARN_L += $(shell w=-Wno-array-bounds;echo|$(GXX) -E - -Werror $$w >/dev/null 2>&1 && echo $$w)
+CFWARN_L += $(shell w=-Wno-array-bounds;echo|$(GXX) -E -x c++ - -Werror $$w >/dev/null 2>&1 && echo $$w)
+CFWARN   += $(shell w=-Wmissing-declarations;echo|$(GXX) -E -x c++ - -Werror $$w >/dev/null 2>&1 && echo $$w)
 
 CFWARN_L += -Wno-parentheses -Wno-unused-parameter -Wwrite-strings -Wshadow
 CFOTHERS_L = $(EXTERNAL_FLAGS_L) $(EXTRA_FLAGS) $(DEFINES) $(SDL_CFLAGS)
@@ -951,6 +965,10 @@ CFWARN := -wd383,810,869,981,1418 -we14,193,304
 CFWARN_L :=
 endif
 
+ifeq (,$(shell echo 'int main(){return 1;}'|$(GXX) -x c++ - -o /dev/null -fuse-ld=gold 2>&1))
+  LDFLAGS += -fuse-ld=gold
+endif
+
 LDFLAGS += $(CFOPTIMIZE) $(CFOPTIMIZE_L)
 
 ifdef REPORT
@@ -1067,10 +1085,10 @@ LIBS += $(CONTRIB_LIBS) $(EXTRA_LIBS)
 DOC_BASE        := ../docs
 DOC_TEMPLATES   := $(DOC_BASE)/template
 GENERATED_DOCS  := $(DOC_BASE)/aptitudes.txt $(DOC_BASE)/FAQ.html $(DOC_BASE)/crawl_manual.txt
-GENERATED_HEADERS := art-enum.h config.h #the rest are private
-GENERATED_FILES := $(GENERATED_HEADERS) art-data.h mon-mst.h mi-enum.h \
+GENERATED_HEADERS := art-enum.h config.h mon-mst.h #the rest are private
+GENERATED_FILES := $(GENERATED_HEADERS) art-data.h mi-enum.h \
                    $(RLTILES)/dc-unrand.txt build.h compflag.h dat/dlua/tags.lua \
-                   cmd-name.h $(INI_OBJECTS)
+                   cmd-name.h
 
 SRC_PKG_BASE  := stone_soup
 SRC_VERSION   := $(shell git describe --tags $(MERGE_BASE) 2>/dev/null || cat util/release_ver)
@@ -1141,8 +1159,11 @@ ifneq ($(GOALS),$(filter clean test %-windows,$(GOALS)))
 # This should eliminate an annoying need to use 'make clean' every time.
 #
 
-TRACK_CFLAGS = $(subst ','\'',$(CC) $(CXX) $(ALL_CFLAGS))           # (stray ' for highlights)
-OLD_CFLAGS = $(shell cat .cflags 2>/dev/null)
+TRACK_CFLAGS = $(strip $(subst ','\'',$(CC) $(CXX) $(ALL_CFLAGS)))
+        # (stray ' for highlights)
+OLD_CFLAGS = $(strip $(subst ','\'',$(shell cat .cflags 2>/dev/null)))
+        # (stray ' for highlights)
+
 ifneq ($(TRACK_CFLAGS),$(OLD_CFLAGS))
   NEED_REBUILD = y
 endif
@@ -1150,6 +1171,8 @@ endif
 .cflags: .force-cflags
 ifdef NEED_REBUILD
 	@echo "    * rebuilding crawl: new build flags or prefix"
+	@echo 'TRACK_CFLAGS = $(TRACK_CFLAGS) #EOL'
+	@echo 'OLD_CFLAGS   = $(OLD_CFLAGS) #EOL'
 	@echo '$(TRACK_CFLAGS)' > .cflags
 endif
 
@@ -1396,7 +1419,9 @@ $(DEPS): %.d: %.cc
 ifdef PCH
 -include AppHdr.h.d
 %.gch: % .cflags $(CONTRIB_LIBS)
-	$(QUIET_PCH)$(CXX) $(ALL_CFLAGS) $(INLINE_DEPGEN_CFLAGS) -c $< -o $@
+# This needs -MD, not -MMD, lest we be haunted by the ghosts of stale
+# system headers.
+	$(QUIET_PCH)$(CXX) $(ALL_CFLAGS) -MD -c $< -o $@
 
 CC_DEP := AppHdr.h.gch
 endif
@@ -1636,9 +1661,14 @@ android:
 TESTS=test woken_rest unwoken_rest fireworks cerebov pan_lords miscasts kraken
 test: $(foreach i, $(TESTS), test-$(i))
 
-test-%: $(GAME) util/fake_pty
+test-%: $(GAME) util/fake_pty builddb
 	util/fake_pty test/stress/run $*
 	@echo "Finished: $*"
 
 util/fake_pty: util/fake_pty.c
 	$(if $(HOSTCC),$(HOSTCC),$(CC)) -Wall $< -o $@ -lutil
+
+# Should be not needed, but the race condition in bug #6509 is hard to fix.
+builddb: $(GAME)
+	./$(GAME) --builddb
+.PHONY: builddb

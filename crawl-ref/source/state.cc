@@ -166,8 +166,8 @@ void game_state::cant_cmd_any(string reason)
 
 // The method is called to prevent the "no repeating zero turns
 // commands" message that input() generates (in the absence of
-// cancelling the repeition) for a repeated command that took no
-// turns.  A wrapper around cancel_cmd_repeat(), its only purpose it
+// cancelling the repetition) for a repeated command that took no
+// turns.  A wrapper around cancel_cmd_repeat(), its only purpose is
 // to make it clear why cancel_cmd_repeat() is being called.
 void game_state::zero_turns_taken()
 {
@@ -248,7 +248,10 @@ bool interrupt_cmd_repeat(activity_interrupt_type ai,
         if (ai == AI_FULL_MP)
             crawl_state.cancel_cmd_repeat("Magic restored.");
         else if (ai == AI_FULL_HP)
-            crawl_state.cancel_cmd_repeat("HP restored.");
+        {
+            string health = (you.species == SP_DJINNI ? "EP" : "HP");
+            crawl_state.cancel_cmd_repeat(health + " restored");
+        }
         else
             crawl_state.cancel_cmd_repeat("Command repetition interrupted.");
 

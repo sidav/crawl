@@ -25,7 +25,7 @@
  *
  * Algorithm description:
  * The algorithm operates on a rectangular grid. Each cell can be 'wall'
- * or 'floor'. A (non-border) cell has 8 neigbours - diagonals count.
+ * or 'floor'. A (non-border) cell has 8 neighbours - diagonals count.
  * There is also a cell store with two operations: store a given cell on
  * top, and pull a cell from the store. The cell to be pulled is selected
  * randomly from the store if N_cells_in_store < 125, and from the top
@@ -33,7 +33,7 @@
  * repetitions, so a given cell can be stored multiple times.
  *
  * The algorithm starts with most of the map filled with 'wall', with a
- * "seed" of some floor cells; their neigbouring wall cells are in store.
+ * "seed" of some floor cells; their neighbouring wall cells are in store.
  * The main loop in delveon() is repeated until the desired number of
  * floor cells is achieved, or there is nothing in store:
  *     1) Get a cell from the store;
@@ -178,8 +178,7 @@ static int cellnum_est(int world, int ngb_min, int ngb_max)
 {
     static int denom[12] = {0, 0, 8, 7, 6, 5, 5, 4, 4, 4, 3, 3};
     ASSERT(world > 0);
-    ASSERT(ngb_min + ngb_max >= 2);
-    ASSERT(ngb_min + ngb_max < 12);
+    ASSERT_RANGE(ngb_min + ngb_max, 2, 12);
 
     return world / denom[ngb_min + ngb_max];
 }
@@ -237,12 +236,10 @@ static int _make_seed(map_lines *map, store_type& store)
 
 void delve(map_lines *map, int ngb_min, int ngb_max, int connchance, int cellnum, int top)
 {
-    ASSERT(ngb_min >= 1);
-    ASSERT(ngb_min <= 3);
+    ASSERT_RANGE(ngb_min, 1, 4);
     ASSERT(ngb_min <= ngb_max);
     ASSERT(ngb_max <= 8);
-    ASSERT(connchance >= 0);
-    ASSERT(connchance <= 100);
+    ASSERT_RANGE(connchance, 0, 101);
 
     store_type store;
     int world = _make_seed(map, store);

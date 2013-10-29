@@ -5,6 +5,8 @@
 
 #include "AppHdr.h"
 
+#include "dgn-layouts.h"
+
 #include "coordit.h"
 #include "dungeon.h"
 #include "libutil.h"
@@ -285,7 +287,7 @@ void dgn_build_chaotic_city_level(dungeon_feature_type force_wall)
 
         dungeon_feature_type feature = DNGN_FLOOR;
         if (one_chance_in(10))
-            feature = coinflip()? DNGN_DEEP_WATER : DNGN_LAVA;
+            feature = coinflip() ? DNGN_DEEP_WATER : DNGN_LAVA;
 
         _octa_room(room, oblique_max, feature);
     }

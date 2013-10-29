@@ -135,6 +135,8 @@ unsigned short _cell_feat_show_colour(const map_cell& cell,
             colour = ETC_DISJUNCTION;
         else if (cell.flags & MAP_SUPPRESSED)
             colour = LIGHTGREEN;
+        else if (cell.flags & MAP_HOT)
+            colour = ETC_FIRE;
     }
 
     if (Options.show_travel_trail && travel_trail_index(loc) >= 0)
@@ -222,8 +224,10 @@ static int _get_mons_colour(const monster_info& mi)
     }
 
     // Backlit monsters are fuzzy and override brands.
-    if (!crawl_state.game_is_arena() &&
-        !you.can_see_invisible() && mi.is(MB_INVISIBLE))
+    if (!crawl_state.game_is_arena()
+        && !you.can_see_invisible()
+        && mi.is(MB_INVISIBLE)
+        && mi.attitude != ATT_FRIENDLY)
     {
         col = DARKGREY;
     }
@@ -290,7 +294,7 @@ show_class get_cell_show_class(const map_cell& cell,
         return SH_MONSTER;
     }
 
-    if (cell.cloud() != CLOUD_NONE && cell.cloud() != CLOUD_GLOOM)
+    if (cell.cloud() != CLOUD_NONE)
         return SH_CLOUD;
 
     if (feat_is_trap(cell.feat())
@@ -447,14 +451,6 @@ static cglyph_t _get_cell_glyph_with_class(const map_cell& cell,
     {
         const feature_def &fdef = get_feature_def(show);
         g.ch = cell.seen() ? fdef.symbol : fdef.magic_symbol;
-    }
-
-    if (cell_cloud == CLOUD_GLOOM)
-    {
-        if (coloured)
-            g.col = cell.cloud_colour();
-        else
-            g.col = DARKGREY;
     }
 
     if (g.col)

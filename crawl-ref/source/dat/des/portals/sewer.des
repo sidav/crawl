@@ -19,14 +19,18 @@ function sewer_portal(e)
 
   local messager =
     timed_msg {
-      visible = true,
-      -- $F{xxx} will be substituted with the 'entity' property of the timed
-      -- marker, or with the desc property (if entity is not set).
-      messages = time_messages(timeout_turns/10,
-                               "$F{The} is slowly rusting away.",
-                               "$F{The} is rusting away.",
-                               "$F{The} is quickly rusting away.",
-                               "$F{The} is falling apart.")
+       initmsg = { "You hear the sound of rushing water.",
+                   "There is an entrance to a sewer on this level. "
+                   .. "Hurry and find it before the portal rusts away!" },
+      finalmsg = "You hear the drain falling apart.",
+
+      verb = 'rusting',
+      noisemaker = 'drain',
+      ranges = {
+        { 5000, 'slow ' },  { 4000, '' },
+        { 2500, 'brisk ' }, { 1500, 'quick ' },
+        { 0, 'rapid ' }
+      }
     }
 
   e.lua_marker('O',
@@ -202,18 +206,18 @@ KMONS:  1 = rat / grey rat / green rat w:5 / giant centipede w:5 / \
             giant cockroach / giant mite / giant gecko / worm w:5 / nothing
 NSUBST: - = 8:1 / *:W
 MAP
-.xxx....xxx.
+ xxx    xxx
 xx-xxxxxx-xx
 x----------x
 x---xxxx---x
 xx-xx--xx-xx
-.x-x--O-x-x.
-.x-x----x-x.
+ x-x--O-x-x
+ x-x----x-x
 xx-xx--xx-xx
 x---x--x---x
 x---x------x
 xx-xxxxxx-xx
-.x@x....xxx.
+ x@x    xxx
 ENDMAP
 
 NAME:   gup_sewer_entry_bowl
@@ -282,8 +286,7 @@ ITEM:     potion of heal wounds / potion of curing
 ITEM:     potion of curing / potion of curing q:2 w:5 / \
           potion of heal wounds / potion of heal wounds q:2 w:5
 KITEM:    f = potion of flight q:2 ident:type, potion of restore abilities w:7 / \
-          potion of gain intelligence / potion of gain strength / \
-          potion of gain dexterity
+          potion of beneficial mutation w:30
 KFEAT:    f = shallow_water
 MONS:     rat / grey rat / green rat w:2 / nothing w:3
 MAP

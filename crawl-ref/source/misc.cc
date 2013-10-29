@@ -119,7 +119,7 @@ static void _create_monster_hide(const item_def corpse)
 
     do_uncurse_item(item, false);
     const monster_type montype =
-        static_cast<monster_type>(corpse.orig_monnum - 1);
+        static_cast<monster_type>(corpse.orig_monnum);
     if (!invalid_monster_type(montype) && mons_is_unique(montype))
         item.inscription = mons_type_name(montype, DESC_PLAIN);
 
@@ -141,7 +141,8 @@ int get_max_corpse_chunks(monster_type mons_class)
 
 void turn_corpse_into_skeleton(item_def &item)
 {
-    ASSERT(item.base_type == OBJ_CORPSES && item.sub_type == CORPSE_BODY);
+    ASSERT(item.base_type == OBJ_CORPSES);
+    ASSERT(item.sub_type == CORPSE_BODY);
 
     // Some monsters' corpses lack the structure to leave skeletons
     // behind.
@@ -170,7 +171,8 @@ static void _maybe_bleed_monster_corpse(const item_def corpse)
 void turn_corpse_into_chunks(item_def &item, bool bloodspatter,
                              bool make_hide)
 {
-    ASSERT(item.base_type == OBJ_CORPSES && item.sub_type == CORPSE_BODY);
+    ASSERT(item.base_type == OBJ_CORPSES);
+    ASSERT(item.sub_type == CORPSE_BODY);
     const item_def corpse = item;
     const int max_chunks = get_max_corpse_chunks(item.mon_type);
 
@@ -183,11 +185,16 @@ void turn_corpse_into_chunks(item_def &item, bool bloodspatter,
     item.quantity  = 1 + random2(max_chunks);
     item.quantity  = stepdown_value(item.quantity, 4, 4, 12, 12);
 
+    bool wants_for_spells = you.has_spell(SPELL_SIMULACRUM)
+                            || you.has_spell(SPELL_SUBLIMATION_OF_BLOOD);
     // Don't mark it as dropped if we are forcing autopickup of chunks.
-    if (is_bad_food(item) && you.force_autopickup[OBJ_FOOD][FOOD_CHUNK] <= 0)
+    if (you.force_autopickup[OBJ_FOOD][FOOD_CHUNK] <= 0
+        && is_bad_food(item) && !wants_for_spells)
+    {
         item.flags |= ISFLAG_DROPPED;
+    }
     else if (you.species != SP_VAMPIRE)
-        item.flags &= ~(ISFLAG_THROWN | ISFLAG_DROPPED);
+        clear_item_pickup_flags(item);
 
     // Happens after the corpse has been butchered.
     if (make_hide)
@@ -218,11 +225,11 @@ void butcher_corpse(item_def &item, maybe_bool skeleton, bool chunks)
 {
     item_was_destroyed(item);
     if (!mons_skeleton(item.mon_type))
-        skeleton = B_FALSE;
-    if (skeleton == B_TRUE || skeleton == B_MAYBE && one_chance_in(3))
+        skeleton = MB_FALSE;
+    if (skeleton == MB_TRUE || skeleton == MB_MAYBE && one_chance_in(3))
     {
         if (chunks)
-            _turn_corpse_into_skeleton_and_chunks(item, skeleton != B_TRUE);
+            _turn_corpse_into_skeleton_and_chunks(item, skeleton != MB_TRUE);
         else
         {
             _maybe_bleed_monster_corpse(item);
@@ -306,6 +313,36 @@ static void _compare_blood_quantity(item_def &stack, int timer_size)
     }
 }
 
+static void _init_coagulated_blood(item_def &stack, int count, item_def &old,
+                                   vector<int> &age_timer)
+{
+    stack.base_type = OBJ_POTIONS;
+    stack.sub_type  = POT_BLOOD_COAGULATED;
+    stack.quantity  = count;
+    stack.plus      = 0;
+    stack.plus2     = 0;
+    stack.special   = 0;
+    stack.flags     = old.flags & (ISFLAG_DROPPED | ISFLAG_THROWN
+                                   | ISFLAG_NO_PICKUP | ISFLAG_SUMMONED
+                                   | ISFLAG_DROPPED_BY_ALLY);
+    stack.inscription = old.inscription;
+    item_colour(stack);
+
+    CrawlHashTable &props_new = stack.props;
+    props_new["timer"].new_vector(SV_INT, SFLAG_CONST_TYPE);
+    CrawlVector &timer_new = props_new["timer"].get_vector();
+
+    int val;
+    while (!age_timer.empty())
+    {
+        val = age_timer[age_timer.size() - 1];
+        age_timer.pop_back();
+        timer_new.push_back(val);
+    }
+    ASSERT(timer_new.size() == count);
+    props_new.assert_validity();
+}
+
 void maybe_coagulate_blood_potions_floor(int obj)
 {
     item_def &blood = mitm[obj];
@@ -379,7 +416,8 @@ void maybe_coagulate_blood_potions_floor(int obj)
     {
         // Now that coagulating is necessary, check square for
         // !coagulated blood.
-        ASSERT(blood.pos.x >= 0 && blood.pos.y >= 0);
+        ASSERT(blood.pos.x >= 0);
+        ASSERT(blood.pos.y >= 0);
         for (stack_iterator si(blood.pos); si; ++si)
         {
             if (si->base_type == OBJ_POTIONS
@@ -441,28 +479,7 @@ void maybe_coagulate_blood_potions_floor(int obj)
         return;
 
     item_def &item = mitm[o];
-    item.base_type = OBJ_POTIONS;
-    item.sub_type  = POT_BLOOD_COAGULATED;
-    item.quantity  = coag_count;
-    item.plus      = 0;
-    item.plus2     = 0;
-    item.special   = 0;
-    item.flags     = 0;
-    item_colour(item);
-
-    CrawlHashTable &props_new = item.props;
-    props_new["timer"].new_vector(SV_INT, SFLAG_CONST_TYPE);
-    CrawlVector &timer_new = props_new["timer"].get_vector();
-
-    int val;
-    while (!age_timer.empty())
-    {
-        val = age_timer[age_timer.size() - 1];
-        age_timer.pop_back();
-        timer_new.push_back(val);
-    }
-    ASSERT(timer_new.size() == coag_count);
-    props_new.assert_validity();
+    _init_coagulated_blood(item, coag_count, blood, age_timer);
 
     if (blood.held_by_monster())
         move_item_to_grid(&o, blood.holding_monster()->pos());
@@ -487,8 +504,7 @@ static string _get_desc_quantity(const int quant, const int total)
         return "Some of your";
 }
 
-// Prints messages for blood potions coagulating in inventory (coagulate = true)
-// or whenever potions are cursed into potions of decay (coagulate = false).
+// Prints messages for blood potions coagulating or rotting in inventory.
 static void _potion_stack_changed_message(item_def &potion, int num_changed,
                                           string verb)
 {
@@ -501,7 +517,8 @@ static void _potion_stack_changed_message(item_def &potion, int num_changed,
          verb.c_str());
 }
 
-// Returns true if "equipment weighs less" message needed.
+// Returns true if the total number of potions in inventory decreased,
+// in which case burden_change() will need to be called.
 // Also handles coagulation messages.
 bool maybe_coagulate_blood_potions_inv(item_def &blood)
 {
@@ -679,33 +696,10 @@ bool maybe_coagulate_blood_potions_inv(item_def &blood)
     {
         item_def &item   = you.inv[freeslot];
         item.clear();
-
         item.link        = freeslot;
         item.slot        = index_to_letter(item.link);
-        item.base_type   = OBJ_POTIONS;
-        item.sub_type    = POT_BLOOD_COAGULATED;
-        item.quantity    = coag_count;
-        item.plus        = 0;
-        item.plus2       = 0;
-        item.special     = 0;
-        item.flags       = (ISFLAG_KNOW_TYPE & ISFLAG_BEEN_IN_INV);
         item.pos.set(-1, -1);
-        item_colour(item);
-
-        CrawlHashTable &props_new = item.props;
-        props_new["timer"].new_vector(SV_INT, SFLAG_CONST_TYPE);
-        CrawlVector &timer_new = props_new["timer"].get_vector();
-
-        int val;
-        while (!age_timer.empty())
-        {
-            val = age_timer[age_timer.size() - 1];
-            age_timer.pop_back();
-            timer_new.push_back(val);
-        }
-
-        ASSERT(timer_new.size() == coag_count);
-        props_new.assert_validity();
+        _init_coagulated_blood(item, coag_count, blood, age_timer);
 
         blood.quantity -= coag_count + rot_count;
         _compare_blood_quantity(blood, timer.size());
@@ -763,31 +757,8 @@ bool maybe_coagulate_blood_potions_inv(item_def &blood)
     o = get_mitm_slot();
     if (o == NON_ITEM)
         return false;
+    _init_coagulated_blood(mitm[o], coag_count, blood, age_timer);
 
-    // These values are common to all: {dlb}
-    mitm[o].base_type = OBJ_POTIONS;
-    mitm[o].sub_type  = POT_BLOOD_COAGULATED;
-    mitm[o].quantity  = coag_count;
-    mitm[o].plus      = 0;
-    mitm[o].plus2     = 0;
-    mitm[o].special   = 0;
-    mitm[o].flags     = (ISFLAG_KNOW_TYPE & ISFLAG_BEEN_IN_INV);
-    item_colour(mitm[o]);
-
-    CrawlHashTable &props_new = mitm[o].props;
-    props_new["timer"].new_vector(SV_INT, SFLAG_CONST_TYPE);
-    CrawlVector &timer_new = props_new["timer"].get_vector();
-
-    int val;
-    while (!age_timer.empty())
-    {
-        val = age_timer[age_timer.size() - 1];
-        age_timer.pop_back();
-        timer_new.push_back(val);
-    }
-
-    ASSERT(timer_new.size() == coag_count);
-    props_new.assert_validity();
     move_item_to_grid(&o, you.pos());
 
     if (!dec_inv_item_quantity(blood.link, coag_count + rot_count))
@@ -862,8 +833,9 @@ void merge_blood_potion_stacks(item_def &source, item_def &dest, int quant)
     if (!source.defined() || !dest.defined())
         return;
 
-    ASSERT(quant > 0 && quant <= source.quantity);
-    ASSERT(is_blood_potion(source) && is_blood_potion(dest));
+    ASSERT_RANGE(quant, 1, source.quantity + 1);
+    ASSERT(is_blood_potion(source));
+    ASSERT(is_blood_potion(dest));
 
     CrawlHashTable &props = source.props;
     if (!props.exists("timer"))
@@ -957,7 +929,7 @@ void turn_corpse_into_blood_potions(item_def &item)
     item.base_type = OBJ_POTIONS;
     item.sub_type  = POT_BLOOD;
     item_colour(item);
-    item.flags    &= ~(ISFLAG_THROWN | ISFLAG_DROPPED);
+    clear_item_pickup_flags(item);
 
     item.quantity = num_blood_potions_from_corpse(mons_class);
 
@@ -1134,7 +1106,7 @@ void bleed_onto_floor(const coord_def& where, monster_type montype,
                       int damage, bool spatter, bool smell_alert,
                       const coord_def& from, const bool old_blood)
 {
-    ASSERT(in_bounds(where));
+    ASSERT_IN_BOUNDS(where);
 
     if (montype == MONS_PLAYER && !you.can_bleed())
         return;
@@ -1243,11 +1215,11 @@ void search_around()
 {
     ASSERT(!crawl_state.game_is_arena());
 
-    int base_skill = you.skill(SK_TRAPS, 100);
+    int base_skill = you.experience_level * 100 / 3;
     int skill = (2/(1+exp(-(base_skill+120)/325.0))-1) * 225
                 + (base_skill/200.0) + 15;
 
-    if (you.religion == GOD_ASHENZARI && !player_under_penance())
+    if (you_worship(GOD_ASHENZARI) && !player_under_penance())
         skill += you.piety * 2;
 
      if (you.duration[DUR_SWIFTNESS])
@@ -1293,7 +1265,6 @@ void search_around()
             mprf("You found %s trap!",
                  ptrap->name(DESC_A).c_str());
             learned_something_new(HINT_SEEN_TRAP, *ri);
-            practise(EX_TRAP_FOUND);
         }
     }
 }
@@ -1408,7 +1379,7 @@ bool go_berserk(bool intentional, bool potion)
         mpr("Finesse? Hah! Time to rip out guts!");
     }
 
-    if (you.religion == GOD_CHEIBRIADOS)
+    if (you_worship(GOD_CHEIBRIADOS))
     {
         // Che makes berserk not speed you up.
         // Unintentional would be forgiven "just this once" every time.
@@ -1449,14 +1420,25 @@ bool go_berserk(bool intentional, bool potion)
 
     you.redraw_quiver = true; // Account for no firing.
 
+    if (you.species == SP_LAVA_ORC)
+    {
+        mpr("You burn with rage!");
+        // This will get sqrt'd later, so.
+        you.temperature = TEMP_MAX;
+    }
     return true;
 }
+
+// HACK ALERT: In the following several functions, want_move is true if the
+// player is travelling. If that is the case, things must be considered one
+// square closer to the player, since we don't yet know where the player will
+// be next turn.
 
 // Returns true if the monster has a path to the player, or it has to be
 // assumed that this is the case.
 static bool _mons_has_path_to_player(const monster* mon, bool want_move = false)
 {
-    if (mons_is_stationary(mon) && !mons_is_tentacle_end(mon->type))
+    if (mon->is_stationary() && !mons_is_tentacle(mon->type))
     {
         int dist = grid_distance(you.pos(), mon->pos());
         if (want_move)
@@ -1537,10 +1519,7 @@ bool mons_is_safe(const monster* mon, const bool want_move,
     bool is_safe = (_mons_is_always_safe(mon)
                     || check_dist
                        && (mon->pacified() && dist > 1
-#ifdef WIZARD
-                           // Wizmode skill setting enforces hiddenness.
-                           || you.skills[SK_STEALTH] > 27 && dist > 2
-#endif
+                           || crawl_state.disables[DIS_MON_SIGHT] && dist > 2
                            // Only seen through glass walls or within water?
                            // Assuming that there are no water-only/lava-only
                            // monsters capable of throwing or zapping wands.
@@ -1635,6 +1614,8 @@ bool i_feel_safe(bool announce, bool want_move, bool just_monsters,
             const int cloudidx = env.cgrid(you.pos());
             const cloud_type type = env.cloud[cloudidx].type;
 
+            // Temporary immunity allows travelling through a cloud but not
+            // resting in it.
             if (is_damaging_cloud(type, want_move))
             {
                 if (announce)
@@ -1699,7 +1680,8 @@ static const char *shop_types[] = {
     "food",
     "distillery",
     "scroll",
-    "general"
+    "general",
+    "gadget"
 };
 
 int str_to_shoptype(const string &s)
@@ -1765,11 +1747,9 @@ bool player_in_a_dangerous_place(bool *invis)
     return (gen_threat > logexp * 1.3 || hi_threat > logexp / 2);
 }
 
-static void _drop_tomb(const coord_def& pos, bool premature)
+static void _drop_tomb(const coord_def& pos, bool premature, bool zin)
 {
     int count = 0;
-    bool zin = false;
-
     monster* mon = monster_at(pos);
 
     // Don't wander on duty!
@@ -1780,56 +1760,27 @@ static void _drop_tomb(const coord_def& pos, bool premature)
     for (adjacent_iterator ai(pos); ai; ++ai)
     {
         // "Normal" tomb (card or monster spell)
-        if ((grd(*ai) == DNGN_ROCK_WALL || grd(*ai) == DNGN_CLEAR_ROCK_WALL)
-            && (env.markers.property_at(*ai, MAT_ANY, "tomb") == "card"
-                || env.markers.property_at(*ai, MAT_ANY, "tomb") == "monster"))
+        if (!zin && revert_terrain_change(*ai, TERRAIN_CHANGE_TOMB))
         {
-            vector<map_marker*> markers = env.markers.get_markers_at(*ai);
-            for (int i = 0, size = markers.size(); i < size; ++i)
-            {
-                map_marker *mark = markers[i];
-                if (mark->property("tomb") == "card"
-                    || mark->property("tomb") == "monster")
-                {
-                    env.markers.remove(mark);
-                }
-            }
-
-            env.markers.clear_need_activate();
-
-            grd(*ai) = DNGN_FLOOR;
-            set_terrain_changed(*ai);
             count++;
             if (you.see_cell(*ai))
                 seen_change = true;
         }
-
         // Zin's Imprison.
-        if (grd(*ai) == DNGN_METAL_WALL
-            && env.markers.property_at(*ai, MAT_ANY, "tomb") == "Zin")
+        else if (zin && revert_terrain_change(*ai, TERRAIN_CHANGE_IMPRISON))
         {
-            zin = true;
-
-            dungeon_feature_type old_feat = DNGN_FLOOR;
             vector<map_marker*> markers = env.markers.get_markers_at(*ai);
             for (int i = 0, size = markers.size(); i < size; ++i)
             {
                 map_marker *mark = markers[i];
-                if (mark->property("tomb") == "Zin")
+                if (mark->property("feature_description")
+                    == "a gleaming silver wall")
                 {
-                    string old_feat_name = mark->property("old_feat");
-                    if (old_feat_name != "")
-                        old_feat = dungeon_feature_by_name(old_feat_name);
                     env.markers.remove(mark);
                 }
             }
 
-            env.markers.clear_need_activate();
-
-            grd(*ai) = old_feat;
             env.grid_colours(*ai) = 0;
-
-            set_terrain_changed(*ai);
             tile_clear_flavour(*ai);
             tile_init_flavour(*ai);
             count++;
@@ -1969,10 +1920,11 @@ void timeout_tombs(int duration)
         // Empty tombs disappear early.
         monster* mon_entombed = monster_at(cmark->pos);
         bool empty_tomb = !(mon_entombed || you.pos() == cmark->pos);
+        bool zin = (cmark->source == -GOD_ZIN);
 
         if (cmark->duration <= 0 || empty_tomb)
         {
-            _drop_tomb(cmark->pos, empty_tomb);
+            _drop_tomb(cmark->pos, empty_tomb, zin);
 
             monster* mon_src =
                 !invalid_monster_index(cmark->source) ? &menv[cmark->source]
@@ -1989,46 +1941,38 @@ void timeout_tombs(int duration)
     }
 }
 
-void timeout_door_seals(int duration, bool force)
+void timeout_terrain_changes(int duration, bool force)
 {
     if (!duration && !force)
         return;
 
-    vector<map_marker*> markers = env.markers.get_all(MAT_DOOR_SEAL);
+    int num_seen[NUM_TERRAIN_CHANGE_TYPES] = {0};
 
-    int num_faded_seen = 0;
+    vector<map_marker*> markers = env.markers.get_all(MAT_TERRAIN_CHANGE);
 
     for (int i = 0, size = markers.size(); i < size; ++i)
     {
-        map_door_seal_marker *seal = dynamic_cast<map_door_seal_marker*>(markers[i]);
+        map_terrain_change_marker *marker =
+                dynamic_cast<map_terrain_change_marker*>(markers[i]);
 
-        // If there is somehow no longer a sealed door at this location
-        // (for example, a monster opened it, or ate it, you blew it up)
-        // simply remove the marker silently
-        if (grd(seal->pos) != DNGN_SEALED_DOOR)
+        if (marker->duration != INFINITE_DURATION)
+            marker->duration -= duration;
+
+        monster* mon_src = monster_by_mid(marker->mon_num);
+        if (marker->duration <= 0
+            || (marker->mon_num != 0
+                && (!mon_src || !mon_src->alive() || mon_src->pacified())))
         {
-            env.markers.remove(seal);
-            continue;
-        }
-
-        seal->duration -= duration;
-
-        monster* mon_src = monster_by_mid(seal->mon_num);
-        if (seal->duration <= 0 || !mon_src || !mon_src->alive())
-        {
-            grd(seal->pos) = seal->old_feature;
-            set_terrain_changed(seal->pos);
-            if (you.see_cell(seal->pos))
-                ++num_faded_seen;
-
-            env.markers.remove(seal);
+            if (you.see_cell(marker->pos))
+                num_seen[marker->change_type]++;
+            revert_terrain_change(marker->pos, marker->change_type);
         }
     }
 
-    if (num_faded_seen > 1)
-        mpr("The seals upon the doors fade away.");
-    else if (num_faded_seen > 0)
-        mpr("The seal upon the door fades away.");
+    if (num_seen[TERRAIN_CHANGE_DOOR_SEAL] > 1)
+        mpr("The runic seals fade away.");
+    else if (num_seen[TERRAIN_CHANGE_DOOR_SEAL] > 0)
+        mpr("The runic seal fades away.");
 }
 
 void bring_to_safety()
@@ -2123,6 +2067,7 @@ void revive()
     you.attribute[ATTR_DIVINE_DEATH_CHANNEL] = 0;
     you.attribute[ATTR_INVIS_UNCANCELLABLE] = 0;
     you.attribute[ATTR_FLIGHT_UNCANCELLABLE] = 0;
+    you.attribute[ATTR_XP_DRAIN] = 0;
     if (you.duration[DUR_SCRYING])
         you.xray_vision = false;
 
@@ -2242,7 +2187,8 @@ void run_environment_effects()
     timeout_tombs(you.time_taken);
     timeout_malign_gateways(you.time_taken);
     timeout_phoenix_markers(you.time_taken);
-    timeout_door_seals(you.time_taken);
+    timeout_terrain_changes(you.time_taken);
+    run_cloud_spreaders(you.time_taken);
 }
 
 coord_def pick_adjacent_free_square(const coord_def& p)
@@ -2294,15 +2240,21 @@ bool bad_attack(const monster *mon, string& adj, string& suffix)
 
     if (mon->friendly())
     {
-        if (you.religion == GOD_OKAWARU)
-            adj = "your ally the ";
+        if (you_worship(GOD_OKAWARU))
+        {
+            adj = "your ally ";
+
+            monster_info mi(mon, MILEV_NAME);
+            if (!mi.is(MB_NAME_UNQUALIFIED))
+                adj += "the ";
+        }
         else
             adj = "your ";
         return true;
     }
 
     if (is_unchivalric_attack(&you, mon)
-        && you.religion == GOD_SHINING_ONE
+        && you_worship(GOD_SHINING_ONE)
         && !tso_unchivalric_attack_safe_monster(mon))
     {
         adj += "helpless ";
@@ -2312,7 +2264,7 @@ bool bad_attack(const monster *mon, string& adj, string& suffix)
     else if (mon->wont_attack())
         adj += "non-hostile ";
 
-    if (you.religion == GOD_JIYVA && mons_is_slime(mon)
+    if (you_worship(GOD_JIYVA) && mons_is_slime(mon)
         && !(mon->is_shapeshifter() && (mon->flags & MF_KNOWN_SHIFTER)))
     {
         return true;
@@ -2436,29 +2388,6 @@ bool stop_attack_prompt(targetter &hitfunc, string verb,
     }
 }
 
-bool is_orckind(const actor *act)
-{
-    if (mons_genus(act->mons_species()) == MONS_ORC)
-        return true;
-
-    if (act->is_monster())
-    {
-        const monster* mon = act->as_monster();
-        if (mons_is_zombified(mon)
-            && mons_genus(mon->base_monster) == MONS_ORC)
-        {
-            return true;
-        }
-        if (mons_is_ghost_demon(mon->type)
-            && mon->ghost->species == SP_HILL_ORC)
-        {
-            return true;
-        }
-    }
-
-    return false;
-}
-
 bool is_dragonkind(const actor *act)
 {
     if (mons_genus(act->mons_species()) == MONS_DRAGON
@@ -2567,7 +2496,7 @@ void swap_with_monster(monster* mon_to_swap)
  */
 void wear_id_type(item_def &item)
 {
-    if (item_ident(item, ISFLAG_KNOW_TYPE))
+    if (item_type_known(item))
         return;
     set_ident_type(item.base_type, item.sub_type, ID_KNOWN_TYPE);
     set_ident_flags(item, ISFLAG_KNOW_TYPE);
@@ -2579,33 +2508,6 @@ static void _maybe_id_jewel(jewellery_type ring_type = NUM_JEWELLERY,
                             jewellery_type amulet_type = NUM_JEWELLERY,
                             artefact_prop_type artp = ARTP_NUM_PROPERTIES)
 {
-    int num_unknown = 0;
-    for (int i = EQ_LEFT_RING; i < NUM_EQUIP; ++i)
-    {
-        if (!player_wearing_slot(i))
-            continue;
-
-        const item_def &it = you.inv[you.equip[i]];
-        bool artefact = is_artefact(it);
-        bool art_relevant = artefact && artp != ARTP_NUM_PROPERTIES;
-
-        if (i == EQ_AMULET && amulet_type == NUM_JEWELLERY && !art_relevant)
-            continue;
-
-        if (i != EQ_AMULET && ring_type == NUM_JEWELLERY && !art_relevant)
-            continue;
-
-        if (!item_ident(it, art_relevant ? ISFLAG_KNOW_PROPERTIES
-                                         : ISFLAG_KNOW_TYPE)
-            && (art_relevant || !item_type_known(it.base_type, it.sub_type)))
-        {
-            ++num_unknown;
-        }
-    }
-
-    if (num_unknown != 1)
-        return;
-
     for (int i = EQ_LEFT_RING; i < NUM_EQUIP; ++i)
     {
         if (player_wearing_slot(i))
@@ -2626,18 +2528,6 @@ static void _maybe_id_jewel(jewellery_type ring_type = NUM_JEWELLERY,
     }
 }
 
-// AutoID an equipped ring of teleport.
-void maybe_id_ring_TC()
-{
-    if (you.duration[DUR_CONTROL_TELEPORT]
-        || player_mutation_level(MUT_TELEPORT_CONTROL))
-    {
-        return;
-    }
-
-    _maybe_id_jewel(RING_TELEPORT_CONTROL);
-}
-
 void maybe_id_ring_hunger()
 {
     _maybe_id_jewel(RING_HUNGER, NUM_JEWELLERY, ARTP_METABOLISM);
@@ -2646,19 +2536,11 @@ void maybe_id_ring_hunger()
 
 void maybe_id_ring_see_invis()
 {
-    // If you can see invisible without un-IDed items
-    if (you.can_see_invisible(false))
-        return;
-
     _maybe_id_jewel(RING_SEE_INVISIBLE, NUM_JEWELLERY, ARTP_EYESIGHT);
 }
 
 void maybe_id_clarity()
 {
-    // If we have clarity without un-IDed items
-    if (you.clarity(false))
-        return;
-
     _maybe_id_jewel(NUM_JEWELLERY, AMU_CLARITY, ARTP_CLARITY);
 }
 
@@ -2668,48 +2550,38 @@ void maybe_id_resist(beam_type flavour)
     {
     case BEAM_FIRE:
     case BEAM_LAVA:
-        if (player_res_fire(false))
-            return;
         _maybe_id_jewel(RING_PROTECTION_FROM_FIRE, NUM_JEWELLERY, ARTP_FIRE);
         break;
 
     case BEAM_COLD:
     case BEAM_ICE:
-        if (player_res_cold(false))
-            return;
         _maybe_id_jewel(RING_PROTECTION_FROM_COLD, NUM_JEWELLERY, ARTP_COLD);
         break;
 
     case BEAM_ELECTRICITY:
-        if (player_res_electricity(false))
-            return;
         _maybe_id_jewel(NUM_JEWELLERY, NUM_JEWELLERY, ARTP_ELECTRICITY);
+        break;
+
+    case BEAM_ACID:
+        _maybe_id_jewel(NUM_JEWELLERY, AMU_RESIST_CORROSION);
         break;
 
     case BEAM_POISON:
     case BEAM_POISON_ARROW:
     case BEAM_MEPHITIC:
-        if (player_res_poison(false))
-            return;
         _maybe_id_jewel(RING_POISON_RESISTANCE, NUM_JEWELLERY, ARTP_POISON);
         break;
 
     case BEAM_NEG:
-        if (player_prot_life(false))
-            return;
         _maybe_id_jewel(RING_LIFE_PROTECTION, AMU_WARDING, ARTP_NEGATIVE_ENERGY);
         break;
 
     case BEAM_STEAM:
-        if (player_res_steam(false))
-            return;
         // rF+ grants rSteam, all possibly unidentified sources of rSteam are rF
         _maybe_id_jewel(RING_PROTECTION_FROM_FIRE, NUM_JEWELLERY, ARTP_FIRE);
         break;
 
     case BEAM_MALMUTATE:
-        if (player_mutation_level(MUT_MUTATION_RESISTANCE))
-            return;
         _maybe_id_jewel(NUM_JEWELLERY, AMU_RESIST_MUTATION);
         break;
 

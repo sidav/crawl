@@ -104,7 +104,7 @@ static void _initialize()
     env.map_knowledge.init(map_cell());
     env.pgrid.init(0);
 
-    you.unique_creatures.init(false);
+    you.unique_creatures.reset();
     you.unique_items.init(UNIQ_NOT_EXISTS);
 
     // Set up the Lua interpreter for the dungeon builder.
@@ -224,6 +224,9 @@ static void _post_init(bool newc)
     level_id old_level;
     old_level.branch = NUM_BRANCHES;
 
+    handle_terminal_resize(false); // resize HUD now that we know player
+                                   // species and game mode
+
     load_level(you.entering_level ? you.transit_stair : DNGN_STONE_STAIRS_DOWN_I,
                you.entering_level ? LOAD_ENTER_LEVEL :
                newc               ? LOAD_START_GAME : LOAD_RESTART_GAME,
@@ -244,9 +247,13 @@ static void _post_init(bool newc)
     burden_change();
 
     you.redraw_stats.init(true);
+    you.redraw_hit_points   = true;
+    you.redraw_magic_points = true;
     you.redraw_armour_class = true;
     you.redraw_evasion      = true;
     you.redraw_experience   = true;
+    if (you.species == SP_LAVA_ORC)
+        you.redraw_temperature = true;
     you.redraw_quiver       = true;
     you.wield_change        = true;
 
@@ -875,7 +882,7 @@ static void _choose_arena_teams(newgame_def* choice,
     cgotoxy(1, 2);
 
     char buf[80];
-    if (cancelable_get_line(buf, sizeof(buf)))
+    if (cancellable_get_line(buf, sizeof(buf)))
         game_ended();
     choice->arena_teams = buf;
     if (choice->arena_teams.empty())

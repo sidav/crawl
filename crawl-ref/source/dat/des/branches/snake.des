@@ -442,7 +442,7 @@ xx.xxxx.x.x
 ENDMAP
 
 NAME:   nicolae_coiled_stairwell_up
-DEPTH:  Snake:2-5
+DEPTH:  Snake:2-
 TAGS:   uniq_coiled_stairwell
 SUBST:  { = {[(<
 MAP
@@ -649,6 +649,171 @@ xy...FF..FF..FF..B%cccx
 x..xxFFxxFFxxFFxxxxxccx
 x<<xxxxxxxxxxxxxxxxxxcx
 x&&xxxxxxxxxxxxxxxxxxxx
+ENDMAP
+
+NAME: nicolae_snake_serpentine_hallways
+TAGS: transparent extra
+DEPTH: Snake
+MAP
+        x@@@@xxxxx
+        x........xxx
+       xxx.........xx
+    xxxxxxxx........x
+xxxxxxxxxxxxxxxx....xx
+@..............xx....x
+@...............xx...x
+xxxxxxxxxxx......x...x
+xxxxx.....xxx...xx...x
+xxx.........xx.xx....x
+xx...........x+x....xx
+xx....x+x...........xx
+x....xx.xx.........xxx
+x...xx...xxx.....xxxxx
+x...x......xxxxxxxxxxx
+x...xx...............@
+x....xx..............@
+xx....xxxxxxxxxxxxxxxx
+ x........xxxxxxxx
+ xx.........xxx
+  xxx........x
+    xxxxx@@@@x
+ENDMAP
+
+NAME: nicolae_snake_linked_coils
+TAGS: transparent extra
+DEPTH: Snake
+SUBST: + : +x
+MAP
+    xxxxxxxxxxxxxx
+  xxx.....xxx....xxx
+ xx.........+x.....xx
+xx...xxxxx...xxxx...xx
+@...xxxx.+xx..xxxx...@
+@..xxxxx..xx..xxxxx..@
+xxxxxxx..xxxx..xxxxxxx
+xxxxxxx..xxxx..xxxxxxx
+xxxxxxx..xxxx..xxxxxxx
+xxxxxxx..xxxx..xxxxxxx
+xxxxxxx..xxxx..xxxxxxx
+@..xxxxx..xx..xxxxx..@
+@...xxxx...x+.xxxx...@
+xx...xxxx...xxxxx...xx
+ xx.....x+.........xx
+  xxx....xxx.....xxx
+    xxxxxxxxxxxxxx
+ENDMAP
+
+NAME: nicolae_snake_single_loop
+TAGS: transparent extra
+DEPTH: Snake
+MAP
+ xxxxxxx
+xx.....xx
+x.......xx
+@...x...xxx
+@..xxx..xxxx
+xxxxxx..xxxxx
+xx...+..+...xx
+x....+..+....x
+x...xx..xx...x
+x..xxx..xxx..x
+x...x...xx...x
+x.......x....x
+xx.....xx...xx
+ xxxxxxxx@@xx
+ENDMAP
+
+NAME: nicolae_snake_double_loop
+DEPTH: Snake
+TAGS: transparent extra
+SHUFFLE: AB, CD
+SUBST: AC = ., BD = +
+MAP
+ xxxxxxx    xxxxxxx
+xx.....xxxxxx.....xx
+x.......xxxx.......x
+@...x...xxxx...x...x
+@..xxx..xxxx..xxx..x
+xxxxxxBBxxxxCCxxx..x
+xx...A..A..D..D....x
+x....A..A..D..D...xx
+x...xxBBxxxxCCxxxxxx
+x..xxx..xxxx..xxx..@
+x...x...xxxx...x...@
+x.......xxxx.......x
+xx.....xxxxxx.....xx
+ xxxxxxx    xxxxxxx
+ENDMAP
+
+NAME: nicolae_snake_round_shape_thing
+TAGS: transparent extra
+DEPTH: Snake
+SHUFFLE: bc
+SUBST: a : x., b : x@, c : @
+MAP
+       xxbbbxx
+     xxx.....xxx
+    xx.........xx
+    x...........x
+   xx....xxx....xx
+   x....xxxxx....x
+   x...xxxxxxx...x
+   x...xxxxxxx...x
+  xx...xxxxxxx...xx
+ xx.....xxxxx.....xx
+xx.......xxx.......xx
+c....a.........a....c
+c...aaa.......aaa...c
+c....a.........a....c
+xx.......xxx.......xx
+ xx.....xxxxx.....xx
+  xx...xxxxxxx...xx
+   x...xxxxxxx...x
+   x...xxxxxxx...x
+   x....xxxxx....x
+   xx....xxx....xx
+    x...........x
+    xx.........xx
+     xxx.....xxx
+       xxbbbxx
+ENDMAP
+
+NAME: nicolae_snake_biting_tails
+TAGS: transparent extra
+DEPTH: Snake
+SUBST: G : GT
+MAP
+xxxxx     xxxxxxx     xxxxxxx     xxxxxxx
+@...xxxxxxx.....xxx xxx.....xxx xxx.....xxxxxxxx
+xx....xx..........xxx.........xxx.........xx...x
+ xxx.x......xxx....x....xxx....x....xxx..x.....x
+   xx.G....xxxxxx.x...xxxxxxx.x...xxxxxxx.G....x
+   xx.....xxxxxxxx...xxxxxxxxx...xxxxxxxx.....xx
+   x....G.xxxxxxx...x.xxxxxxx...x.xxxxxx....G.xx
+   x.....x..xxx....x....xxx....x....xxx......x.xxx
+   x...xx.........xxx.........xxx..........xx....xx
+   xxxxxxxx.....xxx xxx.....xxx xxx.....xxxxxxx...@
+          xxxxxxx     xxxxxxx     xxxxxxx     xxxxx
+ENDMAP
+
+NAME: nicolae_snake_salamander_stairs
+DEPTH: Snake, !Snake:$
+: local level = you.depth() ; local weight = level * level
+KMONS: 1 = salamander
+SHUFFLE: ])}
+: kmons("2 = nothing w:21 / salamander w:" .. weight )
+NSUBST: l = 1 / 1:2 / 1:2l, a = 2:. / *:x, b = 2:. / *:x, c = @ / .
+SUBST: L = l.
+KPROP: 12l = no_cloud_gen
+KFEAT: 12 = l
+MAP
+ xxxxxxxxxx
+xxllllL.a.bc
+x.llllL.a.bc
+x]llllL.a.bc
+x.llllL.a.bc
+xxllllL.a.bc
+ xxxxxxxxxx
 ENDMAP
 
 ################################################################################
@@ -901,7 +1066,7 @@ ENDMAP
 
 NAME:   grunt_snake_rune_spirals
 PLACE:  Snake:$
-ORIENT: float
+ORIENT: centre
 MONS:   naga / nothing, naga warrior / naga, naga mage / naga
 MONS:   greater naga / guardian serpent
 MONS:   greater naga / naga warrior w:5 / naga mage w:5
@@ -981,4 +1146,53 @@ cc15cccww6wnn666nnw6wwccc51cc
          ccc.....ccc
           ccc===ccc
           cc..@..cc
+ENDMAP
+
+################################################################################
+
+NAME:   grunt_snake_rune_serpentine_throne
+PLACE:  Snake:$
+ORIENT: north
+KMONS:  L = Lamia
+KITEM:  O = serpentine rune of Zot
+KFEAT:  A = altar_okawaru / altar_makhleb / altar_trog
+MONS:   greater naga / naga warrior w:5 / naga mage w:5
+MONS:   naga warrior / naga, naga mage / naga, naga / nothing
+MONS:   anaconda / guardian serpent
+veto {{ return you.uniques("Lamia") }}
+MAP
+     ccccccc
+   ccc..O..ccc
+  cc4.3...3.4cc
+  c..1.ccc.1..c
+ cc.3.cc.cc.3.cc
+ c...cc._.cc...c
+cc......L......cc
+c..5..G...G..5..c
+c..T.2.1.1.2.T..c
+c...3.G...G.3...c
+c..4.2.1.1.2.4..c
+c.4.3.G...G.3.4.c
+c..4T2.1.1.2T4..c
+c.4.3.G...G.3.4.c
+c..4.2.1.1.2.4..c
+c...3.G...G.3...c
+cc.T.2.....2.T.cc
+ c....G.5.G....c
+ cc.5..5.5..5.cc
+  c.....T.....c
+  cc..4...4..cc
+   ccc.4.4.ccc
+     cc...ccxx
+     x.......xx
+     xx....5..xx
+      xxxx...4.xx
+         xxx3.1.x
+   xxxxxxxx..2.4x
+ xxx...5.5....3xx
+xx.4....5....xxx
+x.1.3xxxxxxxxx
+x4.2........xx
+xx3..........x
+ xxxxxxx..@..xx
 ENDMAP

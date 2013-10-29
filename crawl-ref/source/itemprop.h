@@ -105,6 +105,8 @@ int get_vorpal_type(const item_def &item) PURE;
 int get_damage_type(const item_def &item) PURE;
 int single_damage_type(const item_def &item) PURE;
 
+bool is_brandable_weapon(const item_def &wpn, bool allow_ranged);
+
 int weapon_str_weight(const item_def &wpn) PURE;
 
 skill_type weapon_skill(const item_def &item) PURE;
@@ -126,6 +128,7 @@ bool is_throwable(const actor *actor, const item_def &wpn,
                   bool force = false) PURE;
 launch_retval is_launched(const actor *actor, const item_def *launcher,
                           const item_def &missile) PURE;
+bool is_melee_weapon(const item_def &weapon) PURE;
 
 reach_type weapon_reach(const item_def &item) PURE;
 
@@ -137,6 +140,8 @@ bool item_is_orb(const item_def &orb) PURE;
 bool item_is_horn_of_geryon(const item_def &item) PURE;
 bool item_is_spellbook(const item_def &item) PURE;
 
+bool is_elemental_evoker(const item_def &item);
+bool evoker_is_charged(const item_def &item);
 
 // ring functions:
 int  ring_has_pluses(const item_def &item) PURE;
@@ -144,7 +149,10 @@ bool ring_has_stackable_effect(const item_def &item) PURE;
 
 // food functions:
 bool is_blood_potion(const item_def &item) PURE;
-bool is_fizzing_potion(const item_def &item) PURE;
+bool food_is_meaty(int food_type) PURE;
+bool food_is_meaty(const item_def &item) PURE;
+bool food_is_veggie(int food_type) PURE;
+bool food_is_veggie(const item_def &item) PURE;
 int food_value(const item_def &item) PURE;
 int food_turns(const item_def &item) PURE;
 bool can_cut_meat(const item_def &item) PURE;

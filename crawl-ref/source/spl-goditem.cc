@@ -136,13 +136,13 @@ static bool _mons_hostile(const monster* mon)
 // Returns 0, if it's possible to pacify this monster.
 int is_pacifiable(const monster* mon)
 {
-    if (you.religion != GOD_ELYVILON)
+    if (!you_worship(GOD_ELYVILON))
         return -1;
 
     // I was thinking of jellies when I wrote this, but maybe we shouldn't
     // exclude zombies and such... (jpeg)
-    if (mons_intel(mon) <= I_PLANT // no self-awareness
-        || mons_is_tentacle(mon->type)) // body part
+    if (mons_intel(mon) <= I_INSECT // no self-awareness
+        || mons_is_tentacle_or_tentacle_segment(mon->type)) // body part
     {
         return -1;
     }
@@ -157,7 +157,7 @@ int is_pacifiable(const monster* mon)
         return -1;
     }
 
-    if (mons_is_stationary(mon)) // not able to leave the level
+    if (mon->is_stationary()) // not able to leave the level
         return -1;
 
     if (mon->asleep()) // not aware of what is happening
@@ -185,7 +185,7 @@ static int _can_pacify_monster(const monster* mon, const int healed,
         return 0;
 
     const int factor = (mons_intel(mon) <= I_ANIMAL)       ? 3 : // animals
-                       (is_player_same_species(mon->type)) ? 2   // same species
+                       (is_player_same_genus(mon->type))   ? 2   // same genus
                                                            : 1;  // other
 
     int divisor = 3;
@@ -222,7 +222,7 @@ static int _can_pacify_monster(const monster* mon, const int healed,
 static vector<string> _desc_mindless(const monster_info& mi)
 {
     vector<string> descs;
-    if (mi.intel() <= I_PLANT)
+    if (mi.intel() <= I_INSECT)
         descs.push_back("mindless");
     return descs;
 }
@@ -241,7 +241,7 @@ static int _healing_spell(int healed, int max_healed, bool divine_ability,
     {
         spd.isValid = spell_direction(spd, beam, DIR_TARGET,
                                       mode != TARG_NUM_MODES ? mode :
-                                      you.religion == GOD_ELYVILON ?
+                                      you_worship(GOD_ELYVILON) ?
                                             TARG_ANY : TARG_FRIEND,
                                       LOS_RADIUS, false, true, true, "Heal",
                                       NULL, false, NULL, _desc_mindless);
@@ -282,7 +282,7 @@ static int _healing_spell(int healed, int max_healed, bool divine_ability,
 
     // Don't divinely heal a monster you can't pacify.
     if (divine_ability && is_hostile
-        && you.religion == GOD_ELYVILON
+        && you_worship(GOD_ELYVILON)
         && can_pacify <= 0)
     {
         if (can_pacify == 0)
@@ -318,7 +318,7 @@ static int _healing_spell(int healed, int max_healed, bool divine_ability,
 
     bool did_something = false;
 
-    if (you.religion == GOD_ELYVILON
+    if (you_worship(GOD_ELYVILON)
         && can_pacify == 1
         && is_hostile)
     {
@@ -402,7 +402,8 @@ void antimagic()
         DUR_CONDENSATION_SHIELD, DUR_STONESKIN, DUR_RESISTANCE,
         DUR_SLAYING, DUR_STEALTH,
         DUR_MAGIC_SHIELD, DUR_PETRIFIED, DUR_LIQUEFYING, DUR_DARKNESS,
-        DUR_SHROUD_OF_GOLUBRIA, DUR_DISJUNCTION, DUR_SENTINEL_MARK
+        DUR_SHROUD_OF_GOLUBRIA, DUR_DISJUNCTION, DUR_SENTINEL_MARK,
+        DUR_ANTIMAGIC /*!*/,
     };
 
     bool need_msg = false;
@@ -462,7 +463,7 @@ void antimagic()
              danger ? "Careful! " : "");
     }
 
-    contaminate_player(-1 * (1 + random2(5)));
+    contaminate_player(-1 * (1000 + random2(4000)));
 }
 
 int detect_traps(int pow)
@@ -483,10 +484,14 @@ int detect_items(int pow)
         map_radius = 8 + random2(8) + pow;
     else
     {
-        ASSERT(you.religion == GOD_ASHENZARI);
-        map_radius = min(you.piety / 20, LOS_RADIUS);
-        if (map_radius <= 0)
-            return 0;
+        if (you_worship(GOD_ASHENZARI))
+        {
+            map_radius = min(you.piety / 20, LOS_RADIUS);
+            if (map_radius <= 0)
+                return 0;
+        }
+        else // MUT_JELLY_GROWTH
+            map_radius = 6;
     }
 
     for (radius_iterator ri(you.pos(), map_radius, C_ROUND); ri; ++ri)
@@ -645,7 +650,7 @@ static bool _selectively_remove_curse(string *pre_msg)
 
 bool remove_curse(bool alreadyknown, string *pre_msg)
 {
-    if (you.religion == GOD_ASHENZARI && alreadyknown)
+    if (you_worship(GOD_ASHENZARI) && alreadyknown)
     {
         if (_selectively_remove_curse(pre_msg))
         {
@@ -752,7 +757,7 @@ bool curse_item(bool armour, bool alreadyknown, string *pre_msg)
 
     if (affected == EQ_WEAPON)
     {
-        if (you.religion == GOD_ASHENZARI && alreadyknown)
+        if (you_worship(GOD_ASHENZARI) && alreadyknown)
         {
             mprf(MSGCH_PROMPT, "You aren't wearing any piece of uncursed %s.",
                  armour ? "armour" : "jewellery");
@@ -767,7 +772,7 @@ bool curse_item(bool armour, bool alreadyknown, string *pre_msg)
         return false;
     }
 
-    if (you.religion == GOD_ASHENZARI && alreadyknown)
+    if (you_worship(GOD_ASHENZARI) && alreadyknown)
         return _selectively_curse_item(armour, pre_msg);
 
     if (pre_msg)
@@ -893,33 +898,32 @@ static bool _do_imprison(int pow, const coord_def& where, bool zin)
 
             // All traps are destroyed.
             if (trap_def *ptrap = find_trap(*ai))
+            {
                 ptrap->destroy();
+                grd(*ai) = DNGN_FLOOR;
+            }
 
             // Actually place the wall.
             if (zin)
             {
                 map_wiz_props_marker *marker = new map_wiz_props_marker(*ai);
                 marker->set_property("feature_description", "a gleaming silver wall");
-                marker->set_property("tomb", "Zin");
-
-                // Preserve the old feature, unless it's bare floor (or trap)
-                if (grd(*ai) != DNGN_FLOOR & !feat_is_trap(grd(*ai), true))
-                    marker->set_property("old_feat", dungeon_feature_name(grd(*ai)));
-
                 env.markers.add(marker);
 
+                temp_change_terrain(*ai, DNGN_METAL_WALL, INFINITE_DURATION,
+                                    TERRAIN_CHANGE_IMPRISON);
+
                 // Make the walls silver.
-                grd(*ai) = DNGN_METAL_WALL;
                 env.grid_colours(*ai) = WHITE;
                 env.tile_flv(*ai).feat_idx =
-                        store_tilename_get_index("dngn_mirror_wall");
-                env.tile_flv(*ai).feat = TILE_DNGN_MIRROR_WALL;
+                        store_tilename_get_index("dngn_silver_wall");
+                env.tile_flv(*ai).feat = TILE_DNGN_SILVER_WALL;
                 if (env.map_knowledge(*ai).seen())
                 {
                     env.map_knowledge(*ai).set_feature(DNGN_METAL_WALL);
                     env.map_knowledge(*ai).clear_item();
 #ifdef USE_TILE
-                    env.tile_bk_bg(*ai) = TILE_DNGN_MIRROR_WALL;
+                    env.tile_bk_bg(*ai) = TILE_DNGN_SILVER_WALL;
                     env.tile_bk_fg(*ai) = 0;
 #endif
                 }
@@ -927,13 +931,10 @@ static bool _do_imprison(int pow, const coord_def& where, bool zin)
             // Tomb card
             else
             {
-                grd(*ai) = DNGN_ROCK_WALL;
-                map_wiz_props_marker *marker = new map_wiz_props_marker(*ai);
-                marker->set_property("tomb", "card");
-                env.markers.add(marker);
+                temp_change_terrain(*ai, DNGN_ROCK_WALL, INFINITE_DURATION,
+                                    TERRAIN_CHANGE_TOMB);
             }
 
-            set_terrain_changed(*ai);
             number_built++;
         }
     }

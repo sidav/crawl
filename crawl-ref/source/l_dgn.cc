@@ -134,6 +134,13 @@ static int dgn_desc(lua_State *ls)
     PLUARET(string, map->description.c_str());
 }
 
+static int dgn_order(lua_State *ls)
+{
+    MAP(ls, 1, map);
+    map->order = luaL_checkint(ls, 2);
+    PLUARET(number, map->order);
+}
+
 static int dgn_tags(lua_State *ls)
 {
     MAP(ls, 1, map);
@@ -338,6 +345,11 @@ int dgn_map_add_transform(lua_State *ls,
 static int dgn_shuffle(lua_State *ls)
 {
     return dgn_map_add_transform(ls, &map_lines::add_shuffle);
+}
+
+static int dgn_clear(lua_State *ls)
+{
+    return dgn_map_add_transform(ls, &map_lines::add_clear);
 }
 
 static int dgn_subst(lua_State *ls)
@@ -1844,6 +1856,7 @@ const struct luaL_reg dgn_dlib[] =
 { "depth", dgn_depth },
 { "place", dgn_place },
 { "desc", dgn_desc },
+{ "order", dgn_order },
 { "tags",  dgn_tags },
 { "has_tag", dgn_has_tag },
 { "tags_remove", dgn_tags_remove },
@@ -1854,6 +1867,7 @@ const struct luaL_reg dgn_dlib[] =
 { "depth_weight", dgn_depth_weight },
 { "orient", dgn_orient },
 { "shuffle", dgn_shuffle },
+{ "clear", dgn_clear },
 { "subst", dgn_subst },
 { "nsubst", dgn_nsubst },
 { "colour", dgn_colour },

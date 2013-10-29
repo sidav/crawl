@@ -186,56 +186,58 @@ bool CrawlIsCrashing = false;
 
 NORETURN void end(int exit_code, bool print_error, const char *format, ...)
 {
+    bool need_pause = true;
     disable_other_crashes();
 
-    string error = print_error? strerror(errno) : "";
-    if (format)
+    // Let "error" go out of scope for valgrind's sake.
     {
-        va_list arg;
-        va_start(arg, format);
-        char buffer[1024];
-        vsnprintf(buffer, sizeof buffer, format, arg);
-        va_end(arg);
+        string error = print_error? strerror(errno) : "";
+        if (format)
+        {
+            va_list arg;
+            va_start(arg, format);
+            char buffer[1024];
+            vsnprintf(buffer, sizeof buffer, format, arg);
+            va_end(arg);
 
-        if (error.empty())
-            error = string(buffer);
-        else
-            error = string(buffer) + ": " + error;
+            if (error.empty())
+                error = string(buffer);
+            else
+                error = string(buffer) + ": " + error;
 
-        if (!error.empty() && error[error.length() - 1] != '\n')
-            error += "\n";
-    }
+            if (!error.empty() && error[error.length() - 1] != '\n')
+                error += "\n";
+        }
 
 #if (defined(TARGET_OS_WINDOWS) && !defined(USE_TILE_LOCAL)) \
      || defined(DGL_PAUSE_AFTER_ERROR)
-    bool need_pause = true;
-    if (exit_code && !error.empty())
-    {
-        if (_print_error_screen("%s", error.c_str()))
-            need_pause = false;
-    }
+        if (exit_code && !error.empty())
+        {
+            if (_print_error_screen("%s", error.c_str()))
+                need_pause = false;
+        }
 #endif
 
 #ifdef USE_TILE_WEB
-    tiles.shutdown();
+        tiles.shutdown();
 #endif
 
-    cio_cleanup();
-    msg::deinitialise_mpr_streams();
-    _clear_globals_on_exit();
-    databaseSystemShutdown();
+        cio_cleanup();
+        msg::deinitialise_mpr_streams();
+        _clear_globals_on_exit();
+        databaseSystemShutdown();
 #ifdef DEBUG_PROPS
-    dump_prop_accesses();
+        dump_prop_accesses();
 #endif
 
-    if (!error.empty())
-    {
-
+        if (!error.empty())
+        {
 #ifdef __ANDROID__
-        __android_log_print(ANDROID_LOG_INFO, "Crawl", "%s", error.c_str());
+            __android_log_print(ANDROID_LOG_INFO, "Crawl", "%s", error.c_str());
 #endif
-        fprintf(stderr, "%s", error.c_str());
-        error.clear();
+            fprintf(stderr, "%s", error.c_str());
+            error.clear();
+        }
     }
 
 #if (defined(TARGET_OS_WINDOWS) && !defined(USE_TILE_LOCAL)) \
@@ -246,6 +248,8 @@ NORETURN void end(int exit_code, bool print_error, const char *format, ...)
         fprintf(stderr, "Hit Enter to continue...\n");
         getchar();
     }
+#else
+    UNUSED(need_pause);
 #endif
 
     CrawlIsExiting = true;
@@ -313,6 +317,8 @@ void redraw_screen(void)
     you.redraw_title        = true;
     you.redraw_hit_points   = true;
     you.redraw_magic_points = true;
+    if (you.species == SP_LAVA_ORC)
+        you.redraw_temperature = true;
     you.redraw_stats.init(true);
     you.redraw_armour_class = true;
     you.redraw_evasion      = true;
@@ -419,6 +425,9 @@ void canned_msg(canned_message_type which_message)
         mpr("You are too berserk!");
         crawl_state.cancel_cmd_repeat();
         break;
+    case MSG_TOO_CONFUSED:
+        mpr("You're too confused!");
+        break;
     case MSG_PRESENT_FORM:
         mpr("You can't do that in your present form.");
         crawl_state.cancel_cmd_repeat();
@@ -483,10 +492,10 @@ void canned_msg(canned_message_type which_message)
         mpr("You don't know any spells.");
         break;
     case MSG_MANA_INCREASE:
-        mpr("You feel your mana capacity increase.");
+        mpr("You feel your magic capacity increase.");
         break;
     case MSG_MANA_DECREASE:
-        mpr("You feel your mana capacity decrease.");
+        mpr("You feel your magic capacity decrease.");
         break;
     case MSG_DISORIENTED:
         mpr("You feel momentarily disoriented.");
@@ -540,7 +549,7 @@ bool yes_or_no(const char* fmt, ...)
 
     mprf(MSGCH_PROMPT, "%s? (Confirm with \"yes\".) ", buf);
 
-    if (cancelable_get_line(buf, sizeof buf))
+    if (cancellable_get_line(buf, sizeof buf))
         return false;
     if (strcasecmp(buf, "yes") != 0)
         return false;
@@ -756,7 +765,7 @@ int yesnoquit(const char* str, bool safe, int safeanswer, bool allow_all,
 
 char index_to_letter(int the_index)
 {
-    ASSERT(the_index >= 0 && the_index < ENDOFPACK);
+    ASSERT_RANGE(the_index, 0, ENDOFPACK);
     return (the_index + ((the_index < 26) ? 'a' : ('A' - 26)));
 }
 
@@ -773,24 +782,24 @@ int letter_to_index(int the_letter)
 
 maybe_bool frombool(bool b)
 {
-    return (b ? B_TRUE : B_FALSE);
+    return (b ? MB_TRUE : MB_FALSE);
 }
 
 bool tobool(maybe_bool mb)
 {
-    ASSERT(mb != B_MAYBE);
-    return (mb == B_TRUE);
+    ASSERT(mb != MB_MAYBE);
+    return (mb == MB_TRUE);
 }
 
 bool tobool(maybe_bool mb, bool def)
 {
     switch (mb)
     {
-    case B_TRUE:
+    case MB_TRUE:
         return true;
-    case B_FALSE:
+    case MB_FALSE:
         return false;
-    case B_MAYBE:
+    case MB_MAYBE:
     default:
         return def;
     }

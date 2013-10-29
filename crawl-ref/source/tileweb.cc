@@ -164,13 +164,10 @@ void TilesFramework::write_message(const char *format, ...)
 
     va_list  argp;
     va_start(argp, format);
-    if ((len = vsnprintf(buf, sizeof(buf), format, argp)) >= (int)sizeof(buf))
-    {
-        if (len == -1)
-            die("Webtiles message format error! (%s)", format);
-        else
-            die("Webtiles message too long! (%d)", len);
-    }
+    if ((len = vsnprintf(buf, sizeof(buf), format, argp)) < 0)
+        die("Webtiles message format error! (%s)", format);
+    else if (len >= (int)sizeof(buf))
+        die("Webtiles message too long! (%d)", len);
     va_end(argp);
 
     m_msg_buf.append(buf);
@@ -228,7 +225,8 @@ void TilesFramework::send_message(const char *format, ...)
 
     va_list  argp;
     va_start(argp, format);
-    if ((len = vsnprintf(buf, sizeof(buf), format, argp)) >= (int)sizeof(buf))
+    if ((len = vsnprintf(buf, sizeof(buf), format, argp)) >= (int)sizeof(buf)
+        || len == -1)
     {
         if (len == -1)
             die("Webtiles message format error! (%s)", format);
@@ -242,9 +240,12 @@ void TilesFramework::send_message(const char *format, ...)
     finish_message();
 }
 
-void TilesFramework::flush_messages()
+void TilesFramework::flush_messages(bool joining_only)
 {
-    send_message("*{\"msg\":\"flush_messages\"}");
+    if (joining_only)
+        send_message("*{\"msg\":\"flush_messages\",\"joining_only\":true}");
+    else
+        send_message("*{\"msg\":\"flush_messages\"}");
 }
 
 void TilesFramework::_await_connection()
@@ -308,8 +309,9 @@ wint_t TilesFramework::_handle_control_message(sockaddr_un addr, string data)
     }
     else if (msgtype == "spectator_joined")
     {
-        _send_everything();
         flush_messages();
+        _send_everything();
+        flush_messages(true);
     }
     else if (msgtype == "menu_scroll")
     {
@@ -610,21 +612,21 @@ void TilesFramework::_send_player(bool force_full)
     _update_string(force_full, c.species, species_name(you.species),
                    "species");
     string god = "";
-    if (you.religion == GOD_JIYVA)
+    if (you_worship(GOD_JIYVA))
         god = god_name_jiyva(true);
-    else if (you.religion != GOD_NO_GOD)
+    else if (!you_worship(GOD_NO_GOD))
         god = god_name(you.religion);
     _update_string(force_full, c.god, god, "god");
-    _update_int(force_full, c.under_penance, player_under_penance(), "penance");
+    _update_int(force_full, c.under_penance, (bool) player_under_penance(), "penance");
     uint8_t prank = 0;
-    if (you.religion == GOD_XOM)
+    if (you_worship(GOD_XOM))
     {
         if (!you.gift_timeout)
             prank = 2;
         else if (you.gift_timeout == 1)
             prank = 1;
     }
-    else if (you.religion != GOD_NO_GOD)
+    else if (!you_worship(GOD_NO_GOD))
         prank = max(0, piety_rank() - 1);
     else if (you.char_class == JOB_MONK && you.species != SP_DEMIGOD
              && !had_gods())
@@ -637,10 +639,31 @@ void TilesFramework::_send_player(bool force_full)
 
     _update_int(force_full, c.hp, you.hp, "hp");
     _update_int(force_full, c.hp_max, you.hp_max, "hp_max");
-    _update_int(force_full, c.real_hp_max, get_real_hp(true, true), "real_hp_max");
+    int max_max_hp = get_real_hp(true, true);
+    if (you.species == SP_DJINNI)
+        max_max_hp += get_real_mp(true); // compare _print_stats_hp
+    _update_int(force_full, c.real_hp_max, max_max_hp, "real_hp_max");
 
-    _update_int(force_full, c.mp, you.magic_points, "mp");
-    _update_int(force_full, c.mp_max, you.max_magic_points, "mp_max");
+    if (you.species != SP_DJINNI)
+    {
+        _update_int(force_full, c.mp, you.magic_points, "mp");
+        _update_int(force_full, c.mp_max, you.max_magic_points, "mp_max");
+    }
+
+    if (you.species == SP_DJINNI)
+    {
+        // Don't send more information than can be seen from the console HUD.
+        // Compare _print_stats_contam and get_contamination_level
+        int contam = you.magic_contamination;
+        if (contam >= 26000)
+            contam = 26000;
+        else if (contam >= 16000)
+            contam = 16000;
+        _update_int(force_full, c.contam, contam, "contam");
+    }
+
+    if (you.species == SP_LAVA_ORC)
+        _update_int(force_full, c.heat, temperature(), "heat");
 
     _update_int(force_full, c.armour_class, you.armour_class(), "ac");
     _update_int(force_full, c.evasion, player_evasion(), "ev");
@@ -1025,6 +1048,12 @@ void TilesFramework::_send_cell(const coord_def &gc,
             _write_tileidx(next_pc.bg);
         }
 
+        if (next_pc.cloud != current_pc.cloud)
+        {
+            json_write_name("cloud");
+            _write_tileidx(next_pc.cloud);
+        }
+
         if (next_pc.is_bloody != current_pc.is_bloody)
             json_write_bool("bloody", next_pc.is_bloody);
 
@@ -1069,6 +1098,9 @@ void TilesFramework::_send_cell(const coord_def &gc,
 
         if (next_pc.travel_trail != current_pc.travel_trail)
             json_write_int("travel_trail", next_pc.travel_trail);
+
+        if (next_pc.heat_aura != current_pc.heat_aura)
+            json_write_int("heat_aura", next_pc.heat_aura);
 
         if (_needs_flavour(next_pc) &&
             (next_pc.flv.floor != current_pc.flv.floor
@@ -1173,6 +1205,12 @@ void TilesFramework::_send_map(bool force_full)
 
     if (force_full)
         json_write_bool("clear", true);
+
+    if (force_full || you.on_current_level != m_player_on_level)
+    {
+        json_write_bool("player_on_level", you.on_current_level);
+        m_player_on_level = you.on_current_level;
+    }
 
     if (force_full || m_current_gc != m_next_gc)
     {

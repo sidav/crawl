@@ -17,10 +17,13 @@
 #include "directn.h"
 #include "effects.h"
 #include "env.h"
+#include "itemprop.h"
 #include "kills.h"
 #include "libutil.h"
 #include "mapmark.h"
+#include "message.h"
 #include "misc.h"
+#include "mon-cast.h"
 #include "mon-place.h"
 #include "mgen_data.h"
 #include "mon-stuff.h"
@@ -85,7 +88,7 @@ MiscastEffect::MiscastEffect(actor* _target, int _source,
     ASSERT(!_cause.empty());
     ASSERT(count_bits(_school) == 1);
     ASSERT(_school <= SPTYP_LAST_SCHOOL || _school == SPTYP_RANDOM);
-    ASSERT(level >= 0 && level <= 3);
+    ASSERT_RANGE(level, 0, 3 + 1);
 
     init();
     do_miscast();
@@ -216,7 +219,8 @@ void MiscastEffect::init()
             source_known = true;
     }
 
-    ASSERT(kc != KC_NCATEGORIES && kt != KILL_NONE);
+    ASSERT(kc != KC_NCATEGORIES);
+    ASSERT(kt != KILL_NONE);
 
     if (death_curse && !invalid_monster_index(kill_source))
     {
@@ -253,7 +257,7 @@ string MiscastEffect::get_default_cause(bool attribute_to_user) const
 {
     // This is only for true miscasts, which means both a spell and that
     // the source of the miscast is the same as the target of the miscast.
-    ASSERT(source >= 0 && source <= NON_MONSTER);
+    ASSERT_RANGE(source, 0, NON_MONSTER + 1);
     ASSERT(spell != SPELL_NO_SPELL);
     ASSERT(school == SPTYP_NONE);
 
@@ -285,7 +289,7 @@ bool MiscastEffect::neither_end_silenced()
 
 void MiscastEffect::do_miscast()
 {
-    ASSERT(recursion_depth >= 0 && recursion_depth < MAX_RECURSE);
+    ASSERT_RANGE(recursion_depth, 0, MAX_RECURSE);
 
     if (recursion_depth == 0)
         did_msg = false;
@@ -374,6 +378,14 @@ void MiscastEffect::do_miscast()
     all_msg        = you_msg = mon_msg = mon_msg_seen = mon_msg_unseen = "";
     msg_ch         = MSGCH_PLAIN;
     sound_loudness = 0;
+
+    if (source == ZOT_TRAP_MISCAST)
+    {
+        _zot();
+        if (target->is_player())
+            xom_is_stimulated(150);
+        return;
+    }
 
     switch (sp_type)
     {
@@ -531,7 +543,7 @@ bool MiscastEffect::_ouch(int dam, beam_type flavour)
         {
             god_type god = static_cast<god_type>(-source);
 
-            if (god == GOD_XOM && you.penance[GOD_XOM] == 0)
+            if (god == GOD_XOM && !player_under_penance(GOD_XOM))
                 method = KILLED_BY_XOM;
             else
                 method = KILLED_BY_DIVINE_WRATH;
@@ -549,7 +561,8 @@ bool MiscastEffect::_ouch(int dam, beam_type flavour)
 bool MiscastEffect::_explosion()
 {
     ASSERT(!beam.name.empty());
-    ASSERT(beam.damage.num != 0 && beam.damage.size != 0);
+    ASSERT(beam.damage.num != 0);
+    ASSERT(beam.damage.size != 0);
     ASSERT(beam.flavour != BEAM_NONE);
 
     int max_dam = beam.damage.num * beam.damage.size;
@@ -659,11 +672,10 @@ bool MiscastEffect::avoid_lethal(int dam)
 
     if (recursion_depth == MAX_RECURSE)
     {
-#if defined(DEBUG_DIAGNOSTICS) || defined(DEBUG_MISCAST)
-        mpr("Couldn't avoid lethal miscast: too much recursion.",
-            MSGCH_ERROR);
-#endif
-        return false;
+        // Any possible miscast would kill you, now that's interesting.
+        if (you_worship(GOD_XOM))
+            simple_god_message(" watches you with interest.");
+        return true;
     }
 
     if (did_msg)
@@ -702,7 +714,7 @@ bool MiscastEffect::_create_monster(monster_type what, int abj_deg,
     // hostile_at() assumes the monster is hostile to the player,
     // but should be hostile to the target monster unless the miscast
     // is a result of either divine wrath or a Zot trap.
-    if (target->is_monster() && you.penance[god] == 0
+    if (target->is_monster() && !player_under_penance(god)
         && source != ZOT_TRAP_MISCAST)
     {
         monster* mon_target = target_as_monster();
@@ -730,7 +742,9 @@ bool MiscastEffect::_create_monster(monster_type what, int abj_deg,
     // simply be ignored.
     if (data.abjuration_duration != 0)
     {
-        if (you.penance[god] > 0)
+        if (what == RANDOM_MOBILE_MONSTER)
+            data.summon_type = SPELL_SHADOW_CREATURES;
+        else if (player_under_penance(god))
             data.summon_type = MON_SUMM_WRATH;
         else if (source == ZOT_TRAP_MISCAST)
             data.summon_type = MON_SUMM_ZOT;
@@ -750,7 +764,8 @@ static bool _has_hair(actor* target)
 
     return (!form_changed_physiology() && you.species != SP_GHOUL
             && you.species != SP_OCTOPODE
-            && you.species != SP_TENGU && !player_genus(GENPC_DRACONIAN));
+            && you.species != SP_TENGU && !player_genus(GENPC_DRACONIAN)
+            && you.species != SP_GARGOYLE && you.species != SP_LAVA_ORC);
 }
 
 static string _hair_str(actor* target, bool &plural)
@@ -1039,7 +1054,7 @@ void MiscastEffect::_enchantment(int severity)
             _potion_effect(POT_CONFUSION, 10);
             break;
         case 2:
-            contaminate_player(random2avg(19, 3), spell != SPELL_NO_SPELL);
+            contaminate_player(random2avg(18000, 3), spell != SPELL_NO_SPELL);
             break;
         case 3:
             do
@@ -1222,7 +1237,7 @@ void MiscastEffect::_translocation(int severity)
                 goto reroll_3;
             break;
         case 3:
-            contaminate_player(random2avg(19, 3), spell != SPELL_NO_SPELL);
+            contaminate_player(random2avg(18000, 3), spell != SPELL_NO_SPELL);
             break;
         }
         break;
@@ -1505,9 +1520,9 @@ void MiscastEffect::_divination_you(int severity)
             break;
         case 1:
             mpr("You lose your focus.");
-            if (you.magic_points > 0)
+            if (you.magic_points > 0 || you.species == SP_DJINNI)
             {
-                dec_mp(3 + random2(10));
+                drain_mp(3 + random2(10));
                 mpr("You suddenly feel drained of magical energy!", MSGCH_WARN);
             }
             break;
@@ -1521,9 +1536,9 @@ void MiscastEffect::_divination_you(int severity)
         {
         case 0:
             mpr("You lose concentration completely!");
-            if (you.magic_points > 0)
+            if (you.magic_points > 0 || you.species == SP_DJINNI)
             {
-                dec_mp(5 + random2(20));
+                drain_mp(5 + random2(20));
                 mpr("You suddenly feel drained of magical energy!", MSGCH_WARN);
             }
             break;
@@ -1594,7 +1609,7 @@ void MiscastEffect::_divination_mon(int severity)
 
 void MiscastEffect::_necromancy(int severity)
 {
-    if (target->is_player() && you.religion == GOD_KIKUBAAQUDGHA
+    if (target->is_player() && you_worship(GOD_KIKUBAAQUDGHA)
         && !player_under_penance() && you.piety >= piety_breakpoint(1))
     {
         const bool death_curse = (cause.find("death curse") != string::npos);
@@ -1602,7 +1617,7 @@ void MiscastEffect::_necromancy(int severity)
         if (spell != SPELL_NO_SPELL)
         {
             // An actual necromancy miscast.
-            if (x_chance_in_y(you.piety, 150))
+            if (x_chance_in_y(you.piety, piety_breakpoint(5)))
             {
                 canned_msg(MSG_NOTHING_HAPPENS);
                 return;
@@ -1736,7 +1751,7 @@ void MiscastEffect::_necromancy(int severity)
         {
             bool success = false;
 
-            for (int i = random2(3); i >= 0; --i)
+            for (int i = random2(2); i >= 0; --i)
             {
                 if (_create_monster(MONS_SHADOW, 2, true))
                     success = true;
@@ -1756,15 +1771,11 @@ void MiscastEffect::_necromancy(int severity)
             you_msg      = "You are engulfed in negative energy!";
             mon_msg_seen = "@The_monster@ is engulfed in negative energy!";
 
-            if (lethality_margin == 0 || you.experience > 0
-                || !avoid_lethal(you.hp))
+            if (one_chance_in(3))
             {
-                if (one_chance_in(3))
-                {
-                    do_msg();
-                    target->drain_exp(act_source);
-                    break;
-                }
+                do_msg();
+                target->drain_exp(act_source, false, 100);
+                break;
             }
 
             // If we didn't do anything, just flow through...
@@ -1835,13 +1846,9 @@ void MiscastEffect::_necromancy(int severity)
             you_msg      = "You are engulfed in negative energy!";
             mon_msg_seen = "@The_monster@ is engulfed in negative energy!";
 
-            if (lethality_margin == 0 || you.experience > 0
-                || !avoid_lethal(you.hp))
-            {
-                do_msg();
-                target->drain_exp(act_source);
-                break;
-            }
+            do_msg();
+            target->drain_exp(act_source, false, 100);
+            break;
 
             // If we didn't do anything, just flow through if it's the player.
             if (target->is_monster() || did_msg)
@@ -1955,7 +1962,7 @@ void MiscastEffect::_transmutation(int severity)
             _potion_effect(POT_CONFUSION, 10);
             break;
         case 4:
-            contaminate_player(random2avg(19, 3), spell != SPELL_NO_SPELL);
+            contaminate_player(random2avg(18000, 3), spell != SPELL_NO_SPELL);
             break;
         }
         break;
@@ -1973,7 +1980,7 @@ void MiscastEffect::_transmutation(int severity)
             if (_ouch(3 + random2avg(18, 2)) && target->alive())
                 if (target->is_player())
                 {
-                    contaminate_player(random2avg(35, 3),
+                    contaminate_player(random2avg(34000, 3),
                                        spell != SPELL_NO_SPELL, false);
                 }
                 else
@@ -2016,12 +2023,12 @@ void MiscastEffect::_transmutation(int severity)
                 // We don't need messages when the mutation fails,
                 // because we give our own (which is justified anyway as
                 // you take damage).
-                give_bad_mutation(cause, false, false);
+                mutate(RANDOM_BAD_MUTATION, cause, false, false);
                 if (coinflip())
-                    give_bad_mutation(cause, false, false);
+                    mutate(RANDOM_BAD_MUTATION, cause, false, false);
             }
             else
-                target->mutate(cause);
+                target->malmutate(cause);
             _ouch(5 + random2avg(23, 2));
             break;
         }
@@ -2173,7 +2180,7 @@ void MiscastEffect::_fire(int severity)
             do_msg();
 
             if (target->is_player())
-                napalm_player(random2avg(7,3)  + 1);
+                napalm_player(random2avg(7,3) + 1, cause);
             else
             {
                 monster* mon_target = target_as_monster();
@@ -2836,4 +2843,256 @@ void MiscastEffect::_do_poison(int amount)
         poison_player(amount, cause, "residual poison");
     else
         target->poison(act_source, amount);
+}
+
+void MiscastEffect::_zot()
+{
+    bool success = false;
+    int roll;
+    switch (random2(4))
+    {
+    case 0:    // mainly explosions
+        beam.name = "explosion";
+        beam.damage = dice_def(3, 20);
+        beam.ex_size = coinflip() ? 1 : 2;
+        beam.glyph   = dchar_glyph(DCHAR_FIRED_BURST);
+        switch (random2(7))
+        {
+        case 0:
+        case 1:
+            all_msg = "There is a sudden explosion of flames!";
+            beam.flavour = BEAM_FIRE;
+            beam.colour  = RED;
+            _explosion();
+            break;
+        case 2:
+        case 3:
+            all_msg = "There is a sudden explosion of frost!";
+            beam.flavour = BEAM_COLD;
+            beam.colour  = WHITE;
+            _explosion();
+            break;
+        case 4:
+            all_msg = "There is a sudden blast of acid!";
+            beam.name    = "acid blast";
+            beam.flavour = BEAM_ACID;
+            beam.colour  = YELLOW;
+            _explosion();
+            break;
+        case 5:
+            if (_create_monster(MONS_BALL_LIGHTNING, 3))
+                all_msg = "A ball of electricity appears!";
+            do_msg();
+            break;
+        case 6:
+            if (_create_monster(MONS_TWISTER, 1))
+                all_msg = "A huge vortex of air appears!";
+            do_msg();
+            break;
+        }
+        break;
+    case 1:    // summons
+    reroll_1:
+        switch (random2(9))
+        {
+        case 0:
+            if (_create_monster(MONS_SOUL_EATER, 4, true))
+            {
+                you_msg        = "Something reaches out for you...";
+                mon_msg_seen   = "Something reaches out for @the_monster@...";
+                mon_msg_unseen = "Something reaches out from thin air...";
+            }
+            do_msg();
+            break;
+        case 1:
+            if (_create_monster(MONS_REAPER, 4, true))
+            {
+                you_msg        = "Death has come for you...";
+                mon_msg_seen   = "Death has come for @the_monster@...";
+                mon_msg_unseen = "Death appears from thin air...";
+            }
+            do_msg();
+            break;
+        case 2:
+            if (_create_monster(summon_any_demon(RANDOM_DEMON_GREATER), 0, true))
+                all_msg = "You sense a hostile presence.";
+            do_msg();
+            break;
+        case 3:
+        case 4:
+            for (int i = 1 + random2(2); i >= 0; --i)
+            {
+                if (_create_monster(summon_any_demon(RANDOM_DEMON_COMMON), 0, true))
+                    success = true;
+            }
+            if (success)
+            {
+                you_msg = "Something turns its malign attention towards "
+                          "you...";
+                mon_msg = "You sense a malign presence.";
+                do_msg();
+            }
+            break;
+        case 5:
+            for (int i = 3 + random2(5); i >= 0; --i)
+            {
+                if (_create_monster(summon_any_demon(RANDOM_DEMON_LESSER), 0, true))
+                    success = true;
+            }
+            if (success && neither_end_silenced())
+            {
+                you_msg        = "A chorus of chattering voices calls out to"
+                                 " you!";
+                mon_msg        = "A chorus of chattering voices calls out!";
+                msg_ch         = MSGCH_SOUND;
+                sound_loudness = 3;
+                do_msg();
+            }
+            break;
+        case 6:
+        case 7:
+            for (int i = 2 + random2(3); i >= 0; --i)
+            {
+                if (_create_monster(RANDOM_MOBILE_MONSTER, 4, true))
+                    success = true;
+            }
+            if (success)
+            {
+                all_msg = "Wisps of shadow whirl around...";
+                do_msg();
+            }
+            break;
+        case 8:
+            if (!_malign_gateway())
+                goto reroll_1;
+            break;
+        }
+        break;
+    case 2:
+    case 3:    // other misc stuff
+    reroll_2:
+        // Cases at the end are for players only.
+        switch (random2(target->is_player() ? 15 : 10))
+        {
+        case 0:
+            target->paralyse(act_source, 2 + random2(4), cause);
+            break;
+        case 1:
+            target->petrify(guilty);
+            break;
+        case 2:
+            target->rot(act_source, 0, 3 + random2(3));
+            break;
+        case 3:
+            if (!_send_to_abyss())
+                goto reroll_2;
+            break;
+        case 4:
+            you_msg      = "You feel incredibly sick.";
+            mon_msg_seen = "@The_monster@ looks incredibly sick.";
+            _do_poison(10 + random2avg(19, 2));
+            do_msg();
+            break;
+        case 5:
+            if (!target->is_player())
+                target->polymorph(0);
+            else if (coinflip())
+            {
+                you_msg = "You feel very strange.";
+                delete_mutation(RANDOM_MUTATION, cause, true, false, false, false);
+                do_msg();
+            }
+            else
+            {
+                you_msg = "Your body is distorted in a weirdly horrible way!";
+                mutate(RANDOM_BAD_MUTATION, cause, false, false);
+                if (coinflip())
+                    mutate(RANDOM_BAD_MUTATION, cause, false, false);
+                do_msg();
+            }
+            break;
+        case 6:
+        case 7:
+            roll = random2(3); // Give 2 of 3 effects.
+            if (roll != 0)
+                _potion_effect(POT_CONFUSION, 15);
+            if (roll != 1)
+                _potion_effect(POT_SLOWING, 15);
+            if (roll != 2)
+            {
+                you_msg        = "Space warps around you!";
+                mon_msg_seen   = "Space warps around @the_monster@!";
+                mon_msg_unseen = "A piece of empty space twists and writhes.";
+                _ouch(5 + random2avg(9, 2));
+                if (target->alive())
+                {
+                    if (!target->no_tele())
+                    {
+                        if (one_chance_in(3))
+                            target->teleport(true);
+                        else
+                            target->blink(false);
+                    }
+                }
+            }
+            break;
+        case 8:
+            you_msg      = "You are engulfed in negative energy!";
+            mon_msg_seen = "@The_monster@ is engulfed in negative energy!";
+            do_msg();
+            target->drain_exp(act_source, false, 100);
+            break;
+        case 9:
+            if (target->is_player())
+                contaminate_player(2000 + random2avg(13000, 2), false);
+            else
+                target->polymorph(0);
+            break;
+        case 10:
+            if (you.magic_points > 0)
+            {
+                dec_mp(10 + random2(21));
+                mpr("You suddenly feel drained of magical energy!", MSGCH_WARN);
+            }
+            break;
+        case 11:
+        {
+            vector<string> wands;
+            for (int i = 0; i < ENDOFPACK; ++i)
+            {
+                if (!you.inv[i].defined())
+                    continue;
+
+                if (you.inv[i].base_type == OBJ_WANDS)
+                {
+                    const int charges = you.inv[i].plus;
+                    if (charges > 0 && coinflip())
+                    {
+                        you.inv[i].plus -= min(1 + random2(wand_charge_value(you.inv[i].sub_type)), charges);
+                        // Display new number of charges when messaging.
+                        wands.push_back(you.inv[i].name(DESC_PLAIN));
+                    }
+                }
+            }
+            if (!wands.empty())
+                mpr_comma_separated_list("Magical energy is drained from your ", wands);
+            else
+                do_msg(); // For canned_msg(MSG_NOTHING_HAPPENS)
+            break;
+        }
+        case 12:
+            _lose_stat(STAT_RANDOM, 1 + random2avg((coinflip() ? 7 : 4), 2));
+            break;
+        case 13:
+            mpr("An unnatural silence engulfs you.");
+            you.increase_duration(DUR_SILENCE, 10 + random2(21), 30);
+            invalidate_agrid(true);
+            break;
+        case 14:
+            if (mons_word_of_recall(NULL, 2 + random2(3)) == 0)
+                canned_msg(MSG_NOTHING_HAPPENS);
+            break;
+        }
+        break;
+    }
 }

@@ -5,13 +5,11 @@
 // first  boolean = is mutation mostly bad?
 // second boolean = is mutation physical, i.e. external only?
 // third  boolean = is mutation suppressed when shapechanged?
-// first  strings = what to show in 'A'
-// second strings = message given when gaining the mutation
-// third  strings = message given when losing the mutation
-// fourth string  = wizard-mode name of mutation
-
-#ifndef MUTATION_DATA_H
-#define MUTATION_DATA_H
+// first  string  = what to show in '%'
+// second strings = what to show in 'A'
+// third  strings = message given when gaining the mutation
+// fourth strings = message given when losing the mutation
+// fifth  string  = wizard-mode name of mutation
 
 { MUT_TOUGH_SKIN,                     0,  3, false,  true,  true,
   "tough skin",
@@ -31,30 +29,33 @@
   "tough skin"
 },
 
-{ MUT_STRONG,                         8, 14, false,  true, false,
+{ MUT_STRONG,                         7, 2, false,  true, false,
   NULL,
 
-  {"Your muscles are strong (Str +", "", ""},
+  {"Your muscles are strong. (Str +2)",
+   "Your muscles are very strong. (Str +4)", ""},
   {"", "", ""},
   {"", "", ""},
 
   "strong"
 },
 
-{ MUT_CLEVER,                         8, 14, false,  true, false,
+{ MUT_CLEVER,                         7, 2, false,  true, false,
   NULL,
 
-  {"Your mind is acute (Int +", "", ""},
+  {"Your mind is acute. (Int +2)",
+   "Your mind is very acute. (Int +4)", ""},
   {"", "", ""},
   {"", "", ""},
 
   "clever"
 },
 
-{ MUT_AGILE,                          8, 14, false,  true, false,
+{ MUT_AGILE,                          7, 2, false,  true, false,
   NULL,
 
-  {"You are agile (Dex +", "", ""},
+  {"You are agile. (Dex +2)",
+   "You are very agile. (Dex +4)", ""},
   {"", "", ""},
   {"", "", ""},
 
@@ -243,31 +244,35 @@
   "slow metabolism"
 },
 
-{ MUT_WEAK,                          10, 14,  true,  true, false,
+{ MUT_WEAK,                          8, 2,  true,  true, false,
   NULL,
-  {"You are weak (Str -", "", ""},
+  {"You are weak. (Str -2)",
+   "You are very weak. (Str -4)", ""},
   {"", "", ""},
   {"", "", ""},
   "weak"
 },
 
-{ MUT_DOPEY,                         10, 14,  true,  true, false,
+{ MUT_DOPEY,                         8, 2,  true,  true, false,
   NULL,
-  {"You are dopey (Int -", "", ""},
+  {"You are dopey. (Int -2)",
+   "You are very dopey. (Int -4)", ""},
   {"", "", ""},
   {"", "", ""},
   "dopey",
 },
 
-{ MUT_CLUMSY,                        10, 14,  true,  true, false,
+{ MUT_CLUMSY,                        8, 2,  true,  true, false,
   NULL,
-  {"You are clumsy (Dex -", "", ""},
+  {"You are clumsy. (Dex -2)",
+   "You are very clumsy. (Dex -4)", ""},
   {"", "", ""},
   {"", "", ""},
   "clumsy"
 },
 
-{ MUT_TELEPORT_CONTROL,               2,  1, false, false, false,
+#if TAG_MAJOR_VERSION == 34
+{ MUT_TELEPORT_CONTROL,               0,  1, false, false, false,
   "teleport control",
 
   {"You can control translocations.", "", ""},
@@ -276,6 +281,7 @@
 
   "teleport control"
 },
+#endif
 
 { MUT_TELEPORT,                       3,  3,  true, false, false,
   "teleportitis",
@@ -429,7 +435,8 @@
   "blink"
 },
 
-{ MUT_STRONG_STIFF,                  10,  3, false,  true, false,
+#if TAG_MAJOR_VERSION == 34
+{ MUT_STRONG_STIFF,                  0,  3, false,  true, false,
   NULL,
 
   {"Your muscles are strong, but stiff (Str +1, Dex -1).",
@@ -447,7 +454,7 @@
   "strong stiff"
 },
 
-{ MUT_FLEXIBLE_WEAK,                 10,  3, false,  true, false,
+{ MUT_FLEXIBLE_WEAK,                 0,  3, false,  true, false,
   NULL,
 
   {"Your muscles are flexible, but weak (Str -1, Dex +1).",
@@ -464,6 +471,7 @@
 
   "flexible weak"
 },
+#endif
 
 { MUT_SCREAM,                         6,  3,  true, false, false,
   "screaming",
@@ -639,7 +647,7 @@
   "torment resistance"
 },
 
-{ MUT_NEGATIVE_ENERGY_RESISTANCE,     0,  3, false, false,  true,
+{ MUT_NEGATIVE_ENERGY_RESISTANCE,     0,  3, false, false, false,
   "life protection",
 
   {"You resist negative energy.",
@@ -804,7 +812,7 @@
 },
 
 // Naga only; getting it is special-cased.
-{ MUT_BREATHE_POISON,                 0,  1, false, false,  true,
+{ MUT_BREATHE_POISON,                 0,  1, false, false,  false,
   "breathe poison",
 
   {"You can exhale a cloud of poison.", "", ""},
@@ -1096,6 +1104,36 @@
   "augmentation"
 },
 
+{ MUT_MANA_SHIELD,                    0,  1, false, false, false,
+  "magic shield",
+
+  {"When hurt, damage is shared between your health and your magic reserves.", "", ""},
+  {"You feel your magical essence form a protective shroud around your flesh.", "", ""},
+  {"", "", ""},
+
+  "magic shield"
+},
+
+{ MUT_MANA_REGENERATION,              0,  1, false, false, false,
+  "magic regeneration",
+
+  {"You regenerate magic rapidly.", "", ""},
+  {"You feel your magic shroud grow more resilient.", "", ""},
+  {"", "", ""},
+
+  "magic regeneration"
+},
+
+{ MUT_MANA_LINK,                      0,  1, false, false, false,
+  "magic link",
+
+  {"When low on magic, you restore magic in place of health.", "", ""},
+  {"You feel your life force and your magical essence meld.", "", ""},
+  {"", "", ""},
+
+  "magic link"
+},
+
 // Jiyva only mutations
 { MUT_GELATINOUS_BODY,                0,  3, false,  true,  true,
   NULL,
@@ -1169,6 +1207,7 @@
   "pseudopods"
 },
 
+#if TAG_MAJOR_VERSION == 34
 { MUT_FOOD_JELLY,                     0,  1, false,  true, false,
   "spawn jellies when eating",
 
@@ -1178,6 +1217,7 @@
 
   "jelly spawner"
 },
+#endif
 
 { MUT_ACIDIC_BITE,                    0,  1, false,  true,  true,
   "acidic bite",
@@ -1432,4 +1472,74 @@
   "foul stench"
 },
 
+{ MUT_TENDRILS,                       0,  1, false,  true, true,
+  "tendrils",
+
+  {"Thin tendrils of slime have grown from your body.", "", ""},
+  {"Thin, slimy tendrils emerge from your body.", "", ""},
+  {"Your tendrils retract into your body.", "", ""},
+
+  "tendrils"
+},
+
+{ MUT_JELLY_GROWTH,                       0,  1, false,  true, true,
+  "a jelly is attached to you",
+
+  {"You have a small jelly attached to you that senses nearby items.", "", ""},
+  {"Your body partially splits into a small jelly.", "", ""},
+  {"The jelly growth is reabsorbed into your body.", "", ""},
+
+  "jelly growth"
+},
+
+{ MUT_JELLY_MISSILE,                       0,  1, false,  true, true,
+  "absorbing missiles",
+
+  {"You have a small jelly attached to you that may absorb incoming projectiles.", "", ""},
+  {"Your body partially splits into a small jelly.", "", ""},
+  {"The jelly growth is reabsorbed into your body.", "", ""},
+
+  "jelly missile"
+},
+
+{ MUT_PETRIFICATION_RESISTANCE,            0,  1, false, false, false,
+  "petrification resistance",
+
+  {"You are immune to petrification.", "", ""},
+  {"Your body vibrates.", "", ""},
+  {"You briefly stop moving.", "", ""},
+
+  "petrification resistance"
+},
+
+#if TAG_MAJOR_VERSION == 34
+{ MUT_TRAMPLE_RESISTANCE,                  0,  1, false, false, false,
+  "trample resistance",
+
+  {"You are resistant to trampling.", "", ""},
+  {"You feel steady.", "", ""},
+  {"You feel unsteady..", "", ""},
+
+  "trample resistance"
+},
+
+{ MUT_CLING,                               0,  1, false, false, true,
+  "cling",
+
+  {"You can cling to walls.", "", ""},
+  {"You feel sticky.", "", ""},
+  {"You feel slippery.", "", ""},
+
+  "cling"
+},
 #endif
+
+{ MUT_FUMES,            0,  2, false, false, false,
+  "fuming",
+
+  {"You emit clouds of smoke.", "You frequently emit clouds of smoke.", ""},
+  {"You fume.", "You fume more.", ""},
+  {"You stop fuming.", "You fume less.", ""},
+
+  "fumes"
+}

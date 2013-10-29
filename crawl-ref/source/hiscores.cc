@@ -87,6 +87,8 @@ static string _score_file_name()
         ret = Options.shared_dir + "scores";
 
     ret += crawl_state.game_type_qualifier();
+    if (crawl_state.game_is_sprint() && crawl_state.map != "")
+        ret += "-" + crawl_state.map;
 
     return ret;
 }
@@ -356,15 +358,8 @@ static void _show_morgue(scorefile_entry& se)
 
     morgue_file.set_flags(flags, false);
     morgue_file.set_tag("morgue");
+    morgue_file.set_more();
 
-    morgue_file.set_more(formatted_string::parse_string(
-#ifdef USE_TILE_LOCAL
-                            "<cyan>[ +/L-click : Page down.   - : Page up."
-                            "           Esc/R-click exits.]"));
-#else
-                            "<cyan>[ + : Page down.   - : Page up."
-                            "                           Esc exits.]"));
-#endif
     string morgue_base = morgue_name(se.get_name(), se.get_death_time());
     string morgue_path = morgue_directory()
                          + strip_filename_unsafe_chars(morgue_base) + ".txt";
@@ -408,6 +403,7 @@ static void _show_morgue(scorefile_entry& se)
 
 void show_hiscore_table()
 {
+    unwind_var<string> sprintmap(crawl_state.map, crawl_state.sprint_map);
     const int max_line   = get_number_of_lines() - 1;
     const int max_col    = get_number_of_cols() - 1;
 
@@ -628,7 +624,7 @@ static const char *kill_method_names[] =
     "falling_down_stairs", "acid", "curare",
     "beogh_smiting", "divine_wrath", "bounce", "reflect", "self_aimed",
     "falling_through_gate", "disintegration", "headbutt", "rolling",
-    "mirror_damage",
+    "mirror_damage", "spines",
 };
 
 static const char *_kill_method_name(kill_method_type kmt)
@@ -742,6 +738,9 @@ void scorefile_entry::init_from(const scorefile_entry &se)
     zigs              = se.zigs;
     zigmax            = se.zigmax;
     fixup_char_name();
+
+    // We could just reset raw_line to "" instead.
+    raw_line          = se.raw_line;
 }
 
 xlog_fields scorefile_entry::get_fields() const
@@ -813,6 +812,8 @@ enum old_job_type
     OLD_JOB_PALADIN      = -3,
     OLD_JOB_REAVER       = -4,
     OLD_JOB_STALKER      = -5,
+    OLD_JOB_JESTER       = -6,
+    OLD_JOB_PRIEST       = -7,
     NUM_OLD_JOBS
 };
 
@@ -833,6 +834,10 @@ static const char* _job_name(int job)
         return "Reaver";
     case OLD_JOB_STALKER:
         return "Stalker";
+    case OLD_JOB_JESTER:
+        return "Jester";
+    case OLD_JOB_PRIEST:
+        return "Priest";
     default:
         return "unknown";
     }
@@ -855,6 +860,10 @@ static const char* _job_abbrev(int job)
         return "Re";
     case OLD_JOB_STALKER:
         return "St";
+    case OLD_JOB_JESTER:
+        return "Jr";
+    case OLD_JOB_PRIEST:
+        return "Pr";
     default:
         return "??";
     }
@@ -998,7 +1007,7 @@ void scorefile_entry::set_base_xlog_fields() const
     fields->add_field("ev", "%d", ev);
     fields->add_field("sh", "%d", sh);
 
-    fields->add_field("god", "%s", god == GOD_NO_GOD? "" :
+    fields->add_field("god", "%s", god == GOD_NO_GOD ? "" :
                       god_name(god).c_str());
 
     if (wiz_mode)
@@ -1154,11 +1163,16 @@ void scorefile_entry::init_death_cause(int dam, int dsrc,
             || death_type == KILLED_BY_HEADBUTT
             || death_type == KILLED_BY_BEAM
             || death_type == KILLED_BY_DISINT
+            || death_type == KILLED_BY_ACID
+            || death_type == KILLED_BY_DRAINING
+            || death_type == KILLED_BY_BURNING
             || death_type == KILLED_BY_SPORE
             || death_type == KILLED_BY_CLOUD
             || death_type == KILLED_BY_ROTTING
             || death_type == KILLED_BY_REFLECTION
-            || death_type == KILLED_BY_ROLLING)
+            || death_type == KILLED_BY_ROLLING
+            || death_type == KILLED_BY_SPINES
+            || death_type == KILLED_BY_WATER)
         && !invalid_monster_index(death_source)
         && menv[death_source].type != MONS_NO_MONSTER)
     {
@@ -1186,7 +1200,7 @@ void scorefile_entry::init_death_cause(int dam, int dsrc,
                 auxkilldata = mitm[mons->inv[MSLOT_WEAPON]].name(DESC_A);
         }
 
-        const bool death = you.hp <= 0;
+        const bool death = (you.hp <= 0 || death_type == KILLED_BY_DRAINING);
 
         const description_level_type desc =
             death_type == KILLED_BY_SPORE ? DESC_PLAIN : DESC_A;
@@ -1262,11 +1276,18 @@ void scorefile_entry::init_death_cause(int dam, int dsrc,
         death_source_name = you.props["poisoner"].get_string();
         auxkilldata = you.props["poison_aux"].get_string();
     }
+
+    if (death_type == KILLED_BY_BURNING)
+    {
+        death_source_name = you.props["napalmer"].get_string();
+        auxkilldata = you.props["napalm_aux"].get_string();
+    }
 }
 
 void scorefile_entry::reset()
 {
     // simple init
+    raw_line.clear();
     version.clear();
     tiles                = 0;
     points               = -1;
@@ -1479,17 +1500,18 @@ void scorefile_entry::init(time_t dt)
         DUR_SHROUD_OF_GOLUBRIA, DUR_DISJUNCTION, DUR_SENTINEL_MARK,
         STATUS_AIRBORNE, STATUS_BEHELD, STATUS_BURDEN, STATUS_CONTAMINATION,
         STATUS_BACKLIT, STATUS_UMBRA, STATUS_SUPPRESSED, STATUS_NET,
-        STATUS_HUNGER, STATUS_REGENERATION, STATUS_SICK, DUR_NAUSEA,
-        STATUS_SPEED, DUR_INVIS, DUR_POISONING,
-        STATUS_MISSILES, DUR_SURE_BLADE, DUR_TRANSFORMATION,
-        STATUS_CONSTRICTED, STATUS_SILENCE, STATUS_RECALL,
+        STATUS_HUNGER, STATUS_REGENERATION, STATUS_SICK, STATUS_SPEED,
+        DUR_INVIS, DUR_POISONING, STATUS_MISSILES, DUR_SURE_BLADE,
+        DUR_TRANSFORMATION, STATUS_CONSTRICTED, STATUS_SILENCE, STATUS_RECALL,
+        DUR_WEAK, DUR_DIMENSION_ANCHOR, DUR_ANTIMAGIC, DUR_SPIRIT_HOWL,
+        DUR_FLAYED, DUR_WATER_HOLD, STATUS_DRAINED, DUR_TOXIC_RADIANCE,
+        DUR_FIRE_VULN
     };
 
     status_info inf;
     for (unsigned i = 0; i < ARRAYSZ(statuses); ++i)
     {
-        fill_status_info(statuses[i], &inf);
-        if (!inf.short_text.empty())
+        if (fill_status_info(statuses[i], &inf) && !inf.short_text.empty())
         {
             if (!status_effects.empty())
                 status_effects += ",";
@@ -1516,7 +1538,7 @@ void scorefile_entry::init(time_t dt)
     sh    = player_shield_class();
 
     god = you.religion;
-    if (you.religion != GOD_NO_GOD)
+    if (!you_worship(GOD_NO_GOD))
     {
         piety   = you.piety;
         penance = you.penance[you.religion];
@@ -1791,13 +1813,13 @@ scorefile_entry::character_description(death_desc_verbosity verbosity) const
                 // Not exactly the same as the religion screen, but
                 // good enough to fill this slot for now.
                 snprintf(scratch, INFO_SIZE, "Was %s of %s%s",
-                             (piety >  160) ? "the Champion" :
-                             (piety >= 120) ? "a High Priest" :
-                             (piety >= 100) ? "an Elder" :
-                             (piety >=  75) ? "a Priest" :
-                             (piety >=  50) ? "a Believer" :
-                             (piety >=  30) ? "a Follower"
-                                            : "an Initiate",
+                             (piety >= piety_breakpoint(5)) ? "the Champion" :
+                             (piety >= piety_breakpoint(4)) ? "a High Priest" :
+                             (piety >= piety_breakpoint(3)) ? "an Elder" :
+                             (piety >= piety_breakpoint(2)) ? "a Priest" :
+                             (piety >= piety_breakpoint(1)) ? "a Believer" :
+                             (piety >= piety_breakpoint(0)) ? "a Follower"
+                                                            : "an Initiate",
                           god_name(god).c_str(),
                              (penance > 0) ? " (penitent)." : ".");
 
@@ -1913,6 +1935,14 @@ string scorefile_entry::death_description(death_desc_verbosity verbosity) const
             desc += "rolling " + death_source_desc();
         else
             desc += "Rolled over by " + death_source_desc();
+        needs_damage = true;
+        break;
+
+    case KILLED_BY_SPINES:
+        if (terse)
+            desc += apostrophise(death_source_desc()) + " spines";
+        else
+            desc += "Impaled on " + apostrophise(death_source_desc()) + " spines" ;
         needs_damage = true;
         break;
 
@@ -2032,13 +2062,21 @@ string scorefile_entry::death_description(death_desc_verbosity verbosity) const
         if (race == SP_MUMMY)
             desc += terse? "fell apart" : "Soaked and fell apart";
         else
-            desc += terse? "drowned" : "Drowned";
+        {
+            if (!death_source_name.empty())
+            {
+                desc += terse? "drowned by " : "Drowned by ";
+                desc += death_source_name;
+            }
+            else
+                desc += terse? "drowned" : "Drowned";
+        }
         break;
 
     case KILLED_BY_STUPIDITY:
         if (terse)
             desc += "stupidity";
-        else if (_species_is_undead(race) || race == SP_GREY_DRACONIAN)
+        else if (_species_is_undead(race) || race == SP_GREY_DRACONIAN || race == SP_GARGOYLE)
             desc += "Forgot to exist";
         else
             desc += "Forgot to breathe";
@@ -2089,7 +2127,21 @@ string scorefile_entry::death_description(death_desc_verbosity verbosity) const
         break;
 
     case KILLED_BY_DRAINING:
-        desc += terse? "drained" : "Was drained of all life";
+        if (terse)
+            desc += "drained";
+        else
+        {
+            desc += "Drained of all life";
+            if (!death_source_desc().empty())
+            {
+                desc += " by " + death_source_desc();
+
+                if (!auxkilldata.empty())
+                    needs_beam_cause_line = true;
+            }
+            else if (!auxkilldata.empty())
+                desc += " by " + auxkilldata;
+        }
         break;
 
     case KILLED_BY_STARVATION:
@@ -2102,7 +2154,18 @@ string scorefile_entry::death_description(death_desc_verbosity verbosity) const
         break;
 
     case KILLED_BY_BURNING:     // sticky flame
-        desc += terse? "burnt" : "Burnt to a crisp";
+        if (terse)
+            desc += "burnt";
+        else if (!death_source_desc().empty())
+        {
+            desc += "Incinerated by " + death_source_desc();
+
+            if (!auxkilldata.empty())
+                needs_beam_cause_line = true;
+        }
+        else
+            desc += "Burnt to a crisp";
+
         needs_damage = true;
         break;
 
@@ -2144,7 +2207,16 @@ string scorefile_entry::death_description(death_desc_verbosity verbosity) const
         break;
 
     case KILLED_BY_TARGETTING:
-        desc += terse? "shot self" : "Killed themself with bad targetting";
+        if (terse)
+            desc += "shot self";
+        else
+        {
+            desc += "Killed themself with ";
+            if (auxkilldata.empty())
+                desc += "bad targetting";
+            else
+                desc += "a badly aimed " + auxkilldata;
+        }
         needs_damage = true;
         break;
 
@@ -2251,7 +2323,16 @@ string scorefile_entry::death_description(death_desc_verbosity verbosity) const
         break;
 
     case KILLED_BY_ACID:
-        desc += terse? "acid" : "Splashed by acid";
+        if (terse)
+            desc += "acid";
+        else if (!death_source_desc().empty())
+        {
+            desc += "Splashed by "
+                    + apostrophise(death_source_desc())
+                    + " acid";
+        }
+        else
+            desc += "Splashed with acid";
         needs_damage = true;
         break;
 
@@ -2399,19 +2480,24 @@ string scorefile_entry::death_description(death_desc_verbosity verbosity) const
             {
                 if (!semiverbose)
                 {
-                    if (auxkilldata == "angry trees")
-                        desc += "... awoken ";
-                    else desc += (is_vowel(auxkilldata[0])) ? "... with an "
-                        : "... with a ";
+                    desc += (is_vowel(auxkilldata[0])) ? "... with an "
+                                                       : "... with a ";
                     desc += auxkilldata;
                     desc += _hiscore_newline_string();
                     needs_damage = true;
                 }
+                else if (death_type == KILLED_BY_DRAINING
+                         || death_type == KILLED_BY_BURNING)
+                {
+                    desc += make_stringf(" (%s)", auxkilldata.c_str());
+                }
             }
             else if (needs_called_by_monster_line)
             {
-                snprintf(scratch, sizeof(scratch), "... invoked by %s",
-                          death_source_name.c_str());
+                snprintf(scratch, sizeof(scratch), "... %s by %s",
+                         auxkilldata == "by angry trees" ? "awakened"
+                                                         : "invoked",
+                         death_source_name.c_str());
                 desc += scratch;
                 desc += _hiscore_newline_string();
                 needs_damage = true;

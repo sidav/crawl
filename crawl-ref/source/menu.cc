@@ -8,6 +8,7 @@
 #include "menu.h"
 
 #include <cctype>
+#include <functional>
 
 #include "cio.h"
 #include "colour.h"
@@ -247,6 +248,21 @@ void Menu::set_more(const formatted_string &fs)
     more = fs;
 }
 
+void Menu::set_more()
+{
+    set_more(formatted_string::parse_string(
+#ifdef USE_TILE_LOCAL
+        "<cyan>[ <w>+</w>, <w>></w>, <w>Space</w> or <w>L-click</w>: Page down."
+        "   <w>-</w> or <w><<</w>: Page up."
+        "   <w>Esc</w> or <w>R-click</w> exits.]"
+#else
+        "<cyan>[ <w>+</w>, <w>></w> or <w>Space</w>: Page down."
+        "   <w>-</w> or <w><<</w>: Page up."
+        "                       <w>Esc</w> exits.]"
+#endif
+    ));
+}
+
 void Menu::set_highlighter(MenuHighlighter *mh)
 {
     if (highlighter != mh)
@@ -312,10 +328,6 @@ vector<MenuEntry *> Menu::show(bool reuse_selections)
     if (is_set(MF_START_AT_END))
         first_entry = max((int)items.size() - pagesize, 0);
 
-#ifdef USE_TILE_WEB
-    tiles.push_menu(this);
-#endif
-
     do_menu();
 
 #ifdef USE_TILE_WEB
@@ -329,9 +341,21 @@ void Menu::do_menu()
 {
     draw_menu();
 
+#ifdef USE_TILE_WEB
+    tiles.push_menu(this);
+    _webtiles_title_changed = false;
+#endif
+
     alive = true;
     while (alive)
     {
+#ifdef USE_TILE_WEB
+        if (_webtiles_title_changed)
+        {
+            webtiles_update_title();
+            _webtiles_title_changed = false;
+        }
+#endif
         int keyin = getchm(KMC_MENU, getch_ck);
 
         if (!process_key(keyin))
@@ -472,7 +496,7 @@ bool Menu::process_key(int keyin)
         textcolor(WHITE);
         cprintf("Select what? (regex) ");
         textcolor(LIGHTGREY);
-        bool validline = !cancelable_get_line(linebuf, sizeof linebuf);
+        bool validline = !cancellable_get_line(linebuf, sizeof linebuf);
         if (validline && linebuf[0])
         {
             text_pattern tpat(linebuf, true);
@@ -509,9 +533,6 @@ bool Menu::process_key(int keyin)
                 select_index(next, num);
                 get_selected(&sel);
                 draw_select_count(sel.size());
-#ifdef USE_TILE_WEB
-                webtiles_update_title();
-#endif
                 if (get_cursor() < next)
                 {
                     first_entry = 0;
@@ -598,8 +619,8 @@ bool Menu::process_key(int keyin)
         {
             if (num > 999)
                 num = -1;
-            num = (num == -1)? keyin - '0' :
-                               num * 10 + keyin - '0';
+            num = (num == -1) ? keyin - '0' :
+                                num * 10 + keyin - '0';
         }
 
         select_items(keyin, num);
@@ -608,9 +629,6 @@ bool Menu::process_key(int keyin)
             return false;
 
         draw_select_count(sel.size());
-#ifdef USE_TILE_WEB
-        webtiles_update_title();
-#endif
 
         if (flags & MF_ANYPRINTABLE
             && (!isadigit(keyin) || is_set(MF_NO_SELECT_QTY)))
@@ -653,6 +671,10 @@ bool Menu::draw_title_suffix(const string &s, bool titlefirst)
     if (crawl_state.doing_prev_cmd_again)
         return true;
 
+#ifdef USE_TILE_WEB
+    webtiles_set_suffix(formatted_string(s, 0));
+#endif
+
     int oldx = wherex(), oldy = wherey();
 
     if (titlefirst)
@@ -678,6 +700,10 @@ bool Menu::draw_title_suffix(const formatted_string &fs, bool titlefirst)
 {
     if (crawl_state.doing_prev_cmd_again)
         return true;
+
+#ifdef USE_TILE_WEB
+    webtiles_set_suffix(fs);
+#endif
 
     int oldx = wherex(), oldy = wherey();
 
@@ -724,7 +750,7 @@ string Menu::get_select_count_string(int count) const
         if (count)
         {
             snprintf(buf, sizeof buf, "  (%d item%s)  ", count,
-                    (count > 1? "s" : ""));
+                    (count > 1 ? "s" : ""));
         }
         return string(buf);
     }
@@ -803,7 +829,7 @@ void Menu::select_items(int key, int qty)
 
         // We have to use some hackery to handle items that share
         // the same hotkey (as for pickup when there's a stack of
-        // >52 items).  If there are duplicate hotkeys, the items
+        // >52 items). If there are duplicate hotkeys, the items
         // are usually separated by at least a page, so we should
         // only select the item on the current page. This is why we
         // use two loops, and check to see if we've matched an item
@@ -1118,7 +1144,7 @@ bool PlayerMenuEntry::get_tiles(vector<tile_def>& tileset) const
         if (idx == 0 || idx == TILEP_SHOW_EQUIP || flags[p] == TILEP_FLAG_HIDE)
             continue;
 
-        ASSERT(idx >= TILE_MAIN_MAX && idx < TILEP_PLAYER_MAX);
+        ASSERT_RANGE(idx, TILE_MAIN_MAX, TILEP_PLAYER_MAX);
 
         int ymax = TILE_Y;
 
@@ -1179,7 +1205,7 @@ void Menu::select_item_index(int idx, int qty, bool draw_cursor)
 
 void Menu::select_index(int index, int qty)
 {
-    int si = index == -1? first_entry : index;
+    int si = index == -1 ? first_entry : index;
 
     if (index == -1)
     {
@@ -1260,10 +1286,6 @@ void Menu::draw_menu()
 
 void Menu::update_title()
 {
-#ifdef USE_TILE_WEB
-    webtiles_update_title();
-#endif
-
     int x = wherex(), y = wherey();
     draw_title();
     cgotoxy(x, y);
@@ -1275,7 +1297,7 @@ int Menu::item_colour(int, const MenuEntry *entry) const
     if (highlighter)
         icol = highlighter->entry_colour(entry);
 
-    return (icol == -1? entry->colour : icol);
+    return (icol == -1 ? entry->colour : icol);
 }
 
 void Menu::draw_title()
@@ -1294,10 +1316,12 @@ void Menu::write_title()
     if (!first)
         ASSERT(title2);
 
-    textcolor(item_colour(-1, first ? title : title2));
+    formatted_string fs =
+        formatted_string(item_colour(-1, first ? title : title2));
 
     string text = (first ? title->get_text() : title2->get_text());
-    cprintf("%s", text.c_str());
+
+    fs.cprintf("%s", text.c_str());
     if (flags & MF_SHOW_PAGENUMBERS)
     {
         // The total number of pages is well defined, but the current
@@ -1308,8 +1332,13 @@ void Menu::write_title()
         int curpage = first_entry / pagesize + 1;
         if (in_page(items.size() - 1))
             curpage = numpages;
-        cprintf(" (page %d of %d)", curpage, numpages);
+        fs.cprintf(" (page %d of %d)", curpage, numpages);
     }
+    fs.display();
+
+#ifdef USE_TILE_WEB
+    webtiles_set_title(fs);
+#endif
 
     // Don't clear the next line if the title was exactly as wide as the
     // screen; but do clear the current line if the title was empty.
@@ -1487,6 +1516,24 @@ void Menu::webtiles_handle_item_request(int start, int end)
     tiles.finish_message();
 }
 
+void Menu::webtiles_set_title(const formatted_string title_)
+{
+    if (title_.to_colour_string() != _webtiles_title.to_colour_string())
+    {
+        _webtiles_title_changed = true;
+        _webtiles_title = title_;
+    }
+}
+
+void Menu::webtiles_set_suffix(const formatted_string suffix)
+{
+    if (suffix.to_colour_string() != _webtiles_suffix.to_colour_string())
+    {
+        _webtiles_title_changed = true;
+        _webtiles_suffix = suffix;
+    }
+}
+
 void Menu::webtiles_update_item(int index) const
 {
     tiles.json_open_object();
@@ -1532,16 +1579,11 @@ void Menu::webtiles_update_scroll_pos() const
 
 void Menu::webtiles_write_title() const
 {
-    if (!title) return;
-    const bool first = (action_cycle == CYCLE_NONE
-                        || menu_action == ACT_EXECUTE);
-    const MenuEntry* me = (first ? title : title2);
-
-    tiles.json_write_name("title");
-    webtiles_write_item(-1, me);
-
-    if (is_set(MF_MULTISELECT))
-        tiles.json_write_string("suffix", get_select_count_string(sel.size()));
+    // the title object only exists for backwards compatibility
+    tiles.json_open_object("title");
+    tiles.json_write_string("text", _webtiles_title.to_colour_string());
+    tiles.json_write_string("suffix", _webtiles_suffix.to_colour_string());
+    tiles.json_close_object("title");
 }
 
 void Menu::webtiles_write_item(int index, const MenuEntry* me) const
@@ -1611,7 +1653,7 @@ void Menu::webtiles_update_section_boundaries()
     {
         _webtiles_section_start = first_entry;
         while (_webtiles_section_start > 0
-               && items[_webtiles_section_start]->level != MEL_TITLE)
+               && items[_webtiles_section_start - 1]->level != MEL_TITLE)
         {
             _webtiles_section_start--;
         }
@@ -1694,7 +1736,7 @@ void column_composer::add_formatted(int ncol,
                                     bool (*tfilt)(const string &),
                                     int  margin)
 {
-    ASSERT(ncol >= 0 && ncol < (int) columns.size());
+    ASSERT_RANGE(ncol, 0, (int) columns.size());
 
     column &col = columns[ncol];
     vector<string> segs = split_string("\n", s, false, true);
@@ -1720,7 +1762,7 @@ void column_composer::add_formatted(int ncol,
 
     compose_formatted_column(newlines,
                               col.lines,
-                              margin == -1? col.margin : margin);
+                              margin == -1 ? col.margin : margin);
 
     col.lines += newlines.size();
 
@@ -1870,13 +1912,10 @@ string get_linebreak_string(const string& s, int maxcol)
 
 bool formatted_scroller::jump_to(int i)
 {
-    if (i == first_entry + 1)
+    if (i == first_entry)
         return false;
 
-    if (i == 0)
-        first_entry = 0;
-    else
-        first_entry = i - 1;
+    first_entry = i;
 
 #ifdef USE_TILE_WEB
     webtiles_update_section_boundaries();
@@ -2076,7 +2115,6 @@ int ToggleableMenu::pre_process(int key)
         draw_menu();
 
 #ifdef USE_TILE_WEB
-        webtiles_update_title();
         for (unsigned int i = 0; i < items.size(); ++i)
             webtiles_update_item(i);
 #endif
@@ -2366,11 +2404,11 @@ MenuObject* PrecisionMenu::_find_object_by_direction(const MenuObject* start,
         aabb_start.x = start->get_min_coord().x;
         aabb_end.x = start->get_max_coord().x;
         aabb_start.y = start->get_max_coord().y;
-        // we choose an arbitarily large number here, because
+        // we choose an arbitrarily large number here, because
         // tiles saves entry coordinates in pixels, yet console saves them
         // in characters
-        // basicly, we want the AABB to be large enough to extend to the bottom
-        // of the screen in every possible resolution
+        // basically, we want the AABB to be large enough to extend to the
+        // bottom of the screen in every possible resolution
         aabb_end.y = 32767;
         break;
     case LEFT:
@@ -2841,7 +2879,7 @@ void TextItem::_wrap_text()
     if (num_linebreaks > max_lines)
     {
         size_t pos = 0;
-        // find the max_line'th occurence of '\n'
+        // find the max_line'th occurrence of '\n'
         for (int i = 0; i < max_lines; ++i)
             pos = m_render_text.find('\n', pos);
 
@@ -3054,7 +3092,7 @@ void SaveMenuItem::_pack_doll()
         if (idx == 0 || idx == TILEP_SHOW_EQUIP || flags[p] == TILEP_FLAG_HIDE)
             continue;
 
-        ASSERT(idx >= TILE_MAIN_MAX && idx < TILEP_PLAYER_MAX);
+        ASSERT_RANGE(idx, TILE_MAIN_MAX, TILEP_PLAYER_MAX);
 
         int ymax = TILE_Y;
 
@@ -3624,11 +3662,11 @@ MenuItem* MenuFreeform::_find_item_by_direction(const MenuItem* start,
         aabb_start.x = start->get_min_coord().x;
         aabb_end.x = start->get_max_coord().x;
         aabb_start.y = start->get_max_coord().y;
-        // we choose an arbitarily large number here, because
+        // we choose an arbitrarily large number here, because
         // tiles saves entry coordinates in pixels, yet console saves them
         // in characters
-        // basicly, we want the AABB to be large enough to extend to the bottom
-        // of the screen in every possible resolution
+        // basically, we want the AABB to be large enough to extend to the
+        // bottom of the screen in every possible resolution
         aabb_end.y = 32767;
         break;
     case LEFT:

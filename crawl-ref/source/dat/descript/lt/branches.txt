@@ -30,13 +30,6 @@ turėtų atminti legendinius šios giminės magijos sugebėjimus.
 
 Elfų Salės yra trijų lygių gylio.
 %%%%
-Dwarven Hall
-
-Šios dailiai tašyto akmens salės yra Gilumų Nykštukų buveinė. Jų puikūs
-kalvystės įgūdžiai leido nusikaldinti pakankamai ginklų prieš tokius, kaip jūs.
-
-Ji teturi vieną lygį.
-%%%%
 Lair
 
 Daugumai nuotykių ieškotojų Žvėrių Irštva yra jaudinantis aplinkos pakeitimas.
@@ -83,16 +76,6 @@ Vorų Lizdas yra penkių lygių gylio ir turi voratinklių runą. Požemyje gali
 rasti tik du įėjimus į Gyvačių Irštvos, Pelkės, Seklumų arba Vorų Lizdo
 atšakas. Jei yra Vorų Lizdas, įėjimą į jį rasite tarp Irštva:3 ir Irštva:6.
 %%%%
-Slime Pits
-
-Beformė rūgščių, drebučių ir gleivių karalystė. Bet kokie protingų būtybių
-požymiai jau seniausiai ištirpę. Vis dėlto dar sklando gandai apie didžiulius
-turtus giliai apačioje, saugiai paslėptus slaptose patalpose be durų ar langų,
-kad neprasiskverbtų rūgštys.
-
-Gleivių Olos yra šešių lygių gylio ir turi gleivių runą. Įėjimas į jas yra tarp
-Irštva:6 ir Irštva:8.
-%%%%
 Vaults
 
 Sakoma, kad Skliautai, galbūt pastatyti kokio nors galingo pamišėlio, yra
@@ -101,21 +84,6 @@ ir tam tikras kiekis smurto.
 
 Skliautai yra aštuonių lygių gylio ir turi sidabrinę runą. Įėjimą į juos rasite
 tarp 14-o ir 19-o pagrindinio požemio lygių.
-%%%%
-Hall of Blades
-
-Pasakojama, kad senais laikais visi durklai, kirviai ir ilgakočiai ginklai
-rinkdavosi naktį ir šokdavo valsą, svajodami apie mūšio laukus be žmonių ir
-pabaisų. Tie laikai jau baigėsi, bet ginklai vis dar čia.
-
-Ašmenų Salė yra vieno lygio, ją rasite tarp Skliautai:4 ir Skliautai:6.
-%%%%
-Crypt
-
-Jūs girdite nukankintų sielų, kenčiančių nuo neišpasakytų kankynių, klyksmus ir
-vaitojimus.
-
-Kripta yra penkių lygių gylio, ją rasite tarp Skliautai:2 ir Skliautai:4.
 %%%%
 Tomb
 
@@ -173,10 +141,6 @@ artefaktą, kurio dar niekas niekada nėra matęs.
 
 Zot Karalystė yra penkių lygių gylio. Į ją galima patekti tik turint bent tris
 runas.
-%%%%
-Forest
-
-Medžiai puola!
 %%%%
 Abyss
 

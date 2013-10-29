@@ -161,14 +161,6 @@ Suddenly, a bright light shines from nowhere!
 
 An intense light blinds you for a moment.
 %%%%
-Summon Holies cast
-
-@The_monster@ calls forth @possessive@ holy kin!
-%%%%
-unseen Summon Holies cast
-
-Holy kin are called forth!
-%%%%
 Holy Flames cast
 
 @The_monster@ calls forth blessed flames!
@@ -185,15 +177,26 @@ Word of Recall cast
 
 @The_monster@ begins to recite a word of recall!
 %%%%
+Call Lost Soul cast
+
+@The_monster@ beckons forth a restless soul!
+%%%%
+Haste Plants cast
+
+@The_monster@ empowers the plants around itself!
+%%%%
+Druid's Call cast
+
+@The_monster@ calls out to the beasts of the land!
 #####################################################
 # Individual innate spells (breathing and spitting).
 #####################################################
 %%%%
-Acid Splash cast
+Spit Acid cast
 
 @The_monster@ spits acid @at@ @target@.
 %%%%
-unseen Acid Splash cast
+unseen Spit Acid cast
 
 You hear a spitting sound.
 %%%%
@@ -221,11 +224,11 @@ unseen Draconian Breath cast
 
 You hear a roar.
 %%%%
-Poison Splash cast
+Spit Poison cast
 
 @The_monster@ spits poison @at@ @target@.
 %%%%
-unseen Poison Splash cast
+unseen Spit Poison cast
 
 You hear a spitting sound.
 %%%%
@@ -248,6 +251,10 @@ Chaos Breath cast
 Frenzy cast
 
 @The_monster@ convulses with anger.
+%%%%
+Volley of Thorns cast
+
+@The_monster@ fires a volley of thorns @at@ @target@.
 ########################################################################
 # Unique monsters
 ########################################################################
@@ -338,6 +345,12 @@ unseen Ensnare Arachne cast
 
 A whitish beam shoots out from seemingly nowhere.
 %%%%
+Pan cast
+
+@The_monster@ weaves a haunting melody.
+
+@The_monster@ plays an eerie tune.
+%%%%
 ########################################################################
 # Individual monsters
 ########################################################################
@@ -388,6 +401,29 @@ thrashing horror cast
 
 @The_monster@ churns violently!
 %%%%
+Airstrike wind drake cast
+
+@The_monster@ flaps its wings at @target@.
+%%%%
+dryad cast
+
+@The_monster@ calls out to the forest.
+%%%%
+Minor Healing dryad cast
+
+@The_monster@ draws upon the vitality of nature.
+%%%%
+Summon Water Elementals elemental wellspring cast
+
+The water around @The_monster@ rises up and takes form!
+%%%%
+Cause Fear satyr cast
+
+@The_monster@ plays a frightful melody on his pipes!
+%%%%
+Sleep satyr cast
+
+@The_monster@ plays a lulling melody on his pipes!
 ########################################################################
 # Monster species and genus messages.
 ########################################################################
@@ -411,6 +447,10 @@ dragon cast
 unseen dragon cast
 
 You hear a roar.
+%%%%
+drake cast targeted
+
+@dragon cast targeted@
 %%%%
 curse skull cast
 
@@ -495,6 +535,10 @@ Heal Other priest cast
 Might Other priest cast
 
 @The_monster@ calls upon @possessive_God@ to strengthen @target@.
+%%%%
+Malign Offering priest cast
+
+@The_monster@ utters a dark prayer and points at @target@.
 %%%%
 priest cast targeted
 

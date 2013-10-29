@@ -31,7 +31,9 @@ echo ""
 cd ../source/
 util/art-data.pl
 util/gen-mst.pl
+util/cmd-name.pl
 util/gen-luatags.pl
+util/gen-mi-enum
 util/gen_ver.pl build.h
 util/gen-cflg.pl compflag.h none armeabi android android
 

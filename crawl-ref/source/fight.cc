@@ -14,9 +14,9 @@
 
 #include "cloud.h"
 #include "coordit.h"
-#include "debug.h"
 #include "delay.h"
 #include "env.h"
+#include "fineff.h"
 #include "hints.h"
 #include "invent.h"
 #include "itemprop.h"
@@ -31,6 +31,7 @@
 #include "random-var.h"
 #include "shopping.h"
 #include "spl-miscast.h"
+#include "spl-summoning.h"
 #include "state.h"
 #include "stuff.h"
 #include "terrain.h"
@@ -49,8 +50,9 @@ bool fight_melee(actor *attacker, actor *defender, bool *did_hit, bool simu)
     {
         ASSERT(!crawl_state.game_is_arena());
         // Friendly and good neutral monsters won't attack unless confused.
-        if (attacker->as_monster()->wont_attack() &&
-            !mons_is_confused(attacker->as_monster()))
+        if (attacker->as_monster()->wont_attack()
+            && !mons_is_confused(attacker->as_monster())
+            && !attacker->as_monster()->has_ench(ENCH_INSANE))
         {
             return false;
         }
@@ -70,7 +72,7 @@ bool fight_melee(actor *attacker, actor *defender, bool *did_hit, bool simu)
     else if (attacker->is_player())
     {
         ASSERT(!crawl_state.game_is_arena());
-        // Can't damage orbs or boulders this way.
+        // Can't damage orbs this way.
         if (mons_is_projectile(defender->type) && !you.confused())
         {
             you.turn_is_over = false;
@@ -106,12 +108,25 @@ bool fight_melee(actor *attacker, actor *defender, bool *did_hit, bool simu)
         if (did_hit)
             *did_hit = attk.did_hit;
 
+        // A spectral weapon attacks whenever the player does
+        if (!simu && you.props.exists("spectral_weapon"))
+            trigger_spectral_weapon(&you, defender);
+
         return true;
     }
 
     // If execution gets here, attacker != Player, so we can safely continue
     // with processing the number of attacks a monster has without worrying
     // about unpredictable or weird results from players.
+
+    // If this is a spectral weapon check if it can attack
+    if (attacker->as_monster()->type == MONS_SPECTRAL_WEAPON
+        && !confirm_attack_spectral_weapon(attacker->as_monster(), defender))
+    {
+        // Pretend an attack happened,
+        // so the weapon doesn't advance unecessarily.
+        return true;
+    }
 
     const int nrounds = attacker->as_monster()->has_hydra_multi_attack() ?
         attacker->as_monster()->number : 4;
@@ -129,7 +144,9 @@ bool fight_melee(actor *attacker, actor *defender, bool *did_hit, bool simu)
             return false;
 
         // Monster went away?
-        if (!defender->alive() || defender->pos() != pos)
+        if (!defender->alive()
+            || defender->pos() != pos
+            || defender->is_banished())
         {
             if (attacker == defender
                || !attacker->as_monster()->has_multitargetting())
@@ -168,7 +185,7 @@ bool fight_melee(actor *attacker, actor *defender, bool *did_hit, bool simu)
         }
 
         melee_attack melee_attk(attacker, defender, attack_number,
-                          effective_attack_number);
+                                effective_attack_number);
 
         if (simu)
             melee_attk.simu = true;
@@ -177,9 +194,15 @@ bool fight_melee(actor *attacker, actor *defender, bool *did_hit, bool simu)
         // date so that we don't cause excess energy loss in monsters
         if (!melee_attk.attack())
             effective_attack_number = melee_attk.effective_attack_number;
-        else if (did_hit and not *did_hit)
+        else if (did_hit && !(*did_hit))
             *did_hit = melee_attk.did_hit;
+
+        fire_final_effects();
     }
+
+    // A spectral weapon attacks whenever the player does
+    if (!simu && attacker->props.exists("spectral_weapon"))
+        trigger_spectral_weapon(attacker, defender);
 
     return true;
 }
@@ -276,6 +299,7 @@ static inline int get_resistible_fraction(beam_type flavour)
         return 55;
 
     case BEAM_POISON_ARROW:
+    case BEAM_GHOSTLY_FLAME:
         return 70;
 
     default:
@@ -306,7 +330,7 @@ int resist_adjust_damage(actor *defender, beam_type flavour,
 
     if (res > 0)
     {
-        if (mons && res >= 3)
+        if (((mons || flavour == BEAM_NEG) && res >= 3) || res > 3)
             resistible = 0;
         else
         {
@@ -320,6 +344,8 @@ int resist_adjust_damage(actor *defender, beam_type flavour,
             // effective one for monsters.
             if (mons)
                 resistible /= 1 + bonus_res + res * res;
+            else if (flavour == BEAM_NEG)
+                resistible /= res * 2;
             else
                 resistible /= resist_fraction(res, bonus_res);
         }
@@ -332,17 +358,6 @@ int resist_adjust_damage(actor *defender, beam_type flavour,
 
 ///////////////////////////////////////////////////////////////////////////
 
-bool is_melee_weapon(const item_def *weapon)
-{
-    if (weapon->base_type == OBJ_STAVES || weapon->base_type == OBJ_RODS)
-        return true;
-
-    if (weapon->base_type != OBJ_WEAPONS)
-        return false;
-
-    return !is_range_weapon(*weapon);
-}
-
 bool wielded_weapon_check(item_def *weapon, bool no_message)
 {
     bool weapon_warning  = false;
@@ -351,7 +366,7 @@ bool wielded_weapon_check(item_def *weapon, bool no_message)
     if (weapon)
     {
         if (needs_handle_warning(*weapon, OPER_ATTACK)
-            || !is_melee_weapon(weapon))
+            || !is_melee_weapon(*weapon))
         {
             weapon_warning = true;
         }
@@ -361,7 +376,7 @@ bool wielded_weapon_check(item_def *weapon, bool no_message)
     {
         const int weap = you.attribute[ATTR_WEAPON_SWAP_INTERRUPTED] - 1;
         const item_def &wpn = you.inv[weap];
-        if (is_melee_weapon(&wpn)
+        if (is_melee_weapon(wpn)
             && you.skill(weapon_skill(wpn)) > you.skill(SK_UNARMED_COMBAT))
         {
             unarmed_warning = true;
@@ -454,4 +469,17 @@ void attack_cleave_targets(actor* attacker, list<actor*> &targets,
         }
         targets.pop_front();
     }
+}
+
+int finesse_adjust_delay(int delay)
+{
+    if (you.duration[DUR_FINESSE])
+    {
+        ASSERT(!you.duration[DUR_BERSERK]);
+        // Need to undo haste by hand.
+        if (you.duration[DUR_HASTE])
+            delay = haste_mul(delay);
+        delay = div_rand_round(delay, 2);
+    }
+    return delay;
 }

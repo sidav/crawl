@@ -44,6 +44,7 @@
 #include "religion.h"
 #include "stairs.h"
 #include "stash.h"
+#include "state.h"
 #include "stuff.h"
 #include "tags.h"
 #include "terrain.h"
@@ -239,19 +240,20 @@ bool feat_is_traversable_now(dungeon_feature_type grid, bool try_fallback)
         if (grid == DNGN_DEEP_WATER && player_likes_water(true))
             return true;
 
+        // Likewise for lava
+        if (grid == DNGN_LAVA && player_likes_lava(true))
+            return true;
+
         // Permanently flying players can cross most hostile terrain.
         if (grid == DNGN_DEEP_WATER || grid == DNGN_LAVA
             || grid == DNGN_TRAP_MECHANICAL || grid == DNGN_TRAP_NATURAL)
         {
-            return you.permanent_flight();
+            return you.permanent_flight() || you.species == SP_DJINNI;
         }
 
         // You can't open doors in bat form.
-        if ((grid == DNGN_CLOSED_DOOR || grid == DNGN_RUNED_DOOR)
-            && !try_fallback)
-        {
+        if (grid == DNGN_CLOSED_DOOR || grid == DNGN_RUNED_DOOR)
             return player_can_open_doors() || you.form == TRAN_JELLY;
-        }
     }
 
     return feat_is_traversable(grid, try_fallback);
@@ -423,12 +425,19 @@ static bool _is_travelsafe_square(const coord_def& c, bool ignore_hostile,
     // Also make note of what's displayed on the level map for
     // plant/fungus checks.
     const map_cell& levelmap_cell = env.map_knowledge(c);
+    const monster_info *minfo = levelmap_cell.monsterinfo();
+
+    // Can't swap with monsters caught in nets
+    if (minfo && minfo->attitude >= ATT_STRICT_NEUTRAL
+        && (minfo->is(MB_CAUGHT) || minfo->is(MB_WEBBED)) && !try_fallback)
+    {
+        return false;
+    }
 
     // Travel will not voluntarily cross squares blocked by immobile
     // monsters.
     if (!ignore_danger && !ignore_hostile)
     {
-        const monster_info *minfo = levelmap_cell.monsterinfo();
         if (minfo && _monster_blocks_travel(minfo))
             return false;
     }
@@ -478,7 +487,7 @@ static bool _is_safe_move(const coord_def& c)
         // unless worshipping Fedhas.
         if (you.can_see(mon)
             && mons_class_flag(mon->type, M_NO_EXP_GAIN)
-            && mons_is_stationary(mon)
+            && mon->is_stationary()
             && !fedhas_passthrough(mon)
             && !travel_kill_monster(mon->type))
         {
@@ -589,6 +598,8 @@ static void _userdef_run_stoprunning_hook(void)
 #ifdef CLUA_BINDINGS
     if (you.running)
         clua.callfn("ch_stop_running", "s", _run_mode_name(you.running));
+#else
+    UNUSED(_run_mode_name);
 #endif
 }
 
@@ -605,9 +616,25 @@ bool is_resting()
     return you.running.is_rest();
 }
 
+static int _slowest_ally_speed()
+{
+    vector<monster* > followers = get_on_level_followers();
+    int min_speed = INT_MAX;
+    for (vector<monster* >::iterator fol = followers.begin();
+         fol != followers.end(); ++fol)
+    {
+        int speed = (*fol)->speed * BASELINE_DELAY
+                    / (*fol)->action_energy(EUT_MOVE);
+        if (speed < min_speed)
+            min_speed = speed;
+    }
+    return min_speed;
+}
+
 static void _start_running()
 {
     _userdef_run_startrunning_hook();
+    you.running.init_travel_speed();
 
     if (you.running < 0)
         start_delay(DELAY_TRAVEL, 1);
@@ -864,6 +891,7 @@ void explore_pickup_event(int did_pickup, int tried_pickup)
                 // Don't stop explore.
                 return;
             }
+            canned_msg(MSG_OK);
         }
         explore_stopped_pos = you.pos();
         stop_delay();
@@ -958,6 +986,8 @@ command_type travel()
         // and we need to figure out where to travel to next.
         if (!_find_transtravel_square(level_target.p) || !you.running.pos.x)
             stop_running();
+        else
+            you.running.init_travel_speed();
     }
 
     if (you.running < 0)
@@ -999,7 +1029,7 @@ command_type travel()
                 {
                     if ((stack && _prompt_stop_explore(ES_GREEDY_VISITED_ITEM_STACK)
                          || sacrificeable && _prompt_stop_explore(ES_GREEDY_SACRIFICEABLE))
-                        && (Options.auto_sacrifice != OPT_YES || !sacrificeable
+                        && (Options.auto_sacrifice != AS_YES || !sacrificeable
                             || stack || !_can_sacrifice(newpos)))
                     {
                         explore_stopped_pos = newpos;
@@ -1265,11 +1295,16 @@ coord_def travel_pathfind::pathfind(run_mode_type rmode, bool fallback_explore)
 
     if (runmode == RMODE_CONNECTIVITY)
         ignore_player_traversability = true;
-    else if (runmode == RMODE_EXPLORE_GREEDY)
-    {
-        autopickup = can_autopickup();
-        sacrifice = god_likes_items(you.religion, true);
-        need_for_greed = (autopickup || sacrifice);
+    else {
+        ASSERTM(crawl_state.need_save,
+                "Pathfind with mode %d without a game?", runmode);
+
+        if (runmode == RMODE_EXPLORE_GREEDY)
+        {
+            autopickup = can_autopickup();
+            sacrifice = god_likes_items(you.religion, true);
+            need_for_greed = (autopickup || sacrifice);
+        }
     }
 
     if (!ls && (annotate_map || need_for_greed))
@@ -1849,9 +1884,10 @@ void find_travel_pos(const coord_def& youpos,
 
 // Given a branch id, returns the parent branch. If the branch id is not found,
 // returns BRANCH_MAIN_DUNGEON.
+// XXX: is this really necessary any longer?
 static branch_type _find_parent_branch(branch_type br)
 {
-    return branches[br].parent_branch;
+    return parent_branch(br);
 }
 
 extern map<branch_type, set<level_id> > stair_level;
@@ -1888,7 +1924,7 @@ static void _trackback(vector<level_id> &vec, branch_type branch, int subdepth)
     level_id lid(branch, subdepth);
     vec.push_back(lid);
 
-    if (branch != BRANCH_MAIN_DUNGEON)
+    if (branch != root_branch)
     {
         branch_type pb;
         int pd;
@@ -2174,11 +2210,16 @@ static int _prompt_travel_branch(int prompt_flags, bool* to_entrance)
         case '\n': case '\r':
             return ID_REPEAT;
         case '<':
-            return (allow_updown? ID_UP : ID_CANCEL);
+            return (allow_updown ? ID_UP : ID_CANCEL);
         case '>':
-            return (allow_updown? ID_DOWN : ID_CANCEL);
+            return (allow_updown ? ID_DOWN : ID_CANCEL);
         case CONTROL('P'):
-            return _find_parent_branch(curr.branch);
+            {
+                const branch_type parent = _find_parent_branch(curr.branch);
+                if (parent < NUM_BRANCHES)
+                    return parent;
+            }
+            break;
         case '.':
             return curr.branch;
         case '*':
@@ -2204,7 +2245,7 @@ static int _prompt_travel_branch(int prompt_flags, bool* to_entrance)
                     string msg;
 
                     if (startdepth[br[i]] == -1
-                        && is_random_lair_subbranch((branch_type)i)
+                        && is_random_subbranch((branch_type)i)
                         && you.wizard) // don't leak mimics
                     {
                         msg += "Branch not generated this game. ";
@@ -2245,7 +2286,7 @@ level_id find_up_level(level_id curr, bool up_branch)
 
     if (curr.depth < 1)
     {
-        if (curr.branch != BRANCH_MAIN_DUNGEON)
+        if (curr.branch != BRANCH_MAIN_DUNGEON && curr.branch != root_branch)
         {
             level_id parent;
             _find_parent_branch(curr.branch, curr.depth,
@@ -2401,7 +2442,7 @@ static travel_target _prompt_travel_depth(const level_id &id,
 
         char buf[100];
         const int response =
-            cancelable_get_line(buf, sizeof buf, NULL, _travel_depth_keyfilter);
+            cancellable_get_line(buf, sizeof buf, NULL, _travel_depth_keyfilter);
 
         if (!response)
             return _parse_travel_target(buf, target);
@@ -2521,9 +2562,6 @@ static void _start_translevel_travel()
 
 void start_translevel_travel(const travel_target &pos)
 {
-    if (!i_feel_safe(true, true))
-        return;
-
     if (!can_travel_to(pos.p.id))
     {
         if (!can_travel_interlevel())
@@ -2568,14 +2606,20 @@ void start_translevel_travel(const travel_target &pos)
     }
 
     trans_travel_dest = _get_trans_travel_dest(level_target);
+
+    if (!i_feel_safe(true, true))
+        return;
+    if (you.confused())
+    {
+        canned_msg(MSG_TOO_CONFUSED);
+        return;
+    }
+
     _start_translevel_travel();
 }
 
 static void _start_translevel_travel_prompt()
 {
-    if (!i_feel_safe(true, true))
-        return;
-
     // Update information for this level. We need it even for the prompts, so
     // we can't wait to confirm that the user chose to initiate travel.
     travel_cache.get_level_info(level_id::current()).update();
@@ -2892,6 +2936,7 @@ static bool _find_transtravel_square(const level_pos &target, bool verbose)
                         level_target,
                         dest_stair->destination.id))
                 {
+                    canned_msg(MSG_OK);
                     return false;
                 }
             }
@@ -2931,9 +2976,6 @@ void start_travel(const coord_def& p)
     if (p == you.pos())
         return;
 
-    if (!i_feel_safe(true, true))
-        return;
-
     // Can we even travel to this square?
     if (!in_bounds(p))
         return;
@@ -2950,6 +2992,14 @@ void start_travel(const coord_def& p)
 
     if (!can_travel_interlevel())
     {
+        if (!i_feel_safe(true, true))
+            return;
+        if (you.confused())
+        {
+            canned_msg(MSG_TOO_CONFUSED);
+            return;
+        }
+
         // Start running
         you.running = RMODE_TRAVEL;
         _start_running();
@@ -2969,14 +3019,14 @@ void start_explore(bool grab_items)
     // Forget interrupted butchering.
     maybe_clear_weapon_swap();
 
-    you.running = (grab_items? RMODE_EXPLORE_GREEDY : RMODE_EXPLORE);
+    you.running = (grab_items ? RMODE_EXPLORE_GREEDY : RMODE_EXPLORE);
 
     if (you.running == RMODE_EXPLORE_GREEDY && god_likes_items(you.religion, true))
     {
         const LevelStashes *lev = StashTrack.find_current_level();
         if (lev && lev->sacrificeable(you.pos()))
         {
-            if (Options.auto_sacrifice == OPT_PROMPT)
+            if (Options.auto_sacrifice == AS_PROMPT)
             {
                 mprnojoin("Things which can be sacrificed:", MSGCH_FLOOR_ITEMS);
                 for (stack_iterator si(you.visible_igrd(you.pos())); si; ++si)
@@ -2985,15 +3035,15 @@ void start_explore(bool grab_items)
 
             }
 
-            if ((Options.auto_sacrifice == OPT_YES
-                 || Options.auto_sacrifice == OPT_BEFORE_EXPLORE
-                 || Options.auto_sacrifice == OPT_PROMPT
+            if ((Options.auto_sacrifice == AS_YES
+                 || Options.auto_sacrifice == AS_BEFORE_EXPLORE
+                 || Options.auto_sacrifice == AS_PROMPT
                     && yesno("Do you want to sacrifice the items here? ", true, 'n'))
                 && _can_sacrifice(you.pos()))
             {
                 pray();
             }
-            else if (Options.auto_sacrifice == OPT_PROMPT_IGNORE)
+            else if (Options.auto_sacrifice == AS_PROMPT_IGNORE)
             {
                 // Make Escape => 'n' and stop run.
                 explicit_keymap map;
@@ -3188,7 +3238,7 @@ string stair_info::describe() const
         return make_stringf(" (-> %s@(%d,%d)%s%s)", lp.id.describe().c_str(),
                              lp.pos.x, lp.pos.y,
                              guessed_pos? " guess" : "",
-                             type == PLACEHOLDER? " placeholder" : "");
+                             type == PLACEHOLDER ? " placeholder" : "");
     }
     else if (destination.id.is_valid())
         return make_stringf(" (->%s (?))", destination.id.describe().c_str());
@@ -3591,7 +3641,7 @@ void LevelInfo::load(reader& inf, int minorVersion)
     unmarshallExcludes(inf, minorVersion, excludes);
 
     int n_count = unmarshallByte(inf);
-    ASSERT(n_count >= 0 && n_count <= NUM_DA_COUNTERS);
+    ASSERT_RANGE(n_count, 0, NUM_DA_COUNTERS + 1);
     for (int i = 0; i < n_count; i++)
         da_counters[i] = unmarshallShort(inf);
 }
@@ -3942,6 +3992,7 @@ void runrest::initialise(int dir, int mode)
     // Note HP and MP for reference.
     hp = you.hp;
     mp = you.magic_points;
+    init_travel_speed();
 
     if (dir == RDIR_REST)
     {
@@ -3950,7 +4001,7 @@ void runrest::initialise(int dir, int mode)
     }
     else
     {
-        ASSERT(dir >= 0 && dir <= 7);
+        ASSERT_RANGE(dir, 0, 8);
 
         pos = Compass[dir];
         runmode = mode;
@@ -3969,6 +4020,14 @@ void runrest::initialise(int dir, int mode)
         start_delay(DELAY_REST, 1);
     else
         start_delay(DELAY_RUN, 1);
+}
+
+void runrest::init_travel_speed()
+{
+    if (you.travel_ally_pace)
+        travel_speed = _slowest_ally_speed();
+    else
+        travel_speed = 0;
 }
 
 runrest::operator int () const
@@ -4123,7 +4182,7 @@ void runrest::clear()
 {
     runmode = RMODE_NOT_RUNNING;
     pos.reset();
-    mp = hp = 0;
+    mp = hp = travel_speed = 0;
 
     _reset_zigzag_info();
 }

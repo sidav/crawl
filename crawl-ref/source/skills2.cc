@@ -18,10 +18,12 @@
 
 #include "artefact.h"
 #include "describe.h"
+#include "evoke.h"
 #include "externs.h"
 #include "godabil.h"
 #include "libutil.h"
 #include "player.h"
+#include "religion.h"
 #include "species.h"
 #include "skills.h"
 #include "skill_menu.h"
@@ -73,7 +75,7 @@ static const char *skills[NUM_SKILLS][6] =
 {
   //  Skill name        levels 1-7       levels 8-14        levels 15-20       levels 21-26      level 27
     {"Fighting",       "Skirmisher",    "Fighter",         "Warrior",         "Slayer",         "Conqueror"},
-    {"Short Blades",   "Cutter",        "Slicer",          "Swashbuckler",    "Blademaster",    "Eviscerator"},
+    {"Short Blades",   "Cutter",        "Slicer",          "Swashbuckler",    "Cutthroat",      "Politician"},
     {"Long Blades",    "Slasher",       "Carver",          "Fencer",          "@Adj@ Blade",    "Swordmaster"},
     {"Axes",           "Chopper",       "Cleaver",         "Severer",         "Executioner",    "Axe Maniac"},
     {"Maces & Flails", "Cudgeler",      "Basher",          "Bludgeoner",      "Shatterer",      "Skullcrusher"},
@@ -86,9 +88,13 @@ static const char *skills[NUM_SKILLS][6] =
     {"Armour",         "Covered",       "Protected",       "Tortoise",        "Impregnable",    "Invulnerable"},
     {"Dodging",        "Ducker",        "Nimble",          "Spry",            "Acrobat",        "Intangible"},
     {"Stealth",        "Sneak",         "Covert",          "Unseen",          "Imperceptible",  "Ninja"},
+#if TAG_MAJOR_VERSION == 34
     {"Stabbing",       "Miscreant",     "Blackguard",      "Backstabber",     "Cutthroat",      "Politician"},
+#endif
     {"Shields",        "Shield-Bearer", "Hoplite",         "Blocker",         "Peltast",        "@Adj@ Barricade"},
+#if TAG_MAJOR_VERSION == 34
     {"Traps",          "Scout",         "Disarmer",        "Vigilant",        "Perceptive",     "Dungeon Master"},
+#endif
     // STR based fighters, for DEX/martial arts titles see below.  Felids get their own category, too.
     {"Unarmed Combat", "Ruffian",       "Grappler",        "Brawler",         "Wrestler",       "@Weight@weight Champion"},
 
@@ -208,6 +214,7 @@ static string _stk_walker()
 {
     return (Skill_Species == SP_NAGA     ? "Slider" :
             Skill_Species == SP_TENGU    ? "Glider" :
+            Skill_Species == SP_DJINNI   ? "Floater" :
             Skill_Species == SP_OCTOPODE ? "Wriggler"
                                          : "Walker");
 }
@@ -471,11 +478,19 @@ void init_skill_order(void)
 void calc_hp()
 {
     you.hp_max = get_real_hp(true, false);
+    if (you.species == SP_DJINNI)
+        you.hp_max += get_real_mp(true);
     deflate_hp(you.hp_max, false);
 }
 
 void calc_mp()
 {
+    if (you.species == SP_DJINNI)
+    {
+        you.magic_points = you.max_magic_points = 0;
+        return calc_hp();
+    }
+
     you.max_magic_points = get_real_mp(true);
     you.magic_points = min(you.magic_points, you.max_magic_points);
     you.redraw_magic_points = true;
@@ -483,12 +498,16 @@ void calc_mp()
 
 bool is_useless_skill(skill_type skill)
 {
+#if TAG_MAJOR_VERSION == 34
+    if (skill == SK_STABBING || skill == SK_TRAPS)
+        return true;
+#endif
     return species_apt(skill) == -99;
 }
 
 bool is_harmful_skill(skill_type skill)
 {
-    return is_magic_skill(skill) && you.religion == GOD_TROG;
+    return is_magic_skill(skill) && you_worship(GOD_TROG);
 }
 
 bool all_skills_maxed(bool inc_harmful)
@@ -530,11 +549,7 @@ unsigned int skill_exp_needed(int lev, skill_type sk, species_type sp)
                           15750, 17700, 19800, 22050, 24450, // 21-25
                           27000, 29750 };
 
-    if (lev > 27 && you.wizard)
-        lev = 27;
-
-    ASSERT(lev >= 0);
-    ASSERT(lev <= 27);
+    ASSERT_RANGE(lev, 0, 27 + 1);
 
     return exp[lev] * species_apt_factor(sk, sp);
 }
@@ -709,7 +724,7 @@ void dump_skills(string &text)
     {
         int real = you.skill((skill_type)i, 10, true);
         int cur  = you.skill((skill_type)i, 10);
-        if (real > 0)
+        if (real > 0 || (!you.auto_training && you.train[i] > 0))
         {
             text += make_stringf(" %c Level %.*f%s %s\n",
                                  real == 270       ? 'O' :
@@ -759,7 +774,7 @@ int transfer_skill_points(skill_type fsk, skill_type tsk, int skp_max,
     if (!simu && you.ct_skill_points[fsk] > 0)
         dprf("ct_skill_points[%s]: %d", skill_name(fsk), you.ct_skill_points[fsk]);
 
-    // We need to transfer by small steps and updating skill levels each time
+    // We need to transfer by small steps and update skill levels each time
     // so that cross/anti-training are handled properly.
     while (total_skp_lost < skp_max
            && (simu || total_skp_lost < (int)you.transfer_skill_points))
@@ -851,6 +866,7 @@ int transfer_skill_points(skill_type fsk, skill_type tsk, int skp_max,
 
 void skill_state::save()
 {
+    can_train          = you.can_train;
     skills             = you.skills;
     train              = you.train;
     training           = you.training;
@@ -861,8 +877,7 @@ void skill_state::save()
     auto_training      = you.auto_training;
     exp_available      = you.exp_available;
     total_experience   = you.total_experience;
-    if (!is_invalid_skill(you.manual_skill))
-        manual_charges  = you.inv[you.manual_index].plus2;
+    get_all_manual_charges(manual_charges);
     for (int i = 0; i < NUM_SKILLS; i++)
     {
         real_skills[i] = you.skill((skill_type)i, 10, true);
@@ -879,8 +894,7 @@ void skill_state::restore_levels()
     you.skill_order                 = skill_order;
     you.exp_available               = exp_available;
     you.total_experience            = total_experience;
-    if (!is_invalid_skill(you.manual_skill))
-        you.inv[you.manual_index].plus2 = manual_charges;
+    set_all_manual_charges(manual_charges);
 }
 
 void skill_state::restore_training()
@@ -889,6 +903,7 @@ void skill_state::restore_training()
         if (you.skills[i] < 27)
             you.train[i] = train[i];
 
+    you.can_train                   = can_train;
     you.auto_training               = auto_training;
     reset_training();
 }

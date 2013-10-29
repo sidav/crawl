@@ -53,8 +53,8 @@ akrasiac.org (located in North America)
   :ssh: ``joshua@crawl.akrasiac.org (ssh key or password joshua)``
 
 s-z.org (located in North America)
-  :http: ``http://crawl.s-z.org``
-  :tiles: ``http://crawl.s-z.org``
+  :http: ``http://dobrazupa.org``
+  :tiles: ``https://crawl.s-z.org``
   :ssh: ``crawl@crawl.s-z.org (ssh key or password crawlingtotheusa)``
 
 develz.org (located in Europe)
@@ -240,9 +240,9 @@ Dexterity
 They grow permanently from gaining levels, and may increase or decrease
 temporarily from mutations or using appropriate artefacts or abilities.
 
-If any one of these drops to zero for some reason, you will not die immediately.
-But you will experience very unpleasant effects, including death if the
-attribute remains at zero or below for very long.
+If any one of these drops to zero for some reason, you will experience very
+unpleasant side-effects, which will persist for a short while even after the
+attribute is restored.
 
 Upon gaining levels 3, 6, 9, etc., you may choose an attribute to raise. Most
 species gain additional attributes at some levels, with the frequency and the
@@ -539,8 +539,8 @@ Highlighted skills are focused on and will train faster than the others. You can
 highlight as many skills as you like.
 
 Occasionally you may find a manual of a skill which allows you to make quick
-progress in this area. For a while after you read it, experience used to
-practise the given skill will have twice the usual effect.
+progress in this area. When you are carrying it experience used to practise the
+given skill will have twice the usual effect for a while.
 
 ****************************************
 F. Monsters
@@ -926,7 +926,7 @@ assigned to what keys.
 Some powerful spellbooks require a certain amount of magical skill to read their
 contents.
 
-Occasionally you will find manuals of some skill. Reading these will cause your
+Occasionally you will find manuals of some skill. Carrying these will cause your
 experience to have twice the effect as usual when used for training that skill.
 
 { Miscellaneous
@@ -1153,7 +1153,7 @@ pressing '?/G'.
 Note that the good gods will not accept demonic or undead devotees.
 
 If you like to start the game with a religion, choose your background from
-Healer, Priest, Berserker, Chaos Knight, Abyssal Knight or Death Knight.
+Healer, Berserker, Chaos Knight, Abyssal Knight or Death Knight.
 
 ****************************************
 K. Mutations
@@ -1186,7 +1186,7 @@ is to quaff a potion of cure mutation, which will attempt to remove one or more
 random mutations.
 
 Demonspawn are a special case. Characters of this species get certain special
-powers during their career; these are listed in magenta. They are permanent and
+powers during their career; these are listed in cyan. They are permanent and
 can never be removed. If one of your Demonspawn powers has been augmented by a
 mutation, it is displayed in a lighter colour.
 
@@ -1504,8 +1504,8 @@ Hill Orcs
   passable users of most types of magic and are particularly skilled with Fire.
 
   Many Orcs feel superior to all other species and beings, and they have formed
-  a religion around that idea. Only Hill Orcs can worship Beogh, the Orc god,
-  and Hill Orc Priests start in Beogh's service.
+  a religion around that idea. Only Orcs can worship Beogh, the Orc god. They
+  can join Beogh whenever an orc priest is in sight.
 
 Merfolk
   The Merfolk are a hybrid species of half-human, half-fish that typically live
@@ -1735,6 +1735,65 @@ Octopodes
   knowledge of poisons as well. They are also able to use their tentacles to
   constrict enemies - potentially several at a time!
 
+Djinn
+  Of the same stock as angels or demons, these spirits have been created from
+  smokeless fire by some deranged god. Unlike regular living beings, they draw
+  their sustenance from magic rather than eating or drinking, although for some
+  reason they can still do the latter - probably due to being unintelligently
+  designed by a creator with no knowledge of evolution.
+
+  Magic is literally their life, to the point of their health and magical
+  powers' being one force, called "essence". The Djinn can also withstand more
+  magical contamination than most, and slowly recover from its effects.
+
+  Being spirits of fire, they obviously suffer no harm from any kind of fire,
+  but the same cannot be said of their equipment. Accordingly, cold and water
+  cause them great harm. Fortunately, levitation allows them to cross bodies of
+  liquid, although without external means to power their flight it takes them
+  much effort to do so.
+
+  Djinn make great fire mages (duh). They are competent with air magic,
+  enchantments, magic items and weapons with long reaches that don't require
+  high dexterity. They are terrible with ice, earth, necromancy and poison.
+
+Lava Orcs
+  These strange humanoids are made of living stone, with a unique heat-based
+  metabolism. Ordinarily slow and hardy, when anything puts some stress on them,
+  they literally fire up, turning into fast-moving lava. Outwardly, their shape
+  mostly resembles that of Orcs, thus the name.
+
+  They are unique in their ability to swim in lava: even the Djinn, while immune
+  to fire, can't swim through a treacle of molten rock. In order to be able to
+  use regular equipment, Lava Orcs have invented special fire-proof backpacks;
+  vulnerable items like scrolls or books are not accessible when their owner is
+  too hot.
+
+  Many things can fire up their metabolism: facing multiple and/or dangerous
+  enemies, being badly hurt, suffering fire damage, berserking, and obviously
+  being submerged in lava. As their heat grows, Lava Orcs gain normal speed,
+  become more accustomed to fire, have their stony skin soften, gain extra power
+  when casting fire magic, become vulnerable to cold, speed up even more, and
+  finally cause fire damage to all creatures in their presence.
+
+  Lava Orcs make good melee fighters, preferring axes. They're pretty bad
+  spellcasters, except for transmutations, fire and earth magic.
+
+  Many Orcs feel superior to all other species and beings, and they have formed
+  a religion around that idea. Only Orcs can worship Beogh, the Orc god. They
+  can join Beogh whenever an orc priest is in sight.
+
+Gargoyles
+  A cross between ordinary stone gargoyles and living beings, Gargoyles are
+  hideous humanoids with an affinity to rock. They are immune to petrification,
+  and their stony weight protects them from being trampled.
+
+  Gargoyles' partially living form makes them less susceptible to effects of
+  necromancy and cold than most beings. Their metabolisms are slow, and they
+  blend into the dungeon pretty well. Their fangs and talons make them dangerous
+  unarmed fighters, although they're incompetent with weapons other than maces.
+  They can be exceptional earth-based conjurers, although they're bad with all
+  other magic schools besides ice.
+
 Elves
 ========================================
 
@@ -1766,16 +1825,6 @@ Deep Elves
   other Elves and losing all colouration. They are poor at hand-to-hand combat,
   but excellent at fighting from a distance. They advance in levels as fast as
   High Elves.
-
-Sludge Elves
-  This is a somewhat degenerate species of Elves. They are mirror images of
-  High Elves in some respects: they have no special proficiency with bows or
-  swords (long or short), nor do they have any aptitude in the traditional areas
-  of High Elven magic (charms and conjurations). On the other hand, they are
-  superlative transmuters, and are comfortable dabbling in necromantic, poison
-  and elemental magic. As fighters, they are often more dangerous unarmed than
-  armed. They advance in levels slightly slower than Humans, but faster than all
-  other Elves.
 
 The Undead
 ========================================
@@ -1917,13 +1966,6 @@ Berserkers
   get the power to go berserk (as well as a number of other powers, should they
   prove worthy), but who forbids the use of spell magic. They enter the dungeon
   with a weapon of their choice, and dressed in animal skins.
-
-Priests
-  Priests serve Zin, the ancient and revered God of Law, and are tasked with
-  bringing Zin's teachings to the creatures of the Dungeon. Hill Orcs follow the
-  Orc god Beogh instead, who will eventually allow them to convert an army of
-  Orcs to their cause. Priests enter the dungeon with a traditional weapon and a
-  priestly robe.
 
 Healers
   The Healer is a priest of Elyvilon. Healers begin with minor healing powers,

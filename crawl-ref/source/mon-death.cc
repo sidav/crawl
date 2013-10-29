@@ -1,7 +1,7 @@
 /**
  * @file
  * @brief Contains monster death functionality, including Dowan and Duvessa,
- *        Kirke, Pikel, shedu and spirits.
+ *        Kirke, Pikel and shedu.
 **/
 
 #include "AppHdr.h"
@@ -13,6 +13,7 @@
 #include "database.h"
 #include "dactions.h"
 #include "env.h"
+#include "fineff.h"
 #include "items.h"
 #include "libutil.h"
 #include "mapmark.h"
@@ -51,7 +52,8 @@ bool mons_is_pikel(monster* mons)
  *
  * This neutralisation occurs in multiple instances: when Pikel is neutralised,
  * enslaved, when Pikel dies, when Pikel is banished.
-**/
+ * It is handled by a daction (as a fineff) to preserve across levels.
+ **/
 void pikel_band_neutralise()
 {
     int visible_slaves = 0;
@@ -66,12 +68,13 @@ void pikel_band_neutralise()
             visible_slaves++;
         }
     }
+    string final_msg;
     if (visible_slaves == 1)
-        mpr("With Pikel's spell broken, the former slave thanks you for freedom.");
+        final_msg = "With Pikel's spell broken, the former slave thanks you for freedom.";
     else if (visible_slaves > 1)
-        mpr("With Pikel's spell broken, the former slaves thank you for their freedom.");
+        final_msg = "With Pikel's spell broken, the former slaves thank you for their freedom.";
 
-    add_daction(DACT_PIKEL_SLAVES);
+    (new delayed_action_fineff(DACT_PIKEL_SLAVES,final_msg))->schedule();
 }
 
 /**
@@ -96,7 +99,9 @@ bool mons_is_kirke(monster* mons)
  * Called upon Kirke's death. Hogs either from Kirke's band or
  * subsequently porkalated should be reverted to their original form.
  * This takes place as a daction to preserve behaviour across levels;
- * this function simply checks if any are visible and writes a message.
+ * this function simply checks if any are visible and raises a fineff
+ * containing an appropriate message. The fineff raises the actual
+ * daction.
  */
 void hogs_to_humans()
 {
@@ -125,29 +130,27 @@ void hogs_to_humans()
             human++;
     }
 
+    string final_msg;
+
     if (any == 1)
     {
         if (any == human)
-            mpr("No longer under Kirke's spell, the hog turns into a human!");
+            final_msg = "No longer under Kirke's spell, the hog turns into a human!";
         else
-            mpr("No longer under Kirke's spell, the hog returns to its "
-                "original form!");
+            final_msg = "No longer under Kirke's spell, the hog returns to its "
+                        "original form!";
     }
     else if (any > 1)
     {
         if (any == human)
-            mpr("No longer under Kirke's spell, the hogs revert to their "
-                "human forms!");
+            final_msg = "No longer under Kirke's spell, the hogs revert to their "
+                        "human forms!";
         else
-            mpr("No longer under Kirke's spell, the hogs revert to their "
-                "original forms!");
+            final_msg = "No longer under Kirke's spell, the hogs revert to their "
+                        "original forms!";
     }
 
-    // Revert the player now
-    if (you.form == TRAN_PIG)
-        untransform();
-
-    add_daction(DACT_KIRKE_HOGS);
+    (new kirke_death_fineff(final_msg))->schedule();
 }
 
 /**
@@ -354,7 +357,7 @@ void elven_twins_pacify(monster* twin)
 
     ASSERT(!mons->neutral());
 
-    if (you.religion == GOD_ELYVILON)
+    if (you_worship(GOD_ELYVILON))
         gain_piety(random2(mons->max_hit_points / (2 + you.piety / 20)), 2);
 
     if (mons_near(mons))
@@ -402,48 +405,6 @@ void elven_twins_unpacify(monster* twin)
         return;
 
     behaviour_event(mons, ME_WHACK, &you, you.pos(), false);
-}
-
-/**
- * Spirit death effects.
- *
- * When a spirit dies of "nautral" causes, ie, it's FADING_AWAY timer runs out,
- * it summons a high-level monster. This function is only called for spirits
- * that have died as a result of the FADING_AWAY timer enchantment running out.
- *
- * @param spirit    The monster that died.
-**/
-void spirit_fades(monster *spirit)
-{
-    // XXX: No check for silence; summoned?
-    if (mons_near(spirit))
-        simple_monster_message(spirit, " fades away with a wail!", MSGCH_TALK);
-    else
-        mpr("You hear a distant wailing.", MSGCH_TALK);
-
-    const coord_def c = spirit->pos();
-
-    mgen_data mon = mgen_data(random_choose_weighted(
-                        10, MONS_ANGEL, 10, MONS_CHERUB,
-                        5, MONS_APIS, 2, MONS_PHOENIX,
-                        1, MONS_DAEVA, 1, MONS_PEARL_DRAGON,
-                      0), SAME_ATTITUDE(spirit),
-                      NULL, 0, 0, c,
-                      spirit->foe, 0);
-
-    if (spirit->alive())
-        monster_die(spirit, KILL_MISC, NON_MONSTER, true);
-
-    monster *new_mon = create_monster(mon);
-
-    if (!new_mon)
-        return;
-
-    if (mons_near(new_mon))
-        simple_monster_message(new_mon, " seeks to avenge the fallen spirit!", MSGCH_TALK);
-    else
-        mpr("A powerful presence appears to avenge a fallen spirit!", MSGCH_TALK);
-
 }
 
 /**

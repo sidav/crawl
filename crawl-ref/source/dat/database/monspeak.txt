@@ -858,15 +858,9 @@ _friendly_humanoid_rare_
 VISUAL:@The_monster@ looks friendly.
 ## END friendly humanoid ##
 %%%%
-_pauses_or_stops_
-
-pauses
-
-stops
-%%%%
 hound
 
-VISUAL:@The_monster@ @_pauses_or_stops_@ to sniff the @surface@.
+VISUAL:@The_monster@ [pauses|stops] to sniff the @surface@.
 
 VISUAL:@The_monster@ gazes forward, looking utterly alone.
 %%%%
@@ -906,7 +900,7 @@ VISUAL:@The_monster@ seems to be having trouble coordinating @possessive@ many l
 
 VISUAL:@The_monster@ wildly waves @possessive@ antennae.
 %%%%
-orb_spider_cantrip
+orb spider charge
 
 @The_monster@ spins a strand of pure energy.
 
@@ -1132,7 +1126,7 @@ Crossbows player ghost
 
 @_generic_ranged_@
 
-VISUAL:@The_monster@ @_reloads_adj_@ @possessive@ weapon.
+VISUAL:@The_monster@ [struggles to reload|effortlessly reloads] @possessive@ weapon.
 %%%%
 Throwing player ghost
 
@@ -1172,6 +1166,7 @@ VISUAL:For a moment, you lose track of @the_monster@.
 
 VISUAL:For a moment, @the_monster@ blends into the shadows.
 %%%%
+# TAG_MAJOR_VERSION == 34
 Stabbing player ghost
 
 @The_monster@ says @to_foe@, "Would you mind turning around for a second?"
@@ -1212,7 +1207,7 @@ Unarmed Combat player ghost
 
 @The_monster@ sneers, "Only the weak need weapons."
 
-VISUAL:@The_monster@ feints to the @_direction_@.
+VISUAL:@The_monster@ feints to the [left|right].
 
 VISUAL:@The_monster@ assumes a wrestling stance.
 
@@ -1383,7 +1378,7 @@ Evocations player ghost
 
 @The_monster@ taunts, "You'd probably drink from a bronze flask."
 
-@The_monster@ says, "I could kill you with a @_misc_item_@."
+@The_monster@ says, "I could kill you with a [stone|fan|lamp]."
 %%%%
 Ashenzari player ghost
 
@@ -1563,26 +1558,6 @@ _generic_ranged_
 @The_monster@ takes aim @at_foe@.
 
 You feel something passing dangerously close to your head. @player_only@
-%%%%
-_reloads_adj_
-
-struggles to reload
-
-effortlessly reloads
-%%%%
-_misc_item_
-
-stone
-
-fan
-
-lamp
-%%%%
-_direction_
-
-left
-
-right
 %%%%
 _form_
 
@@ -1811,14 +1786,6 @@ Azrael
 w:2
 @_Azrael_rare_@
 %%%%
-_adj_flammable_
-
-flammable
-
-inflammable
-
-feeling hot
-%%%%
 _Azrael_common_
 
 @The_monster@ laughs insanely.
@@ -1835,7 +1802,7 @@ VISUAL:@The_monster@ is momentarily hidden by a cloud of flames.
 %%%%
 _Azrael_rare_
 
-@The_monster@ grins and asks @foe,@ "Are you @_adj_flammable_@?"
+@The_monster@ grins and asks @foe,@ "Are you [flammable|inflammable|feeling hot]?"
 
 @The_monster@ says @to_foe@, "We're having tasty @foe_genus@ kabobs tonight!"
 
@@ -2565,8 +2532,6 @@ w:50
 
 @The_monster@ says, "I don't get the difference between high elves and deep elves."
 
-@The_monster@ says, "What sort of sludge, anyway?"
-
 @The_monster@ says, "None of these elves know how to fight. I hate that."
 %%%%
 Swamp Donald
@@ -2783,13 +2748,23 @@ Vaults Donald
 w:50
 @_generic_Donald_@
 
-@The_monster@ says, "This place is boring."
-
 @The_monster@ says, "They never drop hides for me, either."
 
 @The_monster@ says, "The Vaults? They should've called it the Dumps."
 
 @The_monster@ says, "Don't bother, there's only junk at the bottom."
+
+@The_monster@ says, "I asked the warden where the rune was. He slammed the door in my face."
+
+@The_monster@ says, "I don't remember getting an invitation to a convocation."
+
+@The_monster@ says, "What kind of idiots hire shapeshifters to protect treasure?"
+
+@The_monster@ says, "Who designed this place? It's just a bunch of weird little rooms stuck together."
+
+@The_monster@ says, "This is an awful lot of space just to hold some junk."
+
+@The_monster@ says, "I saw some yaktaurs earlier, but I bolted."
 %%%%
 Hall of Blades Donald
 
@@ -2919,6 +2894,56 @@ w:50
 @The_monster@ says, "What a crowded place."
 
 @The_monster@ says, "Mazes, puzzles. I hate puzzles."
+%%%%
+Forest Donald
+
+w:50
+@_generic_Donald_@
+
+@The_monster@ says, "I hate having to branch out like this."
+
+@The_monster@ says, "I asked some spriggans for directions; they got kind of evasive about it."
+
+@The_monster@ says, "I ran into some vines; they wouldn't let me leave."
+
+@The_monster@ says, "I was going to ask a faun for directions, but it got too confusing."
+
+@The_monster@ says, "Those wind drakes are really a blast. I still hate them."
+
+@The_monster@ says, "What kind of person lives in a tree, anyway?"
+
+@The_monster@ says, "What am I supposed to do with all this fruit? Make a salad?"
+
+@The_monster@ says, "Did that tree just move its branches?"
+
+@The_monster@ says, "Did that root just wiggle a little?"
+
+@The_monster@ says, "This place doesn't seem all that enchanting to me."
+
+@The_monster@ says, "I think I'm getting hay fever."
+
+@The_monster@ says, "Did you just hear a twig snapping?"
+
+@The_monster@ says, "I wish I was a lumberjack."
+
+@The_monster@ says, "How can such tiny little people be such huge pains in the neck?"
+%%%%
+Abyss Donald
+
+w:50
+@_generic_Donald_@
+
+@The_monster@ says, "But I don't want to have to go deeper!"
+
+@The_monster@ says, "What does 'eldritch' mean, anyway?"
+
+@The_monster@ says, "I keep hearing this weird shrieking in my head. I hate that."
+
+@The_monster@ says, "I've never heard of a star cursing anything."
+
+@The_monster@ says, "I've never heard of a star spawning anything."
+
+@The_monster@ says, "That wasn't a gateway out; it was a stair. I hate that."
 %%%%
 ######################################################################## GODS #
 Zin Donald
@@ -3200,8 +3225,6 @@ Lugonu Donald
 
 w:50
 @_generic_Donald_@
-
-@The_monster@ says, "I'd pick a mace for blessing, if I were you."
 
 @The_monster@ says, "Why would you want to visit the Abyss? For a holiday?"
 
@@ -3512,6 +3535,14 @@ VISUAL:@The_monster@ sticks a finger up @possessive@ nose.
 VISUAL:@The_monster@ tugs at @possessive@ hair.
 
 VISUAL:@The_monster@ twirls gently on the spot.
+%%%%
+Donald killed
+
+w:100
+__NONE
+
+w:1
+@The_monster@ says, "I'm dying. I hate that."
 %%%%
 ############ DOWAN ### A vain elf caster, twin brother of Duvessa
 twin_died Dowan
@@ -4504,16 +4535,10 @@ Jory
 %%%%
 _Jory_common_
 
-w:100
+w:50
 @_Jory_silent_@
 
 @The_monster@ says, "Leave me alone!"
-
-@The_monster@ says, "How dare you disturb my sanctum!"
-
-@The_monster@ says, "In my tower, I enforce my rules: silence at all times."
-
-@The_monster@ says, "Be quiet! Or I'll take your tongue!"
 
 @The_monster@ hisses in an unknowable language.
 
@@ -4550,8 +4575,6 @@ VISUAL:@The_monster@ smirks, showing shining fangs.
 VISUAL:@The_monster@ demonstrates baring @possessive@ neck.
 
 VISUAL:@The_monster@ hisses silently.
-
-VISUAL:@The_monster@ starts to speak, but stops.
 %%%%
 Jory killed
 
@@ -4650,7 +4673,7 @@ Kirke
 
 VISUAL:@The_monster@ splashes a potion @at_foe@.
 
-VISUAL:@The_monster@ throws some @_strange_@ powder @at_foe@.
+VISUAL:@The_monster@ throws some [strange|weird|mysterious] powder @at_foe@.
 
 @The_monster@ says @to_foe@, "Odis was a nice man, you're awful."
 
@@ -4666,14 +4689,6 @@ VISUAL:@The_monster@ throws some @_strange_@ powder @at_foe@.
 
 @_wizard_common_spell_@
 @_fake_spell_effect_@
-%%%%
-_strange_
-
-strange
-
-weird
-
-mysterious
 ### END Kirke ###
 %%%%
 ############ LAMIA ### Naga queen
@@ -4779,12 +4794,6 @@ VISUAL ENCHANT:@The_monster@ becomes transparent for a moment.
 
 VISUAL ENCHANT:@The_monster@'s hands start to glow.
 %%%%
-_bad_effect_
-
-cursed
-
-doomed
-%%%%
 _Margery_common_
 
 VISUAL SPELL:@The_monster@ gestures.
@@ -4796,11 +4805,11 @@ SPELL:@The_monster@ casts a spell.
 VISUAL SPELL:@The_monster@'s eyes start to glow with a @_spell_colour_@ light.
 
 VISUAL SPELL:@The_monster@ gestures.
-VISUAL WARN:You feel @_bad_effect_@.
+VISUAL WARN:You feel [cursed|doomed].
 
 w:5
 VISUAL SPELL:@The_monster@ throws some purple powder towards you.
-VISUAL WARN:You feel @_bad_effect_@.
+VISUAL WARN:You feel [cursed|doomed].
 
 @The_monster@ says @to_foe@, "Die!"
 
@@ -5570,12 +5579,6 @@ _Roxanne_medium_
 
 @The_monster@ sighs and says, "It wouldn't be so bad were it not for the bird droppings."
 %%%%
-_millennia_or_aeons_
-
-millennia
-
-aeons
-%%%%
 _Roxanne_rare_
 
 @The_monster@ shouts @at_foe@, "I'd kick your ass right now if I could just get over there!"
@@ -5584,7 +5587,7 @@ _Roxanne_rare_
 
 @The_monster@ wonders, "Maybe oil would work? Probably not."
 
-@The_monster@ states @to_foe@, "You'll be worm food in some minutes, I'll endure @_millennia_or_aeons_@."
+@The_monster@ states @to_foe@, "You'll be worm food in some minutes, I'll endure [millennia|aeons]."
 
 @The_monster@ says @to_foe@, "A mighty warrior you might be, a mason you are not!"
 
@@ -5641,7 +5644,7 @@ _Rupert_rare_
 ## END Rupert ##
 %%%%
 ############ SAINT ROKA ### orc warlord
-# Only used if the player is not a Hill Orc.
+# Only used if the player is not an orc.
 Saint Roka
 
 w:7
@@ -5683,7 +5686,7 @@ Saint Roka rival
 
 @The_monster@ despairs, @at_foe@, "False prophets abound here!"
 
-@The_monster@ shouts, "Orcs, take notice: this deceiver is a mere Hill Orc!"
+@The_monster@ shouts, "Orcs, take notice: this deceiver is a mere {{ return you.race() }}!"
 %%%%
 # need different speech if you also worship Beogh
 related beogh Saint Roka
@@ -5778,6 +5781,35 @@ howls
 
 laughing cries
 ## END Sigmund ##
+%%%%
+############ SOJOBO ### tengu king
+Sojobo
+
+@_Sojobo_common_@
+
+w:5
+@_Sojobo_rare_@
+%%%%
+_Sojobo_common_
+
+VISUAL:@The_monster@ strikes a fencing pose.
+
+@The_monster@ barks orders to his subordinates.
+
+VISUAL:@The_monster@ grins devilishly.
+
+The air crackles briefly around @the_monster@.
+
+VISUAL:A brief shower of sparks shoots from @the_monster@'s claws.
+%%%%
+_Sojobo_rare_
+
+@The_monster@ says @to_foe@, "This battle is not even a challenge!"
+
+@The_monster@ barks @at_foe@, "Your form is terrible!"
+
+@The_monster@ sneers @at_foe@, "There are one thousand and one flaws in your strategy!"
+## END Sojobo
 %%%%
 ############ SONJA ### female kobold assassin
 Sonja
@@ -6138,7 +6170,7 @@ VISUAL:@The_monster@ smiles without lips.
 
 @The_monster@ shouts @at_foe@, "Death awaits you!"
 
-@The_monster@ says @to_foe@, "Everyone has to die one time, and your time is now."
+@The_monster@ says @to_foe@, "Everyone has to die sometime, and your time is now."
 
 VISUAL:@The_monster@ draws a finger across @possessive@ throat.
 
@@ -6525,7 +6557,7 @@ friendly orc
 w:5
 @_generic_orc_speech_@
 %%%%
-# charmed orcs, for hill orcs (not counting Beogh)
+# charmed orcs, for orcs (not counting Beogh)
 friendly related orc
 
 @default friendly related humanoid@
@@ -6560,16 +6592,6 @@ _says_or_shouts_
 says
 
 shouts
-%%%%
-_kill_or_maim_
-
-kill
-
-smash
-
-burn
-
-maim
 %%%%
 #######################################################
 # Heretic orcs, not believing in Beogh.
@@ -6635,11 +6657,19 @@ _hostile_orc_beogh_believer_speech_common_
 
 @The_monster@ grunts @at_foe@, "You, the messiah? You don't even look the part!"
 
-@The_monster@ @_orc_says_to_foe_@, "The messiah will not be a Hill Orc!"
+@The_monster@ @_orc_says_to_foe_@, "The messiah will not be a {{ return you.race() }}!"
 
 @The_monster@ @_orc_says_to_foe_@, "The messiah will be a true Orc!"
 
-@The_monster@ @_orc_says_to_foe_@, "Turn back to the hills, deceiver!"
+@The_monster@ @_orc_says_to_foe_@, "{{
+    if you.race() == "Hill Orc" then
+        return "Turn back to the hills"
+    elseif you.race() == "Lava Orc" then
+        return "Go swim in a volcano"
+    else -- shouldn't happen
+        return "Go to hell"
+    end
+}}, deceiver!"
 
 @The_monster@ @_shouts_@ @at_foe@, "Die, @_orc_heathen_@!"
 
@@ -6712,7 +6742,7 @@ w:5
 
 @The_monster@ shouts, "All @_orc_heathen_@s must die!"
 
-@The_monster@ @_shouts_@, "Let's @_kill_or_maim_@ those @_orc_heathen_@s!"
+@The_monster@ @_shouts_@, "Let's [kill|smash|burn|maim] those @_orc_heathen_@s!"
 
 @The_monster@ @_orc_says_@, "With Beogh's help we'll overthrow the @_orc_heathen_@s!"
 
@@ -6879,6 +6909,34 @@ beogh_converted_orc_reaction_speech_follower
 
 @beogh_converted_orc_reaction_speech@
 %%%%
+#######################################################
+# Or if they weren't converted because you did this already.
+####
+orc_priest_apostate
+
+The priest shouts, "Disloyal scoundrel, leave my sight!"
+
+The priest snarls, "I'll spare you only if you run away! Begone!"
+
+The priest curses, "Your faithless show of piety disgusts me!"
+
+The priest sneers, "Beogh may forgive you, but I don't!"
+
+The priest shouts, "You had your chance, apostate scum!"
+%%%%
+#######################################################
+#
+####
+orc_priest_preaching
+
+@The_monster@ shouts, "Join the one true god or die!"
+
+@The_monster@ shouts, "Beogh is our master! Accept the truth or die!"
+
+@The_monster@ shouts, "Surrender to Beogh and we'll let you live!"
+
+@The_monster@ threatens, "By the altar or by the axe, you will meet Beogh!"
+%%%%
 #################################
 # Cherubs.
 #################################
@@ -6897,7 +6955,7 @@ cherub
 #################################
 # Monsters who worship Zin
 #################################
-glowing angel
+zin angel
 
 w:40
 @The_monster@ recites @_axioms_of_law_@
@@ -7056,6 +7114,26 @@ Yredelemnul
 Beogh
 
 Lugonu
+%%%%
+confused zin angel
+
+@The_monster@ rambles incoherently.
+
+@The_monster@ lectures the ground at length about @_important_subject_@
+
+@The_monster@ lectures @possessive@ feet at length about @_important_subject_@
+
+VISUAL:@The_monster@ stares off into space for a moment.
+%%%%
+silenced zin angel
+
+VISUAL:@The_monster@ gestures @at_foe@ frantically.
+
+VISUAL:@The_monster@ looks angrily to the heavens.
+
+VISUAL:@The_monster@ furiously gestures all around.
+
+VISUAL:@The_monster@ scowls with righteous anger.
 %%%%
 ###############################################################################
 # Speech keys used *specifically* in (portal) vaults.

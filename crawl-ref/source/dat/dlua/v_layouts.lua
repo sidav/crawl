@@ -21,8 +21,6 @@
 -- room/door placement can work correctly.
 ------------------------------------------------------------------------------
 
-hyper = {}  -- Main namespace for engine
-hyper.vaults = {}   -- Main namespace for V branch related bits
 hypervaults = {}  -- Old namespace, gradually moving everything into hyper.*
 
 require("dlua/v_debug.lua")
@@ -64,12 +62,12 @@ function vaults_default_options()
 
     -- Weightings of various types of room generators.
     room_type_weights = {
-      { generator = "code", paint_callback = hyper.vaults.floor_vault, weight = 50, min_size = 6, max_size = 15 }, -- Floor vault
-      { generator = "code", paint_callback = junction_vault_paint_callback, weight = 10, min_size = 10, max_size = 20, min_corridor = 3, max_corridor = 5 }, -- Floor vault ++
+      { generator = "code", paint_callback = hypervaults.shapes.floor_vault, weight = 80, min_size = 6, max_size = 15 }, -- Floor vault
       { generator = "tagged", tag = "vaults_room", weight = 50, max_rooms = 6 },
       { generator = "tagged", tag = "vaults_empty", weight = 40 },
       { generator = "tagged", tag = "vaults_hard", weight = 10, max_rooms = 1 },
       { generator = "tagged", tag = "vaults_entry_crypt", weight = (you.where() == dgn.level_name(dgn.br_entrance("Crypt"))) and 25 or 0, max_rooms = 1 },
+      { generator = "tagged", tag = "vaults_entry_forest", weight = (you.where() == dgn.level_name(dgn.br_entrance("Forest"))) and 25 or 0, max_rooms = 1 },
       { generator = "tagged", tag = "vaults_entry_blade", weight = (you.where() == dgn.level_name(dgn.br_entrance("Blade"))) and 25 or 0, max_rooms = 1 },
     },
 
@@ -116,19 +114,11 @@ end
 
 -- TODO: The 'paint' parameter should disappear. Instead the options will contain a setup array. This could contain paint instructions,
 -- but alternately should be able to wire room generators to create initial terrain. Since rooms can now be created from paint arrays _anyway_,
--- it seems that pre-painting the layout is completely unneccesary and room generation can do anything ...
+-- it seems that pre-painting the layout is completely unnecessary and room generation can do anything ...
 function hypervaults.build_layout(e, name, paint, options)
   if e.is_validating() then return; end
 
   if _VAULTS_DEBUG then print("Hypervaults Layout: " .. name) end
-
-  if name then
-    name = string.lower(name)
-    name = string.gsub(name," ","_")
-    e.layout_type(name)
-  else
-    e.layout_type "hypervaults" -- TODO: Lowercase and underscorise the name?
-  end
 
   local default_options = hypervaults.default_options()
   if options ~= null then hypervaults.merge_options(default_options,options) end
@@ -153,8 +143,6 @@ function build_vaults_layout(e, name, paint, options)
   if e.is_validating() then return; end
 
   if _VAULTS_DEBUG then print("Vaults Layout: " .. name) end
-
-  e.layout_type "vaults" -- TODO: Lowercase and underscorise the name parameter?
 
   local defaults = vaults_default_options()
   if options ~= nil then hypervaults.merge_options(defaults,options) end

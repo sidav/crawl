@@ -12,6 +12,7 @@
 
 #include "externs.h"
 
+#include "art-enum.h"
 #include "artefact.h"
 #include "cloud.h"
 #include "delay.h"
@@ -22,6 +23,8 @@
 #include "itemprop.h"
 #include "items.h"
 #include "libutil.h"
+#include "misc.h"
+#include "mon-abil.h"
 #include "mutation.h"
 #include "output.h"
 #include "player.h"
@@ -60,7 +63,7 @@ static const char* form_names[] =
 const char* transform_name(transformation_type form)
 {
     COMPILE_CHECK(ARRAYSZ(form_names) == LAST_FORM + 1);
-    ASSERT(form >= 0 && form <= LAST_FORM);
+    ASSERT_RANGE(form, 0, LAST_FORM + 1);
     return form_names[form];
 }
 
@@ -91,7 +94,7 @@ bool form_can_swim(transformation_type form)
     if (you.species == SP_MERFOLK && !form_changed_physiology(form))
         return true;
 
-    if (you.species == SP_OCTOPODE)
+    if (you.species == SP_OCTOPODE && !form_changed_physiology(form))
         return true;
 
     size_type size = you.transform_size(form, PSIZE_BODY);
@@ -104,7 +107,7 @@ bool form_can_swim(transformation_type form)
 bool form_likes_water(transformation_type form)
 {
     return (form_can_swim(form) || you.species == SP_GREY_DRACONIAN
-            || you.species == SP_OCTOPODE && !form_changed_physiology(form));
+                                   && !form_changed_physiology(form));
 }
 
 bool form_has_mouth(transformation_type form)
@@ -113,6 +116,13 @@ bool form_has_mouth(transformation_type form)
         && form != TRAN_WISP
         && form != TRAN_JELLY
         && form != TRAN_FUNGUS;
+}
+
+bool form_likes_lava(transformation_type form)
+{
+    // Lava orcs can only swim in non-phys-change forms.
+    return (you.species == SP_LAVA_ORC
+            && !form_changed_physiology(form));
 }
 
 bool form_can_butcher_barehanded(transformation_type form)
@@ -168,7 +178,8 @@ bool form_can_wear_item(const item_def& item, transformation_type form)
 
     // And some need more complicated logic.
     case TRAN_BLADE_HANDS:
-        return (eqslot != EQ_SHIELD && eqslot != EQ_GLOVES);
+        return (eqslot != EQ_SHIELD && eqslot != EQ_GLOVES
+                && item.special != UNRAND_LEAR);
 
     case TRAN_STATUE:
         return (eqslot == EQ_CLOAK || eqslot == EQ_HELMET
@@ -376,6 +387,11 @@ static void _unmeld_equipment(const set<equipment_type>& melded)
 
 void unmeld_one_equip(equipment_type eq)
 {
+    if (eq >= EQ_HELMET && eq <= EQ_BOOTS)
+        if (const item_def* arm = you.slot_item(EQ_BODY_ARMOUR, true))
+            if (arm->special == UNRAND_LEAR)
+                eq = EQ_BODY_ARMOUR;
+
     set<equipment_type> e;
     e.insert(eq);
     _unmeld_equipment(e);
@@ -383,6 +399,9 @@ void unmeld_one_equip(equipment_type eq)
 
 void remove_one_equip(equipment_type eq, bool meld, bool mutation)
 {
+    if (player_equip_unrand(UNRAND_LEAR) && eq >= EQ_HELMET && eq <= EQ_BOOTS)
+        eq = EQ_BODY_ARMOUR;
+
     set<equipment_type> r;
     r.insert(eq);
     _remove_equipment(r, meld, mutation);
@@ -554,12 +573,16 @@ bool feat_dangerous_for_form(transformation_type which_trans,
     if (form_can_fly(which_trans) || _flying_in_new_form(which_trans))
         return false;
 
+    // ... or hover our butts up if need arises.
+    if (you.species == SP_DJINNI)
+        return false;
+
     // We can only cling for safety if we're already doing so.
     if (which_trans == TRAN_SPIDER && you.is_wall_clinging())
         return false;
 
     if (feat == DNGN_LAVA)
-        return true;
+        return !form_likes_lava(which_trans);
 
     if (feat == DNGN_DEEP_WATER)
         return (!form_likes_water(which_trans) && !beogh_water_walk());
@@ -634,6 +657,9 @@ static bool _transformation_is_safe(transformation_type which_trans,
             return false;
     }
 
+    if (which_trans == TRAN_ICE_BEAST && you.species == SP_DJINNI)
+        return false; // melting is fatal...
+
     if (!feat_dangerous_for_form(which_trans, feat))
         return true;
 
@@ -675,11 +701,11 @@ static int _transform_duration(transformation_type which_trans, int pow)
     }
 }
 
-// Transforms you into the specified form. If force is true, checks for
+// Transforms you into the specified form. If involuntary, checks for
 // inscription warnings are skipped, and the transformation fails silently
 // (if it fails). If just_check is true the transformation doesn't actually
 // happen, but the method returns whether it would be successful.
-bool transform(int pow, transformation_type which_trans, bool force,
+bool transform(int pow, transformation_type which_trans, bool involuntary,
                bool just_check)
 {
     transformation_type previous_trans = you.form;
@@ -687,17 +713,17 @@ bool transform(int pow, transformation_type which_trans, bool force,
     const flight_type was_flying = you.flight_mode();
 
     // Zin's protection.
-    if (!just_check && you.religion == GOD_ZIN
+    if (!just_check && you_worship(GOD_ZIN)
         && x_chance_in_y(you.piety, MAX_PIETY) && which_trans != TRAN_NONE)
     {
         simple_god_message(" protects your body from unnatural transformation!");
         return false;
     }
 
-    if (!force && crawl_state.is_god_acting())
-        force = true;
+    if (!involuntary && crawl_state.is_god_acting())
+        involuntary = true;
 
-    if (!force && you.transform_uncancellable)
+    if (you.transform_uncancellable)
     {
         // Jiyva's wrath-induced transformation is blocking the attempt.
         // May need to be updated if transform_uncancellable is used for
@@ -707,8 +733,11 @@ bool transform(int pow, transformation_type which_trans, bool force,
         return false;
     }
 
-    if (!_transformation_is_safe(which_trans, env.grid(you.pos()), force))
+    if (!_transformation_is_safe(which_trans, env.grid(you.pos()),
+        involuntary || just_check))
+    {
         return false;
+    }
 
     // This must occur before the untransform() and the is_undead check.
     if (previous_trans == which_trans)
@@ -729,7 +758,7 @@ bool transform(int pow, transformation_type which_trans, bool force,
         }
         else
         {
-            if (!force && which_trans != TRAN_PIG && which_trans != TRAN_NONE)
+            if (!involuntary && which_trans != TRAN_PIG && which_trans != TRAN_NONE)
                 mpr("You fail to extend your transformation any further.");
             return false;
         }
@@ -760,18 +789,26 @@ bool transform(int pow, transformation_type which_trans, bool force,
         && (you.species != SP_VAMPIRE
             || which_trans != TRAN_BAT && you.hunger_state <= HS_SATIATED))
     {
-        if (!force)
+        if (!involuntary)
             mpr("Your unliving flesh cannot be transformed in this way.");
         return _abort_or_fizzle(just_check);
     }
 
     if (which_trans == TRAN_LICH && you.duration[DUR_DEATHS_DOOR])
     {
-        if (!force)
+        if (!involuntary)
         {
             mpr("The transformation conflicts with an enchantment "
                 "already in effect.");
         }
+        return _abort_or_fizzle(just_check);
+    }
+
+    if (you.species == SP_LAVA_ORC && !temperature_effect(LORC_STONESKIN)
+        && (which_trans == TRAN_ICE_BEAST || which_trans == TRAN_STATUE))
+    {
+        if (!involuntary)
+            mpr("Your temperature is too high to benefit from that spell.");
         return _abort_or_fizzle(just_check);
     }
 
@@ -810,6 +847,8 @@ bool transform(int pow, transformation_type which_trans, bool force,
         dex       = -2;
         if (you.species == SP_DEEP_DWARF && one_chance_in(10))
             msg = "You inwardly fear your resemblance to a lawn ornament.";
+        else if (you.species == SP_GARGOYLE)
+            msg = "Your body stiffens and grows slower.";
         else
             msg += "a living statue of rough stone.";
         break;
@@ -827,7 +866,6 @@ bool transform(int pow, transformation_type which_trans, bool force,
 
     case TRAN_LICH:
         tran_name = "lich";
-        str       = 3;
         msg       = "Your body is suffused with negative energy!";
         break;
 
@@ -844,7 +882,8 @@ bool transform(int pow, transformation_type which_trans, bool force,
     case TRAN_PIG:
         tran_name = "pig";
         msg       = "You have been turned into a pig!";
-        you.transform_uncancellable = true;
+        if (!just_check)
+            you.transform_uncancellable = true;
         break;
 
     case TRAN_APPENDAGE:
@@ -884,8 +923,13 @@ bool transform(int pow, transformation_type which_trans, bool force,
     case TRAN_FUNGUS:
         tran_name = "fungus";
         msg      += "a fleshy mushroom.";
-        you.set_duration(DUR_CONFUSING_TOUCH,
-            you.duration[DUR_TRANSFORMATION] ? you.duration[DUR_TRANSFORMATION] : INFINITE_DURATION);
+        if (!just_check)
+        {
+            you.set_duration(DUR_CONFUSING_TOUCH,
+                             you.duration[DUR_TRANSFORMATION]
+                                 ? you.duration[DUR_TRANSFORMATION]
+                                 : INFINITE_DURATION);
+        }
         break;
 
     case TRAN_JELLY:
@@ -918,10 +962,12 @@ bool transform(int pow, transformation_type which_trans, bool force,
         msg += "something buggy!";
     }
 
-    if (!force && just_check && (str + you.strength() <= 0 || dex + you.dex() <= 0))
+    const bool bad_str = you.strength() > 0 && str + you.strength() <= 0;
+    if (!involuntary && just_check && (bad_str
+            || you.dex() > 0 && dex + you.dex() <= 0))
     {
         string prompt = make_stringf("Transforming will reduce your %s to zero. Continue?",
-                                     str + you.strength() <= 0 ? "strength" : "dexterity");
+                                     bad_str ? "strength" : "dexterity");
         if (!yesno(prompt.c_str(), false, 'n'))
         {
             canned_msg(MSG_OK);
@@ -934,8 +980,11 @@ bool transform(int pow, transformation_type which_trans, bool force,
         return true;
 
     // Switching between forms takes a bit longer.
-    if (!force && previous_trans != TRAN_NONE && previous_trans != which_trans)
+    if (!involuntary && previous_trans != TRAN_NONE
+        && previous_trans != which_trans)
+    {
         you.time_taken = div_rand_round(you.time_taken * 3, 2);
+    }
 
     // All checks done, transformation will take place now.
     you.redraw_quiver       = true;
@@ -943,16 +992,11 @@ bool transform(int pow, transformation_type which_trans, bool force,
     you.redraw_armour_class = true;
     you.wield_change        = true;
     if (form_changed_physiology(which_trans))
-        you.fishtail = false;
+        merfolk_stop_swimming();
 
     // Most transformations conflict with stone skin.
-    if (which_trans != TRAN_NONE
-        && which_trans != TRAN_APPENDAGE
-        && which_trans != TRAN_BLADE_HANDS
-        && which_trans != TRAN_STATUE)
-    {
+    if (form_changed_physiology(which_trans) && which_trans != TRAN_STATUE)
         you.duration[DUR_STONESKIN] = 0;
-    }
 
     // Give the transformation message.
     mpr(msg);
@@ -987,6 +1031,13 @@ bool transform(int pow, transformation_type which_trans, bool force,
     case TRAN_STATUE:
         if (you.duration[DUR_STONESKIN])
             mpr("Your new body merges with your stone armour.");
+        else if (you.species == SP_LAVA_ORC)
+            mpr("Your new body is particularly stony.");
+        if (you.duration[DUR_ICY_ARMOUR])
+        {
+            mpr("Your new body cracks your icy armour.", MSGCH_DURATION);
+            you.duration[DUR_ICY_ARMOUR] = 0;
+        }
         break;
 
     case TRAN_ICE_BEAST:
@@ -1007,16 +1058,14 @@ bool transform(int pow, transformation_type which_trans, bool force,
         break;
 
     case TRAN_FUNGUS:
-        if (you.religion == GOD_FEDHAS)
-            simple_god_message(" smiles upon you.");
         // ignore hunger_state (but don't reset hunger)
         you.hunger_state = HS_SATIATED;
         set_redraw_status(REDRAW_HUNGER);
         break;
 
     case TRAN_TREE:
-        if (you.religion == GOD_FEDHAS)
-            simple_god_message(" smiles upon you.");
+        if (you_worship(GOD_FEDHAS) && !player_under_penance())
+            simple_god_message(" makes you hardy against extreme temperatures.");
         // ignore hunger_state (but don't reset hunger)
         you.hunger_state = HS_SATIATED;
         set_redraw_status(REDRAW_HUNGER);
@@ -1101,6 +1150,18 @@ bool transform(int pow, transformation_type which_trans, bool force,
 
     you.check_clinging(false);
 
+    // If we are no longer living, end an effect that afflicts only the living
+    if (you.duration[DUR_FLAYED] && you.holiness() != MH_NATURAL)
+    {
+        // Heal a little extra if we gained max hp from this transformation
+        if (form_hp_mod() != 10)
+        {
+            int dam = you.props["flay_damage"].get_int();
+            you.heal((dam * form_hp_mod() / 10) - dam);
+        }
+        heal_flayed_effect(&you);
+    }
+
     // This only has an effect if the transformation happens passively,
     // for example if Xom decides to transform you while you're busy
     // running around or butchering corpses.
@@ -1170,7 +1231,14 @@ void untransform(bool skip_wielding, bool skip_move)
         break;
 
     case TRAN_STATUE:
-        mpr("You revert to your normal fleshy form.", MSGCH_DURATION);
+        // This only handles lava orcs going statue -> stoneskin.
+        if (you.species == SP_LAVA_ORC && temperature_effect(LORC_STONESKIN)
+            || you.species == SP_GARGOYLE)
+        {
+            mpr("You revert to a slightly less stony form.", MSGCH_DURATION);
+        }
+        else if (you.species != SP_LAVA_ORC)
+            mpr("You revert to your normal fleshy form.", MSGCH_DURATION);
         notify_stat_change(STAT_DEX, 2, true,
                      "losing the statue transformation");
         notify_stat_change(STAT_STR, -2, true,
@@ -1183,7 +1251,10 @@ void untransform(bool skip_wielding, bool skip_move)
         break;
 
     case TRAN_ICE_BEAST:
-        mpr("You warm up again.", MSGCH_DURATION);
+        if (you.species == SP_LAVA_ORC && !temperature_effect(LORC_STONESKIN))
+            mpr("Your icy form melts away into molten rock.", MSGCH_DURATION);
+        else
+            mpr("You warm up again.", MSGCH_DURATION);
 
         // Note: if the core goes down, the combined effect soon disappears,
         // but the reverse isn't true. -- bwr
@@ -1199,8 +1270,6 @@ void untransform(bool skip_wielding, bool skip_move)
 
     case TRAN_LICH:
         mpr("You feel yourself come back to life.", MSGCH_DURATION);
-        notify_stat_change(STAT_STR, -3, true,
-                    "losing the lich transformation");
         you.is_undead = US_ALIVE;
         break;
 
@@ -1295,7 +1364,7 @@ void untransform(bool skip_wielding, bool skip_move)
     if (you.duration[DUR_ICY_ARMOUR]
         && !player_effectively_in_light_armour())
     {
-        you.duration[DUR_ICY_ARMOUR] = 1;
+        you.duration[DUR_ICY_ARMOUR] = 0;
 
         const item_def *armour = you.slot_item(EQ_BODY_ARMOUR, false);
         mprf(MSGCH_DURATION, "%s cracks your icy armour.",

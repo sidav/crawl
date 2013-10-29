@@ -1,11 +1,4 @@
 %%%%
-air elemental fan
-
-Um dispositivo mágico para conjurar elementais de ar. É um tanto instável e
-normalmente requer várias tentativas para funcionar corretamente. Ao usá-lo, há
-um certo risco, o qual é reduzido com devida habilidade na magia elemental
-apropriada.
-%%%%
 amulet of clarity
 
 Este amuleto protege seu usuário de algumas formas de confusão mental,
@@ -313,10 +306,6 @@ eggplant
 Uma berinjela podre pra você jogar nos desenvolvedores do Crawl. (Se você ver
 esta mensagem, é um bug.)
 %%%%
-empty ebony casket
-
-Uma caixa mágica após o seu poder ter sido gasto.
-%%%%
 eveningstar
 
 O oposto de uma maça-estrela.
@@ -549,17 +538,9 @@ spear
 Uma vara longa com uma lâmina pontiaguda em uma ponta. Pode ser tida em mãos ou
 arremessada.
 %%%%
-spiked flail
-
-Um mangual com grandes espinhos na bola de metal.
-%%%%
 staff of conjuration
 
 Este cajado aumenta o poder das magias de conjuração lançadas pelo seu usuário.
-%%%%
-staff of energy
-
-Este cajado reduz significativamente o custo em fome das magias do usuário.
 %%%%
 staff of power
 

@@ -61,10 +61,6 @@ Sword of Zonguldrok
 
 Diese entsetzliche Waffe sollte auf eigene Gefahr eingesetzt werden.
 %%%%
-Sword of Cerebov
-
-Gespenstische Flammen bedecken diese verzerrte Klinge.
-%%%%
 Staff of Dispater
 
 Dieser legendäre Gegenstand kann den Zorn der Hölle entfesseln.
@@ -122,7 +118,7 @@ Pfeilen, welche nicht leicht zu bekommen sind.
 %%%%
 giant club "Skullcrusher"
 
-Diese entzückende Keule kann jeden Oger überglücklich machen - sei es ein purer
+Diese entzückende Keule kann jeden Oger überglücklich machen – sei es ein purer
 Schläger, Massenmörder oder eine Mischung aus beidem.
 %%%%
 glaive of the Guard
@@ -179,11 +175,6 @@ Ein außergewöhnlicher großer Langbogen aus Metall.
 blowgun of the Assassin
 
 Geschaffen für die leichte Tarnung, hält aber trotzdem fiese Schläge ab.
-%%%%
-lance "Wyrmbane"
-
-Eine verzauberte Lanze welche immer mehr und mehr wächst für jedes mal, wenn
-damit ein Drache erschlagen wurde.
 %%%%
 Spriggan's Knife
 
@@ -260,10 +251,6 @@ boots of the Assassin
 
 Ein Paar weiche Stiefel, die speziell von der Assassinengilde entworfen wurden.
 %%%%
-Lear's chain mail
-
-Ein Kettenhemd, hergestellt aus purem Gold.
-%%%%
 skin of Zhor
 
 Eine stinkende Haus von einem fremdartigen Tier.
@@ -288,10 +275,6 @@ Eine langweilige graue Robe.
 Maxwell's patent armour
 
 Eine seltsam aussehende Rüstung.
-%%%%
-mask of the Dragon
-
-Eine blaue Maske.
 %%%%
 armour of the Dragon King
 

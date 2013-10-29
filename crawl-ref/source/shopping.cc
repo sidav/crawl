@@ -28,6 +28,7 @@
 #include "libutil.h"
 #include "macro.h"
 #include "menu.h"
+#include "misc.h"
 #include "notes.h"
 #include "options.h"
 #include "place.h"
@@ -426,20 +427,24 @@ static vector<int> _shop_get_stock(int shopidx)
     return result;
 }
 
+static int _bargain_cost(int value)
+{
+    // 20% discount
+    value *= 8;
+    value /= 10;
+
+    return max(value, 1);
+}
+
 static int _shop_get_item_value(const item_def& item, int greed, bool id,
                                 bool ignore_bargain = false)
 {
     int result = (greed * item_value(item, id) / 10);
-    if (you.duration[DUR_BARGAIN] && !ignore_bargain) // 20% discount
-    {
-        result *= 8;
-        result /= 10;
-    }
 
-    if (result < 1)
-        result = 1;
+    if (you.duration[DUR_BARGAIN] && !ignore_bargain)
+        result = _bargain_cost(result);
 
-    return result;
+    return max(result, 1);
 }
 
 static string _shop_print_stock(const vector<int>& stock,
@@ -497,11 +502,6 @@ static string _shop_print_stock(const vector<int>& stock,
         else
             cprintf("%c - ", c);
 
-        const bool unknown = item_type_has_ids(item.base_type)
-                             && item_type_known(item)
-                             && get_ident_type(item) != ID_KNOWN_TYPE
-                             && !is_artefact(item);
-
         // Colour stock according to menu colours.
         const string colprf = item_prefix(item);
         const int col = menu_colour(item.name(DESC_A),
@@ -509,10 +509,12 @@ static string _shop_print_stock(const vector<int>& stock,
         textcolor(col != -1 ? col : LIGHTGREY);
 
         string item_name = item.name(DESC_A, false, id);
-        if (unknown)
+        if (shop_item_unknown(item))
             item_name += " (unknown)";
 
-        cprintf("%s%5d gold", chop_string(item_name, 56).c_str(), gp_value);
+        const int cols = get_number_of_cols();
+
+        cprintf("%s%5d gold", chop_string(item_name, cols-14).c_str(), gp_value);
 
         si.add_item(item, gp_value);
 
@@ -520,7 +522,7 @@ static string _shop_print_stock(const vector<int>& stock,
         tmp = new TextItem();
         tmp->set_highlight_colour(WHITE);
         tmp->set_text(""); // will print bounding box around formatted text
-        tmp->set_bounds(coord_def(1 ,wherey()), coord_def(72, wherey() + 1));
+        tmp->set_bounds(coord_def(1 ,wherey()), coord_def(cols+2, wherey() + 1));
         tmp->add_hotkey(c);
         tmp->set_id(c);
         tmp->set_description_text(item_name);
@@ -675,7 +677,7 @@ static bool _in_a_shop(int shopidx, int &num_in_list)
             {
                 const item_def& item = mitm[stock[i]];
                 const int cost = _shop_get_item_value(item, shop.greed,
-                                                      id_stock);
+                                                      id_stock, true);
 
                 unsigned int num = shopping_list.cull_identical_items(item,
                                                                       cost);
@@ -898,7 +900,7 @@ static bool _in_a_shop(int shopidx, int &num_in_list)
                         {
                             // Ignore Bargaining.
                             const int cost = _shop_get_item_value(item,
-                                        shop.greed, id_stock, false);
+                                        shop.greed, id_stock, true);
                             shopping_list.add_thing(item, cost);
                         }
                         in_list[i]  = true;
@@ -1053,6 +1055,9 @@ static bool _purchase(int shop, int item_got, int cost, bool id)
         set_ident_type(item, ID_KNOWN_TYPE);
         set_ident_flags(item, ISFLAG_IDENT_MASK);
     }
+
+    if (is_blood_potion(item))
+        init_stack_blood_potions(item, -1);
 
     const int quant = item.quantity;
     // Note that item will be invalidated if num == item.quantity.
@@ -1256,9 +1261,6 @@ unsigned int item_value(item_def item, bool ident)
             valued += 45;
             break;
 
-#if TAG_MAJOR_VERSION == 34
-        case WPN_SPIKED_FLAIL:
-#endif
         case WPN_BLESSED_LONG_SWORD:
         case WPN_BLESSED_SCIMITAR:
             valued += 50;
@@ -1361,10 +1363,6 @@ unsigned int item_value(item_def item, bool ident)
 
             case SPWPN_VENOM:
                 valued *= 23;
-                break;
-
-            case SPWPN_ORC_SLAYING:
-                valued *= 21;
                 break;
 
             case SPWPN_VORPAL:
@@ -1508,8 +1506,10 @@ unsigned int item_value(item_def item, bool ident)
             case SPMSL_SLOW:
             case SPMSL_SLEEP:
             case SPMSL_CONFUSION:
+#if TAG_MAJOR_VERSION == 34
             case SPMSL_SICKNESS:
-            case SPMSL_RAGE:
+#endif
+            case SPMSL_FRENZY:
                 valued *= 23;
                 break;
             }
@@ -1603,10 +1603,6 @@ unsigned int item_value(item_def item, bool ident)
         case ARM_CENTAUR_BARDING:
         case ARM_NAGA_BARDING:
             valued += 150;
-            break;
-
-        case ARM_SPLINT_MAIL:
-            valued += 140;
             break;
 
         case ARM_TROLL_HIDE:
@@ -1849,9 +1845,12 @@ unsigned int item_value(item_def item, bool ident)
                 break;
 
             case POT_CURE_MUTATION:
+#if TAG_MAJOR_VERSION == 34
             case POT_GAIN_DEXTERITY:
             case POT_GAIN_INTELLIGENCE:
             case POT_GAIN_STRENGTH:
+#endif
+            case POT_BENEFICIAL_MUTATION:
                 valued += 350;
                 break;
 
@@ -1971,7 +1970,7 @@ unsigned int item_value(item_def item, bool ident)
                 break;
 
             case SCR_ENCHANT_WEAPON_III:
-            case SCR_VORPALISE_WEAPON:
+            case SCR_BRAND_WEAPON:
                 valued += 200;
                 break;
 
@@ -2162,14 +2161,20 @@ unsigned int item_value(item_def item, bool ident)
             break;
 
         case MISC_BOTTLED_EFREET:
+        case MISC_SACK_OF_SPIDERS:
             valued += 400;
             break;
 
-#if TAG_MAJOR_VERSION == 34
-        case MISC_EMPTY_EBONY_CASKET:
-            valued += 20;
+        case MISC_FAN_OF_GALES:
+        case MISC_STONE_OF_TREMORS:
+        case MISC_PHIAL_OF_FLOODS:
+        case MISC_LAMP_OF_FIRE:
+            valued += 1000;
             break;
-#endif
+
+        case MISC_BOX_OF_BEASTS:
+            valued += 500;
+            break;
 
         default:
             if (is_deck(item))
@@ -2369,8 +2374,10 @@ shop_struct *get_shop(const coord_def& where)
         return NULL;
 
     unsigned short t = env.tgrid(where);
-    ASSERT(t != NON_ENTITY && t < MAX_SHOPS);
-    ASSERT(env.shop[t].pos == where && env.shop[t].type != SHOP_UNASSIGNED);
+    ASSERT(t != NON_ENTITY);
+    ASSERT(t < MAX_SHOPS);
+    ASSERT(env.shop[t].pos == where);
+    ASSERT(env.shop[t].type != SHOP_UNASSIGNED);
 
     return (&env.shop[t]);
 }
@@ -2411,6 +2418,8 @@ static string _shop_type_name(shop_type type)
             return "Distillery";
         case SHOP_GENERAL:
             return "General Store";
+        case SHOP_MISCELLANY:
+            return "Gadget";
         default:
             return "Bug";
     }
@@ -2479,6 +2488,14 @@ string shop_name(const coord_def& where)
 bool is_shop_item(const item_def &item)
 {
     return (item.pos.x == 0 && item.pos.y >= 5 && item.pos.y < (MAX_SHOPS + 5));
+}
+
+bool shop_item_unknown(const item_def &item)
+{
+    return (item_type_has_ids(item.base_type)
+            && item_type_known(item)
+            && get_ident_type(item) != ID_KNOWN_TYPE
+            && !is_artefact(item));
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2579,7 +2596,7 @@ bool ShoppingList::is_on_list(string desc, const level_pos* _pos) const
 
 void ShoppingList::del_thing_at_index(int idx)
 {
-    ASSERT(idx >= 0 && idx < list->size());
+    ASSERT_RANGE(idx, 0, list->size());
     list->erase(idx);
     refresh();
 }
@@ -2681,16 +2698,16 @@ unsigned int ShoppingList::cull_identical_items(const item_def& item,
             return 0;
     }
 
+    // Manuals are consumable, and interesting enough to keep on list.
+    if (item.base_type == OBJ_BOOKS && item.sub_type == BOOK_MANUAL)
+        return 0;
+
     // Item is already on shopping-list.
     const bool on_list = find_thing(item, level_pos::current()) != -1;
 
-    const bool do_prompt =
-        (item.base_type == OBJ_JEWELLERY && !jewellery_is_amulet(item)
-         && ring_has_stackable_effect(item))
-     // Manuals and tomes of destruction are consumable.
-     || (item.base_type == OBJ_BOOKS
-         && (item.sub_type == BOOK_MANUAL
-             || item.sub_type == BOOK_DESTRUCTION));
+    const bool do_prompt = item.base_type == OBJ_JEWELLERY
+                           && !jewellery_is_amulet(item)
+                           && ring_has_stackable_effect(item);
 
     bool add_item = false;
 
@@ -2784,7 +2801,16 @@ unsigned int ShoppingList::cull_identical_items(const item_def& item,
                                          describe_thing(thing, DESC_A).c_str());
 
             if (_shop_yesno(prompt.c_str(), 'y'))
+            {
                 to_del.push_back(listed);
+                if (!_in_shop_now)
+                {
+                    mprf("Shopping-list: removing %s",
+                         describe_thing(thing, DESC_A).c_str());
+                }
+            }
+            else if (!_in_shop_now)
+                canned_msg(MSG_OK);
         }
         else
         {
@@ -2838,7 +2864,7 @@ void ShoppingList::move_things(const coord_def &_src, const coord_def &_dst)
 void ShoppingList::forget_pos(const level_pos &pos)
 {
     if (!crawl_state.need_save)
-        return; // Shopping list is unitialized and uneeded.
+        return; // Shopping list is uninitialized and unneeded.
 
     for (unsigned int i = 0; i < list->size(); i++)
     {
@@ -2923,17 +2949,22 @@ void ShoppingListMenu::draw_title()
         const int total_cost = you.props[SHOPPING_LIST_COST_KEY];
 
         cgotoxy(1, 1);
-        textcolor(title->colour);
-        cprintf("%d %s%s, total cost %d gp",
-                title->quantity, title->text.c_str(),
-                title->quantity > 1? "s" : "",
-                total_cost);
+        formatted_string fs = formatted_string(title->colour);
+        fs.cprintf("%d %s%s, total cost %d gp",
+                   title->quantity, title->text.c_str(),
+                   title->quantity > 1? "s" : "",
+                   total_cost);
+        fs.display();
+
+#ifdef USE_TILE_WEB
+        webtiles_set_title(fs);
+#endif
 
         const char *verb = menu_action == ACT_EXECUTE ? "travel" :
                            menu_action == ACT_EXAMINE ? "examine" :
                                                         "delete";
         draw_title_suffix(formatted_string::parse_string(make_stringf(
-            "<lightgrey>  [<w>a-z</w>: %s  <w>?</w>/<w>!</w>: change action]",
+            "<lightgrey>  [<w>a-z</w>: %-8s <w>?</w>/<w>!</w>: change action]",
             verb)), false);
     }
 }
@@ -2943,14 +2974,21 @@ void ShoppingList::fill_out_menu(Menu& shopmenu)
     menu_letter hotkey;
     for (unsigned i = 0; i < list->size(); ++i, ++hotkey)
     {
-        CrawlHashTable &thing = (*list)[i];
-        level_pos      pos    = thing_pos(thing);
-        int            cost   = thing_cost(thing);
+        CrawlHashTable &thing  = (*list)[i];
+        level_pos      pos     = thing_pos(thing);
+        int            cost    = thing_cost(thing);
+        bool           unknown = false;
+
+        if (thing_is_item(thing))
+            unknown = shop_item_unknown(get_thing_item(thing));
+
+        if (you.duration[DUR_BARGAIN])
+            cost = _bargain_cost(cost);
 
         string etitle =
-            make_stringf("[%s] %s (%d gp)", short_place_name(pos.id).c_str(),
+            make_stringf("[%s] %s%s (%d gp)", short_place_name(pos.id).c_str(),
                          name_thing(thing, DESC_A).c_str(),
-                         cost);
+                         unknown ? " (unknown)" : "", cost);
 
         MenuEntry *me = new MenuEntry(etitle, MEL_ITEM, 1, hotkey);
         me->data = &thing;
@@ -3022,7 +3060,9 @@ void ShoppingList::display()
 
         if (shopmenu.menu_action == Menu::ACT_EXECUTE)
         {
-            const int cost = thing_cost(*thing);
+            int cost = thing_cost(*thing);
+            if (you.duration[DUR_BARGAIN])
+                cost = _bargain_cost(cost);
 
             if (cost > you.gold)
             {
@@ -3078,7 +3118,10 @@ void ShoppingList::display()
 
             del_thing_at_index(index);
             if (list->empty())
+            {
+                mpr("Your shopping list is now empty.");
                 break;
+            }
 
             shopmenu.clear();
             fill_out_menu(shopmenu);

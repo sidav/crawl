@@ -528,7 +528,7 @@ ENDMAP
 # (Mini)vaults specific to the Orcish Mines
 ############################################################################
 
-default-depth: Orc:*
+default-depth: Orc
 
 ##################################
 # Dummy Orc minivault balancer.
@@ -653,7 +653,7 @@ ENDMAP
 # Some deep elves on a diplomatic mission (Shiori)
 # They have brought some of their enchanted armaments as gifts
 NAME:    elf_legates
-DEPTH:   Orc:3-4
+DEPTH:   Orc:3-
 SHUFFLE: 23
 SUBST:   6 : 6 .
 NSUBST:  0 = 3=9. / *=0.
@@ -662,8 +662,8 @@ MONS:    patrolling orc warlord
 MONS:    patrolling orc sorcerer
 MONS:    patrolling orc high priest
 MONS:    deep elf fighter / deep elf summoner / deep elf conjurer / deep elf priest
-MONS:    deep elf soldier / deep elf mage / deep elf priest
-MONS:    deep elf soldier
+MONS:    deep elf fighter / deep elf mage / deep elf priest
+MONS:    deep elf fighter / nothing
 ITEM:    good_item scimitar race:elven / good_item chain mail race:elven
 SUBST:   = : +x
 MAP
@@ -1054,6 +1054,99 @@ xxXXXXXXXXXXxxxx
 xxXXXXXXXXXXxxxx
 ENDMAP
 
+# luniq_orc_cave, a series of small vaults with things the orcs have dug into.
+# feel free to add your own - nicolae
+NAME: nicolae_orc_rich_vein
+TAGS: no_item_gen no_trap_gen luniq_orc_cave
+DEPTH: Orc
+WEIGHT: 3
+SUBST: X = $xxx, $ = $$$..
+KITEM: S = nothing / gold q:1 / gold q:2 / gold q:3
+MAP
+    xxxx
+ xxxxXXxx
+xxXXX$$Xx
+xX$$X$$Xxx
+xX$$$$$Xxx
+xXxx$$$Xxx
+xxxSSxXxx
+ @SSxxxx
+  .xxx
+ENDMAP
+
+NAME: nicolae_orc_tapped_out
+TAGS: no_item_gen no_trap_gen luniq_orc_cave
+DEPTH: Orc
+SUBST: X = 'xx, ' = .:5 d:4 ^:1
+: if you.depth() == 4 then
+SUBST: ^ = .:5 d:4
+: end
+KITEM: d = stone q:1 / large rock q:1 w:3 / gold q:1 w:3
+KFEAT: ^ = shaft trap
+MAP
+   xxx.
+ xxxX...@
+xxXX''Xxx
+xXX''''Xxx
+xX''''''Xx
+xX'''''Xxx
+xxX'''Xxx
+ xxXXXxx
+  xxxxx
+ENDMAP
+
+NAME: nicolae_orc_crystal_geode
+TAGS: no_item_gen no_trap_gen luniq_orc_cave
+DEPTH: Orc
+SUBST: B = b'
+NSUBST: ' = d / '
+KITEM: d = nothing w:48 / crystal ball of energy w:1 / crystal plate armour w:1
+MAP
+ xxxxxxxx
+xx....xxxx
+...x...bbxx
+@xxxB...bbxx
+ xbbB'''Bbxx
+ xbB'''BBbxx
+ xbbBBBBbbxx
+ xxbbbbbbxx
+  xxxxxxxx
+ENDMAP
+
+NAME: nicolae_orc_lava_room
+TAGS: no_item_gen no_trap_gen luniq_orc_cave
+DEPTH: Orc
+SUBST: L = l., X = lx
+MAP
+   x.@xx
+ xxx..xxx
+xxx....Xxx
+xX.....Llxx
+xXLLLLLLlXx
+xxllllllXxx
+ xxXXXXXxx
+  xxxxxxx
+ENDMAP
+
+NAME: nicolae_orc_lost_temple
+TAGS: no_item_gen no_trap_gen luniq_orc_cave
+DEPTH: Orc
+NSUBST: D = + / c
+SUBST: C = c.
+KFEAT: _ = altar_beogh
+MAP
+ xxxxxx.
+xxcccDCC.@
+xxcI...I..
+xxc.....Cx
+xxD.._..Dxx
+xxc.....cxx
+xxcI...Icxx
+xxcccDcccxx
+ xxxxxxxxx
+   xxxxx
+ENDMAP
+
 ############################################################################
 # Orc endings.
 #
@@ -1063,10 +1156,9 @@ ENDMAP
 
 default-depth:
 
-##################################################
 NAME:    st_orc_town
 TAGS:    no_rotate no_item_gen
-PLACE:   Orc:4
+PLACE:   Orc:$
 MONS:    orc / nothing
 #
 : local brnd = crawl.random2(8)
@@ -1106,7 +1198,7 @@ ENDMAP
 ##################################################
 NAME:    st_orc_ogre_mass
 TAGS:    no_item_gen no_monster_gen
-PLACE:   Orc:4
+PLACE:   Orc:$
 MONS:    ogre / nothing w:5, two-headed ogre / nothing w:5, ogre mage
 KMONS:   S = ogre / nothing w:5
 KFEAT:   S = any shop
@@ -1130,7 +1222,7 @@ ENDMAP
 ##################################################
 NAME:    st_orc_rangers
 TAGS:    no_rotate no_item_gen no_monster_gen no_pool_fixup
-PLACE:   Orc:4
+PLACE:   Orc:$
 MONS:    orc warrior w:1 ; crossbow . bolt . halberd | war axe | morningstar /\
          orc w:10 ; crossbow . bolt . trident | hand axe | mace
 MONS:    orc warrior ; crossbow . bolt . glaive | broad axe | battleaxe | great mace
@@ -1163,7 +1255,7 @@ ENDMAP
 ##################################################
 NAME:    st_orc_mages
 TAGS:    no_item_gen no_monster_gen
-PLACE:   Orc:4
+PLACE:   Orc:$
 MONS:    orc / nothing, orc wizard / nothing, orc sorcerer
 MONS:    orc priest / nothing, orc high priest, orc warrior
 KFEAT:   S = any shop
@@ -1195,7 +1287,7 @@ ENDMAP
 ##################################################
 NAME:    st_orc_pillars
 TAGS:    no_item_gen no_monster_gen
-PLACE:   Orc:4
+PLACE:   Orc:$
 MONS:    orc / nothing, orc warrior / nothing, orc knight / nothing
 MONS:    orc priest / nothing, orc high priest
 KFEAT:   S = any shop
@@ -1222,7 +1314,7 @@ ENDMAP
 ##################################################
 NAME:    st_orc_congregation
 TAGS:    no_item_gen no_monster_gen
-PLACE:   Orc:4
+PLACE:   Orc:$
 MONS:    orc / nothing, orc warrior / nothing, orc priest / nothing
 MONS:    orc wizard / nothing, orc knight, orc high priest, orc sorcerer
 KMONS:   V = orc warlord
@@ -1266,7 +1358,7 @@ ENDMAP
 ##################################################
 NAME:    st_orc_open
 TAGS:    no_item_gen no_monster_gen
-PLACE:   Orc:4
+PLACE:   Orc:$
 MONS:    ogre, two-headed ogre, troll, deep troll w:19 / iron troll w:1
 MONS:    ogre mage, hill giant w:14 / ettin w:1, cyclops w:29 / stone giant w:1
 KFEAT:   S = any shop
@@ -1286,7 +1378,7 @@ ENDMAP
 ##################################################
 NAME:    st_orc_elflike
 TAGS:    no_item_gen no_monster_gen
-PLACE:   Orc:4
+PLACE:   Orc:$
 MONS:    orc high priest, orc sorcerer, orc knight
 MONS:    orc warrior, orc priest, orc wizard
 KFEAT:   S = any shop

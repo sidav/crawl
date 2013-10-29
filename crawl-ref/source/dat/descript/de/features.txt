@@ -3,9 +3,9 @@ A Zot trap
 
 Diese Falle birgt eine mächtige Verzauberung, die gefährliche, unvorhersehbare
 magische Effekte bei denen verursacht, die das Pech haben, sie auszulösen. Die
-Effekte sind oft schlimmer als direkter Schaden - du könntest dich im Abgrund
+Effekte sind oft schlimmer als direkter Schaden – du könntest dich im Abgrund
 wiederfinden, kontaminiert mit enormen Mengen wilder Magie, umringt von
-mächtigen, beschworenen Feinden, und so weiter... - es ist etwas, das du auf
+mächtigen, beschworenen Feinden, und so weiter... – es ist etwas, das du auf
 jeden Fall vermeiden solltest.
 %%%%
 A basalt altar of Yredelemnul
@@ -124,20 +124,13 @@ stärksten und erfahrensten Abenteurer können hier sterben. Allerdings enthalte
 diese Hallen einige Runen und viele wertvolle Items. Es ist deutlich leichter,
 hineinzukommen, als wieder herauszukommen.
 %%%%
-A gas trap
-
-Glücklicherweise hast du diese Falle bemerkt, denn sie hätte dich mit einer
-Wolke tödlichen Gases umhüllt. Du weißt nicht, welche Art von Gas es ist -
-vielleicht ist es einfach nur Giftgas, vielleicht sind es mutagene Dämpfe oder
-entzündlicher Dunst - oder etwas noch schlimmeres.
-%%%%
 A gate to the Realm of Zot
 
 Dieses Tor führt zum Zot-Reich, der letzten Etappe deiner Suche, denn seine
 unterste Ebene birgt die berüchtigte Kugel des Zot. Sowohl die Kugel, als auch
 das Reich haben einen furchterregenden, zweifelhaften Ruf, doch eine einzige
 Information scheint sicher zu sein: Die Monster, die dieses Gebiet bewohnen und
-die Kugel beschützen, sind seltsam und stark - manche von ihnen findet man
+die Kugel beschützen, sind seltsam und stark – manche von ihnen findet man
 nirgendwo außer hier.
 %%%%
 A gateway back into the Dungeon
@@ -149,6 +142,11 @@ A gateway leading out of the Abyss
 
 Ein Portal, das zurück aus diesem verfluchten Ort führt. Es schimmert und
 verändert ständig seine Form in dieser unbeständigen Landschaft.
+%%%%
+A gateway leading deeper into the Abyss
+
+Ein seltsam ruhiges Tor mitten in der aufgewühlten Landschaft. Es führt weiter
+in die Tiefen des Abgrunds.
 %%%%
 A gateway to a ziggurat
 
@@ -298,9 +296,14 @@ Ein Altar für Beogh, unverkennbar grob gehauen von orkischen Kunsthandwerkern.
 A runed door
 
 Eine Tür, überzogen von Runen. Es sieht so aus, als befinde sich dahinter etwas
-besonderes - vielleicht Gefahr, vielleicht Schätze. Du kannst die Runen brechen
+besonderes – vielleicht Gefahr, vielleicht Schätze. Du kannst die Runen brechen
 und sie wie jede andere Tür öffnen (zum Beispiel, indem du dagegen läufst oder
 'O' drückst).
+%%%%
+A sealed door
+
+Eine Tür dicht versiegelt durch geheimnisvolle Runen. Es weigert sich, sich für
+jedes durch seine Magie nicht erkannte Wesen zu öffnen.
 %%%%
 A shaft
 
@@ -329,8 +332,9 @@ und geben wenig Auskunft über die Qualität oder die Art ihrer Güter.
 %%%%
 A slime covered rock wall
 
-Diese Felswand ist von einer dicken, hellgrünen Schleimschicht überzogen.
-Iiiiiih.
+Diese Felsen-Wand wird mit dem hellgrünen Schlamm dick angestrichen. Ewwwwww.
+Es ist säurig zur Berührung, scheinend, mehr kaustisch das tiefere zu wachsen,
+Sie reisen.
 %%%%
 A snail-covered altar of Cheibriados
 
@@ -358,6 +362,10 @@ A staircase back to the Dungeon
 
 Diese Treppe führt zurück zur Vertrautheit des Verlieses.
 %%%%
+A staircase back to the Forest
+
+Diese Treppe führt zurück in die relative Sicherheit des Waldes.
+%%%%
 A staircase back to the Lair
 
 Diese Treppe führt zurück zum Lager der Bestien.
@@ -373,7 +381,7 @@ Diese Treppe führt zurück zu den mächtigen Gruften.
 A staircase leading out of the dungeon
 
 Dieser Ausgang führt zum großen blauen Raum. Himmel, singende Vögel, frische
-Luft - du weißt schon.  Dazu kommen Steuern und alles andere, wovor du
+Luft – du weißt schon.  Dazu kommen Steuern und alles andere, wovor du
 weggelaufen bist.
 
 Wenn du diese Treppen hochsteigst, wird deine Suche nach der Kugel beendet sein
@@ -409,14 +417,10 @@ A staircase to the Orcish Mines
 Ein Eingang zu den Minen der Orks, gefüllt mit ihrem Gold, aber heimtückisch
 und voller Fallen.
 %%%%
-A staircase to the Dwarven Hall
-
-Ein Eingang zur gut gemachten Halle der Zwerge. Du glaubst, Ale zu riechen.
-%%%%
 A staircase to the Enchanted Forest
 
-Ein Eingang zum Wald der Spriggans. Nimm dir einen Ast und du bist tot... wobei
-sie nicht einmal darauf warten werden.
+Am anderen Ende dieser Treppe liegt die bewaldete Heimat der Spriggans, Tengu,
+Faunen und allerlei schrecklichen Flüche.
 %%%%
 A staircase to the Shoals
 
@@ -466,7 +470,7 @@ Dieser Teleporter wird dich in einen anderen Raum bringen.
 %%%%
 A teleportation trap
 
-Diese magische Falle kann jeden, der arglos genug ist und darüber geht - oder
+Diese magische Falle kann jeden, der arglos genug ist und darüber geht – oder
 sogar fliegt -, an einen zufälligen Ort auf der gleichen Ebene teleportieren.
 %%%%
 A translucent rock wall
@@ -618,7 +622,7 @@ Du kannst diese Wand auf keine Weise beeinflussen.
 %%%%
 The endless lava
 
-Ein See aus Feuer und Schwefel, der so weit geht, wie du sehen kannst - und das
+Ein See aus Feuer und Schwefel, der so weit geht, wie du sehen kannst – und das
 ist dank des dicken Rauchs nicht besonders weit.
 
 Im Gegensatz zu kleinen Lavabacken, über die man fliegen oder schweben kann,
@@ -632,7 +636,7 @@ langer Zeit von lange vergessenen Händen dort eingesetzt wurden.
 Some deep water
 
 Dieses Wasser ist genauso tief wie gefährlich. Kein vernünftiger Reisender
-würde versuchen, einen Fuß hineinzusetzen - abgesehen von denen, die fliegen
+würde versuchen, einen Fuß hineinzusetzen – abgesehen von denen, die fliegen
 oder schwimmen können. Sei gewarnt: Viele verwirrte Abenteurer haben ihren Tod
 in den Tiefen gefunden, und das unerwartete Ende eines Levitationszaubers hat
 noch mehr Eindringlinge ertrinken lassen.
@@ -645,48 +649,12 @@ ausstoßend.
 Some shallow water
 
 Dieses trübe, hüfthohe Wasser macht Landratten das Gehen und Kämpfen schwer und
-lästig - das kann gefährlich sein, wird aber nie direkt zum Tod führen.
+lästig – das kann gefährlich sein, wird aber nie direkt zum Tod führen.
 %%%%
 The open sea
 
 Nichts außer endlosem Wind und Wellen, und kein Leuchtturm in Sicht. Du würdest
-sehr schnell hoffnungslos verloren sein - riskiere es lieber nicht.
-%%%%
-A large open door
-
-<eine offene Tür>
-%%%%
-An open gate
-
-<eine offene Tür>
-%%%%
-A huge open gate
-
-<eine offene Tür>
-%%%%
-A large closed door
-
-<eine geschlossene Tür>
-%%%%
-A closed gate
-
-<eine geschlossene Tür>
-%%%%
-A huge closed gate
-
-<eine geschlossene Tür>
-%%%%
-A large runed door
-
-<eine mit Runen bemalte Tür>
-%%%%
-A runed gate
-
-<eine mit Runen bemalte Tür>
-%%%%
-A huge runed gate
-
-<eine mit Runen bemalte Tür>
+sehr schnell hoffnungslos verloren sein – riskiere es lieber nicht.
 %%%%
 An empty arch of stone
 
@@ -812,10 +780,6 @@ Am Rand dieser winzigen, isolierten Ebene löst sich die Welt selbst in
 Vergessenheit auf. Es ist unmöglich, dieses dunkle Nichts zu betreten oder zu
 beeinflussen.
 %%%%
-A wall of crystal
-
-<Eine Wand aus grünem Kristall>
-%%%%
 A damp floor
 
 Vielleicht ist es die Luftfeuchtigkeit oder der dauernde Wolkenfluss, der
@@ -830,7 +794,7 @@ noch ziemlich gut aus.
 A wall of transparent white crystal
 
 Dieser Kristall scheint tadellos und unvergänglich zu sein. Es könnte Diamant
-oder etwas ähnliches sein - was auch immer es ist, du bist nicht dazu in der
+oder etwas ähnliches sein – was auch immer es ist, du bist nicht dazu in der
 Lage, diese Wand zu durchbrechen.
 %%%%
 A hot floor
@@ -875,11 +839,6 @@ Eine Steinwand, umgeben von einer dicken Eisschicht.
 Frost-covered floor
 
 Frostbedeckter Boden. Es knirscht genugtuend unter den Füßen.
-%%%%
-A cracked metal wall
-
-Diese Metallwand ist beschädigt, doch das Loch ist nicht groß genug, um
-hindurchzuklettern.
 %%%%
 A golden statue
 
@@ -964,11 +923,6 @@ A glass window
 
 Ein pockiges Fenster aus extrem hartem Glas.
 %%%%
-A granite statue of a fallen hero
-
-Die lebensgroße Granitstatue eines Zwergen, der diese Halle bewacht. Du fühlst
-dich von ihr beobachtet.
-%%%%
 An elephant-shaped statue
 
 Diese abgenutzte Statue stellt einen Wache stehenden Elefanten dar.
@@ -976,11 +930,6 @@ Diese abgenutzte Statue stellt einen Wache stehenden Elefanten dar.
 A weirdly glowing ball
 
 Dieser schwebende Ball verbreitet ein schimmerndes Licht.
-%%%%
-A very old granite statue
-
-Ein Riss durchzieht die Statue in Brusthöhe. Vielleicht wird sie zerbrechen,
-wenn du dagegen schlägst?
 %%%%
 A sealed sarcophagus
 
@@ -1009,7 +958,7 @@ sie auch schon wieder abreisen und nach neuen Kunden suchen.
 A frozen archway
 
 Eine ständige Kälte scheint dieses Portal zu umgeben. Was auch immer auf der
-anderen Seite lebt - es wird voller grimmiger arktischer Wut sein. Du bemerkst,
+anderen Seite lebt – es wird voller grimmiger arktischer Wut sein. Du bemerkst,
 dass der Torbogen schmilzt.
 %%%%
 A sand-covered staircase

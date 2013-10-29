@@ -47,10 +47,10 @@
 #include "coord.h"
 #include "coordit.h"
 #include "crash.h"
+#include "dactions.h"
 #include "database.h"
 #include "dbg-scan.h"
 #include "dbg-util.h"
-#include "debug.h"
 #include "delay.h"
 #include "describe.h"
 #include "dgn-overview.h"
@@ -60,6 +60,7 @@
 #include "effects.h"
 #include "env.h"
 #include "errors.h"
+#include "exercise.h"
 #include "map_knowledge.h"
 #include "fprop.h"
 #include "fight.h"
@@ -89,6 +90,7 @@
 #include "misc.h"
 #include "mislead.h"
 #include "mon-act.h"
+#include "mon-abil.h"
 #include "mon-cast.h"
 #include "mon-iter.h"
 #include "mon-stuff.h"
@@ -195,9 +197,10 @@ const struct coord_def Compass[9] =
 
 // Functions in main module
 static void _launch_game_loop();
-static void _launch_game();
+NORETURN static void _launch_game();
 
 static void _do_berserk_no_combat_penalty(void);
+static void _do_searing_ray(void);
 static void _input(void);
 static void _move_player(int move_x, int move_y);
 static void _move_player(coord_def move);
@@ -238,7 +241,7 @@ static void _handle_wizard_command(void);
 
 #ifdef USE_SDL
 # include <SDL_main.h>
-# ifdef __GNUC__
+# if defined(__GNUC__) && !defined(__clang__)
 // SDL plays nasty tricks with main() (actually, _SDL_main()), which for
 // Windows builds somehow fail with -fwhole-program.  Thus, exempt SDL_main()
 // from this treatment.
@@ -323,6 +326,7 @@ int main(int argc, char *argv[])
     if (Options.sc_entries != 0 || !SysEnv.scorefile.empty())
     {
         crawl_state.type = Options.game.type;
+        crawl_state.map = crawl_state.sprint_map;
         hiscores_print_all(Options.sc_entries, Options.sc_format);
         return 0;
     }
@@ -400,7 +404,7 @@ static void _launch_game_loop()
              && !crawl_state.seen_hups);
 }
 
-static NORETURN void _launch_game()
+NORETURN static void _launch_game()
 {
     const bool game_start = startup_step();
 
@@ -571,16 +575,16 @@ static void _announce_goal_message()
 
 static void _god_greeting_message(bool game_start)
 {
-    if (you.religion == GOD_NO_GOD)
+    if (you_worship(GOD_NO_GOD))
         return;
 
     string msg = god_name(you.religion);
 
-    if (brdepth[BRANCH_ABYSS] == -1 && you.religion == GOD_LUGONU)
+    if (brdepth[BRANCH_ABYSS] == -1 && you_worship(GOD_LUGONU))
         msg += " welcome";
     else if (game_start)
         msg += " newgame";
-    else if (you.religion == GOD_XOM)
+    else if (you_worship(GOD_XOM))
     {
         if (you.gift_timeout <= 1)
             msg += " bored";
@@ -788,7 +792,7 @@ static void _do_wizard_command(int wiz_command, bool silent_fail)
         int result = 0;
         do
         {
-            if (you.religion == GOD_XOM)
+            if (you_worship(GOD_XOM))
                 result = xom_acts(abs(you.piety - HALF_MAX_PIETY));
             else
                 result = xom_acts(coinflip(), random_range(0, HALF_MAX_PIETY));
@@ -852,7 +856,10 @@ static void _handle_wizard_command(void)
 #endif
 
         if (!yesno("Do you really want to enter wizard mode?", false, 'n'))
+        {
+            canned_msg(MSG_OK);
             return;
+        }
 
         take_note(Note(NOTE_MESSAGE, 0, 0, "Entered wizard mode."));
 
@@ -924,7 +931,7 @@ static void _start_running(int dir, int mode)
     for (adjacent_iterator ai(next_pos); ai; ++ai)
     {
         if (env.grid(*ai) == DNGN_SLIMY_WALL
-            && (you.religion != GOD_JIYVA || you.penance[GOD_JIYVA]))
+            && (!you_worship(GOD_JIYVA) || you.penance[GOD_JIYVA]))
         {
             mpr("You're about to run into the slime covered wall!",
                 MSGCH_WARN);
@@ -986,6 +993,7 @@ static bool _cmd_is_repeatable(command_type cmd, bool is_again = false)
     // Miscellaneous non-repeatable commands.
     case CMD_TOGGLE_AUTOPICKUP:
     case CMD_TOGGLE_FRIENDLY_PICKUP:
+    case CMD_TOGGLE_TRAVEL_SPEED:
     case CMD_ADJUST_INVENTORY:
     case CMD_QUIVER_ITEM:
     case CMD_REPLAY_MESSAGES:
@@ -1255,6 +1263,7 @@ static void _input()
 
     if (you_are_delayed() && current_delay_action() != DELAY_MACRO_PROCESS_KEY)
     {
+        end_searing_ray();
         handle_delay();
 
         // Some delays reset you.time_taken.
@@ -1362,6 +1371,8 @@ static void _input()
         if (apply_berserk_penalty)
             _do_berserk_no_combat_penalty();
 
+        _do_searing_ray();
+
         update_can_train();
         world_reacts();
     }
@@ -1425,6 +1436,11 @@ static bool _can_take_stairs(dungeon_feature_type ftype, bool down,
                 mpr("There is nothing on the other side of the stone arch.");
             else if (ftype == DNGN_ABANDONED_SHOP)
                 mpr("This shop appears to be closed.");
+            else if (ftype == DNGN_SEALED_STAIRS_UP
+                     || ftype == DNGN_SEALED_STAIRS_DOWN )
+            {
+                mpr("A magical barricade bars your way!");
+            }
             else if (down)
                 mpr("You can't go down here!");
             else
@@ -1474,7 +1490,7 @@ static bool _prompt_unique_pan_rune(dungeon_feature_type ygrd)
 {
     if (ygrd != DNGN_TRANSIT_PANDEMONIUM
         && ygrd != DNGN_EXIT_PANDEMONIUM
-        && ygrd != DNGN_ENTER_ABYSS)
+        && ygrd != DNGN_EXIT_THROUGH_ABYSS)
     {
         return true;
     }
@@ -1493,7 +1509,10 @@ static bool _prompt_stairs(dungeon_feature_type ygrd, bool down)
 {
     // Certain portal types always carry warnings.
     if (!_prompt_dangerous_portal(ygrd))
+    {
+        canned_msg(MSG_OK);
         return false;
+    }
 
     // Does the next level have a warning annotation?
     // Also checks for entering a labyrinth with teleportitis.
@@ -1510,18 +1529,24 @@ static bool _prompt_stairs(dungeon_feature_type ygrd, bool down)
         && you.depth < brdepth[BRANCH_ZIGGURAT])
     {
         if (!yesno("Are you sure you want to leave this Ziggurat?"))
+        {
+            canned_msg(MSG_OK);
             return false;
+        }
     }
 
     // Leaving Pan runes behind.
     if (!_prompt_unique_pan_rune(ygrd))
+    {
+        canned_msg(MSG_OK);
         return false;
+    }
 
     // Escaping.
     if (!down && ygrd == DNGN_EXIT_DUNGEON && !player_has_orb())
     {
-        string prompt = make_stringf("Are you sure you want to leave the "
-                                     "Dungeon?%s",
+        string prompt = make_stringf("Are you sure you want to leave %s?%s",
+                                     branches[root_branch].longname,
                                      crawl_state.game_is_tutorial() ? "" :
                                      " This will make you lose the game!");
         if (!yesno(prompt.c_str(), false, 'n'))
@@ -1649,23 +1674,6 @@ static void _print_friendly_pickup_setting(bool was_changed)
         mprf(MSGCH_ERROR, "Your allies%s are collecting bugs!", now.c_str());
 }
 
-static void _do_look_around()
-{
-    dist lmove;   // Will be initialised by direction().
-    direction_chooser_args args;
-    args.restricts = DIR_TARGET;
-    args.just_looking = true;
-    args.needs_path = false;
-    args.target_prefix = "Here";
-    args.may_target_monster = "Move the cursor around to observe a square.";
-    direction(lmove, args);
-    if (lmove.isValid && lmove.isTarget && !lmove.isCancel
-        && !crawl_state.arena_suspended)
-    {
-        start_travel(lmove.target);
-    }
-}
-
 static void _do_remove_armour()
 {
     if (you.species == SP_FELID)
@@ -1710,6 +1718,18 @@ static void _toggle_friendly_pickup()
     }
 
     _print_friendly_pickup_setting(true);
+}
+
+static void _toggle_travel_speed()
+{
+    you.travel_ally_pace = !you.travel_ally_pace;
+    if (you.travel_ally_pace)
+        mpr("You pace your travel speed to your slowest ally.");
+    else
+    {
+        mpr("You travel at normal speed.");
+        you.running.travel_speed = 0;
+    }
 }
 
 static void _do_rest()
@@ -1888,6 +1908,7 @@ void process_command(command_type cmd)
 
     case CMD_TOGGLE_FRIENDLY_PICKUP:     _toggle_friendly_pickup(); break;
     case CMD_TOGGLE_VIEWPORT_MONSTER_HP: toggle_viewport_monster_hp(); break;
+    case CMD_TOGGLE_TRAVEL_SPEED:        _toggle_travel_speed(); break;
 
 
         // Map commands.
@@ -1935,7 +1956,7 @@ void process_command(command_type cmd)
     case CMD_EXAMINE_OBJECT:       examine_object();         break;
     case CMD_FIRE:                 fire_thing();             break;
     case CMD_FORCE_CAST_SPELL:     do_cast_spell_cmd(true);  break;
-    case CMD_LOOK_AROUND:          _do_look_around();        break;
+    case CMD_LOOK_AROUND:          do_look_around();         break;
     case CMD_PRAY:                 pray();                   break;
     case CMD_QUAFF:                drink();                  break;
     case CMD_READ:                 read_scroll();            break;
@@ -2089,6 +2110,8 @@ void process_command(command_type cmd)
     case CMD_SAVE_GAME:
         if (yesno("Save game and exit?", true, 'n'))
             save_game(true);
+        else
+            canned_msg(MSG_OK);
         break;
 
     case CMD_SAVE_GAME_NOW:
@@ -2140,7 +2163,7 @@ static void _prep_input()
 
     if (you.seen_portals)
     {
-        ASSERT(you.religion == GOD_ASHENZARI);
+        ASSERT(you_worship(GOD_ASHENZARI));
         if (you.seen_portals == 1)
             mpr("You have a vision of a gate.", MSGCH_GOD);
         else
@@ -2250,6 +2273,84 @@ static void _decrement_petrification(int delay)
         }
         else if (dur < 15 && old_dur >= 15)
             mpr("Your limbs are stiffening.");
+    }
+}
+
+static int _zin_recite_to_monsters(coord_def where, int prayertype, int, actor *)
+{
+    ASSERT_RANGE(prayertype, 0, NUM_RECITE_TYPES);
+    return zin_recite_to_single_monster(where, (recite_type)prayertype);
+}
+
+static bool _check_recite()
+{
+    if (you.hp*2 < you.attribute[ATTR_RECITE_HP]
+        || silenced(you.pos())
+        || you.paralysed()
+        || you.confused()
+        || you.asleep()
+        || you.petrified()
+        || you.berserk())
+    {
+        zin_recite_interrupt();
+        return false;
+    }
+    return true;
+}
+
+static void _handle_recitation(int step)
+{
+    mprf(MSGCH_MULTITURN_ACTION, "\"%s\"",
+         zin_recite_text(you.attribute[ATTR_RECITE_SEED],
+                         you.attribute[ATTR_RECITE_TYPE], step).c_str());
+
+    if (apply_area_visible(_zin_recite_to_monsters,
+                           you.attribute[ATTR_RECITE_TYPE], &you))
+        viewwindow();
+
+    // Recite trains more than once per use, because it has a
+    // long timer in between uses and actually takes up multiple
+    // turns.
+    practise(EX_USED_ABIL, ABIL_ZIN_RECITE);
+
+    const string shout_verb = you.shout_verb();
+
+    int noise_level = 12; // "shout"
+
+    // Tweak volume for different kinds of vocalisation.
+    if (shout_verb == "roar")
+        noise_level = 18;
+
+    else if (shout_verb == "hiss")
+        noise_level = 8;
+    else if (shout_verb == "squeak")
+        noise_level = 4;
+    else if (shout_verb == "__NONE")
+        noise_level = 0;
+    else if (shout_verb == "yell")
+        noise_level = 14;
+    else if (shout_verb == "scream")
+        noise_level = 16;
+
+    noisy(noise_level, you.pos());
+
+    if (step == 0)
+    {
+        string speech = zin_recite_text(you.attribute[ATTR_RECITE_SEED],
+                                        you.attribute[ATTR_RECITE_TYPE], -1);
+        speech += ".";
+        if (one_chance_in(9))
+        {
+            const string closure = getSpeakString("recite_closure");
+            if (!closure.empty() && one_chance_in(3))
+            {
+                speech += " ";
+                speech += closure;
+            }
+        }
+        mprf(MSGCH_DURATION, "You finish reciting %s", speech.c_str());
+        mpr("You feel short of breath.");
+        you.increase_duration(DUR_BREATH_WEAPON, random2(10) + random2(30));
     }
 }
 
@@ -2614,8 +2715,9 @@ static void _decrement_durations()
         {
             // Note the beauty of Trog!  They get an extra save that's at
             // the very least 20% and goes up to 100%.
-            if (you.religion == GOD_TROG && x_chance_in_y(you.piety, 150)
-                && !player_under_penance())
+            if (you_worship(GOD_TROG)
+                && !player_under_penance()
+                && x_chance_in_y(you.piety, piety_breakpoint(5)))
             {
                 mpr("Trog's vigour flows through your veins.");
             }
@@ -2629,6 +2731,9 @@ static void _decrement_durations()
 
         if (!you.duration[DUR_PARALYSIS] && !you.petrified())
             mpr("You are exhausted.", MSGCH_WARN);
+
+        if (you.species == SP_LAVA_ORC)
+            mpr("You feel less hot-headed.");
 
         // This resets from an actual penalty or from NO_BERSERK_PENALTY.
         you.berserk_penalty = 0;
@@ -2750,7 +2855,7 @@ static void _decrement_durations()
     {
         int resilience = 400;
 
-        if (you.religion == GOD_CHEIBRIADOS && you.piety >= piety_breakpoint(0))
+        if (you_worship(GOD_CHEIBRIADOS) && you.piety >= piety_breakpoint(0))
             resilience = resilience * 3 / 2;
 
         // Faster rotting when hungry.
@@ -2826,13 +2931,118 @@ static void _decrement_durations()
                           0,
                           "Your shroud begins to fray at the edges.");
 
+    _decrement_a_duration(DUR_INFUSION, delay,
+            "Your attacks are no longer magically infused.",
+            0,
+            "You are feeling less magically infused.");
+
+    _decrement_a_duration(DUR_SONG_OF_SLAYING, delay,
+            "Your song has ended.",
+            0,
+            "Your song is almost over.");
+
+    _decrement_a_duration(DUR_SONG_OF_SHIELDING, delay,
+            "Your magic is no longer protecting you.",
+            0,
+            "You are feeling less protected by your magic.");
+
     _decrement_a_duration(DUR_SENTINEL_MARK, delay,
                           "The sentinel's mark upon you fades away.");
 
+    _decrement_a_duration(DUR_WEAK, delay,
+                          "Your attacks no longer feel as feeble.");
+
+    _decrement_a_duration(DUR_DIMENSION_ANCHOR, delay,
+                          "You are no longer firmly anchored in space.");
+
     _decrement_a_duration(DUR_SICKENING, delay);
+
+    _decrement_a_duration(DUR_ANTIMAGIC, delay,
+                          "You regain control over your magic.");
+
+    _decrement_a_duration(DUR_WATER_HOLD_IMMUNITY, delay);
+    if (you.duration[DUR_WATER_HOLD])
+        handle_player_drowning(delay);
+
+    if (you.duration[DUR_FLAYED])
+    {
+        bool near_ghost = false;
+        for (monster_iterator mi; mi; ++mi)
+        {
+            if (mi->type == MONS_FLAYED_GHOST && !mi->wont_attack()
+                && you.see_cell(mi->pos()))
+            {
+                near_ghost = true;
+                break;
+            }
+        }
+        if (!near_ghost)
+        {
+            if (_decrement_a_duration(DUR_FLAYED, delay))
+                heal_flayed_effect(&you);
+        }
+        else if (you.duration[DUR_FLAYED] < 80)
+            you.duration[DUR_FLAYED] += div_rand_round(50, delay);
+    }
+
+    _decrement_a_duration(DUR_RETCHING, delay, "Your fit of retching subsides.");
+
+    if (you.duration[DUR_SPIRIT_HOWL])
+    {
+        if (you.props.exists("next_spirit_pack")
+            && you.elapsed_time >= you.props["next_spirit_pack"].get_int()
+            && you.duration[DUR_SPIRIT_HOWL] > 185)
+        {
+            int num = spawn_spirit_pack(&you);
+            you.props["next_spirit_pack"].get_int() = you.elapsed_time + 35
+                                                      + random2(60)
+                                                      + (num * num) * 7;
+
+            // If we somehow couldn't spawn any, wait longer than normal
+            // (probably the player is in some place where spawning more isn't
+            // possibly, so let's waste lest time trying)
+            if (num == 0)
+                you.props["next_spirit_pack"].get_int() += 100;
+        }
+        if (_decrement_a_duration(DUR_SPIRIT_HOWL, delay))
+        {
+            mpr("The howling abruptly ceases.", MSGCH_DURATION);
+            add_daction(DACT_END_SPIRIT_HOWL);
+            you.props["spirit_howl_cooldown"].get_int() =
+                you.elapsed_time + random_range(1500, 3000);
+        }
+    }
+
+    if (you.duration[DUR_TOXIC_RADIANCE])
+    {
+        int ticks = (you.duration[DUR_TOXIC_RADIANCE] / 10)
+                     - ((you.duration[DUR_TOXIC_RADIANCE] - delay) / 10);
+        toxic_radiance_effect(&you, ticks);
+        _decrement_a_duration(DUR_TOXIC_RADIANCE, delay,
+                              "Your toxic aura wanes.");
+    }
+
+    if (you.duration[DUR_RECITE] && _check_recite())
+    {
+        const int old_recite =
+            (you.duration[DUR_RECITE] + BASELINE_DELAY - 1) / BASELINE_DELAY;
+        _decrement_a_duration(DUR_RECITE, delay);
+        const int new_recite =
+            (you.duration[DUR_RECITE] + BASELINE_DELAY - 1) / BASELINE_DELAY;
+        if (old_recite != new_recite)
+            _handle_recitation(new_recite);
+    }
+
+    if (you.duration[DUR_GRASPING_ROOTS])
+        check_grasping_roots(&you);
 
     if (you.attribute[ATTR_NEXT_RECALL_INDEX] > 0)
         do_recall(delay);
+
+    _decrement_a_duration(DUR_SLEEP_IMMUNITY, delay);
+
+    _decrement_a_duration(DUR_FIRE_VULN, delay,
+                          "You feel less vulnerable to fire.");
 
     if (!env.sunlight.empty())
         process_sunlights();
@@ -2865,7 +3075,7 @@ static void _check_shafts()
         if (trap.type != TRAP_SHAFT)
             continue;
 
-        ASSERT(in_bounds(trap.pos));
+        ASSERT_IN_BOUNDS(trap.pos);
 
         handle_items_on_shaft(trap.pos, true);
     }
@@ -2879,6 +3089,11 @@ static void _check_sanctuary()
     decrease_sanctuary_radius();
 }
 
+// cjo: Handles player hp and mp regeneration. If the counter you.hit_points_regeneration
+// is over 100, a loop restores 1 hp and decreases the counter by 100 (so you can regen
+// more than 1 hp per turn). If the counter is below 100, it is increased by a variable
+// calculated from delay, BASELINE_DELAY, and your regeneration rate. MP regeneration happens
+// similarly, but the countup depends on delay, BASELINE_DELAY, and you.max_magic_points
 static void _regenerate_hp_and_mp(int delay)
 {
     if (crawl_state.disables[DIS_PLAYER_REGEN])
@@ -2896,11 +3111,18 @@ static void _regenerate_hp_and_mp(int delay)
 
     while (tmp >= 100)
     {
-        inc_hp(1);
+        // at low mp, "mana link" restores mp in place of hp
+        if (you.mutation[MUT_MANA_LINK]
+            && !x_chance_in_y(you.magic_points, you.max_magic_points))
+        {
+            inc_mp(1);
+        }
+        else // standard hp regeneration
+            inc_hp(1);
         tmp -= 100;
     }
 
-    ASSERT(tmp >= 0 && tmp < 100);
+    ASSERT_RANGE(tmp, 0, 100);
     you.hit_points_regeneration = tmp;
 
     // XXX: Don't let DD use guardian spirit for free HP, since their
@@ -2915,7 +3137,10 @@ static void _regenerate_hp_and_mp(int delay)
     if (you.magic_points < you.max_magic_points)
     {
         const int base_val = 7 + you.max_magic_points / 2;
-        tmp += div_rand_round(base_val * delay, BASELINE_DELAY);
+        int mp_regen_countup = div_rand_round(base_val * delay, BASELINE_DELAY);
+        if (you.mutation[MUT_MANA_REGENERATION])
+            mp_regen_countup *= 2;
+        tmp += mp_regen_countup;
     }
 
     while (tmp >= 100)
@@ -2924,7 +3149,7 @@ static void _regenerate_hp_and_mp(int delay)
         tmp -= 100;
     }
 
-    ASSERT(tmp >= 0 && tmp < 100);
+    ASSERT_RANGE(tmp, 0, 100);
     you.magic_points_regeneration = tmp;
 }
 
@@ -2994,6 +3219,9 @@ static void _player_reacts()
     if (you.attribute[ATTR_SHADOWS])
         shadow_lantern_effect();
 
+    if (you.species == SP_LAVA_ORC)
+        temperature_check();
+
     if (player_mutation_level(MUT_DEMONIC_GUARDIAN))
         check_demonic_guardian();
 
@@ -3002,6 +3230,20 @@ static void _player_reacts()
 
     if (you.attribute[ATTR_NOISES])
         noisy_equipment();
+
+    // Handle sound-dependent effects that are silenced
+    if (silenced(you.pos()))
+    {
+        if (you.duration[DUR_SONG_OF_SLAYING])
+        {
+            mpr("The silence causes your song to end.");
+            _decrement_a_duration(DUR_SONG_OF_SLAYING, you.duration[DUR_SONG_OF_SLAYING]);
+        }
+    }
+
+    // Singing makes a continuous noise
+    if (you.duration[DUR_SONG_OF_SLAYING])
+        noisy(10, you.pos());
 
     if (one_chance_in(10))
     {
@@ -3024,7 +3266,8 @@ static void _player_reacts()
             // It's effectively a new level, make a checkpoint save so eventual
             // crashes lose less of the player's progress (and fresh new bad
             // mutations).
-            save_game(false);
+            if (!crawl_state.disables[DIS_SAVE_CHECKPOINTS])
+                save_game(false);
         }
         else if (you.form == TRAN_WISP)
             random_blink(false);
@@ -3080,7 +3323,7 @@ static void _player_reacts()
     update_stat_zero();
 
     // XOM now ticks from here, to increase his reaction time to tension.
-    if (you.religion == GOD_XOM)
+    if (you_worship(GOD_XOM))
         xom_tick();
 }
 
@@ -3095,11 +3338,14 @@ static void _player_reacts_to_monsters()
         manage_fire_shield(you.time_taken);
 
     // penance checked there (as you can have antennae too)
-    if (player_mutation_level(MUT_ANTENNAE) || you.religion == GOD_ASHENZARI)
+    if (player_mutation_level(MUT_ANTENNAE) || you_worship(GOD_ASHENZARI))
         check_antennae_detect();
 
-    if (you.religion == GOD_ASHENZARI && !player_under_penance())
+    if ((you_worship(GOD_ASHENZARI) && !player_under_penance())
+        || you.mutation[MUT_JELLY_GROWTH])
+    {
         detect_items(-1);
+    }
 
     if (you.duration[DUR_TELEPATHY])
         detect_creatures(1 + you.duration[DUR_TELEPATHY] /
@@ -3253,6 +3499,7 @@ void world_reacts()
 
     handle_time();
     manage_clouds();
+    fume();
     if (env.level_state & LSTATE_GLOW_MOLD)
         _update_mold();
     if (env.level_state & LSTATE_GOLUBRIA)
@@ -3292,7 +3539,7 @@ void world_reacts()
     }
 
 #if defined(DEBUG_TENSION) || defined(DEBUG_RELIGION)
-    if (you.religion != GOD_NO_GOD)
+    if (!you_worship(GOD_NO_GOD))
         mprf(MSGCH_DIAGNOSTICS, "TENSION = %d", get_tension());
 #endif
 
@@ -3313,7 +3560,8 @@ void world_reacts()
         crawl_state.lua_calls_no_turn = 0;
         if (crawl_state.game_is_sprint()
             && !(you.num_turns % 256)
-            && !you_are_delayed())
+            && !you_are_delayed()
+            && !crawl_state.disables[DIS_SAVE_CHECKPOINTS])
         {
             // Resting makes the saving quite random, but meh.
             save_game(false);
@@ -3488,18 +3736,9 @@ static bool _untrap_target(const coord_def move, bool check_confused)
         {
             bool do_msg = true;
 
-            // Press trigger/switch/button in wall.
-            if (feat_is_solid(feat))
-            {
-                dgn_event event(DET_WALL_HIT, target);
-                event.arg1  = NON_MONSTER;
-
-                // Listener can veto the event to prevent the "You swing at
-                // nothing" message.
-                do_msg =
-                    dungeon_events.fire_vetoable_position_event(event,
-                                                                target);
-            }
+            // Don't waste a turn if feature is solid.
+            if (feat_is_solid(feat) && !you.confused())
+                return true;
             else
             {
                 list<actor*> cleave_targets;
@@ -4084,6 +4323,29 @@ static void _do_berserk_no_combat_penalty(void)
     return;
 }
 
+// Fire the next searing ray stage if we have taken no other action this turn,
+// otherwise cancel
+static void _do_searing_ray()
+{
+    if (you.attribute[ATTR_SEARING_RAY] != 0)
+    {
+        // Convert prepping value into stage one value (so it can fire next turn)
+        if (you.attribute[ATTR_SEARING_RAY] == -1)
+        {
+            you.attribute[ATTR_SEARING_RAY] = 1;
+            return;
+        }
+
+        if (crawl_state.prev_cmd == CMD_WAIT
+            || crawl_state.prev_cmd == CMD_MOVE_NOWHERE)
+        {
+            handle_searing_ray();
+        }
+        else
+            end_searing_ray();
+    }
+}
+
 // Called when the player moves by walking/running. Also calls attack
 // function etc when necessary.
 static void _move_player(int move_x, int move_y)
@@ -4221,11 +4483,10 @@ static void _move_player(coord_def move)
         monster* current = monster_at(you.pos());
         if (!current || !fedhas_passthrough(current))
         {
-            // Probably need better messages. -cao
-            if (mons_genus(targ_monst->type) == MONS_FUNGUS)
-                mprf("You walk carefully through the fungus.");
-            else
-                mprf("You walk carefully through the plants.");
+            // Probably need a better message. -cao
+            mprf("You walk carefully through the %s.",
+                 mons_genus(targ_monst->type) == MONS_FUNGUS ? "fungus"
+                                                             : "plants");
         }
         targ_monst = NULL;
     }
@@ -4235,7 +4496,7 @@ static void _move_player(coord_def move)
     // You can swap places with a friendly or good neutral monster if
     // you're not confused, or if both of you are inside a sanctuary.
     const bool can_swap_places = targ_monst
-                                 && !mons_is_stationary(targ_monst)
+                                 && !targ_monst->is_stationary()
                                  && (targ_monst->wont_attack()
                                        && !you.confused()
                                      || is_sanctuary(you.pos())
@@ -4366,6 +4627,19 @@ static void _move_player(coord_def move)
             return;
         }
 
+        if (you.duration[DUR_WATER_HOLD])
+        {
+            if (you.can_swim())
+                mpr("You deftly slip free of the water engulfing you.");
+            else //Unless you're a natural swimmer, this takes longer than normal
+            {
+                mpr("With effort, you pull free of the water engulfing you.");
+                you.time_taken = you.time_taken * 3 / 2;
+            }
+            you.duration[DUR_WATER_HOLD] = 1;
+            you.props.erase("water_holder");
+        }
+
         if (swap)
             swap_places(targ_monst, mon_swap_dest);
         else if (you.duration[DUR_COLOUR_SMOKE_TRAIL])
@@ -4381,6 +4655,12 @@ static void _move_player(coord_def move)
 
         you.time_taken *= player_movement_speed();
         you.time_taken = div_rand_round(you.time_taken, 10);
+
+        if (you.running && you.running.travel_speed)
+        {
+            you.time_taken = max(you.time_taken,
+                                 div_round_up(100, you.running.travel_speed));
+        }
 
 #ifdef EUCLIDEAN
         if (move.abs() == 2)
@@ -4432,7 +4712,7 @@ static void _move_player(coord_def move)
             mpr("The ferocious winds and tides of the open sea thwart your progress.");
         else if (grd(targ) == DNGN_LAVA_SEA)
             mpr("The endless sea of lava is not a nice place.");
-        else if (feat_is_tree(grd(targ)) && you.religion == GOD_FEDHAS)
+        else if (feat_is_tree(grd(targ)) && you_worship(GOD_FEDHAS))
             mpr("You cannot walk through the dense trees.");
 
         stop_running();
@@ -4464,7 +4744,7 @@ static void _move_player(coord_def move)
 
     apply_berserk_penalty = !attacking;
 
-    if (!attacking && you.religion == GOD_CHEIBRIADOS && one_chance_in(10)
+    if (!attacking && you_worship(GOD_CHEIBRIADOS) && one_chance_in(10)
         && you.run())
     {
         did_god_conduct(DID_HASTY, 1, true);

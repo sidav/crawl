@@ -25,7 +25,6 @@
 #include "art-enum.h"
 #include "artefact.h"
 #include "branch.h"
-#include "debug.h"
 #include "describe.h"
 #include "dgn-overview.h"
 #include "dungeon.h"
@@ -668,7 +667,7 @@ static void _sdump_location(dump_params &par)
 static void _sdump_religion(dump_params &par)
 {
     string &text(par.text);
-    if (you.religion != GOD_NO_GOD)
+    if (!you_worship(GOD_NO_GOD))
     {
         if (par.se)
             text += "You worshipped ";
@@ -677,7 +676,7 @@ static void _sdump_religion(dump_params &par)
         text += god_name(you.religion);
         text += ".\n";
 
-        if (you.religion != GOD_XOM)
+        if (!you_worship(GOD_XOM))
         {
             if (!player_under_penance())
             {
@@ -1220,7 +1219,7 @@ static string _describe_action_subtype(caction_type type, int subtype)
         return uppercase_first(base_type_string((object_class_type)subtype));
     case CACT_STAB:
         COMPILE_CHECK(ARRAYSZ(_stab_names) == NUM_UCAT);
-        ASSERT(subtype >= 1 && subtype < NUM_UCAT);
+        ASSERT_RANGE(subtype, 1, NUM_UCAT);
         return _stab_names[subtype];
     default:
         return "Error";
@@ -1468,7 +1467,8 @@ static bool _write_dump(const string &fname, dump_params &par, bool quiet)
 void display_notes()
 {
     formatted_scroller scr;
-    scr.set_flags(MF_START_AT_END);
+    scr.set_flags(MF_START_AT_END | MF_ALWAYS_SHOW_MORE);
+    scr.set_more();
     scr.set_tag("notes");
     scr.set_highlighter(new MenuHighlighter);
     scr.set_title(new MenuEntry("Turn   | Place    | Note"));
@@ -1548,7 +1548,7 @@ const int TIMESTAMP_SIZE = sizeof(uint32_t);
 
 // Returns the name of the timestamp file based on the morgue_dir,
 // character name and the game start time.
-string dgl_timestamp_filename()
+static string _dgl_timestamp_filename()
 {
     const string filename = "timestamp-" + you.your_name + "-"
                             + make_file_time(you.birth_time);
@@ -1557,7 +1557,7 @@ string dgl_timestamp_filename()
 
 // Returns true if the given file exists and is not a timestamp file
 // of a known version.
-bool dgl_unknown_timestamp_file(const string &filename)
+static bool _dgl_unknown_timestamp_file(const string &filename)
 {
     if (FILE *inh = fopen_u(filename.c_str(), "rb"))
     {
@@ -1571,7 +1571,7 @@ bool dgl_unknown_timestamp_file(const string &filename)
 
 // Returns a filehandle to use to write turn timestamps, NULL if
 // timestamps should not be written.
-FILE *dgl_timestamp_filehandle()
+static FILE *_dgl_timestamp_filehandle()
 {
     static FILE *timestamp_file;
     static bool opened_file = false;
@@ -1579,10 +1579,10 @@ FILE *dgl_timestamp_filehandle()
     {
         opened_file = true;
 
-        const string filename = dgl_timestamp_filename();
+        const string filename = _dgl_timestamp_filename();
         // First check if there's already a timestamp file. If it exists
         // but has a different version, we cannot safely modify it, so bail.
-        if (!dgl_unknown_timestamp_file(filename))
+        if (!_dgl_unknown_timestamp_file(filename))
             timestamp_file = fopen_u(filename.c_str(), "ab");
     }
     return timestamp_file;
@@ -1590,12 +1590,12 @@ FILE *dgl_timestamp_filehandle()
 
 // Records a timestamp in the .ts file at the given offset. If no timestamp
 // file exists, a new file will be created.
-void dgl_record_timestamp(unsigned long file_offset, time_t time)
+static void _dgl_record_timestamp(unsigned long file_offset, time_t time)
 {
     static bool timestamp_first_write = true;
-    if (FILE *ftimestamp = dgl_timestamp_filehandle())
+    if (FILE *ftimestamp = _dgl_timestamp_filehandle())
     {
-        writer w(dgl_timestamp_filename(), ftimestamp, true);
+        writer w(_dgl_timestamp_filename(), ftimestamp, true);
         if (timestamp_first_write)
         {
             unsigned long ts_size = file_size(ftimestamp);
@@ -1635,7 +1635,7 @@ void dgl_record_timestamp(unsigned long file_offset, time_t time)
 const int TIMESTAMP_TURN_INTERVAL = 100;
 // Stop recording timestamps after this turncount.
 const int TIMESTAMP_TURN_MAX = 500000;
-void dgl_record_timestamp(int turn)
+static void _dgl_record_timestamp(int turn)
 {
     if (turn && turn < TIMESTAMP_TURN_MAX && !(turn % TIMESTAMP_TURN_INTERVAL))
     {
@@ -1643,7 +1643,7 @@ void dgl_record_timestamp(int turn)
         const unsigned long offset =
             (VERSION_SIZE +
              (turn / TIMESTAMP_TURN_INTERVAL - 1) * TIMESTAMP_SIZE);
-        dgl_record_timestamp(offset, now);
+        _dgl_record_timestamp(offset, now);
     }
 }
 
@@ -1654,6 +1654,6 @@ void record_turn_timestamp()
 {
 #ifdef DGL_TURN_TIMESTAMPS
     if (crawl_state.need_save)
-        dgl_record_timestamp(you.num_turns);
+        _dgl_record_timestamp(you.num_turns);
 #endif
 }

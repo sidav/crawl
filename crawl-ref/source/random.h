@@ -18,9 +18,13 @@ int maybe_roll_dice(int num, int size, bool random);
 int random_range(int low, int high);
 int random_range(int low, int high, int nrolls);
 double random_real();
+double random_real_inc();
+double random_real_avg(int rolls);
+double random_range_real(double low, double high, int nrolls = 1);
 
 int random2avg(int max, int rolls);
 int bestroll(int max, int rolls);
+int biased_random2(int max, int n);
 int random2limit(int max, int limit);
 int binomial_generator(unsigned n_trials, unsigned trial_prob);
 bool bernoulli(double n_trials, double trial_prob);
@@ -94,6 +98,25 @@ struct dice_def
 
 dice_def calc_dice(int num_dice, int max_damage);
 void scale_dice(dice_def &dice, int threshold = 24);
+
+template <typename T>
+void shuffle_array(T* arr, int n)
+{
+    while (n > 1)
+    {
+        int i = random2(n);
+        n--;
+        T tmp = arr[i];
+        arr[i] = arr[n];
+        arr[n] = tmp;
+    }
+}
+
+template <typename T>
+void shuffle_array(vector<T> &vec)
+{
+    shuffle_array(&vec[0], vec.size());
+}
 
 class rng_save_excursion
 {

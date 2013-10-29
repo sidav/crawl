@@ -5,7 +5,11 @@
 
 #include "windowmanager-sdl.h"
 
-#include <SDL/SDL.h>
+#ifdef TARGET_COMPILER_VC
+# include <SDL.h>
+#else
+# include <SDL/SDL.h>
+#endif
 #include <SDL_image.h>
 
 #include "cio.h"
@@ -163,7 +167,7 @@ static int _translate_keysym(SDL_keysym &keysym)
     case SDLK_POWER:
     case SDLK_EURO:
     case SDLK_UNDO:
-        ASSERT(keysym.sym >= SDLK_F1 && keysym.sym <= SDLK_UNDO);
+        ASSERT_RANGE(keysym.sym, SDLK_F1, SDLK_UNDO + 1);
         return -(keysym.sym + (SDLK_UNDO - SDLK_F1 + 1) * mod);
 
         // Hack.  libw32c overloads clear with '5' too.
@@ -312,7 +316,9 @@ int SDLWrapper::init(coord_def *m_windowsz)
     _desktop_width = video_info->current_w;
     _desktop_height = video_info->current_h;
 
+#if !SDL_VERSION_ATLEAST(2,0,0)
     SDL_EnableUNICODE(true);
+#endif
 
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     glDebug("SDL_GL_DOUBLEBUFFER");
@@ -327,6 +333,7 @@ int SDLWrapper::init(coord_def *m_windowsz)
     SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
     glDebug("SDL_GL_ALPHA_SIZE 8");
 
+#if !SDL_VERSION_ATLEAST(2,0,0)
     if (Options.tile_key_repeat_delay > 0)
     {
         const int repdelay    = Options.tile_key_repeat_delay;
@@ -340,6 +347,7 @@ int SDLWrapper::init(coord_def *m_windowsz)
             printf("Failed to set key repeat mode: %s\n", SDL_GetError());
 #endif
     }
+#endif
 
 #ifdef USE_GLES
 #ifdef __ANDROID__

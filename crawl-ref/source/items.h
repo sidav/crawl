@@ -44,6 +44,7 @@ int  move_item_to_player(int obj, int quant_got, bool quiet = false,
                          bool ignore_burden = false);
 void mark_items_non_pickup_at(const coord_def &pos);
 void mark_items_non_visit_at(const coord_def &pos);
+void clear_item_pickup_flags(item_def &item);
 bool is_stackable_item(const item_def &item);
 bool items_similar(const item_def &item1, const item_def &item2);
 bool items_stack(const item_def &item1, const item_def &item2,
@@ -135,7 +136,6 @@ void autoinscribe();
 
 bool item_is_equipped(const item_def &item, bool quiver_too = false);
 bool item_is_melded(const item_def& item);
-bool item_is_active_manual(const item_def &item);
 equipment_type item_equip_slot(const item_def &item);
 
 void item_was_lost(const item_def &item);

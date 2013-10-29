@@ -4,6 +4,8 @@
 
 #include "areas.h"
 #include "env.h"
+#include "evoke.h"
+#include "godabil.h"
 #include "libutil.h"
 #include "misc.h"
 #include "mutation.h"
@@ -30,6 +32,8 @@ static duration_def duration_data[] =
 {
     { DUR_AGILITY, false,
       0, "", "agile", "You are agile." },
+    { DUR_ANTIMAGIC, true,
+      RED, "-Mag", "antimagic", "You have trouble accessing your magic." },
     { DUR_BARGAIN, true,
       BLUE, "Brgn", "charismatic", "You get a bargain in shops." },
     { DUR_BERSERK, true,
@@ -131,6 +135,30 @@ static duration_def duration_data[] =
       BLUE, "Disjoin", "disjoining", "You are disjoining your surroundings." },
     { DUR_SENTINEL_MARK, true,
       MAGENTA, "Mark", "marked", "You are marked for hunting." },
+    { DUR_INFUSION, true,
+      BLUE, "Infus", "infused", "Your attacks are magically infused."},
+    { DUR_SONG_OF_SLAYING, true,
+      BLUE, "Slay", "singing", "Your melee attacks are strengthened by your song."},
+    { DUR_SONG_OF_SHIELDING, true,
+      BLUE, "SShield", "shielded", "Your magic is protecting you."},
+    { DUR_FLAYED, true,
+      RED, "Flay", "flayed", "You are covered in terrible wounds." },
+    { DUR_RETCHING, true,
+      RED, "Retch", "retching", "You are retching with violent nausea." },
+    { DUR_WEAK, false,
+      RED, "Weak", "weakened", "Your attacks are enfeebled." },
+    { DUR_DIMENSION_ANCHOR, false,
+      RED, "-Tele", "cannot translocate", "You are firmly anchored to this plane." },
+    { DUR_SPIRIT_HOWL, false,
+      MAGENTA, "Howl", "spirit howling", "The howling of a spirit pack pursues you." },
+    { DUR_TOXIC_RADIANCE, false,
+      MAGENTA, "Toxic", "radiating poison", "You are radiating toxic energy."},
+    { DUR_RECITE, false,
+      WHITE, "Recite", "reciting", "You are reciting Zin's Axioms of Law." },
+    { DUR_GRASPING_ROOTS, false,
+      BROWN, "Roots", "grasped by roots", "Your movement is impeded by grasping roots." },
+    { DUR_FIRE_VULN, false,
+      RED, "-rF", "fire vulnerable", "You are more vulnerable to fire." },
 };
 
 static int duration_index[NUM_DURATIONS];
@@ -143,7 +171,7 @@ void init_duration_index()
     for (unsigned i = 0; i < ARRAYSZ(duration_data); ++i)
     {
         duration_type dur = duration_data[i].dur;
-        ASSERT(dur >= 0 && dur < NUM_DURATIONS);
+        ASSERT_RANGE(dur, 0, NUM_DURATIONS);
         ASSERT(duration_index[dur] == -1);
         duration_index[dur] = i;
     }
@@ -151,11 +179,11 @@ void init_duration_index()
 
 static const duration_def* _lookup_duration(duration_type dur)
 {
-    ASSERT(dur >= 0 && dur < NUM_DURATIONS);
+    ASSERT_RANGE(dur, 0, NUM_DURATIONS);
     if (duration_index[dur] == -1)
         return NULL;
     else
-        return (&duration_data[duration_index[dur]]);
+        return &duration_data[duration_index[dur]];
 }
 
 static void _reset_status_info(status_info* inf)
@@ -216,7 +244,6 @@ static void _describe_hunger(status_info* inf);
 static void _describe_regen(status_info* inf);
 static void _describe_rotting(status_info* inf);
 static void _describe_sickness(status_info* inf);
-static void _describe_nausea(status_info* inf);
 static void _describe_speed(status_info* inf);
 static void _describe_sage(status_info* inf);
 static void _describe_poison(status_info* inf);
@@ -267,7 +294,7 @@ bool fill_status_info(int status, status_info* inf)
         break;
 
     case DUR_SWIFTNESS:
-        if (you.in_water() || you.liquefied_ground())
+        if (you.in_liquid())
             inf->light_colour = DARKGREY;
         break;
 
@@ -346,10 +373,6 @@ bool fill_status_info(int status, status_info* inf)
 
     case STATUS_SICK:
         _describe_sickness(inf);
-        break;
-
-    case DUR_NAUSEA:
-        _describe_nausea(inf);
         break;
 
     case STATUS_SPEED:
@@ -449,13 +472,15 @@ bool fill_status_info(int status, status_info* inf)
         break;
 
     case STATUS_MANUAL:
-        if (!is_invalid_skill(you.manual_skill))
+    {
+        string skills = manual_skill_names();
+        if (!skills.empty())
         {
-            string sk = skill_name(you.manual_skill);
-            inf->short_text = "studying " + sk;
-            inf->long_text = "You are " + inf->short_text + ".";
+            inf->short_text = "studying " + manual_skill_names(true);
+            inf->long_text = "You are studying " + skills + ".";
         }
         break;
+    }
 
     case DUR_SURE_BLADE:
     {
@@ -490,7 +515,18 @@ bool fill_status_info(int status, status_info* inf)
                 inf->light_colour = GREEN;
             else
                 inf->light_colour = DARKGREY;
-            _mark_expiring(inf, dur_expiring(DUR_TRANSFORMATION));
+            if (you.form == TRAN_SPIDER)
+                _mark_expiring(inf, dur_expiring(DUR_TRANSFORMATION));
+        }
+        break;
+
+    case STATUS_HOVER:
+        if (is_hovering())
+        {
+            inf->light_colour = RED;
+            inf->light_text   = "Hover";
+            inf->short_text   = "hovering above liquid";
+            inf->long_text    = "You are exerting yourself to hover high above the liquid.";
         }
         break;
 
@@ -538,11 +574,24 @@ bool fill_status_info(int status, status_info* inf)
         }
         break;
 
+    case DUR_SONG_OF_SLAYING:
+        inf->light_text = make_stringf("Slay (%u)",
+                                       you.props["song_of_slaying_bonus"].get_int());
+        break;
+
     case STATUS_NO_CTELE:
         if (!allow_control_teleport(true))
         {
             inf->light_colour = RED;
             inf->light_text = "-cTele";
+        }
+        break;
+
+    case STATUS_BEOGH:
+        if (env.level_state & LSTATE_BEOGH && can_convert_to_beogh())
+        {
+            inf->light_colour = WHITE;
+            inf->light_text = "Beogh";
         }
         break;
 
@@ -553,6 +602,57 @@ bool fill_status_info(int status, status_info* inf)
             inf->light_text   = "Recall";
             inf->short_text   = "recalling";
             inf->long_text    = "You are recalling your allies.";
+        }
+        break;
+
+    case DUR_WATER_HOLD:
+        inf->light_text   = "Engulf";
+        if (you.res_water_drowning())
+        {
+            inf->short_text   = "engulfed";
+            inf->long_text    = "You are engulfed in water.";
+            if (you.can_swim())
+                inf->light_colour = DARKGREY;
+            else
+                inf->light_colour = YELLOW;
+        }
+        else
+        {
+            inf->short_text   = "engulfed (cannot breathe)";
+            inf->long_text    = "You are engulfed in water and unable to breathe.";
+            inf->light_colour = RED;
+        }
+        break;
+
+    case STATUS_DRAINED:
+        if (you.attribute[ATTR_XP_DRAIN] > 250)
+        {
+            inf->light_colour = RED;
+            inf->light_text   = "Drain";
+            inf->short_text   = "very heavily drained";
+            inf->long_text    = "Your life force is very heavily drained.";
+        }
+        else if (you.attribute[ATTR_XP_DRAIN] > 100)
+        {
+            inf->light_colour = LIGHTRED;
+            inf->light_text   = "Drain";
+            inf->short_text   = "heavily drained";
+            inf->long_text    = "Your life force is heavily drained.";
+        }
+        else if (you.attribute[ATTR_XP_DRAIN])
+        {
+            inf->light_colour = YELLOW;
+            inf->light_text   = "Drain";
+            inf->short_text   = "drained";
+            inf->long_text    = "Your life force is drained.";
+        }
+        break;
+
+    case STATUS_RAY:
+        if (you.attribute[ATTR_SEARING_RAY])
+        {
+            inf->light_colour = WHITE;
+            inf->light_text   = "Ray";
         }
         break;
 
@@ -620,7 +720,8 @@ static void _describe_glow(status_info* inf)
         inf->light_colour = DARKGREY;
         if (cont > 1)
             inf->light_colour = _bad_ench_colour(cont, 2, 3);
-        inf->light_text = "Contam";
+        if (cont > 1 || you.species != SP_DJINNI)
+            inf->light_text = "Contam";
     }
 
     if (cont > 0)
@@ -810,19 +911,6 @@ static void _describe_sickness(status_info* inf)
         inf->short_text = mod + "diseased";
         inf->long_text  = "You are " + mod + "diseased.";
     }
-}
-
-static void _describe_nausea(status_info* inf)
-{
-    if (!you.duration[DUR_NAUSEA])
-        return;
-
-    inf->light_colour = you.is_undead == US_UNDEAD ? DARKGREY : BROWN;
-    inf->light_text   = "Nausea";
-    inf->short_text   = "nauseated";
-    inf->long_text    = (you.hunger_state <= HS_NEAR_STARVING) ?
-                "You would have trouble eating anything." :
-                "You cannot eat right now.";
 }
 
 static void _describe_burden(status_info* inf)

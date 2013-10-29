@@ -55,6 +55,7 @@ my %field_type = (
     NOTELEP  => "bool",
     POISON   => "bool",
     RANDAPP  => "bool",
+    REGEN    => "num",
     RMSL     => "bool",
     RND_TELE => "bool",
     SEEINV   => "bool",
@@ -489,7 +490,7 @@ my @art_order = (
     "NOSPELL", "RND_TELE", "NOTELEP", "ANGRY", "METAB", "\n",
     "MUTATE", "ACC", "DAM", "CURSED", "STEALTH", "MP", "\n",
     "BASE_DELAY", "HP", "CLARITY", "BASE_ACC", "BASE_DAM", "\n",
-    "RMSL", "FOG", "\n",
+    "RMSL", "FOG", "REGEN", "\n",
     "}",
 
     "equip_func", "unequip_func", "world_reacts_func", "{fight_func_func",
@@ -615,12 +616,14 @@ FOOTER
     close(HEADER);
 }
 
-sub guard_constant($) {
+sub guard_constant($)
+{
     (my $name = shift) =~ tr/a-zA-Z0-9/_/c;
     $name
 }
 
-sub unrand_enum_constants() {
+sub unrand_enum_constants()
+{
     my $result = '';
     my $i;
     my $longest_enum = 0;
@@ -978,12 +981,12 @@ my %valid_func = (
 
 sub read_funcs
 {
-    unless(open(INPUT, "<art-func.h"))
+    unless (open(INPUT, "<art-func.h"))
     {
         die "Couldn't open art-func.h for reading: $!\n";
     }
 
-    while(<INPUT>)
+    while (<INPUT>)
     {
         if (/^static .* _([A-Z_]+)_(\S+)\s*\(/)
         {
@@ -1009,7 +1012,7 @@ sub read_funcs
 
 sub read_data
 {
-    unless(open(INPUT, "<art-data.txt"))
+    unless (open(INPUT, "<art-data.txt"))
     {
         die "Couldn't open art-data.txt for reading: $!\n";
     }
@@ -1063,7 +1066,8 @@ sub read_data
 chdir("..")     if (-e "../art-data.txt");
 chdir("source") if (-e "source/art-data.txt");
 
-for my $wanted (qw/art-data.txt art-func.h artefact.h/) {
+for my $wanted (qw/art-data.txt art-func.h artefact.h/)
+{
     die "Can't read $wanted" unless -r $wanted;
 }
 

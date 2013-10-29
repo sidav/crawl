@@ -83,7 +83,7 @@ enum ability_flag_type
 {
     ABFLAG_NONE           = 0x00000000,
     ABFLAG_BREATH         = 0x00000001, // ability uses DUR_BREATH_WEAPON
-    ABFLAG_DELAY          = 0x00000002, // ability has its own delay (ie recite)
+    ABFLAG_UNUSED_1       = 0x00000002, // was ABFLAG_DELAY
     ABFLAG_PAIN           = 0x00000004, // ability must hurt player (ie torment)
     ABFLAG_PIETY          = 0x00000008, // ability has its own piety cost
     ABFLAG_EXHAUSTION     = 0x00000010, // fails if you.exhausted
@@ -202,6 +202,7 @@ static const ability_def Ability_List[] =
     { ABIL_SPIT_POISON, "Spit Poison", 0, 0, 40, 0, 0, ABFLAG_BREATH},
 
     { ABIL_BLINK, "Blink", 0, 50, 50, 0, 0, ABFLAG_NONE},
+    { ABIL_WISP_BLINK, "Blink", 2, 0, 0, 0, 0, ABFLAG_CONF_OK},
 
     { ABIL_BREATHE_FIRE, "Breathe Fire", 0, 0, 125, 0, 0, ABFLAG_BREATH},
     { ABIL_BREATHE_FROST, "Breathe Frost", 0, 0, 125, 0, 0, ABFLAG_BREATH},
@@ -226,6 +227,8 @@ static const ability_def Ability_List[] =
 
     { ABIL_DELAYED_FIREBALL, "Release Delayed Fireball",
       0, 0, 0, 0, 0, ABFLAG_INSTANT},
+    { ABIL_STOP_SINGING, "Stop Singing",
+      0, 0, 0, 0, 0, ABFLAG_NONE},
     { ABIL_MUMMY_RESTORATION, "Self-Restoration",
       1, 0, 0, 0, 0, ABFLAG_PERMANENT_MP},
 
@@ -249,12 +252,13 @@ static const ability_def Ability_List[] =
     { ABIL_EVOKE_TURN_VISIBLE, "Turn Visible", 0, 0, 0, 0, 0, ABFLAG_NONE},
     { ABIL_EVOKE_FLIGHT, "Evoke Flight", 1, 0, 100, 0, 0, ABFLAG_NONE},
     { ABIL_EVOKE_FOG, "Evoke Fog", 2, 0, 250, 0, 0, ABFLAG_NONE},
+    { ABIL_EVOKE_TELEPORT_CONTROL, "Evoke Teleport Control", 4, 0, 200, 0, 0, ABFLAG_NONE},
 
     { ABIL_END_TRANSFORMATION, "End Transformation", 0, 0, 0, 0, 0, ABFLAG_NONE},
 
     // INVOCATIONS:
     // Zin
-    { ABIL_ZIN_RECITE, "Recite", 0, 0, 0, 0, 0, ABFLAG_BREATH | ABFLAG_DELAY},
+    { ABIL_ZIN_RECITE, "Recite", 0, 0, 0, 0, 0, ABFLAG_BREATH},
     { ABIL_ZIN_VITALISATION, "Vitalisation", 0, 0, 0, 1, 0, ABFLAG_CONF_OK},
     { ABIL_ZIN_IMPRISON, "Imprison", 5, 0, 125, 4, 0, ABFLAG_NONE},
     { ABIL_ZIN_SANCTUARY, "Sanctuary", 7, 0, 150, 15, 0, ABFLAG_NONE},
@@ -384,7 +388,7 @@ static const ability_def Ability_List[] =
     { ABIL_ASHENZARI_END_TRANSFER, "End Transfer Knowledge",
       0, 0, 0, 0, 0, ABFLAG_NONE},
 
-    { ABIL_STOP_RECALL, "Stop recall", 0, 0, 0, 0, 0, ABFLAG_NONE},
+    { ABIL_STOP_RECALL, "Stop Recall", 0, 0, 0, 0, 0, ABFLAG_NONE},
 
     // zot defence abilities
     { ABIL_MAKE_FUNGUS, "Make mushroom circle", 0, 0, 0, 0, 10, ABFLAG_ZOTDEF},
@@ -404,8 +408,6 @@ static const ability_def Ability_List[] =
     { ABIL_MAKE_SPEAR_TRAP, "Make spear trap", 0, 0, 0, 0, 50, ABFLAG_ZOTDEF},
     { ABIL_MAKE_NEEDLE_TRAP, "Make needle trap", 0, 0, 0, 0, 30, ABFLAG_ZOTDEF},
     { ABIL_MAKE_NET_TRAP, "Make net trap", 0, 0, 0, 0, 2, ABFLAG_ZOTDEF},
-    { ABIL_MAKE_TELEPORT_TRAP, "Make teleport trap",
-      0, 0, 0, 0, 15000, ABFLAG_ZOTDEF|ABFLAG_TLOC_MISCAST},
     { ABIL_MAKE_ALARM_TRAP, "Make alarm trap", 0, 0, 0, 0, 2, ABFLAG_ZOTDEF},
     { ABIL_MAKE_BLADE_TRAP, "Make blade trap", 0, 0, 0, 0, 3000, ABFLAG_ZOTDEF},
     { ABIL_MAKE_OKLOB_CIRCLE, "Make oklob circle", 0, 0, 0, 0, 1000, ABFLAG_ZOTDEF},
@@ -424,6 +426,7 @@ static const ability_def Ability_List[] =
       0, 0, 0, 0, 0, ABFLAG_ZOTDEF|ABFLAG_STAT_DRAIN},
 
     { ABIL_RENOUNCE_RELIGION, "Renounce Religion", 0, 0, 0, 0, 0, ABFLAG_NONE},
+    { ABIL_CONVERT_TO_BEOGH, "Convert to Beogh", 0, 0, 0, 0, 0, ABFLAG_NONE},
 };
 
 const ability_def& get_ability_def(ability_type abil)
@@ -542,7 +545,6 @@ static trap_type _trap_for_ability(const ability_def& abil)
         case ABIL_MAKE_SPEAR_TRAP: return TRAP_SPEAR;
         case ABIL_MAKE_NEEDLE_TRAP: return TRAP_NEEDLE;
         case ABIL_MAKE_NET_TRAP: return TRAP_NET;
-        case ABIL_MAKE_TELEPORT_TRAP: return TRAP_TELEPORT;
         case ABIL_MAKE_ALARM_TRAP: return TRAP_ALARM;
         case ABIL_MAKE_BLADE_TRAP: return TRAP_BLADE;
         default: return TRAP_UNASSIGNED;
@@ -616,10 +618,6 @@ static int _zp_cost(const ability_def& abil)
             scale10 = max(num-5, 0);   // First 5 at base cost
             break;
 
-        case ABIL_MAKE_TELEPORT_TRAP:
-            scale20 = count_traps(TRAP_TELEPORT);
-            break;
-
         case ABIL_MAKE_BLADE_TRAP:
             scale10 = count_traps(TRAP_BLADE); // Max of 18-ish at base cost 3000
             break;
@@ -637,137 +635,72 @@ static int _zp_cost(const ability_def& abil)
 const string make_cost_description(ability_type ability)
 {
     const ability_def& abil = get_ability_def(ability);
-    ostringstream ret;
+    string ret;
+    int ep = 0;
     if (abil.mp_cost)
-    {
-        ret << abil.mp_cost;
-        if (abil.flags & ABFLAG_PERMANENT_MP)
-            ret << " Permanent";
-        ret << " MP";
-    }
+        if (you.species == SP_DJINNI)
+        {
+            ep += abil.mp_cost * DJ_MP_RATE;
+            ASSERT(!(abil.flags & ABFLAG_PERMANENT_MP));
+        }
+        else
+        {
+            ret += make_stringf(", %d %sMP", abil.mp_cost,
+                abil.flags & ABFLAG_PERMANENT_MP ? "Permanent " : "");
+        }
 
-    if (abil.hp_cost)
+    if (abil.hp_cost || ep)
     {
-        if (!ret.str().empty())
-            ret << ", ";
-
-        ret << abil.hp_cost.cost(you.hp_max);
-        if (abil.flags & ABFLAG_PERMANENT_HP)
-            ret << " Permanent";
-        ret << " HP";
+        ret += make_stringf(", %d %s%s", ep + abil.hp_cost.cost(you.hp_max),
+            abil.flags & ABFLAG_PERMANENT_HP ? "Permanent " : "",
+            you.species == SP_DJINNI ? "EP" : "HP");
     }
 
     if (abil.zp_cost)
-    {
-        if (!ret.str().empty())
-            ret << ", ";
+        ret += make_stringf(", %d ZP", (int)_zp_cost(abil));
 
-        ret << _zp_cost(abil);
-        ret << " ZP";
-    }
-
-    if (abil.food_cost && !you_foodless()
+    if (abil.food_cost && !you_foodless(true)
         && (you.is_undead != US_SEMI_UNDEAD || you.hunger_state > HS_STARVING))
     {
-        if (!ret.str().empty())
-            ret << ", ";
-
-        ret << "Food";   // randomised and exact amount hidden from player
+        if (you.species == SP_DJINNI)
+            ret += ", Glow";
+        else
+            ret += ", Food"; // randomised and exact amount hidden from player
     }
 
-    if (abil.piety_cost)
-    {
-        if (!ret.str().empty())
-            ret << ", ";
-
-        ret << "Piety";  // randomised and exact amount hidden from player
-    }
+    if (abil.piety_cost || abil.flags & ABFLAG_PIETY)
+        ret += ", Piety"; // randomised and exact amount hidden from player
 
     if (abil.flags & ABFLAG_BREATH)
-    {
-        if (!ret.str().empty())
-            ret << ", ";
-
-        ret << "Breath";
-    }
-
-    if (abil.flags & ABFLAG_DELAY)
-    {
-        if (!ret.str().empty())
-            ret << ", ";
-
-        ret << "Delay";
-    }
+        ret += ", Breath";
 
     if (abil.flags & ABFLAG_PAIN)
-    {
-        if (!ret.str().empty())
-            ret << ", ";
-
-        ret << "Pain";
-    }
-
-    if (abil.flags & ABFLAG_PIETY)
-    {
-        if (!ret.str().empty())
-            ret << ", ";
-
-        ret << "Piety";
-    }
+        ret += ", Pain";
 
     if (abil.flags & ABFLAG_EXHAUSTION)
-    {
-        if (!ret.str().empty())
-            ret << ", ";
-
-        ret << "Exhaustion";
-    }
+        ret += ", Exhaustion";
 
     if (abil.flags & ABFLAG_INSTANT)
-    {
-        if (!ret.str().empty())
-            ret << ", ";
-
-        ret << "Instant"; // not really a cost, more of a bonus - bwr
-    }
+        ret += ", Instant"; // not really a cost, more of a bonus - bwr
 
     if (abil.flags & ABFLAG_FRUIT)
-    {
-        if (!ret.str().empty())
-            ret << ", ";
-
-        ret << "Fruit";
-    }
+        ret += ", Fruit";
 
     if (abil.flags & ABFLAG_VARIABLE_FRUIT)
-    {
-        if (!ret.str().empty())
-            ret << ", ";
-
-        ret << "Fruit or Piety";
-    }
+        ret += ", Fruit or Piety";
 
     if (abil.flags & ABFLAG_LEVEL_DRAIN)
-    {
-        if (!ret.str().empty())
-            ret << ", ";
-
-        ret << "Level drain";
-    }
+        ret += ", Level drain";
 
     if (abil.flags & ABFLAG_STAT_DRAIN)
-    {
-        if (!ret.str().empty())
-            ret << ", ";
-
-        ret << "Stat drain";
-    }
+        ret += ", Stat drain";
 
     // If we haven't output anything so far, then the effect has no cost
-    if (ret.str().empty())
-        ret << "None";
+    if (ret.empty())
+        return "None";
 
-    return ret.str();
+    ret.erase(0, 2);
+    return ret;
 }
 
 static string _get_piety_amount_str(int value)
@@ -813,11 +746,14 @@ static const string _detailed_cost_description(ability_type ability)
         ret << abil.zp_cost;
     }
 
-    if (abil.food_cost && !you_foodless()
+    if (abil.food_cost && !you_foodless(true)
         && (you.is_undead != US_SEMI_UNDEAD || you.hunger_state > HS_STARVING))
     {
         have_cost = true;
-        ret << "\nHunger : ";
+        if (you.species == SP_DJINNI)
+            ret << "\nGlow   : ";
+        else
+            ret << "\nHunger : ";
         ret << hunger_cost_string(abil.food_cost + abil.food_cost / 2);
     }
 
@@ -834,9 +770,6 @@ static const string _detailed_cost_description(ability_type ability)
 
     if (abil.flags & ABFLAG_BREATH)
         ret << "\nYou must catch your breath between uses of this ability.";
-
-    if (abil.flags & ABFLAG_DELAY)
-        ret << "\nIt takes some time before being effective.";
 
     if (abil.flags & ABFLAG_PAIN)
         ret << "\nUsing this ability will hurt you.";
@@ -926,6 +859,7 @@ talent get_talent(ability_type ability, bool check_confused)
     // begin spell abilities
     case ABIL_DELAYED_FIREBALL:
     case ABIL_MUMMY_RESTORATION:
+    case ABIL_STOP_SINGING:
         failure = 0;
         break;
 
@@ -946,7 +880,6 @@ talent get_talent(ability_type ability, bool check_confused)
     case ABIL_MAKE_SPEAR_TRAP:
     case ABIL_MAKE_NEEDLE_TRAP:
     case ABIL_MAKE_NET_TRAP:
-    case ABIL_MAKE_TELEPORT_TRAP:
     case ABIL_MAKE_ALARM_TRAP:
     case ABIL_MAKE_BLADE_TRAP:
     case ABIL_MAKE_OKLOB_CIRCLE:
@@ -1026,6 +959,10 @@ talent get_talent(ability_type ability, bool check_confused)
                   - you.experience_level / 2;
         break;
 
+    case ABIL_WISP_BLINK:
+        failure = 0;
+        break;
+
         // begin transformation abilities {dlb}
     case ABIL_END_TRANSFORMATION:
         failure = 0;
@@ -1050,6 +987,7 @@ talent get_talent(ability_type ability, bool check_confused)
 
     case ABIL_EVOKE_BERSERK:
     case ABIL_EVOKE_FOG:
+    case ABIL_EVOKE_TELEPORT_CONTROL:
         failure = 50 - you.skill(SK_EVOCATIONS, 2);
         break;
         // end item abilities - some possibly mutagenic {dlb}
@@ -1095,12 +1033,12 @@ talent get_talent(ability_type ability, bool check_confused)
 
     case ABIL_TROG_REGEN_MR:            // piety >= 50
         invoc = true;
-        failure = 80 - you.piety;       // starts at 30%
+        failure = piety_breakpoint(2) - you.piety; // starts at 25%
         break;
 
     case ABIL_TROG_BROTHERS_IN_ARMS:    // piety >= 100
         invoc = true;
-        failure = 160 - you.piety;      // starts at 60%
+        failure = piety_breakpoint(5) - you.piety; // starts at 60%
         break;
 
     case ABIL_YRED_ANIMATE_REMAINS_OR_DEAD: // Placeholder.
@@ -1210,6 +1148,7 @@ talent get_talent(ability_type ability, bool check_confused)
         break;
 
     case ABIL_RENOUNCE_RELIGION:
+    case ABIL_CONVERT_TO_BEOGH:
         invoc = true;
         failure = 0;
         break;
@@ -1252,19 +1191,20 @@ string get_ability_desc(const ability_type ability)
 {
     const string& name = ability_name(ability);
 
-    // XXX: The suffix is necessary to distinguish between similarly
-    // named spells.  Yes, this is a hack.
     string lookup = getLongDescription(name + " ability");
-    if (lookup.empty())
-    {
-        // Try again without the suffix.
-        lookup = getLongDescription(name);
-    }
 
-    if (lookup.empty()) // Still nothing found?
+    if (lookup.empty()) // Nothing found?
         lookup = "No description found.\n";
 
-    return name + "\n\n" + lookup + "\n" + _detailed_cost_description(ability);
+    ostringstream res;
+    res << name << "\n\n" << lookup << "\n"
+        << _detailed_cost_description(ability);
+
+    const string quote = getQuoteString(name + " ability");
+    if (!quote.empty())
+        res << "\n\n" << quote;
+
+    return res.str();
 }
 
 static void _print_talent_description(const talent& tal)
@@ -1290,7 +1230,7 @@ void no_ability_msg()
         if (you.flight_mode())
             mpr("You're already flying!");
     }
-    else if (silenced(you.pos()) && you.religion != GOD_NO_GOD)
+    else if (silenced(you.pos()) && !you_worship(GOD_NO_GOD))
     {
         // At the very least the player has "Renounce Religion", but
         // cannot use it in silence.
@@ -1306,6 +1246,7 @@ bool activate_ability()
     if (you.berserk())
     {
         canned_msg(MSG_TOO_BERSERK);
+        crawl_state.zero_turns_taken();
         return false;
     }
 
@@ -1322,7 +1263,7 @@ bool activate_ability()
         talents = your_talents(true);
         if (talents.empty())
         {
-            mpr("You're too confused!");
+            canned_msg(MSG_TOO_CONFUSED);
             crawl_state.zero_turns_taken();
             return false;
         }
@@ -1332,7 +1273,8 @@ bool activate_ability()
     if (selected == -1)
     {
         canned_msg(MSG_OK);
-        return (false);
+        crawl_state.zero_turns_taken();
+        return false;
     }
 #else
     int selected = -1;
@@ -1349,6 +1291,7 @@ bool activate_ability()
             if (selected == -1)
             {
                 canned_msg(MSG_OK);
+                crawl_state.zero_turns_taken();
                 return false;
             }
         }
@@ -1356,6 +1299,7 @@ bool activate_ability()
                  || keyin == '\n')
         {
             canned_msg(MSG_OK);
+            crawl_state.zero_turns_taken();
             return false;
         }
         else if (isaalpha(keyin))
@@ -1390,7 +1334,21 @@ static bool _check_ability_possible(const ability_def& abil,
                                     bool hungerCheck = true,
                                     bool quiet = false)
 {
-    if (silenced(you.pos()) && you.religion != GOD_NEMELEX_XOBEH)
+    if (you.berserk())
+    {
+        if (!quiet)
+            canned_msg(MSG_TOO_BERSERK);
+        return false;
+    }
+
+    if (you.confused() && !testbits(abil.flags, ABFLAG_CONF_OK))
+    {
+        if (!quiet)
+            canned_msg(MSG_TOO_CONFUSED);
+        return false;
+    }
+
+    if (silenced(you.pos()) && !you_worship(GOD_NEMELEX_XOBEH))
     {
         talent tal = get_talent(abil.ability, false);
         if (tal.is_invocation)
@@ -1461,7 +1419,8 @@ static bool _check_ability_possible(const ability_def& abil,
             && you.intel(false) == you.max_intel()
             && you.dex(false) == you.max_dex()
             && !player_rotted()
-            && !you.duration[DUR_NAUSEA])
+            && !you.duration[DUR_RETCHING]
+            && !you.duration[DUR_WEAK])
         {
             if (!quiet)
                 mpr("Nothing ails you!");
@@ -1538,6 +1497,7 @@ static bool _check_ability_possible(const ability_def& abil,
         return true;
 
     case ABIL_BLINK:
+    case ABIL_WISP_BLINK:
     case ABIL_EVOKE_BLINK:
         if (you.no_tele(false, false, true))
         {
@@ -1574,11 +1534,19 @@ bool check_ability_possible(const ability_type ability, bool hungerCheck,
 
 bool activate_talent(const talent& tal)
 {
+    if (you.berserk())
+    {
+        canned_msg(MSG_TOO_BERSERK);
+        crawl_state.zero_turns_taken();
+        return false;
+    }
+
     // Doing these would outright kill the player.
     if (tal.which == ABIL_STOP_FLYING)
     {
-        if (grd(you.pos()) == DNGN_DEEP_WATER && !player_likes_water()
-            || grd(you.pos()) == DNGN_LAVA)
+        if ((grd(you.pos()) == DNGN_DEEP_WATER && !player_likes_water()
+             || grd(you.pos()) == DNGN_LAVA && !player_likes_lava())
+            && !djinni_floats())
         {
             mpr("Stopping flight right now would be fatal!");
             crawl_state.zero_turns_taken();
@@ -1590,6 +1558,7 @@ bool activate_talent(const talent& tal)
         if (you.strength() <= 5
             && !yesno("Turning into a bat will reduce your strength to zero. Continue?", false, 'n'))
         {
+            canned_msg(MSG_OK);
             crawl_state.zero_turns_taken();
             return false;
         }
@@ -1607,6 +1576,7 @@ bool activate_talent(const talent& tal)
         if (you.form == TRAN_BAT && you.dex() <= 5
             && !yesno("Turning back will reduce your dexterity to zero. Continue?", false, 'n'))
         {
+            canned_msg(MSG_OK);
             crawl_state.zero_turns_taken();
             return false;
         }
@@ -1632,10 +1602,12 @@ bool activate_talent(const talent& tal)
     switch (tal.which)
     {
         case ABIL_RENOUNCE_RELIGION:
+        case ABIL_CONVERT_TO_BEOGH:
         case ABIL_STOP_FLYING:
         case ABIL_EVOKE_TURN_VISIBLE:
         case ABIL_END_TRANSFORMATION:
         case ABIL_DELAYED_FIREBALL:
+        case ABIL_STOP_SINGING:
         case ABIL_MUMMY_RESTORATION:
         case ABIL_TRAN_BAT:
         case ABIL_BOTTLE_BLOOD:
@@ -1804,13 +1776,6 @@ static bool _do_ability(const ability_def& abil)
         break;
 
     // ZotDef traps
-    case ABIL_MAKE_TELEPORT_TRAP:
-        // BUG: it's the trap's position, not yours, that should matter.
-        if ((you.pos() - env.orb_pos).abs() < 100)
-        {
-            mpr("Radiation from the Orb interferes with the trap's magic!");
-            return false;
-        }
     case ABIL_MAKE_DART_TRAP:
     case ABIL_MAKE_ARROW_TRAP:
     case ABIL_MAKE_BOLT_TRAP:
@@ -1972,6 +1937,7 @@ static bool _do_ability(const ability_def& abil)
         else
         {
             zapping(ZAP_SPIT_POISON, power, beam);
+            zin_recite_interrupt();
             you.set_duration(DUR_BREATH_WEAPON, 3 + random2(5));
         }
         break;
@@ -1999,6 +1965,7 @@ static bool _do_ability(const ability_def& abil)
                 2 * you.experience_level : you.experience_level,
             beam, false, "You spit a glob of burning liquid.");
 
+        zin_recite_interrupt();
         you.increase_duration(DUR_BREATH_WEAPON,
                       3 + random2(10) + random2(30 - you.experience_level));
         break;
@@ -2115,6 +2082,7 @@ static bool _do_ability(const ability_def& abil)
             break;
         }
 
+        zin_recite_interrupt();
         you.increase_duration(DUR_BREATH_WEAPON,
                       3 + random2(10) + random2(30 - you.experience_level));
 
@@ -2128,6 +2096,7 @@ static bool _do_ability(const ability_def& abil)
 
     case ABIL_EVOKE_BLINK:      // randarts
     case ABIL_BLINK:            // mutation
+    case ABIL_WISP_BLINK:       // wisp form
         random_blink(true);
         break;
 
@@ -2159,7 +2128,7 @@ static bool _do_ability(const ability_def& abil)
 
     case ABIL_EVOKE_TURN_INVISIBLE:     // ring, randarts, darkness items
         potion_effect(POT_INVISIBILITY, you.skill(SK_EVOCATIONS, 2) + 5);
-        contaminate_player(1 + random2(3), true);
+        contaminate_player(1000 + random2(2000), true);
         break;
 
     case ABIL_EVOKE_TURN_VISIBLE:
@@ -2188,6 +2157,15 @@ static bool _do_ability(const ability_def& abil)
         big_cloud(random_smoke_type(), &you, you.pos(), 50, 8 + random2(8));
         break;
 
+    case ABIL_EVOKE_TELEPORT_CONTROL:
+        cast_teleport_control(30 + you.skill(SK_EVOCATIONS, 2), false);
+        break;
+
+    case ABIL_STOP_SINGING:
+        you.duration[DUR_SONG_OF_SLAYING] = 0;
+        mpr("You stop singing.");
+        break;
+
     case ABIL_STOP_FLYING:
         you.duration[DUR_FLIGHT] = 0;
         you.attribute[ATTR_PERM_FLIGHT] = 0;
@@ -2204,7 +2182,15 @@ static bool _do_ability(const ability_def& abil)
     {
         recite_type prayertype;
         if (zin_check_recite_to_monsters(&prayertype))
-            start_delay(DELAY_RECITE, 3, prayertype, you.hp);
+        {
+            you.attribute[ATTR_RECITE_TYPE] = prayertype;
+            you.attribute[ATTR_RECITE_SEED] = random2(2187); // 3^7
+            you.attribute[ATTR_RECITE_HP]   = you.hp;
+            you.duration[DUR_RECITE] = 3 * BASELINE_DELAY;
+            mprf(MSGCH_PLAIN, "You clear your throat and prepare to recite %s.",
+                 zin_recite_text(you.attribute[ATTR_RECITE_SEED],
+                                 prayertype, -1).c_str());
+        }
         else
         {
             mpr("That recitation seems somehow inappropriate.");
@@ -2213,6 +2199,7 @@ static bool _do_ability(const ability_def& abil)
         break;
     }
     case ABIL_ZIN_VITALISATION:
+        zin_recite_interrupt();
         zin_vitalisation();
         break;
 
@@ -2248,6 +2235,7 @@ static bool _do_ability(const ability_def& abil)
             return false;
         }
 
+        zin_recite_interrupt();
         power = 3 + (roll_dice(5, you.skill(SK_INVOCATIONS, 5) + 12) / 26);
 
         if (!cast_imprison(power, mons, -GOD_ZIN))
@@ -2256,11 +2244,13 @@ static bool _do_ability(const ability_def& abil)
     }
 
     case ABIL_ZIN_SANCTUARY:
+        zin_recite_interrupt();
         if (!zin_sanctuary())
             return false;
         break;
 
     case ABIL_ZIN_CURE_ALL_MUTATIONS:
+        zin_recite_interrupt();
         zin_remove_all_mutations();
         break;
 
@@ -2313,7 +2303,8 @@ static bool _do_ability(const ability_def& abil)
         break;
 
     case ABIL_YRED_DRAIN_LIFE:
-        yred_drain_life();
+        cast_los_attack_spell(SPELL_DRAIN_LIFE, you.skill_rdiv(SK_INVOCATIONS),
+                              &you, true);
         break;
 
     case ABIL_YRED_ENSLAVE_SOUL:
@@ -2472,7 +2463,10 @@ static bool _do_ability(const ability_def& abil)
     case ABIL_ELYVILON_LESSER_HEALING_OTHERS:
     {
         const bool self = (abil.ability == ABIL_ELYVILON_LESSER_HEALING_SELF);
-        if (cast_healing(3 + (you.skill_rdiv(SK_INVOCATIONS, 1, 6)),
+        int pow = 3 + (you.skill_rdiv(SK_INVOCATIONS, 1, 6));
+        if (self && you.species == SP_DJINNI)
+            pow /= 2;
+        if (cast_healing(pow,
                          3 + (int) ceil(you.skill(SK_INVOCATIONS, 1) / 6.0),
                          true, self ? you.pos() : coord_def(0, 0), !self,
                          self ? TARG_NUM_MODES : TARG_INJURED_FRIEND) < 0)
@@ -2492,7 +2486,10 @@ static bool _do_ability(const ability_def& abil)
     {
         const bool self = (abil.ability == ABIL_ELYVILON_GREATER_HEALING_SELF);
 
-        if (cast_healing(10 + (you.skill_rdiv(SK_INVOCATIONS, 1, 3)),
+        int pow = 10 + (you.skill_rdiv(SK_INVOCATIONS, 1, 3));
+        if (self && you.species == SP_DJINNI)
+            pow /= 2;
+        if (cast_healing(pow,
                          10 + (int) ceil(you.skill(SK_INVOCATIONS, 1) / 3.0),
                          true, self ? you.pos() : coord_def(0, 0), !self,
                          self ? TARG_NUM_MODES : TARG_INJURED_FRIEND) < 0)
@@ -2737,6 +2734,14 @@ static bool _do_ability(const ability_def& abil)
         }
         break;
 
+    case ABIL_CONVERT_TO_BEOGH:
+        god_pitch(GOD_BEOGH);
+        if (you_worship(GOD_BEOGH))
+        {
+            spare_beogh_convert();
+            break;
+        }
+        return false;
 
     case ABIL_NON_ABILITY:
         mpr("Sorry, you can't do that.");
@@ -3085,18 +3090,7 @@ vector<talent> your_talents(bool check_confused, bool include_unusable)
             _add_talent(talents, ABIL_MAKE_BLADE_TRAP, check_confused);
         if (you.experience_level >= 26)
             _add_talent(talents, ABIL_MAKE_CURSE_SKULL, check_confused);
-#if 0
-        // Disabled, and hard to fix.  Easiest to just replace it.
-        // Before enabling, please check the following:
-        // * monsters don't pathfind through it, sometimes even after I tried
-        //   hard-wiring teleport traps to be always unknown...
-        // * infinite ammo allows permanent blocks.  When changing that, please
-        //   keep in mind that teleporting into a shaft invalidates the whole
-        //   level, instantly.
-        // * placement is buggy (looks at your position)
-        if (you.experience_level >= 27)
-            _add_talent(talents, ABIL_MAKE_TELEPORT_TRAP, check_confused);
-#endif
+        // 27 was: Make teleport trap
     }
 
     // Species-based abilities.
@@ -3106,20 +3100,14 @@ vector<talent> your_talents(bool check_confused, bool include_unusable)
     if (you.species == SP_DEEP_DWARF)
         _add_talent(talents, ABIL_RECHARGING, check_confused);
 
-    // Spit Poison. Nontransformed nagas can upgrade to Breathe Poison.
-    // Transformed nagas, or non-nagas, can only get Spit Poison.
-    if (you.species == SP_NAGA
-        && (!form_changed_physiology()
-            || you.form == TRAN_SPIDER))
+    // Spit Poison. Nagas can upgrade to Breathe Poison.
+    if (you.species == SP_NAGA)
     {
         _add_talent(talents, player_mutation_level(MUT_BREATHE_POISON) ?
                     ABIL_BREATHE_POISON : ABIL_SPIT_POISON, check_confused);
     }
-    else if (player_mutation_level(MUT_SPIT_POISON)
-             || you.species == SP_NAGA)
-    {
+    else if (player_mutation_level(MUT_SPIT_POISON))
         _add_talent(talents, ABIL_SPIT_POISON, check_confused);
-    }
 
     if (player_genus(GENPC_DRACONIAN))
     {
@@ -3162,9 +3150,9 @@ vector<talent> your_talents(bool check_confused, bool include_unusable)
     {
         // Tengu can fly, but only from the ground
         // (until level 15, when it becomes permanent until revoked).
-        // Black draconians get permaflight at XL 14, but they don't get
-        // the tengu movement/evasion bonuses and they don't get temporary
-        // flight before then.
+        // Black draconians and gargoyles get permaflight at XL 14, but they
+        // don't get the tengu movement/evasion bonuses and they don't get
+        // temporary flight before then.
         // Other dracs can mutate big wings whenever for temporary flight.
         _add_talent(talents, ABIL_FLY, check_confused);
     }
@@ -3179,7 +3167,9 @@ vector<talent> your_talents(bool check_confused, bool include_unusable)
     if (you.duration[DUR_TRANSFORMATION] && !you.transform_uncancellable)
         _add_talent(talents, ABIL_END_TRANSFORMATION, check_confused);
 
-    if (player_mutation_level(MUT_BLINK))
+    if (you.form == TRAN_WISP)
+        _add_talent(talents, ABIL_WISP_BLINK, false);
+    else if (player_mutation_level(MUT_BLINK))
         _add_talent(talents, ABIL_BLINK, check_confused);
 
     // Religious abilities.
@@ -3188,9 +3178,12 @@ vector<talent> your_talents(bool check_confused, bool include_unusable)
         _add_talent(talents, abilities[i], check_confused);
 
     // And finally, the ability to opt-out of your faith {dlb}:
-    if (you.religion != GOD_NO_GOD
+    if (!you_worship(GOD_NO_GOD)
         && (include_unusable || !silenced(you.pos())))
         _add_talent(talents, ABIL_RENOUNCE_RELIGION, check_confused);
+
+    if (env.level_state & LSTATE_BEOGH && can_convert_to_beogh())
+        _add_talent(talents, ABIL_CONVERT_TO_BEOGH, check_confused);
 
     //jmf: Check for breath weapons - they're exclusive of each other, I hope!
     //     Make better ones come first.
@@ -3205,6 +3198,9 @@ vector<talent> your_talents(bool check_confused, bool include_unusable)
     // Checking for unreleased Delayed Fireball.
     if (you.attribute[ ATTR_DELAYED_FIREBALL ])
         _add_talent(talents, ABIL_DELAYED_FIREBALL, check_confused);
+
+    if (you.duration[DUR_SONG_OF_SLAYING])
+        _add_talent(talents, ABIL_STOP_SINGING, check_confused);
 
     // Evocations from items.
     if (!you.suppressed())
@@ -3242,9 +3238,8 @@ vector<talent> your_talents(bool check_confused, bool include_unusable)
                     _add_talent(talents, ABIL_EVOKE_FLIGHT, check_confused);
                 }
                 // Now you can only turn flight off if you have an
-                // activatable item.  Potions and miscast effects will
-                // have to time out (this makes the miscast effect actually
-                // a bit annoying). -- bwr
+                // activatable item.  Potions and spells will have to time
+                // out.
                 if (you.flight_mode() && !you.attribute[ATTR_FLIGHT_UNCANCELLABLE])
                     _add_talent(talents, ABIL_STOP_FLYING, check_confused);
             }
@@ -3255,6 +3250,9 @@ vector<talent> your_talents(bool check_confused, bool include_unusable)
         {
             _add_talent(talents, ABIL_EVOKE_TELEPORTATION, check_confused);
         }
+
+        if (you.wearing(EQ_RINGS, RING_TELEPORT_CONTROL))
+            _add_talent(talents, ABIL_EVOKE_TELEPORT_CONTROL, check_confused);
     }
 
     // Find hotkeys for the non-hotkeyed talents.
@@ -3336,7 +3334,7 @@ static int _is_god_ability(ability_type abil)
 
 void set_god_ability_slots()
 {
-    ASSERT(you.religion != GOD_NO_GOD);
+    ASSERT(!you_worship(GOD_NO_GOD));
 
     _set_god_ability_helper(ABIL_RENOUNCE_RELIGION, 'X');
 
@@ -3350,7 +3348,7 @@ void set_god_ability_slots()
 
     // Finally, add in current god's invocations in traditional slots.
     int num = 0;
-    if (you.religion == GOD_ELYVILON)
+    if (you_worship(GOD_ELYVILON))
     {
         _set_god_ability_helper(ABIL_ELYVILON_LESSER_HEALING_OTHERS,
                                 'a' + num++);
@@ -3363,7 +3361,7 @@ void set_god_ability_slots()
             _set_god_ability_helper(god_abilities[you.religion][i],
                                     'a' + num++);
 
-            if (you.religion == GOD_ELYVILON)
+            if (you_worship(GOD_ELYVILON))
             {
                 if (god_abilities[you.religion][i]
                         == ABIL_ELYVILON_LESSER_HEALING_SELF)
@@ -3377,7 +3375,7 @@ void set_god_ability_slots()
                                             'a' + num++);
                 }
             }
-            else if (you.religion == GOD_YREDELEMNUL)
+            else if (you_worship(GOD_YREDELEMNUL))
             {
                 if (god_abilities[you.religion][i]
                         == ABIL_YRED_RECALL_UNDEAD_SLAVES)
@@ -3407,10 +3405,15 @@ static int _find_ability_slot(const ability_def &abil)
 
     // Skip over a-e (invocations), a-g for Elyvilon, a-E for ZotDef
     int first_slot = 5;
-    if (you.religion == GOD_ELYVILON)
+    if (you_worship(GOD_ELYVILON))
         first_slot = 7;
     if (abil.flags & ABFLAG_ZOTDEF)
         first_slot = 5 + 26; // capital F, for *some* memory compat.
+
+    if (abil.ability == ABIL_ZIN_CURE_ALL_MUTATIONS)
+        first_slot = 'W' - 'A' + 26;
+    if (abil.ability == ABIL_CONVERT_TO_BEOGH)
+        first_slot = 'Y' - 'A' + 26;
 
     for (int slot = first_slot; slot < 52; ++slot)
     {
@@ -3438,9 +3441,9 @@ static int _find_ability_slot(const ability_def &abil)
 vector<ability_type> get_god_abilities(bool include_unusable)
 {
     vector<ability_type> abilities;
-    if (you.religion == GOD_TROG && (include_unusable || !silenced(you.pos())))
+    if (you_worship(GOD_TROG) && (include_unusable || !silenced(you.pos())))
         abilities.push_back(ABIL_TROG_BURN_SPELLBOOKS);
-    else if (you.religion == GOD_ELYVILON && (include_unusable || !silenced(you.pos())))
+    else if (you_worship(GOD_ELYVILON) && (include_unusable || !silenced(you.pos())))
         abilities.push_back(ABIL_ELYVILON_LESSER_HEALING_OTHERS);
     else if (you.transfer_skill_points > 0)
         abilities.push_back(ABIL_ASHENZARI_END_TRANSFER);
@@ -3448,7 +3451,7 @@ vector<ability_type> get_god_abilities(bool include_unusable)
     // Remaining abilities are unusable if under penance, or if silenced if not
     // Nemelex abilities.
     if (!include_unusable && (player_under_penance()
-                              || silenced(you.pos()) && you.religion != GOD_NEMELEX_XOBEH))
+                              || silenced(you.pos()) && !you_worship(GOD_NEMELEX_XOBEH)))
     {
         return abilities;
     }
@@ -3473,12 +3476,19 @@ vector<ability_type> get_god_abilities(bool include_unusable)
             abilities.push_back(ABIL_ELYVILON_LIFESAVING);
         else if (abil == ABIL_ELYVILON_GREATER_HEALING_OTHERS)
             abilities.push_back(ABIL_ELYVILON_GREATER_HEALING_SELF);
-        else if (abil == ABIL_YRED_RECALL_UNDEAD_SLAVES)
+        else if (abil == ABIL_YRED_RECALL_UNDEAD_SLAVES
+                 || abil == ABIL_STOP_RECALL && you_worship(GOD_YREDELEMNUL))
+        {
             abilities.push_back(ABIL_YRED_INJURY_MIRROR);
+        }
     }
 
-    if (you.religion == GOD_ZIN && !you.one_time_ability_used[GOD_ZIN] && you.piety > 160)
+    if (you_worship(GOD_ZIN)
+        && you.piety >= piety_breakpoint(5)
+        && !you.one_time_ability_used[GOD_ZIN])
+    {
         abilities.push_back(ABIL_ZIN_CURE_ALL_MUTATIONS);
+    }
 
     return abilities;
 }

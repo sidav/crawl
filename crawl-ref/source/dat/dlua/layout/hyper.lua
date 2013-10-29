@@ -8,8 +8,11 @@ hyper = {}          -- Main namespace for engine
 
 -- This switch dumps helpful diagrams of rooms and layouts out to console.
 -- Only advisable if you start tiles from a command-line.
-hyper.debug = true
+hyper.debug = false
+-- Outputs some profiling information on the layout build
+hyper.profile = false
 
+require("dlua/layout/vector.lua")
 require("dlua/layout/hyper_usage.lua")
 require("dlua/layout/hyper_paint.lua")
 require("dlua/layout/hyper_place.lua")
@@ -17,13 +20,13 @@ require("dlua/layout/hyper_strategy.lua")
 require("dlua/layout/hyper_rooms.lua")
 require("dlua/layout/hyper_shapes.lua")
 require("dlua/layout/hyper_decor.lua")
--- require("dlua/layout/hyper_layouts.lua")
--- require("dlua/layout/hyper_fort.lua")
+require("dlua/layout/rooms_primitive.lua")
 require("dlua/layout/hyper_debug.lua")
+require("dlua/profiler.lua")
 
 -- The four directions and their associated vector normal and name.
 -- This helps us manage orientation of rooms.
-hyper.normals = {
+vector.normals = {
   { x = 0, y = -1, dir = 0, name="n" },
   { x = -1, y = 0, dir = 1, name="w" },
   { x = 0, y = 1, dir = 2, name="s" },
@@ -31,7 +34,7 @@ hyper.normals = {
 }
 
 -- Sometimes it's useful to have a list of diagonal vectors also
-hyper.diagonals = {
+vector.diagonals = {
   { x = -1, y = -1, dir = 0.5, name="nw" },
   { x = -1, y = 1, dir = 1.5, name="sw" },
   { x = 1, y = 1, dir = 2.5, name="se" },
@@ -39,7 +42,7 @@ hyper.diagonals = {
 }
 
 -- All 8 directions (although not in logical order)
-hyper.directions = util.append({},hyper.normals,hyper.diagonals)
+vector.directions = util.append({},vector.normals,vector.diagonals)
 
 -- Default options table
 function hyper.default_options()
@@ -55,7 +58,7 @@ function hyper.default_options()
 
     -- Weightings of various types of room generators. The plan is to better support code vaults here.
     room_type_weights = {
-      { generator = "code", paint_callback = hyper.rooms.floor_vault, weight = 1, min_size = 4, max_size = 40, empty = true }, -- Floor vault
+      { generator = "code", paint_callback = rooms.primitive.floor, weight = 1, min_size = 4, max_size = 40, empty = true }, -- Floor vault
     },
 
     -- Rock seems a sensible default
@@ -78,10 +81,12 @@ function hyper.build_layout(e, options)
 
   name = options.name or "Hyper"
 
+  if hyper.profile then
+    profiler.start(name)
+    profiler.push("InitOptions")
+  end
+
   if hyper.debug then print("Hyper Layout: " .. name) end
-  name = string.lower(name)
-  name = string.gsub(name," ","_")
-  e.layout_type(name)
 
   local default_options = hyper.default_options()
   if options ~= nil then options = hyper.merge_options(default_options,options) end
@@ -91,9 +96,15 @@ function hyper.build_layout(e, options)
     options.build_fixture = { { type = "build", generators = options.room_type_weights } }
   end
 
+  if hyper.profile then
+    profiler.pop()
+    profiler.push("InitUsage")
+  end
+
   local gxm,gym = dgn.max_bounds()
   local main_state = {
-    usage_grid = hyper.usage.new_usage(gxm,gym),
+    usage_grid = hyper.usage.new_usage(gxm,gym,
+                                       hyper.usage.grid_initialiser),
     results = {}
   }
 
@@ -106,16 +117,30 @@ function hyper.build_layout(e, options)
     end
   end
 
+  if hyper.profile then
+    profiler.pop()
+    profiler.push("ScanUsage")
+  end
+
   -- Scan the existing dungeon grid and update the usage grid accordingly
-  -- TODO: Would be a slight performance boost if we first check if we're the primary layout, in which case there's
-  --       no need for this scan.
-  hyper.usage.scan_existing_features(main_state.usage_grid)
+  -- TODO: Would be a performance boost not running this if we're the
+  -- primary layout anyway and just assume no existing anchors etc.
+  hyper.usage.analyse_grid_usage(main_state.usage_grid,options)
+
+  if hyper.profile then
+    profiler.pop()
+    profiler.push("BuildFixture")
+  end
 
   -- Perform each task in the build fixture
   for i, item in ipairs(options.build_fixture) do
     if item.enabled == nil
       or type(item.enabled) == "function" and item.enabled(item,main_state)
       or item.enabled == true then
+
+      if hyper.profile then
+        profiler.push("BuildPass", { pass = item.pass })
+      end
 
       -- Applies a paint table to the whole layout
       -- Here for legacy purposes, generally use "place" or just "build" to setup initial layout
@@ -132,21 +157,37 @@ function hyper.build_layout(e, options)
       -- Places a single room or feature, usually at a specified position; just shortcuts some of the fluff you'd
       -- need to do the same in "build"
       elseif item.type == "place" then
+        -- TODO:
       -- Perform a filter/transform operation on the whole usage/feature grid or a region of it
       elseif item.type == "filter" then
         hyper.usage.filter_usage(main_state.usage_grid, item.filter, item.transform, item.region)
       end
+
+      if hyper.profile then
+        profiler.pop()
+      end
+
     end
 
   end
 
   -- Updates the dungeon grid
-  -- TODO: Right now it happens room-by-room so I've commented this out. But there might be a small performance gain in only
-  -- applying everything right at the end.
+  -- TODO: Right now it happens room-by-room so I've commented this out.
+  -- But there should be a performance gain in only applying everything right at the end.
   -- hyper.usage.apply_usage(usage_grid)
 
   if options.post_fixture_callback ~= nil then
+    if hyper.profile then
+      profiler.pop()
+      profiler.push("PostFixture")
+    end
+
     options.post_fixture_callback(main_state,options)
+  end
+
+  if hyper.profile then
+    profiler.pop()
+    profiler.push("VaultMask")
   end
 
   -- Set MMT_VAULT across the whole map depending on usage. This prevents the dungeon builder
@@ -157,6 +198,11 @@ function hyper.build_layout(e, options)
     if usage ~= nil and usage.protect then
       dgn.set_map_mask(p.x,p.y)
     end
+  end
+
+  if hyper.profile then
+    profiler.pop()
+    profiler.stop()
   end
 
   return main_state
@@ -177,40 +223,4 @@ function hyper.merge_options(base,to_merge)
     base[key] = val
   end
   return base
-end
-
-------------------------------------------------------------------------------
--- Math functions.
---
--- Mainly dealing with vectors
-
-hyper.math = {}
-
--- Moves from a start point along a movement vector mapped to actual vectors xVector/yVector
--- This allows us to deal with coords independently of how they are rotated to the dungeon grid
-function hyper.math.mapped_vector_add(start, move, xVector, yVector)
-
-  return {
-    x = start.x + (move.x * xVector.x) + (move.y * yVector.x),
-    y = start.y + (move.x * xVector.y) + (move.y * yVector.y)
-  }
-
-end
-
--- Rotates a vector anticlockwise by 90 degree increments * count
--- Highly rudimentary, not actually used for anything, keeping around for now in case.
-function hyper.math.vector_rotate(vec, count)
-  if count > 0 then
-    local rotated = { x = -vec.y, y = vec.x }
-    count = count - 1
-    if count <= 0 then return rotated end
-    return vector_rotate(rotated,count)
-  end
-  if count < 0 then
-    local rotated = { x = vec.y, y = -vec.x }
-    count = count + 1
-    if count >= 0 then return rotated end
-    return vector_rotate(rotated,count)
-  end
-  return vec
 end

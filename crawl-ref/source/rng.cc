@@ -24,11 +24,11 @@
 # include <process.h>
 #endif
 
-void seed_rng(uint32_t* seed_key, size_t num_keys)
+static void _seed_rng(uint32_t* seed_key, size_t num_keys)
 {
     seed_asg(seed_key, num_keys);
 
-    // for random_shuffle()
+    // Just in case something calls libc's rand(); currently nothing does.
     uint32_t oneseed = 0;
     for (size_t i = 0; i < num_keys; ++i)
         oneseed += seed_key[i];
@@ -39,7 +39,7 @@ void seed_rng(uint32_t* seed_key, size_t num_keys)
 void seed_rng(uint32_t seed)
 {
     uint32_t sarg[1] = { seed };
-    seed_rng(sarg, 1);
+    _seed_rng(sarg, 1);
 }
 
 void seed_rng()
@@ -55,7 +55,7 @@ void seed_rng()
     seed_key[1] += getpid();
     seed_key[2] += time(NULL);
 
-    seed_rng(seed_key, 5);
+    _seed_rng(seed_key, 5);
 }
 
 uint32_t random_int(void)

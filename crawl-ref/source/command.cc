@@ -21,7 +21,6 @@
 #include "cio.h"
 #include "colour.h"
 #include "database.h"
-#include "debug.h"
 #include "decks.h"
 #include "describe.h"
 #include "directn.h"
@@ -209,17 +208,7 @@ static void _print_version(void)
     int flags = MF_NOSELECT | MF_ALWAYS_SHOW_MORE | MF_NOWRAP | MF_EASY_EXIT;
     cmd_version.set_flags(flags, false);
     cmd_version.set_tag("version");
-
-    // FIXME: Allow for hiding Page down when at the end of the listing, ditto
-    // for page up at start of listing.
-    cmd_version.set_more(formatted_string::parse_string(
-#ifdef USE_TILE_LOCAL
-                              "<cyan>[ +/L-click : Page down.   - : Page up."
-                              "           Esc/R-click exits.]"));
-#else
-                              "<cyan>[ + : Page down.   - : Page up."
-                              "                           Esc exits.]"));
-#endif
+    cmd_version.set_more();
 
     cmd_version.add_text(_get_version_information(), true);
     cmd_version.add_text(_get_version_features(), true);
@@ -285,12 +274,6 @@ void swap_inv_slots(int from_slot, int to_slot, bool verbose)
     else // just to make sure
         you.redraw_quiver = true;
 
-    // Update the current studied manual index.
-    if (you.manual_index == to_slot)
-        you.manual_index = from_slot;
-    else if (you.manual_index == from_slot)
-        you.manual_index = to_slot;
-
     // Remove the moved items from last_drop if they're there.
     you.last_pickup.erase(to_slot);
     you.last_pickup.erase(from_slot);
@@ -341,12 +324,12 @@ static void _adjust_spell(void)
 
     int keyin = 0;
     if (Options.auto_list)
-        keyin = list_spells(false, false, false);
+        keyin = list_spells(false, false, false, "Adjust which spell?");
     else
     {
         keyin = get_ch();
         if (keyin == '?' || keyin == '*')
-            keyin = list_spells(false, false, false);
+            keyin = list_spells(false, false, false, "Adjust which spell?");
     }
 
     if (!isaalpha(keyin))
@@ -379,8 +362,10 @@ static void _adjust_spell(void)
             canned_msg(MSG_OK);
             return;
         }
+        // FIXME: It would be nice if the user really could select letters
+        // without spells from this menu.
         if (keyin == '?' || keyin == '*')
-            keyin = list_spells(true, false, false);
+            keyin = list_spells(true, false, false, "Adjust to which letter?");
     }
 
     const int input_2 = keyin;
@@ -896,6 +881,9 @@ static vector<string> _get_monster_keys(ucs_t showchar)
         if (me->mc != i)
             continue;
 
+        if (i == MONS_MARA_FAKE || i == MONS_RAKSHASA_FAKE)
+            continue;
+
         if (getLongDescription(me->name).empty())
             continue;
 
@@ -939,8 +927,8 @@ static vector<string> _get_branch_keys()
 
 static bool _monster_filter(string key, string body)
 {
-    int mon_num = get_monster_by_name(key.c_str(), true);
-    return (mon_num == MONS_PROGRAM_BUG);
+    monster_type mon_num = get_monster_by_name(key.c_str());
+    return mons_class_flag(mon_num, M_CANT_SPAWN);
 }
 
 static bool _spell_filter(string key, string body)
@@ -1009,6 +997,10 @@ static bool _card_filter(string key, string body)
 static bool _ability_filter(string key, string body)
 {
     lowercase(key);
+    if (!ends_with(key, " ability"))
+        return true;
+    key.erase(key.length() - 8);
+
     if (string_matches_ability_name(key))
         return false;
 
@@ -1021,7 +1013,7 @@ static void _recap_mon_keys(vector<string> &keys)
 {
     for (unsigned int i = 0, size = keys.size(); i < size; i++)
     {
-        monster_type type = get_monster_by_name(keys[i], true);
+        monster_type type = get_monster_by_name(keys[i]);
         keys[i] = mons_type_name(type, DESC_PLAIN);
     }
 }
@@ -1097,6 +1089,32 @@ static void _append_non_item(string &desc, string key)
     }
 }
 
+static bool _is_rod_spell(spell_type spell)
+{
+    if (spell == SPELL_NO_SPELL)
+        return false;
+
+    for (int i = 0; i < NUM_RODS; i++)
+        for (int j = 0; j < 8; j++)
+            if (which_spell_in_book(i + NUM_FIXED_BOOKS, j) == spell)
+                return true;
+
+    return false;
+}
+
+static bool _is_book_spell(spell_type spell)
+{
+    if (spell == SPELL_NO_SPELL)
+        return false;
+
+    for (int i = 0; i < NUM_FIXED_BOOKS; i++)
+        for (int j = 0; j < 8; j++)
+            if (which_spell_in_book(i, j) == spell)
+                return true;
+
+    return false;
+}
+
 // Adds a list of all books/rods that contain a given spell (by name)
 // to a description string.
 static bool _append_books(string &desc, item_def &item, string key)
@@ -1128,11 +1146,11 @@ static bool _append_books(string &desc, item_def &item, string key)
 
     desc += make_stringf("\nLevel:      %d", spell_difficulty(type));
 
-    bool undead = false;
-    if (you_cannot_memorise(type, undead))
+    bool form = false;
+    if (you_cannot_memorise(type, form))
     {
         desc += "\n";
-        desc += desc_cannot_memorise_reason(undead);
+        desc += desc_cannot_memorise_reason(form);
     }
 
     set_ident_flags(item, ISFLAG_IDENT_MASK);
@@ -1157,7 +1175,7 @@ static bool _append_books(string &desc, item_def &item, string key)
 
         for (int j = 0; j < 8; j++)
             if (which_spell_in_book(book, j) == type)
-                rods.push_back(item.name(DESC_PLAIN));
+                rods.push_back(item.name(DESC_BASENAME));
     }
 
     if (!books.empty())
@@ -1177,7 +1195,7 @@ static bool _append_books(string &desc, item_def &item, string key)
             desc += comma_separated_line(rods.begin(), rods.end(), "\n", "\n");
         }
     }
-    else // rods-only
+    else if (!rods.empty()) // rods-only
     {
         desc += "\n\nThis spell can be found in the following rod";
         if (rods.size() > 1)
@@ -1185,6 +1203,8 @@ static bool _append_books(string &desc, item_def &item, string key)
         desc += ":\n";
         desc += comma_separated_line(rods.begin(), rods.end(), "\n", "\n");
     }
+    else
+        desc += "\n\nThis spell is not found in any books or rods.";
 
     return true;
 }
@@ -1225,7 +1245,7 @@ static int _do_description(string key, string type, const string &suffix,
     }
     else
     {
-        monster_type mon_num = get_monster_by_name(key, true);
+        monster_type mon_num = get_monster_by_name(key);
         // Don't attempt to get more information on ghost demon
         // monsters, as the ghost struct has not been initialised, which
         // will cause a crash.  Similarly for zombified monsters, since
@@ -1435,6 +1455,7 @@ static void _find_description(bool *again, string *error_inout)
     case 'A':
         type   = "ability";
         filter = _ability_filter;
+        suffix = " ability";
         break;
     case 'C':
         type   = "card";
@@ -1486,7 +1507,7 @@ static void _find_description(bool *again, string *error_inout)
 
         mpr("Describe what? ", MSGCH_PROMPT);
         char buf[80];
-        if (cancelable_get_line(buf, sizeof(buf)) || buf[0] == '\0')
+        if (cancellable_get_line(buf, sizeof(buf)) || buf[0] == '\0')
         {
             *error_inout = "Okay, then.";
             return;
@@ -1623,7 +1644,7 @@ static void _find_description(bool *again, string *error_inout)
         {
             // Create and store fake monsters, so the menu code will
             // have something valid to refer to.
-            monster_type m_type = get_monster_by_name(str, true);
+            monster_type m_type = get_monster_by_name(str);
 
             // Not worth the effort handling the item; also, it would
             // puzzle the players.  Thus, only unique matches work.
@@ -1674,16 +1695,17 @@ static void _find_description(bool *again, string *error_inout)
         {
             me = new MenuEntry(str, MEL_ITEM, 1, letter);
 
-#ifdef USE_TILE
             if (doing_spells)
             {
                 spell_type spell = spell_by_name(str);
+#ifdef USE_TILE
                 if (spell != SPELL_NO_SPELL)
                     me->add_tile(tile_def(tileidx_spell(spell), TEX_GUI));
-            }
-#else
-            UNUSED(doing_spells);
 #endif
+                me->colour = _is_book_spell(spell) ? WHITE
+                           : _is_rod_spell(spell)  ? LIGHTGREY
+                                                   : DARKGREY; // monster-only
+            }
 
             me->data = &key_list[i];
         }
@@ -1806,7 +1828,7 @@ help_highlighter::help_highlighter(string highlight_string) :
 
 int help_highlighter::entry_colour(const MenuEntry *entry) const
 {
-    return !pattern.empty() && pattern.matches(entry->text)? WHITE : -1;
+    return !pattern.empty() && pattern.matches(entry->text) ? WHITE : -1;
 }
 
 // To highlight species in aptitudes list. ('?%')
@@ -1835,17 +1857,7 @@ static int _show_keyhelp_menu(const vector<formatted_string> &lines,
         flags |= MF_EASY_EXIT;
     cmd_help.set_flags(flags, false);
     cmd_help.set_tag("help");
-
-    // FIXME: Allow for hiding Page down when at the end of the listing, ditto
-    // for page up at start of listing.
-    cmd_help.set_more(formatted_string::parse_string(
-#ifdef USE_TILE_LOCAL
-                            "<cyan>[ +/L-click : Page down.   - : Page up."
-                            "           Esc/R-click exits.]"));
-#else
-                            "<cyan>[ + : Page down.   - : Page up."
-                            "                           Esc exits.]"));
-#endif
+    cmd_help.set_more();
 
     if (with_manual)
     {
@@ -2292,6 +2304,9 @@ static void _add_formatted_keyhelp(column_composer &cols)
     _add_command(cols, 1, CMD_DISPLAY_OVERMAP, "show dungeon Overview");
     _add_command(cols, 1, CMD_TOGGLE_AUTOPICKUP, "toggle auto-pickup");
     _add_command(cols, 1, CMD_TOGGLE_FRIENDLY_PICKUP, "change ally pickup behaviour");
+    _add_command(cols, 1, CMD_TOGGLE_TRAVEL_SPEED, "set your travel speed to your");
+    cols.add_formatted(1, "         slowest ally\n",
+                           false, true, _cmdhelp_textfilter);
 
     cols.add_formatted(
             1,

@@ -1,6 +1,6 @@
 /**
  * @file
- * @brief UNIX specific crash handling functions.
+ * @brief UNIX-style crash handling functions (also used on Windows).
 **/
 
 #include "AppHdr.h"
@@ -82,7 +82,7 @@ static mutex_t crash_mutex;
 static void _crash_signal_handler(int sig_num)
 {
     // We rely on mutexes ignoring locks held by the same thread.
-    // On some platforms, this must be explicitely enabled (which we do).
+    // On some platforms, this must be explicitly enabled (which we do).
 
     // This mutex is never unlocked again -- the first thread to crash will
     // do a dump then terminate the process while everyone else waits here
@@ -182,9 +182,8 @@ static void _crash_signal_handler(int sig_num)
 
 void init_crash_handler()
 {
-    mutex_init(crash_mutex);
-
 #if defined(USE_UNIX_SIGNALS)
+    mutex_init(crash_mutex);
 
     for (int i = 1; i <= 64; i++)
     {
@@ -363,7 +362,9 @@ void disable_other_crashes()
     // If one thread calls end() without going through a crash (a handled
     // fatal error), no one else should be allowed to crash.  We're already
     // going down so blocking the other thread is ok.
+#ifdef USE_UNIX_SIGNALS
     mutex_lock(crash_mutex);
+#endif
 }
 
 #ifdef DGAMELAUNCH

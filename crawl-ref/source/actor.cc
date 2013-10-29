@@ -15,6 +15,7 @@
 #include "mon-death.h"
 #include "ouch.h"
 #include "player.h"
+#include "religion.h"
 #include "random.h"
 #include "state.h"
 #include "stuff.h"
@@ -51,7 +52,7 @@ bool actor::airborne() const
  */
 bool actor::ground_level() const
 {
-    return (!airborne() && !is_wall_clinging());
+    return !airborne() && !is_wall_clinging() && mons_species() != MONS_DJINNI;
 }
 
 bool actor::stand_on_solid_ground() const
@@ -388,11 +389,18 @@ int actor::evokable_flight(bool calc_unid) const
 
 int actor::spirit_shield(bool calc_unid, bool items) const
 {
-    if (suppressed() || !items)
-        return 0;
+    int ss = 0;
 
-    return wearing_ego(EQ_ALL_ARMOUR, SPARM_SPIRIT_SHIELD, calc_unid)
-           + wearing(EQ_AMULET, AMU_GUARDIAN_SPIRIT, calc_unid);
+    if (items && !suppressed())
+    {
+        ss += wearing_ego(EQ_ALL_ARMOUR, SPARM_SPIRIT_SHIELD, calc_unid);
+        ss += wearing(EQ_AMULET, AMU_GUARDIAN_SPIRIT, calc_unid);
+    }
+
+    if (is_player())
+        ss += player_mutation_level(MUT_MANA_SHIELD);
+
+    return ss;
 }
 
 int actor::apply_ac(int damage, int max_damage, ac_type ac_rule,
@@ -437,7 +445,7 @@ int actor::apply_ac(int damage, int max_damage, ac_type ac_rule,
 bool actor_slime_wall_immune(const actor *act)
 {
     return
-       act->is_player() && you.religion == GOD_JIYVA && !you.penance[GOD_JIYVA]
+       act->is_player() && you_worship(GOD_JIYVA) && !you.penance[GOD_JIYVA]
        || act->res_acid() == 3;
 }
 
@@ -713,7 +721,15 @@ void actor::handle_constriction()
         else if (damage < HIT_STRONG)
             exclams = "!!";
         else
+        {
+            int tmpdamage = damage;
             exclams = "!!!";
+            while (tmpdamage >= 2*HIT_STRONG)
+            {
+                exclams += "!";
+                tmpdamage >>= 1;
+            }
+        }
 
         if (is_player() || you.can_see(this))
         {

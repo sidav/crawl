@@ -17,6 +17,7 @@ local ATT_NEUTRAL = 1
 AUTOFIGHT_STOP = 30
 AUTOFIGHT_THROW = false
 AUTOFIGHT_THROW_NOMOVE = true
+AUTOFIGHT_FIRE_STOP = false
 
 local function delta_to_vi(dx, dy)
   local d2v = {
@@ -151,7 +152,10 @@ local function get_monster_info(dx,dy,no_move)
 end
 
 local function compare_monster_info(m1, m2)
-  flag_order = {"can_attack", "safe", "distance", "constricting_you", "very_stabbable", "injury", "threat", "orc_priest_wizard"}
+  flag_order = autofight_flag_order
+  if flag_order == nil then
+    flag_order = {"can_attack", "safe", "distance", "constricting_you", "very_stabbable", "injury", "threat", "orc_priest_wizard"}
+  end
   for i,flag in ipairs(flag_order) do
     if m1[flag] > m2[flag] then
       return true
@@ -207,6 +211,11 @@ local function attack_fire(x,y)
   crawl.process_keys(move)
 end
 
+local function attack_fire_stop(x,y)
+  move = 'fr' .. vector_move(x, y) .. '.'
+  crawl.process_keys(move)
+end
+
 local function attack_reach(x,y)
   move = 'vr' .. vector_move(x, y) .. '.'
   crawl.process_keys(move)
@@ -229,6 +238,10 @@ local function set_af_throw_nomove(key, value, mode)
   AUTOFIGHT_THROW_NOMOVE = string.lower(value) ~= "false"
 end
 
+local function set_af_fire_stop(key, value, mode)
+  AUTOFIGHT_FIRE_STOP = string.lower(value) ~= "false"
+end
+
 local function hp_is_low()
   local hp, mhp = you.hp()
   return (100*hp <= AUTOFIGHT_STOP*mhp)
@@ -246,7 +259,11 @@ function attack(allow_movement)
   elseif info == nil then
     crawl.mpr("No target in view!")
   elseif info.attack_type == 3 then
-    attack_fire(x,y)
+    if AUTOFIGHT_FIRE_STOP then
+      attack_fire_stop(x,y)
+    else
+      attack_fire(x,y)
+    end
   elseif info.attack_type == 2 then
     attack_melee(x,y)
   elseif info.attack_type == 1 then
@@ -274,3 +291,4 @@ end
 chk_lua_option.autofight_stop = set_stop_level
 chk_lua_option.autofight_throw = set_af_throw
 chk_lua_option.autofight_throw_nomove = set_af_throw_nomove
+chk_lua_option.autofight_fire_stop = set_af_fire_stop

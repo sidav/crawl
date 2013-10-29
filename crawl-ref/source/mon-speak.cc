@@ -18,7 +18,6 @@
 #include "branch.h"
 #include "cluautil.h"
 #include "database.h"
-#include "debug.h"
 #include "dlua.h"
 #include "ghost.h"
 #include "libutil.h"
@@ -397,7 +396,10 @@ bool mons_speaks(monster* mons)
 {
     ASSERT(!invalid_monster_type(mons->type));
 
-    // Monsters always talk on death, even if invisible/silenced/etc.
+    if (mons->asleep() || mons->cannot_act())
+        return false;
+
+    // Monsters talk on death even if invisible/silenced/etc.
     int duration = 1;
     const bool force_speak = !mons->alive()
         || (mons->flags & MF_BANISHED) && !player_in_branch(BRANCH_ABYSS)
@@ -429,7 +431,7 @@ bool mons_speaks(monster* mons)
         }
 
         // Berserk monsters just want your hide.
-        if (mons->berserk())
+        if (mons->berserk_or_insane())
             return false;
 
         // Rolling beetles shouldn't twitch antennae
@@ -485,8 +487,8 @@ bool mons_speaks(monster* mons)
     {
         // Animals only look at the current player form, smart monsters at the
         // actual player genus.
-        if (is_player_same_species(mons->type,
-                                   mons_intel(mons) <= I_ANIMAL))
+        if (is_player_same_genus(mons->type,
+                                 mons_intel(mons) <= I_ANIMAL))
         {
             prefixes.push_back("related"); // maybe overkill for Beogh?
         }
@@ -505,9 +507,9 @@ bool mons_speaks(monster* mons)
                                            : you.religion;
 
     // Add Beogh to list of prefixes for orcs (hostile and friendly) if you
-    // worship Beogh. (This assumes your being a Hill Orc, so might have odd
+    // worship Beogh. (This assumes your being an orc, so might have odd
     // results in wizard mode.) Don't count charmed or summoned orcs.
-    if (you.religion == GOD_BEOGH && mons_genus(mons->type) == MONS_ORC)
+    if (you_worship(GOD_BEOGH) && mons_genus(mons->type) == MONS_ORC)
     {
         if (!mons->has_ench(ENCH_CHARM) && !mons->is_summoned())
         {
@@ -657,7 +659,7 @@ bool mons_speaks(monster* mons)
 
     // Now that we're not dealing with a specific monster name, include
     // whether or not it can move in the prefix.
-    if (mons_is_stationary(mons))
+    if (mons->is_stationary())
         prefixes.insert(prefixes.begin(), "stationary");
 
     // Names for the exact monster name and its genus have failed,
@@ -699,7 +701,7 @@ bool mons_speaks(monster* mons)
     {
         if (mons_base_char(mons->type) == 'w')
         {
-            if (intel > I_INSECT)
+            if (intel > I_REPTILE)
                 prefixes.insert(prefixes.begin(), "smart");
             else if (intel < I_INSECT)
                 prefixes.insert(prefixes.begin(), "stupid");
@@ -714,7 +716,7 @@ bool mons_speaks(monster* mons)
     }
     else if (shape >= MON_SHAPE_INSECT && shape <= MON_SHAPE_SNAIL)
     {
-        if (intel > I_INSECT)
+        if (intel > I_REPTILE)
             prefixes.insert(prefixes.begin(), "smart");
         else if (intel < I_INSECT)
             prefixes.insert(prefixes.begin(), "stupid");
@@ -818,6 +820,9 @@ bool mons_speaks_msg(monster* mons, const string &msg,
     const vector<string> lines = split_string("\n", _msg);
 
     bool noticed = false;       // Any messages actually printed?
+
+    if (mons->has_ench(ENCH_MUTE))
+        silence = true;
 
     for (int i = 0, size = lines.size(); i < size; ++i)
     {

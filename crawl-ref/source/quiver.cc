@@ -488,7 +488,7 @@ void player_quiver::load(reader& inf)
 
     unmarshallItem(inf, m_last_weapon);
     m_last_used_type = (ammo_t)unmarshallInt(inf);
-    ASSERT(m_last_used_type >= AMMO_THROW && m_last_used_type < NUM_AMMO);
+    ASSERT_RANGE(m_last_used_type, AMMO_THROW, NUM_AMMO);
 
     const unsigned int count = unmarshallInt(inf);
     ASSERT(count <= ARRAYSZ(m_last_used_of_type));
@@ -560,6 +560,10 @@ static bool _item_matches(const item_def &item, fire_type types,
             return true;
         if ((types & FIRE_NET) && item.sub_type == MI_THROWING_NET)
             return true;
+#if TAG_MAJOR_VERSION == 34
+        if ((types & FIRE_PIE) && item.sub_type == MI_PIE)
+            return true;
+#endif
 
         if (types & FIRE_LAUNCHER)
         {

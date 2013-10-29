@@ -270,7 +270,7 @@ void DungeonRegion::draw_minibars()
 
         ShapeBuffer buff;
 
-        if (!on_screen(you.pos()))
+        if (!you.on_current_level || !on_screen(you.pos()))
             return;
 
         // FIXME: to_screen_coords could be made into two versions: one
@@ -283,7 +283,7 @@ void DungeonRegion::draw_minibars()
 
         if (Options.tile_show_minimagicbar && you.max_magic_points > 0)
         {
-            static const VColour magic(0, 0, 255, 255);      // blue
+            static const VColour magic(0, 114, 159, 207);      // lightblue
             static const VColour magic_spent(0, 0, 0, 255);  // black
 
             const float magic_divider = (float) you.magic_points
@@ -450,7 +450,7 @@ static bool _is_appropriate_evokable(const item_def& item,
     if (!item_type_known(item))
         return true;
 
-    // Random effects are always (in)apropriate for all targets.
+    // Random effects are always (in)appropriate for all targets.
     if (item.sub_type == WAND_RANDOM_EFFECTS)
         return true;
 
@@ -593,7 +593,8 @@ static bool _cast_spell_on_target(actor* target)
             // Prevent the spell letter from being recorded twice.
             pause_all_key_recorders pause;
 
-            letter = list_spells(true, false, true, _spell_selector);
+            letter = list_spells(true, false, true, "Your Spells",
+                                 _spell_selector);
         }
 
         _spell_target = NULL;
@@ -616,7 +617,7 @@ static bool _cast_spell_on_target(actor* target)
 
     if (spell_mana(spell) > you.magic_points)
     {
-        mpr("You don't have enough mana to cast that spell.");
+        mpr("You don't have enough magic to cast that spell.");
         return true;
     }
 
@@ -905,7 +906,7 @@ int DungeonRegion::handle_mouse(MouseEvent &event)
         case MouseEvent::RIGHT:
             if (!(event.mod & MOD_SHIFT))
                 return command_to_key(CMD_RESISTS_SCREEN); // Character overview.
-            if (you.religion != GOD_NO_GOD)
+            if (!you_worship(GOD_NO_GOD))
                 return command_to_key(CMD_DISPLAY_RELIGION); // Religion screen.
 
             // fall through...
@@ -1044,7 +1045,7 @@ bool DungeonRegion::update_tip_text(string &tip)
                 tip += make_stringf("HEIGHT(%d)\n", dgn_height_at(gc));
 
             tip += "\n";
-            tip += tile_debug_string(env.tile_fg(ep), env.tile_bg(ep), ' ');
+            tip += tile_debug_string(env.tile_fg(ep), env.tile_bg(ep), env.tile_cloud(ep), ' ');
         }
         else
         {
@@ -1054,17 +1055,20 @@ bool DungeonRegion::update_tip_text(string &tip)
             tip += "\n";
         }
 
-        tip += tile_debug_string(env.tile_bk_fg(gc), env.tile_bk_bg(gc), 'B');
+        tip += tile_debug_string(env.tile_bk_fg(gc), env.tile_bk_bg(gc), env.tile_bk_bg(gc), 'B');
 
         if (!m_vbuf.empty())
         {
             const screen_cell_t *vbuf = m_vbuf;
             const coord_def vc(gc.x - m_cx_to_gx, gc.y - m_cy_to_gy);
             const screen_cell_t &cell = vbuf[crawl_view.viewsz.x * vc.y + vc.x];
-            tip += tile_debug_string(cell.tile.fg, cell.tile.bg, 'V');
+            tip += tile_debug_string(cell.tile.fg, cell.tile.bg, cell.tile.cloud, 'V');
         }
 
-        tip += make_stringf("\nFLV: floor: %d (%s) (%d)\n     wall:  %d (%s) (%d)\n     feat:  %d (%s) (%d)\n",
+        tip += make_stringf("\nFLV: floor: %d (%s) (%d)"
+                            "\n     wall:  %d (%s) (%d)"
+                            "\n     feat:  %d (%s) (%d)"
+                            "\n  special:  %d\n",
                             env.tile_flv(gc).floor,
                             tile_dngn_name(env.tile_flv(gc).floor),
                             env.tile_flv(gc).floor_idx,
@@ -1073,7 +1077,8 @@ bool DungeonRegion::update_tip_text(string &tip)
                             env.tile_flv(gc).wall_idx,
                             env.tile_flv(gc).feat,
                             tile_dngn_name(env.tile_flv(gc).feat),
-                            env.tile_flv(gc).feat_idx);
+                            env.tile_flv(gc).feat_idx,
+                            env.tile_flv(gc).special);
 
         ret = true;
     }
@@ -1257,7 +1262,7 @@ bool tile_dungeon_tip(const coord_def &gc, string &tip)
         cmd.push_back(CMD_RESISTS_SCREEN);
 
         // Religion.
-        if (you.religion != GOD_NO_GOD)
+        if (!you_worship(GOD_NO_GOD))
         {
             _add_tip(tip, "[Shift + R-Click] Religion (%)");
             cmd.push_back(CMD_DISPLAY_RELIGION);

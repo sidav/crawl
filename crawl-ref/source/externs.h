@@ -361,7 +361,9 @@ struct delay_queue_item
     int         parm2;
     int         parm3;
     bool        started;
+#if TAG_MAJOR_VERSION == 34
     int         trits[6];
+#endif
     size_t      len;
 };
 
@@ -391,10 +393,6 @@ public:
         : branch(br), depth(dep)
     {
     }
-    level_id(const level_id &ot)
-        : branch(ot.branch), depth(ot.depth)
-    {
-    }
 
     static level_id parse_level_id(const string &s) throw (string);
     static level_id from_packed_place(const unsigned short place);
@@ -416,13 +414,6 @@ public:
     bool is_valid() const
     {
         return (branch < NUM_BRANCHES && depth > 0);
-    }
-
-    const level_id &operator = (const level_id &id)
-    {
-        branch     = id.branch;
-        depth      = id.depth;
-        return *this;
     }
 
     bool operator == (const level_id &id) const
@@ -611,12 +602,14 @@ public:
     int mp;
     int hp;
     coord_def pos;
+    int travel_speed;
 
     FixedVector<run_check_dir,3> run_check; // array of grids to check
 
 public:
     runrest();
     void initialise(int rdir, int mode);
+    void init_travel_speed();
 
     // returns runmode
     operator int () const;

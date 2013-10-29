@@ -244,7 +244,7 @@ bool wizard_create_feature(const coord_def& pos)
     else
         mpr("Create which feature? ", MSGCH_PROMPT);
 
-    if (cancelable_get_line(specs, sizeof(specs)) || specs[0] == 0)
+    if (cancellable_get_line(specs, sizeof(specs)) || specs[0] == 0)
     {
         canned_msg(MSG_OK);
         return false;
@@ -312,6 +312,9 @@ bool wizard_create_feature(const coord_def& pos)
     if (feat == DNGN_ENTER_PORTAL_VAULT)
         return wizard_create_portal(pos);
 
+    if (feat_is_trap(feat, true))
+        return debug_make_trap(pos);
+
     env.tile_flv(pos).feat = 0;
     env.tile_flv(pos).special = 0;
     env.grid_colours(pos) = 0;
@@ -335,15 +338,15 @@ void wizard_list_branches()
 {
     for (int i = 0; i < NUM_BRANCHES; ++i)
     {
-        if (branches[i].parent_branch == NUM_BRANCHES)
+        if (parent_branch((branch_type)i) == NUM_BRANCHES)
             continue;
         else if (startdepth[i] != -1)
         {
             mprf(MSGCH_DIAGNOSTICS, "Branch %d (%s) is on level %d of %s",
                  i, branches[i].longname, startdepth[i],
-                 branches[branches[i].parent_branch].abbrevname);
+                 branches[parent_branch((branch_type)i)].abbrevname);
         }
-        else if (is_random_lair_subbranch((branch_type)i))
+        else if (is_random_subbranch((branch_type)i))
         {
             mprf(MSGCH_DIAGNOSTICS, "Branch %d (%s) was not generated "
                  "this game", i, branches[i].longname);
@@ -358,6 +361,9 @@ void wizard_list_branches()
 
     CrawlVector &levels = you.props[OVERFLOW_TEMPLES_KEY].get_vector();
 
+    vector<string> temple_strings;
+    vector<string> god_names;
+
     for (unsigned int i = 0; i < levels.size(); i++)
     {
         CrawlStoreValue &val = levels[i];
@@ -371,10 +377,11 @@ void wizard_list_branches()
         if (temples.empty())
             continue;
 
-        vector<string> god_names;
+        temple_strings.clear();
 
         for (unsigned int j = 0; j < temples.size(); j++)
         {
+            god_names.clear();
             CrawlHashTable &temple_hash = temples[j];
             CrawlVector    &gods        = temple_hash[TEMPLE_GODS_KEY];
 
@@ -384,12 +391,14 @@ void wizard_list_branches()
 
                 god_names.push_back(god_name(god));
             }
+            temple_strings.push_back(
+                comma_separated_line(god_names.begin(), god_names.end()));
         }
 
         mprf(MSGCH_DIAGNOSTICS, "%u on D:%u (%s)", temples.size(),
              i + 1,
-             comma_separated_line(god_names.begin(),
-                                   god_names.end()).c_str()
+             comma_separated_line(temple_strings.begin(),
+                                  temple_strings.end(), "; ", "; ").c_str()
           );
     }
 }
@@ -425,33 +434,37 @@ static int find_trap_slot()
     return -1;
 }
 
-void debug_make_trap()
+bool debug_make_trap(const coord_def& pos)
 {
     char requested_trap[80];
     int trap_slot  = find_trap_slot();
     trap_type trap = TRAP_UNASSIGNED;
-    int gridch     = grd(you.pos());
+    int gridch     = grd(pos);
 
     if (trap_slot == -1)
     {
         mpr("Sorry, this level can't take any more traps.");
-        return;
+        return false;
     }
 
     if (gridch != DNGN_FLOOR)
     {
         mpr("You need to be on a floor square to make a trap.");
-        return;
+        return false;
     }
 
     msgwin_get_line("What kind of trap? ",
                     requested_trap, sizeof(requested_trap));
     if (!*requested_trap)
-        return;
+        return false;
 
     string spec = lowercase_string(requested_trap);
     vector<trap_type> matches;
     vector<string>    match_names;
+
+    if (spec == "random" || spec == "any")
+        trap = TRAP_RANDOM;
+
     for (int t = TRAP_DART; t < NUM_TRAPS; ++t)
     {
         const trap_type tr = static_cast<trap_type>(t);
@@ -473,7 +486,7 @@ void debug_make_trap()
         if (matches.empty())
         {
             mprf("I know no traps named \"%s\".", spec.c_str());
-            return;
+            return false;
         }
         // Only one match, use that
         else if (matches.size() == 1)
@@ -484,21 +497,24 @@ void debug_make_trap()
             prefix += spec;
             prefix += "', possible matches are: ";
             mpr_comma_separated_list(prefix, match_names);
-
-            return;
+            return false;
         }
     }
 
-    if (place_specific_trap(you.pos(), trap))
+    bool success = place_specific_trap(you.pos(), trap);
+    if (success)
     {
         mprf("Created a %s trap, marked it undiscovered.",
-             trap_name(trap).c_str());
+             (trap == TRAP_RANDOM) ? "random"
+                                   : trap_name(trap).c_str());
     }
     else
         mpr("Could not create trap - too many traps on level.");
 
     if (trap == TRAP_SHAFT && !is_valid_shaft_level())
         mpr("NOTE: Shaft traps aren't valid on this level.");
+
+    return success;
 }
 
 bool debug_make_shop(const coord_def& pos)
@@ -589,7 +605,10 @@ static void debug_load_map_by_name(string name, bool primary)
             prompt += matches[0];
             prompt += "', use that?";
             if (!yesno(prompt.c_str(), true, 'y'))
+            {
+                canned_msg(MSG_OK);
                 return;
+            }
 
             toplace = find_map_by_name(matches[0]);
         }
@@ -677,7 +696,7 @@ void debug_place_map(bool primary)
     mesclr();
     mprf(MSGCH_PROMPT, primary ? "Enter map name: " :
          "Enter map name (prefix it with * for local placement): ");
-    if (cancelable_get_line(what_to_make, sizeof what_to_make,
+    if (cancellable_get_line(what_to_make, sizeof what_to_make,
                             primary ? &primary_hist : &mini_hist))
     {
         canned_msg(MSG_OK);
@@ -823,7 +842,7 @@ void wizard_recreate_level()
         if (mons_is_unique(mi->type))
         {
             remove_unique_annotation(*mi);
-            you.unique_creatures[mi->type] = false;
+            you.unique_creatures.set(mi->type, false);
             mi->flags |= MF_TAKING_STAIRS; // no Abyss transit
         }
     }
@@ -863,7 +882,7 @@ void wizard_abyss_speed()
     mprf(MSGCH_PROMPT, "Set abyss speed to what? (now %d, higher value = "
                        "higher speed) ", you.abyss_speed);
 
-    if (!cancelable_get_line(specs, sizeof(specs)))
+    if (!cancellable_get_line(specs, sizeof(specs)))
     {
         const int speed = atoi(specs);
         if (speed || specs[0] == '0')

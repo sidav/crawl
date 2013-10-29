@@ -90,7 +90,9 @@ enum hints_event_type
     HINT_YOU_RESIST,
     // status changes
     HINT_YOU_ENCHANTED,
+#if TAG_MAJOR_VERSION == 34
     HINT_CONTAMINATED_CHUNK,
+#endif
     HINT_YOU_SICK,
     HINT_YOU_POISON,
     HINT_YOU_ROTTING,
@@ -153,6 +155,7 @@ void hints_load_game(void);
 formatted_string hints_starting_info2();
 void hints_starting_screen(void);
 void hints_new_turn();
+void print_hint(string key, const string arg1 = "", const string arg2 = "");
 void hints_death_screen(void);
 void hints_finished(void);
 

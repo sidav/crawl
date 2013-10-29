@@ -184,10 +184,7 @@
 # easy_confirm  = (none | safe | all)
 # allow_self_target      = (yes | no | prompt)
 # confirm_butcher        = (auto | always | never)
-# prefer_safe_chunks     = false
 # easy_eat_chunks        = true
-# easy_eat_gourmand      = true
-# easy_eat_contaminated  = true
 # auto_eat_chunks        = true
 # auto_drop_chunks       = (never | rotten | yes)
 # prompt_for_swap        = false
@@ -224,7 +221,7 @@
 # msg_condense_repeats   = false
 # msg_condense_short     = false
 # skill_focus            = false
-# show_travel_trail       = true
+# show_travel_trail       = false (true for online)
 
 ##### 3-j       Colours (messages and menus) ##########
 #

@@ -135,12 +135,6 @@ static bool _god_fits_artefact(const god_type which_god, const item_def &item,
 
     switch (which_god)
     {
-    case GOD_BEOGH:
-        // Orc god: no orc slaying.
-        if (brand == SPWPN_ORC_SLAYING)
-            return false;
-        break;
-
     case GOD_ELYVILON:
         // Peaceful healer god: no berserking.
         if (artefact_wpn_property(item, ARTP_ANGRY)
@@ -362,13 +356,13 @@ void autoid_unrand(item_def &item)
 
 unique_item_status_type get_unique_item_status(int art)
 {
-    ASSERT(art > UNRAND_START && art < UNRAND_LAST);
+    ASSERT_RANGE(art, UNRAND_START + 1, UNRAND_LAST);
     return you.unique_items[art - UNRAND_START];
 }
 
 static void _set_unique_item_status(int art, unique_item_status_type status)
 {
-    ASSERT(art > UNRAND_START && art < UNRAND_LAST);
+    ASSERT_RANGE(art, UNRAND_START + 1, UNRAND_LAST);
     you.unique_items[art - UNRAND_START] = status;
 }
 
@@ -708,19 +702,7 @@ static void _get_randart_properties(const item_def &item,
 
     if (aclass == OBJ_WEAPONS) // Only weapons get brands, of course.
     {
-        proprt[ARTP_BRAND] = SPWPN_FLAMING + random2(16);        // brand
-
-        if (one_chance_in(6))
-            proprt[ARTP_BRAND] = SPWPN_FLAMING + random2(2);
-
-        if (one_chance_in(6))
-            proprt[ARTP_BRAND] = SPWPN_ORC_SLAYING + random2(5);
-
-        if (one_chance_in(6))
-            proprt[ARTP_BRAND] = SPWPN_VORPAL;
-
-        if (proprt[ARTP_BRAND] == SPWPN_PROTECTION || proprt[ARTP_BRAND] == SPWPN_EVASION)
-            proprt[ARTP_BRAND] = SPWPN_NORMAL;      // no protection or evasion
+        power_level++; // at least a brand
 
         if (is_range_weapon(item))
         {
@@ -744,50 +726,42 @@ static void _get_randart_properties(const item_def &item,
                     proprt[ARTP_BRAND] = SPWPN_PENETRATION;
             }
         }
-
-        // Quarter of the chance of distortion elsewhere.
-        if (!is_range_weapon(item) && one_chance_in(100))
-            proprt[ARTP_BRAND] = SPWPN_DISTORTION;
-        else if (is_demonic(item))
+        else if (is_demonic(item) && x_chance_in_y(7, 9))
         {
-            switch (random2(9))
-            {
-            case 0:
-                proprt[ARTP_BRAND] = SPWPN_DRAINING;
-                break;
-            case 1:
-                proprt[ARTP_BRAND] = SPWPN_FLAMING;
-                break;
-            case 2:
-                proprt[ARTP_BRAND] = SPWPN_FREEZING;
-                break;
-            case 3:
-                proprt[ARTP_BRAND] = SPWPN_ELECTROCUTION;
-                break;
-            case 4:
-                proprt[ARTP_BRAND] = SPWPN_VAMPIRICISM;
-                break;
-            case 5:
-                proprt[ARTP_BRAND] = SPWPN_PAIN;
-                break;
-            case 6:
-                proprt[ARTP_BRAND] = SPWPN_VENOM;
-                break;
-            default:
-                power_level -= 2;
-            }
-            power_level += 2;
+            proprt[ARTP_BRAND] = random_choose(
+                SPWPN_DRAINING,
+                SPWPN_FLAMING,
+                SPWPN_FREEZING,
+                SPWPN_ELECTROCUTION,
+                SPWPN_VAMPIRICISM,
+                SPWPN_PAIN,
+                SPWPN_VENOM,
+                -1);
+            power_level++; // Demon weapons get an extra penalty -- why?
+            // fall back to regular melee brands 2/9 of the time
         }
-        else if (one_chance_in(3))
-            proprt[ARTP_BRAND] = SPWPN_NORMAL;
         else
-            power_level++;
-
-        if (!is_weapon_brand_ok(atype, proprt[ARTP_BRAND], true))
         {
-            proprt[ARTP_BRAND] = SPWPN_NORMAL;
-            power_level--;
+            proprt[ARTP_BRAND] = random_choose_weighted(
+                73, SPWPN_VORPAL,
+                34, SPWPN_FLAMING,
+                34, SPWPN_FREEZING,
+                26, SPWPN_DRAGON_SLAYING,
+                26, SPWPN_VENOM,
+                26, SPWPN_DRAINING,
+                13, SPWPN_HOLY_WRATH,
+                13, SPWPN_ELECTROCUTION,
+                13, SPWPN_SPEED,
+                13, SPWPN_VAMPIRICISM,
+                13, SPWPN_PAIN,
+                13, SPWPN_ANTIMAGIC,
+                 3, SPWPN_DISTORTION,
+                 0);
         }
+
+        // no brand = magic flag to reject and retry
+        if (!is_weapon_brand_ok(atype, proprt[ARTP_BRAND], true))
+            proprt[ARTP_BRAND] = SPWPN_NORMAL;
     }
 
     if (!one_chance_in(5))
@@ -1009,7 +983,7 @@ static void _get_randart_properties(const item_def &item,
         power_level++;
     }
 
-    // Armours get fewer powers, and are also less likely to be cursed
+    // Armours get fewer powers, and are also more likely to be cursed
     // than weapons.
     if (aclass == OBJ_ARMOUR)
         power_level -= 4;
@@ -2005,8 +1979,7 @@ static void _make_octoring(item_def &item)
 
 bool make_item_unrandart(item_def &item, int unrand_index)
 {
-    ASSERT(unrand_index > UNRAND_START);
-    ASSERT(unrand_index < (UNRAND_START + NO_UNRANDARTS));
+    ASSERT_RANGE(unrand_index, UNRAND_START + 1, (UNRAND_START + NO_UNRANDARTS));
 
     item.special = unrand_index;
 

@@ -22,7 +22,7 @@ tools.
 Assassin
 
 Assassins are all about stealth, ready to stab unaware opponents. Not just
-dagger and cloak, they carry nasty curare needles for their blowgun.
+cloak and dagger, they carry nasty curare needles for their blowgun.
 %%%%
 Berserker
 
@@ -93,20 +93,15 @@ Necromancer
 Necromancers are wizards specializing in the practice of death magic. They
 start out with the Pain spell.
 %%%%
-Priest
-
-Priests are followers of Zin, spreading the god's word to the Dungeon's
-inhabitants. Hill Orcs instead follow the orc god Beogh.
-%%%%
 Skald
 
 Skalds are melee fighters who can boost themselves in battle with spells from
-the book of War Chants.
+the book of Battle.
 %%%%
 Summoner
 
-Summoners start with the book of Callings and are able to Summon Small Mammals
-from the start.
+Summoners start with the book of Callings and are able to cast Summon Small
+Mammal from the start.
 %%%%
 Transmuter
 

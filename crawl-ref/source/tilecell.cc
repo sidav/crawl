@@ -14,6 +14,7 @@ void packed_cell::clear()
     num_dngn_overlay = 0;
     fg = 0;
     bg = 0;
+    cloud = 0;
 
     flv.floor_idx = 0;
     flv.wall_idx = 0;
@@ -38,12 +39,14 @@ void packed_cell::clear()
     travel_trail     = 0;
     quad_glow        = 0;
     disjunct         = 0;
+    heat_aura        = 0;
 }
 
 bool packed_cell::operator ==(const packed_cell &other) const
 {
     if (fg != other.fg) return false;
     if (bg != other.bg) return false;
+    if (cloud != other.cloud) return false;
 
     if (is_bloody != other.is_bloody) return false;
     if (is_silenced != other.is_silenced) return false;
@@ -60,6 +63,7 @@ bool packed_cell::operator ==(const packed_cell &other) const
     if (travel_trail != other.travel_trail) return false;
     if (quad_glow != other.quad_glow) return false;
     if (disjunct != other.disjunct) return false;
+    if (heat_aura != other.heat_aura) return false;
 
     if (num_dngn_overlay != other.num_dngn_overlay) return false;
     for (int i = 0; i < num_dngn_overlay; ++i)
@@ -424,21 +428,22 @@ static bool _is_seen_wall(coord_def gc)
             && feat != DNGN_MANGROVE);
 }
 
-static void _pack_wall_shadows(const coord_def &gc, packed_cell *cell)
+static void _pack_wall_shadows(const coord_def &gc, packed_cell *cell,
+                               tileidx_t tile)
 {
-    if (_is_seen_wall(gc))
+    if (_is_seen_wall(gc) || _safe_feat(gc) == DNGN_OPEN_DOOR)
         return;
 
     if (_is_seen_wall(coord_def(gc.x - 1, gc.y)))
-        _add_overlay(TILE_DNGN_WALL_SHADOW_W, cell);
+        _add_overlay(tile, cell);
     if (_is_seen_wall(coord_def(gc.x - 1, gc.y - 1)))
-        _add_overlay(TILE_DNGN_WALL_SHADOW_NW, cell);
+        _add_overlay(tile + 1, cell);
     if (_is_seen_wall(coord_def(gc.x, gc.y - 1)))
-        _add_overlay(TILE_DNGN_WALL_SHADOW_N, cell);
+        _add_overlay(tile + 2, cell);
     if (_is_seen_wall(coord_def(gc.x + 1, gc.y - 1)))
-        _add_overlay(TILE_DNGN_WALL_SHADOW_NE, cell);
+        _add_overlay(tile + 3, cell);
     if (_is_seen_wall(coord_def(gc.x + 1, gc.y)))
-        _add_overlay(TILE_DNGN_WALL_SHADOW_E, cell);
+        _add_overlay(tile + 4, cell);
 }
 
 static bool _is_seen_slimy_wall(const coord_def& gc)
@@ -461,8 +466,14 @@ void pack_cell_overlays(const coord_def &gc, packed_cell *cell)
     if (player_in_branch(BRANCH_SLIME_PITS) &&
         env.map_knowledge(gc).feat() != DNGN_SLIMY_WALL)
     {
-        _add_directional_overlays(gc, cell, TILE_SLIME_OVERLAY, _is_seen_slimy_wall);
+        _add_directional_overlays(gc, cell, TILE_SLIME_OVERLAY,
+                                  _is_seen_slimy_wall);
     }
     else
-        _pack_wall_shadows(gc, cell);
+    {
+        tileidx_t shadow_tile = TILE_DNGN_WALL_SHADOW;
+        if (player_in_branch(BRANCH_CRYPT))
+            shadow_tile = TILE_DNGN_WALL_SHADOW_DARK;
+        _pack_wall_shadows(gc, cell, shadow_tile);
+    }
 }

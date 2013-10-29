@@ -43,9 +43,11 @@ module "crawl"
 #include "view.h"
 #include "worley.h"
 
-#ifdef UNIX
-#include <sys/time.h>
-#include <time.h>
+#ifdef TARGET_OS_WINDOWS
+# include "windows.h"
+#else
+# include <sys/time.h>
+# include <time.h>
 #endif
 
 /////////////////////////////////////////////////////////////////////
@@ -188,16 +190,16 @@ static int crawl_enable_more(lua_State *ls)
 }
 
 /*
---- Wrapper for <code>cancelable_get_line()</code>.  Since that takes
+--- Wrapper for <code>cancellable_get_line()</code>.  Since that takes
 -- a pre-allocated buffer, an arbitrary 500-character limit is
 -- currently imposed.
--- @return Either a string if one is input, or nil if input is canceled
+-- @return Either a string if one is input, or nil if input is cancelled
 function c_input_line() */
 static int crawl_c_input_line(lua_State *ls)
 {
     char linebuf[500];
 
-    bool valid = !cancelable_get_line(linebuf, sizeof linebuf);
+    bool valid = !cancellable_get_line(linebuf, sizeof linebuf);
     if (valid)
         lua_pushstring(ls, linebuf);
     else
@@ -654,7 +656,9 @@ static int crawl_article_a(lua_State *ls)
     return 1;
 }
 
-LUARET1(crawl_game_started, boolean, crawl_state.need_save)
+LUARET1(crawl_game_started, boolean, crawl_state.need_save
+                                     || crawl_state.map_stat_gen
+                                     || crawl_state.test)
 LUARET1(crawl_stat_gain_prompt, boolean, crawl_state.stat_gain_prompt)
 LUARET1(crawl_random2, number, random2(luaL_checkint(ls, 1)))
 LUARET1(crawl_one_chance_in, boolean, one_chance_in(luaL_checkint(ls, 1)))
@@ -674,6 +678,7 @@ LUARET1(crawl_div_rand_round, number, div_rand_round(luaL_checkint(ls, 1),
                                                      luaL_checkint(ls, 2)))
 LUARET1(crawl_random_real, number, random_real())
 
+// Get the full worley noise datum for a given point
 static int crawl_worley(lua_State *ls)
 {
     double px = lua_tonumber(ls,1);
@@ -692,6 +697,41 @@ static int crawl_worley(lua_State *ls)
     lua_pushnumber(ls, n.pos[1][1]);
     lua_pushnumber(ls, n.pos[1][2]);
     return 10;
+}
+
+// Simpler return value for normal situations where we just
+// want the difference between the nearest point distances.
+// Also returns the id in case we want a per-node number.
+static int crawl_worley_diff(lua_State *ls)
+{
+    double px = lua_tonumber(ls,1);
+    double py = lua_tonumber(ls,2);
+    double pz = lua_tonumber(ls,3);
+
+    worley::noise_datum n = worley::noise(px,py,pz);
+    lua_pushnumber(ls, n.distance[1]-n.distance[0]);
+    lua_pushnumber(ls, n.id[0]);
+
+    return 2;
+}
+
+// Splits a 32-bit integer into four bytes. This is useful
+// in conjunction with worley ids to get four random numbers
+// instead of one from the current node id.
+static int crawl_split_bytes(lua_State *ls)
+{
+    uint32_t val = lua_tonumber(ls,1);
+    uint8_t bytes[4] = {
+        (uint8_t)(val >> 24),
+        (uint8_t)(val >> 16),
+        (uint8_t)(val >> 8),
+        (uint8_t)(val)
+    };
+    lua_pushnumber(ls, bytes[0]);
+    lua_pushnumber(ls, bytes[1]);
+    lua_pushnumber(ls, bytes[2]);
+    lua_pushnumber(ls, bytes[3]);
+    return 4;
 }
 
 // Supports 2D-4D Simplex noise. The first two parameters are required
@@ -794,6 +834,7 @@ LUAWRAP(crawl_endgame, screen_end_game(luaL_checkstring(ls, 1)))
 LUAWRAP(crawl_tutorial_hunger, set_tutorial_hunger(luaL_checkint(ls, 1)))
 LUAWRAP(crawl_tutorial_skill, set_tutorial_skill(luaL_checkstring(ls, 1), luaL_checkint(ls, 2)))
 LUAWRAP(crawl_tutorial_hint, tutorial_init_hint(luaL_checkstring(ls, 1)))
+LUAWRAP(crawl_print_hint, print_hint(luaL_checkstring(ls, 1)))
 
 static int crawl_random_element(lua_State *ls)
 {
@@ -889,18 +930,6 @@ static int crawl_tutorial_msg(lua_State *ls)
     return 0;
 }
 
-/*
---- Warn about listopt = value when the semantics are slated to change.
-function l_warn_list_append(key) */
-static int crawl_warn_list_append(lua_State *ls)
-{
-    const char *key = luaL_checkstring(ls, 1);
-    if (!key)
-        return 0;
-    warn_list_append.insert(key);
-    return 0;
-}
-
 LUAWRAP(crawl_dump_char, dump_char(you.your_name, true))
 
 #ifdef WIZARD
@@ -978,7 +1007,10 @@ static const struct luaL_reg crawl_clib[] =
     { "div_rand_round", crawl_div_rand_round },
     { "random_real",    crawl_random_real },
     { "worley",         crawl_worley },
+    { "worley_diff",    crawl_worley_diff },
+    { "split_bytes",    crawl_split_bytes },
     { "simplex",        crawl_simplex },
+
     { "redraw_screen",  crawl_redraw_screen },
     { "c_input_line",   crawl_c_input_line},
     { "getch",          crawl_getch },
@@ -1014,7 +1046,6 @@ static const struct luaL_reg crawl_clib[] =
     { "get_command",    crawl_get_command },
     { "endgame",        crawl_endgame },
     { "tutorial_msg",   crawl_tutorial_msg },
-    { "warn_list_append", crawl_warn_list_append },
     { "dump_char",      crawl_dump_char },
 #ifdef WIZARD
     { "call_dlua",      crawl_call_dlua },
@@ -1073,23 +1104,25 @@ LUAFN(_crawl_redraw_stats)
     return 0;
 }
 
-
-#ifdef UNIX
 LUAFN(_crawl_millis)
 {
+#ifdef TARGET_OS_WINDOWS
+    // MSVC has no gettimeofday().
+    FILETIME ft;
+    GetSystemTimeAsFileTime(&ft);
+    uint64_t tt = ft.dwHighDateTime;
+    tt <<= 32;
+    tt |= ft.dwLowDateTime;
+    tt /= 10000;
+    tt -= 11644473600000ULL;
+    lua_pushnumber(ls, tt);
+#else
     struct timeval tv;
-    struct timezone tz;
-    const int error = gettimeofday(&tv, &tz);
-    if (error)
-    {
-        luaL_error(ls, make_stringf("Failed to get time: %s",
-                                    strerror(error)).c_str());
-    }
-
+    gettimeofday(&tv, nullptr);
     lua_pushnumber(ls, tv.tv_sec * 1000 + tv.tv_usec / 1000);
+#endif
     return 1;
 }
-#endif
 
 static string _crawl_make_name(lua_State *ls)
 {
@@ -1184,14 +1217,13 @@ static const struct luaL_reg crawl_dlib[] =
 { "redraw_view", _crawl_redraw_view },
 { "redraw_stats", _crawl_redraw_stats },
 { "god_speaks", _crawl_god_speaks },
-#ifdef UNIX
 { "millis", _crawl_millis },
-#endif
 { "make_name", crawl_make_name },
 { "set_max_runes", _crawl_set_max_runes },
 { "tutorial_hunger", crawl_tutorial_hunger },
 { "tutorial_skill",  crawl_tutorial_skill },
 { "tutorial_hint",   crawl_tutorial_hint },
+{ "print_hint", crawl_print_hint },
 { "mark_game_won", _crawl_mark_game_won },
 { "hints_type", crawl_hints_type },
 

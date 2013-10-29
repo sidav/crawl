@@ -401,8 +401,7 @@ static card_type _choose_from_archetype(const deck_archetype* pdeck,
                                         deck_rarity_type rarity)
 {
     // Random rarity should have been replaced by one of the others by now.
-    ASSERT(rarity >= DECK_RARITY_COMMON);
-    ASSERT(rarity <= DECK_RARITY_LEGENDARY);
+    ASSERT_RANGE(rarity, DECK_RARITY_COMMON, DECK_RARITY_LEGENDARY + 1);
 
     // FIXME: We should use one of the various choose_random_weighted
     // functions here, probably with an iterator, instead of
@@ -1345,7 +1344,7 @@ void evoke_deck(item_def& deck)
 
     // Passive Nemelex retribution: sometimes a card gets swapped out.
     // More likely to happen with marked decks.
-    if (you.penance[GOD_NEMELEX_XOBEH])
+    if (player_under_penance(GOD_NEMELEX_XOBEH))
     {
         int c = 1;
         if ((flags & (CFLAG_MARKED | CFLAG_SEEN))
@@ -1459,7 +1458,7 @@ static void _portal_card(int power, deck_rarity_type rarity)
     if (x_chance_in_y(control_level, 2))
         controlled = true;
 
-    int threshold = 6;
+    int threshold = 9;
     const bool was_controlled = player_control_teleport();
     const bool short_control = (you.duration[DUR_CONTROL_TELEPORT] > 0
                                 && you.duration[DUR_CONTROL_TELEPORT]
@@ -1485,8 +1484,8 @@ static void _warp_card(int power, deck_rarity_type rarity)
     const int control_level = _get_power_level(power, rarity);
     if (control_level >= 2)
         blink(1000, false);
-    else if (control_level == 1)
-        cast_semi_controlled_blink(power / 4, false);
+    else if (control_level == 1 && allow_control_teleport(true))
+        cast_semi_controlled_blink(power / 4, false, false);
     else
         random_blink(false);
 }
@@ -1504,7 +1503,7 @@ static void _swap_monster_card(int power, deck_rarity_type rarity)
 
 static void _velocity_card(int power, deck_rarity_type rarity)
 {
-    if (you.religion == GOD_CHEIBRIADOS)
+    if (you_worship(GOD_CHEIBRIADOS))
         return simple_god_message(" protects you from inadvertent hurry.");
 
     const int power_level = _get_power_level(power, rarity);
@@ -1530,7 +1529,7 @@ static void _damnation_card(int power, deck_rarity_type rarity)
     // Calculate how many extra banishments you get.
     const int power_level = _get_power_level(power, rarity);
     int nemelex_bonus = 0;
-    if (you.religion == GOD_NEMELEX_XOBEH && !player_under_penance())
+    if (you_worship(GOD_NEMELEX_XOBEH) && !player_under_penance())
         nemelex_bonus = you.piety;
 
     int extra_targets = power_level + random2(you.skill(SK_EVOCATIONS, 20)
@@ -1603,7 +1602,7 @@ static void _flight_card(int power, deck_rarity_type rarity)
     else if (power_level >= 1)
     {
         cast_fly(random2(power/4));
-        if (you.religion != GOD_CHEIBRIADOS)
+        if (!you_worship(GOD_CHEIBRIADOS))
             cast_swiftness(random2(power/4));
         else
             simple_god_message(" protects you from inadvertent hurry.");
@@ -1681,7 +1680,7 @@ static void _stairs_card(int power, deck_rarity_type rarity)
         return;
     }
 
-    random_shuffle(stairs_avail.begin(), stairs_avail.end());
+    shuffle_array(stairs_avail);
 
     for (unsigned int i = 0; i < stairs_avail.size(); ++i)
         move_stair(stairs_avail[i], stair_draw_count % 2, false);
@@ -1711,7 +1710,7 @@ static void _damaging_card(card_type card, int power, deck_rarity_type rarity,
     switch (card)
     {
     case CARD_VITRIOL:
-        ztype = (one_chance_in(3) ? ZAP_CIGOTUVIS_DEGENERATION : ZAP_BREATHE_ACID);
+        ztype = ZAP_BREATHE_ACID;
         break;
 
     case CARD_FLAME:
@@ -1894,7 +1893,10 @@ static void _blade_card(int power, deck_rarity_type rarity)
     if (Options.auto_list)
         more();
 
+    // Don't take less time if we're swapping weapons.
+    int old_time = you.time_taken;
     wield_weapon(false);
+    you.time_taken = old_time;
 
     const int power_level = _get_power_level(power, rarity);
     brand_type brand;
@@ -1964,7 +1966,7 @@ static void _potion_card(int power, deck_rarity_type rarity)
     if (power_level >= 2 && coinflip())
         pot = (coinflip() ? POT_SPEED : POT_RESISTANCE);
 
-    if (you.religion == GOD_CHEIBRIADOS && pot == POT_SPEED)
+    if (you_worship(GOD_CHEIBRIADOS) && pot == POT_SPEED)
     {
         simple_god_message(" protects you from inadvertent hurry.");
         return;
@@ -2022,8 +2024,9 @@ static void _focus_card(int power, deck_rarity_type rarity)
 
 static void _shuffle_card(int power, deck_rarity_type rarity)
 {
-    int perm[NUM_STATS] = { 0, 1, 2 };
-    random_shuffle(perm, perm + 3);
+    int perm[] = { 0, 1, 2 };
+    COMPILE_CHECK(ARRAYSZ(perm) == NUM_STATS);
+    shuffle_array(perm, NUM_STATS);
 
     FixedVector<int8_t, NUM_STATS> new_base;
     for (int i = 0; i < NUM_STATS; ++i)
@@ -2060,7 +2063,7 @@ static void _experience_card(int power, deck_rarity_type rarity)
     skill_menu(SKMF_EXPERIENCE_CARD, min(200 + power * 50, HIGH_EXP_POOL));
 
     // After level 27, boosts you get don't get increased (matters for
-    // charging V:8 with no rN+++ and for felids).
+    // charging V:$ with no rN+++ and for felids).
     const int xp_cap = exp_needed(1 + you.experience_level)
                      - exp_needed(you.experience_level);
 
@@ -2597,7 +2600,7 @@ static void _summon_animals(int power)
     // Maybe we should just generate a Lair monster instead (and
     // guarantee that it is mobile)?
     const monster_type animals[] = {
-        MONS_ORANGE_RAT, MONS_WAR_DOG, MONS_SHEEP, MONS_YAK,
+        MONS_ORANGE_RAT, MONS_SHEEP, MONS_YAK,
         MONS_HOG, MONS_SOLDIER_ANT, MONS_WOLF,
         MONS_GRIZZLY_BEAR, MONS_POLAR_BEAR, MONS_BLACK_BEAR,
         MONS_AGATE_SNAIL, MONS_BORING_BEETLE, MONS_BASILISK,
@@ -2787,8 +2790,8 @@ static void _mercenary_card(int power, deck_rarity_type rarity)
 {
     const int power_level = _get_power_level(power, rarity);
     const monster_type merctypes[] = {
-        MONS_BIG_KOBOLD, MONS_MERFOLK, MONS_TENGU,
-        MONS_DEEP_DWARF_SCION, MONS_ORC_KNIGHT, MONS_CENTAUR_WARRIOR,
+        MONS_BIG_KOBOLD, MONS_MERFOLK, MONS_NAGA,
+        MONS_TENGU, MONS_ORC_KNIGHT, MONS_CENTAUR_WARRIOR,
         MONS_SPRIGGAN_RIDER, MONS_OGRE_MAGE, MONS_MINOTAUR,
         RANDOM_BASE_DRACONIAN, MONS_DEEP_ELF_BLADEMASTER,
     };
@@ -2871,53 +2874,47 @@ bool recruit_mercenary(int mid)
 static void _alchemist_card(int power, deck_rarity_type rarity)
 {
     const int power_level = _get_power_level(power, rarity);
-    int gold_used = min(you.gold, random2avg(100, 2) * (1 + power_level));
-    bool done_stuff = false;
+    const int orig_gold = you.gold;
+    int gold_available = min(you.gold, random2avg(100, 2) * (1 + power_level));
 
-    you.del_gold(gold_used);
-    dprf("%d gold available to spend.", gold_used);
+    you.del_gold(gold_available);
+    dprf("%d gold available to spend.", gold_available);
 
-    // Spend some gold to regain health
-    int hp = min(gold_used / 3, you.hp_max - you.hp);
+    // Spend some gold to regain health.
+    int hp = min(gold_available / 3, you.hp_max - you.hp);
     if (hp > 0)
     {
         inc_hp(hp);
-        gold_used -= hp * 2;
-        done_stuff = true;
+        gold_available -= hp * 2;
         mpr("You feel better.");
-        dprf("Gained %d health, %d gold remaining.", hp, gold_used);
+        dprf("Gained %d health, %d gold remaining.", hp, gold_available);
     }
-
-    // Maybe spend some more gold to regain magic
-    if (x_chance_in_y(power_level + 1, 5))
+    // Maybe spend some more gold to regain magic.
+    int mp = min(gold_available / 5, you.max_magic_points - you.magic_points);
+    if (mp > 0 && x_chance_in_y(power_level + 1, 5))
     {
-        int mp = min(gold_used / 5, you.max_magic_points - you.magic_points);
-        if (mp > 0)
-        {
-            inc_mp(mp);
-            gold_used -= mp * 5;
-            done_stuff = true;
-            mpr("You feel your power returning.");
-            dprf("Gained %d magic, %d gold remaining.", mp, gold_used);
-        }
+        inc_mp(mp);
+        gold_available -= mp * 5;
+        mpr("You feel your power returning.");
+        dprf("Gained %d magic, %d gold remaining.", mp, gold_available);
     }
 
-    if (done_stuff)
-        mpr("Some of your gold vanishes!");
+    // Add back any remaining gold.
+    you.add_gold(gold_available);
+    const int gold_used = orig_gold - you.gold;
+    if (gold_used > 0)
+        mprf("%d of your gold pieces vanish!", gold_used);
     else
         canned_msg(MSG_NOTHING_HAPPENS);
-
-    // Add back any remaining gold
-    you.add_gold(gold_used);
 }
 
 static int _card_power(deck_rarity_type rarity)
 {
     int result = 0;
 
-    if (you.penance[GOD_NEMELEX_XOBEH])
+    if (player_under_penance(GOD_NEMELEX_XOBEH))
         result -= you.penance[GOD_NEMELEX_XOBEH];
-    else if (you.religion == GOD_NEMELEX_XOBEH)
+    else if (you_worship(GOD_NEMELEX_XOBEH))
     {
         result = you.piety;
         result *= (you.skill(SK_EVOCATIONS, 100) + 2500);
@@ -2965,14 +2962,14 @@ void card_effect(card_type which_card, deck_rarity_type rarity,
 
     if (which_card == CARD_XOM && !crawl_state.is_god_acting())
     {
-        if (you.religion == GOD_XOM)
+        if (you_worship(GOD_XOM))
         {
             // Being a self-centered deity, Xom *always* finds this
             // maximally hilarious.
             god_speaks(GOD_XOM, "Xom roars with laughter!");
             you.gift_timeout = 200;
         }
-        else if (you.penance[GOD_XOM])
+        else if (player_under_penance(GOD_XOM))
             god_speaks(GOD_XOM, "Xom laughs nastily.");
     }
 
@@ -3023,15 +3020,6 @@ void card_effect(card_type which_card, deck_rarity_type rarity,
     case CARD_MERCENARY:        _mercenary_card(power, rarity); break;
 
     case CARD_VENOM:
-        if (coinflip())
-        {
-            mprf("You have %s %s.", participle, card_name(which_card));
-            your_spells(SPELL_OLGREBS_TOXIC_RADIANCE, random2(power/4), false);
-        }
-        else
-            _damaging_card(which_card, power, rarity, flags & CFLAG_DEALT);
-        break;
-
     case CARD_VITRIOL:
     case CARD_FLAME:
     case CARD_FROST:
@@ -3138,13 +3126,10 @@ colour_t deck_rarity_to_colour(deck_rarity_type rarity)
     switch (rarity)
     {
     case DECK_RARITY_COMMON:
-    {
-        const colour_t colours[] = {LIGHTBLUE, GREEN, CYAN, RED};
-        return RANDOM_ELEMENT(colours);
-    }
+        return GREEN;
 
     case DECK_RARITY_RARE:
-        return coinflip() ? MAGENTA : BROWN;
+        return MAGENTA;
 
     case DECK_RARITY_LEGENDARY:
         return LIGHTMAGENTA;
@@ -3162,8 +3147,7 @@ void init_deck(item_def &item)
 
     ASSERT(is_deck(item));
     ASSERT(!props.exists("cards"));
-    ASSERT(item.plus > 0);
-    ASSERT(item.plus <= 127);
+    ASSERT_RANGE(item.plus, 1, 128);
     ASSERT(item.special >= DECK_RARITY_COMMON
            && item.special <= DECK_RARITY_LEGENDARY);
 

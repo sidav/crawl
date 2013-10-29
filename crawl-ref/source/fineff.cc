@@ -6,6 +6,7 @@
 
 #include "AppHdr.h"
 #include "coord.h"
+#include "dactions.h"
 #include "effects.h"
 #include "env.h"
 #include "fineff.h"
@@ -17,6 +18,7 @@
 #include "ouch.h"
 #include "religion.h"
 #include "state.h"
+#include "transform.h"
 #include "view.h"
 
 void final_effect::schedule()
@@ -82,7 +84,8 @@ bool blood_fineff::mergeable(const final_effect &fe) const
 bool deferred_damage_fineff::mergeable(const final_effect &fe) const
 {
     const deferred_damage_fineff *o = dynamic_cast<const deferred_damage_fineff *>(&fe);
-    return o && att == o->att && def == o->def;
+    return o && att == o->att && def == o->def
+           && attacker_effects == o->attacker_effects && fatal == o->fatal;
 }
 
 bool starcursed_merge_fineff::mergeable(const final_effect &fe) const
@@ -91,11 +94,17 @@ bool starcursed_merge_fineff::mergeable(const final_effect &fe) const
     return o && def == o->def;
 }
 
+bool delayed_action_fineff::mergeable(const final_effect &fe) const
+{
+    return false;
+}
+
 void mirror_damage_fineff::merge(const final_effect &fe)
 {
     const mirror_damage_fineff *mdfe =
         dynamic_cast<const mirror_damage_fineff *>(&fe);
-    ASSERT(mdfe && mergeable(*mdfe));
+    ASSERT(mdfe);
+    ASSERT(mergeable(*mdfe));
     damage += mdfe->damage;
 }
 
@@ -103,14 +112,16 @@ void trj_spawn_fineff::merge(const final_effect &fe)
 {
     const trj_spawn_fineff *trjfe =
         dynamic_cast<const trj_spawn_fineff *>(&fe);
-    ASSERT(trjfe && mergeable(*trjfe));
+    ASSERT(trjfe);
+    ASSERT(mergeable(*trjfe));
     damage += trjfe->damage;
 }
 
 void blood_fineff::merge(const final_effect &fe)
 {
     const blood_fineff *bfe = dynamic_cast<const blood_fineff *>(&fe);
-    ASSERT(bfe && mergeable(*bfe));
+    ASSERT(bfe);
+    ASSERT(mergeable(*bfe));
     blood += bfe->blood;
 }
 
@@ -118,7 +129,8 @@ void deferred_damage_fineff::merge(const final_effect &fe)
 {
     const deferred_damage_fineff *ddamfe =
         dynamic_cast<const deferred_damage_fineff *>(&fe);
-    ASSERT(ddamfe && mergeable(*ddamfe));
+    ASSERT(ddamfe);
+    ASSERT(mergeable(*ddamfe));
     damage += ddamfe->damage;
 }
 
@@ -271,7 +283,20 @@ void blood_fineff::fire()
 void deferred_damage_fineff::fire()
 {
     if (actor *df = defender())
-        df->hurt(attacker(), damage);
+    {
+        if (!fatal)
+        {
+            // Cap non-fatal damage by the defender's hit points
+            // FIXME: Consider adding a 'fatal' parameter to ::hurt
+            //        to better interact with damage reduction/boosts
+            //        which may be applied later.
+            int df_hp = df->is_player() ? you.hp
+                                        : df->as_monster()->hit_points;
+            damage = min(damage, df_hp - 1);
+        }
+
+        df->hurt(attacker(), damage, BEAM_MISSILE, true, attacker_effects);
+    }
 }
 
 void starcursed_merge_fineff::fire()
@@ -279,6 +304,22 @@ void starcursed_merge_fineff::fire()
     actor *defend = defender();
     if (defend && defend->alive())
         starcursed_merge(defender()->as_monster(), true);
+}
+
+void delayed_action_fineff::fire()
+{
+    if (final_msg.length())
+        mpr(final_msg);
+    add_daction(action);
+}
+
+void kirke_death_fineff::fire()
+{
+    delayed_action_fineff::fire();
+
+    // Revert the player last
+    if (you.form == TRAN_PIG)
+        untransform();
 }
 
 // Effects that occur after all other effects, even if the monster is dead.

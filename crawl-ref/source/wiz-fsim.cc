@@ -42,7 +42,7 @@
 
 #ifdef WIZARD
 
-fight_data null_fight = {0.0, 0, 0, 0.0, 0, 0.0};
+fight_data null_fight = {0.0, 0, 0, 0.0, 0, 0.0, 0.0};
 typedef map<skill_type, int8_t> skill_map;
 typedef map<skill_type, int8_t>::iterator skill_map_iterator;
 
@@ -215,7 +215,7 @@ static bool _fsim_kit_equip(const string &kit)
 static monster* _init_fsim()
 {
     monster * mon = NULL;
-    monster_type mtype = get_monster_by_name(Options.fsim_mons);
+    monster_type mtype = get_monster_by_name(Options.fsim_mons, true);
 
     if (mtype == MONS_PROGRAM_BUG && monster_nearby())
     {
@@ -239,17 +239,17 @@ static monster* _init_fsim()
         {
             char specs[100];
             mpr("Enter monster name (or MONS spec): ", MSGCH_PROMPT);
-            if (cancelable_get_line_autohist(specs, sizeof specs) || !*specs)
+            if (cancellable_get_line_autohist(specs, sizeof specs) || !*specs)
             {
                 canned_msg(MSG_OK);
                 return NULL;
             }
-            mtype = get_monster_by_name(specs);
+            mtype = get_monster_by_name(specs, true);
 
             // Wizmode users should be able to conjure up uniques even if they
             // were already created.
             if (mons_is_unique(mtype) && you.unique_creatures[mtype])
-                you.unique_creatures[mtype] = false;
+                you.unique_creatures.set(mtype, false);
         }
 
         mgen_data temp = mgen_data::hostile_at(mtype, "fightsim", false, 0, 0,

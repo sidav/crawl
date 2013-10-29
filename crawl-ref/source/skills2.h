@@ -14,6 +14,7 @@ const int MAX_SKILL_ORDER = 100;
 
 struct skill_state
 {
+    FixedBitVector<NUM_SKILLS>            can_train;
     FixedVector<uint8_t, NUM_SKILLS>      skills;
     FixedVector<int, NUM_SKILLS>          real_skills;    // Those two are
     FixedVector<int, NUM_SKILLS>          changed_skills; // scaled by 10.
@@ -26,7 +27,7 @@ struct skill_state
     unsigned int total_experience;
     bool auto_training;
     int exp_available;
-    int manual_charges;
+    vector<int> manual_charges;
 
     void save();
     void restore_levels();
@@ -95,13 +96,9 @@ static const skill_type skill_display_order[] =
 
     SK_BLANK_LINE,
 
-    SK_ARMOUR, SK_DODGING, SK_STEALTH, SK_SHIELDS,
+    SK_ARMOUR, SK_DODGING, SK_SHIELDS,
 
     SK_COLUMN_BREAK, SK_TITLE,
-
-    SK_STABBING, SK_TRAPS,
-
-    SK_BLANK_LINE,
 
     SK_SPELLCASTING, SK_CONJURATIONS, SK_HEXES, SK_CHARMS, SK_SUMMONINGS,
     SK_NECROMANCY, SK_TRANSLOCATIONS, SK_TRANSMUTATIONS,
@@ -109,7 +106,7 @@ static const skill_type skill_display_order[] =
 
     SK_BLANK_LINE,
 
-    SK_INVOCATIONS, SK_EVOCATIONS,
+    SK_INVOCATIONS, SK_EVOCATIONS, SK_STEALTH,
 
     SK_COLUMN_BREAK,
 };

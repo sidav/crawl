@@ -17,7 +17,6 @@
 #include "cio.h"
 #include "colour.h"
 #include "database.h"
-#include "debug.h"
 #include "delay.h"
 #include "describe.h"
 #include "effects.h"
@@ -79,8 +78,7 @@ spell_type which_spell_in_book(const item_def &book, int spl)
 
 spell_type which_spell_in_book(int sbook_type, int spl)
 {
-    ASSERT(sbook_type >= 0);
-    ASSERT(sbook_type < (int)ARRAYSZ(spellbook_template_array));
+    ASSERT_RANGE(sbook_type, 0, (int)ARRAYSZ(spellbook_template_array));
     return spellbook_template_array[sbook_type][spl];
 }
 
@@ -243,6 +241,7 @@ int book_rarity(uint8_t which_book)
 
     case BOOK_YOUNG_POISONERS:
     case BOOK_WAR_CHANTS:
+    case BOOK_BATTLE:
     case BOOK_DEBILITATION:
         return 5;
 
@@ -295,7 +294,6 @@ int book_rarity(uint8_t which_book)
 
 #if TAG_MAJOR_VERSION == 34
     case BOOK_STALKING:
-    case BOOK_MUTATIONS:
         return 100;
 #endif
 
@@ -391,7 +389,7 @@ bool player_can_memorise_from_spellbook(const item_def &book)
             && (you.skill(SK_SUMMONINGS) < 10
                 || you.skill(SK_SPELLCASTING) < 6))
         || (book.sub_type == BOOK_NECRONOMICON
-            && you.religion != GOD_KIKUBAAQUDGHA
+            && !you_worship(GOD_KIKUBAAQUDGHA)
             && (you.skill(SK_NECROMANCY) < 10
                 || you.skill(SK_SPELLCASTING) < 6)))
     {
@@ -414,11 +412,11 @@ void mark_had_book(const item_def &book)
         if (stype == SPELL_NO_SPELL)
             continue;
 
-        you.seen_spell[stype] = true;
+        you.seen_spell.set(stype);
     }
 
     if (book.sub_type == BOOK_RANDART_LEVEL)
-        ASSERT(book.plus > 0 && book.plus <= 9); // book's level
+        ASSERT_RANGE(book.plus, 1, 10); // book's level
 
     if (!book.props.exists(SPELL_LIST_KEY))
         mark_had_book(book.book_number());
@@ -426,9 +424,9 @@ void mark_had_book(const item_def &book)
 
 void mark_had_book(int booktype)
 {
-    ASSERT(booktype >= 0 && booktype <= MAX_FIXED_BOOK);
+    ASSERT_RANGE(booktype, 0, MAX_FIXED_BOOK + 1);
 
-    you.had_book[booktype] = true;
+    you.had_book.set(booktype);
 }
 
 void inscribe_book_highlevel(item_def &book)
@@ -440,29 +438,59 @@ void inscribe_book_highlevel(item_def &book)
     }
 }
 
-int read_book(item_def &book, read_book_action_type action)
+/**
+ * Identify a held book/rod, if appropriate.
+ * @return whether we can see its spells
+ */
+bool maybe_id_book(item_def &book, bool silent)
 {
+    if (book.base_type != OBJ_BOOKS && book.base_type != OBJ_RODS)
+        return false;
+
+    if (book.base_type == OBJ_BOOKS && book.sub_type == BOOK_DESTRUCTION)
+    {
+        ASSERT(fully_identified(book));
+        return false;
+    }
+
+    if (book.base_type == OBJ_BOOKS && book.sub_type == BOOK_MANUAL)
+    {
+        set_ident_flags(book, ISFLAG_IDENT_MASK);
+        return false;
+    }
+
     if (book.base_type == OBJ_BOOKS && !item_type_known(book)
         && !player_can_memorise_from_spellbook(book))
     {
-        mpr("This book is beyond your current level of understanding.");
-        more();
+        if (!silent)
+        {
+            mpr("This book is beyond your current level of understanding.");
+            more();
+        }
 
         inscribe_book_highlevel(book);
-        return 0;
+        return false;
     }
+
+    set_ident_flags(book, ISFLAG_IDENT_MASK);
+
+    if (book.base_type == OBJ_BOOKS)
+        mark_had_book(book);
+
+    return true;
+}
+
+int read_book(item_def &book, read_book_action_type action)
+{
+    if (!maybe_id_book(book))
+        return 0;
 
 #ifdef USE_TILE_WEB
     tiles_crt_control show_as_menu(CRT_MENU, "read_book");
 #endif
 
-    set_ident_flags(book, ISFLAG_IDENT_MASK);
-
     // Remember that this function is called for rods as well.
     const int keyin = spellbook_contents(book, action);
-
-    if (book.base_type == OBJ_BOOKS)
-        mark_had_book(book);
 
     if (!crawl_state.is_replaying_keys())
         redraw_screen();
@@ -476,89 +504,56 @@ bool you_cannot_memorise(spell_type spell)
     return you_cannot_memorise(spell, temp);
 }
 
-// undead is set to true if being undead prevents us from memorising the spell.
-bool you_cannot_memorise(spell_type spell, bool &undead)
+// form is set to true if a form (lich or wisp) prevents us from
+// memorising the spell.
+bool you_cannot_memorise(spell_type spell, bool &form)
 {
     bool rc = false;
 
-    if (you.form == TRAN_WISP)
+    if (you.is_undead)
     {
-        undead = false;
-        return true;
-    }
-
-    switch (you.is_undead)
-    {
-    case US_HUNGRY_DEAD: // Ghouls
         switch (spell)
         {
+        case SPELL_BORGNJORS_REVIVIFICATION:
+        case SPELL_DEATHS_DOOR:
+        case SPELL_NECROMUTATION:
+            // Prohibited to all undead.
+            rc = true;
+            break;
+
+        case SPELL_CURE_POISON:
+        case SPELL_STONESKIN:
         case SPELL_BEASTLY_APPENDAGE:
         case SPELL_BLADE_HANDS:
-        case SPELL_BORGNJORS_REVIVIFICATION:
-        case SPELL_CURE_POISON:
-        case SPELL_DEATHS_DOOR:
         case SPELL_DRAGON_FORM:
         case SPELL_ICE_FORM:
-        case SPELL_NECROMUTATION:
         case SPELL_SPIDER_FORM:
         case SPELL_STATUE_FORM:
-        case SPELL_STONESKIN:
-            rc = true;
+            // Allowed for vampires (depending on hunger).
+            rc = (you.is_undead != US_SEMI_UNDEAD);
             break;
-        default:
-            break;
-        }
-        break;
 
-    case US_SEMI_UNDEAD: // Vampires
-        switch (spell)
-        {
-        case SPELL_BORGNJORS_REVIVIFICATION:
-        case SPELL_DEATHS_DOOR:
-        case SPELL_NECROMUTATION:
-            // In addition, the above US_HUNGRY_DEAD spells are not castable
-            // when satiated or worse.
-            rc = true;
-            break;
-        default:
-            break;
-        }
-        break;
-
-    case US_UNDEAD: // Mummies
-        switch (spell)
-        {
-        case SPELL_BEASTLY_APPENDAGE:
-        case SPELL_BLADE_HANDS:
-        case SPELL_BORGNJORS_REVIVIFICATION:
-        case SPELL_CURE_POISON:
-        case SPELL_DEATHS_DOOR:
-        case SPELL_DRAGON_FORM:
-        case SPELL_ICE_FORM:
         case SPELL_INTOXICATE:
-        case SPELL_NECROMUTATION:
         case SPELL_REGENERATION:
-        case SPELL_SPIDER_FORM:
-        case SPELL_STATUE_FORM:
-        case SPELL_STONESKIN:
-            rc = true;
+            // Only prohibited for liches and mummies.
+            rc = (you.is_undead == US_UNDEAD);
             break;
+
         default:
             break;
         }
-        break;
 
-    case US_ALIVE:
-        break;
+        // If our undeath is only temporary, mark that fact. This
+        // assumes that the already undead cannot enter lich form.
+        if (rc && you.form == TRAN_LICH)
+            form = true;
     }
 
-    // If rc has been set to true before now, that was because we
-    // are (possibly temporarily) undead.
-    if (rc == true)
-        undead = true;
+    if (you.species == SP_GARGOYLE && spell == SPELL_CURE_POISON)
+        rc = true, form = false;
 
     if (you.species == SP_DEEP_DWARF && spell == SPELL_REGENERATION)
-        rc = true, undead = false;
+        rc = true, form = false;
 
     if (you.species == SP_FELID
         && (spell == SPELL_PORTAL_PROJECTILE
@@ -571,9 +566,35 @@ bool you_cannot_memorise(spell_type spell, bool &undead)
          || spell == SPELL_POISON_WEAPON
          || spell == SPELL_SURE_BLADE
          // could be useful if it didn't require wielding
-         || spell == SPELL_TUKIMAS_DANCE))
+         || spell == SPELL_TUKIMAS_DANCE
+         || spell == SPELL_SPECTRAL_WEAPON))
     {
-        rc = true, undead = false;
+        rc = true, form = false;
+    }
+
+    if (you.species == SP_DJINNI
+        && (spell == SPELL_ICE_FORM
+         || spell == SPELL_OZOCUBUS_ARMOUR
+         || spell == SPELL_DEATHS_DOOR
+         || spell == SPELL_LEDAS_LIQUEFACTION
+         || spell == SPELL_SONG_OF_SHIELDING))
+    {
+        rc = true, form = false;
+    }
+
+    if (you.species == SP_LAVA_ORC
+        && (spell == SPELL_STONESKIN
+         || spell == SPELL_OZOCUBUS_ARMOUR))
+    {
+        rc = true, form = false;
+    }
+
+    if (you.form == TRAN_WISP)
+    {
+        // If we were otherwise allowed to memorise the spell.
+        if (!rc)
+            form = true;
+        return true;
     }
 
     return rc;
@@ -1086,7 +1107,7 @@ bool can_learn_spell(bool silent)
     if (you.confused())
     {
         if (!silent)
-            mpr("You are too confused!");
+            canned_msg(MSG_TOO_CONFUSED);
         return false;
     }
 
@@ -1125,21 +1146,16 @@ bool learn_spell()
     return learn_spell(specspell);
 }
 
-// Returns a string about why an undead character can't memorise a spell.
-string desc_cannot_memorise_reason(bool undead)
+// Returns a string about why a character can't memorise a spell.
+string desc_cannot_memorise_reason(bool form)
 {
-    if (undead)
-        ASSERT(you.is_undead);
-
     string desc = "You cannot ";
-    if (you.form == TRAN_LICH || you.form == TRAN_WISP)
+    if (form)
         desc += "currently ";
     desc += "memorise or cast this spell because you are ";
 
-    if (you.form == TRAN_LICH)
-        desc += "in Lich form";
-    else if (you.form == TRAN_WISP)
-        desc += "in Wisp form";
+    if (form)
+        desc += "in " + uppercase_first(transform_name()) + " form";
     else
         desc += "a " + lowercase_string(species_name(you.species));
 
@@ -1156,10 +1172,10 @@ static bool _learn_spell_checks(spell_type specspell)
     if (already_learning_spell((int) specspell))
         return false;
 
-    bool undead = false;
-    if (you_cannot_memorise(specspell, undead))
+    bool form = false;
+    if (you_cannot_memorise(specspell, form))
     {
-        mpr(desc_cannot_memorise_reason(undead).c_str());
+        mpr(desc_cannot_memorise_reason(form).c_str());
         return false;
     }
 
@@ -1325,6 +1341,12 @@ int rod_spell(int rod)
         }
     }
 
+    if (key_is_escape(keyin) || keyin == ' ' || keyin == '\r' || keyin == '\n')
+    {
+        canned_msg(MSG_OK);
+        return -1;
+    }
+
     if (!isaalpha(keyin))
     {
         canned_msg(MSG_HUH);
@@ -1347,8 +1369,6 @@ int rod_spell(int rod)
 
     if (you.is_undead == US_UNDEAD)
         food = 0;
-    else
-        food = calc_hunger(food);
 
     if (food && (you.hunger_state == HS_STARVING || you.hunger <= food)
         && !you.is_undead)
@@ -1428,7 +1448,8 @@ static bool _compare_spells(spell_type a, spell_type b)
             if (b_type == NULL && (schools_b & mask))
                 b_type = spelltype_long_name(mask);
         }
-        ASSERT(a_type != NULL && b_type != NULL);
+        ASSERT(a_type != NULL);
+        ASSERT(b_type != NULL);
         return (strcmp(a_type, b_type) < 0);
     }
 
@@ -1589,7 +1610,7 @@ bool make_book_level_randart(item_def &book, int level, int num_spells,
 
         level = random_range(1, max_level);
     }
-    ASSERT(level > 0 && level <= 9);
+    ASSERT_RANGE(level, 0 + 1, 9 + 1);
 
     if (num_spells == -1)
     {
@@ -1597,7 +1618,7 @@ bool make_book_level_randart(item_def &book, int level, int num_spells,
         num_spells = min(5 + (level - 1)/3, 18 - 2*level);
         num_spells = max(1, num_spells);
     }
-    ASSERT(num_spells > 0 && num_spells <= SPELLBOOK_SIZE);
+    ASSERT_RANGE(num_spells, 0 + 1, SPELLBOOK_SIZE + 1);
 
     book.plus  = level;
     book.plus2 = num_spells;
@@ -1640,7 +1661,7 @@ bool make_book_level_randart(item_def &book, int level, int num_spells,
 
         return false;
     }
-    random_shuffle(spells.begin(), spells.end());
+    shuffle_array(spells);
 
     if (num_spells > (int) spells.size())
     {
@@ -1887,7 +1908,8 @@ static bool _get_weighted_spells(bool completely_random, god_type god,
                                  spell_type chosen_spells[])
 {
     ASSERT(num_spells <= (int) spells.size());
-    ASSERT(num_spells <= SPELLBOOK_SIZE && num_spells > 0);
+    ASSERT(num_spells <= SPELLBOOK_SIZE);
+    ASSERT(num_spells > 0);
     ASSERT(max_levels > 0);
 
     int spell_weights[NUM_SPELLS];
@@ -2076,7 +2098,7 @@ bool make_book_theme_randart(item_def &book,
 
     if (num_spells == -1)
         num_spells = SPELLBOOK_SIZE;
-    ASSERT(num_spells > 0 && num_spells <= SPELLBOOK_SIZE);
+    ASSERT_RANGE(num_spells, 0 + 1, SPELLBOOK_SIZE + 1);
 
     if (max_levels == -1)
         max_levels = 255;
@@ -2525,10 +2547,5 @@ void destroy_spellbook(const item_def &book)
         maxlevel = max(maxlevel, spell_difficulty(stype));
     }
 
-    god_type god;
-    // The known boolean is being used to double penance when the destroyed
-    // book is a gift of Sif Muna or it contains its name in its title
-    did_god_conduct(DID_DESTROY_SPELLBOOK, maxlevel + 5,
-                    origin_is_god_gift(book, &god) && god == GOD_SIF_MUNA
-                    || book.name(DESC_PLAIN).find("Sif Muna") != string::npos);
+    did_god_conduct(DID_DESTROY_SPELLBOOK, maxlevel + 5);
 }

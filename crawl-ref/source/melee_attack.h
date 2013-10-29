@@ -86,8 +86,7 @@ private:
     int calc_damage();
     int calc_stat_to_hit_base();
     int calc_stat_to_dam_base();
-    int apply_defender_ac(int damage, int damage_max = 0);
-    int fire_res_apply_cerebov_downgrade(int res);
+    int apply_defender_ac(int damage, int damage_max = 0, bool half_ac = false);
 
     /* Attack effects */
     void check_autoberserk();
@@ -110,7 +109,9 @@ private:
     /* Mutation Effects */
     void do_spines();
     void do_passive_freeze();
+    void do_passive_heat();
     void emit_foul_stench();
+    void tendril_disarm();
     /* Race Effects */
     void do_minotaur_retaliation();
 
@@ -193,6 +194,8 @@ private:
                                      bool needs_bite_msg = false,
                                      int reduction = 1);
     bool _vamp_wants_blood_from_monster(const monster* mon);
+
+    bool can_reach();
 };
 
 #endif

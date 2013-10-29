@@ -15,6 +15,7 @@
 #include "fprop.h"
 #include "item_use.h"
 #include "los.h"
+#include "losglobal.h"
 #include "monster.h"
 #include "mon-stuff.h"
 #include "player.h"
@@ -32,7 +33,7 @@ bool player::blink_to(const coord_def& dest, bool quiet)
     if (dest == pos())
         return false;
 
-    if (you.no_tele(true, true, true))
+    if (no_tele(true, true, true))
     {
         if (!quiet)
             canned_msg(MSG_STRANGE_STASIS);
@@ -54,11 +55,18 @@ bool player::blink_to(const coord_def& dest, bool quiet)
 
 bool monster::blink_to(const coord_def& dest, bool quiet)
 {
+    // For this call, let the monster choose whether it's blinking
+    // or jumping. When blinked by another source, use the other
+    // overload.
+    return blink_to(dest, quiet, is_jumpy());
+}
+
+bool monster::blink_to(const coord_def& dest, bool quiet, bool jump)
+{
     if (dest == pos())
         return false;
 
     bool was_constricted = false;
-    const bool jump = type == MONS_JUMPING_SPIDER;
     const string verb = (jump ? "leap" : "blink");
 
     if (is_constricted())
@@ -85,15 +93,15 @@ bool monster::blink_to(const coord_def& dest, bool quiet)
     }
 
     if (!(flags & MF_WAS_IN_VIEW))
-        seen_context = SC_TELEPORT_IN;
+        seen_context = jump ? SC_LEAP_IN : SC_TELEPORT_IN;
 
     const coord_def oldplace = pos();
     if (!move_to_pos(dest, true))
         return false;
 
-    // Leave a purple cloud.
-    if (!jump)
-        place_cloud(CLOUD_TLOC_ENERGY, oldplace, 1 + random2(3), this);
+    // Leave a cloud.
+    place_cloud(jump ? CLOUD_DUST_TRAIL : CLOUD_TLOC_ENERGY,
+                oldplace, 1 + random2(3), this);
 
     check_redraw(oldplace);
     apply_location_effects(oldplace);
@@ -103,17 +111,17 @@ bool monster::blink_to(const coord_def& dest, bool quiet)
     return true;
 }
 
-
 typedef pair<coord_def, int> coord_weight;
 
 // Try to find a "safe" place for moved close or far from the target.
 // keep_los indicates that the destination should be in view of the target.
 //
 // XXX: Check the result against in_bounds(), not coord_def::origin(),
-// beceause of a memory problem described below. (isn't this fixed now? -rob)
+// because of a memory problem described below. (isn't this fixed now? -rob)
 static coord_def random_space_weighted(actor* moved, actor* target,
                                        bool close, bool keep_los = true,
-                                       bool allow_sanct = true)
+                                       bool allow_sanct = true,
+                                       bool path_solid = false)
 {
     vector<coord_weight> dests;
     const coord_def tpos = target->pos();
@@ -122,7 +130,8 @@ static coord_def random_space_weighted(actor* moved, actor* target,
     {
         if (!moved->is_habitable(*ri) || actor_at(*ri)
             || keep_los && !target->see_cell_no_trans(*ri)
-            || !allow_sanct && is_sanctuary(*ri))
+            || !allow_sanct && is_sanctuary(*ri)
+            || path_solid && !cell_see_cell(moved->pos(), *ri, LOS_SOLID))
         {
             continue;
         }
@@ -152,29 +161,35 @@ void blink_other_close(actor* victim, const coord_def &target)
     coord_def dest = random_space_weighted(victim, caster, true);
     if (!in_bounds(dest))
         return;
-    victim->blink_to(dest);
+    // If it's a monster, force them to "blink" rather than "jump"
+    if (victim->is_monster())
+        victim->as_monster()->blink_to(dest, false, false);
+    else
+        victim->blink_to(dest);
 }
 
 // Blink a monster away from the caster.
-bool blink_away(monster* mon, actor* caster, bool from_seen)
+bool blink_away(monster* mon, actor* caster, bool from_seen, bool self_cast)
 {
     if (from_seen && !mon->can_see(caster))
         return false;
-    coord_def dest = random_space_weighted(mon, caster, false, false);
+    bool jumpy = self_cast && mon->is_jumpy();
+    coord_def dest = random_space_weighted(mon, caster, false, false, true,
+                                           jumpy);
     if (dest.origin())
         return false;
-    bool success = mon->blink_to(dest);
+    bool success = mon->blink_to(dest, false, jumpy);
     ASSERT(success || mon->is_constricted());
     return success;
 }
 
 // Blink the monster away from its foe.
-bool blink_away(monster* mon)
+bool blink_away(monster* mon, bool self_cast)
 {
     actor* foe = mon->get_foe();
     if (!foe)
         return false;
-    return blink_away(mon, foe);
+    return blink_away(mon, foe, true, self_cast);
 }
 
 // Blink the monster within range but at distance to its foe.
@@ -199,10 +214,11 @@ void blink_close(monster* mon)
     actor* foe = mon->get_foe();
     if (!foe || !mon->can_see(foe))
         return;
-    coord_def dest = random_space_weighted(mon, foe, true);
+    coord_def dest = random_space_weighted(mon, foe, true, true, true,
+                                           mon->is_jumpy());
     if (dest.origin())
         return;
-    bool success = mon->blink_to(dest);
+    bool success = mon->blink_to(dest, false);
     ASSERT(success || mon->is_constricted());
 #ifndef DEBUG
     UNUSED(success);
@@ -235,13 +251,8 @@ bool random_near_space(const coord_def& origin, coord_def& target,
                                               DNGN_MAX_NONREACH);
     }
 
-    dungeon_feature_type limit;
-    if (!is_feat_dangerous(DNGN_LAVA, true))
-        limit = DNGN_LAVA;
-    else if (!is_feat_dangerous(DNGN_DEEP_WATER, true))
-        limit = DNGN_DEEP_WATER;
-    else
-        limit = DNGN_SHALLOW_WATER;
+    const bool lava_dangerous = is_feat_dangerous(DNGN_LAVA, true);
+    const bool water_dangerous = is_feat_dangerous(DNGN_DEEP_WATER, true);
 
     for (int tries = 0; tries < 150; tries++)
     {
@@ -259,7 +270,10 @@ bool random_near_space(const coord_def& origin, coord_def& target,
 
         if (!in_bounds(target)
             || restrict_los && !you.see_cell(target)
-            || grd(target) < limit
+            || grd(target) < DNGN_MINMOVE   // Target always invalid
+            || (grd(target) < DNGN_MINWALK  // Target maybe invalid
+                && (grd(target) == DNGN_LAVA && lava_dangerous
+                    || grd(target) == DNGN_DEEP_WATER && water_dangerous))
             || actor_at(target)
             || !allow_adjacent && distance2(origin, target) <= 2
             || forbid_sanctuary && is_sanctuary(target))

@@ -39,7 +39,6 @@
 #include "clua.h"
 #include "coord.h"
 #include "coordit.h"
-#include "debug.h"
 #include "delay.h"
 #include "dactions.h"
 #include "dgn-overview.h"
@@ -95,8 +94,6 @@
 #include "version.h"
 #include "view.h"
 #include "viewgeom.h"
-
-#include <dirent.h>
 
 #ifdef __ANDROID__
 #include <android/log.h>
@@ -941,6 +938,7 @@ static void _close_level_gates()
 static void _clear_env_map()
 {
     env.map_knowledge.init(map_cell());
+    env.map_forgotten.reset();
 }
 
 static void _clear_clouds()
@@ -989,6 +987,8 @@ static void _grab_followers()
     const bool can_follow = branch_allows_followers(you.where_are_you);
 
     int non_stair_using_allies = 0;
+    int non_stair_using_summons = 0;
+
     monster* dowan = NULL;
     monster* duvessa = NULL;
 
@@ -1006,7 +1006,13 @@ static void _grab_followers()
             dowan = fol;
 
         if (fol->wont_attack() && !mons_can_use_stairs(fol))
+        {
             non_stair_using_allies++;
+            // If the class can normally use stairs it
+            // must have been a summon
+            if (mons_class_can_use_stairs(fol->type))
+                non_stair_using_summons++;
+        }
 
         if (fol->type == MONS_PLAYER_GHOST
             && fol->hit_points < fol->max_hit_points / 2)
@@ -1042,11 +1048,18 @@ static void _grab_followers()
     {
         if (non_stair_using_allies > 0)
         {
-            // XXX: This assumes that the only monsters that are
-            // incapable of using stairs are zombified.
-            mprf("Your mindless thrall%s stay%s behind.",
-                 non_stair_using_allies > 1 ? "s" : "",
-                 non_stair_using_allies > 1 ? ""  : "s");
+            // Summons won't follow and will time out.
+            if (non_stair_using_summons > 0)
+            {
+                mprf("Your summoned %s left behind.",
+                     non_stair_using_allies > 1 ? "allies are" : "ally is");
+            }
+            else
+            {
+                // Permanent undead are left behind but stay.
+                mprf("Your mindless thrall%s behind.",
+                     non_stair_using_allies > 1 ? "s stay" : " stays");
+            }
         }
         memset(travel_point_distance, 0, sizeof(travel_distance_grid_t));
         vector<coord_def> places[2];
@@ -1092,7 +1105,7 @@ static void _do_lost_monsters()
     if (player_in_branch(BRANCH_PANDEMONIUM))
         for (monster_iterator mi; mi; ++mi)
             if (mons_is_unique(mi->type) && !(mi->flags & MF_TAKING_STAIRS))
-                you.unique_creatures[mi->type] = false;
+                you.unique_creatures.set(mi->type, false);
 }
 
 // Should be called after _grab_followers(), so that items carried by
@@ -1472,7 +1485,7 @@ bool load_level(dungeon_feature_type stair_taken, load_mode_type load_mode,
                 && feat_stair_direction(feat) != CMD_NO_CMD
                 && feat_stair_direction(stair_taken) != CMD_NO_CMD)
             {
-                string stair_str = feature_description_at(you.pos(), "",
+                string stair_str = feature_description_at(you.pos(), false,
                                                           DESC_THE, false);
                 string verb = stair_climb_verb(feat);
 
@@ -1621,7 +1634,8 @@ void save_game(bool leave_game, const char *farewellmsg)
     // If just save, early out.
     if (!leave_game)
     {
-        you.save->commit();
+        if (!crawl_state.disables[DIS_SAVE_CHECKPOINTS])
+            you.save->commit();
         return;
     }
 

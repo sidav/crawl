@@ -111,7 +111,7 @@ public:
         return weapon(0);
     }
     virtual int has_claws(bool allow_tran = true) const = 0;
-    virtual item_def *shield() = 0;
+    virtual item_def *shield() const = 0;
     virtual item_def *slot_item(equipment_type eq,
                                 bool include_melded=false) const = 0;
     virtual int wearing(equipment_type slot, int sub_type,
@@ -171,6 +171,7 @@ public:
     virtual bool can_see_invisible() const = 0;
     virtual bool invisible() const = 0;
     virtual bool nightvision() const = 0;
+    virtual reach_type reach_range() const = 0;
 
     // Would looker be able to see the actor when in LOS?
     virtual bool visible_to(const actor *looker) const = 0;
@@ -197,14 +198,16 @@ public:
     virtual bool can_safely_mutate() const = 0;
     virtual bool can_polymorph() const = 0;
     virtual bool can_bleed(bool allow_tran = true) const = 0;
-    virtual bool mutate(const string &reason) = 0;
+    virtual bool is_stationary() const = 0;
+    virtual bool malmutate(const string &reason) = 0;
     virtual bool polymorph(int pow) = 0;
-    virtual bool drain_exp(actor *agent, bool quiet = false, int pow = 3) = 0;
+    virtual bool drain_exp(actor *agent, bool quiet = false, int pow = 15) = 0;
     virtual bool rot(actor *agent, int amount, int immediate = 0,
                      bool quiet = false) = 0;
     virtual int  hurt(const actor *attacker, int amount,
                       beam_type flavour = BEAM_MISSILE,
-                      bool cleanup_dead = true) = 0;
+                      bool cleanup_dead = true,
+                      bool attacker_effects = true) = 0;
     virtual bool heal(int amount, bool max_too = false) = 0;
     virtual void banish(actor *agent, const string &who = "") = 0;
     virtual void blink(bool allow_partial_control = true) = 0;
@@ -212,13 +215,14 @@ public:
                           bool abyss_shift = false,
                           bool wizard_tele = false) = 0;
     virtual bool poison(actor *attacker, int amount = 1, bool force = false) = 0;
-    virtual bool sicken(int amount, bool allow_hint = true) = 0;
+    virtual bool sicken(int amount, bool allow_hint = true, bool quiet = false) = 0;
     virtual void paralyse(actor *attacker, int strength, string source = "") = 0;
-    virtual void petrify(actor *attacker) = 0;
+    virtual void petrify(actor *attacker, bool force = false) = 0;
     virtual bool fully_petrify(actor *foe, bool quiet = false) = 0;
     virtual void slow_down(actor *attacker, int strength) = 0;
     virtual void confuse(actor *attacker, int strength) = 0;
     virtual void put_to_sleep(actor *attacker, int strength) = 0;
+    virtual void weaken(actor *attacker, int pow) = 0;
     virtual void expose_to_element(beam_type element, int strength = 0,
                                    bool damage_inventory = true,
                                    bool slow_cold_blood = true) = 0;
@@ -350,6 +354,8 @@ public:
     virtual bool umbraed() const;
     // Magically suppressed?
     virtual bool suppressed() const;
+    // Being heated by a heat aura?
+    virtual bool heated() const;
     // Squared halo radius.
     virtual int halo_radius2() const = 0;
     // Squared silence radius.
@@ -358,6 +364,8 @@ public:
     virtual int liquefying_radius2 () const = 0;
     virtual int umbra_radius2 () const = 0;
     virtual int suppression_radius2 () const = 0;
+    virtual int soul_aura_radius2 () const = 0;
+    virtual int heat_radius2 () const = 0;
 
     virtual bool glows_naturally() const = 0;
 
@@ -392,6 +400,8 @@ public:
 
     CrawlHashTable props;
 
+    int shield_blocks;                 // Count of shield blocks this round.
+
     // Constriction stuff:
 
     // What is holding us?  Not necessarily a monster.
@@ -421,11 +431,13 @@ public:
     virtual bool has_usable_tentacle() const = 0;
     virtual int constriction_damage() const = 0;
 
+    // Be careful using this, as it doesn't keep the constrictor in sync.
+    void clear_constricted();
+
     string describe_props() const;
 
 
 protected:
-    void clear_constricted();
     void end_constriction(constricting_t::iterator i, bool intentional,
                           bool quiet);
 

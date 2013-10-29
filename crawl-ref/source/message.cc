@@ -177,13 +177,13 @@ class circ_vec
 
     static void inc(int* index)
     {
-        ASSERT(*index >= 0 && *index < SIZE);
+        ASSERT_RANGE(*index, 0, SIZE);
         *index = _mod(*index + 1, SIZE);
     }
 
     static void dec(int* index)
     {
-        ASSERT(*index >= 0 && *index < SIZE);
+        ASSERT_RANGE(*index, 0, SIZE);
         *index = _mod(*index - 1, SIZE);
     }
 
@@ -893,6 +893,7 @@ static msg_colour_type channel_to_msgcol(msg_channel_type channel, int param)
 
         case MSGCH_TALK:
         case MSGCH_TALK_VISUAL:
+        case MSGCH_HELL_EFFECT:
             ret = MSGCOL_WHITE;
             break;
 
@@ -1284,12 +1285,12 @@ void msgwin_got_input()
 }
 
 int msgwin_get_line(string prompt, char *buf, int len,
-                    input_history *mh, int (*keyproc)(int& c))
+                    input_history *mh, const string &fill)
 {
     if (prompt != "")
         msgwin_prompt(prompt);
 
-    int ret = cancelable_get_line(buf, len, mh, keyproc);
+    int ret = cancellable_get_line(buf, len, mh, NULL, fill);
     msgwin_reply(buf);
     return ret;
 }
@@ -1545,7 +1546,7 @@ void clear_message_store()
     buffer.clear();
 }
 
-string get_last_messages(int mcount)
+string get_last_messages(int mcount, bool full)
 {
     flush_prev_message();
 
@@ -1559,11 +1560,9 @@ string get_last_messages(int mcount)
         const message_item msg = msgs[i];
         if (!msg)
             break;
-        if (is_channel_dumpworthy(msg.channel))
-        {
+        if (full || is_channel_dumpworthy(msg.channel))
             text = msg.pure_text() + "\n" + text;
-            mcount--;
-        }
+        mcount--;
     }
 
     // An extra line of clearance.
@@ -1632,9 +1631,7 @@ void load_messages(reader& inf)
 void replay_messages(void)
 {
     formatted_scroller hist(MF_START_AT_END | MF_ALWAYS_SHOW_MORE, "");
-    hist.set_more(formatted_string::parse_string(
-                        "<cyan>[up/<< : Page up.    down/Space/> : Page down."
-                        "                         Esc exits.]</cyan>"));
+    hist.set_more();
 
     const store_t msgs = buffer.get_store();
     for (int i = 0; i < msgs.size(); ++i)

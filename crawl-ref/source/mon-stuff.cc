@@ -4,6 +4,7 @@
 **/
 
 #include "AppHdr.h"
+#include <math.h>
 #include "mon-stuff.h"
 
 #include "areas.h"
@@ -40,6 +41,7 @@
 #include "libutil.h"
 #include "losglobal.h"
 #include "makeitem.h"
+#include "mapmark.h"
 #include "message.h"
 #include "mgen_data.h"
 #include "misc.h"
@@ -50,6 +52,8 @@
 #include "mon-place.h"
 #include "mon-speak.h"
 #include "notes.h"
+#include "ouch.h"
+#include "player.h"
 #include "random.h"
 #include "religion.h"
 #include "shout.h"
@@ -68,6 +72,9 @@
 #include "view.h"
 #include "viewchar.h"
 #include "xom.h"
+
+#include <vector>
+#include <algorithm>
 
 static bool _wounded_damaged(mon_holy_type holi);
 static int _calc_player_experience(const monster* mons);
@@ -102,7 +109,7 @@ bool mimic_at(const coord_def &c)
 bool curse_an_item(bool quiet)
 {
     // allowing these would enable mummy scumming
-    if (you.religion == GOD_ASHENZARI)
+    if (you_worship(GOD_ASHENZARI))
     {
         if (!quiet)
         {
@@ -262,9 +269,9 @@ monster_type fill_out_corpse(const monster* mons,
     corpse.sub_type    = CORPSE_BODY;
     corpse.special     = FRESHEST_CORPSE;  // rot time
     corpse.quantity    = 1;
-    corpse.orig_monnum = mtype + 1;
+    corpse.orig_monnum = mtype;
 
-    if (mtype == MONS_ROTTING_HULK)
+    if (mtype == MONS_PLAGUE_SHAMBLER)
         corpse.special = ROTTING_CORPSE;
 
     if (mons)
@@ -559,7 +566,7 @@ static void _give_monster_experience(int experience, int killer_index)
 
     if (mon->gain_exp(experience))
     {
-        if (you.religion != GOD_SHINING_ONE && you.religion != GOD_BEOGH
+        if (!you_worship(GOD_SHINING_ONE) && !you_worship(GOD_BEOGH)
             || player_under_penance()
             || !one_chance_in(3))
         {
@@ -567,9 +574,9 @@ static void _give_monster_experience(int experience, int killer_index)
         }
 
         // Randomly bless the follower who gained experience.
-        if (you.religion == GOD_SHINING_ONE
+        if (you_worship(GOD_SHINING_ONE)
                 && random2(you.piety) >= piety_breakpoint(0)
-            || you.religion == GOD_BEOGH
+            || you_worship(GOD_BEOGH)
                 && random2(you.piety) >= piety_breakpoint(2))
         {
             bless_follower(mon);
@@ -682,7 +689,7 @@ static void _give_player_experience(int experience, killer_type killer,
     if (exp_gain > 0 && !was_visible)
         mpr("You feel a bit more experienced.");
 
-    if (kc == KC_YOU && you.religion == GOD_BEOGH)
+    if (kc == KC_YOU && you_worship(GOD_BEOGH))
         _beogh_spread_experience(experience / 2);
 }
 
@@ -712,12 +719,24 @@ static bool _is_pet_kill(killer_type killer, int i)
     // Check if the monster was confused by you or a friendly, which
     // makes casualties to this monster collateral kills.
     const mon_enchant me = m->get_ench(ENCH_CONFUSION);
+    const mon_enchant me2 = m->get_ench(ENCH_INSANE);
     return (me.ench == ENCH_CONFUSION
-            && (me.who == KC_YOU || me.who == KC_FRIENDLY));
+            && (me.who == KC_YOU || me.who == KC_FRIENDLY)
+            || me2.ench == ENCH_INSANE
+               && (me2.who == KC_YOU || me2.who == KC_FRIENDLY));
 }
 
 int exp_rate(int killer)
 {
+    // Damage by the spectral weapon is considered to be the player's damage ---
+    // so the player does not lose any exp from dealing damage with a spectral weapon summon
+    if (!invalid_monster_index(killer)
+        && menv[killer].type == MONS_SPECTRAL_WEAPON
+        && menv[killer].summoner == MID_PLAYER)
+    {
+        return 2;
+    }
+
     if (killer == MHITYOU)
         return 2;
 
@@ -731,7 +750,7 @@ int exp_rate(int killer)
 // your allies.
 static bool _ely_protect_ally(monster* mons, killer_type killer)
 {
-    if (you.religion != GOD_ELYVILON)
+    if (!you_worship(GOD_ELYVILON))
         return false;
 
     if (!MON_KILL(killer) && !YOU_KILL(killer))
@@ -801,7 +820,7 @@ static bool _ely_heal_monster(monster* mons, killer_type killer, int i)
 
 static bool _yred_enslave_soul(monster* mons, killer_type killer)
 {
-    if (you.religion == GOD_YREDELEMNUL && mons_enslaved_body_and_soul(mons)
+    if (you_worship(GOD_YREDELEMNUL) && mons_enslaved_body_and_soul(mons)
         && mons_near(mons) && killer != KILL_RESET
         && killer != KILL_DISMISSED
         && killer != KILL_BANISHED)
@@ -818,7 +837,7 @@ static bool _yred_enslave_soul(monster* mons, killer_type killer)
 static bool _beogh_forcibly_convert_orc(monster* mons, killer_type killer,
                                         int i)
 {
-    if (you.religion == GOD_BEOGH
+    if (you_worship(GOD_BEOGH)
         && mons_genus(mons->type) == MONS_ORC
         && !mons->is_summoned() && !mons->is_shapeshifter()
         && !player_under_penance() && you.piety >= piety_breakpoint(2)
@@ -864,13 +883,23 @@ static bool _beogh_forcibly_convert_orc(monster* mons, killer_type killer,
 
 static bool _monster_avoided_death(monster* mons, killer_type killer, int i)
 {
-    if (mons->hit_points < -25
-        || mons->hit_points < -mons->max_hit_points
-        || mons->max_hit_points <= 0
-        || mons->hit_dice < 1)
-    {
+    if (mons->max_hit_points <= 0 || mons->hit_dice < 1)
         return false;
+
+    // Before the hp check since this should not care about the power of the
+    // finishing blow
+    if (mons->holiness() == MH_UNDEAD && !mons_is_zombified(mons)
+        && soul_aura(mons->pos())
+        && killer != KILL_RESET
+        && killer != KILL_DISMISSED
+        && killer != KILL_BANISHED)
+    {
+        if (lost_soul_revive(mons))
+            return true;
     }
+
+    if (mons->hit_points < -25 || mons->hit_points < -mons->max_hit_points)
+        return false;
 
     // Elyvilon specials.
     if (_ely_protect_ally(mons, killer))
@@ -891,7 +920,7 @@ static bool _monster_avoided_death(monster* mons, killer_type killer, int i)
 
 static void _jiyva_died()
 {
-    if (you.religion == GOD_JIYVA)
+    if (you_worship(GOD_JIYVA))
         return;
 
     add_daction(DACT_REMOVE_JIYVA_ALTARS);
@@ -1008,7 +1037,7 @@ static void _mummy_curse(monster* mons, killer_type killer, int index)
         && YOU_KILL(killer))
     {
         // Kiku protects you from ordinary mummy curses.
-        if (you.religion == GOD_KIKUBAAQUDGHA && !player_under_penance()
+        if (you_worship(GOD_KIKUBAAQUDGHA) && !player_under_penance()
             && you.piety >= piety_breakpoint(1))
         {
             simple_god_message(" averts the curse.");
@@ -1042,7 +1071,7 @@ static void _setup_base_explosion(bolt & beam, const monster& origin)
     beam.beam_source  = origin.mindex();
     beam.glyph        = dchar_glyph(DCHAR_FIRED_BURST);
     beam.source       = origin.pos();
-    beam.source_name  = origin.base_name(DESC_BASENAME);
+    beam.source_name  = origin.base_name(DESC_BASENAME, true);
     beam.target       = origin.pos();
     beam.noise_msg    = "You hear an explosion!";
 
@@ -1336,10 +1365,6 @@ void mons_relocated(monster* mons)
 
     }
 
-    // Make boulders stop rolling.
-    if (mons_is_boulder(mons))
-        mons->del_ench(ENCH_ROLLING, false);
-
     mons->clear_clinging();
 }
 
@@ -1445,6 +1470,11 @@ static void _make_spectral_thing(monster* mons, bool quiet)
     if (mons->holiness() == MH_NATURAL && mons_can_be_zombified(mons))
     {
         const monster_type spectre_type = mons_species(mons->type);
+        enchant_type shapeshift = ENCH_NONE;
+        if (mons->has_ench(ENCH_SHAPESHIFTER))
+            shapeshift = ENCH_SHAPESHIFTER;
+        else if (mons->has_ench(ENCH_GLOWING_SHAPESHIFTER))
+            shapeshift = ENCH_GLOWING_SHAPESHIFTER;
 
         // Headless hydras cannot be made spectral hydras, sorry.
         if (spectre_type == MONS_HYDRA && mons->number == 0)
@@ -1476,6 +1506,8 @@ static void _make_spectral_thing(monster* mons, bool quiet)
             name_zombie(spectre, mons);
 
             spectre->add_ench(mon_enchant(ENCH_FAKE_ABJURATION, 6));
+            if (shapeshift)
+                spectre->add_ench(shapeshift);
         }
     }
 }
@@ -1498,7 +1530,7 @@ static bool _reaping(monster *mons)
     return false;
 }
 
-int monster_die(monster* mons, actor *killer, bool silent,
+int monster_die(monster* mons, const actor *killer, bool silent,
                 bool wizard, bool fake)
 {
     killer_type ktype = KILL_YOU;
@@ -1543,6 +1575,10 @@ int monster_die(monster* mons, killer_type killer,
 
     // ... and liquefiers.
     mons->del_ench(ENCH_LIQUEFYING);
+
+    // Clean up any blood from the flayed effect
+    if (mons->has_ench(ENCH_FLAYED))
+        heal_flayed_effect(mons, true, true);
 
     crawl_state.inc_mon_acting(mons);
 
@@ -1618,13 +1654,22 @@ int monster_die(monster* mons, killer_type killer,
         killer = KILL_YOU_CONF; // Well, it was confused in a sense... (jpeg)
     }
 
+    // Kills by the spectral weapon are considered as kills by the player instead
+    if (killer == KILL_MON
+        && menv[killer_index].type == MONS_SPECTRAL_WEAPON
+        && menv[killer_index].summoner == MID_PLAYER)
+    {
+        killer = KILL_YOU;
+        killer_index = you.mindex();
+    }
+
     // Take notes and mark milestones.
     record_monster_defeat(mons, killer);
 
     // Various sources of berserk extension on kills.
     if (killer == KILL_YOU && you.berserk())
     {
-        if (you.religion == GOD_TROG
+        if (you_worship(GOD_TROG)
             && !player_under_penance() && you.piety > random2(1000))
         {
             const int bonus = (3 + random2avg(10, 2)) / 2;
@@ -1778,6 +1823,16 @@ int monster_die(monster* mons, killer_type killer,
             place_cloud(CLOUD_MAGIC_TRAIL, mons->pos(), 3 + random2(3), mons);
         end_battlesphere(mons, true);
     }
+    else if (mons->type == MONS_BRIAR_PATCH)
+    {
+        if (timeout && !silent)
+            simple_monster_message(mons, " crumbles away.");
+    }
+    else if (mons->type == MONS_SPECTRAL_WEAPON)
+    {
+        end_spectral_weapon(mons, true, killer == KILL_RESET);
+        silent = true;
+    }
 
     const bool death_message = !silent && !did_death_message
                                && mons_near(mons)
@@ -1793,10 +1848,27 @@ int monster_die(monster* mons, killer_type killer,
          || mons->type == MONS_ABOMINATION_LARGE
          || mons->type == MONS_CRAWLING_CORPSE
          || mons->type == MONS_MACABRE_MASS)
-        && (you.religion == GOD_TROG
-         || you.religion == GOD_KIKUBAAQUDGHA))
+        && (you_worship(GOD_TROG)
+         || you_worship(GOD_KIKUBAAQUDGHA)))
     {
         targ_holy = MH_DEMONIC;
+    }
+
+    // Adjust song of slaying bonus
+    // Kills by the spectral weapon should be adjusted by this point to be
+    // kills by the player --- so kills by the spectral weapon are considered here as well
+    if (killer == KILL_YOU && you.duration[DUR_SONG_OF_SLAYING] && !mons->is_summoned() && gives_xp)
+    {
+        int sos_bonus = you.props["song_of_slaying_bonus"].get_int();
+        mon_threat_level_type threat = mons_threat_level(mons, true);
+        // Only certain kinds of threats at different sos levels will increase the bonus
+        if (threat == MTHRT_TRIVIAL && sos_bonus<2
+            || threat == MTHRT_EASY && sos_bonus<4
+            || threat == MTHRT_TOUGH && sos_bonus<6
+            || threat == MTHRT_NASTY)
+        {
+            you.props["song_of_slaying_bonus"] = sos_bonus + 1;
+        }
     }
 
     switch (killer)
@@ -1899,7 +1971,9 @@ int monster_die(monster* mons, killer_type killer,
                                     mons->hit_dice, true, mons);
                 }
 
-                if (mons_is_slime(mons))
+                // Jiyva hates you killing slimes, but eyeballs
+                // mutation can confuse without you meaning it.
+                if (mons_is_slime(mons) && killer != KILL_YOU_CONF)
                 {
                     did_god_conduct(DID_KILL_SLIME, mons->hit_dice,
                                     true, mons);
@@ -1937,50 +2011,53 @@ int monster_die(monster* mons, killer_type killer,
             // Divine health and mana restoration doesn't happen when
             // killing born-friendly monsters.
             if (good_kill
-                && (you.religion == GOD_MAKHLEB
-                    || you.religion == GOD_SHINING_ONE
-                       && (mons->is_evil() || mons->is_unholy()))
-                && !mons_is_object(mons->type)
-                && !player_under_penance()
-                && random2(you.piety) >= piety_breakpoint(0)
-                && !you.duration[DUR_DEATHS_DOOR])
-            {
-                if (you.hp < you.hp_max)
-                {
-                    int heal = (you.religion == GOD_MAKHLEB) ?
-                                mons->hit_dice + random2(mons->hit_dice) :
-                                random2(1 + 2 * mons->hit_dice);
-                    if (heal > 0)
-                        mprf("You feel a little better.");
-                    inc_hp(heal);
-                }
-            }
-
-            if (good_kill
-                && (you.religion == GOD_VEHUMET
-                    || you.religion == GOD_SHINING_ONE
+                && (you_worship(GOD_MAKHLEB)
+                    || you_worship(GOD_VEHUMET)
+                    || you_worship(GOD_SHINING_ONE)
                        && (mons->is_evil() || mons->is_unholy()))
                 && !mons_is_object(mons->type)
                 && !player_under_penance()
                 && random2(you.piety) >= piety_breakpoint(0))
             {
-                if (you.magic_points < you.max_magic_points)
+                int hp_heal = 0, mp_heal = 0;
+
+                switch (you.religion)
                 {
-                    int mana = (you.religion == GOD_VEHUMET) ?
-                            1 + random2(mons->hit_dice / 2) :
-                            random2(2 + mons->hit_dice / 3);
-                    if (mana > 0)
-                    {
-                        mpr("You feel your power returning.");
-                        inc_mp(mana);
-                    }
+                case GOD_MAKHLEB:
+                    hp_heal = mons->hit_dice + random2(mons->hit_dice);
+                    break;
+                case GOD_SHINING_ONE:
+                    hp_heal = random2(1 + 2 * mons->hit_dice);
+                    mp_heal = random2(2 + mons->hit_dice / 3);
+                    break;
+                case GOD_VEHUMET:
+                    mp_heal = 1 + random2(mons->hit_dice / 2);
+                    break;
+                default:
+                    die("bad kill-on-healing god!");
+                }
+
+                if (you.species == SP_DJINNI)
+                    hp_heal = max(hp_heal, mp_heal * 2), mp_heal = 0;
+
+                if (hp_heal && you.hp < you.hp_max
+                    && !you.duration[DUR_DEATHS_DOOR])
+                {
+                    mprf("You feel a little better.");
+                    inc_hp(hp_heal);
+                }
+
+                if (mp_heal && you.magic_points < you.max_magic_points)
+                {
+                    mpr("You feel your power returning.");
+                    inc_mp(mp_heal);
                 }
             }
 
             // Randomly bless a follower.
             if (!created_friendly
                 && gives_xp
-                && (you.religion == GOD_BEOGH
+                && (you_worship(GOD_BEOGH)
                     && random2(you.piety) >= piety_breakpoint(2))
                 && !mons_is_object(mons->type)
                 && !player_under_penance())
@@ -2048,12 +2125,12 @@ int monster_die(monster* mons, killer_type killer,
                 const mon_holy_type killer_holy =
                     anon ? MH_NATURAL : killer_mon->holiness();
 
-                if (you.religion == GOD_ZIN
-                    || you.religion == GOD_SHINING_ONE
-                    || you.religion == GOD_YREDELEMNUL
-                    || you.religion == GOD_KIKUBAAQUDGHA
-                    || you.religion == GOD_MAKHLEB
-                    || you.religion == GOD_LUGONU
+                if (you_worship(GOD_ZIN)
+                    || you_worship(GOD_SHINING_ONE)
+                    || you_worship(GOD_YREDELEMNUL)
+                    || you_worship(GOD_KIKUBAAQUDGHA)
+                    || you_worship(GOD_MAKHLEB)
+                    || you_worship(GOD_LUGONU)
                     || !anon && mons_is_god_gift(killer_mon))
                 {
                     if (killer_holy == MH_UNDEAD)
@@ -2184,14 +2261,14 @@ int monster_die(monster* mons, killer_type killer,
                         notice |= did_god_conduct(
                                       !confused ? DID_HOLY_KILLED_BY_UNDEAD_SLAVE :
                                                   DID_HOLY_KILLED_BY_SERVANT,
-                                      mons->hit_dice);
+                                      mons->hit_dice, true, mons);
                     }
                     else
                         notice |= did_god_conduct(DID_HOLY_KILLED_BY_SERVANT,
-                                                  mons->hit_dice);
+                                                  mons->hit_dice, true, mons);
                 }
 
-                if (you.religion == GOD_SHINING_ONE
+                if (you_worship(GOD_SHINING_ONE)
                     && (mons->is_evil() || mons->is_unholy())
                     && !player_under_penance()
                     && random2(you.piety) >= piety_breakpoint(0)
@@ -2213,7 +2290,7 @@ int monster_die(monster* mons, killer_type killer,
                     }
                 }
 
-                if (you.religion == GOD_BEOGH
+                if (you_worship(GOD_BEOGH)
                     && random2(you.piety) >= piety_breakpoint(2)
                     && !player_under_penance()
                     && !one_chance_in(3)
@@ -2342,7 +2419,7 @@ int monster_die(monster* mons, killer_type killer,
             mons->hit_points = -1;
         // Hack: with cleanup_dead=false, a tentacle [segment] of a dead
         // [malign] kraken has no valid head reference.
-        if (!mons_is_tentacle(mons->type))
+        if (!mons_is_tentacle_or_tentacle_segment(mons->type))
             mons_speaks(mons);
     }
 
@@ -2352,7 +2429,7 @@ int monster_die(monster* mons, killer_type killer,
 
         // Now that Boris is dead, he's a valid target for monster
         // creation again. - bwr
-        you.unique_creatures[mons->type] = false;
+        you.unique_creatures.set(mons->type, false);
         // And his vault can be placed again.
         you.uniq_map_names.erase("uniq_boris");
     }
@@ -2384,9 +2461,21 @@ int monster_die(monster* mons, killer_type killer,
                 mpr("The starspawn's tentacles wither and die.");
         }
     }
-    else if (mons_is_tentacle(mons->type) && killer != KILL_MISC
-            || mons->type == MONS_ELDRITCH_TENTACLE)
+    else if (mons_is_tentacle_or_tentacle_segment(mons->type)
+             && killer != KILL_MISC
+                 || mons->type == MONS_ELDRITCH_TENTACLE
+                 || mons->type == MONS_SNAPLASHER_VINE)
     {
+        if (mons->type == MONS_SNAPLASHER_VINE)
+        {
+            if (mons->props.exists("vine_awakener"))
+            {
+                monster* awakener =
+                        monster_by_mid(mons->props["vine_awakener"].get_int());
+                if (awakener)
+                    awakener->props["vines_awakened"].get_int()--;
+            }
+        }
         _destroy_tentacle(mons);
     }
     else if (mons->type == MONS_ELDRITCH_TENTACLE_SEGMENT
@@ -2415,7 +2504,33 @@ int monster_die(monster* mons, killer_type killer,
             phoenix_died(mons);
     }
     else if (mons->type == MONS_VAULT_WARDEN)
-        timeout_door_seals(0, true);
+        timeout_terrain_changes(0, true);
+    else if (mons->type == MONS_FLAYED_GHOST)
+        end_flayed_effect(mons);
+    else if (mons->type == MONS_PLAGUE_SHAMBLER && !was_banished
+             && !mons->pacified() && (!summoned || duration > 0) && !wizard)
+    {
+        if (you.can_see(mons))
+        {
+            mprf(MSGCH_WARN, "Miasma billows from the fallen %s!",
+                 mons->name(DESC_PLAIN).c_str());
+        }
+
+        map_cloud_spreader_marker *marker =
+            new map_cloud_spreader_marker(mons->pos(), CLOUD_MIASMA, 10,
+                                          18 + random2(7), 4, 8, mons);
+        // Start the cloud at radius 1, regardless of the speed of the killing blow
+        marker->speed_increment -= you.time_taken;
+        env.markers.add(marker);
+        env.markers.clear_need_activate();
+    }
+    // Give the treant a last chance to release its wasps if it is killed in a
+    // single blow from above half health
+    else if (mons->type == MONS_TREANT && !was_banished
+             && !mons->pacified() && (!summoned || duration > 0) && !wizard)
+    {
+        treant_release_wasps(mons);
+    }
     else if (mons_is_mimic(mons->type))
         drop_items = false;
     else if (!mons->is_summoned())
@@ -2502,10 +2617,21 @@ int monster_die(monster* mons, killer_type killer,
     // Likewise silence and umbras
     if (mons->type == MONS_SILENT_SPECTRE
         || mons->type == MONS_PROFANE_SERVITOR
-        || mons->type == MONS_MOTH_OF_SUPPRESSION)
+        || mons->type == MONS_MOTH_OF_SUPPRESSION
+        || mons->type == MONS_LOST_SOUL)
     {
         invalidate_agrid();
     }
+
+    // Done before items are dropped so that we can clone them
+    if (soul_aura(mons->pos()) && mons->holiness() == MH_NATURAL
+        && killer != KILL_RESET
+        && killer != KILL_DISMISSED
+        && killer != KILL_BANISHED)
+    {
+        lost_soul_spectralize(mons);
+    }
+
     const coord_def mwhere = mons->pos();
     if (drop_items)
         monster_drop_things(mons, YOU_KILL(killer) || pet_kill);
@@ -2564,6 +2690,28 @@ int monster_die(monster* mons, killer_type killer,
     return corpse;
 }
 
+void unawaken_vines(const monster* mons, bool quiet)
+{
+    int vines_seen = 0;
+    for (monster_iterator mi; mi; ++mi)
+    {
+        if (mi->type == MONS_SNAPLASHER_VINE
+            && mi->props.exists("vine_awakener")
+            && monster_by_mid(mi->props["vine_awakener"].get_int()) == mons)
+        {
+            if (you.can_see(*mi))
+                ++vines_seen;
+            monster_die(*mi, KILL_RESET, NON_MONSTER);
+        }
+    }
+
+    if (!quiet && vines_seen)
+    {
+        mprf("The vine%s fall%s limply to the ground.",
+              (vines_seen > 1 ? "s" : ""), (vines_seen == 1 ? "s" : ""));
+    }
+}
+
 // Clean up after a dead monster.
 void monster_cleanup(monster* mons)
 {
@@ -2574,6 +2722,17 @@ void monster_cleanup(monster* mons)
         forest_message(mons->pos(), "The forest abruptly stops moving.");
         env.forest_awoken_until = 0;
     }
+
+    if (mons->has_ench(ENCH_AWAKEN_VINES))
+        unawaken_vines(mons, false);
+
+    // So that a message is printed for the effect ending
+    if (mons->has_ench(ENCH_CONTROL_WINDS))
+        mons->del_ench(ENCH_CONTROL_WINDS);
+
+    // So proper messages are printed
+    if (mons->has_ench(ENCH_GRASPING_ROOTS_SOURCE))
+        mons->del_ench(ENCH_GRASPING_ROOTS_SOURCE);
 
     // May have been constricting something. No message because that depends
     // on the order in which things are cleaned up: If the constrictee is
@@ -2636,8 +2795,7 @@ static bool _valid_morph(monster* mons, monster_type new_mclass)
 {
     const dungeon_feature_type current_tile = grd(mons->pos());
 
-    // 'morph targets are _always_ "base" classes, not derived ones.
-    new_mclass = mons_species(new_mclass);
+    monster_type old_mclass = mons_base_type(mons);
 
     // Shapeshifters cannot polymorph into glowing shapeshifters or
     // vice versa.
@@ -2660,18 +2818,23 @@ static bool _valid_morph(monster* mons, monster_type new_mclass)
     }
 
     // Various inappropriate polymorph targets.
-    if (mons_class_holiness(new_mclass) != mons->holiness()
+    if (mons_class_holiness(new_mclass) != mons_class_holiness(old_mclass)
         || mons_class_flag(new_mclass, M_UNFINISHED)  // no unfinished monsters
+        || mons_class_flag(new_mclass, M_CANT_SPAWN)  // no dummy monsters
         || mons_class_flag(new_mclass, M_NO_POLY_TO)  // explicitly disallowed
         || mons_class_flag(new_mclass, M_UNIQUE)      // no uniques
         || mons_class_flag(new_mclass, M_NO_EXP_GAIN) // not helpless
-        || new_mclass == mons_species(mons->type)  // must be different
         || new_mclass == MONS_PROGRAM_BUG
 
-        // These require manual setting of mons.base_monster to indicate
-        // what they are a skeleton/zombie/simulacrum/spectral thing of,
-        // which we currently aren't smart enough to handle.
+        // 'morph targets are _always_ "base" classes, not derived ones.
+        || new_mclass != mons_species(new_mclass)
+        || new_mclass == mons_species(old_mclass)
+        // They act as separate polymorph classes on their own.
         || mons_class_is_zombified(new_mclass)
+        || mons_is_zombified(mons) && !mons_zombie_size(new_mclass)
+        // Currently unused (no zombie shapeshifters, no polymorph).
+        || mons->type == MONS_SKELETON && !mons_skeleton(new_mclass)
+        || mons->type == MONS_ZOMBIE && !mons_zombifiable(new_mclass)
 
         // These require manual setting of the ghost demon struct to
         // indicate their characteristics, which we currently aren't
@@ -2681,8 +2844,10 @@ static bool _valid_morph(monster* mons, monster_type new_mclass)
         // Other poly-unsuitable things.
         || mons_is_statue(new_mclass)
         || mons_is_projectile(new_mclass)
-        || mons_is_tentacle(new_mclass)
+        || mons_is_tentacle_or_tentacle_segment(new_mclass)
 
+        // Don't polymorph things without Gods into priests.
+        || (mons_class_flag(new_mclass, MF_PRIEST) && mons->god == GOD_NO_GOD)
         // The spell on Prince Ribbit can't be broken so easily.
         || (new_mclass == MONS_HUMAN
             && (mons->type == MONS_PRINCE_RIBBIT
@@ -2715,7 +2880,7 @@ static bool _is_poly_power_unsuitable(poly_power_type power,
 
 static bool _jiyva_slime_target(monster_type targetc)
 {
-    return (you.religion == GOD_JIYVA
+    return (you_worship(GOD_JIYVA)
             && (targetc == MONS_DEATH_OOZE
                || targetc == MONS_OOZE
                || targetc == MONS_JELLY
@@ -2761,8 +2926,8 @@ void change_monster_type(monster* mons, monster_type targetc)
     uint64_t flags =
         mons->flags & ~(MF_INTERESTING | MF_SEEN | MF_ATT_CHANGE_ATTEMPT
                            | MF_WAS_IN_VIEW | MF_BAND_MEMBER | MF_KNOWN_SHIFTER
-                           | MF_SPELLCASTER);
-
+                           | MF_MELEE_MASK | MF_SPELL_MASK);
+    flags |= MF_POLYMORPHED;
     string name;
 
     // Preserve the names of uniques and named monsters.
@@ -2815,7 +2980,7 @@ void change_monster_type(monster* mons, monster_type targetc)
 
     const god_type god =
         (player_will_anger_monster(real_targetc)
-            || (you.religion == GOD_BEOGH
+            || (you_worship(GOD_BEOGH)
                 && mons_genus(real_targetc) != MONS_ORC)) ? GOD_NO_GOD
                                                           : mons->god;
 
@@ -2841,7 +3006,6 @@ void change_monster_type(monster* mons, monster_type targetc)
     mon_enchant abj       = mons->get_ench(ENCH_ABJ);
     mon_enchant fabj      = mons->get_ench(ENCH_FAKE_ABJURATION);
     mon_enchant charm     = mons->get_ench(ENCH_CHARM);
-    mon_enchant temp_pacif= mons->get_ench(ENCH_TEMP_PACIF);
     mon_enchant shifter   = mons->get_ench(ENCH_GLOWING_SHAPESHIFTER,
                                            ENCH_SHAPESHIFTER);
     mon_enchant sub       = mons->get_ench(ENCH_SUBMERGED);
@@ -2854,13 +3018,17 @@ void change_monster_type(monster* mons, monster_type targetc)
                && (!mons->can_use_spells() || mons->is_actual_spellcaster())
                && !degenerated && !slimified);
 
-    // deal with mons_sec
-    mons->type         = targetc;
-    mons->base_monster = MONS_NO_MONSTER;
     mons->number       = 0;
 
     // Note: define_monster() will clear out all enchantments! - bwr
-    define_monster(mons);
+    if (mons_is_zombified(mons))
+        define_zombie(mons, targetc, mons->type);
+    else
+    {
+        mons->type         = targetc;
+        mons->base_monster = MONS_NO_MONSTER;
+        define_monster(mons);
+    }
 
     mons->mname = name;
     mons->props["original_name"] = name;
@@ -2890,7 +3058,6 @@ void change_monster_type(monster* mons, monster_type targetc)
     mons->add_ench(abj);
     mons->add_ench(fabj);
     mons->add_ench(charm);
-    mons->add_ench(temp_pacif);
     mons->add_ench(shifter);
     mons->add_ench(sub);
     mons->add_ench(summon);
@@ -3006,14 +3173,34 @@ bool monster_polymorph(monster* mons, monster_type targetc,
                                                         target_power, relax)));
     }
 
-    if (!_valid_morph(mons, targetc))
-        return simple_monster_message(mons, " looks momentarily different.");
-
     bool could_see = you.can_see(mons);
     bool need_note = (could_see && MONST_INTERESTING(mons));
     string old_name_a = mons->full_name(DESC_A);
     string old_name_the = mons->full_name(DESC_THE);
     monster_type oldc = mons->type;
+
+    if (targetc == RANDOM_TOUGHER_MONSTER)
+    {
+        vector<monster_type> target_types;
+        for (int mc = 0; mc < NUM_MONSTERS; ++mc)
+        {
+            const monsterentry *me = get_monster_data((monster_type) mc);
+            int delta = (int) me->hpdice[0] - mons->hit_dice;
+            if (delta != 1)
+                continue;
+            if (!_valid_morph(mons, (monster_type) mc))
+                continue;
+            target_types.push_back((monster_type) mc);
+        }
+        if (target_types.empty())
+            return false;
+
+        shuffle_array(target_types);
+        targetc = target_types[0];
+    }
+
+    if (!_valid_morph(mons, targetc))
+        return simple_monster_message(mons, " looks momentarily different.");
 
     change_monster_type(mons, targetc);
 
@@ -3087,9 +3274,7 @@ bool monster_polymorph(monster* mons, monster_type targetc,
 }
 
 // If the returned value is mon.pos(), then nothing was found.
-static coord_def _random_monster_nearby_habitable_space(const monster& mon,
-                                                        bool allow_adjacent,
-                                                        bool respect_los)
+static coord_def _random_monster_nearby_habitable_space(const monster& mon)
 {
     const bool respect_sanctuary = mon.wont_attack();
 
@@ -3105,7 +3290,8 @@ static coord_def _random_monster_nearby_habitable_space(const monster& mon,
         if (delta.origin())
             continue;
 
-        if (delta.rdist() == 1 && !allow_adjacent)
+        // Blinks by 1 cell are not allowed.
+        if (delta.rdist() == 1)
             continue;
 
         // Update target.
@@ -3124,16 +3310,7 @@ static coord_def _random_monster_nearby_habitable_space(const monster& mon,
         if (target == you.pos())
             continue;
 
-        // Check that we didn't go through clear walls.
-        if (num_feats_between(mon.pos(), target,
-                              DNGN_MINSEE,
-                              DNGN_MAX_NONREACH,
-                              true, true) > 0)
-        {
-            continue;
-        }
-
-        if (respect_los && !mon.see_cell(target))
+        if (!cell_see_cell(mon.pos(), target, LOS_NO_TRANS))
             continue;
 
         // Survived everything, break out (with a good value of target.)
@@ -3148,9 +3325,7 @@ static coord_def _random_monster_nearby_habitable_space(const monster& mon,
 
 bool monster_blink(monster* mons, bool quiet)
 {
-    coord_def near = _random_monster_nearby_habitable_space(*mons, false,
-                                                            true);
-
+    coord_def near = _random_monster_nearby_habitable_space(*mons);
     return mons->blink_to(near, quiet);
 }
 
@@ -3160,7 +3335,7 @@ bool mon_can_be_slimified(monster* mons)
 
     return (!(mons->flags & MF_GOD_GIFT)
             && !mons->is_insubstantial()
-            && !mons_is_tentacle(mons->type)
+            && !mons_is_tentacle_or_tentacle_segment(mons->type)
             && (holi == MH_UNDEAD
                  || holi == MH_NATURAL && !mons_is_slime(mons))
           );
@@ -3291,7 +3466,7 @@ bool swap_check(monster* mons, coord_def &loc, bool quiet)
         return false;
     }
 
-    if (mons_is_projectile(mons->type))
+    if (mons->is_projectile())
     {
         if (!quiet)
             mpr("It's unwise to walk into this.");
@@ -3368,7 +3543,7 @@ bool monster_can_hit_monster(monster* mons, const monster* targ)
 // Friendly summons can't attack out of the player's LOS, it's too abusable.
 bool summon_can_attack(const monster* mons)
 {
-    if (crawl_state.game_is_arena())
+    if (crawl_state.game_is_arena() || crawl_state.game_is_zotdef())
         return true;
 
     return !mons->friendly() || !mons->is_summoned()
@@ -3377,8 +3552,21 @@ bool summon_can_attack(const monster* mons)
 
 bool summon_can_attack(const monster* mons, const coord_def &p)
 {
-    if (crawl_state.game_is_arena())
+    if (crawl_state.game_is_arena() || crawl_state.game_is_zotdef())
         return true;
+
+    // Spectral weapons only attack their target
+    if (mons->type == MONS_SPECTRAL_WEAPON)
+    {
+        // FIXME: find a way to use check_target_spectral_weapon
+        //        without potential info leaks about visibility.
+        if (mons->props.exists(SW_TARGET_MID))
+        {
+            actor *target = actor_by_mid(mons->props[SW_TARGET_MID].get_int());
+            return (target && target->pos() == p);
+        }
+        return false;
+    }
 
     if (!mons->friendly() || !mons->is_summoned())
         return true;
@@ -3675,10 +3863,10 @@ static bool _mons_avoids_cloud(const monster* mons, const cloud_struct& cloud,
 
     // Berserk monsters are less careful and will blindly plow through any
     // dangerous cloud, just to kill you. {due}
-    if (!extra_careful && mons->berserk())
+    if (!extra_careful && mons->berserk_or_insane())
         return false;
 
-    if (you.religion == GOD_FEDHAS && fedhas_protects(mons)
+    if (you_worship(GOD_FEDHAS) && fedhas_protects(mons)
         && (cloud.whose == KC_YOU || cloud.whose == KC_FRIENDLY)
         && (mons->friendly() || mons->neutral()))
     {
@@ -3751,21 +3939,6 @@ static bool _mons_avoids_cloud(const monster* mons, const cloud_struct& cloud,
             return false;
         break;
 
-    case CLOUD_GREY_SMOKE:
-        if (placement)
-            return false;
-
-        // This isn't harmful, but dumb critters might think so.
-        if (mons_intel(mons) > I_ANIMAL || coinflip())
-            return false;
-
-        if (mons->res_fire() > 0)
-            return false;
-
-        if (mons->hit_points >= random2avg(19, 2))
-            return false;
-        break;
-
     case CLOUD_RAIN:
         // Fiery monsters dislike the rain.
         if (mons->is_fiery() && extra_careful)
@@ -3803,6 +3976,17 @@ static bool _mons_avoids_cloud(const monster* mons, const cloud_struct& cloud,
 
         if (mons_intel(mons) >= I_ANIMAL)
             return true;
+        break;
+
+    case CLOUD_GHOSTLY_FLAME:
+        if (mons->res_negative_energy() > 2)
+            return false;
+
+        if (extra_careful)
+            return true;
+
+        if (mons->hit_points >= random2avg(25, 3))
+            return false;
         break;
 
     default:
@@ -4146,6 +4330,9 @@ void seen_monster(monster* mons)
     {
         did_god_conduct(DID_SEE_MONSTER, mons->hit_dice, true, mons);
     }
+
+    if (mons_allows_beogh(mons))
+        env.level_state |= LSTATE_BEOGH;
 }
 
 //---------------------------------------------------------------
@@ -4205,8 +4392,8 @@ static void _vanish_orig_eq(monster* mons)
         if (item.orig_place != 0 || item.orig_monnum != 0
             || !item.inscription.empty()
             || is_unrandom_artefact(item)
-            || (item.flags & (ISFLAG_DROPPED | ISFLAG_THROWN | ISFLAG_NOTED_GET
-                              | ISFLAG_BEEN_IN_INV)))
+            || (item.flags & (ISFLAG_DROPPED | ISFLAG_THROWN
+                              | ISFLAG_NOTED_GET)))
         {
             continue;
         }
@@ -4219,6 +4406,8 @@ int dismiss_monsters(string pattern)
     // Make all of the monsters' original equipment disappear unless "keepitem"
     // is found in the regex (except for fixed arts and unrand arts).
     const bool keep_item = strip_tag(pattern, "keepitem");
+    const bool harmful = pattern == "harmful";
+    const bool mobile  = pattern == "mobile";
 
     // Dismiss by regex.
     text_pattern tpat(pattern);
@@ -4226,7 +4415,9 @@ int dismiss_monsters(string pattern)
     for (monster_iterator mi; mi; ++mi)
     {
         if (mi->alive()
-            && (tpat.empty() || tpat.matches(mi->name(DESC_PLAIN, true))))
+            && (mobile ? !mons_class_is_stationary(mi->type) :
+                harmful ? !mons_is_firewood(*mi) && !mi->wont_attack()
+                : tpat.empty() || tpat.matches(mi->name(DESC_PLAIN, true))))
         {
             if (!keep_item)
                 _vanish_orig_eq(*mi);
@@ -4492,6 +4683,12 @@ string summoned_poof_msg(const monster* mons, bool plural)
             no_chaos = true;
         }
         break;
+
+    case SPELL_GHOSTLY_FLAMES:
+    case SPELL_CALL_LOST_SOUL:
+        msg = "fades away";
+        break;
+
     }
 
     if (valid_mon)
@@ -4669,10 +4866,6 @@ void debuff_monster(monster* mon)
             // ...except for natural invisibility.
             if (mons_class_flag(mon->type, M_INVIS))
                 continue;
-
-            // For non-natural invisibility, turn autopickup back on manually,
-            // since dispelling invisibility quietly won't do so.
-            autotoggle_autopickup(false);
         }
         if (lost_enchantments[i] == ENCH_CONFUSION)
         {
@@ -4720,4 +4913,265 @@ int count_allies()
             count++;
 
     return count;
+}
+
+// Lava orcs!
+int temperature()
+{
+    return (int) you.temperature;
+}
+
+int temperature_last()
+{
+    return (int) you.temperature_last;
+}
+
+void temperature_check()
+{
+    // Whether to ignore caps on incrementing temperature
+    bool ignore_cap = you.duration[DUR_BERSERK];
+
+    // These numbers seem to work pretty well, but they're definitely experimental:
+    int tension = get_tension(GOD_NO_GOD); // Raw tension
+
+    // It would generally be better to handle this at the tension level and have temperature much more closely tied to tension.
+
+    // For testing, but super handy for that!
+    // mprf("Tension value: %d", tension);
+
+    // Increment temp to full if you're in lava.
+    if (feat_is_lava(env.grid(you.pos())) && you.ground_level())
+    {
+        // If you're already very hot, no message,
+        // but otherwise it lets you know you're being
+        // brought up to max temp.
+        if (temperature() <= TEMP_FIRE)
+            mpr("The lava instantly superheats you.");
+        you.temperature = TEMP_MAX;
+        ignore_cap = true;
+        // Otherwise, your temperature naturally decays.
+    }
+    else
+        temperature_decay();
+
+    // Follow this up with 1 additional decrement each turn until
+    // you're not hot enough to boil water.
+    if (feat_is_water(env.grid(you.pos())) && you.ground_level()
+        && temperature_effect(LORC_PASSIVE_HEAT))
+    {
+        temperature_decrement(1);
+
+        for (adjacent_iterator ai(you.pos()); ai; ++ai)
+        {
+            const coord_def p(*ai);
+            if (in_bounds(p)
+                && env.cgrid(p) == EMPTY_CLOUD
+                && one_chance_in(5))
+            {
+                place_cloud(CLOUD_STEAM, *ai, 2 + random2(5), &you);
+            }
+        }
+    }
+
+    // Next, add temperature from tension. Can override temperature loss from water!
+    temperature_increment(tension);
+
+    // Cap net temperature change to 1 per turn if no exceptions.
+    float tempchange = you.temperature - you.temperature_last;
+    if (!ignore_cap && tempchange > 1)
+        you.temperature = you.temperature_last + 1;
+    else if (tempchange < -1)
+        you.temperature = you.temperature_last - 1;
+
+    // Handle any effects that change with temperature.
+    temperature_changed(tempchange);
+
+    // Save your new temp as your new 'old' temperature.
+    you.temperature_last = you.temperature;
+}
+
+void temperature_increment(float degree)
+{
+    // No warming up while you're exhausted!
+    if (you.duration[DUR_EXHAUSTED])
+        return;
+
+    you.temperature += sqrt(degree);
+    if (temperature() >= TEMP_MAX)
+        you.temperature = TEMP_MAX;
+}
+
+void temperature_decrement(float degree)
+{
+    // No cooling off while you're angry!
+    if (you.duration[DUR_BERSERK])
+        return;
+
+    you.temperature -= degree;
+    if (temperature() <= TEMP_MIN)
+        you.temperature = TEMP_MIN;
+}
+
+void temperature_changed(float change)
+{
+    // Arbitrary - how big does a swing in a turn have to be?
+    float pos_threshold = .25;
+    float neg_threshold = -1 * pos_threshold;
+
+    // For INCREMENTS:
+
+    // Warmed up enough to lose slow movement.
+    if (change > pos_threshold && temperature_tier(TEMP_COOL))
+        mpr("Your movements quicken.", MSGCH_DURATION);
+
+    // Check these no-nos every turn.
+    if (you.temperature >= TEMP_WARM)
+    {
+        // Handles condensation shield, ozo's armour, icemail.
+        expose_player_to_element(BEAM_FIRE, 0);
+
+        // Handled separately because normally heat doesn't affect this.
+        if (you.form == TRAN_ICE_BEAST || you.form == TRAN_STATUE)
+            untransform(true, false);
+    }
+
+    // Just reached the temp that kills off stoneskin.
+    if (change > pos_threshold && temperature_tier(TEMP_WARM))
+    {
+        mpr("Your stony skin melts.", MSGCH_DURATION);
+        you.redraw_armour_class = true;
+    }
+
+    // Passive heat stuff.
+    if (change > pos_threshold && temperature_tier(TEMP_FIRE))
+        mpr("You're getting fired up.", MSGCH_DURATION);
+
+    // Heat aura stuff.
+    if (change > pos_threshold && temperature_tier(TEMP_MAX))
+    {
+        mpr("You blaze with the fury of an erupting volcano!", MSGCH_DURATION);
+        invalidate_agrid(true);
+    }
+
+    // For DECREMENTS (reverse order):
+    if (change < neg_threshold && temperature_tier(TEMP_MAX))
+        mpr("The intensity of your heat diminishes.", MSGCH_DURATION);
+
+    if (change < neg_threshold && temperature_tier(TEMP_FIRE))
+        mpr("You're cooling off.", MSGCH_DURATION);
+
+    // Cooled down enough for stoneskin to kick in again.
+    if (change < neg_threshold && temperature_tier(TEMP_WARM))
+    {
+            mpr("Your skin cools and hardens.", MSGCH_DURATION);
+            you.redraw_armour_class = true;
+    }
+
+    // Cooled down enough for slow movement.
+    if (change < neg_threshold && temperature_tier(TEMP_COOL))
+        mpr("Your movements slow.", MSGCH_DURATION);
+
+    // If we're in this function, temperature changed, anyways.
+    you.redraw_temperature = true;
+
+    #ifdef USE_TILE
+        init_player_doll();
+    #endif
+
+    // Just do this every turn to be safe. Can be fixed later if there
+    // any performance issues.
+    invalidate_agrid(true);
+}
+
+void temperature_decay()
+{
+    temperature_decrement(you.temperature / 10);
+}
+
+// Just a helper function to save space. Returns true if a
+// threshold was crossed.
+bool temperature_tier (int which)
+{
+    if (temperature() > which && temperature_last() <= which)
+        return true;
+    else if (temperature() < which && temperature_last() >= which)
+        return true;
+    else
+        return false;
+}
+
+bool temperature_effect(int which)
+{
+    switch (which)
+    {
+        case LORC_FIRE_RES_I:
+            return true; // 1-15
+        case LORC_SLOW_MOVE:
+            return (temperature() < TEMP_COOL); // 1-4
+        case LORC_STONESKIN:
+            return (temperature() < TEMP_WARM); // 1-8
+//      case nothing, right now:
+//            return (you.temperature >= TEMP_COOL && you.temperature < TEMP_WARM); // 5-8
+        case LORC_LAVA_BOOST:
+            return (temperature() >= TEMP_WARM && temperature() < TEMP_HOT); // 9-10
+        case LORC_FIRE_RES_II:
+            return (temperature() >= TEMP_WARM); // 9-15
+        case LORC_FIRE_RES_III:
+        case LORC_FIRE_BOOST:
+        case LORC_COLD_VULN:
+            return (temperature() >= TEMP_HOT); // 11-15
+        case LORC_FAST_MOVE:
+        case LORC_PASSIVE_HEAT:
+            return (temperature() >= TEMP_FIRE); // 13-15
+        case LORC_HEAT_AURA:
+            if (you_worship(GOD_BEOGH))
+                return false;
+            // Deliberate fall-through.
+        case LORC_NO_SCROLLS:
+            return (temperature() >= TEMP_MAX); // 15
+
+        default:
+            return false;
+    }
+}
+
+int temperature_colour(int temp)
+{
+    return (temp > TEMP_FIRE) ? LIGHTRED  :
+           (temp > TEMP_HOT)  ? RED       :
+           (temp > TEMP_WARM) ? YELLOW    :
+           (temp > TEMP_ROOM) ? WHITE     :
+           (temp > TEMP_COOL) ? LIGHTCYAN :
+           (temp > TEMP_COLD) ? LIGHTBLUE : BLUE;
+}
+
+string temperature_string(int temp)
+{
+    return (temp > TEMP_FIRE) ? "lightred"  :
+           (temp > TEMP_HOT)  ? "red"       :
+           (temp > TEMP_WARM) ? "yellow"    :
+           (temp > TEMP_ROOM) ? "white"     :
+           (temp > TEMP_COOL) ? "lightcyan" :
+           (temp > TEMP_COLD) ? "lightblue" : "blue";
+}
+
+string temperature_text(int temp)
+{
+    switch (temp)
+    {
+        case TEMP_MIN:
+            return "rF+";
+        case TEMP_COOL:
+            return "Normal movement speed";
+        case TEMP_WARM:
+            return "rF++; lava magic boost; Stoneskin melts";
+        case TEMP_HOT:
+            return "rF+++; rC-; fire magic boost";
+        case TEMP_FIRE:
+            return "Fast movement speed; burn attackers";
+        case TEMP_MAX:
+            return "Burn surroundings; cannot read scrolls";
+        default:
+            return "";
+    }
 }

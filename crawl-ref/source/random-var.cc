@@ -38,7 +38,7 @@ int random_var::weight(int val) const
 {
     if (val < start || val >= end)
         return 0;
-    return (weights[val - start]);
+    return weights[val - start];
 }
 
 void random_var::init_weights(weight_func w)
@@ -59,7 +59,8 @@ void random_var::init()
 
 int random_var::roll2val(int r) const
 {
-    ASSERT(0 <= r && r < total);
+    ASSERT(0 <= r);
+    ASSERT(r < total);
     int v = start;
     int w = weight(v);
     while (r >= w)

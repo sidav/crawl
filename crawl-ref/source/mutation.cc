@@ -25,6 +25,7 @@
 #include "env.h"
 #include "godabil.h"
 #include "godpassive.h"
+#include "hints.h"
 #include "itemprop.h"
 #include "items.h"
 #include "libutil.h"
@@ -45,7 +46,7 @@
 #include "state.h"
 #include "stuff.h"
 #include "transform.h"
-#include "hints.h"
+#include "viewchar.h"
 #include "xom.h"
 
 static int _body_covered();
@@ -104,7 +105,7 @@ void init_mut_index()
     for (unsigned int i = 0; i < ARRAYSZ(mut_data); ++i)
     {
         const mutation_type mut = mut_data[i].mutation;
-        ASSERT(mut >= 0 && mut < NUM_MUTATIONS);
+        ASSERT_RANGE(mut, 0, NUM_MUTATIONS);
         ASSERT(mut_index[mut] == -1);
         mut_index[mut] = i;
         total_rarity[MT_ALL] += mut_data[i].rarity;
@@ -114,11 +115,11 @@ void init_mut_index()
 
 static const mutation_def* _seek_mutation(mutation_type mut)
 {
-    ASSERT(mut >= 0 && mut < NUM_MUTATIONS);
+    ASSERT_RANGE(mut, 0, NUM_MUTATIONS);
     if (mut_index[mut] == -1)
         return NULL;
     else
-        return (&mut_data[mut_index[mut]]);
+        return &mut_data[mut_index[mut]];
 }
 
 bool is_valid_mutation(mutation_type mut)
@@ -159,18 +160,13 @@ bool is_body_facet(mutation_type mut)
 const mutation_def& get_mutation_def(mutation_type mut)
 {
     ASSERT(is_valid_mutation(mut));
-    return (*_seek_mutation(mut));
+    return *_seek_mutation(mut);
 }
 
 mutation_activity_type mutation_activity_level(mutation_type mut)
 {
     // First make sure the player's form permits the mutation.
-    if (mut == MUT_BREATHE_POISON)
-    {
-        if (form_changed_physiology() && you.form != TRAN_SPIDER)
-            return MUTACT_INACTIVE;
-    }
-    else if (!form_keeps_mutations())
+    if (!form_keeps_mutations())
     {
         if (you.form == TRAN_DRAGON)
         {
@@ -178,6 +174,8 @@ mutation_activity_type mutation_activity_level(mutation_type mut)
             if (mut == MUT_SHOCK_RESISTANCE && drag == MONS_STORM_DRAGON)
                 return MUTACT_FULL;
             if (mut == MUT_UNBREATHING && drag == MONS_IRON_DRAGON)
+                return MUTACT_FULL;
+            if (mut == MUT_ACIDIC_BITE && drag == MONS_GOLDEN_DRAGON)
                 return MUTACT_FULL;
         }
         // Dex and HP changes are kept in all forms.
@@ -527,6 +525,96 @@ string describe_mutations(bool center_title)
         have_any = true;
         break;
 
+    case SP_DJINNI:
+        result += "You are immune to all types of fire, even holy and hellish.\n";
+        result += "You are vulnerable to cold.\n";
+        result += "You need no food.\n";
+        result += "You have no legs.\n";
+        have_any = true;
+        break;
+
+    case SP_LAVA_ORC:
+    {
+        have_any = true;
+        string col = "darkgrey";
+
+        col = (temperature_effect(LORC_STONESKIN)) ? "lightgrey" : "darkgrey";
+        result += "<" + col + ">You have stony skin.</" + col + ">\n";
+
+        if (temperature_effect(LORC_FAST_MOVE))
+        {
+            // Fast move
+            col = "lightred";
+            result += "<" + col + ">You cover ground quickly.</" + col + ">\n";
+        }
+        else
+        {
+            // Slow or normal move
+            col = (temperature_effect(LORC_SLOW_MOVE)) ? "lightgrey" : "darkgrey";
+            result += "<" + col + ">You cover ground slowly.</" + col + ">\n";
+        }
+
+        // Fire res
+        col = (temperature_effect(LORC_FIRE_RES_III)) ? "lightred" :
+              (temperature_effect(LORC_FIRE_RES_II))  ? "white"    :
+              (temperature_effect(LORC_FIRE_RES_I))   ? "lightgrey"    : "bugged";
+
+        result += "<" + col + ">";
+        result += (temperature_effect(LORC_FIRE_RES_III)) ? "Your flesh is almost immune to the effects of heat." :
+                  (temperature_effect(LORC_FIRE_RES_II))  ? "Your flesh is very heat resistant." :
+                  (temperature_effect(LORC_FIRE_RES_I))   ? "Your flesh is heat resistant." : "bugged";
+        result += "</" + col + ">\n";
+
+        // Lava/fire boost
+        if (temperature_effect(LORC_LAVA_BOOST))
+        {
+            col = "white";
+            result += "<" + col + ">Your lava-based spells are more powerful.<" + col + ">\n";
+        }
+        else if (temperature_effect(LORC_FIRE_BOOST))
+        {
+            col = "lightred";
+            result += "<" + col + ">Your fire spells are more powerful.<" + col + ">\n";
+        }
+
+        // Cold vulnerability
+        col = (temperature_effect(LORC_COLD_VULN)) ? "red" : "darkgrey";
+        result += "<" + col + ">Your flesh is vulnerable to cold.</" + col + ">\n";
+
+        // Passive heat
+        col = (temperature_effect(LORC_PASSIVE_HEAT)) ? "lightred" : "darkgrey";
+        result += "<" + col + ">Your heat harms attackers.</" + col + ">\n";
+
+        // Heat aura
+        col = (temperature_effect(LORC_HEAT_AURA)) ? "lightred" : "darkgrey";
+        result += "<" + col + ">You bathe your surroundings in blazing heat.</" + col + ">\n";
+
+        // No scrolls
+        col = (temperature_effect(LORC_NO_SCROLLS)) ? "red" : "darkgrey";
+        result += "<" + col + ">You are too hot to use scrolls.</" + col + ">\n";
+
+        break;
+    }
+
+    case SP_GARGOYLE:
+    {
+        result += "You are resistant to torment.\n";
+        result += "You are immune to poison.\n";
+        if (you.experience_level >= 14)
+            result += "You can fly continuously.\n";
+
+        ostringstream num;
+        num << 2 + you.experience_level * 2 / 5
+                 + max(0, you.experience_level - 7) * 2 / 5;
+        const string acstr = "Your stone body is very resilient (AC +"
+                                 + num.str() + ").";
+
+        result += _annotate_form_based(acstr, player_is_shapechanged()
+                                              && you.form != TRAN_STATUE);
+        break;
+    }
+
+
     default:
         break;
     }
@@ -569,7 +657,7 @@ string describe_mutations(bool center_title)
         result += "Your body does not fit into most forms of armour.\n";
 
         msg = "Your cold-blooded metabolism reacts poorly to cold.";
-        if (you.res_cold() <= 0)
+        if (player_res_cold(false) <= 0)
             result += msg + "\n";
         else
             result += "<darkgrey>" + msg + "</darkgrey>\n";
@@ -599,7 +687,7 @@ string describe_mutations(bool center_title)
         if (you.mutation[i] != 0 && you.innate_mutations[i])
         {
             mutation_type mut_type = static_cast<mutation_type>(i);
-            result += mutation_name(mut_type, -1, true);
+            result += mutation_desc(mut_type, -1, true);
             result += "\n";
             have_any = true;
         }
@@ -612,7 +700,7 @@ string describe_mutations(bool center_title)
                 && !you.temp_mutations[i])
         {
             mutation_type mut_type = static_cast<mutation_type>(i);
-            result += mutation_name(mut_type, -1, true);
+            result += mutation_desc(mut_type, -1, true);
             result += "\n";
             have_any = true;
         }
@@ -624,7 +712,7 @@ string describe_mutations(bool center_title)
         if (you.mutation[i] != 0 && you.temp_mutations[i])
         {
             mutation_type mut_type = static_cast<mutation_type>(i);
-            result += mutation_name(mut_type, -1, true);
+            result += mutation_desc(mut_type, -1, true);
             result += "\n";
             have_any = true;
         }
@@ -637,12 +725,22 @@ string describe_mutations(bool center_title)
 }
 
 static const string _vampire_Ascreen_footer = (
+#ifndef USE_TILE_LOCAL
     "Press '<w>!</w>'"
-#ifdef USE_TILE_LOCAL
-    " or <w>Right-click</w>"
+#else
+    "<w>Right-click</w>"
 #endif
     " to toggle between mutations and properties depending on your\n"
     "hunger status.\n");
+
+static const string _lava_orc_Ascreen_footer = (
+#ifndef USE_TILE_LOCAL
+    "Press '<w>!</w>'"
+#else
+    "<w>Right-click</w>"
+#endif
+    " to toggle between mutations and properties depending on your\n"
+    "temperature.\n");
 
 static void _display_vampire_attributes()
 {
@@ -741,6 +839,86 @@ static void _display_vampire_attributes()
     }
 }
 
+static void _display_temperature()
+{
+    ASSERT(you.species == SP_LAVA_ORC);
+
+    clrscr();
+    cgotoxy(1,1);
+
+    string result;
+
+    string title = "Temperature Effects";
+
+    // center title
+    int offset = 39 - strwidth(title) / 2;
+    if (offset < 0) offset = 0;
+
+    result += string(offset, ' ');
+
+    result += "<white>";
+    result += title;
+    result += "</white>\n\n";
+
+    const int lines = TEMP_MAX + 1; // 15 lines plus one for off-by-one.
+    string column[lines];
+
+    for (int t = 1; t <= TEMP_MAX; t++)  // lines
+    {
+        string text;
+        ostringstream ostr;
+
+        string colourname = temperature_string(t);
+#define F(x) stringize_glyph(dchar_glyph(DCHAR_FRAME_##x))
+        if (t == TEMP_MAX)
+            text = "  " + F(TL) + F(HORIZ) + "MAX" + F(HORIZ) + F(HORIZ) + F(TR);
+        else if (t == TEMP_MIN)
+            text = "  " + F(BL) + F(HORIZ) + F(HORIZ) + "MIN" + F(HORIZ) + F(BR);
+        else if (temperature() < t)
+            text = "  " + F(VERT) + "      " + F(VERT);
+        else if (temperature() == t)
+            text = "  " + F(VERT) + "~~~~~~" + F(VERT);
+        else
+            text = "  " + F(VERT) + "######" + F(VERT);
+        text += "    ";
+#undef F
+
+        ostr << '<' << colourname << '>' << text
+             << "</" << colourname << '>';
+
+        colourname = (temperature() >= t) ? "lightred" : "darkgrey";
+        text = temperature_text(t);
+        ostr << '<' << colourname << '>' << text
+             << "</" << colourname << '>';
+
+       column[t] = ostr.str();
+    }
+
+    for (int y = TEMP_MAX; y >= TEMP_MIN; y--)  // lines
+    {
+        result += column[y];
+        result += "\n";
+    }
+
+    result += "\n";
+
+    result += "You get hot in tense situations, when berserking, or when you enter lava. You \ncool down when your rage ends or when you enter water.";
+    result += "\n";
+    result += "\n";
+
+    result += _lava_orc_Ascreen_footer;
+
+    formatted_scroller temp_menu;
+    temp_menu.add_text(result);
+
+    temp_menu.show();
+    if (temp_menu.getkey() == '!'
+        || temp_menu.getkey() == CK_MOUSE_CMD)
+    {
+        display_mutations();
+    }
+}
+
 void display_mutations()
 {
     string mutation_s = describe_mutations(true);
@@ -764,6 +942,14 @@ void display_mutations()
         extra += _vampire_Ascreen_footer;
     }
 
+    if (you.species == SP_LAVA_ORC)
+    {
+        if (!extra.empty())
+            extra += "\n";
+
+        extra += _lava_orc_Ascreen_footer;
+    }
+
     if (!extra.empty())
     {
         mutation_s += "\n\n\n\n";
@@ -783,6 +969,13 @@ void display_mutations()
     {
         _display_vampire_attributes();
     }
+    if (you.species == SP_LAVA_ORC
+        && (mutation_menu.getkey() == '!'
+            || mutation_menu.getkey() == CK_MOUSE_CMD))
+    {
+        _display_temperature();
+    }
+
 }
 
 static int _calc_mutation_amusement_value(mutation_type which_mutation)
@@ -798,12 +991,14 @@ static int _calc_mutation_amusement_value(mutation_type which_mutation)
     case MUT_SHOCK_RESISTANCE:
     case MUT_REGENERATION:
     case MUT_SLOW_METABOLISM:
-    case MUT_TELEPORT_CONTROL:
     case MUT_MAGIC_RESISTANCE:
     case MUT_CLARITY:
     case MUT_MUTATION_RESISTANCE:
     case MUT_ROBUST:
     case MUT_HIGH_MAGIC:
+    case MUT_MANA_SHIELD:
+    case MUT_MANA_REGENERATION:
+    case MUT_MANA_LINK:
         amusement /= 2;  // not funny
         break;
 
@@ -874,7 +1069,8 @@ static mutation_type _get_random_slime_mutation()
 {
     const mutation_type slime_muts[] = {
         MUT_GELATINOUS_BODY, MUT_EYEBALLS, MUT_TRANSLUCENT_SKIN,
-        MUT_PSEUDOPODS, MUT_FOOD_JELLY, MUT_ACIDIC_BITE
+        MUT_PSEUDOPODS, MUT_ACIDIC_BITE, MUT_TENDRILS,
+        MUT_JELLY_GROWTH, MUT_JELLY_MISSILE
     };
 
     return RANDOM_ELEMENT(slime_muts);
@@ -905,7 +1101,8 @@ static bool _is_slime_mutation(mutation_type m)
 {
     return (m == MUT_GELATINOUS_BODY || m == MUT_EYEBALLS
             || m == MUT_TRANSLUCENT_SKIN || m == MUT_PSEUDOPODS
-            || m == MUT_FOOD_JELLY || m == MUT_ACIDIC_BITE);
+            || m == MUT_ACIDIC_BITE || m == MUT_TENDRILS
+            || m == MUT_JELLY_GROWTH || m == MUT_JELLY_MISSILE);
 }
 
 static mutation_type _get_random_xom_mutation()
@@ -991,7 +1188,9 @@ static int _handle_conflicting_mutations(mutation_type mutation,
         { MUT_STRONG,              MUT_WEAK,             1},
         { MUT_CLEVER,              MUT_DOPEY,            1},
         { MUT_AGILE,               MUT_CLUMSY,           1},
+#if TAG_MAJOR_VERSION == 34
         { MUT_STRONG_STIFF,        MUT_FLEXIBLE_WEAK,    1},
+#endif
         { MUT_ROBUST,              MUT_FRAIL,            1},
         { MUT_HIGH_MAGIC,          MUT_LOW_MAGIC,        1},
         { MUT_CARNIVOROUS,         MUT_HERBIVOROUS,      1},
@@ -1133,9 +1332,12 @@ bool physiology_mutation_conflict(mutation_type mutat)
     if (you.species == SP_GREEN_DRACONIAN && mutat == MUT_SPIT_POISON)
         return true;
 
-    // Only Draconians can get wings.
-    if (!player_genus(GENPC_DRACONIAN) && mutat == MUT_BIG_WINGS)
+    // Only Draconians (and gargoyles) can get wings.
+    if (!player_genus(GENPC_DRACONIAN) && you.species != SP_GARGOYLE
+        && mutat == MUT_BIG_WINGS)
+    {
         return true;
+    }
 
     // Vampires' healing and thirst rates depend on their blood level.
     if (you.species == SP_VAMPIRE
@@ -1161,6 +1363,18 @@ bool physiology_mutation_conflict(mutation_type mutat)
     {
         return true;
     }
+
+    // Heat doesn't hurt fire, djinn don't care about hunger.
+    if (you.species == SP_DJINNI && (mutat == MUT_HEAT_RESISTANCE
+        || mutat == MUT_FAST_METABOLISM || mutat == MUT_SLOW_METABOLISM
+        || mutat == MUT_CARNIVOROUS || mutat == MUT_HERBIVOROUS))
+    {
+        return true;
+    }
+
+    // Already immune.
+    if (you.species == SP_GARGOYLE && mutat == MUT_POISON_RESISTANCE)
+        return true;
 
     equipment_type eq_type = EQ_NONE;
 
@@ -1219,10 +1433,14 @@ static const char* _stat_mut_desc(mutation_type mut, bool gain)
     return stat_desc(stat, positive ? SD_INCREASE : SD_DECREASE);
 }
 
-static bool _undead_rot()
+bool undead_mutation_rot(bool is_beneficial_mutation)
 {
     if (you.is_undead == US_SEMI_UNDEAD)
     {
+        // Let beneficial mutation potions work at satiated or higher
+        // for convenience
+        if (is_beneficial_mutation && you.hunger_state >= HS_SATIATED)
+            return false;
         switch (you.hunger_state)
         {
         case HS_SATIATED:  return !one_chance_in(3);
@@ -1237,9 +1455,15 @@ static bool _undead_rot()
 }
 
 bool mutate(mutation_type which_mutation, const string &reason, bool failMsg,
-            bool force_mutation, bool god_gift, bool stat_gain_potion,
+            bool force_mutation, bool god_gift, bool beneficial,
             bool demonspawn, bool no_rot, bool temporary)
 {
+    if (which_mutation == RANDOM_BAD_MUTATION
+        && crawl_state.disables[DIS_AFFLICTIONS])
+    {
+        return true; // no fallbacks
+    }
+
     if (!god_gift)
     {
         const god_type god =
@@ -1264,51 +1488,31 @@ bool mutate(mutation_type which_mutation, const string &reason, bool failMsg,
         if (!god_gift)
         {
             if ((you.rmut_from_item()
-                 && !one_chance_in(temporary ? 3 : 10) && !stat_gain_potion)
+                 && !one_chance_in(temporary ? 3 : 10) && !beneficial)
                 || player_mutation_level(MUT_MUTATION_RESISTANCE) == 3
                 || (player_mutation_level(MUT_MUTATION_RESISTANCE)
                     && !one_chance_in(temporary ? 2 : 3)))
             {
                 if (failMsg)
-                {
                     mpr("You feel odd for a moment.", MSGCH_MUTATION);
-                    maybe_id_resist(BEAM_MALMUTATE);
-                }
+                maybe_id_resist(BEAM_MALMUTATE);
                 return false;
             }
         }
 
         // Zin's protection.
-        if (you.religion == GOD_ZIN
+        if (you_worship(GOD_ZIN)
             && (x_chance_in_y(you.piety, MAX_PIETY)
-                || x_chance_in_y(you.piety, MAX_PIETY + 22))
-            && !stat_gain_potion)
+                || x_chance_in_y(you.piety, MAX_PIETY + 22)))
         {
             simple_god_message(" protects your body from mutation!");
             return false;
         }
     }
 
-    bool rotting = _undead_rot();
-
-    if (you.is_undead == US_SEMI_UNDEAD)
-    {
-        // The stat gain mutations always come through at Satiated or
-        // higher (mostly for convenience), and, for consistency, also
-        // their negative counterparts.
-        if (which_mutation == MUT_STRONG || which_mutation == MUT_CLEVER
-            || which_mutation == MUT_AGILE || which_mutation == MUT_WEAK
-            || which_mutation == MUT_DOPEY || which_mutation == MUT_CLUMSY)
-        {
-            if (you.hunger_state >= HS_SATIATED)
-                rotting = false;
-        }
-        // Else, chances depend on hunger state.
-    }
-
     // Undead bodies don't mutate, they fall apart. -- bwr
     // except for demonspawn (or other permamutations) in lichform -- haranp
-    if (rotting && !demonspawn)
+    if (undead_mutation_rot(beneficial) && !demonspawn)
     {
         if (no_rot)
             return false;
@@ -1337,7 +1541,8 @@ bool mutate(mutation_type which_mutation, const string &reason, bool failMsg,
         || which_mutation == RANDOM_XOM_MUTATION)
     {
         // If already heavily mutated, remove a mutation instead.
-        if (x_chance_in_y(how_mutated(false, true), 15))
+        if (x_chance_in_y(how_mutated(false, true), 15)
+            && !temporary)
         {
             // God gifts override mutation loss due to being heavily
             // mutated.
@@ -1511,17 +1716,12 @@ bool mutate(mutation_type which_mutation, const string &reason, bool failMsg,
         }
         break;
 
-    case MUT_ACUTE_VISION:
-        // We might have to turn autopickup back on again.
-        autotoggle_autopickup(false);
-        break;
-
     case MUT_NIGHTSTALKER:
         update_vision_range();
         break;
 
     case MUT_DEMONIC_GUARDIAN:
-        if (you.religion == GOD_OKAWARU)
+        if (you_worship(GOD_OKAWARU))
         {
             mpr("Your demonic guardian will not assist you as long as you "
                 "worship Okawaru.", MSGCH_MUTATION);
@@ -1532,11 +1732,25 @@ bool mutate(mutation_type which_mutation, const string &reason, bool failMsg,
         break;
     }
 
+    // We might have to turn autopickup back on again.
+    if (mutat == MUT_ACUTE_VISION
+        || (mutat == MUT_ANTENNAE && you.mutation[mutat] >= 3))
+    {
+        autotoggle_autopickup(false);
+    }
+
     // Amusement value will be 12 * (11-rarity) * Xom's-sense-of-humor.
     xom_is_stimulated(_calc_mutation_amusement_value(mutat));
 
     if (!temporary)
         take_note(Note(NOTE_GET_MUTATION, mutat, you.mutation[mutat], reason.c_str()));
+    else
+    {
+        you.temp_mutations[mutat]++;
+        you.attribute[ATTR_TEMP_MUTATIONS]++;
+        you.attribute[ATTR_TEMP_MUT_XP] =
+                min(you.experience_level, 17) * (500 + roll_dice(5, 500)) / 17;
+    }
 
 #ifdef USE_TILE_LOCAL
     if (your_talents(false).size() != old_talents)
@@ -1655,7 +1869,7 @@ bool delete_mutation(mutation_type which_mutation, const string &reason,
             }
         }
 
-        if (_undead_rot())
+        if (undead_mutation_rot(false))
             return false;
     }
 
@@ -1758,9 +1972,17 @@ bool delete_temp_mutation()
     return false;
 }
 
+const char* mutation_name(mutation_type mut)
+{
+    if (!is_valid_mutation(mut))
+        return nullptr;
+
+    return get_mutation_def(mut).wizname;
+}
+
 // Return a string describing the mutation.
 // If colour is true, also add the colour annotation.
-string mutation_name(mutation_type mut, int level, bool colour)
+string mutation_desc(mutation_type mut, int level, bool colour)
 {
     // Ignore the player's forms, etc.
     const bool ignore_player = (level != -1);
@@ -1791,11 +2013,9 @@ string mutation_name(mutation_type mut, int level, bool colour)
         || mut == MUT_AGILE || mut == MUT_WEAK
         || mut == MUT_DOPEY || mut == MUT_CLUMSY)
     {
-        ostringstream ostr;
-        ostr << mdef.have[0] << level << ").";
-        result = ostr.str();
+        level = min(level, 2);
     }
-    else if (mut == MUT_ICEMAIL)
+    if (mut == MUT_ICEMAIL)
     {
         ostringstream ostr;
         ostr << mdef.have[0] << player_icemail_armour_class() << ").";
@@ -1942,7 +2162,7 @@ static const facet_def _demon_facets[] =
     { 2, { MUT_POWERED_BY_DEATH, MUT_POWERED_BY_DEATH, MUT_POWERED_BY_DEATH },
       { -33, 0, 0 } },
     { 2, { MUT_DEMONIC_GUARDIAN, MUT_DEMONIC_GUARDIAN, MUT_DEMONIC_GUARDIAN },
-      { -33, 33, 66 } },
+      { -66, 33, 66 } },
     { 2, { MUT_NIGHTSTALKER, MUT_NIGHTSTALKER, MUT_NIGHTSTALKER },
       { -33, 0, 0 } },
     { 2, { MUT_SPINY, MUT_SPINY, MUT_SPINY },
@@ -1950,6 +2170,8 @@ static const facet_def _demon_facets[] =
     { 2, { MUT_POWERED_BY_PAIN, MUT_POWERED_BY_PAIN, MUT_POWERED_BY_PAIN },
       { -33, 0, 0 } },
     { 2, { MUT_SAPROVOROUS, MUT_FOUL_STENCH, MUT_FOUL_STENCH },
+      { -33, 0, 0 } },
+    { 2, { MUT_MANA_SHIELD, MUT_MANA_REGENERATION, MUT_MANA_LINK },
       { -33, 0, 0 } },
     // Tier 3 facets
     { 3, { MUT_CONSERVE_SCROLLS, MUT_HEAT_RESISTANCE, MUT_HURL_HELLFIRE },
@@ -2133,16 +2355,12 @@ _schedule_ds_mutations(vector<mutation_type> muts)
     vector<player::demon_trait> out;
 
     for (int level = 2; level <= 27; ++level)
-    {
-        int ct = coinflip() ? 2 : 1;
-
-        for (int i = 0; i < ct; ++i)
-            slots_left.push_back(level);
-    }
+        slots_left.push_back(level);
 
     while (!muts_left.empty())
     {
-        if (x_chance_in_y(muts_left.size(), slots_left.size()))
+        if (out.empty() // always give a mutation at XL 2
+            || x_chance_in_y(muts_left.size(), slots_left.size()))
         {
             player::demon_trait dt;
 
@@ -2212,42 +2430,8 @@ bool perma_mutate(mutation_type which_mut, int how_much, const string &reason)
 
 bool temp_mutate(mutation_type which_mut, const string &reason)
 {
-    switch (which_mut)
-    {
-    case RANDOM_MUTATION:
-    case RANDOM_GOOD_MUTATION:
-    case RANDOM_BAD_MUTATION:
-        which_mut = _get_random_mutation(which_mut);
-        break;
-    case RANDOM_XOM_MUTATION:
-        which_mut = _get_random_xom_mutation();
-        break;
-    case RANDOM_SLIME_MUTATION:
-        which_mut = _get_random_slime_mutation();
-        break;
-    default:
-        break;
-    }
-
-    if (which_mut == NUM_MUTATIONS)
-        return false;
-
-    int old_level = you.mutation[which_mut];
-
-    if (mutate(which_mut, reason, false, false, false, false, false, false, true))
-    {
-        // Only increment temp mutation tracking if we actually gained a mutation.
-        if (you.mutation[which_mut] > old_level)
-        {
-            you.temp_mutations[which_mut]++;
-            you.attribute[ATTR_TEMP_MUTATIONS]++;
-            you.attribute[ATTR_TEMP_MUT_XP] =
-                    min(you.experience_level, 17) * (500 + roll_dice(5, 500)) / 17;
-        }
-        return true;
-    }
-
-    return false;
+    return mutate(which_mut, reason, false, false, false, false, false,
+                  false, true);
 }
 
 int how_mutated(bool all, bool levels)
@@ -2262,16 +2446,7 @@ int how_mutated(bool all, bool levels)
                 continue;
 
             if (levels)
-            {
-                // These allow for 14 levels.
-                if (i == MUT_STRONG || i == MUT_CLEVER || i == MUT_AGILE
-                    || i == MUT_WEAK || i == MUT_DOPEY || i == MUT_CLUMSY)
-                {
-                    j += (you.mutation[i] / 5 + 1);
-                }
-                else
-                    j += you.mutation[i];
-            }
+                j += you.mutation[i];
             else
                 j++;
         }
@@ -2324,7 +2499,7 @@ static bool _balance_demonic_guardian()
 void check_demonic_guardian()
 {
     // Don't spawn guardians with Oka, they're a huge pain.
-    if (you.religion == GOD_OKAWARU)
+    if (you_worship(GOD_OKAWARU))
         return;
 
     const int mutlevel = player_mutation_level(MUT_DEMONIC_GUARDIAN);
@@ -2372,7 +2547,7 @@ void check_demonic_guardian()
 void check_antennae_detect()
 {
     int radius = player_mutation_level(MUT_ANTENNAE) * 2;
-    if (you.religion == GOD_ASHENZARI && !player_under_penance())
+    if (you_worship(GOD_ASHENZARI) && !player_under_penance())
         radius = max(radius, you.piety / 20);
     if (radius <= 0)
         return;
@@ -2405,7 +2580,7 @@ void check_antennae_detect()
 
                 if (mon->friendly())
                     mc = MONS_SENSED_FRIENDLY;
-                else if (you.religion == GOD_ASHENZARI
+                else if (you_worship(GOD_ASHENZARI)
                          && !player_under_penance())
                 {
                     mc = ash_monster_tier(mon);
@@ -2442,8 +2617,10 @@ int handle_pbd_corpses(bool do_rot)
     {
         for (stack_iterator j(*ri); j; ++j)
         {
-            if (j->base_type == OBJ_CORPSES && j->sub_type == CORPSE_BODY
-                && j->special > 50)
+            if (j->base_type == OBJ_CORPSES
+                && j->sub_type == CORPSE_BODY
+                && j->special > 50
+                && !j->props.exists("never_hide"))
             {
                 ++corpse_count;
 

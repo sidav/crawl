@@ -4,7 +4,6 @@
 **/
 
 #include "AppHdr.h"
-#include <dirent.h>
 
 #ifdef TARGET_OS_WINDOWS
 # ifdef TARGET_COMPILER_VC
@@ -15,12 +14,14 @@
 # include <wincrypt.h>
 # include <io.h>
 #else
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
+# include <dirent.h>
+# include <unistd.h>
+# include <fcntl.h>
+# include <sys/types.h>
+# include <sys/stat.h>
 #endif
 
+#include "files.h"
 #include "random.h"
 #include "syscalls.h"
 #include "unicode.h"

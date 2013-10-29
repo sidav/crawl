@@ -363,18 +363,30 @@ void crawl_view_geometry::init_geometry()
     termsz = coord_def(get_number_of_cols(), get_number_of_lines());
     hudsz  = coord_def(HUD_WIDTH,
                        HUD_HEIGHT + (Options.show_gold_turns ? 1 : 0)
-                                  + crawl_state.game_is_zotdef());
+                                  + crawl_state.game_is_zotdef()
+                                  + ((you.species == SP_LAVA_ORC) ? 1 : 0));
 
     const _inline_layout lay_inline(termsz, hudsz);
     const _mlist_col_layout lay_mlist(termsz, hudsz);
 
 #ifndef USE_TILE_LOCAL
-    if ((termsz.x < MIN_COLS || termsz.y < MIN_LINES || !lay_inline.valid)
-        && !crawl_state.need_save)
+    if (!crawl_state.need_save)
     {
-        // Terminal too small; exit with an error.
-        end(1, false, "Terminal too small (%d,%d); need at least (%d,%d)",
-            termsz.x, termsz.y, MIN_COLS, MIN_LINES);
+        if (termsz.x < MIN_COLS || termsz.y < MIN_LINES)
+        {
+            end(1, false, "Terminal too small (%d,%d); need at least (%d,%d)",
+                termsz.x, termsz.y, MIN_COLS, MIN_LINES);
+        }
+        else if (!lay_inline.valid)
+        {
+            const int x_left = lay_inline.leftover_x();
+            const int y_left = lay_inline.leftover_y();
+
+            end(1, false, "Terminal too small (%d,%d); layout needs (%d,%d)",
+                termsz.x, termsz.y,
+                x_left < 0 ? termsz.x - x_left : MIN_COLS,
+                y_left < 0 ? termsz.y - y_left : MIN_LINES);
+        }
     }
 #endif
 

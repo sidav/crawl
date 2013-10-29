@@ -8,11 +8,14 @@
 #include "dbg-scan.h"
 
 #include "artefact.h"
+#include "branch.h"
+#include "chardump.h"
 #include "coord.h"
 #include "coordit.h"
 #include "dbg-util.h"
 #include "dungeon.h"
 #include "env.h"
+#include "godabil.h"
 #include "itemname.h"
 #include "libutil.h"
 #include "message.h"
@@ -71,8 +74,7 @@ void debug_item_scan(void)
     int   i;
     char  name[256];
 
-    FixedVector<bool, MAX_ITEMS> visited;
-    visited.init(false);
+    FixedBitVector<MAX_ITEMS> visited;
 
     // First we're going to check all the stacks on the level:
     for (rectangle_iterator ri(0); ri; ++ri)
@@ -124,7 +126,7 @@ void debug_item_scan(void)
                      "Potential INFINITE STACK at (%d, %d)", ri->x, ri->y);
                 break;
             }
-            visited[obj] = true;
+            visited.set(obj);
         }
     }
 
@@ -197,13 +199,8 @@ void debug_item_scan(void)
                         || !is_artefact(mitm[i])
                            && mitm[i].special >= NUM_SPECIAL_WEAPONS))
 
-                 || (mitm[i].base_type == OBJ_MISSILES
-                     && (abs(mitm[i].plus) > 25
-                         || !is_artefact(mitm[i])
-                            && mitm[i].special >= NUM_SPECIAL_MISSILES))
-
                  || (mitm[i].base_type == OBJ_ARMOUR
-                     && (abs(mitm[i].plus) > 25
+                     && (abs(mitm[i].plus) > 30
                          || !is_artefact(mitm[i])
                             && mitm[i].special >= NUM_SPECIAL_ARMOURS)))
         {
@@ -315,7 +312,7 @@ void debug_mons_scan()
             else if (!m->alive())
             {
                 _announce_level_prob(warned);
-                mprf_nocap(MSGCH_WARN,
+                mprf_nocap(MSGCH_ERROR,
                      "mgrd at (%d,%d) points at dead monster %s",
                      x, y, m->name(DESC_PLAIN, true).c_str());
                 warned = true;
@@ -338,6 +335,12 @@ void debug_mons_scan()
 
         ASSERT(m->mid > 0);
         coord_def pos = m->pos();
+
+        if (invalid_monster_type(m->type))
+        {
+            mprf(MSGCH_ERROR, "Bogus monster type %d at (%d, %d), midx = %d",
+                              m->type, pos.x, pos.y, i);
+        }
 
         if (!in_bounds(pos))
         {
@@ -465,6 +468,31 @@ void debug_mons_scan()
             else
                 ASSERT(monster_by_mid(m->mid) == m);
         }
+
+        if (you.constricted_by == m->mid && (!m->constricting
+              || m->constricting->find(MID_PLAYER) == m->constricting->end()))
+        {
+            mprf(MSGCH_ERROR, "Error: constricting[you] entry missing for monster %s(%d)",
+                 m->name(DESC_PLAIN, true).c_str(), m->mindex());
+        }
+
+        if (m->constricted_by)
+        {
+            const actor *h = actor_by_mid(m->constricted_by);
+            if (!h)
+            {
+                mprf(MSGCH_ERROR, "Error: constrictor missing for monster %s(%d)",
+                     m->name(DESC_PLAIN, true).c_str(), m->mindex());
+            }
+            if (!h->constricting
+                || h->constricting->find(m->mid) == h->constricting->end())
+            {
+                mprf(MSGCH_ERROR, "Error: constricting[%s(mindex=%d mid=%d)] "
+                                  "entry missing for monster %s(mindex=%d mid=%d)",
+                     m->name(DESC_PLAIN, true).c_str(), m->mindex(), m->mid,
+                     h->name(DESC_PLAIN, true).c_str(), h->mindex(), h->mid);
+            }
+        }
     } // for (int i = 0; i < MAX_MONSTERS; ++i)
 
     for (map<mid_t, unsigned short>::const_iterator mc = env.mid_cache.begin();
@@ -474,6 +502,14 @@ void debug_mons_scan()
         ASSERT(!invalid_monster_index(idx));
         ASSERT(menv[idx].mid == mc->first);
     }
+
+    if (in_bounds(you.pos()))
+        if (const monster* m = monster_at(you.pos()))
+            if (!m->submerged() && !fedhas_passthrough(m))
+            {
+                mprf(MSGCH_ERROR, "Error: player on same spot as monster: %s(%d)",
+                      m->name(DESC_PLAIN, true).c_str(), m->mindex());
+            }
 
     // No problems?
     if (!warned)
@@ -561,8 +597,6 @@ void debug_mons_scan()
 }
 #endif
 
-// These are nearly completely redundant, and should be useless, except for
-// some recent Abyss breakage.
 void check_map_validity()
 {
 #ifdef ASSERTS
@@ -577,11 +611,21 @@ void check_map_validity()
             portal = DNGN_ENTER_HELL;
     }
 
+    dungeon_feature_type exit = DNGN_UNSEEN;
+    if (you.depth == 1 && you.where_are_you != root_branch)
+        exit = branches[you.where_are_you].exit_stairs;
+
+    // these may require you to look farther:
+    if (exit == DNGN_EXIT_PANDEMONIUM)
+        exit = DNGN_TRANSIT_PANDEMONIUM;
+    if (exit == DNGN_EXIT_ABYSS)
+        exit = DNGN_UNSEEN;
+
     for (rectangle_iterator ri(0); ri; ++ri)
     {
         dungeon_feature_type feat = grd(*ri);
-        ASSERT(feat > DNGN_UNSEEN);
-        ASSERT(feat < NUM_FEATURES);
+        if (feat <= DNGN_UNSEEN || feat >= NUM_FEATURES)
+            die("invalid feature %d at (%d,%d)", feat, ri->x, ri->y);
         const char *name = dungeon_feature_name(feat);
         ASSERT(name);
         ASSERT(*name); // placeholders get empty names
@@ -589,18 +633,36 @@ void check_map_validity()
         find_trap(*ri); // this has all needed asserts already
 
         if (shop_struct *shop = get_shop(*ri))
-            ASSERT(shop->type >= 0 && shop->type < NUM_SHOPS);
+            ASSERT_RANGE(shop->type, 0, NUM_SHOPS);
 
         // border must be impassable
         if (!in_bounds(*ri))
             ASSERT(feat_is_solid(feat));
 
+        if (env.level_map_mask(*ri) & MMT_MIMIC)
+            continue;
+        // no mimics below
+
         if (feat == portal)
             portal = DNGN_UNSEEN;
+        if (feat == exit)
+            exit = DNGN_UNSEEN;
     }
 
     if (portal)
-        die("%s didn't get generated.", dungeon_feature_name(portal));
+    {
+#ifdef DEBUG_DIAGNOSTICS
+        dump_map("missing_portal.map", true);
+#endif
+        die("Portal %s[%d] didn't get generated.", dungeon_feature_name(portal), portal);
+    }
+    if (exit)
+    {
+#ifdef DEBUG_DIAGNOSTICS
+        dump_map("missing_exit.map", true);
+#endif
+        die("Exit %s[%d] didn't get generated.", dungeon_feature_name(exit), exit);
+    }
 
     // And just for good measure:
     debug_item_scan();

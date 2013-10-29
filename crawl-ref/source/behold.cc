@@ -9,7 +9,6 @@
 
 #include "art-enum.h"
 #include "coord.h"
-#include "debug.h"
 #include "env.h"
 #include "fprop.h"
 #include "mon-util.h"
@@ -26,11 +25,11 @@ static bool _mermaid_beholder(const monster* mons)
 // Add a monster to the list of beholders.
 void player::add_beholder(const monster* mon, bool axe)
 {
-    if (is_sanctuary(you.pos()) && !axe)
+    if (is_sanctuary(pos()) && !axe)
     {
         if (_mermaid_beholder(mon))
         {
-            if (you.can_see(mon))
+            if (can_see(mon))
             {
                 mprf("%s's singing sounds muted, and has no effect on you.",
                      mon->name(DESC_THE).c_str());
@@ -40,7 +39,7 @@ void player::add_beholder(const monster* mon, bool axe)
         }
         else
         {
-            if (you.can_see(mon))
+            if (can_see(mon))
                 mprf("%s's is no longer quite as mesmerising!", mon->name(DESC_THE).c_str());
             else
                 mpr("Your mesmeriser suddenly seems less interesting!");
@@ -51,7 +50,7 @@ void player::add_beholder(const monster* mon, bool axe)
 
     if (!duration[DUR_MESMERISED])
     {
-        you.set_duration(DUR_MESMERISED, 7, 12);
+        set_duration(DUR_MESMERISED, 7, 12);
         beholders.push_back(mon->mindex());
         if (!axe)
         {
@@ -61,7 +60,7 @@ void player::add_beholder(const monster* mon, bool axe)
     }
     else
     {
-        you.increase_duration(DUR_MESMERISED, 5, 12);
+        increase_duration(DUR_MESMERISED, 5, 12);
         if (!beheld_by(mon))
             beholders.push_back(mon->mindex());
     }
@@ -263,7 +262,8 @@ bool player::possible_beholder(const monster* mon) const
              && !mon->has_ench(ENCH_MUTE)
              && !mon->confused()
              && !mon->asleep() && !mon->cannot_move()
-             && !mon->berserk() && !mons_is_fleeing(mon)
-             && !is_sanctuary(you.pos())
+             && !mon->berserk_or_insane()
+             && !mons_is_fleeing(mon)
+             && !is_sanctuary(pos())
            || player_equip_unrand_effect(UNRAND_DEMON_AXE)));
 }

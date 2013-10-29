@@ -5,7 +5,7 @@
 #                   define a set of monsters. Use large_abstract.des for vaults
 #                   which don't have a special theme.
 #
-# Note that all maps for the Vaults branch system (including Vaults:8) reside in
+# Note that all maps for the Vaults branch system (including Vaults:$) reside in
 # vaults.des.
 ###############################################################################
 
@@ -207,7 +207,7 @@ ENDMAP
 # Steading of the Giant Chief
 #
 NAME:    giant_chief_lemuel
-DEPTH:   D:11-22, Orc:3-4
+DEPTH:   D:11-22, Orc:3-
 ORIENT:  north
 MONS:    patrolling stone giant, patrolling frost giant, patrolling fire giant
 MONS:    hill giant, cyclops
@@ -294,7 +294,7 @@ NAME:   minmay_elf_outpost
 TAGS:   no_rotate
 ORIENT: northwest
 DEPTH:  D:12-20
-MONS:   deep elf soldier / deep elf fighter w:2 / nothing w:5, deep elf knight
+MONS:   deep elf fighter / nothing, deep elf knight
 MONS:   deep elf conjurer / deep elf mage / deep elf summoner / nothing
 MAP
 xxxxxxxxxxxxxxxxxxxxxxxx
@@ -458,7 +458,7 @@ ENDMAP
 NAME:   orc_temple
 ORIENT: southwest
 TAGS:   no_rotate
-DEPTH:  D:14-26, Orc:2-4
+DEPTH:  D:14-26, Orc:2-
 MONS:   orc warlord, patrolling orc priest, patrolling orc high priest
 MONS:   orc warrior, orc wizard, orc knight, orc sorcerer
 KFEAT:  C = altar_beogh
@@ -733,8 +733,8 @@ DEPTH:  D:16-
 MONS:   crystal golem, orange crystal statue
 ITEM:   any magical staff / any rod w:2 / any book / any jewellery w:15 / \
         any scroll w:20 / potion of magic / potion of brilliance / \
-        air elemental fan w:1 / lamp of fire w:1 / \
-        stone of earth elementals w:1 / gold w:30
+        fan of gales w:1 / lamp of fire w:1 / \
+        stone of tremors w:1 / phial of floods w:1 / gold w:30
 KFEAT:  _ = altar_sif_muna
 MAP
             bbbbb
@@ -853,30 +853,25 @@ xwwwww..................................wwwww...
 ................................................
 ENDMAP
 
-NAME:   due_tower_of_silence
+NAME:   due_jory_tower
 ORIENT: southwest
 TAGS:   no_rotate no_monster_gen no_item_gen
-DEPTH:  D:19-27
-MONS:   silent spectre / phantom / shadow / sky beast / shadow wraith
+DEPTH:  D:19-
+MONS:   flayed ghost w:5 / phantasmal warrior w:5 / phantom / shadow / shadow wraith
 MONS:   ghost moth, Jory, vampire knight
 MONS:   raven
-NSUBST: A = 3:v / *:=, B = 3:v / *:=
-NSUBST: C = 2:v / *:=, D = 2:v / *:=
-# Make sure monsters don't wander too much.
-KFEAT:  + = runed_door
+NSUBST: A = 3:v / *:+, B = 3:v / *:+
+NSUBST: C = 2:v / *:+, D = 2:v / *:+
 # Colouring
 COLOUR: G = cyan
 COLOUR: I5M% = white
 # Making things other things.
 SUBST:  I = G
-SUBST:  " = +
-SUBST:  T = ......^
-KFEAT:  ^ = alarm trap / blade trap w:1 / spear trap / bolt trap
 # Markers:
 MARKER: V = lua:fog_machine { \
                 pow_max = 10, delay_min = 5, delay_max = 30, \
                 size = 30, size_buildup_amnt = 1, \
-                size_buildup_time = 10, cloud_type = "gloom" \
+                size_buildup_time = 10, cloud_type = "purple smoke" \
             }
 # Final subst
 SUBST:  MV = .
@@ -892,79 +887,35 @@ veto {{
 MAP
   @@@@@@ @@@@@@@@@@@@@@@@@@@ @@@@@@
 xx......v...................v.......xxxxxxxxxxxxxxxxx
-xx......v..G......V......G..v.......xxxxxxxxxxxxxxxxx
+xx......v..G.............G..v.......xxxxxxxxxxxxxxxxx
 xx......v...................v.......xxxxxxxxxxxxxxxxx
 xxxxxxxxvvvvvv.........vvvvvvxxxxxxxxxxxxxxxxxxxxxxxx
-xxxxvvvvvvvvvvvvv"""vvvvvvvvvvvvvxxxxxxxxxxxxxxxxxxxx
+xxxxvvvvvvvvvvvvv===vvvvvvvvvvvvvxxxxxxxxxxxxxxxxxxxx
 xxxvv.....vvvvvv.....vvvvvv.....vvxxxxxxxxxxxxxxxxxxx
 xxxv.......+vvv...Y...vvv+.......vxxxxxxxxxxxxxxxxxxx
-xxxvvvV1.vvvTvvv.....vvvTvvv.1Vvvvxxxxxxxxxxxxxxxxxxx
-xxxv.......vvTvv+++++vvTvv.......vxxxxxxxxxxxxxxxxxxx
-xxxvv.....vvvTvv.1.1.vvTvvv.....vvxxxxxxxxxxxxxxxxxxx
-xxvvvvv+vvvvvTv...G...vTvvvvv+vvvvvxxxxxxxxxxxxxxxxxx
-xxvTB1+T+1vvvTvv.1.1.vvTvvv1+T+1ATvxxxxxxxxxxxxxxxxxx
-xxvTvvvTvvvvvvTvv+++vvTvvvvvvTvvvTvxxxxxxxxxxxxxxxxxx
-xxvTB1+T+1Cvvvv+vTTTv+vvvvD1+T+1ATvxxxxxxxxxxxxxxxxxx
-xxvTvvvTvvv..VvvTTTTTvvV..vvvTvvvTvxxxxxxxxxxxxxxxxxx
-xxvTB1+T+1C.4.vvvvvvvvv.4.D1+T+1ATvxxxxxxxxxxxxxxxxxx
-xxvTvvvTvvv..|vv*|||*vv|..vvvTvvvTvxxxxxxxxxxxxxxxxxx
-xxvTB1+T+1Cvvvvvv.*.vvvvvvD1+T+1ATvxxxxxxxxxxxxxxxxxx
-xxvTvvvvvvvvv.V.vv+vv.V.vvvvvvvvvTvxxxxxxxxxxxxxxxxxx
-xxvTTTTTTTTT+.1.v4.4v.1.+TTTTTTTTTvxxxxxxxxxxxxxxxxxx
+xxxvvvV1.vvv.vvv.....vvv.vvv.1Vvvvxxxxxxxxxxxxxxxxxxx
+xxxv.......vv.vv+++++vv.vv.......vxxxxxxxxxxxxxxxxxxx
+xxxvv.....vvv.vv.1.1.vv.vvv.....vvxxxxxxxxxxxxxxxxxxx
+xxvvvvv+vvvvv.v...G...v.vvvvv+vvvvvxxxxxxxxxxxxxxxxxx
+xxv.B1+.+1vvv.vv.1.1.vv.vvv1+.+1A.vxxxxxxxxxxxxxxxxxx
+xxv.vvv.vvvvvv.vv+++vv.vvvvvv.vvv.vxxxxxxxxxxxxxxxxxx
+xxv.B1+.+1Cvvvv+v...v+vvvvD1+.+1A.vxxxxxxxxxxxxxxxxxx
+xxv.vvv.vvv..Vvv.....vvV..vvv.vvv.vxxxxxxxxxxxxxxxxxx
+xxv.B1+.+1C.4.vvvvvvvvv.4.D1+.+1A.vxxxxxxxxxxxxxxxxxx
+xxv.vvv.vvv..|vv*|||*vv|..vvv.vvv.vxxxxxxxxxxxxxxxxxx
+xxv.B1+.+1Cvvvvvv.*.vvvvvvD1+.+1A.vxxxxxxxxxxxxxxxxxx
+xxv.vvvvvvvvv.V.vv+vv.V.vvvvvvvvv.vxxxxxxxxxxxxxxxxxx
+xxv.........+.1.v4.4v.1.+.........vxxxxxxxxxxxxxxxxxx
 xxvvvvvvvvvvv...v.3.v...vvvvvvvvvvvxxxxxxxxxxxxxxxxxx
 xxxvvvvvvvvvvv+vv...vv+vvvvvvvvvvvvxxxxxxxxxxxxxxxxxx
-xxvvMMMMMMMvvvTvv.Y.vvTv...v...vvvvxxxxxxxxxxxxxxxxxx
-xxv555%%%MMMvvTvv...vvT+.2.".2.+TTvxxxxxxxxxxxxxxxxxx
-xxv555%I%MMM+TTvv"""vvvv...v...vvTvxxxxxxxxxxxxxxxxxx
-xxv555%%%MMMvvvvTTTTTvvvvvvvvvvvvTvxxxxxxxxxxxxxxxxxx
-xxvvMMMMMMMv+T+T.111.T+TTTTTTTTT+Tvxxxxxxxxxxxxxxxxxx
+xxvvMMMMMMMvvv.vv.Y.vv.v...v...vvvvxxxxxxxxxxxxxxxxxx
+xxv555%%%MMMvv.vv...vv.+.2.".2.+..vxxxxxxxxxxxxxxxxxx
+xxv555%I%MMM+..vv+++vvvv...v...vv.vxxxxxxxxxxxxxxxxxx
+xxv555%%%MMMvvvv.....vvvvvvvvvvvv.vxxxxxxxxxxxxxxxxxx
+xxvvMMMMMMMv+.+..111..+.........+.vxxxxxxxxxxxxxxxxxx
 xxvvvvvvvvvvvvvv..V..vvvvvvvvvvvvvvxxxxxxxxxxxxxxxxxx
 xxxvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvxxxxxxxxxxxxxxxxxxx
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-ENDMAP
-
-##############################################################################
-# A variety of statues, with loot. (1KB)
-#
-NAME:    statue_cache
-ORIENT:  north
-TAGS:    no_monster_gen
-DEPTH:   D:12-20, Elf
-SHUFFLE: 12, 34, 56, 89
-MONS: statue name:archer name_adjective tile:mons_statue_crossbow ; crossbow \
-      ego:flame . bolt q:30
-MONS: statue name:archer name_adjective tile:mons_statue_crossbow ; crossbow \
-      ego:frost . bolt q:30
-MONS: statue name:warrior name_adjective tile:mons_statue_axe ; battleaxe \
-      ego:flaming good_item
-MONS: statue name:warrior name_adjective tile:mons_statue_axe ; battleaxe \
-      ego:freezing good_item
-MONS: statue name:warrior name_adjective tile:mons_statue_mace ; great mace \
-      ego:flaming good_item
-MONS: statue name:warrior name_adjective tile:mons_statue_mace ; great mace \
-      ego:freezing good_item
-MONS: silver statue
-KMONS: 8 = statue name:wizard name_adjective tile:mons_statue_mage \
-           spells:lehudib's_crystal_spear;iskenderun's_mystic_blast;slow;stone_arrow
-KMONS: 9 = statue name:wizard name_adjective tile:mons_statue_mage \
-           spells:freezing_cloud;mephitic_cloud;throw_icicle;confuse
-MAP
-  cccccccccccccc
-  cccccccc7ccccc
-  cccccc.....ccc
-  cccc..ccccc.cc
-  ccc.ccccc5c.cc
-  ccc.cccccc.ccc
-  cc8.9cc3c.c6cc
-  c$$$$$cc.ccccc
-  c|*|*|c.c4cccc
-ccccccccc.ccccccccc
-........1.2........
-...................
-...................
- .................
-   .............
-      ...@...
 ENDMAP
 
 ################################################################################
@@ -972,7 +923,7 @@ ENDMAP
 #
 NAME:   evilmike_wizard_prison
 TAGS:   no_monster_gen
-DEPTH:  D:17-27, Crypt:1-4
+DEPTH:  D:17-, Crypt:1-4
 ORIENT: southeast
 SUBST:  ~ = ~:2 .:3
 SUBST:  . = ~:1 .:9
@@ -992,14 +943,13 @@ MONS:   patrolling silent spectre
 MONS:   curse skull, soul eater
 # Inmates are monsters capable of blinking, summoning or airstriking.
 MONS:   ogre mage / deep elf mage / wizard / necromancer / \
-        merfolk aquamancer / spriggan air mage / deep dwarf necromancer / \
-        orc sorcerer / deep elf sorcerer / kobold demonologist / \
-        deep elf summoner
+        merfolk aquamancer / spriggan air mage / orc sorcerer / \
+        deep elf sorcerer / kobold demonologist / deep elf summoner
 MONS:   draconian shifter / draconian annihilator / lich  / \
         deep elf annihilator / deep elf demonologist
 NSUBST: 4 = 6:5 / *:4
 MONS:   ancient lich
-MONS:   human name:sacrificial n_adj n_noc att:neutral
+MONS:   human att:neutral
 NSUBST: 4 = 1:7 / *:4
 ITEM:   acquire any
 SUBST:  - = .
@@ -1065,7 +1015,7 @@ NSUBST: 3 = 1:3 / 1:9
 : elseif you.absdepth() < 24 then
 NSUBST: 4 = 2:4 / 1:5
 : end
-MONS:   human name:sacrificial n_adj n_spe att:neutral
+MONS:   human att:neutral
 KMONS:  7 = patrolling hell knight
 ITEM:   acquire any
 SUBST:  '" = ., b = v
@@ -1174,12 +1124,12 @@ ENDMAP
 NAME:   evilmike_iron_armoury
 ORIENT: southeast
 TAGS:   no_monster_gen no_item_gen
-DEPTH:  D:11-27
+DEPTH:  D:11-
 KFEAT:  _ = altar_okawaru
 SUBST:  = = nv
 FTILE:  '+Gvc12345_defghijk = floor_hall
 : if you.absdepth() < 16 then
-MONS:   w:5 deep elf soldier / deep elf fighter / orc warrior
+MONS:   deep elf fighter / orc warrior
 MONS:   w:20 orc warrior / centaur warrior
 MONS:   orc warrior
 MONS:   w:8 patrolling orc knight / w:2 patrolling orc warlord
@@ -1322,12 +1272,12 @@ SUBST:  b = c
 KFEAT:  _ = altar_kikubaaqudgha
 : if you.absdepth() < 19 then
 MONS:   zombie / skeleton / w:5 simulacrum
-MONS:   w:2 necromancer / w:1 deep dwarf necromancer, deep elf death mage, \
+MONS:   necromancer, deep elf death mage, \
         w:5 deep elf death mage / nothing
 MONS:   w:4 soul eater / w:1 reaper, reaper, reaper / nothing
 : elseif you.absdepth() < 24 then
 MONS:   zombie / skeleton / w:5 simulacrum
-MONS:   necromancer / w:5 deep dwarf necromancer / w:5 deep elf death mage, lich, \
+MONS:   necromancer w:15 / w:5 deep elf death mage, lich, \
         lich / deep elf death mage / nothing
 MONS:   soul eater / w:5 reaper, reaper, shadow fiend / w:5 reaper
 : else
@@ -1339,7 +1289,6 @@ MONS:   reaper / soul eater, reaper, shadow fiend
 MARKER: V = lua:fog_machine { cloud_type = "foul pestilence", \
             pow_min = 8, pow_max = 12, delay_min = 20, delay_max = 30, \
             size = 1, walk_dist = 1, spread_rate= 33 }
-MARKER: V = lua:props_marker { feature_description = "foul fountain" }
 SUBST:  % = %*|$
 SUBST:  A = 1.
 MAP
@@ -1424,7 +1373,7 @@ ENDMAP
 # Tagged "extra" because I find it too small to take the full vault slot.
 #
 NAME: lightli_too_deep
-DEPTH: D:17-27
+DEPTH: D:17-
 TAGS: no_monster_gen extra
 ORIENT: northeast
 MONS: balrug
@@ -1434,8 +1383,8 @@ SUBST: y = x..
 SUBST: ; = %A.....l
 KITEM: % = dwarf skeleton
 : dgn.delayed_decay(_G, '%', 'dwarf skeleton')
-KITEM: A = any weapon race:dwarven w:20 /  chain mail race:dwarven w:30 / \
-           splint mail race:dwarven w:30 / plate armour race:dwarven w:19 / \
+KITEM: A = any weapon race:dwarven w:20 /  chain mail race:dwarven w:60 / \
+           plate armour race:dwarven w:19 / \
            crystal plate armour race:dwarven w:1
 MAP
 xxxxxxxxxxxxxxx
@@ -1556,4 +1505,59 @@ xbIIIbbb...bbb...bbbPPPbx
 xbIIIbbb...bbb...bbbPPPbx
 xbbbbbbb...bbb...bbbbbbbx
 xxxxxxxx.@.xxx.@.xxxxxxxx
+ENDMAP
+
+# Based off Zaba's beehive_diamond.
+# Hopefully the changes for it to fit in D make it more interesting than Hive.
+NAME:    hangedman_what_comes_after_a
+TAGS:    no_monster_gen no_item_gen
+DEPTH:   D:12-19
+ORIENT:  north
+MONS:    killer bee, queen bee, oklob plant
+KFEAT:   X = x
+ITEM:    honeycomb / royal jelly w:1, honeycomb w:4 / royal jelly
+KITEM:   | = |
+KFEAT:   | = >
+SUBST:   A = X:3 .:2, z = x.., ' = .:460 01d%
+: if you.absdepth() > 15 then
+SUBST:   " = 1
+: else
+SUBST:   8 = 9, " = '
+: end
+TILE:    X = wall_wax
+COLOUR:  X = yellow
+MAP
+             xxxxxxxxxxxxxxx
+             xxxxxcccccxxxxx
+             xxxccc*e*cccxxx
+              xxc3%e|e%3cxx
+               xcc3*e*3ccx
+               xxcccmcccxx
+             xxxxx18281xxxxx
+           xxxxxd1911191dxxxxx
+          xxxxx'"X"eAe"X"'xxxxx
+         xxxx'''XXX"""XXX'''xxxx
+        xxxx''X''X''X''X''X''xxxx
+      xxxx'''XXX'''XXX'''XXX'''xxxx
+     xxxx''X'1X''X''X''X''X1'X''xxxx
+    xxx'''XXX90'XXX'0'XXX'09XXX'''xxx
+ xxxxx.'X''X'1X1'X''X''X'1X1'X''X'.xxxxx
+xxzx...XXX'''XXX'''XXX'''XXX'''XXX...xzxx
+x.x..A.'X''X''X''X'1X1'X''X''X''X'.A..x.x
+x.x.AAA'''XXX'0'XXX'9'XXX'0'XXX'''AAA.x.x
+.x...A.'X'1X''X''X'1X1'X''X''X1'X'.A...x.
+x.x....XXX010XXX'''XXX'''XXX010XXX....x.x
+x.x..A.'X'1X1'X''X''X''X''X'1X1'X'.A..x.x
+.x..AAA'''XXX'''XXX'''XXX'''XXX'''AAA..x.
+x.x..A.'A''X''X'1X''X''X1'X''X''A'.A..x.x
+x.x....AAA'''XXX010XXX010XXX'''AAA....x.x
+.x.x....A''A''X'1X1'X'1X1'X''A''A....x.x.
+x.xzx.....AAA'''XXX'''XXX'''AAA.....xzx.x
+.x.xzx.....A''A''X''X''X''A''A.....xzx.x.
+ .x.x.x.x....AAA...XXX...AAA....x.x.x.x.
+  .xzx.x.x....A..A..X..A..A....x.x.xzx.
+   .xzx.xzx...................xzx.xzx.
+    .....xzxx.xx.xx.x.xx.xx.xxzx.....
+         .x..x.zx..xzx..xz.x..x.
+          .xx.xx.xx.x.xx.xx.xx.
 ENDMAP

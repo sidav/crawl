@@ -5,14 +5,13 @@
 #include "pattern.h"
 #include "newgame_def.h"
 
-// Intended to be somewhat generic
-enum option_value {
-    OPT_AUTO = -1,
-    OPT_NO,
-    OPT_YES,
-    OPT_PROMPT,
-    OPT_BEFORE_EXPLORE,
-    OPT_PROMPT_IGNORE
+enum autosac_type
+{
+    AS_NO,
+    AS_YES,
+    AS_PROMPT,
+    AS_BEFORE_EXPLORE,
+    AS_PROMPT_IGNORE,
 };
 
 struct message_filter
@@ -100,7 +99,7 @@ public:
     int         line_num;     // Current line number being processed.
 
     // View options
-    vector<feature_override> feature_overrides;
+    map<dungeon_feature_type, feature_def> feature_overrides;
     map<monster_type, cglyph_t> mon_glyph_overrides;
     ucs_t cset_override[NUM_DCHAR_TYPES];
     vector<pair<string, cglyph_t> > item_glyph_overrides;
@@ -154,6 +153,7 @@ public:
     int         scroll_margin_y;
 
     int         autopickup_on;
+    bool        autopickup_starting_ammo;
     int         default_friendly_pickup;
     bool        default_manual_training;
 
@@ -174,13 +174,7 @@ public:
     bool        prompt_for_swap; // Prompt to switch back from butchering
                                  // tool if hostile monsters are around.
     chunk_drop_type auto_drop_chunks; // drop chunks when overburdened
-    bool        prefer_safe_chunks; // prefer clean chunks to contaminated ones
     bool        easy_eat_chunks; // make 'e' auto-eat the oldest safe chunk
-    bool        easy_eat_gourmand; // with easy_eat_chunks, and wearing a
-                                   // "OfGourmand, auto-eat contaminated
-                                   // chunks if no safe ones are present
-    bool        easy_eat_contaminated; // like easy_eat_gourmand, but
-                                       // always active.
     bool        auto_eat_chunks; // allow eating chunks while resting or travelling
     bool        default_target;  // start targetting on a real target
     bool        autopickup_no_burden;   // don't autopickup if it changes burden
@@ -315,7 +309,7 @@ public:
 
     bool        travel_key_stop;   // Travel stops on keypress.
 
-    option_value auto_sacrifice;
+    autosac_type auto_sacrifice;
 
     vector<sound_mapping> sound_mappings;
     vector<colour_mapping> menu_colour_mappings;
@@ -352,7 +346,7 @@ public:
 
     vector<text_pattern> drop_filter;
 
-    FixedArray<bool, NUM_DELAYS, NUM_AINTERRUPTS> activity_interrupts;
+    FixedVector<FixedBitVector<NUM_AINTERRUPTS>, NUM_DELAYS> activity_interrupts;
 #ifdef DEBUG_DIAGNOSTICS
     FixedBitVector<NUM_DIAGNOSTICS> quiet_debug_messages;
 #endif
@@ -439,7 +433,7 @@ public:
     int         tile_map_pixels;
     int         tile_cell_pixels;
     bool        tile_filter_scaling;
-    option_value tile_use_small_layout;
+    maybe_bool  tile_use_small_layout;
 #endif
 
 #ifdef USE_TILE
@@ -455,6 +449,7 @@ public:
     bool        tile_show_minimagicbar;
     bool        tile_show_demon_tier;
     bool        tile_force_regenerate_levels;
+    bool        tile_water_anim;
     vector<string> tile_layout_priority;
 #endif
 
@@ -497,8 +492,7 @@ private:
     message_filter parse_message_filter(const string &s);
 
     void set_default_activity_interrupts();
-    void clear_activity_interrupts(FixedVector<bool, NUM_AINTERRUPTS> &eints);
-    void set_activity_interrupt(FixedVector<bool, NUM_AINTERRUPTS> &eints,
+    void set_activity_interrupt(FixedBitVector<NUM_AINTERRUPTS> &eints,
                                 const string &interrupt);
     void set_activity_interrupt(const string &activity_name,
                                 const string &interrupt_names,

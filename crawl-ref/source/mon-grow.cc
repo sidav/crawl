@@ -45,7 +45,6 @@ static const monster_level_up mon_grow[] =
     monster_level_up(MONS_NAGA, MONS_NAGA_WARRIOR),
     monster_level_up(MONS_NAGA_MAGE, MONS_GREATER_NAGA),
 
-    monster_level_up(MONS_DEEP_ELF_SOLDIER, MONS_DEEP_ELF_FIGHTER),
     monster_level_up(MONS_DEEP_ELF_FIGHTER, MONS_DEEP_ELF_KNIGHT),
 
     // Deep elf magi can become either summoners or conjurers.
@@ -69,7 +68,11 @@ static const monster_level_up mon_grow[] =
     // power jump, -> druid or -> air mage would require magic training,
     // -> berserker an altar.
 
-    monster_level_up(MONS_DEEP_DWARF, MONS_DEEP_DWARF_SCION),
+    monster_level_up(MONS_FAUN, MONS_SATYR),
+    monster_level_up(MONS_TENGU, MONS_TENGU_CONJURER, 500),
+    monster_level_up(MONS_TENGU, MONS_TENGU_WARRIOR),
+    monster_level_up(MONS_TENGU_CONJURER, MONS_TENGU_REAVER),
+    monster_level_up(MONS_TENGU_WARRIOR, MONS_TENGU_REAVER),
 };
 
 mons_experience_levels::mons_experience_levels()
@@ -217,7 +220,7 @@ bool monster::gain_exp(int exp, int max_levels_to_gain)
         return false;
 
     // Only monsters that you can gain XP from can level-up.
-    if (mons_class_flag(type, M_NO_EXP_GAIN))
+    if (mons_class_flag(type, M_NO_EXP_GAIN) || is_summoned())
         return false;
 
     // Avoid wrap-around.

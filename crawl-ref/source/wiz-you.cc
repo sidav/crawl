@@ -10,7 +10,6 @@
 #include "abyss.h"
 
 #include "cio.h"
-#include "debug.h"
 #include "dbg-util.h"
 #include "food.h"
 #include "godprayer.h"
@@ -212,7 +211,7 @@ void wizard_cast_spec_spell(void)
     int spell;
 
     mpr("Cast which spell? ", MSGCH_PROMPT);
-    if (cancelable_get_line_autohist(specs, sizeof(specs))
+    if (cancellable_get_line_autohist(specs, sizeof(specs))
         || specs[0] == '\0')
     {
         canned_msg(MSG_OK);
@@ -242,7 +241,7 @@ void wizard_memorise_spec_spell(void)
     int spell;
 
     mpr("Memorise which spell? ", MSGCH_PROMPT);
-    if (cancelable_get_line_autohist(specs, sizeof(specs))
+    if (cancellable_get_line_autohist(specs, sizeof(specs))
         || specs[0] == '\0')
     {
         canned_msg(MSG_OK);
@@ -277,12 +276,12 @@ void wizard_heal(bool super_heal)
         you.duration[DUR_LIQUID_FLAMES] = 0;
         you.clear_beholders();
         inc_max_hp(10);
+        you.attribute[ATTR_XP_DRAIN] = 0;
     }
 
     // Clear most status ailments.
     you.rotting = 0;
     you.disease = 0;
-    you.duration[DUR_NAUSEA]    = 0;
     you.duration[DUR_CONF]      = 0;
     you.duration[DUR_MISLED]    = 0;
     you.duration[DUR_POISONING] = 0;
@@ -326,7 +325,7 @@ void wizard_set_hunger_state()
 
 void wizard_set_piety()
 {
-    if (you.religion == GOD_NO_GOD)
+    if (you_worship(GOD_NO_GOD))
     {
         mpr("You are not religious!");
         return;
@@ -335,7 +334,7 @@ void wizard_set_piety()
     mprf(MSGCH_PROMPT, "Enter new piety value (current = %d, Enter for 0): ",
          you.piety);
     char buf[30];
-    if (cancelable_get_line_autohist(buf, sizeof buf))
+    if (cancellable_get_line_autohist(buf, sizeof buf))
     {
         canned_msg(MSG_OK);
         return;
@@ -348,7 +347,7 @@ void wizard_set_piety()
         return;
     }
 
-    if (you.religion == GOD_XOM)
+    if (you_worship(GOD_XOM))
     {
         you.piety = newpiety;
 
@@ -356,7 +355,7 @@ void wizard_set_piety()
         mprf(MSGCH_PROMPT, "Enter new interest (current = %d, Enter for 0): ",
              you.gift_timeout);
 
-        if (cancelable_get_line_autohist(buf, sizeof buf))
+        if (cancellable_get_line_autohist(buf, sizeof buf))
         {
             canned_msg(MSG_OK);
             return;
@@ -402,7 +401,7 @@ void wizard_set_piety()
     while (diff != 0);
 
     // Automatically reduce penance to 0.
-    if (you.penance[you.religion] > 0)
+    if (player_under_penance())
         dec_penance(you.penance[you.religion]);
 }
 
@@ -441,7 +440,7 @@ void wizard_set_skill_level(skill_type skill)
     mpr(skill_name(skill));
     double amount = prompt_for_float("To what level? ");
 
-    if (amount < 0)
+    if (amount < 0 || amount > 27)
     {
         canned_msg(MSG_OK);
         return;
@@ -465,12 +464,6 @@ void wizard_set_skill_level(skill_type skill)
                                       old_amount > amount ? "Lowered"
                                                           : "Reset"),
          skill_name(skill), amount);
-
-    if (skill == SK_STEALTH && amount == 27)
-    {
-        mpr("If you set the stealth skill to a value higher than 27, "
-            "hide mode is activated, and monsters won't notice you.");
-    }
 }
 #endif
 
@@ -603,17 +596,17 @@ bool wizard_add_mutation()
     for (int i = 0; i < NUM_MUTATIONS; ++i)
     {
         mutation_type mut = static_cast<mutation_type>(i);
-        if (!is_valid_mutation(mut))
+        const char* wizname = mutation_name(mut);
+        if (!wizname)
             continue;
 
-        const mutation_def& mdef = get_mutation_def(mut);
-        if (spec == mdef.wizname)
+        if (spec == wizname)
         {
             mutat = mut;
             break;
         }
 
-        if (strstr(mdef.wizname, spec.c_str()))
+        if (strstr(wizname, spec.c_str()))
             partial_matches.push_back(mut);
     }
 
@@ -632,7 +625,7 @@ bool wizard_add_mutation()
             vector<string> matches;
 
             for (unsigned int i = 0; i < partial_matches.size(); ++i)
-                matches.push_back(get_mutation_def(partial_matches[i]).wizname);
+                matches.push_back(mutation_name(partial_matches[i]));
 
             string prefix = "No exact match for mutation '" +
                             spec +  "', possible matches are: ";
@@ -648,8 +641,8 @@ bool wizard_add_mutation()
     else
     {
         mprf("Found #%d: %s (\"%s\")", (int) mutat,
-             get_mutation_def(mutat).wizname,
-             mutation_name(mutat, 1, false).c_str());
+             mutation_name(mutat),
+             mutation_desc(mutat, 1, false).c_str());
 
         const int levels =
             prompt_for_int("How many levels to increase or decrease? ",
@@ -682,7 +675,7 @@ void wizard_set_abyss()
 {
     char buf[80];
     mprf(MSGCH_PROMPT, "Enter values for X, Y, Z (space separated) or return: ");
-    if (!cancelable_get_line_autohist(buf, sizeof buf))
+    if (!cancellable_get_line_autohist(buf, sizeof buf))
         abyss_teleport(true);
 
     uint32_t x = 0, y = 0, z = 0;
@@ -694,7 +687,7 @@ void wizard_set_stats()
 {
     char buf[80];
     mprf(MSGCH_PROMPT, "Enter values for Str, Int, Dex (space separated): ");
-    if (cancelable_get_line_autohist(buf, sizeof buf))
+    if (cancellable_get_line_autohist(buf, sizeof buf))
         return;
 
     int sstr = you.strength(false),
@@ -795,7 +788,9 @@ static const char* dur_names[] =
     "petrifying",
     "shrouded",
     "tornado cooldown",
+#if TAG_MAJOR_VERSION == 34
     "nausea",
+#endif
     "ambrosia",
 #if TAG_MAJOR_VERSION == 34
     "temporary mutations",
@@ -806,7 +801,23 @@ static const char* dur_names[] =
     "battlesphere",
 #endif
     "sentinel's mark",
-    "sickening"
+    "sickening",
+    "drowning",
+    "drowning immunity",
+    "flayed",
+    "retching",
+    "weak",
+    "dimension anchor",
+    "antimagic",
+    "spirit howl",
+    "infused",
+    "song of slaying",
+    "song of shielding",
+    "toxic radiance",
+    "reciting",
+    "grasping roots",
+    "sleep immunity",
+    "fire vulnerability",
 };
 
 void wizard_edit_durations(void)
@@ -840,7 +851,7 @@ void wizard_edit_durations(void)
 
     char buf[80];
 
-    if (cancelable_get_line_autohist(buf, sizeof buf) || !*buf)
+    if (cancellable_get_line_autohist(buf, sizeof buf) || !*buf)
     {
         canned_msg(MSG_OK);
         return;
@@ -929,7 +940,7 @@ static void debug_uptick_xl(int newxl, bool train)
         train_skills();
     }
     you.experience = exp_needed(newxl);
-    level_change(true);
+    level_change(NON_MONSTER, NULL, true);
 }
 
 static void debug_downtick_xl(int newxl)
@@ -958,7 +969,7 @@ void wizard_set_xl()
 {
     mprf(MSGCH_PROMPT, "Enter new experience level: ");
     char buf[30];
-    if (cancelable_get_line_autohist(buf, sizeof buf))
+    if (cancellable_get_line_autohist(buf, sizeof buf))
     {
         canned_msg(MSG_OK);
         return;
@@ -972,6 +983,7 @@ void wizard_set_xl()
     }
 
     set_xl(newxl, yesno("Train skills?", true, 'n'));
+    mprf("Experience level set to %d.", newxl);
 }
 
 void set_xl(const int newxl, const bool train)
@@ -985,7 +997,7 @@ void set_xl(const int newxl, const bool train)
 
 void wizard_get_god_gift(void)
 {
-    if (you.religion == GOD_NO_GOD)
+    if (you_worship(GOD_NO_GOD))
     {
         mpr("You are not religious!");
         return;
@@ -1003,7 +1015,7 @@ void wizard_toggle_xray_vision()
 
 void wizard_god_wrath()
 {
-    if (you.religion == GOD_NO_GOD)
+    if (you_worship(GOD_NO_GOD))
     {
         mpr("You suffer the terrible wrath of No God.");
         return;
@@ -1018,7 +1030,7 @@ void wizard_god_mollify()
 {
     for (int i = GOD_NO_GOD; i < NUM_GODS; ++i)
     {
-        if (you.penance[i])
+        if (player_under_penance((god_type) i))
             dec_penance((god_type) i, you.penance[i]);
     }
 }
@@ -1059,10 +1071,9 @@ void wizard_transform()
         break;
     }
 
+    you.transform_uncancellable = false;
     if (!transform(200, form) && you.form != form)
-        if (yesno("Transformation failed, force it?", true, 'n'))
-            if (!transform(200, form, true))
-                mpr("The force is weak with this one.");
+        mpr("Transformation failed.");
 }
 
 static void _wizard_modify_character(string inputdata)

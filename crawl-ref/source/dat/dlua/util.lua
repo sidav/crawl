@@ -264,6 +264,40 @@ function util.random_weighted_from(weightfn, list)
   return chosen
 end
 
+function util.random_weighted_keys(weightfn, list)
+  if type(weightfn) ~= "function" then
+    local weightkey = weightfn
+    weightfn = function (table)
+                 return table[weightkey]
+               end
+  end
+  local cweight = 0
+  local chosen = nil
+  for k,v in pairs(list) do
+    local wt = weightfn(k,v) or 10
+    cweight = cweight + wt
+    if crawl.random2(cweight) < wt then
+      chosen = v
+    end
+  end
+  return chosen
+end
+
+-- Uses a predefined weight function allowing list items
+-- to be weighted according to branch
+function util.random_branch_weighted(list)
+  local branch = you.branch()
+  local weightfn = function(item)
+    -- Check for "branch" element to limit this item to a given branch
+    if item.branch ~= nil and item.branch ~= branch then return 0 end;
+    -- Check for an entry with the name of the branch and use that if exists
+    if item[branch] ~= nil then return item[branch] end
+    -- Otherwise default 'weight' element
+    return item.weight == nil and 10 or item.weight
+  end
+  return util.random_weighted_from(weightfn,list)
+end
+
 function util.random_range_real(lower,upper)
   return lower + crawl.random_real() * (upper-lower)
 end

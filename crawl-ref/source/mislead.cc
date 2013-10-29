@@ -20,7 +20,7 @@
 #include "view.h"
 #include "xom.h"
 
-static bool _unsuitable_misled_monster(monster_type mons)
+bool unsuitable_misled_monster(monster_type mons)
 {
     return (invalid_monster_type(mons)
             || mons_is_unique(mons)
@@ -28,8 +28,8 @@ static bool _unsuitable_misled_monster(monster_type mons)
             || mons_is_ghost_demon(mons)
             || mons_class_is_stationary(mons)
             || mons_class_is_zombified(mons)
-            || mons_is_tentacle(mons)
-            || mons_class_flag(mons, M_NO_POLY_TO)
+            || mons_is_tentacle_or_tentacle_segment(mons)
+            || mons_class_flag(mons, M_NO_POLY_TO | M_CANT_SPAWN)
             || mons_class_flag(mons, M_UNFINISHED)
             || mons_genus(mons) == MONS_DRACONIAN
             || mons == MONS_MANTICORE
@@ -46,10 +46,10 @@ static bool _unsuitable_misled_monster(monster_type mons)
 static monster_type _get_misled_monster(monster* mons)
 {
     monster_type mt = random_monster_at_grid(mons->pos());
-    if (_unsuitable_misled_monster(mt))
+    if (unsuitable_misled_monster(mt))
         mt = random_monster_at_grid(mons->pos());
 
-    if (_unsuitable_misled_monster(mt))
+    if (unsuitable_misled_monster(mt))
         return MONS_0;
 
     return mt;
@@ -61,8 +61,8 @@ bool update_mislead_monster(monster* mons)
     if (mons_is_unique(mons->type) || !mons->mname.empty()
         || mons->props.exists("monster_tile")
         || mons->props.exists("mislead_as")
-        || mons_is_projectile(mons->type)
-        || mons_is_tentacle_segment(mons->type)
+        || mons_is_projectile(mons->type) // Only orbs, not boulders
+        || mons_is_tentacle_or_tentacle_segment(mons->type)
         || mons->type == MONS_MARA_FAKE)
     {
         return false;

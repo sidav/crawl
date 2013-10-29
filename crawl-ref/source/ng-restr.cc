@@ -54,6 +54,7 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
         case SP_MUMMY:
         case SP_VAMPIRE:
         case SP_OCTOPODE:
+        case SP_DJINNI:
             return CC_RESTRICTED;
         default:
             return CC_UNRESTRICTED;
@@ -73,6 +74,7 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
         case SP_DEMIGOD:
         case SP_MUMMY:
         case SP_OCTOPODE:
+        case SP_DJINNI:
             return CC_RESTRICTED;
         default:
             return CC_UNRESTRICTED;
@@ -91,6 +93,7 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
         case SP_GHOUL:
         case SP_VAMPIRE:
         case SP_OCTOPODE:
+        case SP_DJINNI:
             return CC_RESTRICTED;
         default:
             return CC_UNRESTRICTED;
@@ -109,6 +112,7 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
         switch (speci)
         {
         case SP_DEMIGOD:
+        case SP_GARGOYLE:
             return CC_BANNED;
         case SP_HIGH_ELF:
         case SP_DEEP_ELF:
@@ -147,35 +151,7 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
         case SP_VAMPIRE:
         case SP_FELID:
         case SP_OCTOPODE:
-            return CC_RESTRICTED;
-        default:
-            return CC_UNRESTRICTED;
-        }
-
-    case JOB_PRIEST:
-        switch (speci)
-        {
-        case SP_DEMIGOD:
-        case SP_DEMONSPAWN:
-        case SP_MUMMY:
-        case SP_GHOUL:
-        case SP_VAMPIRE:
-            return CC_BANNED;
-        case SP_DEEP_ELF:
-        case SP_SLUDGE_ELF:
-        case SP_DEEP_DWARF:
-        case SP_MERFOLK:
-        case SP_HALFLING:
-        case SP_KOBOLD:
-        case SP_SPRIGGAN:
-        case SP_NAGA:
-        case SP_CENTAUR:
-        case SP_OGRE:
-        case SP_TROLL:
-        case SP_TENGU:
-        case SP_BASE_DRACONIAN:
-        case SP_FELID:
-        case SP_OCTOPODE:
+        case SP_GARGOYLE:
             return CC_RESTRICTED;
         default:
             return CC_UNRESTRICTED;
@@ -221,6 +197,7 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
         case SP_GHOUL:
         case SP_FELID:
         case SP_OCTOPODE:
+        case SP_DJINNI:
             return CC_RESTRICTED;
         default:
             return CC_UNRESTRICTED;
@@ -232,6 +209,7 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
         case SP_DEEP_ELF:
         case SP_SLUDGE_ELF:
         case SP_HILL_ORC:
+        case SP_LAVA_ORC:
         case SP_MERFOLK:
         case SP_KOBOLD:
         case SP_CENTAUR:
@@ -255,6 +233,7 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
         {
         case SP_DEEP_DWARF:
         case SP_HILL_ORC:
+        case SP_LAVA_ORC:
         case SP_MERFOLK:
         case SP_HALFLING:
         case SP_KOBOLD:
@@ -273,6 +252,7 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
         {
         case SP_SLUDGE_ELF:
         case SP_DEEP_DWARF:
+        case SP_LAVA_ORC:
         case SP_MERFOLK:
         case SP_HALFLING:
         case SP_KOBOLD:
@@ -294,6 +274,7 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
         case SP_SLUDGE_ELF:
         case SP_DEEP_DWARF:
         case SP_HILL_ORC:
+        case SP_LAVA_ORC:
         case SP_CENTAUR:
         case SP_OGRE:
         case SP_TROLL:
@@ -317,6 +298,7 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
         case SP_HIGH_ELF:
         case SP_DEEP_DWARF:
         case SP_HILL_ORC:
+        case SP_LAVA_ORC:
         case SP_MERFOLK:
         case SP_HALFLING:
         case SP_SPRIGGAN:
@@ -325,6 +307,7 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
         case SP_OGRE:
         case SP_TROLL:
         case SP_MINOTAUR:
+        case SP_MUMMY:
         case SP_GHOUL:
             return CC_RESTRICTED;
         default:
@@ -341,6 +324,8 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
         case SP_OGRE:
         case SP_TROLL:
         case SP_MINOTAUR:
+        case SP_DJINNI:
+        case SP_GARGOYLE:
             return CC_RESTRICTED;
         default:
             return CC_UNRESTRICTED;
@@ -363,6 +348,8 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
         case SP_MINOTAUR:
         case SP_TENGU:
         case SP_VAMPIRE:
+        case SP_DJINNI:
+        case SP_GARGOYLE:
             return CC_RESTRICTED;
         default:
             return CC_UNRESTRICTED;
@@ -393,6 +380,7 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
         {
         case SP_DEEP_DWARF:
         case SP_HILL_ORC:
+        case SP_LAVA_ORC:
         case SP_HALFLING:
         case SP_SPRIGGAN:
         case SP_CENTAUR:
@@ -401,6 +389,7 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
         case SP_MINOTAUR:
         case SP_TENGU:
         case SP_FELID:
+        case SP_DJINNI:
             return CC_RESTRICTED;
         default:
             return CC_UNRESTRICTED;
@@ -411,6 +400,7 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
         {
         case SP_DEEP_DWARF:
         case SP_HILL_ORC:
+        case SP_LAVA_ORC:
         case SP_MERFOLK:
         case SP_CENTAUR:
         case SP_OGRE:
@@ -420,6 +410,7 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
         case SP_GHOUL:
         case SP_VAMPIRE:
         case SP_FELID:
+        case SP_GARGOYLE:
             return CC_RESTRICTED;
         default:
             return CC_UNRESTRICTED;
@@ -439,6 +430,7 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
         case SP_MUMMY:
         case SP_VAMPIRE:
         case SP_FELID:
+        case SP_DJINNI:
             return CC_RESTRICTED;
         default:
             return CC_UNRESTRICTED;
@@ -450,6 +442,7 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
         case SP_HIGH_ELF:
         case SP_DEEP_DWARF:
         case SP_HILL_ORC:
+        case SP_LAVA_ORC:
         case SP_HALFLING:
         case SP_CENTAUR:
         case SP_OGRE:
@@ -458,6 +451,7 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
         case SP_MUMMY:
         case SP_GHOUL:
         case SP_VAMPIRE:
+        case SP_DJINNI:
             return CC_RESTRICTED;
         default:
             return CC_UNRESTRICTED;
@@ -472,6 +466,7 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
         case SP_DEEP_ELF:
         case SP_DEEP_DWARF:
         case SP_HILL_ORC:
+        case SP_LAVA_ORC:
         case SP_NAGA:
         case SP_CENTAUR:
         case SP_OGRE:
@@ -483,6 +478,7 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
         case SP_MUMMY:
         case SP_GHOUL:
         case SP_OCTOPODE:
+        case SP_DJINNI:
             return CC_RESTRICTED;
         default:
             return CC_UNRESTRICTED;
@@ -495,6 +491,7 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
             return CC_BANNED;
         case SP_DEEP_ELF:
         case SP_HILL_ORC:
+        case SP_LAVA_ORC:
         case SP_MERFOLK:
         case SP_SPRIGGAN:
         case SP_NAGA:
@@ -541,6 +538,7 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
             return CC_BANNED;
         case SP_DEEP_DWARF:
         case SP_HILL_ORC:
+        case SP_LAVA_ORC:
         case SP_MERFOLK:
         case SP_NAGA:
         case SP_TROLL:
@@ -615,8 +613,13 @@ char_choice_restriction weapon_restriction(weapon_type wpn,
 
         // Maces and hand axes usually share the same restrictions.
     case WPN_MACE:
-        if (ng.species == SP_TROLL || ng.species == SP_OGRE)
+        if (ng.species == SP_TROLL
+            || ng.species == SP_OGRE
+            || ng.species == SP_GARGOYLE
+            || ng.species == SP_DJINNI)
+        {
             return CC_UNRESTRICTED;
+        }
         if (ng.species == SP_VAMPIRE)
             return CC_RESTRICTED;
         // else fall-through
@@ -626,6 +629,7 @@ char_choice_restriction weapon_restriction(weapon_type wpn,
         case SP_HUMAN:
         case SP_DEEP_DWARF:
         case SP_HILL_ORC:
+        case SP_LAVA_ORC:
         case SP_MUMMY:
         case SP_CENTAUR:
         case SP_NAGA:
@@ -647,6 +651,7 @@ char_choice_restriction weapon_restriction(weapon_type wpn,
         {
         case SP_HUMAN:
         case SP_HILL_ORC:
+        case SP_LAVA_ORC:
         case SP_MERFOLK:
         case SP_NAGA:
         case SP_OGRE:
@@ -658,6 +663,7 @@ char_choice_restriction weapon_restriction(weapon_type wpn,
         case SP_MUMMY:
         case SP_OCTOPODE:
         case SP_BASE_DRACONIAN:
+        case SP_DJINNI:
             return CC_UNRESTRICTED;
 
         case SP_SPRIGGAN:
@@ -673,12 +679,11 @@ char_choice_restriction weapon_restriction(weapon_type wpn,
             return CC_RESTRICTED;
         }
     case WPN_FALCHION:
-        if (ng.job != JOB_FIGHTER && ng.job != JOB_GLADIATOR)
-            return CC_BANNED;
         switch (ng.species)
         {
         case SP_HUMAN:
         case SP_HILL_ORC:
+        case SP_LAVA_ORC:
         case SP_MERFOLK:
         case SP_NAGA:
         case SP_CENTAUR:
@@ -693,6 +698,7 @@ char_choice_restriction weapon_restriction(weapon_type wpn,
         case SP_VAMPIRE:
         case SP_OCTOPODE:
         case SP_BASE_DRACONIAN:
+        case SP_DJINNI:
             return CC_UNRESTRICTED;
 
         default:
@@ -739,6 +745,8 @@ char_choice_restriction weapon_restriction(weapon_type wpn,
         case SP_OCTOPODE:
         case SP_SLUDGE_ELF:
         case SP_BASE_DRACONIAN:
+        case SP_DJINNI:
+        case SP_GARGOYLE:
             return CC_UNRESTRICTED;
 
         default:
@@ -754,6 +762,7 @@ char_choice_restriction weapon_restriction(weapon_type wpn,
         case SP_MERFOLK:
         case SP_OGRE:
         case SP_HILL_ORC:
+        case SP_LAVA_ORC:
         case SP_SPRIGGAN:
         case SP_TROLL:
         case SP_SLUDGE_ELF:
@@ -773,7 +782,9 @@ char_choice_restriction weapon_restriction(weapon_type wpn,
         case SP_OGRE:
         case SP_TROLL:
         case SP_HILL_ORC:
+        case SP_LAVA_ORC:
         case SP_SLUDGE_ELF:
+        case SP_DJINNI:
             return CC_RESTRICTED;
         case SP_FELID:
             return CC_BANNED;
@@ -791,7 +802,9 @@ char_choice_restriction weapon_restriction(weapon_type wpn,
         case SP_MERFOLK:
         case SP_OGRE:
         case SP_HILL_ORC:
+        case SP_LAVA_ORC:
         case SP_TROLL:
+        case SP_GARGOYLE:
             return CC_RESTRICTED;
         case SP_FELID:
             return CC_BANNED;
@@ -813,6 +826,7 @@ char_choice_restriction weapon_restriction(weapon_type wpn,
         switch (ng.species)
         {
         case SP_DEEP_DWARF:
+        case SP_DJINNI:
             return CC_RESTRICTED;
         case SP_SPRIGGAN:
         case SP_FELID:
@@ -825,6 +839,7 @@ char_choice_restriction weapon_restriction(weapon_type wpn,
         switch (ng.species)
         {
         case SP_DEEP_DWARF:
+        case SP_DJINNI:
             return CC_RESTRICTED;
         case SP_FELID:
             return CC_BANNED;

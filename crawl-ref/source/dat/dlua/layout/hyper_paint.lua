@@ -42,6 +42,8 @@ function hyper.paint.paint_grid(paint, options, usage_grid)
     if item.corner2 == nil then item.corner2 = { x = usage_grid.width-1, y = usage_grid.height-1 } end
 
     -- Paint features onto grid
+    -- PERF: Can slightly optimise this loop (which could be important since it gets called a lot)
+    -- by deciding which function we're going to use first rather than have this unwieldy if statement
     if shape_type == "quad" or shape_type == "ellipse" or shape_type == "trapese" or item.type == "proc" then
       -- Set layout details in the painted area
       for x = item.corner1.x, item.corner2.x, 1 do
@@ -117,7 +119,7 @@ function hyper.paint.map_to_unit(x,y,item)
   local sx,sy = item.corner2.x - item.corner1.x,item.corner2.y - item.corner1.y
 
   -- Slightly scale down the input grid to add 0.5 squares padding on all sides. This should solve accuracy errors
-  -- we otherwise get at the edges of shapes from attempting to draw a continous geometric shape onto a discrete grid.
+  -- we otherwise get at the edges of shapes from attempting to draw a continuous geometric shape onto a discrete grid.
   local rx,ry = (x - item.corner1.x) * (sx-1)/sx + 0.5,(y - item.corner1.y) * (sy-1)/sy + 0.5
 
   -- Finally map onto the unit square
@@ -134,7 +136,7 @@ function hyper.paint.inside_oval(x,y,item)
   return (math.pow(ax * 2 - 1,2) + math.pow(ay * 2 - 1,2)) <= 1
 end
 
--- Determine if a point is inside a simple trapese
+-- Determine if a point is inside a simple trapeze
 -- TODO: Handle rotation and allow offsetting the top and bottom on the x axis for more complex shapes
 function hyper.paint.inside_trapese(x,y,item)
 
@@ -154,7 +156,7 @@ function hyper.paint.inside_custom(x,y,item)
   return item.shape_type(x,y,ax,ay,item)
 end
 
-local function determine_usage_from_layout(layout_grid,options)
+function hyper.paint.determine_usage_from_layout(layout_grid,options)
 
   usage_restricted_count = 0
   usage_open_count = 0
@@ -262,7 +264,7 @@ local function determine_usage_from_layout(layout_grid,options)
   return usage_grid
 end
 
-function paint_vaults_layout(paint, options, layout_grid)
+function hyper.paint.paint_vaults_layout(paint, options, layout_grid)
 
   -- Default options
   if options == nil then options = vaults_default_options() end
@@ -281,7 +283,7 @@ function paint_vaults_layout(paint, options, layout_grid)
   layout_grid = new_layout(gxm,gym) -- Will contain data about how each square is used and therefore how rooms can be applied
   paint_grid(paint,options,layout_grid) -- Paint fills onto the layout grid
 
-  local usage_grid = determine_usage_from_layout(layout_grid,options) -- Analyse the layout to determine usage
+  local usage_grid = hyper.paint.determine_usage_from_layout(layout_grid,options) -- Analyse the layout to determine usage
 
   -- Apply to the actual dungeon grid
   for x = 0, gxm-1, 1 do
