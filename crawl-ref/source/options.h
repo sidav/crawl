@@ -38,7 +38,6 @@ struct message_filter
             return channel_match;
         return pattern.matches(s);
     }
-
 };
 
 struct sound_mapping
@@ -93,6 +92,10 @@ public:
     static string resolve_include(string including_file, string included_file,
                             const vector<string> *rcdirs = NULL) throw (string);
 
+#ifdef USE_TILE_WEB
+    void write_webtiles_options(const string &name);
+#endif
+
 public:
     string      filename;     // The name of the file containing options.
     string      basefilename; // Base (pathless) file name
@@ -131,7 +134,7 @@ public:
     int         msg_max_height;
     bool        mlist_allow_alternate_layout;
     bool        messages_at_top;
-    bool        mlist_targetting;
+    bool        mlist_targeting;
     bool        msg_condense_repeats;
     bool        msg_condense_short;
 
@@ -163,7 +166,7 @@ public:
 
     FixedBitVector<NUM_OBJECT_CLASSES> autopickups; // items to autopickup
     bool        auto_switch;     // switch melee&ranged weapons according to enemy range
-    bool        show_inventory_weights; // show weights in inventory listings
+    maybe_bool  show_inventory_weights; // show weights in inventory listings
     bool        clean_map;       // remove unseen clouds/monsters
     bool        show_uncursed;   // label known uncursed items as "uncursed"
     bool        easy_open;       // open doors with movement
@@ -176,7 +179,7 @@ public:
     chunk_drop_type auto_drop_chunks; // drop chunks when overburdened
     bool        easy_eat_chunks; // make 'e' auto-eat the oldest safe chunk
     bool        auto_eat_chunks; // allow eating chunks while resting or travelling
-    bool        default_target;  // start targetting on a real target
+    bool        default_target;  // start targeting on a real target
     bool        autopickup_no_burden;   // don't autopickup if it changes burden
     skill_focus_mode skill_focus; // is the focus skills available
 
@@ -185,7 +188,8 @@ public:
     string      user_note_prefix; // Prefix for user notes
     int         note_hp_percent;  // percentage hp for notetaking
     bool        note_xom_effects; // take note of all Xom effects
-    bool        note_chat_messages; // log chat in DGL/Webtiles
+    bool        note_chat_messages; // log chat in Webtiles
+    bool        note_dgl_messages; // log chat in DGL
     confirm_level_type easy_confirm;    // make yesno() confirming easier
     bool        easy_quit_item_prompts; // make item prompts quitable on space
     confirm_prompt_type allow_self_target;      // yes, no, prompt
@@ -193,7 +197,7 @@ public:
     int         colour[16];      // macro fg colours to other colours
     int         background_colour; // select default background colour
     msg_colour_type channels[NUM_MESSAGE_CHANNELS];  // msg channel colouring
-    bool        darken_beyond_range; // for whether targetting is out of range
+    bool        darken_beyond_range; // for whether targeting is out of range
 
     int         hp_warning;      // percentage hp for danger warning
     int         magic_point_warning;    // percentage mp for danger warning
@@ -208,8 +212,6 @@ public:
 
     int         fire_items_start; // index of first item for fire command
     vector<unsigned> fire_order;  // missile search order for 'f' command
-
-    bool        auto_list;       // automatically jump to appropriate item lists
 
     bool        flush_input[NUM_FLUSH_REASONS]; // when to flush input buff
 
@@ -252,7 +254,8 @@ public:
 
     bool        show_travel_trail;
 
-    int         arena_delay;
+    int         view_delay;
+
     bool        arena_dump_msgs;
     bool        arena_dump_msgs_all;
     bool        arena_list_eq;
@@ -273,6 +276,7 @@ public:
 
     unsigned    evil_colour; // Colour for things player's god dissapproves
 
+    unsigned    remembered_monster_colour;  // Colour of remembered monsters
     unsigned    detected_monster_colour;    // Colour of detected monsters
     unsigned    detected_item_colour;       // Colour of detected items
     unsigned    status_caption_colour;      // Colour of captions in HUD.
@@ -332,11 +336,9 @@ public:
     bool        target_unshifted_dirs; // Unshifted keys target if cursor is
                                        // on player.
 
-    int         drop_mode;          // Controls whether single or multidrop
-                                    // is the default.
-    int         pickup_mode;        // -1 for single, 0 for menu,
-                                    // X for 'if at least X items present'
-
+    bool        pickup_menu;        // false for single, true for menu
+    int         pickup_menu_limit;  // Over this number of items, menu for
+                                    // pickup
     bool        easy_exit_menu;     // Menus are easier to get out of
 
     int         assign_item_slot;   // How free slots are assigned
@@ -377,6 +379,7 @@ public:
 #ifdef WIZARD
     // Parameters for fight simulations.
     string      fsim_mode;
+    bool        fsim_csv;
     int         fsim_rounds;
     string      fsim_mons;
     vector<string> fsim_scale;
@@ -389,40 +392,51 @@ public:
     bool        tile_menu_icons; // display icons in menus?
 
     // minimap colours
-    char        tile_player_col;
-    char        tile_monster_col;
-    char        tile_neutral_col;
-    char        tile_peaceful_col;
-    char        tile_friendly_col;
-    char        tile_plant_col;
-    char        tile_item_col;
-    char        tile_unseen_col;
-    char        tile_floor_col;
-    char        tile_wall_col;
-    char        tile_mapped_wall_col;
-    char        tile_door_col;
-    char        tile_downstairs_col;
-    char        tile_upstairs_col;
-    char        tile_feature_col;
-    char        tile_trap_col;
-    char        tile_water_col;
-    char        tile_lava_col;
-    char        tile_excluded_col;
-    char        tile_excl_centre_col;
-    char        tile_window_col;
-#endif
+    VColour     tile_player_col;
+    VColour     tile_monster_col;
+    VColour     tile_neutral_col;
+    VColour     tile_peaceful_col;
+    VColour     tile_friendly_col;
+    VColour     tile_plant_col;
+    VColour     tile_item_col;
+    VColour     tile_unseen_col;
+    VColour     tile_floor_col;
+    VColour     tile_wall_col;
+    VColour     tile_mapped_floor_col;
+    VColour     tile_mapped_wall_col;
+    VColour     tile_door_col;
+    VColour     tile_downstairs_col;
+    VColour     tile_upstairs_col;
+    VColour     tile_branchstairs_col;
+    VColour     tile_portal_col;
+    VColour     tile_feature_col;
+    VColour     tile_trap_col;
+    VColour     tile_water_col;
+    VColour     tile_deep_water_col;
+    VColour     tile_lava_col;
+    VColour     tile_excluded_col;
+    VColour     tile_excl_centre_col;
+    VColour     tile_window_col;
 #ifdef USE_TILE_LOCAL
     // font settings
     string      tile_font_crt_file;
-    int         tile_font_crt_size;
     string      tile_font_msg_file;
-    int         tile_font_msg_size;
     string      tile_font_stat_file;
-    int         tile_font_stat_size;
     string      tile_font_lbl_file;
-    int         tile_font_lbl_size;
     string      tile_font_tip_file;
+#endif
+#ifdef USE_TILE_WEB
+    string      tile_font_crt_family;
+    string      tile_font_msg_family;
+    string      tile_font_stat_family;
+    string      tile_font_lbl_family;
+#endif
+    int         tile_font_crt_size;
+    int         tile_font_msg_size;
+    int         tile_font_stat_size;
+    int         tile_font_lbl_size;
     int         tile_font_tip_size;
+#ifdef USE_TILE_LOCAL
 #ifdef USE_FT
     bool        tile_font_ft_light;
 #endif
@@ -430,13 +444,12 @@ public:
     screen_mode tile_full_screen;
     int         tile_window_width;
     int         tile_window_height;
-    int         tile_map_pixels;
-    int         tile_cell_pixels;
-    bool        tile_filter_scaling;
     maybe_bool  tile_use_small_layout;
 #endif
+    int         tile_cell_pixels;
+    bool        tile_filter_scaling;
+    int         tile_map_pixels;
 
-#ifdef USE_TILE
     bool        tile_force_overlay;
     // display settings
     int         tile_update_rate;
@@ -448,10 +461,16 @@ public:
     bool        tile_show_minihealthbar;
     bool        tile_show_minimagicbar;
     bool        tile_show_demon_tier;
-    bool        tile_force_regenerate_levels;
     bool        tile_water_anim;
+    bool        tile_misc_anim;
     vector<string> tile_layout_priority;
+#ifdef USE_TILE_WEB
+    bool        tile_realtime_anim;
+    string      tile_display_mode;
+    bool        tile_level_map_hide_messages;
+    bool        tile_level_map_hide_sidebar;
 #endif
+#endif // USE_TILE
 
     typedef map<string, string> opt_map;
     opt_map     named_options;          // All options not caught above are
@@ -514,6 +533,7 @@ private:
     cglyph_t parse_mon_glyph(const string &s) const;
     void add_item_glyph_override(const string &);
     void set_option_fragment(const string &s);
+    bool set_lang(const char *s);
 
     static const string interrupt_prefix;
 };

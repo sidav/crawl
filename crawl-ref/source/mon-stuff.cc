@@ -7,6 +7,7 @@
 #include <math.h>
 #include "mon-stuff.h"
 
+#include "act-iter.h"
 #include "areas.h"
 #include "arena.h"
 #include "art-enum.h"
@@ -46,9 +47,9 @@
 #include "mgen_data.h"
 #include "misc.h"
 #include "mon-abil.h"
+#include "mon-act.h"
 #include "mon-behv.h"
 #include "mon-death.h"
-#include "mon-iter.h"
 #include "mon-place.h"
 #include "mon-speak.h"
 #include "notes.h"
@@ -102,20 +103,17 @@ item_def* item_mimic_at(const coord_def &c)
 
 bool mimic_at(const coord_def &c)
 {
-    return (feature_mimic_at(c) || item_mimic_at(c));
+    return feature_mimic_at(c) || item_mimic_at(c);
 }
 
 // Monster curses a random player inventory item.
-bool curse_an_item(bool quiet)
+bool curse_an_item(bool ignore_holy_wrath)
 {
     // allowing these would enable mummy scumming
     if (you_worship(GOD_ASHENZARI))
     {
-        if (!quiet)
-        {
-            mprf(MSGCH_GOD, "The curse is absorbed by %s.",
-                 god_name(GOD_ASHENZARI).c_str());
-        }
+        mprf(MSGCH_GOD, "The curse is absorbed by %s.",
+             god_name(GOD_ASHENZARI).c_str());
         return false;
     }
 
@@ -136,6 +134,10 @@ bool curse_an_item(bool quiet)
 
             // Melded items cannot be cursed.
             if (item_is_melded(you.inv[i]))
+                continue;
+
+            if (ignore_holy_wrath && you.inv[i].base_type == OBJ_WEAPONS
+                && get_weapon_brand(you.inv[i]) == SPWPN_HOLY_WRATH)
                 continue;
 
             // Item is valid for cursing, so we'll give it a chance.
@@ -244,12 +246,14 @@ monster_type fill_out_corpse(const monster* mons,
             corpse_class = mons_zombie_base(mons);
         }
 
-        if (mons && mons_genus(mtype) == MONS_DRACONIAN)
+        if (mons
+            && (mons_genus(mtype) == MONS_DRACONIAN
+                || mons_genus(mtype) == MONS_DEMONSPAWN))
         {
             if (mons->type == MONS_TIAMAT)
                 corpse_class = MONS_DRACONIAN;
             else
-                corpse_class = draco_subspecies(mons);
+                corpse_class = draco_or_demonspawn_subspecies(mons);
         }
 
         if (mons->has_ench(ENCH_GLOWING_SHAPESHIFTER))
@@ -317,7 +321,7 @@ bool explode_corpse(item_def& corpse, const coord_def& where)
     // Don't want chunks to show up behind the player.
     los_def ld(where, opc_no_actor);
 
-    if (monster_descriptor(corpse.mon_type, MDSC_LEAVES_HIDE)
+    if (mons_class_leaves_hide(corpse.mon_type)
         && mons_genus(corpse.mon_type) == MONS_DRAGON)
     {
         // Uh... dragon hide is tough stuff and it keeps the monster in
@@ -366,7 +370,7 @@ bool explode_corpse(item_def& corpse, const coord_def& where)
 
         dprf("Cell is visible...");
 
-        if (feat_is_solid(grd(cp)) || actor_at(cp))
+        if (cell_is_solid(cp) || actor_at(cp))
             continue;
 
         --nchunks;
@@ -391,7 +395,6 @@ int place_monster_corpse(const monster* mons, bool silent,
         return -1;
 
     // Don't attempt to place corpses within walls, either.
-    // Currently, this only applies to (shapeshifter) rock worms.
     if (feat_is_wall(grd(mons->pos())))
         return -1;
 
@@ -413,15 +416,18 @@ int place_monster_corpse(const monster* mons, bool silent,
     // "always_corpse" forces monsters to always generate a corpse upon
     // their deaths.
     if (mons->props.exists("always_corpse")
-        || mons_class_flag(mons->type, M_ALWAYS_CORPSE))
+        || mons_class_flag(mons->type, M_ALWAYS_CORPSE)
+        || mons_is_demonspawn(mons->type)
+           && mons_class_flag(draco_or_demonspawn_subspecies(mons),
+                              M_ALWAYS_CORPSE))
     {
         vault_forced = true;
     }
 
     if (corpse_class == MONS_NO_MONSTER
-        || (!force && !vault_forced && coinflip())
-        || (mons_corpse_effect(corpse_class) == CE_MUTAGEN
-           && !one_chance_in(3)))
+        || (!force && !vault_forced
+            && !one_chance_in(mons_corpse_effect(corpse_class) == CE_MUTAGEN
+                              ? 6 : 2)))
     {
         return -1;
     }
@@ -479,7 +485,7 @@ int place_monster_corpse(const monster* mons, bool silent,
         }
     }
 
-    return (o == NON_ITEM ? -1 : o);
+    return o == NON_ITEM ? -1 : o;
 }
 
 static void _hints_inspect_kill()
@@ -490,9 +496,9 @@ static void _hints_inspect_kill()
 
 static string _milestone_kill_verb(killer_type killer)
 {
-    return (killer == KILL_BANISHED ? "banished" :
-            killer == KILL_PACIFIED ? "pacified" :
-            killer == KILL_ENSLAVED ? "enslaved" : "killed");
+    return killer == KILL_BANISHED ? "banished" :
+           killer == KILL_PACIFIED ? "pacified" :
+           killer == KILL_ENSLAVED ? "enslaved" : "killed";
 }
 
 void record_monster_defeat(monster* mons, killer_type killer)
@@ -588,7 +594,7 @@ static void _beogh_spread_experience(int exp)
 {
     int total_hd = 0;
 
-    for (monster_iterator mi(&you); mi; ++mi)
+    for (monster_near_iterator mi(&you); mi; ++mi)
     {
         if (is_orcish_follower(*mi))
             total_hd += mi->hit_dice;
@@ -596,7 +602,7 @@ static void _beogh_spread_experience(int exp)
 
     if (total_hd > 0)
     {
-        for (monster_iterator mi(&you); mi; ++mi)
+        for (monster_near_iterator mi(&you); mi; ++mi)
         {
             if (is_orcish_follower(*mi))
             {
@@ -720,10 +726,10 @@ static bool _is_pet_kill(killer_type killer, int i)
     // makes casualties to this monster collateral kills.
     const mon_enchant me = m->get_ench(ENCH_CONFUSION);
     const mon_enchant me2 = m->get_ench(ENCH_INSANE);
-    return (me.ench == ENCH_CONFUSION
-            && (me.who == KC_YOU || me.who == KC_FRIENDLY)
-            || me2.ench == ENCH_INSANE
-               && (me2.who == KC_YOU || me2.who == KC_FRIENDLY));
+    return me.ench == ENCH_CONFUSION
+           && (me.who == KC_YOU || me.who == KC_FRIENDLY)
+           || me2.ench == ENCH_INSANE
+              && (me2.who == KC_YOU || me2.who == KC_FRIENDLY);
 }
 
 int exp_rate(int killer)
@@ -737,7 +743,7 @@ int exp_rate(int killer)
         return 2;
     }
 
-    if (killer == MHITYOU)
+    if (killer == MHITYOU || killer == YOU_FAULTLESS)
         return 2;
 
     if (_is_pet_kill(KILL_MON, killer))
@@ -881,6 +887,15 @@ static bool _beogh_forcibly_convert_orc(monster* mons, killer_type killer,
     return false;
 }
 
+static bool _lost_soul_nearby(const coord_def pos)
+{
+    for (monster_near_iterator mi(pos, LOS_NO_TRANS); mi; ++mi)
+        if (mi->type == MONS_LOST_SOUL)
+            return true;
+
+    return false;
+}
+
 static bool _monster_avoided_death(monster* mons, killer_type killer, int i)
 {
     if (mons->max_hit_points <= 0 || mons->hit_dice < 1)
@@ -889,10 +904,10 @@ static bool _monster_avoided_death(monster* mons, killer_type killer, int i)
     // Before the hp check since this should not care about the power of the
     // finishing blow
     if (mons->holiness() == MH_UNDEAD && !mons_is_zombified(mons)
-        && soul_aura(mons->pos())
         && killer != KILL_RESET
         && killer != KILL_DISMISSED
-        && killer != KILL_BANISHED)
+        && killer != KILL_BANISHED
+        && _lost_soul_nearby(mons->pos()))
     {
         if (lost_soul_revive(mons))
             return true;
@@ -925,7 +940,7 @@ static void _jiyva_died()
 
     add_daction(DACT_REMOVE_JIYVA_ALTARS);
 
-    if (!player_in_branch(BRANCH_SLIME_PITS))
+    if (!player_in_branch(BRANCH_SLIME))
         return;
 
     if (silenced(you.pos()))
@@ -1006,7 +1021,7 @@ static void _mummy_curse(monster* mons, killer_type killer, int index)
         case MONS_KHUFU:          pow = 15; break;
 
         default:
-            mpr("Unknown mummy type.", MSGCH_DIAGNOSTICS);
+            mprf(MSGCH_DIAGNOSTICS, "Unknown mummy type.");
             return;
     }
 
@@ -1044,16 +1059,13 @@ static void _mummy_curse(monster* mons, killer_type killer, int index)
             return;
         }
 
-        mpr("You feel nervous for a moment...", MSGCH_MONSTER_SPELL);
+        mprf(MSGCH_MONSTER_SPELL, "You feel nervous for a moment...");
         curse_an_item();
     }
     else
     {
         if (index == NON_MONSTER)
-        {
-            mpr("You feel extremely nervous for a moment...",
-                MSGCH_MONSTER_SPELL);
-        }
+            mprf(MSGCH_MONSTER_SPELL, "You feel extremely nervous for a moment...");
         else if (you.can_see(target))
         {
             mprf(MSGCH_MONSTER_SPELL, "A malignant aura surrounds %s.",
@@ -1101,11 +1113,11 @@ static void _setup_lightning_explosion(bolt & beam, const monster& origin)
 {
     _setup_base_explosion(beam, origin);
     beam.flavour   = BEAM_ELECTRICITY;
-    beam.damage    = dice_def(3, 20);
+    beam.damage    = dice_def(3, 5 + origin.hit_dice * 5 / 4);
     beam.name      = "blast of lightning";
     beam.noise_msg = "You hear a clap of thunder!";
     beam.colour    = LIGHTCYAN;
-    beam.ex_size   = coinflip() ? 3 : 2;
+    beam.ex_size   = x_chance_in_y(origin.hit_dice, 24) ? 3 : 2;
 }
 
 static void _setup_prism_explosion(bolt& beam, const monster& origin)
@@ -1212,7 +1224,7 @@ static bool _explode_monster(monster* mons, killer_type killer,
         saw = true;
         viewwindow();
         if (is_sanctuary(mons->pos()))
-            mpr(sanct_msg, MSGCH_GOD);
+            mprf(MSGCH_GOD, "%s", sanct_msg);
         else
             mprf(MSGCH_MONSTER_DAMAGE, MDAM_DEAD, "%s explodes!",
                  mons->full_name(DESC_THE).c_str());
@@ -1227,7 +1239,7 @@ static bool _explode_monster(monster* mons, killer_type killer,
     else if (mons->has_ench(ENCH_INNER_FLAME))
     {
         for (adjacent_iterator ai(mons->pos(), false); ai; ++ai)
-            if (!feat_is_solid(grd(*ai)) && env.cgrid(*ai) == EMPTY_CLOUD
+            if (!cell_is_solid(*ai) && env.cgrid(*ai) == EMPTY_CLOUD
                 && !one_chance_in(5))
             {
                 place_cloud(CLOUD_FIRE, *ai, 10 + random2(10), agent);
@@ -1275,6 +1287,9 @@ static void _monster_die_cloud(const monster* mons, bool corpse, bool silent,
     }
 
     if (!summoned)
+        return;
+
+    if (cell_is_solid(mons->pos()))
         return;
 
     string prefix = " ";
@@ -1479,7 +1494,7 @@ static void _make_spectral_thing(monster* mons, bool quiet)
         // Headless hydras cannot be made spectral hydras, sorry.
         if (spectre_type == MONS_HYDRA && mons->number == 0)
         {
-            mprf("A glowing mist gathers momentarily, then fades.");
+            mpr("A glowing mist gathers momentarily, then fades.");
             return;
         }
 
@@ -1512,6 +1527,47 @@ static void _make_spectral_thing(monster* mons, bool quiet)
     }
 }
 
+static void _druid_final_boon(const monster* mons)
+{
+    vector<monster*> beasts;
+    for (monster_near_iterator mi(mons); mi; ++mi)
+    {
+        if (mons_is_beast(mons_base_type(*mi)) && mons_aligned(mons, *mi))
+            beasts.push_back(*mi);
+    }
+
+    if (!beasts.size())
+        return;
+
+    if (you.can_see(mons))
+    {
+        mprf(MSGCH_MONSTER_SPELL, "With its final breath, %s offers up its power "
+                                  "to the beasts of the wild!",
+                                  mons->name(DESC_THE).c_str());
+    }
+
+    shuffle_array(beasts);
+    int num = min((int)beasts.size(), random_range(mons->hit_dice / 3,
+                                                   mons->hit_dice / 2 + 1));
+
+    // Healing and empowering done in two separate loops for tidier messages
+    for (int i = 0; i < num; ++i)
+    {
+        if (beasts[i]->heal(roll_dice(3, mons->hit_dice)) && you.can_see(beasts[i]))
+        {
+            mprf("%s %s healed.", beasts[i]->name(DESC_THE).c_str(),
+                                  beasts[i]->conj_verb("are").c_str());
+        }
+    }
+
+    for (int i = 0; i < num; ++i)
+    {
+        simple_monster_message(beasts[i], " seems to grow more fierce.");
+        beasts[i]->add_ench(mon_enchant(ENCH_BATTLE_FRENZY, 1, mons,
+                                        random_range(120, 200)));
+    }
+}
+
 static bool _mons_reaped(actor *killer, monster* victim);
 
 static bool _reaping(monster *mons)
@@ -1536,7 +1592,9 @@ int monster_die(monster* mons, const actor *killer, bool silent,
     killer_type ktype = KILL_YOU;
     int kindex = NON_MONSTER;
 
-    if (killer->is_monster())
+    if (!killer)
+        ktype = KILL_NONE;
+    else if (killer->is_monster())
     {
         const monster *kmons = killer->as_monster();
         ktype = kmons->confused_by_you() ? KILL_YOU_CONF : KILL_MON;
@@ -1655,11 +1713,15 @@ int monster_die(monster* mons, killer_type killer,
     }
 
     // Kills by the spectral weapon are considered as kills by the player instead
-    if (killer == KILL_MON
-        && menv[killer_index].type == MONS_SPECTRAL_WEAPON
-        && menv[killer_index].summoner == MID_PLAYER)
+    // Ditto Dithmenos shadow kills.
+    if ((killer == KILL_MON || killer == KILL_MON_MISSILE)
+        && !invalid_monster_index(killer_index)
+        && ((menv[killer_index].type == MONS_SPECTRAL_WEAPON
+             && menv[killer_index].summoner == MID_PLAYER)
+            || mons_is_player_shadow(&menv[killer_index])))
     {
-        killer = KILL_YOU;
+        killer = (killer == KILL_MON_MISSILE) ? KILL_YOU_MISSILE
+                                              : KILL_YOU;
         killer_index = you.mindex();
     }
 
@@ -1676,10 +1738,10 @@ int monster_die(monster* mons, killer_type killer,
 
             you.increase_duration(DUR_BERSERK, bonus);
 
-            mpr("You feel the power of Trog in you as your rage grows.",
-                MSGCH_GOD, GOD_TROG);
+            mprf(MSGCH_GOD, GOD_TROG,
+                 "You feel the power of Trog in you as your rage grows.");
         }
-        else if (player_equip_unrand_effect(UNRAND_BLOODLUST))
+        else if (player_equip_unrand(UNRAND_BLOODLUST))
         {
             if (coinflip())
             {
@@ -1688,8 +1750,7 @@ int monster_die(monster* mons, killer_type killer,
                 mpr("The necklace of Bloodlust glows a violent red.");
             }
         }
-        else if (!you.suppressed()
-                 && you.wearing(EQ_AMULET, AMU_RAGE)
+        else if (you.wearing(EQ_AMULET, AMU_RAGE)
                  && one_chance_in(30))
         {
             const int bonus = (2 + random2(4)) / 2;
@@ -1741,7 +1802,7 @@ int monster_die(monster* mons, killer_type killer,
         }
 
         if (mons->type == MONS_FIRE_VORTEX && !wizard && !mons_reset
-            && !submerged && !was_banished)
+            && !submerged && !was_banished && !cell_is_solid(mons->pos()))
         {
             place_cloud(CLOUD_FIRE, mons->pos(), 2 + random2(4), mons);
         }
@@ -1758,8 +1819,11 @@ int monster_die(monster* mons, killer_type killer,
             silent = true;
         }
 
-        if (!wizard && !mons_reset && !submerged && !was_banished)
+        if (!wizard && !mons_reset && !submerged && !was_banished
+            && !cell_is_solid(mons->pos()))
+        {
             place_cloud(CLOUD_COLD, mons->pos(), 2 + random2(4), mons);
+        }
 
         if (killer == KILL_RESET)
             killer = KILL_DISMISSED;
@@ -1806,10 +1870,9 @@ int monster_die(monster* mons, killer_type killer,
         {
             if (you.can_see(mons))
             {
-                mpr(silenced(mons->pos()) ?
+                mprf(MSGCH_MONSTER_DAMAGE, MDAM_DEAD, silenced(mons->pos()) ?
                     "The tentacle is hauled back through the portal!" :
-                    "With a roar, the tentacle is hauled back through the portal!",
-                    MSGCH_MONSTER_DAMAGE, MDAM_DEAD);
+                    "With a roar, the tentacle is hauled back through the portal!");
             }
             silent = true;
         }
@@ -1832,6 +1895,26 @@ int monster_die(monster* mons, killer_type killer,
     {
         end_spectral_weapon(mons, true, killer == KILL_RESET);
         silent = true;
+    }
+    else if (mons->type == MONS_GRAND_AVATAR)
+    {
+        if (!silent)
+        {
+            simple_monster_message(mons, " fades into the ether.",
+                                   MSGCH_MONSTER_DAMAGE, MDAM_DEAD);
+        }
+        silent = true;
+    }
+    else if (mons->type == MONS_DROWNED_SOUL)
+    {
+        // Suppress death message if 'killed' by touching something
+        if (mons->hit_points == -1000)
+            silent = true;
+    }
+    else if (mons->type == MONS_SPRIGGAN_DRUID && !silent && !was_banished
+             && !wizard)
+    {
+        _druid_final_boon(mons);
     }
 
     const bool death_message = !silent && !did_death_message
@@ -1862,9 +1945,9 @@ int monster_die(monster* mons, killer_type killer,
         int sos_bonus = you.props["song_of_slaying_bonus"].get_int();
         mon_threat_level_type threat = mons_threat_level(mons, true);
         // Only certain kinds of threats at different sos levels will increase the bonus
-        if (threat == MTHRT_TRIVIAL && sos_bonus<2
-            || threat == MTHRT_EASY && sos_bonus<4
-            || threat == MTHRT_TOUGH && sos_bonus<6
+        if (threat == MTHRT_TRIVIAL && sos_bonus < 3
+            || threat == MTHRT_EASY && sos_bonus < 5
+            || threat == MTHRT_TOUGH && sos_bonus < 7
             || threat == MTHRT_NASTY)
         {
             you.props["song_of_slaying_bonus"] = sos_bonus + 1;
@@ -1917,7 +2000,12 @@ int monster_die(monster* mons, killer_type killer,
             // Prevent summoned creatures from being good kills.
             if (bad_kill || good_kill)
             {
-                if (targ_holy == MH_NATURAL)
+                if (targ_holy == MH_DEMONIC || mons_is_demonspawn(mons->type))
+                {
+                    did_god_conduct(DID_KILL_DEMON,
+                                    mons->hit_dice, true, mons);
+                }
+                else if (targ_holy == MH_NATURAL)
                 {
                     did_god_conduct(DID_KILL_LIVING,
                                     mons->hit_dice, true, mons);
@@ -1937,11 +2025,6 @@ int monster_die(monster* mons, killer_type killer,
                 else if (targ_holy == MH_UNDEAD)
                 {
                     did_god_conduct(DID_KILL_UNDEAD,
-                                    mons->hit_dice, true, mons);
-                }
-                else if (targ_holy == MH_DEMONIC)
-                {
-                    did_god_conduct(DID_KILL_DEMON,
                                     mons->hit_dice, true, mons);
                 }
 
@@ -2006,6 +2089,20 @@ int monster_die(monster* mons, killer_type killer,
                     did_god_conduct(DID_KILL_HOLY, mons->hit_dice,
                                     true, mons);
                 }
+
+                // Dithmenos hates sources of illumination.
+                // (This is *after* the holy so that the right order of
+                //  messages appears.)
+                if (mons_is_illuminating(mons))
+                {
+                    did_god_conduct(DID_KILL_ILLUMINATING, mons->hit_dice,
+                                    true, mons);
+                }
+                else if (mons_is_fiery(mons))
+                {
+                    did_god_conduct(DID_KILL_FIERY, mons->hit_dice,
+                                    true, mons);
+                }
             }
 
             // Divine health and mana restoration doesn't happen when
@@ -2037,13 +2134,14 @@ int monster_die(monster* mons, killer_type killer,
                     die("bad kill-on-healing god!");
                 }
 
+#if TAG_MAJOR_VERSION == 34
                 if (you.species == SP_DJINNI)
                     hp_heal = max(hp_heal, mp_heal * 2), mp_heal = 0;
-
+#endif
                 if (hp_heal && you.hp < you.hp_max
                     && !you.duration[DUR_DEATHS_DOOR])
                 {
-                    mprf("You feel a little better.");
+                    mpr("You feel a little better.");
                     inc_hp(hp_heal);
                 }
 
@@ -2144,7 +2242,15 @@ int monster_die(monster* mons, killer_type killer,
                         // okay that e.g. Yredelemnul ignores kills done
                         // by confused monsters as opposed to enslaved
                         // or friendly ones. (jpeg)
-                        if (targ_holy == MH_NATURAL)
+                        if (targ_holy == MH_DEMONIC
+                            || mons_is_demonspawn(mons->type))
+                        {
+                            notice |= did_god_conduct(
+                                          !confused ? DID_DEMON_KILLED_BY_UNDEAD_SLAVE :
+                                                      DID_DEMON_KILLED_BY_SERVANT,
+                                          mons->hit_dice);
+                        }
+                        else if (targ_holy == MH_NATURAL)
                         {
                             notice |= did_god_conduct(
                                           !confused ? DID_LIVING_KILLED_BY_UNDEAD_SLAVE :
@@ -2156,13 +2262,6 @@ int monster_die(monster* mons, killer_type killer,
                             notice |= did_god_conduct(
                                           !confused ? DID_UNDEAD_KILLED_BY_UNDEAD_SLAVE :
                                                       DID_UNDEAD_KILLED_BY_SERVANT,
-                                          mons->hit_dice);
-                        }
-                        else if (targ_holy == MH_DEMONIC)
-                        {
-                            notice |= did_god_conduct(
-                                          !confused ? DID_DEMON_KILLED_BY_UNDEAD_SLAVE :
-                                                      DID_DEMON_KILLED_BY_SERVANT,
                                           mons->hit_dice);
                         }
 
@@ -2195,19 +2294,25 @@ int monster_die(monster* mons, killer_type killer,
                     // followers are assumed to come from summoning
                     // spells...  the others are from invocations (TSO,
                     // Makhleb, Kiku). - bwr
+                    else if (targ_holy == MH_DEMONIC
+                             || mons_is_demonspawn(mons->type))
+                    {
+                        notice |= did_god_conduct(DID_DEMON_KILLED_BY_SERVANT,
+                                                  mons->hit_dice);
+                    }
                     else if (targ_holy == MH_NATURAL)
                     {
                         notice |= did_god_conduct(DID_LIVING_KILLED_BY_SERVANT,
                                                   mons->hit_dice);
 
+                        // TSO hates natural evil and unholy beings.
                         if (mons->is_unholy())
                         {
                             notice |= did_god_conduct(
                                           DID_NATURAL_UNHOLY_KILLED_BY_SERVANT,
                                           mons->hit_dice);
                         }
-
-                        if (mons->is_evil())
+                        else if (mons->is_evil())
                         {
                             notice |= did_god_conduct(
                                           DID_NATURAL_EVIL_KILLED_BY_SERVANT,
@@ -2217,11 +2322,6 @@ int monster_die(monster* mons, killer_type killer,
                     else if (targ_holy == MH_UNDEAD)
                     {
                         notice |= did_god_conduct(DID_UNDEAD_KILLED_BY_SERVANT,
-                                                  mons->hit_dice);
-                    }
-                    else if (targ_holy == MH_DEMONIC)
-                    {
-                        notice |= did_god_conduct(DID_DEMON_KILLED_BY_SERVANT,
                                                   mons->hit_dice);
                     }
 
@@ -2312,7 +2412,7 @@ int monster_die(monster* mons, killer_type killer,
             {
                 if (fake_abjuration)
                 {
-                    if (mons_genus(mons->type) == MONS_ADDER)
+                    if (mons_genus(mons->type) == MONS_SNAKE)
                     {
                         // Sticks to Snake
                         simple_monster_message(mons, " withers and dies!",
@@ -2441,6 +2541,16 @@ int monster_die(monster* mons, killer_type killer,
     {
         hogs_to_humans();
     }
+    else if ((mons_is_natasha(mons) || mons_genus(mons->type) == MONS_FELID)
+             && !in_transit && mons_felid_can_revive(mons))
+    {
+        drop_items = false;
+
+        // Like Boris, but her vault can't come back
+        if (mons_is_natasha(mons))
+            you.unique_creatures.set(MONS_NATASHA, false);
+        mons_felid_revive(mons);
+    }
     else if (mons_is_pikel(mons))
     {
         // His slaves don't care if he's dead or not, just whether or not
@@ -2526,10 +2636,10 @@ int monster_die(monster* mons, killer_type killer,
     }
     // Give the treant a last chance to release its wasps if it is killed in a
     // single blow from above half health
-    else if (mons->type == MONS_TREANT && !was_banished
+    else if (mons->type == MONS_SHAMBLING_MANGROVE && !was_banished
              && !mons->pacified() && (!summoned || duration > 0) && !wizard)
     {
-        treant_release_wasps(mons);
+        treant_release_fauna(mons);
     }
     else if (mons_is_mimic(mons->type))
         drop_items = false;
@@ -2580,6 +2690,30 @@ int monster_die(monster* mons, killer_type killer,
             you.set_duration(DUR_POWERED_BY_DEATH, pbd_dur);
     }
 
+    if (corpse >= 0)
+    {
+        // Powered by death.
+        // Find nearby putrid demonspawn.
+        for (monster_near_iterator mi(mons->pos()); mi; ++mi)
+        {
+            monster* mon = *mi;
+            if (mon->alive()
+                && mons_is_demonspawn(mon->type)
+                && draco_or_demonspawn_subspecies(mon)
+                   == MONS_PUTRID_DEMONSPAWN)
+            {
+                // Rather than regen over time, the expected 24 + 2d8 duration
+                // is given as an instant health bonus.
+                // These numbers may need to be adjusted.
+                if (mon->heal(random2avg(24, 2) + roll_dice(2, 8)))
+                {
+                    simple_monster_message(mon,
+                                           " regenerates before your eyes!");
+                }
+            }
+        }
+    }
+
     unsigned int player_exp = 0, monster_exp = 0;
     if (!mons_reset && !fake_abjuration && !timeout && !unsummoned)
     {
@@ -2612,22 +2746,19 @@ int monster_die(monster* mons, killer_type killer,
         arena_monster_died(mons, killer, killer_index, silent, corpse);
 
     // Monsters haloes should be removed when they die.
-    if (mons->holiness() == MH_HOLY)
-        invalidate_agrid();
-    // Likewise silence and umbras
-    if (mons->type == MONS_SILENT_SPECTRE
-        || mons->type == MONS_PROFANE_SERVITOR
-        || mons->type == MONS_MOTH_OF_SUPPRESSION
-        || mons->type == MONS_LOST_SOUL)
+    if (mons->halo_radius2()
+        || mons->umbra_radius2()
+        || mons->silence_radius2())
     {
         invalidate_agrid();
     }
 
     // Done before items are dropped so that we can clone them
-    if (soul_aura(mons->pos()) && mons->holiness() == MH_NATURAL
+    if (mons->holiness() == MH_NATURAL
         && killer != KILL_RESET
         && killer != KILL_DISMISSED
-        && killer != KILL_BANISHED)
+        && killer != KILL_BANISHED
+        && _lost_soul_nearby(mons->pos()))
     {
         lost_soul_spectralize(mons);
     }
@@ -2786,7 +2917,7 @@ void alert_nearby_monsters(void)
     // alert monsters that aren't sleeping.  For cases where an
     // event should wake up monsters and alert them, I'd suggest
     // calling noisy() before calling this function. - bwr
-    for (monster_iterator mi(you.get_los()); mi; ++mi)
+    for (monster_near_iterator mi(you.pos()); mi; ++mi)
         if (!mi->asleep())
              behaviour_event(*mi, ME_ALERT, &you);
 }
@@ -2803,16 +2934,6 @@ static bool _valid_morph(monster* mons, monster_type new_mclass)
              && mons->has_ench(ENCH_SHAPESHIFTER))
          || (new_mclass == MONS_SHAPESHIFTER
              && mons->has_ench(ENCH_GLOWING_SHAPESHIFTER)))
-    {
-        return false;
-    }
-
-    // [ds] Non-base draconians are much more trouble than their HD
-    // suggests.
-    if (mons_genus(new_mclass) == MONS_DRACONIAN
-        && new_mclass != MONS_DRACONIAN
-        && !player_in_branch(BRANCH_HALL_OF_ZOT)
-        && !one_chance_in(10))
     {
         return false;
     }
@@ -2866,30 +2987,28 @@ static bool _is_poly_power_unsuitable(poly_power_type power,
     switch (power)
     {
     case PPT_LESS:
-        return (tgt_pow > src_pow - 3 + (relax * 3) / 2)
-                || (power == PPT_LESS && (tgt_pow < src_pow - (relax / 2)));
+        return tgt_pow > src_pow - 3 + relax * 3 / 2
+                || (power == PPT_LESS && tgt_pow < src_pow - relax / 2);
     case PPT_MORE:
-        return (tgt_pow < src_pow + 2 - relax)
-                || (power == PPT_MORE && (tgt_pow > src_pow + relax));
+        return tgt_pow < src_pow + 2 - relax
+                || (power == PPT_MORE && tgt_pow > src_pow + relax);
     default:
     case PPT_SAME:
-        return (tgt_pow < src_pow - relax)
-                || (tgt_pow > src_pow + (relax * 3) / 2);
+        return tgt_pow < src_pow - relax
+                || tgt_pow > src_pow + relax * 3 / 2;
     }
 }
 
 static bool _jiyva_slime_target(monster_type targetc)
 {
-    return (you_worship(GOD_JIYVA)
-            && (targetc == MONS_DEATH_OOZE
-               || targetc == MONS_OOZE
-               || targetc == MONS_JELLY
-               || targetc == MONS_BROWN_OOZE
-               || targetc == MONS_SLIME_CREATURE
-               || targetc == MONS_GIANT_AMOEBA
-               || targetc == MONS_ACID_BLOB
-               || targetc == MONS_AZURE_JELLY));
-
+    return you_worship(GOD_JIYVA)
+           && (targetc == MONS_DEATH_OOZE
+              || targetc == MONS_OOZE
+              || targetc == MONS_JELLY
+              || targetc == MONS_BROWN_OOZE
+              || targetc == MONS_SLIME_CREATURE
+              || targetc == MONS_ACID_BLOB
+              || targetc == MONS_AZURE_JELLY);
 }
 
 void change_monster_type(monster* mons, monster_type targetc)
@@ -3011,6 +3130,8 @@ void change_monster_type(monster* mons, monster_type targetc)
     mon_enchant sub       = mons->get_ench(ENCH_SUBMERGED);
     mon_enchant summon    = mons->get_ench(ENCH_SUMMON);
     mon_enchant tp        = mons->get_ench(ENCH_TP);
+    mon_enchant vines     = mons->get_ench(ENCH_AWAKEN_VINES);
+    mon_enchant forest    = mons->get_ench(ENCH_AWAKEN_FOREST);
 
     monster_spells spl    = mons->spells;
     const bool need_save_spells
@@ -3062,6 +3183,8 @@ void change_monster_type(monster* mons, monster_type targetc)
     mons->add_ench(sub);
     mons->add_ench(summon);
     mons->add_ench(tp);
+    mons->add_ench(vines);
+    mons->add_ench(forest);
 
     // Allows for handling of submerged monsters which polymorph into
     // monsters that can't submerge on this square.
@@ -3076,9 +3199,8 @@ void change_monster_type(monster* mons, monster_type targetc)
     if (mons_class_flag(mons->type, M_INVIS))
         mons->add_ench(ENCH_INVIS);
 
-    mons->hit_points = mons->max_hit_points
-                                * ((old_hp * 100) / old_hp_max) / 100
-                                + random2(mons->max_hit_points);
+    mons->hit_points = mons->max_hit_points * old_hp / old_hp_max
+                       + random2(mons->max_hit_points);
 
     mons->hit_points = min(mons->max_hit_points, mons->hit_points);
 
@@ -3333,12 +3455,12 @@ bool mon_can_be_slimified(monster* mons)
 {
     const mon_holy_type holi = mons->holiness();
 
-    return (!(mons->flags & MF_GOD_GIFT)
-            && !mons->is_insubstantial()
-            && !mons_is_tentacle_or_tentacle_segment(mons->type)
-            && (holi == MH_UNDEAD
-                 || holi == MH_NATURAL && !mons_is_slime(mons))
-          );
+    return !(mons->flags & MF_GOD_GIFT)
+           && !mons->is_insubstantial()
+           && !mons_is_tentacle_or_tentacle_segment(mons->type)
+           && (holi == MH_UNDEAD
+                || holi == MH_NATURAL && !mons_is_slime(mons))
+         ;
 }
 
 void slimify_monster(monster* mon, bool hostile)
@@ -3354,12 +3476,7 @@ void slimify_monster(monster* mon, bool hostile)
     else if (x >= 5 && x < 7)
         target = MONS_BROWN_OOZE;
     else if (x >= 7 && x <= 11)
-    {
-        if (coinflip())
-            target = MONS_SLIME_CREATURE;
-        else
-            target = MONS_GIANT_AMOEBA;
-    }
+        target = MONS_SLIME_CREATURE;
     else
     {
         if (coinflip())
@@ -3432,8 +3549,17 @@ bool swap_places(monster* mons, const coord_def &loc)
 
     if (monster_at(loc))
     {
-        mpr("Something prevents you from swapping places.");
-        return false;
+        if (mons->type == MONS_WANDERING_MUSHROOM
+            && monster_at(loc)->type == MONS_TOADSTOOL)
+        {
+            monster_swaps_places(mons, loc - mons->pos());
+            return true;
+        }
+        else
+        {
+            mpr("Something prevents you from swapping places.");
+            return false;
+        }
     }
 
     mpr("You swap places.");
@@ -3454,10 +3580,7 @@ bool swap_check(monster* mons, coord_def &loc, bool quiet)
     loc = you.pos();
 
     if (you.form == TRAN_TREE)
-    {
-        mpr("You can't move.");
         return false;
-    }
 
     // Don't move onto dangerous terrain.
     if (is_feat_dangerous(grd(mons->pos())) && !you.can_cling_to(mons->pos()))
@@ -3492,6 +3615,13 @@ bool swap_check(monster* mons, coord_def &loc, bool quiet)
 
     // First try: move monster onto your position.
     bool swap = !monster_at(loc) && monster_habitable_grid(mons, grd(loc));
+
+    if (monster_at(loc)
+        && monster_at(loc)->type == MONS_TOADSTOOL
+        && mons->type == MONS_WANDERING_MUSHROOM)
+    {
+        swap = monster_habitable_grid(mons, grd(loc));
+    }
 
     // Choose an appropriate habitat square at random around the target.
     if (!swap)
@@ -3537,7 +3667,7 @@ bool monster_can_hit_monster(monster* mons, const monster* targ)
         return false;
 
     const item_def *weapon = mons->weapon();
-    return (weapon && weapon_skill(*weapon) == SK_POLEARMS);
+    return weapon && weapon_skill(*weapon) == SK_POLEARMS;
 }
 
 // Friendly summons can't attack out of the player's LOS, it's too abusable.
@@ -3563,7 +3693,7 @@ bool summon_can_attack(const monster* mons, const coord_def &p)
         if (mons->props.exists(SW_TARGET_MID))
         {
             actor *target = actor_by_mid(mons->props[SW_TARGET_MID].get_int());
-            return (target && target->pos() == p);
+            return target && target->pos() == p;
         }
         return false;
     }
@@ -3581,11 +3711,8 @@ bool summon_can_attack(const monster* mons, const actor* targ)
 
 mon_dam_level_type mons_get_damage_level(const monster* mons)
 {
-    if (!mons_can_display_wounds(mons)
-        || !mons_class_can_display_wounds(mons->get_mislead_type()))
-    {
+    if (!mons_can_display_wounds(mons))
         return MDAM_OKAY;
-    }
 
     if (mons->hit_points <= mons->max_hit_points / 5)
         return MDAM_ALMOST_DEAD;
@@ -3653,7 +3780,7 @@ void print_wounds(const monster* mons)
 static bool _wounded_damaged(mon_holy_type holi)
 {
     // this schema needs to be abstracted into real categories {dlb}:
-    return (holi == MH_UNDEAD || holi == MH_NONLIVING || holi == MH_PLANT);
+    return holi == MH_UNDEAD || holi == MH_NONLIVING || holi == MH_PLANT;
 }
 
 // If _mons_find_level_exits() is ever expanded to handle more grid
@@ -3735,7 +3862,7 @@ bool can_go_straight(const monster* mon, const coord_def& p1,
     if (p1 == p2)
         return true;
 
-    if (distance2(p1, p2) > get_los_radius_sq())
+    if (distance2(p1, p2) > los_radius2)
         return false;
 
     // XXX: Hack to improve results for now. See FIXME above.
@@ -3764,62 +3891,55 @@ bool choose_any_monster(const monster* mon)
 // If prefer_priest is true, priestly monsters (including uniques) are
 // twice as likely to get chosen compared to non-priestly ones.
 monster* choose_random_nearby_monster(int weight,
-                                       bool (*suitable)(const monster* mon),
-                                       bool in_sight, bool prefer_named,
-                                       bool prefer_priest)
+                                      bool (*suitable)(const monster* mon),
+                                      bool prefer_named_or_priest)
 {
-    return choose_random_monster_on_level(weight, suitable, in_sight, true,
-                                          prefer_named, prefer_priest);
+    monster* chosen = NULL;
+    for (radius_iterator ri(you.pos(), LOS_NO_TRANS); ri; ++ri)
+    {
+        monster* mon = monster_at(*ri);
+        if (!mon || !suitable(mon))
+            continue;
+
+        // FIXME: if the intent is to favour monsters
+        // named by $DEITY, we should set a flag on the
+        // monster (something like MF_DEITY_PREFERRED) and
+        // use that instead of checking the name, given
+        // that other monsters can also have names.
+
+        // True, but it's currently only used for orcs, and
+        // Blork and Urug also being preferred to non-named orcs
+        // is fine, I think. Once more gods name followers (and
+        // prefer them) that should be changed, of course. (jpeg)
+        int mon_weight = 1;
+
+        if (prefer_named_or_priest)
+            mon_weight += mon->is_named() + mon->is_priest();
+
+        if (x_chance_in_y(mon_weight, weight += mon_weight))
+            chosen = mon;
+    }
+
+    return chosen;
 }
 
 monster* choose_random_monster_on_level(int weight,
-                                         bool (*suitable)(const monster* mon),
-                                         bool in_sight, bool near_by,
-                                         bool prefer_named, bool prefer_priest)
+                                        bool (*suitable)(const monster* mon))
 {
     monster* chosen = NULL;
 
-    // A radius_iterator with radius == max(GXM, GYM) will sweep the
-    // whole level.
-    radius_iterator ri(you.pos(), near_by ? 9 : max(GXM, GYM), true, in_sight);
-
-    for (; ri; ++ri)
+    for (rectangle_iterator ri(1); ri; ++ri)
     {
-        if (in_sight)
-        {
-            // Seeing through glass/trees is not enough.
-            if (!you.see_cell_no_trans(*ri))
-                continue;
-        }
+        monster* mon = monster_at(*ri);
+        if (!mon || !suitable(mon))
+            continue;
 
-        if (monster* mon = monster_at(*ri))
-        {
-            if (suitable(mon))
-            {
-                // FIXME: if the intent is to favour monsters
-                // named by $DEITY, we should set a flag on the
-                // monster (something like MF_DEITY_PREFERRED) and
-                // use that instead of checking the name, given
-                // that other monsters can also have names.
+        // Named or priestly monsters have doubled chances.
+        int mon_weight = 1
+                       + mon->is_named() + mon->is_priest();
 
-                // True, but it's currently only used for orcs, and
-                // Blork and Urug also being preferred to non-named orcs
-                // is fine, I think. Once more gods name followers (and
-                // prefer them) that should be changed, of course. (jpeg)
-
-                // Named or priestly monsters have doubled chances.
-                int mon_weight = 1;
-
-                if (prefer_named && mon->is_named())
-                    mon_weight++;
-
-                if (prefer_priest && mon->is_priest())
-                    mon_weight++;
-
-                if (x_chance_in_y(mon_weight, (weight += mon_weight)))
-                    chosen = mon;
-            }
-        }
+        if (x_chance_in_y(mon_weight, weight += mon_weight))
+            chosen = mon;
     }
 
     return chosen;
@@ -3845,7 +3965,7 @@ bool simple_monster_message(const monster* mons, const char *event,
         if (channel == MSGCH_PLAIN && mons->wont_attack())
             channel = MSGCH_FRIEND_ACTION;
 
-        mpr(msg.c_str(), channel, param);
+        mprf(channel, param, "%s", msg.c_str());
         return true;
     }
 
@@ -3877,7 +3997,7 @@ static bool _mons_avoids_cloud(const monster* mons, const cloud_struct& cloud,
     {
     case CLOUD_MIASMA:
         // Even the dumbest monsters will avoid miasma if they can.
-        return (!mons->res_rotting());
+        return !mons->res_rotting();
 
     case CLOUD_FIRE:
     case CLOUD_FOREST_FIRE:
@@ -4032,22 +4152,9 @@ bool mons_avoids_cloud(const monster* mons, int cloud_num, bool placement)
     return !_mons_avoids_cloud(mons, our_cloud, true);
 }
 
-// Returns a rough estimate of damage from throwing the wielded weapon.
-int mons_thrown_weapon_damage(const item_def *weap,
-                              bool only_returning_weapons)
-{
-    if (!weap ||
-        (only_returning_weapons && get_weapon_brand(*weap) != SPWPN_RETURNING))
-    {
-        return 0;
-    }
-
-    return max(0, (property(*weap, PWPN_DAMAGE) + weap->plus2 / 2));
-}
-
 int mons_weapon_damage_rating(const item_def &launcher)
 {
-    return (property(launcher, PWPN_DAMAGE) + launcher.plus2);
+    return property(launcher, PWPN_DAMAGE) + launcher.plus2;
 }
 
 // Returns a rough estimate of damage from firing/throwing missile.
@@ -4062,30 +4169,16 @@ int mons_missile_damage(monster* mons, const item_def *launch,
     return max(0, launch_damage + missile_damage);
 }
 
-// Given the monster's current weapon and alt weapon (either or both of
-// which may be NULL), works out whether using missiles or throwing the
-// main weapon (with returning brand) is better. If using missiles that
-// need a launcher, sets *launcher to the launcher.
-//
-// If the monster has no ranged weapon attack, returns NON_ITEM.
-//
-int mons_pick_best_missile(monster* mons, item_def **launcher,
-                           bool ignore_melee)
+int mons_usable_missile(monster* mons, item_def **launcher)
 {
     *launcher = NULL;
-    item_def *melee = NULL, *launch = NULL;
-    int melee_weapon_count = 0;
+    item_def *launch = NULL;
     for (int i = MSLOT_WEAPON; i <= MSLOT_ALT_WEAPON; ++i)
     {
         if (item_def *item = mons->mslot_item(static_cast<mon_inv_type>(i)))
         {
             if (is_range_weapon(*item))
                 launch = item;
-            else if (!ignore_melee)
-            {
-                melee = item;
-                ++melee_weapon_count;
-            }
         }
     }
 
@@ -4093,17 +4186,10 @@ int mons_pick_best_missile(monster* mons, item_def **launcher,
     if (launch && missiles && !missiles->launched_by(*launch))
         launch = NULL;
 
-    const int n_usable_melee_weapons(mons_wields_two_weapons(mons) ? 2 : 1);
-    const bool only = melee_weapon_count == n_usable_melee_weapons
-                      && melee->quantity == 1;
-    const int tdam = (melee && is_throwable(mons, *melee)) ?
-                         mons_thrown_weapon_damage(melee, only) : 0;
     const int fdam = mons_missile_damage(mons, launch, missiles);
 
-    if (!tdam && !fdam)
+    if (!fdam)
         return NON_ITEM;
-    else if (tdam >= fdam)
-        return melee->index();
     else
     {
         *launcher = launch;
@@ -4111,6 +4197,7 @@ int mons_pick_best_missile(monster* mons, item_def **launcher,
     }
 }
 
+// in units of 1/25 hp/turn
 int mons_natural_regen_rate(monster* mons)
 {
     // A HD divider ranging from 3 (at 1 HD) to 1 (at 8 HD).
@@ -4132,6 +4219,18 @@ int mons_natural_regen_rate(monster* mons)
     }
 
     return max(div_rand_round(mons->hit_dice, divider), 1);
+}
+
+// in units of 1/100 hp/turn
+int mons_off_level_regen_rate(monster* mons)
+{
+    if (!mons_can_regenerate(mons))
+        return 0;
+
+    if (mons_class_fast_regen(mons->type) || mons->type == MONS_PLAYER_GHOST)
+        return 100;
+    // Capped at 0.1 hp/turn.
+    return max(mons_natural_regen_rate(mons) * 4, 10);
 }
 
 void mons_check_pool(monster* mons, const coord_def &oldpos,
@@ -4194,81 +4293,12 @@ void mons_check_pool(monster* mons, const coord_def &oldpos,
             if (!_yred_enslave_soul(mons, killer))
                 monster_die(mons, killer, killnum, true);
         }
-    }
-}
-
-bool monster_descriptor(monster_type which_class, mon_desc_type which_descriptor)
-{
-    if (which_descriptor == MDSC_LEAVES_HIDE)
-    {
-        if (mons_genus(which_class) == MONS_TROLL)
-            return true;
-        switch (which_class)
+        else
         {
-        case MONS_DRAGON:
-        case MONS_ICE_DRAGON:
-        case MONS_STEAM_DRAGON:
-        case MONS_MOTTLED_DRAGON:
-        case MONS_STORM_DRAGON:
-        case MONS_GOLDEN_DRAGON:
-        case MONS_SWAMP_DRAGON:
-        case MONS_PEARL_DRAGON:
-            return true;
-        default:
-            return false;
+            dprf("undrownable in Davy Jones' locker");
+            mons->add_ench(ENCH_SUBMERGED);
         }
     }
-
-    if (which_descriptor == MDSC_REGENERATES)
-    {
-        switch (which_class)
-        {
-        case MONS_CACODEMON:
-        case MONS_DEEP_TROLL:
-        case MONS_HELLWING:
-        case MONS_CRIMSON_IMP:
-        case MONS_IRON_TROLL:
-        case MONS_LEMURE:
-#if TAG_MAJOR_VERSION == 34
-        case MONS_ROCK_TROLL:
-#endif
-        case MONS_SLIME_CREATURE:
-        case MONS_SNORG:
-        case MONS_PURGY:
-        case MONS_TROLL:
-        case MONS_HYDRA:
-        case MONS_KILLER_KLOWN:
-        case MONS_STARCURSED_MASS:
-        case MONS_LERNAEAN_HYDRA:
-        case MONS_DISSOLUTION:
-        case MONS_TEST_SPAWNER:
-            return true;
-        default:
-            return false;
-        }
-    }
-
-    if (which_descriptor == MDSC_NOMSG_WOUNDS)
-    {
-        // Zombified monsters other than spectral things don't show
-        // wounds.
-        if (mons_class_is_zombified(which_class)
-            && which_class != MONS_SPECTRAL_THING)
-        {
-            return true;
-        }
-
-        switch (which_class)
-        {
-        case MONS_RAKSHASA:
-        case MONS_RAKSHASA_FAKE:
-            return true;
-        default:
-            return false;
-        }
-    }
-
-    return false;
 }
 
 monster* get_current_target()
@@ -4322,13 +4352,17 @@ void seen_monster(monster* mons)
         }
     }
 
-    if (!mons->has_ench(ENCH_ABJ)
-        && !mons->has_ench(ENCH_FAKE_ABJURATION)
-        && !testbits(mons->flags, MF_NO_REWARD)
-        && !mons_class_flag(mons->type, M_NO_EXP_GAIN)
-        && !crawl_state.game_is_arena())
+    if (!(mons->flags & MF_TSO_SEEN))
     {
-        did_god_conduct(DID_SEE_MONSTER, mons->hit_dice, true, mons);
+        if (!mons->has_ench(ENCH_ABJ)
+            && !mons->has_ench(ENCH_FAKE_ABJURATION)
+            && !testbits(mons->flags, MF_NO_REWARD)
+            && !mons_class_flag(mons->type, M_NO_EXP_GAIN)
+            && !crawl_state.game_is_arena())
+        {
+            did_god_conduct(DID_SEE_MONSTER, mons->hit_dice, true, mons);
+        }
+        mons->flags |= MF_TSO_SEEN;
     }
 
     if (mons_allows_beogh(mons))
@@ -4372,7 +4406,7 @@ bool shift_monster(monster* mon, coord_def p)
         mgrd(result) = mon->mindex();
     }
 
-    return (count > 0);
+    return count > 0;
 }
 
 // Make all of the monster's original equipment disappear, unless it's a fixed
@@ -4433,11 +4467,8 @@ int dismiss_monsters(string pattern)
 // applied to new games.
 void zap_los_monsters(bool items_also)
 {
-    for (radius_iterator ri(you.pos(), LOS_RADIUS); ri; ++ri)
+    for (radius_iterator ri(you.pos(), LOS_SOLID); ri; ++ri)
     {
-        if (!cell_see_cell(you.pos(), *ri, LOS_SOLID))
-            continue;
-
         if (items_also)
         {
             int item = igrd(*ri);
@@ -4628,7 +4659,7 @@ void monster_teleport(monster* mons, bool instan, bool silent)
     // Leave a purple cloud.
     // XXX: If silent is true, this is not an actual teleport, but
     //      the game moving a monster out of the way.
-    if (!silent)
+    if (!silent && !cell_is_solid(oldplace))
         place_cloud(CLOUD_TLOC_ENERGY, oldplace, 1 + random2(3), mons);
 
     mons->check_redraw(oldplace);
@@ -4646,7 +4677,7 @@ void mons_clear_trapping_net(monster* mon)
 
     const int net = get_trapping_net(mon->pos());
     if (net != NON_ITEM)
-        remove_item_stationary(mitm[net]);
+        free_stationary_net(net);
 
     mon->del_ench(ENCH_HELD, true);
 }
@@ -4667,6 +4698,8 @@ string summoned_poof_msg(const monster* mons, bool plural)
     switch (summon_type)
     {
     case SPELL_SHADOW_CREATURES:
+    case SPELL_WEAVE_SHADOWS:
+    case MON_SUMM_SCROLL:
         msg      = "dissolve%s into shadows";
         no_chaos = true;
         break;
@@ -4688,7 +4721,6 @@ string summoned_poof_msg(const monster* mons, bool plural)
     case SPELL_CALL_LOST_SOUL:
         msg = "fades away";
         break;
-
     }
 
     if (valid_mon)
@@ -4711,6 +4743,12 @@ string summoned_poof_msg(const monster* mons, bool plural)
         {
             msg = "dissolve%s into a puddle of slime";
         }
+
+        if (mons->type == MONS_DROWNED_SOUL)
+            msg = "returns to the deep";
+
+        if (mons->has_ench(ENCH_PHANTOM_MIRROR))
+            msg = "shimmers and vanishes";
     }
 
     // Conjugate.
@@ -4787,7 +4825,6 @@ beh_type attitude_creation_behavior(mon_attitude_type att)
     default:
         return BEH_HOSTILE;
     }
-
 }
 
 // Return the creation behavior type corresponding to the input
@@ -4831,12 +4868,14 @@ void mons_att_changed(monster* mon)
     {
         remove_companion(mon);
     }
+    mon->align_avatars();
 }
 
 void debuff_monster(monster* mon)
 {
     // List of magical enchantments which will be dispelled.
-    const enchant_type lost_enchantments[] = {
+    const enchant_type lost_enchantments[] =
+    {
         ENCH_SLOW,
         ENCH_HASTE,
         ENCH_SWIFT,
@@ -4966,6 +5005,7 @@ void temperature_check()
             const coord_def p(*ai);
             if (in_bounds(p)
                 && env.cgrid(p) == EMPTY_CLOUD
+                && !cell_is_solid(p)
                 && one_chance_in(5))
             {
                 place_cloud(CLOUD_STEAM, *ai, 2 + random2(5), &you);
@@ -5020,10 +5060,6 @@ void temperature_changed(float change)
 
     // For INCREMENTS:
 
-    // Warmed up enough to lose slow movement.
-    if (change > pos_threshold && temperature_tier(TEMP_COOL))
-        mpr("Your movements quicken.", MSGCH_DURATION);
-
     // Check these no-nos every turn.
     if (you.temperature >= TEMP_WARM)
     {
@@ -5038,45 +5074,41 @@ void temperature_changed(float change)
     // Just reached the temp that kills off stoneskin.
     if (change > pos_threshold && temperature_tier(TEMP_WARM))
     {
-        mpr("Your stony skin melts.", MSGCH_DURATION);
+        mprf(MSGCH_DURATION, "Your stony skin melts.");
         you.redraw_armour_class = true;
     }
 
     // Passive heat stuff.
     if (change > pos_threshold && temperature_tier(TEMP_FIRE))
-        mpr("You're getting fired up.", MSGCH_DURATION);
+        mprf(MSGCH_DURATION, "You're getting fired up.");
 
     // Heat aura stuff.
     if (change > pos_threshold && temperature_tier(TEMP_MAX))
     {
-        mpr("You blaze with the fury of an erupting volcano!", MSGCH_DURATION);
+        mprf(MSGCH_DURATION, "You blaze with the fury of an erupting volcano!");
         invalidate_agrid(true);
     }
 
     // For DECREMENTS (reverse order):
     if (change < neg_threshold && temperature_tier(TEMP_MAX))
-        mpr("The intensity of your heat diminishes.", MSGCH_DURATION);
+        mprf(MSGCH_DURATION, "The intensity of your heat diminishes.");
 
     if (change < neg_threshold && temperature_tier(TEMP_FIRE))
-        mpr("You're cooling off.", MSGCH_DURATION);
+        mprf(MSGCH_DURATION, "You're cooling off.");
 
     // Cooled down enough for stoneskin to kick in again.
     if (change < neg_threshold && temperature_tier(TEMP_WARM))
     {
-            mpr("Your skin cools and hardens.", MSGCH_DURATION);
-            you.redraw_armour_class = true;
+        mprf(MSGCH_DURATION, "Your skin cools and hardens.");
+        you.redraw_armour_class = true;
     }
-
-    // Cooled down enough for slow movement.
-    if (change < neg_threshold && temperature_tier(TEMP_COOL))
-        mpr("Your movements slow.", MSGCH_DURATION);
 
     // If we're in this function, temperature changed, anyways.
     you.redraw_temperature = true;
 
-    #ifdef USE_TILE
-        init_player_doll();
-    #endif
+#ifdef USE_TILE
+    init_player_doll();
+#endif
 
     // Just do this every turn to be safe. Can be fixed later if there
     // any performance issues.
@@ -5106,29 +5138,26 @@ bool temperature_effect(int which)
     {
         case LORC_FIRE_RES_I:
             return true; // 1-15
-        case LORC_SLOW_MOVE:
-            return (temperature() < TEMP_COOL); // 1-4
         case LORC_STONESKIN:
-            return (temperature() < TEMP_WARM); // 1-8
+            return temperature() < TEMP_WARM; // 1-8
 //      case nothing, right now:
 //            return (you.temperature >= TEMP_COOL && you.temperature < TEMP_WARM); // 5-8
         case LORC_LAVA_BOOST:
-            return (temperature() >= TEMP_WARM && temperature() < TEMP_HOT); // 9-10
+            return temperature() >= TEMP_WARM && temperature() < TEMP_HOT; // 9-10
         case LORC_FIRE_RES_II:
-            return (temperature() >= TEMP_WARM); // 9-15
+            return temperature() >= TEMP_WARM; // 9-15
         case LORC_FIRE_RES_III:
         case LORC_FIRE_BOOST:
         case LORC_COLD_VULN:
-            return (temperature() >= TEMP_HOT); // 11-15
-        case LORC_FAST_MOVE:
+            return temperature() >= TEMP_HOT; // 11-15
         case LORC_PASSIVE_HEAT:
-            return (temperature() >= TEMP_FIRE); // 13-15
+            return temperature() >= TEMP_FIRE; // 13-15
         case LORC_HEAT_AURA:
             if (you_worship(GOD_BEOGH))
                 return false;
             // Deliberate fall-through.
         case LORC_NO_SCROLLS:
-            return (temperature() >= TEMP_MAX); // 15
+            return temperature() >= TEMP_MAX; // 15
 
         default:
             return false;
@@ -5162,13 +5191,13 @@ string temperature_text(int temp)
         case TEMP_MIN:
             return "rF+";
         case TEMP_COOL:
-            return "Normal movement speed";
+            return "";
         case TEMP_WARM:
             return "rF++; lava magic boost; Stoneskin melts";
         case TEMP_HOT:
             return "rF+++; rC-; fire magic boost";
         case TEMP_FIRE:
-            return "Fast movement speed; burn attackers";
+            return "Burn attackers";
         case TEMP_MAX:
             return "Burn surroundings; cannot read scrolls";
         default:

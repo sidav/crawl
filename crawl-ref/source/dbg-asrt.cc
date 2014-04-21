@@ -9,6 +9,7 @@
 #include <signal.h>
 
 #include "abyss.h"
+#include "chardump.h"
 #include "clua.h"
 #include "coord.h"
 #include "coordit.h"
@@ -82,7 +83,6 @@
 #endif
 #endif
 
-
 static string _assert_msg;
 
 static void _dump_compilation_info(FILE* file)
@@ -112,10 +112,12 @@ static void _dump_level_info(FILE* file)
                       "    seed = 0x%" PRIx32 "\n"
                       "    depth = %" PRIu32 "\n"
                       "    phase = %g\n"
-                      "    nuke_all = %d\n",
+                      "    nuke_all = %d\n"
+                      "    level = (%d : %d)\n",
                 abyssal_state.major_coord.x, abyssal_state.major_coord.y,
                 abyssal_state.seed, abyssal_state.depth, abyssal_state.phase,
-                abyssal_state.nuke_all);
+                abyssal_state.nuke_all,
+                abyssal_state.level.branch, abyssal_state.level.depth);
     }
 
     debug_dump_levgen();
@@ -482,10 +484,7 @@ static void _debug_marker_scan()
                      marker->pos.x, marker->pos.y);
 
                 if (!in_bounds(marker->pos))
-                {
-                    mpr("Further, it thinks it's out of bounds.",
-                        MSGCH_ERROR);
-                }
+                    mprf(MSGCH_ERROR, "Further, it thinks it's out of bounds.");
             }
         }
     }
@@ -622,9 +621,13 @@ void do_crash_dump()
 
         dump_crash_info(stderr);
         write_stack_trace(stderr, 0);
+        call_gdb(stderr);
 
         return;
     }
+
+    // Want same time for file name and crash milestone.
+    const time_t t = time(NULL);
 
     string dir = (!Options.morgue_dir.empty() ? Options.morgue_dir :
                   !SysEnv.crawl_dir.empty()   ? SysEnv.crawl_dir
@@ -633,10 +636,8 @@ void do_crash_dump()
     if (!dir.empty() && dir[dir.length() - 1] != FILE_SEPARATOR)
         dir += FILE_SEPARATOR;
 
-    char name[180];
+    char name[180] = {};
 
-    // Want same time for file name and crash milestone.
-    const time_t t = time(NULL);
     snprintf(name, sizeof(name), "%scrash-%s-%s.txt", dir.c_str(),
             you.your_name.c_str(), make_file_time(t).c_str());
 
@@ -644,7 +645,7 @@ void do_crash_dump()
         fprintf(stderr, "\n%s", _assert_msg.c_str());
     fprintf(stderr, "\nWriting crash info to %s\n", name);
     errno = 0;
-    FILE* file = crawl_state.test ? stderr : freopen(name, "w+", stderr);
+    FILE* file = crawl_state.test ? stderr : freopen(name, "a+", stderr);
 
     // The errno values are only relevant when the function in
     // question has returned a value indicating (possible) failure, so
@@ -676,7 +677,9 @@ void do_crash_dump()
     // might themselves cause crashes.
     dump_crash_info(file);
     write_stack_trace(file, 0);
+    fprintf(file, "\n");
 
+    call_gdb(file);
     fprintf(file, "\n");
 
     // Next information on how the binary was compiled
@@ -727,8 +730,16 @@ void do_crash_dump()
 #endif
 
     // Now a screenshot
-    fprintf(file, "\nScreenshot:\n");
-    fprintf(file, "%s\n", screenshot().c_str());
+    if (crawl_state.generating_level)
+    {
+        fprintf(file, "\nMap:\n");
+        dump_map(file, true);
+    }
+    else
+    {
+        fprintf(file, "\nScreenshot:\n");
+        fprintf(file, "%s\n", screenshot().c_str());
+    }
 
     // If anything has screwed up the Lua runtime stacks then trying to
     // print those stacks will likely crash, so do this after the others.
@@ -846,7 +857,8 @@ NORETURN void AssertFailed(const char *expr, const char *file, int line,
 #undef die
 NORETURN void die(const char *file, int line, const char *format, ...)
 {
-    char tmp[2048], mesg[2048];
+    char tmp[2048] = {};
+    char mesg[2048] = {};
 
     va_list args;
 
@@ -864,7 +876,8 @@ NORETURN void die(const char *file, int line, const char *format, ...)
 
 NORETURN void die_noline(const char *format, ...)
 {
-    char tmp[2048], mesg[2048];
+    char tmp[2048] = {};
+    char mesg[2048] = {};
 
     va_list args;
 

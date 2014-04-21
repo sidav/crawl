@@ -14,6 +14,7 @@
 #include "options.h"
 
 #include "areas.h"
+#include "art-enum.h"
 #include "beam.h"
 #include "cloud.h"
 #include "colour.h"
@@ -28,8 +29,6 @@
 #include "godconduct.h"
 #include "goditem.h"
 #include "hints.h"
-#include "item_use.h"
-#include "items.h"
 #include "libutil.h"
 #include "macro.h"
 #include "menu.h"
@@ -61,6 +60,7 @@
 #include "state.h"
 #include "stuff.h"
 #include "target.h"
+#include "terrain.h"
 #ifdef USE_TILE
  #include "tilepick.h"
 #endif
@@ -164,6 +164,11 @@ int list_spells(bool toggle_with_I, bool viewing, bool allow_preselect,
                               | MF_ALWAYS_SHOW_MORE | MF_ALLOW_FORMATTING,
                               text_only);
     string titlestring = make_stringf("%-25.25s", title.c_str());
+    string hungerstring =
+#if TAG_MAJOR_VERSION == 34
+        you.species == SP_DJINNI ? "Glow  " :
+#endif
+        "Hunger";
 #ifdef USE_TILE_LOCAL
     {
         // [enne] - Hack.  Make title an item so that it's aligned.
@@ -172,7 +177,7 @@ int list_spells(bool toggle_with_I, bool viewing, bool allow_preselect,
                 " " + titlestring + "         Type          "
                 "                Failure   Level",
                 " " + titlestring + "         Power         "
-                "Range           Hunger    Level",
+                "Range           " + hungerstring + "    Level",
                 MEL_ITEM);
         me->colour = BLUE;
         spell_menu.add_entry(me);
@@ -183,7 +188,7 @@ int list_spells(bool toggle_with_I, bool viewing, bool allow_preselect,
             " " + titlestring + "         Type          "
             "                Failure   Level",
             " " + titlestring + "         Power         "
-            "Range           Hunger    Level",
+            "Range           " + hungerstring + "    Level",
             MEL_TITLE));
 #endif
     spell_menu.set_highlighter(NULL);
@@ -279,9 +284,8 @@ int list_spells(bool toggle_with_I, bool viewing, bool allow_preselect,
 
 static int _apply_spellcasting_success_boosts(spell_type spell, int chance)
 {
-    int wizardry = player_mag_abil(false);
+    const int wizardry = player_wizardry();
     int fail_reduce = 100;
-    int wiz_factor = 87;
 
     if (you_worship(GOD_VEHUMET)
         && !player_under_penance() && you.piety >= piety_breakpoint(2)
@@ -289,26 +293,20 @@ static int _apply_spellcasting_success_boosts(spell_type spell, int chance)
     {
         // [dshaligram] Fail rate multiplier used to be .5, scaled
         // back to 67%.
-        fail_reduce = fail_reduce * 67 / 100;
+        fail_reduce = fail_reduce * 2 / 3;
     }
 
-    // [dshaligram] Apply wizardry factor here, rather than mixed into the
-    // pre-scaling spell power.
-    while (wizardry-- > 0)
-    {
-        fail_reduce  = fail_reduce * wiz_factor / 100;
-        wiz_factor  += (100 - wiz_factor) / 3;
-    }
+    if (wizardry > 0)
+      fail_reduce = fail_reduce * 6 / (7 + wizardry);
 
-    // Apply Brilliance factor here.
     if (you.duration[DUR_BRILLIANCE])
-        fail_reduce = fail_reduce * 67 / 100;
+        fail_reduce = fail_reduce / 2;
 
     // Hard cap on fail rate reduction.
     if (fail_reduce < 50)
         fail_reduce = 50;
 
-    return (chance * fail_reduce / 100);
+    return chance * fail_reduce / 100;
 }
 
 int spell_fail(spell_type spell)
@@ -340,9 +338,26 @@ int spell_fail(spell_type spell)
     default: chance += 750; break;
     }
 
+#if TAG_MAJOR_VERSION == 34
+    // Only apply this penalty to Dj because other species lose nutrition
+    // rather than gaining contamination when casting spells.
+    // Also, this penalty gives fairly precise information about contam
+    // level, and only Dj already has such information (on the contam bar).
+    // Other species would have to check their failure rates all the time
+    // when at yellow glow.
+    if (you.species == SP_DJINNI)
+    {
+        int64_t contam = you.magic_contamination;
+        // Just +25 on the edge of yellow glow, +200 in the middle of yellow,
+        // forget casting when in orange.
+        chance += contam * contam * contam / 5000000000LL;
+    }
+#endif
+
     int chance2 = chance;
 
-    const int chance_breaks[][2] = {
+    const int chance_breaks[][2] =
+    {
         {45, 45}, {42, 43}, {38, 41}, {35, 40}, {32, 38}, {28, 36},
         {22, 34}, {16, 32}, {10, 30}, {2, 28}, {-7, 26}, {-12, 24},
         {-18, 22}, {-24, 20}, {-30, 18}, {-38, 16}, {-46, 14},
@@ -373,6 +388,11 @@ int spell_fail(spell_type spell)
     }
 
     chance2 += 7 * player_mutation_level(MUT_WILD_MAGIC);
+
+    if (player_equip_unrand(UNRAND_HIGH_COUNCIL))
+        chance2 += 7;
+
+    chance2 += you.duration[DUR_MAGIC_SAPPED] / BASELINE_DELAY;
 
     // Apply the effects of Vehumet and items of wizardry.
     chance2 = _apply_spellcasting_success_boosts(spell, chance2);
@@ -502,9 +522,10 @@ static int _spell_enhancement(unsigned int typeflags)
 
     if (you.attribute[ATTR_SHADOWS])
         enhanced -= 2;
+    if (you.form == TRAN_SHADOW)
+        enhanced -= 2;
 
-    if (you.archmagi())
-        enhanced++;
+    enhanced += you.archmagi();
 
     if (you.species == SP_LAVA_ORC && temperature_effect(LORC_LAVA_BOOST)
         && (typeflags & SPTYP_FIRE) && (typeflags & SPTYP_EARTH))
@@ -529,8 +550,6 @@ void inspect_spells()
         return;
     }
 
-    // Maybe we should honour auto_list here, but if you want the
-    // description, you probably want the listing, too.
     list_spells(true, true);
 }
 
@@ -649,12 +668,12 @@ bool cast_a_spell(bool check_range, spell_type spell)
                 }
 
                 if (you.last_cast_spell == SPELL_NO_SPELL)
-                    mpr("Cast which spell? (? or * to list) ", MSGCH_PROMPT);
+                    mprf(MSGCH_PROMPT, "Cast which spell? (? or * to list) ");
                 else
                 {
                     mprf(MSGCH_PROMPT, "Casting: <w>%s</w>",
                          spell_title(you.last_cast_spell));
-                    mpr("Confirm with . or Enter, or press ? or * to list all spells.", MSGCH_PROMPT);
+                    mprf(MSGCH_PROMPT, "Confirm with . or Enter, or press ? or * to list all spells.");
                 }
 
                 keyin = get_ch();
@@ -706,8 +725,7 @@ bool cast_a_spell(bool check_range, spell_type spell)
         return false;
     }
 
-    if (spell_mana(spell) > (you.species != SP_DJINNI ? you.magic_points
-        : (you.hp - 1) / DJ_MP_RATE))
+    if (!enough_mp(spell_mana(spell), true))
     {
         mpr("You don't have enough magic to cast that spell.");
         crawl_state.zero_turns_taken();
@@ -788,6 +806,7 @@ bool cast_a_spell(bool check_range, spell_type spell)
     else
         practise(EX_DID_MISCAST, spell);
 
+#if TAG_MAJOR_VERSION == 34
     // Nasty special cases.
     if (you.species == SP_DJINNI && cast_result == SPRET_SUCCESS
         && (spell == SPELL_BORGNJORS_REVIVIFICATION
@@ -795,10 +814,10 @@ bool cast_a_spell(bool check_range, spell_type spell)
     {
         // These spells have replenished essence to full.
         inc_mp(cost, true);
-    } else {
-      // Redraw MP
-      flush_mp();
     }
+    else // Redraw MP
+#endif
+        flush_mp();
 
     if (!staff_energy && you.is_undead != US_UNDEAD)
     {
@@ -816,7 +835,8 @@ bool cast_a_spell(bool check_range, spell_type spell)
     return true;
 }
 
-static void _spellcasting_side_effects(spell_type spell, int pow, god_type god)
+static void _spellcasting_side_effects(spell_type spell, int pow, god_type god,
+                                       bool real_spell)
 {
     // If you are casting while a god is acting, then don't do conducts.
     // (Presumably Xom is forcing you to cast a spell.)
@@ -832,11 +852,6 @@ static void _spellcasting_side_effects(spell_type spell, int pow, god_type god)
     if (is_corpse_violating_spell(spell) && !crawl_state.is_god_acting())
         did_god_conduct(DID_CORPSE_VIOLATION, 10 + spell_difficulty(spell));
 
-    // Linley says: Condensation Shield needs some disadvantages to keep
-    // it from being a no-brainer... this isn't much, but its a start. - bwr
-    if (spell_typematch(spell, SPTYP_FIRE))
-        expose_player_to_element(BEAM_FIRE, pow * 3, false);
-
     if (spell_typematch(spell, SPTYP_NECROMANCY)
         && !crawl_state.is_god_acting())
     {
@@ -851,9 +866,18 @@ static void _spellcasting_side_effects(spell_type spell, int pow, god_type god)
         excommunication();
     }
 
-    // Make some noise if it's actually the player casting.
     if (god == GOD_NO_GOD)
+    {
+        if (you.duration[DUR_SAP_MAGIC] && real_spell)
+        {
+            mprf(MSGCH_WARN, "Your control over your magic is sapped.");
+            you.increase_duration(DUR_MAGIC_SAPPED,
+                                  spell_difficulty(spell),
+                                  100);
+        }
+        // Make some noise if it's actually the player casting.
         noisy(spell_noise(spell), you.pos());
+    }
 
     alert_nearby_monsters();
 }
@@ -1033,13 +1057,16 @@ static bool _spellcasting_aborted(spell_type spell,
     string msg;
     if (!wiz_cast && spell_is_uncastable(spell, msg))
     {
-        mpr(msg);
+        mprf("%s", msg.c_str());
         return true;
     }
 
     if (is_prevented_teleport(spell))
     {
-        mpr("You cannot teleport right now.");
+        if (you.species == SP_FORMICID)
+            mpr("You cannot teleport.");
+        else
+            mpr("You cannot teleport right now.");
         return true;
     }
 
@@ -1056,6 +1083,12 @@ static bool _spellcasting_aborted(spell_type spell,
         return true;
     }
 
+    if (spell == SPELL_SUMMON_FOREST && you.duration[DUR_FORESTED])
+    {
+        mpr("This spell is already ongoing.");
+        return true;
+    }
+
     return false;
 }
 
@@ -1063,8 +1096,6 @@ static targetter* _spell_targetter(spell_type spell, int pow, int range)
 {
     switch (spell)
     {
-    case SPELL_ICE_STORM:
-        return new targetter_beam(&you, range, ZAP_ICE_STORM, pow, 2, (pow > 76) ? 3 : 2);
     case SPELL_FIREBALL:
         return new targetter_beam(&you, range, ZAP_FIREBALL, pow, 1, 1);
     case SPELL_HELLFIRE:
@@ -1091,6 +1122,12 @@ static targetter* _spell_targetter(spell_type spell, int pow, int range)
         return new targetter_smite(&you, range, 0, 2);
     case SPELL_DAZZLING_SPRAY:
         return new targetter_spray(&you, range, ZAP_DAZZLING_SPRAY);
+    case SPELL_EXPLOSIVE_BOLT:
+        return new targetter_explosive_bolt(&you, pow, range);
+    case SPELL_GLACIATE:
+        return new targetter_cone(&you, range);
+    case SPELL_CLOUD_CONE:
+        return new targetter_shotgun(&you, range);
     case SPELL_MAGIC_DART:
     case SPELL_FORCE_LANCE:
     case SPELL_SHOCK:
@@ -1119,9 +1156,11 @@ static targetter* _spell_targetter(spell_type spell, int pow, int range)
     case SPELL_HASTE:
     case SPELL_PETRIFY:
     case SPELL_POLYMORPH:
-    case SPELL_DIG:
     case SPELL_DISPEL_UNDEAD:
+    case SPELL_CRYSTAL_BOLT:
         return new targetter_beam(&you, range, spell_to_zap(spell), pow, 0, 0);
+    case SPELL_RANDOM_BOLT:
+        return new targetter_beam(&you, range, ZAP_CRYSTAL_BOLT, pow, 0, 0);
     default:
         return 0;
     }
@@ -1159,10 +1198,10 @@ spret_type your_spells(spell_type spell, int powc,
         powc = calc_spell_power(spell, true);
 
     // XXX: This handles only some of the cases where spells need
-    // targetting.  There are others that do their own that will be
+    // targeting.  There are others that do their own that will be
     // missed by this (and thus will not properly ESC without cost
     // because of it).  Hopefully, those will eventually be fixed. - bwr
-    if ((flags & SPFLAG_TARGETTING_MASK) && spell != SPELL_PORTAL_PROJECTILE)
+    if (flags & SPFLAG_TARGETING_MASK)
     {
         targ_mode_type targ =
               (testbits(flags, SPFLAG_HELPFUL) ? TARG_FRIEND : TARG_HOSTILE);
@@ -1173,7 +1212,7 @@ spret_type your_spells(spell_type spell, int powc,
         if (spell == SPELL_DISPEL_UNDEAD)
             targ = TARG_HOSTILE_UNDEAD;
 
-        targetting_type dir  =
+        targeting_type dir  =
             (testbits(flags, SPFLAG_TARG_OBJ) ? DIR_TARGET_OBJECT :
              testbits(flags, SPFLAG_TARGET)   ? DIR_TARGET        :
              testbits(flags, SPFLAG_GRID)     ? DIR_TARGET        :
@@ -1182,7 +1221,7 @@ spret_type your_spells(spell_type spell, int powc,
 
         const char *prompt = get_spell_target_prompt(spell);
         if (dir == DIR_DIR)
-            mpr(prompt ? prompt : "Which direction?", MSGCH_PROMPT);
+            mprf(MSGCH_PROMPT, "%s", prompt ? prompt : "Which direction?");
 
         const bool needs_path = (!testbits(flags, SPFLAG_GRID)
                                  && !testbits(flags, SPFLAG_TARGET));
@@ -1219,6 +1258,16 @@ spret_type your_spells(spell_type spell, int powc,
                 mpr("Sorry, this spell works on others only.");
             else
                 canned_msg(MSG_UNTHINKING_ACT);
+
+            return SPRET_ABORT;
+        }
+
+        if (spell == SPELL_HASTE && spd.isMe() && you.stasis(false))
+        {
+            if (you.species == SP_FORMICID)
+                mpr("You cannot haste.");
+            else
+                mpr("You cannot haste right now.");
 
             return SPRET_ABORT;
         }
@@ -1298,14 +1347,29 @@ spret_type your_spells(spell_type spell, int powc,
     if (you.props.exists("battlesphere") && allow_fail)
         aim_battlesphere(&you, spell, powc, beam);
 
+    const bool old_target = actor_at(beam.target);
+
     switch (_do_cast(spell, powc, spd, beam, god, potion, check_range, fail))
     {
     case SPRET_SUCCESS:
+    {
         if (you.props.exists("battlesphere") && allow_fail)
             trigger_battlesphere(&you, beam);
-        _spellcasting_side_effects(spell, powc, god);
+        actor* victim = actor_at(beam.target);
+        if (you_worship(GOD_DITHMENOS)
+            && allow_fail
+            && !god_hates_spell(spell, GOD_DITHMENOS, !allow_fail)
+            && (flags & SPFLAG_TARGETING_MASK)
+            && !(flags & SPFLAG_NEUTRAL)
+            && (beam.is_enchantment()
+                || battlesphere_can_mirror(spell))
+            && (!old_target || (victim && !victim->is_player())))
+        {
+            dithmenos_shadow_spell(&beam, spell);
+        }
+        _spellcasting_side_effects(spell, powc, god, allow_fail);
         return SPRET_SUCCESS;
-
+    }
     case SPRET_FAIL:
     {
         if (antimagic)
@@ -1360,7 +1424,7 @@ spret_type your_spells(spell_type spell, int powc,
                  spell_title(spell));
         }
         else
-            mpr("Invalid spell!", MSGCH_ERROR);
+            mprf(MSGCH_ERROR, "Invalid spell!");
 
         return SPRET_ABORT;
     }
@@ -1422,11 +1486,8 @@ static spret_type _do_cast(spell_type spell, int powc,
 
 #if TAG_MAJOR_VERSION == 34
     case SPELL_EVAPORATE:
-        mpr("Sorry, this spell is gone!");
-        return SPRET_ABORT;
-
     case SPELL_CIGOTUVIS_DEGENERATION:
-        mpr("Sorry, this spell has degenerated away!");
+        mpr("Sorry, this spell is gone!");
         return SPRET_ABORT;
 #endif
 
@@ -1462,15 +1523,12 @@ static spret_type _do_cast(spell_type spell, int powc,
     case SPELL_LRD:
         return cast_fragmentation(powc, &you, spd.target, fail);
 
-    case SPELL_PORTAL_PROJECTILE:
-        return cast_portal_projectile(powc, fail);
-
     // other effects
     case SPELL_DISCHARGE:
         return cast_discharge(powc, fail);
 
     case SPELL_CHAIN_LIGHTNING:
-        return cast_chain_lightning(powc, &you, fail);
+        return cast_chain_spell(SPELL_CHAIN_LIGHTNING, powc, &you, fail);
 
     case SPELL_DISPERSAL:
         return cast_dispersal(powc, fail);
@@ -1488,7 +1546,7 @@ static spret_type _do_cast(spell_type spell, int powc,
         return cast_toxic_radiance(&you, powc, fail);
 
     case SPELL_IGNITE_POISON:
-        return cast_ignite_poison(powc, fail);
+        return cast_ignite_poison(&you, powc, fail);
 
     case SPELL_TORNADO:
         return cast_tornado(powc, fail);
@@ -1497,7 +1555,13 @@ static spret_type _do_cast(spell_type spell, int powc,
         return cast_thunderbolt(&you, powc, target, fail);
 
     case SPELL_DAZZLING_SPRAY:
-        return cast_dazzling_spray(&you, powc, target, fail);
+        return cast_dazzling_spray(powc, target, fail);
+
+    case SPELL_CHAIN_OF_CHAOS:
+        return cast_chain_spell(SPELL_CHAIN_OF_CHAOS, powc, &you, fail);
+
+    case SPELL_CLOUD_CONE:
+        return cast_cloud_cone(&you, powc, target, fail);
 
     // Summoning spells, and other spells that create new monsters.
     // If a god is making you cast one of these spells, any monsters
@@ -1511,8 +1575,11 @@ static spret_type _do_cast(spell_type spell, int powc,
     case SPELL_STICKS_TO_SNAKES:
         return cast_sticks_to_snakes(powc, god, fail);
 
+#if TAG_MAJOR_VERSION == 34
     case SPELL_SUMMON_SCORPIONS:
-        return cast_summon_scorpions(powc, god, fail);
+        mpr("Sorry, this spell is gone!");
+        return SPRET_ABORT;
+#endif
 
     case SPELL_SUMMON_SWARM:
         return cast_summon_swarm(powc, god, fail);
@@ -1526,14 +1593,20 @@ static spret_type _do_cast(spell_type spell, int powc,
     case SPELL_SUMMON_ICE_BEAST:
         return cast_summon_ice_beast(powc, god, fail);
 
-    case SPELL_SUMMON_UGLY_THING:
-        return cast_summon_ugly_thing(powc, god, fail);
+    case SPELL_MONSTROUS_MENAGERIE:
+        return cast_monstrous_menagerie(&you, powc, god, fail);
 
     case SPELL_SUMMON_DRAGON:
         return cast_summon_dragon(&you, powc, god, fail);
 
+    case SPELL_DRAGON_CALL:
+        return cast_dragon_call(powc, fail);
+
     case SPELL_SUMMON_HYDRA:
         return cast_summon_hydra(&you, powc, god, fail);
+
+    case SPELL_SUMMON_MANA_VIPER:
+        return cast_summon_mana_viper(powc, god, fail);
 
     case SPELL_TUKIMAS_DANCE:
         // Temporarily turns a wielded weapon into a dancing weapon.
@@ -1542,26 +1615,38 @@ static spret_type _do_cast(spell_type spell, int powc,
     case SPELL_CONJURE_BALL_LIGHTNING:
         return cast_conjure_ball_lightning(powc, god, fail);
 
+    case SPELL_SUMMON_LIGHTNING_SPIRE:
+        return cast_summon_lightning_spire(powc, beam.target, god, fail);
+
+    case SPELL_SUMMON_GUARDIAN_GOLEM:
+        return cast_summon_guardian_golem(powc, god, fail);
+
     case SPELL_CALL_IMP:
         return cast_call_imp(powc, god, fail);
 
     case SPELL_SUMMON_DEMON:
         return cast_summon_demon(powc, god, fail);
 
+#if TAG_MAJOR_VERSION == 34
     case SPELL_DEMONIC_HORDE:
-        return cast_demonic_horde(powc, god, fail);
+        mpr("Sorry, this spell is gone!");
+        return SPRET_ABORT;
+#endif
 
     case SPELL_SUMMON_GREATER_DEMON:
         return cast_summon_greater_demon(powc, god, fail);
 
     case SPELL_SHADOW_CREATURES:
-        return cast_shadow_creatures(false, god, fail);
+        return cast_shadow_creatures(spell, god, level_id::current(), fail);
 
     case SPELL_SUMMON_HORRIBLE_THINGS:
         return cast_summon_horrible_things(powc, god, fail);
 
     case SPELL_MALIGN_GATEWAY:
         return cast_malign_gateway(&you, powc, god, fail);
+
+    case SPELL_SUMMON_FOREST:
+        return cast_summon_forest(&you, powc, god, fail);
 
     case SPELL_ANIMATE_SKELETON:
         return cast_animate_skeleton(god, fail);
@@ -1580,6 +1665,12 @@ static spret_type _do_cast(spell_type spell, int powc,
 
     case SPELL_DEATH_CHANNEL:
         return cast_death_channel(powc, god, fail);
+
+    case SPELL_SPELLFORGED_SERVITOR:
+        return cast_spellforged_servitor(powc, god, fail);
+
+    case SPELL_FORCEFUL_DISMISSAL:
+        return cast_forceful_dismissal(powc, fail);
 
     case SPELL_SPECTRAL_WEAPON:
         return cast_spectral_weapon(&you, powc, god, fail);
@@ -1612,8 +1703,15 @@ static spret_type _do_cast(spell_type spell, int powc,
     case SPELL_ABJURATION:
         return cast_abjuration(powc, beam.target, fail);
 
-    case SPELL_MASS_ABJURATION:
-        return cast_mass_abjuration(powc, fail);
+    case SPELL_AURA_OF_ABJURATION:
+        return cast_aura_of_abjuration(powc, fail);
+
+    case SPELL_WEAVE_SHADOWS:
+    {
+        level_id place(BRANCH_DUNGEON,
+                       min(27, max(1, div_rand_round(powc, 3))));
+        return cast_shadow_creatures(spell, god, place, fail);
+    }
 
     // XXX: I don't think any call to healing goes through here. --rla
     case SPELL_MINOR_HEALING:
@@ -1688,7 +1786,7 @@ static spret_type _do_cast(spell_type spell, int powc,
 
     // General enhancement.
     case SPELL_REGENERATION:
-        return cast_regen(powc, false, fail);
+        return cast_regen(powc, fail);
 
     case SPELL_REPEL_MISSILES:
         return missile_prot(powc, fail);
@@ -1723,8 +1821,14 @@ static spret_type _do_cast(spell_type spell, int powc,
     case SPELL_SONG_OF_SLAYING:
         return cast_song_of_slaying(powc, fail);
 
+#if TAG_MAJOR_VERSION == 34
     case SPELL_SONG_OF_SHIELDING:
-        return cast_song_of_shielding(powc, fail);
+        mpr("Sorry, this spell is gone!");
+        return SPRET_ABORT;
+#endif
+
+    case SPELL_PORTAL_PROJECTILE:
+        return cast_portal_projectile(powc, fail);
 
     // other
     case SPELL_BORGNJORS_REVIVIFICATION:
@@ -1792,13 +1896,18 @@ static spret_type _do_cast(spell_type spell, int powc,
         mpr("This rod is automatically evoked when it strikes in combat.");
         return SPRET_ABORT;
 
+    case SPELL_GLACIATE:
+        return cast_glaciate(&you, powc, target, fail);
+
+    case SPELL_RANDOM_BOLT:
+        return cast_random_bolt(powc, beam, fail);
+
     default:
         return SPRET_NONE;
     }
 
     return SPRET_SUCCESS;
 }
-
 
 // _tetrahedral_number: returns the nth tetrahedral number.
 // This is the number of triples of nonnegative integers with sum < n.
@@ -1835,23 +1944,27 @@ static double _get_true_fail_rate(int raw_fail)
     //The random2avg distribution is symmetric, so the last interval is
     //essentially the same as the first interval.
     return (double) (1020100 - _tetrahedral_number(300 - target)) / 1020100;
-
 }
 
-//Computes the chance of getting a miscast effect of a given severity (or
-//higher).
+/**
+ * Compute the chance of getting a miscast effect of a given severity or higher.
+ * @param spell     The spell to be checked.
+ * @param severity  Check the chance of getting a miscast this severe or higher.
+ * @returns         The chance of this kind of miscast.
+ */
 double get_miscast_chance(spell_type spell, int severity)
 {
     int raw_fail = spell_fail(spell);
     int level = spell_difficulty(spell);
     if (severity <= 0)
         return _get_true_fail_rate(raw_fail);
-    double C = 70000.0/(150*level*(10+level));
+    double C = 70000.0 / (150 * level * (10 + level));
     double chance = 0.0;
     int k = severity + 1;
-    while ((C*k) <= raw_fail)
+    while ((C * k) <= raw_fail)
     {
-        chance += _get_true_fail_rate((int)(raw_fail+1-(C*k)))*severity/(k*(k-1));
+        chance += _get_true_fail_rate((int) (raw_fail + 1 - (C * k)))
+            * severity / (k * (k - 1));
         k++;
     }
     return chance;
@@ -1862,19 +1975,19 @@ double get_miscast_chance(spell_type spell, int severity)
 int failure_rate_colour(spell_type spell)
 {
     double chance = get_miscast_chance(spell);
-    return ((chance < 0.001) ? LIGHTGREY :
-            (chance < 0.005) ? YELLOW    :
-            (chance < 0.025) ? LIGHTRED  :
-                               RED);
+    return (chance < 0.001) ? LIGHTGREY :
+           (chance < 0.005) ? YELLOW    :
+           (chance < 0.025) ? LIGHTRED  :
+                              RED;
 }
 
 //Converts the raw failure rate into a number to be displayed.
 int failure_rate_to_int(int fail)
 {
-    if (fail == 0)
+    if (fail <= 0)
         return 0;
-    else if (fail == 100)
-        return 100;
+    else if (fail >= 100)
+        return (fail + 100)/2;
     else
         return max(1, (int) (100 * _get_true_fail_rate(fail)));
 }
@@ -1916,6 +2029,7 @@ string spell_noise_string(spell_type spell)
         effect_noise = 7;
         break;
 
+    case SPELL_SONG_OF_SLAYING:
     case SPELL_MALIGN_GATEWAY:
         effect_noise = 10;
         break;
@@ -1937,7 +2051,7 @@ string spell_noise_string(spell_type spell)
 
     // Big explosions
     case SPELL_FIRE_STORM:  //The storms make medium or big explosions
-    case SPELL_ICE_STORM:
+    case SPELL_GLACIATE:
     case SPELL_LIGHTNING_BOLT:
     case SPELL_CHAIN_LIGHTNING:
     case SPELL_CONJURE_BALL_LIGHTNING:
@@ -1954,7 +2068,8 @@ string spell_noise_string(spell_type spell)
 
     const int noise = max(casting_noise, effect_noise);
 
-    const char* noise_descriptions[] = {
+    const char* noise_descriptions[] =
+    {
         "Silent", "Almost silent", "Quiet", "A bit loud", "Loud", "Very loud",
         "Extremely loud", "Deafening"
     };
@@ -1979,7 +2094,7 @@ static int _power_to_barcount(int power)
         return -1;
 
     const int breakpoints[] = { 10, 15, 25, 35, 50, 75, 100, 150, 200 };
-    return (breakpoint_rank(power, breakpoints, ARRAYSZ(breakpoints)) + 1);
+    return breakpoint_rank(power, breakpoints, ARRAYSZ(breakpoints)) + 1;
 }
 
 static int _spell_power_bars(spell_type spell, bool rod)

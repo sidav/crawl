@@ -54,7 +54,7 @@ spret_type cast_iood(actor *caster, int pow, bolt *beam, float vx, float vy,
                 GOD_NO_GOD), true, true);
     if (!mon)
     {
-        mpr("Failed to spawn projectile.", MSGCH_ERROR);
+        mprf(MSGCH_ERROR, "Failed to spawn projectile.");
         return SPRET_ABORT;
     }
 
@@ -147,11 +147,14 @@ static void _normalize(float &x, float &y)
 // angle measured in chord length
 static bool _in_front(float vx, float vy, float dx, float dy, float angle)
 {
-    return ((dx-vx)*(dx-vx) + (dy-vy)*(dy-vy) <= (angle*angle));
+    return (dx-vx)*(dx-vx) + (dy-vy)*(dy-vy) <= (angle*angle);
 }
 
 static void _iood_stop(monster& mon, bool msg = true)
 {
+    if (!mon.alive())
+        return;
+
     if (mons_is_boulder(&mon))
     {
         // Deduct the energy first - the move they made that just stopped
@@ -203,7 +206,7 @@ static bool _iood_shielded(monster& mon, actor &victim)
     const int con_block = random2(to_hit + victim.shield_block_penalty());
     const int pro_block = victim.shield_bonus();
     dprf("iood shield: pro %d, con %d", pro_block, con_block);
-    return (pro_block >= con_block);
+    return pro_block >= con_block;
 }
 
 static bool _boulder_hit(monster& mon, const coord_def &pos)
@@ -395,7 +398,6 @@ move_again:
             if (!iood) // boulders need to stop now
             {
                 _iood_stop(mon);
-                // Can't hurt rock worms anyway.
                 return true;
             }
         }
@@ -405,19 +407,46 @@ move_again:
 
         if (mons && iood && mons_is_projectile(victim->type))
         {
-            if (mon.observable())
-                mpr("The orbs collide in a blinding explosion!");
+            // Weak orbs just fizzle instead of exploding.
+            if (mons->props["iood_distance"].get_int() < 2
+                || mon.props["iood_distance"].get_int() < 2)
+            {
+                if (mons->props["iood_distance"].get_int() < 2)
+                {
+                    if (you.see_cell(pos))
+                        mpr("The orb fizzles.");
+                    monster_die(mons, KILL_DISMISSED, NON_MONSTER);
+                }
+
+                // Return, if the acting orb fizzled.
+                if (mon.props["iood_distance"].get_int() < 2)
+                {
+                    if (you.see_cell(pos))
+                        mpr("The orb fizzles.");
+                    monster_die(&mon, KILL_DISMISSED, NON_MONSTER);
+                    return true;
+                }
+            }
             else
-                noisy(40, pos, "You hear a loud magical explosion!");
-            monster_die(mons, KILL_DISMISSED, NON_MONSTER);
-            _iood_hit(mon, pos, true);
-            return true;
+            {
+                if (mon.observable())
+                    mpr("The orbs collide in a blinding explosion!");
+                else
+                    mpr("You hear a loud magical explosion!");
+                noisy(40, pos);
+                monster_die(mons, KILL_DISMISSED, NON_MONSTER);
+                _iood_hit(mon, pos, true);
+                return true;
+            }
         }
 
         if (mons && mons_is_boulder(&mon) && mons_is_boulder(mons))
         {
             if (mon.observable())
+            {
                 mpr("The boulders collide with a stupendous crash!");
+                noisy(20, pos);
+            }
             else
                 noisy(20, pos, "You hear a loud crashing sound!");
 

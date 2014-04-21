@@ -94,10 +94,9 @@ public:
   int burden;
   burden_state_type burden_state;
   FixedVector<spell_type, MAX_KNOWN_SPELLS> spells;
-  set<spell_type> old_vehumet_gifts;
+  set<spell_type> old_vehumet_gifts, vehumet_gifts;
 
   uint8_t spell_no;
-  set<spell_type> vehumet_gifts;
   game_direction_type char_direction;
   bool opened_zot;
   bool royal_jelly_dead;
@@ -112,7 +111,8 @@ public:
 
   FixedVector<int, NUM_ATTRIBUTES> attribute;
   FixedVector<uint8_t, NUM_AMMO> quiver; // default items for quiver
-  FixedVector<int, NUM_OBJECT_CLASSES> sacrifice_value;
+  FixedVector<int, NUM_TIMERS> last_timer_effect;
+  FixedVector<int, NUM_TIMERS> next_timer_effect;
 
   undead_state_type is_undead;
 
@@ -192,9 +192,6 @@ public:
   FixedBitVector<   NUM_GODS>  one_time_ability_used;
   FixedVector<uint8_t, NUM_GODS>  piety_max;
 
-  // Nemelex sacrifice toggles
-  FixedBitVector<NUM_NEMELEX_GIFT_TYPES> nemelex_sacrificing;
-
   FixedVector<uint8_t, NUM_MUTATIONS> mutation;
   FixedVector<uint8_t, NUM_MUTATIONS> innate_mutations;
   FixedVector<uint8_t, NUM_MUTATIONS> temp_mutations;
@@ -218,9 +215,6 @@ public:
 
   uint8_t normal_vision;        // how far the species gets to see
   uint8_t current_vision;       // current sight radius (cells)
-
-  branch_type   hell_branch;          // which branch the player goes to on hell exit
-  uint8_t       hell_exit;            // which level player goes to on hell exit
 
   int           real_time;            // real time played (in seconds)
   int           num_turns;            // number of turns taken
@@ -291,6 +285,9 @@ public:
   // A list of allies awaiting an active recall
   vector<mid_t> recall_list;
 
+  // Hash seeds for deterministic stuff.
+  FixedVector<uint32_t, NUM_SEEDS> game_seeds;
+
   // -------------------
   // Non-saved UI state:
   // -------------------
@@ -308,6 +305,7 @@ public:
 
   bool received_weapon_warning;
   bool received_noskill_warning;
+  bool wizmode_teleported_into_rock;
 
   delay_queue_type delay_queue;       // pending actions
 
@@ -316,9 +314,11 @@ public:
   int8_t bondage_level;  // how much an Ash worshipper is into bondage
   int8_t bondage[NUM_ET];
   map<skill_type, int8_t> skill_boost; // Skill bonuses.
+  bool digging;
 
   // The last spell cast by the player.
   spell_type last_cast_spell;
+  map<int,int> last_pickup;
 
 
   // ---------------------------
@@ -427,16 +427,13 @@ public:
     bool is_web_immune() const;
     bool cannot_speak() const;
     bool invisible() const;
-    bool misled() const;
     bool can_see_invisible() const;
     bool can_see_invisible(bool unid, bool items = true) const;
     bool visible_to(const actor *looker) const;
     bool can_see(const actor* a) const;
     bool nightvision() const;
     reach_type reach_range() const;
-
     bool see_cell(const coord_def& p) const;
-    const los_base* get_los();
 
     // Is c in view but behind a transparent wall?
     bool trans_wall_blocking(const coord_def &c) const;
@@ -481,10 +478,9 @@ public:
     size_type transform_size(transformation_type tform,
                              int psize = PSIZE_TORSO) const;
     string shout_verb() const;
+    int shout_volume() const;
 
     item_def *slot_item(equipment_type eq, bool include_melded=false) const;
-
-    map<int,int> last_pickup;
 
     // actor
     int mindex() const;
@@ -536,6 +532,8 @@ public:
     item_def *weapon(int which_attack = -1) const;
     item_def *shield() const;
 
+    hands_reqd_type hands_reqd(const item_def &item) const;
+
     bool      can_wield(const item_def &item,
                         bool ignore_curse = false,
                         bool ignore_brand = false,
@@ -561,6 +559,8 @@ public:
     bool can_go_berserk() const;
     bool can_go_berserk(bool intentional, bool potion = false,
                         bool quiet = false) const;
+    bool can_jump() const;
+    bool can_jump(bool quiet) const;
     void go_berserk(bool intentional, bool potion = false);
     bool berserk() const;
     bool has_lifeforce() const;
@@ -576,7 +576,6 @@ public:
     void banish(actor *agent, const string &who = "");
     void blink(bool allow_partial_control = true);
     void teleport(bool right_now = false,
-                  bool abyss_shift = false,
                   bool wizard_tele = false);
     void drain_stat(stat_type stat, int amount, actor* attacker);
 
@@ -642,6 +641,7 @@ public:
     bool gourmand(bool calc_unid = true, bool items = true) const;
     bool res_corr(bool calc_unid = true, bool items = true) const;
     bool clarity(bool calc_unid = true, bool items = true) const;
+    bool stasis(bool calc_unid = true, bool items = true) const;
 
     flight_type flight_mode() const;
     bool cancellable_flight() const;
@@ -659,8 +659,6 @@ public:
     int silence_radius2() const;
     int liquefying_radius2() const;
     int umbra_radius2() const;
-    int suppression_radius2() const;
-    int soul_aura_radius2() const;
     int heat_radius2() const;
     bool glows_naturally() const;
     bool petrifying() const;
@@ -695,6 +693,7 @@ public:
     int shield_bypass_ability(int tohit) const;
     void shield_block_succeeded(actor *foe);
     int missile_deflection() const;
+    void ablate_deflection();
 
     // Combat-related adjusted penalty calculation methods
     int unadjusted_body_armour_penalty() const;
@@ -708,6 +707,9 @@ public:
     int  skill(skill_type skill, int scale =1, bool real = false) const;
 
     bool do_shaft();
+
+    bool can_do_shaft_ability(bool quiet = false) const;
+    bool do_shaft_ability();
 
     void apply_location_effects(const coord_def &oldpos,
                                 killer_type killer = KILL_NONE,
@@ -744,12 +746,11 @@ public:
     bool has_usable_tentacle() const;
 
 protected:
-    void _removed_beholder();
+    void _removed_beholder(bool quiet = false);
     bool _possible_beholder(const monster* mon) const;
 
-    void _removed_fearmonger();
+    void _removed_fearmonger(bool quiet = false);
     bool _possible_fearmonger(const monster* mon) const;
-
 };
 
 #ifdef DEBUG_GLOBALS
@@ -793,6 +794,16 @@ void moveto_location_effects(dungeon_feature_type old_feat,
 
 bool check_moveto(const coord_def& p, const string &move_verb = "step",
                   const string &msg = "");
+bool check_moveto_terrain(const coord_def& p, const string &move_verb,
+                          const string &msg = "", bool *prompted = nullptr);
+bool check_moveto_cloud(const coord_def& p, const string &move_verb = "step",
+                        bool *prompted = nullptr);
+bool check_moveto_exclusion(const coord_def& p,
+                            const string &move_verb = "step",
+                            bool *prompted = nullptr);
+bool check_moveto_trap(const coord_def& p, const string &move_verb = "step",
+        bool *prompted = nullptr);
+
 void move_player_to_grid(const coord_def& p, bool stepped, bool allow_shift);
 
 bool is_map_persistent(void);
@@ -806,7 +817,6 @@ static inline bool player_in_branch(int branch)
 };
 
 bool berserk_check_wielded_weapon(void);
-bool player_equip_unrand_effect(int unrand_index);
 bool player_equip_unrand(int unrand_index);
 bool player_can_hit_monster(const monster* mon);
 bool player_can_hear(const coord_def& p, int hear_distance = 999);
@@ -842,7 +852,7 @@ int player_icemail_armour_class();
 
 bool player_stoneskin();
 
-int player_mag_abil(bool is_weighted);
+int player_wizardry(void);
 
 int player_prot_life(bool calc_unid = true, bool temp = true,
                      bool items = true);
@@ -881,7 +891,6 @@ bool player_control_teleport(bool temp = true);
 
 int player_shield_class(void);
 
-
 int player_spec_air(void);
 int player_spec_cold(void);
 int player_spec_conj(void);
@@ -900,6 +909,8 @@ int player_spell_levels(void);
 int player_sust_abil(bool calc_unid = true);
 
 int player_teleport(bool calc_unid = true);
+
+int player_monster_detect_radius();
 
 bool items_give_ability(const int slot, artefact_prop_type abil);
 
@@ -936,9 +947,12 @@ bool player_wearing_slot(int eq);
 bool you_tran_can_wear(const item_def &item);
 bool you_tran_can_wear(int eq, bool check_mutation = false);
 
-bool enough_hp(int minimum, bool suppress_msg);
-bool enough_mp(int minimum, bool suppress_msg, bool include_items = true);
+bool enough_hp(int minimum, bool suppress_msg, bool abort_macros = true);
+bool enough_mp(int minimum, bool suppress_msg, bool abort_macros = true);
 bool enough_zp(int minimum, bool suppress_msg);
+
+void calc_hp();
+void calc_mp();
 
 void dec_hp(int hp_loss, bool fatal, const char *aux = NULL);
 void dec_mp(int mp_loss, bool silent = false);
@@ -969,14 +983,18 @@ void set_mp(int new_amount);
 
 void contaminate_player(int change, bool controlled = false, bool msg = true);
 
-bool confuse_player(int amount, bool resistable = true);
+bool confuse_player(int amount, bool quiet = false);
 
-bool curare_hits_player(int death_source, int amount, const bolt &beam);
+bool curare_hits_player(int death_source, string name, string source_name);
 bool poison_player(int amount, string source, string source_aux = "",
                    bool force = false);
 void paralyse_player(string source, int amount = 0, int factor = 1);
-void dec_poison_player();
-void reduce_poison_player(int amount);
+void handle_player_poison(int delay);
+void reduce_player_poison(int amount);
+int get_player_poisoning();
+bool poison_is_lethal();
+int poison_survival();
+
 bool miasma_player(string source, string source_aux = "");
 
 bool napalm_player(int amount, string source, string source_aux = "");
@@ -988,11 +1006,11 @@ void dec_exhaust_player(int delay);
 
 bool haste_player(int turns, bool rageext = false);
 void dec_haste_player(int delay);
+void dec_elixir_player(int delay);
+bool flight_allowed(bool quiet = false);
 void fly_player(int pow, bool already_flying = false);
 void float_player();
 bool land_player(bool quiet = false);
-bool is_hovering();
-bool djinni_floats();
 
 void dec_disease_player(int delay);
 
@@ -1003,14 +1021,16 @@ void handle_player_drowning(int delay);
 bool player_weapon_wielded();
 
 // Determines if the given grid is dangerous for the player to enter.
-bool is_feat_dangerous(dungeon_feature_type feat, bool permanently = false,
-                       bool ignore_items = false);
+bool is_feat_dangerous(dungeon_feature_type feat, bool permanently = false);
 
 void run_macro(const char *macroname = NULL);
 
 int count_worn_ego(int which_ego);
+bool need_expiration_warning(duration_type dur, dungeon_feature_type feat);
+bool need_expiration_warning(dungeon_feature_type feat);
 bool need_expiration_warning(duration_type dur, coord_def p = you.pos());
 bool need_expiration_warning(coord_def p = you.pos());
 
 void count_action(caction_type type, int subtype = 0);
+bool player_has_orb();
 #endif

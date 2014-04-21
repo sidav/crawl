@@ -57,7 +57,8 @@ int cancellable_get_line(char *buf,
                          int len,
                          input_history *mh = NULL,
                          int (*keyproc)(int &c) = NULL,
-                         const string &fill = "");
+                         const string &fill = "",
+                         const string &tag = "");
 
 // Do not use this templated function directly.  Use the macro below instead.
 template<int> static int cancellable_get_line_autohist_temp(char *buf, int len)
@@ -106,22 +107,22 @@ struct c_mouse_event
 
     bool left_clicked() const
     {
-        return (bstate & BUTTON1);
+        return bstate & BUTTON1;
     }
 
     bool right_clicked() const
     {
-        return (bstate & BUTTON3);
+        return bstate & BUTTON3;
     }
 
     bool scroll_up() const
     {
-        return (bstate & (BUTTON4 | BUTTON4_DBL | BUTTON_SCRL_UP));
+        return bstate & (BUTTON4 | BUTTON4_DBL | BUTTON_SCRL_UP);
     }
 
     bool scroll_down() const
     {
-        return (bstate & (BUTTON2 | BUTTON2_DBL | BUTTON_SCRL_DN));
+        return bstate & (BUTTON2 | BUTTON2_DBL | BUTTON_SCRL_DN);
     }
 };
 
@@ -239,6 +240,9 @@ public:
 
     void set_input_history(input_history *ih);
     void set_keyproc(keyproc fn);
+#ifdef USE_TILE_WEB
+    void set_tag(const string &tag);
+#endif
 
 protected:
     void cursorto(int newcpos);
@@ -259,7 +263,9 @@ protected:
     keyproc         keyfn;
     int             wrapcol;
 
+#ifdef USE_TILE_WEB
     string          tag; // For identification on the Webtiles client side
+#endif
 
     // These are subject to change during editing.
     char            *cur;

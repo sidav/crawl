@@ -123,12 +123,12 @@ static bool _is_explore_horizon(const coord_def& c)
 #ifndef USE_TILE_LOCAL
 static ucs_t _get_sightmap_char(dungeon_feature_type feat)
 {
-    return (get_feature_def(feat).symbol);
+    return get_feature_def(feat).symbol;
 }
 
 static ucs_t _get_magicmap_char(dungeon_feature_type feat)
 {
-    return (get_feature_def(feat).magic_symbol);
+    return get_feature_def(feat).magic_symbol;
 }
 #endif
 
@@ -145,69 +145,23 @@ bool is_feature(ucs_t feature, const coord_def& where)
     if (!env.map_knowledge(where).known() && !you.see_cell(where))
         return false;
 
-    dungeon_feature_type grid = grid_appearance(where);
+    dungeon_feature_type grid = env.map_knowledge(where).feat();
 
     switch (feature)
     {
     case 'E':
-        return (travel_point_distance[where.x][where.y] == PD_EXCLUDED);
+        return travel_point_distance[where.x][where.y] == PD_EXCLUDED;
     case 'F':
     case 'W':
         return is_waypoint(where);
     case 'I':
         return is_stash(where);
     case '_':
-        switch (grid)
-        {
-        case DNGN_ALTAR_ZIN:
-        case DNGN_ALTAR_SHINING_ONE:
-        case DNGN_ALTAR_KIKUBAAQUDGHA:
-        case DNGN_ALTAR_YREDELEMNUL:
-        case DNGN_ALTAR_XOM:
-        case DNGN_ALTAR_VEHUMET:
-        case DNGN_ALTAR_OKAWARU:
-        case DNGN_ALTAR_MAKHLEB:
-        case DNGN_ALTAR_SIF_MUNA:
-        case DNGN_ALTAR_TROG:
-        case DNGN_ALTAR_NEMELEX_XOBEH:
-        case DNGN_ALTAR_ELYVILON:
-        case DNGN_ALTAR_LUGONU:
-        case DNGN_ALTAR_BEOGH:
-        case DNGN_ALTAR_JIYVA:
-        case DNGN_ALTAR_FEDHAS:
-        case DNGN_ALTAR_CHEIBRIADOS:
-        case DNGN_ALTAR_ASHENZARI:
-            return true;
-        default:
-            return false;
-        }
+        return feat_is_altar(grid) || grid == DNGN_UNKNOWN_ALTAR;
     case '\t':
     case '\\':
-        switch (grid)
-        {
-        case DNGN_ENTER_HELL:
-        case DNGN_EXIT_HELL:
-        case DNGN_ENTER_LABYRINTH:
-        case DNGN_ENTER_PORTAL_VAULT:
-        case DNGN_EXIT_PORTAL_VAULT:
-        case DNGN_ENTER_SHOP:
-        case DNGN_ENTER_DIS:
-        case DNGN_ENTER_GEHENNA:
-        case DNGN_ENTER_COCYTUS:
-        case DNGN_ENTER_TARTARUS:
-        case DNGN_ENTER_ABYSS:
-        case DNGN_EXIT_THROUGH_ABYSS:
-        case DNGN_EXIT_ABYSS:
-        case DNGN_ABYSSAL_STAIR:
-        case DNGN_ENTER_PANDEMONIUM:
-        case DNGN_EXIT_PANDEMONIUM:
-        case DNGN_TRANSIT_PANDEMONIUM:
-        case DNGN_ENTER_ZOT:
-        case DNGN_RETURN_FROM_ZOT:
-            return true;
-        default:
-            return false;
-        }
+        return feat_is_gate(grid) || grid == DNGN_ENTER_SHOP
+               || grid == DNGN_UNKNOWN_PORTAL;
     case '<':
         switch (grid)
         {
@@ -217,23 +171,25 @@ bool is_feature(ucs_t feature, const coord_def& where)
         case DNGN_STONE_STAIRS_UP_III:
         case DNGN_EXIT_DUNGEON:
 #if TAG_MAJOR_VERSION == 34
-        case DNGN_RETURN_FROM_DWARVEN_HALL:
+        case DNGN_RETURN_FROM_DWARF:
+        case DNGN_RETURN_FROM_FOREST:
 #endif
-        case DNGN_RETURN_FROM_ORCISH_MINES:
+        case DNGN_RETURN_FROM_ORC:
         case DNGN_RETURN_FROM_LAIR:
-        case DNGN_RETURN_FROM_SLIME_PITS:
+        case DNGN_RETURN_FROM_SLIME:
         case DNGN_RETURN_FROM_VAULTS:
         case DNGN_RETURN_FROM_CRYPT:
-        case DNGN_RETURN_FROM_HALL_OF_BLADES:
+        case DNGN_RETURN_FROM_BLADE:
         case DNGN_RETURN_FROM_TEMPLE:
-        case DNGN_RETURN_FROM_SNAKE_PIT:
-        case DNGN_RETURN_FROM_ELVEN_HALLS:
+        case DNGN_RETURN_FROM_SNAKE:
+        case DNGN_RETURN_FROM_ELF:
         case DNGN_RETURN_FROM_TOMB:
         case DNGN_RETURN_FROM_SWAMP:
         case DNGN_RETURN_FROM_SHOALS:
-        case DNGN_RETURN_FROM_SPIDER_NEST:
-        case DNGN_RETURN_FROM_FOREST:
+        case DNGN_RETURN_FROM_SPIDER:
+#if TAG_MAJOR_VERSION == 34
         case DNGN_EXIT_PORTAL_VAULT:
+#endif
             return true;
         default:
             return false;
@@ -247,22 +203,22 @@ bool is_feature(ucs_t feature, const coord_def& where)
         case DNGN_STONE_STAIRS_DOWN_III:
         case DNGN_ABYSSAL_STAIR:
 #if TAG_MAJOR_VERSION == 34
-        case DNGN_ENTER_DWARVEN_HALL:
+        case DNGN_ENTER_DWARF:
+        case DNGN_ENTER_FOREST:
 #endif
-        case DNGN_ENTER_ORCISH_MINES:
+        case DNGN_ENTER_ORC:
         case DNGN_ENTER_LAIR:
-        case DNGN_ENTER_SLIME_PITS:
+        case DNGN_ENTER_SLIME:
         case DNGN_ENTER_VAULTS:
         case DNGN_ENTER_CRYPT:
-        case DNGN_ENTER_HALL_OF_BLADES:
+        case DNGN_ENTER_BLADE:
         case DNGN_ENTER_TEMPLE:
-        case DNGN_ENTER_SNAKE_PIT:
-        case DNGN_ENTER_ELVEN_HALLS:
+        case DNGN_ENTER_SNAKE:
+        case DNGN_ENTER_ELF:
         case DNGN_ENTER_TOMB:
         case DNGN_ENTER_SWAMP:
         case DNGN_ENTER_SHOALS:
-        case DNGN_ENTER_SPIDER_NEST:
-        case DNGN_ENTER_FOREST:
+        case DNGN_ENTER_SPIDER:
             return true;
         default:
             return false;
@@ -271,9 +227,12 @@ bool is_feature(ucs_t feature, const coord_def& where)
         switch (grid)
         {
         case DNGN_TRAP_MECHANICAL:
-        case DNGN_TRAP_MAGICAL:
-        case DNGN_TRAP_NATURAL:
+        case DNGN_TRAP_TELEPORT:
+        case DNGN_TRAP_ALARM:
+        case DNGN_TRAP_ZOT:
+        case DNGN_TRAP_SHAFT:
         case DNGN_TRAP_WEB:
+        case DNGN_PASSAGE_OF_GOLUBRIA:
             return true;
         default:
             return false;
@@ -283,30 +242,37 @@ bool is_feature(ucs_t feature, const coord_def& where)
     }
 }
 
-static bool _is_feature_fudged(ucs_t feature, const coord_def& where)
+static bool _is_feature_fudged(ucs_t glyph, const coord_def& where)
 {
     if (!env.map_knowledge(where).known())
         return false;
 
-    if (is_feature(feature, where))
+    if (is_feature(glyph, where))
         return true;
 
-    if (feature == '<')
+    if (glyph == '<')
     {
+        if (grd(where) >= DNGN_EXIT_FIRST_PORTAL && grd(where) <= DNGN_EXIT_LAST_PORTAL)
+            return true;
         switch (grd(where))
         {
         case DNGN_EXIT_HELL:
+#if TAG_MAJOR_VERSION == 34
         case DNGN_EXIT_PORTAL_VAULT:
+#endif
         case DNGN_EXIT_ABYSS:
         case DNGN_EXIT_PANDEMONIUM:
+        case DNGN_RETURN_FROM_DEPTHS:
         case DNGN_RETURN_FROM_ZOT:
             return true;
         default:
             return false;
         }
     }
-    else if (feature == '>')
+    else if (glyph == '>')
     {
+        if (grd(where) >= DNGN_ENTER_FIRST_PORTAL && grd(where) <= DNGN_ENTER_LAST_PORTAL)
+            return true;
         switch (grd(where))
         {
         case DNGN_ENTER_DIS:
@@ -314,6 +280,7 @@ static bool _is_feature_fudged(ucs_t feature, const coord_def& where)
         case DNGN_ENTER_COCYTUS:
         case DNGN_ENTER_TARTARUS:
         case DNGN_TRANSIT_PANDEMONIUM:
+        case DNGN_ENTER_DEPTHS:
         case DNGN_ENTER_ZOT:
             return true;
         default:
@@ -324,7 +291,7 @@ static bool _is_feature_fudged(ucs_t feature, const coord_def& where)
     return false;
 }
 
-static int _find_feature(ucs_t feature, int curs_x, int curs_y,
+static int _find_feature(ucs_t glyph, int curs_x, int curs_y,
                          int start_x, int start_y, int anchor_x, int anchor_y,
                          int ignore_count, int *move_x, int *move_y)
 {
@@ -334,7 +301,7 @@ static int _find_feature(ucs_t feature, int curs_x, int curs_y,
     int firstx = -1, firsty = -1;
     int matchcount = 0;
 
-    // Find the first occurrence of feature 'feature', spiralling around (x,y)
+    // Find the first occurrence of given glyph, spiralling around (x,y)
     int maxradius = GXM > GYM ? GXM : GYM;
     for (int radius = 1; radius < maxradius; ++radius)
         for (int axis = -2; axis < 2; ++axis)
@@ -355,7 +322,7 @@ static int _find_feature(ucs_t feature, int curs_x, int curs_y,
                 int x = cx + dx, y = cy + dy;
                 if (!in_bounds(x, y))
                     continue;
-                if (_is_feature_fudged(feature, coord_def(x, y)))
+                if (_is_feature_fudged(glyph, coord_def(x, y)))
                 {
                     ++matchcount;
                     if (!ignore_count--)
@@ -463,7 +430,10 @@ static void _draw_level_map(int start_x, int start_y, bool travel_mode,
                 cell->glyph = g.ch;
                 cell->colour = g.col;
 
-                if (_is_explore_horizon(c))
+                const show_class show = get_cell_show_class(
+                        env.map_knowledge(c), Options.clean_map);
+
+                if (show == SH_NOTHING && _is_explore_horizon(c))
                 {
                     const feature_def& fd = get_feature_def(DNGN_EXPLORE_HORIZON);
                     cell->glyph = fd.symbol;
@@ -527,7 +497,7 @@ static void _reset_travel_colours(vector<coord_def> &features, bool on_level)
 // Sort glyphs within a group, for the feature list.
 static bool _comp_glyphs(const cglyph_t& g1, const cglyph_t& g2)
 {
-    return (g1.ch < g2.ch || g1.ch == g2.ch && g1.col < g2.col);
+    return g1.ch < g2.ch || g1.ch == g2.ch && g1.col < g2.col;
 }
 
 #ifndef USE_TILE_LOCAL
@@ -562,7 +532,7 @@ class feature_list
 
         if (feat_is_staircase(feat) || feat_is_escape_hatch(feat))
             return feat_dir(feat);
-        if (feat == DNGN_TRAP_NATURAL)
+        if (feat == DNGN_TRAP_SHAFT)
             return G_DOWN;
         if (feat_is_altar(feat) || feat == DNGN_ENTER_SHOP)
             return G_OTHER;
@@ -709,6 +679,10 @@ static void _unforget_map()
             // Don't overwrite known squares, nor magic-mapped with
             // magic-mapped data -- what was forgotten is less up to date.
             env.map_knowledge(*ri) = old(*ri);
+            env.map_seen.set(*ri);
+#ifdef USE_TILE
+            tiles.update_minimap(*ri);
+#endif
         }
 }
 
@@ -720,6 +694,10 @@ static void _forget_map()
             continue;
         env.map_knowledge(*ri).flags &= ~MAP_SEEN_FLAG;
         env.map_knowledge(*ri).flags |= MAP_MAGIC_MAPPED_FLAG;
+        env.map_seen.set(*ri, false);
+#ifdef USE_TILE
+        tiles.update_minimap(*ri);
+#endif
     }
 }
 
@@ -1289,6 +1267,8 @@ bool show_map(level_pos &lpos,
             case CMD_MAP_WIZARD_TELEPORT:
                 if (!you.wizard || !on_level || !in_bounds(lpos.pos))
                     break;
+                if (cell_is_solid(lpos.pos))
+                    you.wizmode_teleported_into_rock = true;
                 you.moveto(lpos.pos);
                 map_alive = false;
                 break;
@@ -1371,8 +1351,8 @@ bool show_map(level_pos &lpos,
 
 bool emphasise(const coord_def& where)
 {
-    return (is_unknown_stair(where)
-            && !player_in_branch(BRANCH_VESTIBULE_OF_HELL));
+    return is_unknown_stair(where)
+           && !player_in_branch(BRANCH_VESTIBULE);
 }
 
 #ifndef USE_TILE_LOCAL

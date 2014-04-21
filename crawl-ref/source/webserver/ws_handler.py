@@ -13,6 +13,7 @@ import random
 import zlib
 
 import config
+import checkoutput
 from userdb import *
 from util import *
 
@@ -115,7 +116,6 @@ class CrawlWebSocket(tornado.websocket.WebSocketHandler):
         self.process = None
         self.game_id = None
         self.received_pong = None
-        self.joining = False
 
         self.ioloop = tornado.ioloop.IOLoop.instance()
 
@@ -314,6 +314,10 @@ class CrawlWebSocket(tornado.websocket.WebSocketHandler):
     def _on_crawl_end(self):
         if config.dgl_mode:
             remove_in_lobbys(self.process)
+
+        reason = self.process.exit_reason
+        message = self.process.exit_message
+        dump_url = self.process.exit_dump_url
         self.process = None
 
         if self.client_closed:
@@ -323,7 +327,8 @@ class CrawlWebSocket(tornado.websocket.WebSocketHandler):
                 self.close()
             else:
                 # Go back to lobby
-                self.send_message("game_ended")
+                self.send_message("game_ended", reason = reason,
+                                  message = message, dump = dump_url)
                 if config.dgl_mode:
                     if not self.watched_game:
                         self.send_message("go_lobby")
@@ -349,7 +354,6 @@ class CrawlWebSocket(tornado.websocket.WebSocketHandler):
             self.logger.info("Stopped watching %s.", self.watched_game.username)
             self.watched_game.remove_watcher(self)
             self.watched_game = None
-            self.joining = False
 
     def shutdown(self):
         if not self.client_closed:
@@ -389,7 +393,10 @@ class CrawlWebSocket(tornado.websocket.WebSocketHandler):
 
     def token_login(self, cookie):
         username, _, token = cookie.partition(' ')
-        token = long(token)
+        try:
+            token = long(token)
+        except ValueError:
+            token = None
         if (token, username) in login_tokens:
             del login_tokens[(token, username)]
             self.logger.info("User %s logged in (via token).", username)
@@ -410,7 +417,10 @@ class CrawlWebSocket(tornado.websocket.WebSocketHandler):
     def forget_login_cookie(self, cookie):
         try:
             username, _, token = cookie.partition(' ')
-            token = long(token)
+            try:
+                token = long(token)
+            except ValueError:
+                token = None
             if (token, username) in login_tokens:
                 del login_tokens[(token, username)]
         except ValueError:
@@ -418,6 +428,44 @@ class CrawlWebSocket(tornado.websocket.WebSocketHandler):
 
     def pong(self):
         self.received_pong = True
+
+    def rcfile_path(self, game_id):
+        if game_id not in config.games: return None
+        if not self.username: return None
+        path = dgl_format_str(config.games[game_id]["rcfile_path"],
+                                     self.username, config.games[game_id])
+        return os.path.join(path, self.username + ".rc")
+
+    def send_json_options(self, game_id, player_name):
+        def do_send(data, returncode):
+            if returncode != 0:
+                # fail silently for returncode 1 for now, probably just an old
+                # version missing the command line option
+                if returncode != 1:
+                    self.logger.warning("Error while getting JSON options!")
+                return
+            self.write_message('{"msg":"options","watcher":true,"options":'
+                               + data + '}')
+
+        if not self.username: return
+        if game_id not in config.games: return
+
+        game = config.games[game_id]
+        if not "send_json_options" in game or not game["send_json_options"]:
+            return
+
+        call = [game["crawl_binary"]]
+
+        if "pre_options" in game:
+            call += game["pre_options"]
+
+        call += ["-name", player_name,
+                 "-rc", self.rcfile_path(game_id)]
+        if "options" in game:
+            call += game["options"]
+        call.append("-print-webtiles-options")
+
+        checkoutput.check_output(call, do_send, self.ioloop)
 
     def watch(self, username):
         if self.is_running():
@@ -435,9 +483,8 @@ class CrawlWebSocket(tornado.websocket.WebSocketHandler):
             self.logger.info("Started watching %s (P%s).", process.username,
                              process.id)
             self.watched_game = process
-            self.joining = True
             process.add_watcher(self)
-            self.send_message("watching_started")
+            self.send_message("watching_started", username = process.username)
         else:
             if self.watched_game:
                 self.stop_watching()
@@ -480,10 +527,7 @@ class CrawlWebSocket(tornado.websocket.WebSocketHandler):
 
     def get_rc(self, game_id):
         if game_id not in config.games: return
-        rcfile_path = dgl_format_str(config.games[game_id]["rcfile_path"],
-                                     self.username, config.games[game_id])
-        rcfile_path = os.path.join(rcfile_path, self.username + ".rc")
-        with open(rcfile_path, 'r') as f:
+        with open(self.rcfile_path(game_id), 'r') as f:
             contents = f.read()
         self.send_message("rcfile_contents", contents = contents)
 
@@ -516,11 +560,8 @@ class CrawlWebSocket(tornado.websocket.WebSocketHandler):
             # JSON
             self.process.handle_input(message)
 
-    def clear_messages(self):
-        self.message_queue = []
-
     def flush_messages(self):
-        if len(self.message_queue) == 0:
+        if self.client_closed or len(self.message_queue) == 0:
             return
         msg = "{\"msgs\":[" + ",".join(self.message_queue) + "]}"
         self.message_queue = []
@@ -541,7 +582,8 @@ class CrawlWebSocket(tornado.websocket.WebSocketHandler):
                 super(CrawlWebSocket, self).write_message(msg)
         except:
             self.logger.warning("Exception trying to send message.", exc_info = True)
-            self.ws_connection._abort()
+            if self.ws_connection != None:
+                self.ws_connection._abort()
 
     def write_message(self, msg, send=True):
         if self.client_closed: return
@@ -571,7 +613,6 @@ class CrawlWebSocket(tornado.websocket.WebSocketHandler):
 
         if self.watched_game:
             self.watched_game.remove_watcher(self)
-            self.joining = False
 
         if self.timeout:
             self.ioloop.remove_timeout(self.timeout)

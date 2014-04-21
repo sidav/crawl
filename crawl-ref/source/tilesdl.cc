@@ -2,7 +2,7 @@
 
 #ifdef USE_TILE_LOCAL
 
-#include "abl-show.h"
+#include "ability.h"
 #include "artefact.h"
 #include "cio.h"
 #include "command.h"
@@ -343,7 +343,6 @@ void TilesFramework::calculate_default_options()
 #undef AUTO
 
     m_tab_margin = Options.tile_font_lbl_size + 4;
-
 }
 
 bool TilesFramework::initialise()
@@ -462,7 +461,6 @@ bool TilesFramework::initialise()
     m_region_tab->activate_tab(TAB_ITEM);
 #endif
 
-
     m_region_msg  = new MessageRegion(m_fonts[m_msg_font].font);
     m_region_stat = new StatRegion(m_fonts[stat_font].font);
     m_region_crt  = new CRTRegion(m_fonts[m_crt_font].font);
@@ -515,7 +513,7 @@ int TilesFramework::load_font(const char *font_file, int font_size,
     finfo.outline = outline;
     m_fonts.push_back(finfo);
 
-    return (m_fonts.size() - 1);
+    return m_fonts.size() - 1;
 }
 void TilesFramework::load_dungeon(const crawl_view_buffer &vbuf,
                                   const coord_def &gc)
@@ -632,7 +630,7 @@ int TilesFramework::getch_ck()
 
     int key = 0;
 
-    // Don't update tool tips etc. in targetting mode.
+    // Don't update tool tips etc. in targeting mode.
     const bool mouse_target_mode
                 = (mouse_control::current_mode() == MOUSE_MODE_TARGET_PATH
                    || mouse_control::current_mode() == MOUSE_MODE_TARGET_DIR);
@@ -651,6 +649,9 @@ int TilesFramework::getch_ck()
 
     while (!key)
     {
+        if (crawl_state.seen_hups)
+            return ESCAPE;
+
         unsigned int ticks = 0;
         last_loc = m_cur_loc;
 
@@ -699,9 +700,8 @@ int TilesFramework::getch_ck()
                 // close it
                 if (/*event.active.state == 0x04 SDL_APPACTIVE &&*/ event.active.gain == 0)
                 {
-                    if (crawl_state.need_save)
-                        save_game(true);
-                    exit(0);
+                    crawl_state.seen_hups++;
+                    return ESCAPE;
                 }
                 // long-term pseudo-code:
                 /*
@@ -819,10 +819,8 @@ int TilesFramework::getch_ck()
                 break;
 
             case WME_QUIT:
-                if (crawl_state.need_save)
-                    save_game(true);
-                exit(0);
-                break;
+                crawl_state.seen_hups++;
+                return ESCAPE;
 
             case WME_CUSTOMEVENT:
             default:
@@ -1149,7 +1147,6 @@ bool TilesFramework::zoom_from_minimap()
     set_need_redraw();
     return true;
 }
-
 
 void TilesFramework::deactivate_tab()
 {
@@ -1492,7 +1489,8 @@ void TilesFramework::update_minimap(const coord_def& gc)
         mf = get_cell_map_feature(env.map_knowledge(gc));
 
     // XXX: map_cell show have exclusion info
-    if (mf == MF_FLOOR || mf == MF_MAP_FLOOR || mf == MF_WATER)
+    if (mf == MF_FLOOR || mf == MF_MAP_FLOOR || mf == MF_WATER
+        || mf == MF_DEEP_WATER || mf == MF_LAVA)
     {
         if (is_exclude_root(gc))
             mf = MF_EXCL_ROOT;
@@ -1530,7 +1528,6 @@ void TilesFramework::toggle_inventory_display()
     int idx = m_region_tab->active_tab();
     m_region_tab->activate_tab((idx + 1) % m_region_tab->num_tabs());
 }
-
 
 void TilesFramework::place_cursor(cursor_type type, const coord_def &gc)
 {

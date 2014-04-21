@@ -34,8 +34,6 @@ static duration_def duration_data[] =
       0, "", "agile", "You are agile." },
     { DUR_ANTIMAGIC, true,
       RED, "-Mag", "antimagic", "You have trouble accessing your magic." },
-    { DUR_BARGAIN, true,
-      BLUE, "Brgn", "charismatic", "You get a bargain in shops." },
     { DUR_BERSERK, true,
       BLUE, "Berserk", "berserking", "You are possessed by a berserker rage." },
     { DUR_BREATH_WEAPON, false,
@@ -70,8 +68,6 @@ static duration_def duration_data[] =
       0, "", "shielded", "" },
     { DUR_MIGHT, false,
       0, "", "mighty", "You are mighty." },
-    { DUR_MISLED, true,
-      LIGHTMAGENTA, "Misled", "misled", "" },
     { DUR_PARALYSIS, false,
       RED, "Para", "paralysed", "You are paralysed." },
     { DUR_PETRIFIED, false,
@@ -79,11 +75,9 @@ static duration_def duration_data[] =
     { DUR_PETRIFYING, true,
       MAGENTA, "Petr", "petrifying", "You are turning to stone." },
     { DUR_JELLY_PRAYER, false,
-      WHITE, "Pray", "praying", "You are praying." },
+      WHITE, "Pray", "jelly paralyse", "You are paralysing nearby jellies." },
     { DUR_RESISTANCE, true,
       LIGHTBLUE, "Resist", "resistant", "You resist elements." },
-    { DUR_SLAYING, false,
-      0, "", "deadly", "" },
     { DUR_SLIMIFY, true,
       GREEN, "Slime", "slimy", "" },
     { DUR_SLEEP, false,
@@ -139,8 +133,6 @@ static duration_def duration_data[] =
       BLUE, "Infus", "infused", "Your attacks are magically infused."},
     { DUR_SONG_OF_SLAYING, true,
       BLUE, "Slay", "singing", "Your melee attacks are strengthened by your song."},
-    { DUR_SONG_OF_SHIELDING, true,
-      BLUE, "SShield", "shielded", "Your magic is protecting you."},
     { DUR_FLAYED, true,
       RED, "Flay", "flayed", "You are covered in terrible wounds." },
     { DUR_RETCHING, true,
@@ -149,8 +141,6 @@ static duration_def duration_data[] =
       RED, "Weak", "weakened", "Your attacks are enfeebled." },
     { DUR_DIMENSION_ANCHOR, false,
       RED, "-Tele", "cannot translocate", "You are firmly anchored to this plane." },
-    { DUR_SPIRIT_HOWL, false,
-      MAGENTA, "Howl", "spirit howling", "The howling of a spirit pack pursues you." },
     { DUR_TOXIC_RADIANCE, false,
       MAGENTA, "Toxic", "radiating poison", "You are radiating toxic energy."},
     { DUR_RECITE, false,
@@ -159,6 +149,24 @@ static duration_def duration_data[] =
       BROWN, "Roots", "grasped by roots", "Your movement is impeded by grasping roots." },
     { DUR_FIRE_VULN, false,
       RED, "-rF", "fire vulnerable", "You are more vulnerable to fire." },
+    { DUR_BARBS, false,
+      RED, "Barbs", "manticore barbs", "Manticore spikes are embedded in your body." },
+    { DUR_POISON_VULN, false,
+      RED, "-rP", "poison vulnerable", "You are more vulnerable to poison." },
+    { DUR_FROZEN, false,
+      RED, "Frozen", "frozen", "You are partly encased in ice." },
+    { DUR_SAP_MAGIC, false,
+      RED, "Sap", "sap magic", "Casting spells hinders your spell success." },
+    { DUR_PORTAL_PROJECTILE, false,
+      LIGHTBLUE, "PProj", "portal projectile", "You are teleporting projectiles to their destination." },
+    { DUR_FORESTED, false,
+      YELLOW, "Forest", "", "" },
+    { DUR_DRAGON_CALL, false,
+      WHITE, "Dragoncall", "dragon's call", "You are beckoning forth a horde of dragons." },
+    { DUR_DRAGON_CALL_COOLDOWN, false,
+      RED, "Dragoncall", "", "" },
+    { DUR_ABJURATION_AURA, false,
+      BLUE, "Abj", "aura of abjuration", "You are abjuring all hostile summons around you." },
 };
 
 static int duration_index[NUM_DURATIONS];
@@ -196,9 +204,9 @@ static void _reset_status_info(status_info* inf)
 
 static int _bad_ench_colour(int lvl, int orange, int red)
 {
-    if (lvl > red)
+    if (lvl >= red)
         return RED;
-    else if (lvl > orange)
+    else if (lvl >= orange)
         return LIGHTRED;
 
     return YELLOW;
@@ -251,6 +259,7 @@ static void _describe_transform(status_info* inf);
 static void _describe_stat_zero(status_info* inf, stat_type st);
 static void _describe_terrain(status_info* inf);
 static void _describe_missiles(status_info* inf);
+static void _describe_invisible(status_info* inf);
 
 bool fill_status_info(int status, status_info* inf)
 {
@@ -294,6 +303,13 @@ bool fill_status_info(int status, status_info* inf)
         break;
 
     case DUR_SWIFTNESS:
+        if (you.attribute[ATTR_SWIFTNESS] < 0)
+        {
+            inf->light_text   = "-Swift";
+            inf->light_colour = RED;
+            inf->short_text   = "sluggish";
+            inf->long_text    = "You are moving sluggishly";
+        }
         if (you.in_liquid())
             inf->light_colour = DARKGREY;
         break;
@@ -331,20 +347,8 @@ bool fill_status_info(int status, status_info* inf)
     case STATUS_UMBRA:
         if (you.umbra())
         {
-            inf->light_colour = MAGENTA;
-            inf->light_text   = "Umbra";
             inf->short_text   = "wreathed by umbra";
-            inf->long_text    = "You are wreathed by an unholy umbra.";
-        }
-        break;
-
-    case STATUS_SUPPRESSED:
-        if (you.suppressed())
-        {
-            inf->light_colour = LIGHTGREEN;
-            inf->light_text   = "Suppress";
-            inf->short_text   = "magically suppressed";
-            inf->long_text    = "You are enveloped in a field of magical suppression.";
+            inf->long_text    = "You are wreathed by an umbra.";
         }
         break;
 
@@ -439,28 +443,12 @@ bool fill_status_info(int status, status_info* inf)
         break;
     }
 
-    case DUR_INVIS:
-        if (you.attribute[ATTR_INVIS_UNCANCELLABLE])
-            inf->light_colour = _dur_colour(BLUE, dur_expiring(DUR_INVIS));
-        else
-            inf->light_colour = _dur_colour(MAGENTA, dur_expiring(DUR_INVIS));
-        inf->light_text   = "Invis";
-        inf->short_text   = "invisible";
-        if (you.backlit())
-        {
-            inf->light_colour = DARKGREY;
-            inf->short_text += " (but backlit and visible)";
-        }
-        inf->long_text = "You are " + inf->short_text + ".";
-        _mark_expiring(inf, dur_expiring(DUR_INVIS));
-        break;
-
     case DUR_POISONING:
         _describe_poison(inf);
         break;
 
     case DUR_POWERED_BY_DEATH:
-        if (handle_pbd_corpses(false) > 0)
+        if (handle_pbd_corpses() > 0)
         {
             inf->light_colour = LIGHTMAGENTA;
             inf->light_text   = "Regen+";
@@ -469,6 +457,10 @@ bool fill_status_info(int status, status_info* inf)
 
     case STATUS_MISSILES:
         _describe_missiles(inf);
+        break;
+
+    case STATUS_INVISIBLE:
+        _describe_invisible(inf);
         break;
 
     case STATUS_MANUAL:
@@ -517,16 +509,6 @@ bool fill_status_info(int status, status_info* inf)
                 inf->light_colour = DARKGREY;
             if (you.form == TRAN_SPIDER)
                 _mark_expiring(inf, dur_expiring(DUR_TRANSFORMATION));
-        }
-        break;
-
-    case STATUS_HOVER:
-        if (is_hovering())
-        {
-            inf->light_colour = RED;
-            inf->light_text   = "Hover";
-            inf->short_text   = "hovering above liquid";
-            inf->long_text    = "You are exerting yourself to hover high above the liquid.";
         }
         break;
 
@@ -656,6 +638,54 @@ bool fill_status_info(int status, status_info* inf)
         }
         break;
 
+    case STATUS_DIG:
+        if (you.digging)
+        {
+            inf->light_colour = WHITE;
+            inf->light_text   = "Dig";
+        }
+        break;
+
+    case STATUS_ELIXIR:
+        if (you.duration[DUR_ELIXIR_HEALTH] || you.duration[DUR_ELIXIR_MAGIC])
+        {
+            if (you.duration[DUR_ELIXIR_HEALTH] && you.duration[DUR_ELIXIR_MAGIC])
+                inf->light_colour = WHITE;
+            else if (you.duration[DUR_ELIXIR_HEALTH])
+                inf->light_colour = LIGHTBLUE;
+            else
+                inf->light_colour = LIGHTMAGENTA;
+            inf->light_text   = "Elixir";
+        }
+        break;
+
+    case STATUS_MAGIC_SAPPED:
+        if (you.duration[DUR_MAGIC_SAPPED] > 50 * BASELINE_DELAY)
+        {
+            inf->light_colour = RED;
+            inf->light_text   = "-Wiz";
+            inf->short_text   = "extremely magic sapped";
+            inf->long_text    = "Your control over your magic has "
+                                "been greatly sapped.";
+        }
+        else if (you.duration[DUR_MAGIC_SAPPED] > 20 * BASELINE_DELAY)
+        {
+            inf->light_colour = LIGHTRED;
+            inf->light_text   = "-Wiz";
+            inf->short_text   = "very magic sapped";
+            inf->long_text    = "Your control over your magic has "
+                                "been significantly sapped.";
+        }
+        else if (you.duration[DUR_MAGIC_SAPPED])
+        {
+            inf->light_colour = YELLOW;
+            inf->light_text   = "-Wiz";
+            inf->short_text   = "magic sapped";
+            inf->long_text    = "Your control over your magic has "
+                                "been sapped.";
+        }
+        break;
+
     default:
         if (!found)
         {
@@ -719,8 +749,12 @@ static void _describe_glow(status_info* inf)
     {
         inf->light_colour = DARKGREY;
         if (cont > 1)
-            inf->light_colour = _bad_ench_colour(cont, 2, 3);
-        if (cont > 1 || you.species != SP_DJINNI)
+            inf->light_colour = _bad_ench_colour(cont, 3, 4);
+        if (cont > 1
+#if TAG_MAJOR_VERSION == 34
+                || you.species != SP_DJINNI
+#endif
+                )
             inf->light_text = "Contam";
     }
 
@@ -740,7 +774,8 @@ static void _describe_glow(status_info* inf)
 
 static void _describe_regen(status_info* inf)
 {
-    const bool regen = (you.duration[DUR_REGENERATION] > 0);
+    const bool regen = (you.duration[DUR_REGENERATION] > 0
+                        || you.duration[DUR_TROGS_HAND] > 0);
     const bool no_heal =
             (you.species == SP_VAMPIRE && you.hunger_state == HS_STARVING)
             || (player_mutation_level(MUT_SLOW_HEALING) == 3);
@@ -750,9 +785,12 @@ static void _describe_regen(status_info* inf)
 
     if (regen)
     {
-        inf->light_colour = _dur_colour(BLUE, dur_expiring(DUR_REGENERATION));
+        if (you.duration[DUR_REGENERATION] > you.duration[DUR_TROGS_HAND])
+            inf->light_colour = _dur_colour(BLUE, dur_expiring(DUR_REGENERATION));
+        else
+            inf->light_colour = _dur_colour(BLUE, dur_expiring(DUR_TROGS_HAND));
         inf->light_text   = "Regen";
-        if (you.attribute[ATTR_DIVINE_REGENERATION])
+        if (you.duration[DUR_TROGS_HAND])
             inf->light_text += " MR";
         else if (no_heal)
             inf->light_colour = DARKGREY;
@@ -792,17 +830,18 @@ static void _describe_regen(status_info* inf)
 
 static void _describe_poison(status_info* inf)
 {
-    int pois = you.duration[DUR_POISONING];
+    int pois_perc = (you.hp <= 0) ? 100
+                                  : ((you.hp - max(0, poison_survival())) * 100 / you.hp);
     inf->light_colour = (player_res_poison(false) >= 3
-                         ? DARKGREY : _bad_ench_colour(pois, 5, 10));
+                         ? DARKGREY : _bad_ench_colour(pois_perc, 35, 100));
     inf->light_text   = "Pois";
     const string adj =
-         (pois > 10) ? "extremely" :
-         (pois > 5)  ? "very" :
-         (pois > 3)  ? "quite"
-                     : "mildly";
+         (pois_perc >= 100) ? "lethally" :
+         (pois_perc > 65)   ? "seriously" :
+         (pois_perc > 35)   ? "quite"
+                            : "mildly";
     inf->short_text   = adj + " poisoned";
-    inf->long_text    = "You are " + inf->short_text + ".";
+    inf->long_text    = "You are " + inf->short_text + make_stringf(" (%d -> %d).", you.hp, poison_survival());
 }
 
 static void _describe_speed(status_info* inf)
@@ -868,7 +907,7 @@ static void _describe_rotting(status_info* inf)
 {
     if (you.rotting)
     {
-        inf->light_colour = _bad_ench_colour(you.rotting, 4, 8);
+        inf->light_colour = _bad_ench_colour(you.rotting, 5, 9);
         inf->light_text   = "Rot";
     }
 
@@ -1014,6 +1053,11 @@ static void _describe_transform(status_info* inf)
         inf->short_text = "wisp-form";
         inf->long_text  = "You are an insubstantial wisp.";
         break;
+    case TRAN_SHADOW:
+        inf->light_text = "Shadow",
+        inf->short_text = "shadow form";
+        inf->long_text  = "You are a swirling mass of dark shadows.";
+        break;
     case TRAN_NONE:
         break;
     }
@@ -1064,26 +1108,47 @@ static void _describe_missiles(status_info* inf)
     if (!level)
         return;
 
-    bool expiring;
     if (level > 1)
     {
-        inf->light_colour = MAGENTA;
+        inf->light_colour = LIGHTMAGENTA;
         inf->light_text   = "DMsl";
         inf->short_text   = "deflect missiles";
         inf->long_text    = "You deflect missiles.";
-        expiring = dur_expiring(DUR_DEFLECT_MISSILES);
     }
     else
     {
         bool perm = player_mutation_level(MUT_DISTORTION_FIELD) == 3
-                    || !you.suppressed() && you.scan_artefacts(ARTP_RMSL);
-        inf->light_colour = perm ? WHITE : BLUE;
+                    || you.scan_artefacts(ARTP_RMSL);
+        inf->light_colour = perm ? WHITE : LIGHTBLUE;
         inf->light_text   = "RMsl";
         inf->short_text   = "repel missiles";
         inf->long_text    = "You repel missiles.";
-        expiring = (!perm && dur_expiring(DUR_REPEL_MISSILES));
     }
+}
 
-    inf->light_colour = _dur_colour(inf->light_colour, expiring);
-    _mark_expiring(inf, expiring);
+static void _describe_invisible(status_info* inf)
+{
+    if (!you.duration[DUR_INVIS] && you.form != TRAN_SHADOW)
+        return;
+
+    if (you.form == TRAN_SHADOW)
+    {
+        inf->light_colour = _dur_colour(WHITE,
+                                        dur_expiring(DUR_TRANSFORMATION));
+    }
+    else if (you.attribute[ATTR_INVIS_UNCANCELLABLE])
+        inf->light_colour = _dur_colour(BLUE, dur_expiring(DUR_INVIS));
+    else
+        inf->light_colour = _dur_colour(MAGENTA, dur_expiring(DUR_INVIS));
+    inf->light_text   = "Invis";
+    inf->short_text   = "invisible";
+    if (you.backlit())
+    {
+        inf->light_colour = DARKGREY;
+        inf->short_text += " (but backlit and visible)";
+    }
+    inf->long_text = "You are " + inf->short_text + ".";
+    _mark_expiring(inf, dur_expiring(you.form == TRAN_SHADOW
+                                     ? DUR_TRANSFORMATION
+                                     : DUR_INVIS));
 }

@@ -1,4 +1,4 @@
-define(["jquery", "comm"], function ($, comm) {
+define(["jquery", "comm", "linkify"], function ($, comm, linkify) {
     var new_message_count = 0;
     var spectators = {
             count: 0,
@@ -16,15 +16,26 @@ define(["jquery", "comm"], function ($, comm) {
 
     function receive_message(data)
     {
-        var msg = data.content;
-        $("#chat_history").append(msg + "<br>");
-        $("#chat_history_container").scrollTop($("#chat_history").height());
+        var msg = $("<div>").append(data.content);
+        var histcon = $('#chat_history_container');
+        var atBottom = (histcon[0].scrollHeight - histcon.scrollTop() == histcon.outerHeight());
+        msg.find(".chat_msg").html(linkify(msg.find(".chat_msg").text()));
+        $("#chat_history").append(msg.html() + "<br>");
+        if (atBottom)
+            $('#chat_history_container').scrollTop($('#chat_history_container')[0].scrollHeight);
         if ($("#chat_body").css("display") === "none")
         {
             new_message_count++;
             update_message_count();
         }
         $(document).trigger("chat_message", [data.content]);
+    }
+
+    function handle_dump(data)
+    {
+        var msg = $("<span>").addClass("chat_msg chat_automated")
+                             .text(data.url + ".txt")
+        receive_message({ content: msg[0].outerHTML });
     }
 
     function update_message_count()
@@ -47,6 +58,7 @@ define(["jquery", "comm"], function ($, comm) {
                     text: content
                 });
                 $("#chat_input").val("");
+                $('#chat_history_container').scrollTop($('#chat_history_container')[0].scrollHeight);
             }
             return false;
         }
@@ -68,6 +80,7 @@ define(["jquery", "comm"], function ($, comm) {
             new_message_count = 0;
             update_message_count();
             $("#message_count").html("(Esc: back to game)");
+            $('#chat_history_container').scrollTop($('#chat_history_container')[0].scrollHeight);
         }
         else
         {
@@ -101,6 +114,7 @@ define(["jquery", "comm"], function ($, comm) {
     });
 
     comm.register_handlers({
+        "dump": handle_dump,
         "chat": receive_message,
         "update_spectators": update_spectators
     });

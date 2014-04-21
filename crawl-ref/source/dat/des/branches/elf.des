@@ -11,12 +11,12 @@
 function elf_setup(e)
   e.lflags("no_tele_control")
   e.tags("no_rotate")
-  e.kitem("$ = $ no_pickup")
-  e.kitem("* = * no_pickup")
-  e.kitem("| = | no_pickup")
 end
 
 function elf_loot_randomisation(e)
+  e.kfeat("$ = $")
+  e.kfeat("* = *")
+  e.kfeat("| = |")
   e.subst("| = | *:2")
   e.subst("$ = $:20 *:4 |:1")
   e.subst("* = * |:3")
@@ -250,49 +250,6 @@ xxxxxxxxx...xxxxx.x..........x
 xxxxxxxxxxx.11x...xx.........x
 xxxxxxxxxxxxx...xxxxxx.....xxx
 xxxxxxxxxxxxxxxxxxxxxxx@@@xxxx
-ENDMAP
-
-###########################################################################
-# Two arrival vaults by Lemuel, using fog generators.
-
-NAME:   elf_arrival_freeze
-PLACE:  Elf:1
-ORIENT: float
-ITEM:   nothing
-MARKER: d = lua:fog_machine { cloud_type = "freezing vapour", \
-             pow_min = 10, pow_max = 10, delay = 10, \
-             size = 2, walk_dist = 0, spread_rate= 0 }
-MAP
-xx@@@xx
-xx...xx
-xx...xx
-xx.d.xx
-xx...xx
-xx...xx
-xx...xx
-xx...xx
-xx...xx
-xx...xx
-xx...xx
-xx.{.xx
-xxxxxxx
-ENDMAP
-
-NAME:   elf_arrival_flame
-PLACE:  Elf:1
-ORIENT: float
-ITEM:   nothing
-MARKER: d = lua:fog_machine { cloud_type = "flame", \
-             pow_min = 10, pow_max = 10, delay = 10, \
-             size = 2, walk_dist = 0, spread_rate= 0 }
-MAP
-xxxxxxxxxxxxx
-xxxxxxxxxxxxx
-@...........x
-@..d.......{x
-@...........x
-xxxxxxxxxxxxx
-xxxxxxxxxxxxx
 ENDMAP
 
 NAME:   minmay_elf_arrival_circle
@@ -630,17 +587,17 @@ ENDMAP
 NAME:    minmay_elf_blademastery
 DEPTH:   Elf:$
 ORIENT:  float
-MONS:    deep elf fighter; falchion | long sword | scimitar | sabre / nothing w:15
+MONS:    deep elf fighter; falchion | long sword | scimitar | cutlass / nothing w:15
 MONS:    deep elf blademaster
 MONS:    training dummy tile:mons_training_dummy
-KITEM:   d = long sword race:elven, long sword race:elven / nothing, \
-             long sword race:elven / nothing, long sword race:elven / nothing
-KITEM:   e = falchion race:elven, falchion race:elven / nothing, \
-             falchion race:elven / nothing, falchion race:elven / nothing
-KITEM:   f = scimitar race:elven, scimitar race:elven / nothing, \
-             scimitar race:elven / nothing, scimitar race:elven / nothing
-KITEM:   g = sabre race:elven, sabre race:elven / nothing, \
-             sabre race:elven / nothing, sabre race:elven / nothing
+KITEM:   d = long sword, long sword / nothing, \
+             long sword / nothing, long sword / nothing
+KITEM:   e = falchion, falchion / nothing, \
+             falchion / nothing, falchion / nothing
+KITEM:   f = scimitar, scimitar / nothing, \
+             scimitar / nothing, scimitar / nothing
+KITEM:   g = cutlass, cutlass / nothing, \
+             cutlass / nothing, cutlass / nothing
 SHUFFLE: defg
 MAP
 xxxxxxxxxx+xxx
@@ -661,16 +618,16 @@ ENDMAP
 NAME:    orc_legates
 DEPTH:   Elf:1-2
 SHUFFLE: AB , 34 , 12
-SUBST:   6=4
-SUBST:   0= 0 .:9 9:1
-SUBST:   5= 5 .:9 4:1
-NSUBST:  1= 2:1 / *:.
-NSUBST:  2= 2:2 / *:.
-KITEM:   A= any good_item race:elven
-KITEM:   B= any good_item race:elven
-KMONS:   A= patrolling deep elf knight
-KMONS:   B= patrolling deep elf high priest / patrolling deep elf demonologist
-MONS:    ice dragon, dragon
+SUBST:   6 = 4
+SUBST:   0 = 0 .:9 9:1
+SUBST:   5 = 5 .:9 4:1
+NSUBST:  1 = 2:1 / *:.
+NSUBST:  2 = 2:2 / *:.
+KITEM:   A = any good_item
+KITEM:   B = any good_item
+KMONS:   A = patrolling deep elf knight
+KMONS:   B = patrolling deep elf high priest / patrolling deep elf demonologist
+MONS:    ice dragon, fire dragon
 MONS:    orc knight / orc sorcerer / orc high priest
 MONS:    orc warrior / orc wizard / orc priest
 MONS:    orc
@@ -810,8 +767,8 @@ KFEAT: v = general shop type:Elven suffix:Fire count:7 ; \
        w:10 ring of fire | w:5 scroll of immolation | w:10 ring of protection from fire | \
        w:4 any weapon ego:flaming | w:4 bow ego:flame | w:12 arrow ego:flame | \
        w:7 wand of flame | w:5 wand of fire | w:3 wand of fireball | \
-       w:4 bottled efreet | w:4 staff of fire | w:17 randbook disc:fire | \
-       w:6 robe ego:fire_resistance | w:9 any armour ego:fire_resistance
+       w:4 staff of fire | w:17 randbook disc:fire | w:6 robe ego:fire_resistance | \
+       w:9 any armour ego:fire_resistance
 SUBST: ? = .l1
 SUBST: - = .l
 MAP
@@ -1059,6 +1016,153 @@ MAP
         .
 ENDMAP
 
+NAME:    hangedman_elf_power_crystal
+TAGS:    extra transparent decor
+DEPTH:   Elf
+KMONS:   1 = crystal guardian
+SHUFFLE: @ABC, QRST, n1' / n1' / xxx
+SUBST:   A : b:8 .:1 @:1, BC = b, x : b:8 x:1
+SUBST:   Q : b:8 .:1, R : b.., S : b:1 .:8, T = .
+KMASK:   1' = no_trap_gen
+KMASK:   1' = no_item_gen
+KMASK:   1' = no_monster_gen
+KPROP:   1' = no_rtele_into
+TILE:    1' = floor_pebble_green
+COLOUR:  1' = green
+MAP
+          bbbbbbbbAb
+         Bb.b..T..bA
+        Bb...b...b.b
+       bb..R..b.b..b
+    b@bbbbb.bbbb..Sb
+    @b.....bb''bb..b
+    b.b...bb'1'b.b.b
+   bb..b.bb'''nb..bb
+  Cbb...bb'1'bb.Q..b
+ Cb.b..bb'''nb.b..bb
+bb..b.bn'''bb..b.bC
+b..Q.bb'1'bb...bbC
+bb..bn'''bb.b..bb
+b.b.b'1'bb...b.b
+b..bb''bb.....b@
+bS..bbbb.bbbbb@b
+b..b.b..R..bb
+b.b...b...bB
+Ab..T..b.bB
+bAbbbbbbbb
+ENDMAP
+
+NAME:    hangedman_elven_ridges
+TAGS:    extra transparent decor
+DEPTH:   Elf
+MONS:    fungus
+SHUFFLE: ABCD, EF, GHIJKLMN
+SUBST:   A : x.., B : xx., CD = x, E : x.., F : x..
+SUBST:   G : xxx., H : xxx., I : x., J : x., K : x:1 .:9, L : x:1 .:9
+SUBST:   MN = ., c : c:16 b:2 v:1 1:1
+MAP
+   .cxBxc.
+   .H...G.
+   ...x......
+......x......
+cH..F.x.xxCxx
+x.......J...I
+A.xxx.c...x......
+x.........x......
+cG..xJ..E.x.xxDxx
+....x.......L...K
+  ..D.xxx.c...x..
+  ..x.........x......
+  ..xI..xL..F.x.xxAxc
+      ..x.......N...M
+      ..C.xxx.c...x..
+      ..x.........x.
+      ..xK..xN..E.x.
+          ..x.......
+          ..B.xxx.c.
+          ..x.......
+          ..cM.
+ENDMAP
+
+NAME:    hangedman_elven_pyramids
+TAGS:    extra transparent mini_float decor
+DEPTH:   Elf
+SHUFFLE: ABCD, +-_, yz / yz / zy
+SUBST:   A : ZZ., B : Z., C : Z.., D = .
+SUBST:   + : x:9 +:2 .:1, -_ : x:9 z:1
+SUBST:   Z : z:5 c:1 x:1 b:1, z : c:6 x:3 .:1
+MAP
+       ..x..
+      ..x.x..
+     ..x...x..
+    ..x..A..x..
+   ..x...y...x..
+  ..x..xz.zx..x..
+ ..x.x...y...x.x..
+..x...zy.C.yz...x..
+.x..B.yz...zy.D..x..
+x.......x.x.......x..
+xxxx+xxxx-x_xx-xxxx+xxxx
+   ..x.......x.x.......x
+    ..x..D.yz...zy.B..x.
+     ..x...zy.C.yz...x..
+      ..x.x...y...x.x..
+       ..x..xz.zx..x..
+        ..x...y...x..
+         ..x..A..x..
+          ..x...x..
+           ..x.x..
+            ..x..
+ENDMAP
+
+NAME:    hangedman_elf_targetted_burst
+TAGS:    transparent extra decor
+DEPTH:   Elf
+SUBST:   x : xxc, Y : yycvb, y : xxcbv, z : cbv, Z = cbvwl
+MAP
+        x
+   .x...y...x
+   ..Y.xxx.Y.
+   ...x...x..
+   ..x.....x.
+  xxyx..Z..xyx
+ ....x.....x.
+ .....z...x..
+ ...xz.xxx.Y.
+ ...zx..y...x
+..xz....x....
+..zx....x
+xz......
+zx..
+ENDMAP
+
+NAME:    hangedman_elf_simple_split
+TAGS:    extra transparent decor
+DEPTH:   Elf
+MONS:    fungus
+SHUFFLE: de, fg, hijk, CD
+SUBST:   d : +., e : +x., f : +x., e : +.
+SUBST:   h : +x, i : +x., i : +x., j : +x.
+SUBST:   C : CTG1wl., D : ., x : x:90 cvb
+KMASK:   wl = no_monster_gen
+MAP
+x..xx
+x...xxxxxx
+x...d....xxxxxx
+xxx.e....h.....
+xxxxx.CD.i....x
+....f....j....x
+....g....k.....
+xxxxxxxxxx....x
+....g....k.....
+....f....j....x
+xxxxx.CD.i....x
+xxx.e....h.....
+x...d....xxxxxx
+x...xxxxxx
+x..xx
+ENDMAP
+
 ##############################################################################
 ##############################################################################
 #
@@ -1134,11 +1238,15 @@ SUBST:   4=4., 2=2., 5=5., 3=3.
 KMONS:   $ = weight:115 nothing / deep elf annihilator
 KMONS:   * = weight:105 nothing / deep elf death mage
 KMONS:   | = weight:290 nothing / deep elf sorcerer
+KFEAT:   $ = $
+KFEAT:   * = *
+KFEAT:   | = |
 SUBST:   | = | *:2
 SUBST:   * = * |:3
 KMONS:   A = deep elf master archer
+KFEAT:   A = |
 KMONS:   B = deep elf blademaster
-KITEM:   AB = | no_pickup
+KFEAT:   B = |
 MAP
 cccccccccccccccccccccccccc
 c2ccccccc........ccccccccc
@@ -1173,7 +1281,6 @@ TAGS:    no_pool_fixup
 : elf_monsters(_G)
 SHUFFLE: 345
 SUBST:   4=4., 2=2., 5=5., 3=3.
-SUBST:   l : lww
 SHUFFLE: lww
 SHUFFLE: nN / yY / zZ
 SUBST:   N=@, n=., Y=c, y=c
@@ -1182,9 +1289,15 @@ SUBST:   N=@, n=., Z=c, z=c
 KMONS:   $ = weight:115 nothing / deep elf annihilator
 KMONS:   * = weight:105 nothing / deep elf death mage
 KMONS:   | = weight:290 nothing / deep elf sorcerer
+KFEAT:   $ = $
+KFEAT:   * = *
+KFEAT:   | = |
 SUBST:   | = | *:2
 SUBST:   * = * |:3
-KITEM:   67 = | no_pickup
+KITEM:   6 = |
+KITEM:   7 = |
+KFEAT:   6 = 6
+KFEAT:   7 = 7
 MAP
 ccccccccccccccccccccccccc
 c2ccccccc.......ccccccccc
@@ -1205,8 +1318,8 @@ c6*|*|**|*cc.cc$|$*$|$|.c
 c**|*|||||cc.cc|$|$*$*$.c
 c||*||***|cc.cc$*$*$*$|.c
 c|**|*||7*cc.cc7$|$|$|$2c
-cccccccccccclcccccccccccc
-ccccccccccclllccccccccccc
+cccccccccccc.cccccccccccc
+ccccccccccc...ccccccccccc
 cccccccccc..c..cccccccccc
 Yyyyyyyyyy.ccc.zzzzzzzzzZ
 xxxxxxxxxxNncnNxxxxxxxxxx
@@ -1500,11 +1613,10 @@ PLACE:   Elf:$
 ORIENT:  northwest
 : elf_setup(_G)
 : elf_monsters(_G)
-KMONS:   9 = stone golem / w:5 clay golem / w:5 nothing
-KMONS:   8 = crystal golem / nothing
-SUBST:   1=11., 2=22., 3=33., 4=44., 5=543, 6=66., 7=77.
-SHUFFLE: 12, 34, 67, 8b / 9C / 9C / 9C
-SUBST:   C = c
+KMONS:   8 = crystal guardian
+SUBST:   1=11., 2=22., 3=33., 4=44., 5=543, 6=66., 7=77., 8=8.
+SHUFFLE: 12, 34, 67
+SUBST:   b : bc
 : elf_loot_defenders(_G)
 : elf_loot_randomisation(_G)
 MAP

@@ -16,33 +16,13 @@ Scythe of Curses
 
 Tässä aseessa on karmea ja hyvin ärsyttävä kirous.
 %%%%
-Staff of Dispater
-
-Tämä legendaarinen esine voi vapauttaa Helvetin voimat.
-%%%%
-Sceptre of Asmodeus
-
-Siinä on joitakin arkkipiru Asmodeuksen voimia.
-%%%%
 dagger of Chilly Death
 
 Yhdestä valtavasta safiirin palasta tehty tikari.
 %%%%
-crossbow "Hellfire"
-
-Helvettien tulissa taottu liekehtivä varsijousi.
-%%%%
 mithril axe "Arga"
 
 Kaunis mithrilkirves, varmaan jäänyt jälkeen joltakin kääpiösankarilta.
-%%%%
-Elemental Staff
-
-Tämä voimakas sauva kuului ennen Viiden elementin killan johtajalle.
-%%%%
-crossbow "Sniper"
-
-Jostakin mustasta materiaalista tehty varsijousi.
 %%%%
 longbow "Piercer"
 
@@ -63,10 +43,6 @@ Häikäisevällä timanttirivistöllä varusteltu suuri pronssikruunu.
 cloak of Flash
 
 Värisevä viitta.
-%%%%
-boots of the Assassin
-
-Pehmeät, Salamurhaajien killan suunnittelemat kengät.
 %%%%
 Maxwell's patent armour
 

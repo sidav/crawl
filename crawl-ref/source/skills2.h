@@ -3,7 +3,6 @@
  * @brief More skill related functions.
 **/
 
-
 #ifndef SKILLS2_H
 #define SKILLS2_H
 
@@ -11,6 +10,9 @@ const int MAX_SKILL_ORDER = 100;
 
 #include "enum.h"
 #include "player.h"
+
+// This threshold is in tenths of a skill point.
+const int CROSSTRAIN_THRESHOLD = 1;
 
 struct skill_state
 {
@@ -58,8 +60,6 @@ skill_type best_skill(skill_type min_skill, skill_type max_skill,
                       skill_type excl_skill = SK_NONE);
 void init_skill_order();
 
-void calc_mp();
-void calc_hp();
 bool is_useless_skill(skill_type skill);
 bool is_harmful_skill(skill_type skill);
 bool all_skills_maxed(bool inc_harmful = false);
@@ -69,10 +69,12 @@ float species_apt_factor(skill_type sk, species_type sp = you.species);
 unsigned int skill_exp_needed(int lev, skill_type sk,
                               species_type sp = you.species);
 
+skill_type opposite_skill(skill_type sk);
+bool compare_skills(skill_type sk1, skill_type sk2);
+vector<skill_type> get_crosstrain_skills(skill_type sk);
+
 float crosstrain_bonus(skill_type sk);
-bool crosstrain_other(skill_type sk, bool show_zero);
 bool is_antitrained(skill_type sk);
-bool antitrain_other(skill_type sk, bool show_zero);
 
 int elemental_preference(spell_type spell, int scale = 1);
 
@@ -115,7 +117,7 @@ static const int ndisplayed_skills = ARRAYSZ(skill_display_order);
 
 static inline bool is_invalid_skill(skill_type skill)
 {
-    return (skill < SK_FIRST_SKILL || skill >= NUM_SKILLS);
+    return skill < SK_FIRST_SKILL || skill >= NUM_SKILLS;
 }
 
 #endif

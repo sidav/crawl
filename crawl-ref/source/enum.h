@@ -3,7 +3,6 @@
  * @brief Global (ick) enums.
 **/
 
-
 #ifndef ENUM_H
 #define ENUM_H
 
@@ -54,7 +53,6 @@ enum ability_type
     ABIL_BREATHE_MEPHITIC,
     ABIL_SPIT_ACID,
     ABIL_BLINK,
-
     // Others
     ABIL_DELAYED_FIREBALL,
     ABIL_END_TRANSFORMATION,
@@ -74,7 +72,12 @@ enum ability_type
     ABIL_BOTTLE_BLOOD,
     // Deep Dwarves
     ABIL_RECHARGING,
-    ABIL_MAX_INTRINSIC = ABIL_RECHARGING,
+    // Felids
+    ABIL_JUMP,
+    // Formicids
+    ABIL_DIG,
+    ABIL_SHAFT_SELF,
+    ABIL_MAX_INTRINSIC = ABIL_SHAFT_SELF,
 
     // Evoking items.
     ABIL_EVOKE_BERSERK = 40,
@@ -89,53 +92,52 @@ enum ability_type
 #endif
     ABIL_EVOKE_FOG,
     ABIL_EVOKE_TELEPORT_CONTROL,
-    ABIL_MAX_EVOKE = ABIL_EVOKE_TELEPORT_CONTROL,
+    ABIL_EVOKE_JUMP,
+    ABIL_MAX_EVOKE = ABIL_EVOKE_JUMP,
 
     // Divine abilities
     // Zin
-    ABIL_ZIN_SUSTENANCE = 50,
+    ABIL_ZIN_SUSTENANCE = 1000,
     ABIL_ZIN_RECITE,
     ABIL_ZIN_VITALISATION,
     ABIL_ZIN_IMPRISON,
     ABIL_ZIN_SANCTUARY,
     ABIL_ZIN_CURE_ALL_MUTATIONS,
     // TSO
-    ABIL_TSO_DIVINE_SHIELD = 60,
+    ABIL_TSO_DIVINE_SHIELD = 1010,
     ABIL_TSO_CLEANSING_FLAME,
     ABIL_TSO_SUMMON_DIVINE_WARRIOR,
     // Kiku
-    ABIL_KIKU_RECEIVE_CORPSES = 70,
+    ABIL_KIKU_RECEIVE_CORPSES = 1020,
     ABIL_KIKU_TORMENT,
     // Yredelemnul
-    ABIL_YRED_INJURY_MIRROR = 80,
+    ABIL_YRED_INJURY_MIRROR = 1030,
     ABIL_YRED_ANIMATE_REMAINS,
     ABIL_YRED_RECALL_UNDEAD_SLAVES,
     ABIL_YRED_ANIMATE_DEAD,
     ABIL_YRED_DRAIN_LIFE,
     ABIL_YRED_ENSLAVE_SOUL,
     ABIL_YRED_ANIMATE_REMAINS_OR_DEAD,
-#if TAG_MAJOR_VERSION == 34
     // Vehumet
-    ABIL_VEHUMET_MEMORISE_SPELL = 90,
-#endif
+    // = 1040
     // Okawaru
-    ABIL_OKAWARU_HEROISM = 100,
+    ABIL_OKAWARU_HEROISM = 1050,
     ABIL_OKAWARU_FINESSE,
     // Makhleb
-    ABIL_MAKHLEB_MINOR_DESTRUCTION = 110,
+    ABIL_MAKHLEB_MINOR_DESTRUCTION = 1060,
     ABIL_MAKHLEB_LESSER_SERVANT_OF_MAKHLEB,
     ABIL_MAKHLEB_MAJOR_DESTRUCTION,
     ABIL_MAKHLEB_GREATER_SERVANT_OF_MAKHLEB,
     // Sif Muna
-    ABIL_SIF_MUNA_CHANNEL_ENERGY = 120,
+    ABIL_SIF_MUNA_CHANNEL_ENERGY = 1070,
     ABIL_SIF_MUNA_FORGET_SPELL,
     // Trog
-    ABIL_TROG_BURN_SPELLBOOKS = 130,
+    ABIL_TROG_BURN_SPELLBOOKS = 1080,
     ABIL_TROG_BERSERK,
     ABIL_TROG_REGEN_MR,
     ABIL_TROG_BROTHERS_IN_ARMS,
     // Elyvilon
-    ABIL_ELYVILON_LIFESAVING = 140,
+    ABIL_ELYVILON_LIFESAVING = 1090,
     ABIL_ELYVILON_LESSER_HEALING_SELF,
     ABIL_ELYVILON_LESSER_HEALING_OTHERS,
     ABIL_ELYVILON_PURIFICATION,
@@ -143,50 +145,53 @@ enum ability_type
     ABIL_ELYVILON_GREATER_HEALING_OTHERS,
     ABIL_ELYVILON_DIVINE_VIGOUR,
     // Lugonu
-    ABIL_LUGONU_ABYSS_EXIT = 150,
+    ABIL_LUGONU_ABYSS_EXIT = 1100,
     ABIL_LUGONU_BEND_SPACE,
     ABIL_LUGONU_BANISH,
     ABIL_LUGONU_CORRUPT,
     ABIL_LUGONU_ABYSS_ENTER,
     // Nemelex
-    ABIL_NEMELEX_DRAW_ONE = 160,
+    ABIL_NEMELEX_DRAW_ONE = 1110,
     ABIL_NEMELEX_PEEK_TWO,
     ABIL_NEMELEX_TRIPLE_DRAW,
     ABIL_NEMELEX_DEAL_FOUR,
     ABIL_NEMELEX_STACK_FIVE,
     // Beogh
-    ABIL_BEOGH_SMITING = 170,
+    ABIL_BEOGH_SMITING = 1120,
     ABIL_BEOGH_RECALL_ORCISH_FOLLOWERS,
     // Jiyva
-    ABIL_JIYVA_CALL_JELLY = 180,
+    ABIL_JIYVA_CALL_JELLY = 1130,
     ABIL_JIYVA_JELLY_PARALYSE,
     ABIL_JIYVA_SLIMIFY,
     ABIL_JIYVA_CURE_BAD_MUTATION,
     // Fedhas
-    ABIL_FEDHAS_SUNLIGHT = 190,
+    ABIL_FEDHAS_SUNLIGHT = 1140,
     ABIL_FEDHAS_RAIN,
     ABIL_FEDHAS_PLANT_RING,
     ABIL_FEDHAS_SPAWN_SPORES,
     ABIL_FEDHAS_EVOLUTION,
     // Cheibriados
-    ABIL_CHEIBRIADOS_TIME_STEP = 201,
+    ABIL_CHEIBRIADOS_TIME_STEP = 1151,
     ABIL_CHEIBRIADOS_TIME_BEND,
     ABIL_CHEIBRIADOS_SLOUCH,
     ABIL_CHEIBRIADOS_DISTORTION,
     // Ashenzari
-    ABIL_ASHENZARI_SCRYING = 210,
+    ABIL_ASHENZARI_SCRYING = 1160,
     ABIL_ASHENZARI_TRANSFER_KNOWLEDGE,
     ABIL_ASHENZARI_END_TRANSFER,
+    // Dithmenos
+    ABIL_DITHMENOS_SHADOW_STEP = 1170,
+    ABIL_DITHMENOS_SHADOW_FORM,
 
     // For both Yred and Beogh
-    ABIL_STOP_RECALL,
+    ABIL_STOP_RECALL = 1500,
 
     // General divine (pseudo) abilities.
     ABIL_RENOUNCE_RELIGION,
     ABIL_CONVERT_TO_BEOGH,
 
     // Zot Defence abilities
-    ABIL_MAKE_FUNGUS = 230,
+    ABIL_MAKE_FUNGUS = 2000,
     ABIL_MIN_ZOTDEF = ABIL_MAKE_FUNGUS,
     ABIL_MAKE_PLANT,
     ABIL_MAKE_OKLOB_SAPLING,
@@ -202,7 +207,7 @@ enum ability_type
     ABIL_MAKE_NEEDLE_TRAP,
     ABIL_MAKE_NET_TRAP,
 #if TAG_MAJOR_VERSION == 34
-    ABIL_MAKE_TELEPORT_TRAP,
+        ABIL_UNUSED_Z1,
 #endif
     ABIL_MAKE_ALARM_TRAP,
     ABIL_MAKE_BLADE_TRAP,
@@ -256,7 +261,9 @@ enum actor_type
 enum attribute_type
 {
     ATTR_DIVINE_LIGHTNING_PROTECTION,
+#if TAG_MAJOR_VERSION == 34
     ATTR_DIVINE_REGENERATION,
+#endif
     ATTR_DIVINE_DEATH_CHANNEL,
     ATTR_CARD_COUNTDOWN,
     ATTR_BANISHMENT_IMMUNITY,   // banishment immunity until
@@ -274,8 +281,8 @@ enum attribute_type
     ATTR_MISC_SPENDING,        // Spending for things like ziggurats.
 #if TAG_MAJOR_VERSION == 34
     ATTR_UNUSED1,              // was ATTR_RND_LVL_BOOKS
+    ATTR_NOISES,
 #endif
-    ATTR_NOISES,               // A noisy artefact is equipped.
     ATTR_SHADOWS,              // Lantern of shadows effect.
 #if TAG_MAJOR_VERSION == 34
     ATTR_UNUSED2,              // was ATTR_FRUIT_FOUND
@@ -303,6 +310,17 @@ enum attribute_type
     ATTR_RECITE_TYPE,          // Recitation type.
     ATTR_RECITE_SEED,          // Recite text seed.
     ATTR_RECITE_HP,            // HP on start of recitation.
+    ATTR_SWIFTNESS,            // Duration of future antiswiftness.
+#if TAG_MAJOR_VERSION == 34
+    ATTR_BARBS_MSG,            // Have we already printed a message on move?
+#endif
+    ATTR_BARBS_POW,            // How badly we are currently skewered
+    ATTR_REPEL_MISSILES,       // Repel missiles active
+    ATTR_DEFLECT_MISSILES,     // Deflect missiles active
+    ATTR_PORTAL_PROJECTILE,    // Accuracy bonus during portal projectile
+    ATTR_GOD_WRATH_XP,         // How much XP before our next god wrath check?
+    ATTR_GOD_WRATH_COUNT,      // Number of stored retributions
+    ATTR_NEXT_DRAGON_TIME,     // aut remaining until Dragon's Call summons another
     NUM_ATTRIBUTES
 };
 
@@ -323,8 +341,9 @@ enum transformation_type
     TRAN_WISP,
     TRAN_JELLY,
     TRAN_FUNGUS,
+    TRAN_SHADOW,
     // no NUM_TRANSFORMS due to too many switch statements
-    LAST_FORM = TRAN_FUNGUS
+    LAST_FORM = TRAN_SHADOW,
 };
 
 enum beam_type                  // bolt::flavour
@@ -354,7 +373,9 @@ enum beam_type                  // bolt::flavour
     BEAM_LAVA,
     BEAM_ICE,
     BEAM_NUKE,
+#if TAG_MAJOR_VERSION == 34
     BEAM_LIGHT,
+#endif
     BEAM_RANDOM,                  // currently translates into FIRE..ACID
     BEAM_CHAOS,
     BEAM_GHOSTLY_FLAME,
@@ -391,7 +412,13 @@ enum beam_type                  // bolt::flavour
     BEAM_DIMENSION_ANCHOR,
     BEAM_VULNERABILITY,
     BEAM_MALIGN_OFFERING,
-    BEAM_LAST_ENCHANTMENT = BEAM_MALIGN_OFFERING,
+    BEAM_VIRULENCE,
+    BEAM_IGNITE_POISON,
+    BEAM_AGILITY,
+    BEAM_SAP_MAGIC,
+    BEAM_CORRUPT_BODY,
+    BEAM_CHAOTIC_REFLECTION,
+    BEAM_LAST_ENCHANTMENT = BEAM_CHAOTIC_REFLECTION,
 
     BEAM_MEPHITIC,
 #if TAG_MAJOR_VERSION == 34
@@ -399,15 +426,20 @@ enum beam_type                  // bolt::flavour
 #endif
     BEAM_INK,
     BEAM_HOLY_FLAME,
+#if TAG_MAJOR_VERSION == 34
     BEAM_HOLY_LIGHT,
+#endif
     BEAM_AIR,
     BEAM_PETRIFYING_CLOUD,
     BEAM_BOLT_OF_ZIN,
     BEAM_ENSNARE,
-    BEAM_LAST_REAL = BEAM_ENSNARE,
+    BEAM_CRYSTAL,
+    BEAM_LAST_REAL = BEAM_CRYSTAL,
 
     // For getting the visual effect of a beam.
     BEAM_VISUAL,
+    BEAM_BOUNCY_TRACER,           // Used for random bolt tracer (bounces as
+                                  // crystal bolt, but irresistable).
 
     BEAM_TORMENT_DAMAGE,          // Pseudo-beam for damage flavour.
     BEAM_FIRST_PSEUDO = BEAM_TORMENT_DAMAGE,
@@ -488,33 +520,38 @@ enum book_type
 
 enum branch_type                // you.where_are_you
 {
-    BRANCH_MAIN_DUNGEON,
-    BRANCH_ECUMENICAL_TEMPLE,
-    BRANCH_FIRST_NON_DUNGEON = BRANCH_ECUMENICAL_TEMPLE,
-    BRANCH_ORCISH_MINES,
-    BRANCH_ELVEN_HALLS,
+    BRANCH_DUNGEON,
+    BRANCH_TEMPLE,
+    BRANCH_FIRST_NON_DUNGEON = BRANCH_TEMPLE,
+    BRANCH_ORC,
+    BRANCH_ELF,
 #if TAG_MAJOR_VERSION == 34
-    BRANCH_DWARVEN_HALL,
+    BRANCH_DWARF,
 #endif
     BRANCH_LAIR,
     BRANCH_SWAMP,
     BRANCH_SHOALS,
-    BRANCH_SNAKE_PIT,
-    BRANCH_SPIDER_NEST,
-    BRANCH_SLIME_PITS,
+    BRANCH_SNAKE,
+    BRANCH_SPIDER,
+    BRANCH_SLIME,
     BRANCH_VAULTS,
-    BRANCH_HALL_OF_BLADES,
+    BRANCH_BLADE,
     BRANCH_CRYPT,
     BRANCH_TOMB,
-    BRANCH_VESTIBULE_OF_HELL,
+#if TAG_MAJOR_VERSION > 34
+    BRANCH_DEPTHS,
+#endif
+    BRANCH_VESTIBULE,
     BRANCH_DIS,
     BRANCH_GEHENNA,
     BRANCH_COCYTUS,
     BRANCH_TARTARUS,
       BRANCH_FIRST_HELL = BRANCH_DIS,
       BRANCH_LAST_HELL = BRANCH_TARTARUS,
-    BRANCH_HALL_OF_ZOT,
+    BRANCH_ZOT,
+#if TAG_MAJOR_VERSION == 34
     BRANCH_FOREST,
+#endif
     BRANCH_ABYSS,
     BRANCH_PANDEMONIUM,
     BRANCH_ZIGGURAT,
@@ -528,7 +565,7 @@ enum branch_type                // you.where_are_you
     BRANCH_VOLCANO,
     BRANCH_WIZLAB,
 #if TAG_MAJOR_VERSION == 34
-        BRANCH_UNUSED,
+    BRANCH_DEPTHS,
 #endif
     NUM_BRANCHES
 };
@@ -542,15 +579,17 @@ enum burden_state_type          // you.burden_state
 
 enum caction_type    // Primary categorization of counted actions.
 {                    // A subtype will also be given in each case:
-    CACT_MELEE,      // weapon subtype
-    CACT_FIRE,       // weapon subtype
+    CACT_MELEE,      // weapon subtype or unrand index
+    CACT_FIRE,       // weapon subtype or unrand index
     CACT_THROW,      // item basetype << 16 | subtype
     CACT_CAST,       // spell_type
     CACT_INVOKE,     // ability_type
     CACT_ABIL,       // ability_type
     CACT_EVOKE,      // evoc_type
+                     //   or item.basetype << 16 | subtype
+                     //   or unrand index
     CACT_USE,        // object_class_type
-    CACT_STAB,       // unchivalric_attack_type
+    CACT_STAB,       // stab_type
     NUM_CACTIONS,
 };
 
@@ -586,9 +625,9 @@ enum canned_message_type
     MSG_CALL_DEAD,
     MSG_ANIMATE_REMAINS,
     MSG_DECK_EXHAUSTED,
-    MSG_EVOCATION_SUPPRESSED,
     MSG_BEING_WATCHED,
     MSG_CANNOT_MOVE,
+    MSG_YOU_DIE,
 };
 
 enum char_set_type
@@ -638,6 +677,9 @@ enum cloud_type
     CLOUD_TORNADO,
     CLOUD_DUST_TRAIL,
     CLOUD_GHOSTLY_FLAME,
+    CLOUD_ACID,
+    CLOUD_STORM,
+    CLOUD_NEGATIVE_ENERGY,
     NUM_CLOUD_TYPES,
 
     CLOUD_OPAQUE_FIRST = CLOUD_BLACK_SMOKE,
@@ -693,9 +735,9 @@ enum command_type
     CMD_INSPECT_FLOOR,
     CMD_SHOW_TERRAIN,
     CMD_FULL_VIEW,
-    CMD_EXAMINE_OBJECT,
     CMD_EVOKE,
     CMD_EVOKE_WIELDED,
+    CMD_FORCE_EVOKE_WIELDED,
     CMD_WIELD_WEAPON,
     CMD_WEAPON_SWAP,
     CMD_FIRE,
@@ -724,7 +766,6 @@ enum command_type
     CMD_LOOK_AROUND,
     CMD_WAIT,
     CMD_SHOUT,
-    CMD_DISARM_TRAP,
     CMD_CHARACTER_DUMP,
     CMD_DISPLAY_COMMANDS,
     CMD_DISPLAY_INVENTORY,
@@ -747,7 +788,6 @@ enum command_type
     CMD_SUSPEND_GAME,
     CMD_QUIT,
     CMD_WIZARD,
-    CMD_DESTROY_ITEM,
 
     CMD_SEARCH_STASHES,
     CMD_EXPLORE,
@@ -789,7 +829,9 @@ enum command_type
     // Repeat next command a given number of times
     CMD_REPEAT_CMD,
 
-    CMD_MAX_NORMAL = CMD_REPEAT_CMD,
+    CMD_LUA_CONSOLE,
+
+    CMD_MAX_NORMAL = CMD_LUA_CONSOLE,
 
     // overmap commands
     CMD_MAP_CLEAR_MAP,
@@ -848,7 +890,7 @@ enum command_type
 
     CMD_MAX_OVERMAP = CMD_MAP_EXIT_MAP,
 
-    // targetting commands
+    // targeting commands
     CMD_TARGET_DOWN_LEFT,
     CMD_MIN_TARGET = CMD_TARGET_DOWN_LEFT,
     CMD_TARGET_DOWN,
@@ -1017,6 +1059,10 @@ enum conduct_type
     DID_EXPLORATION,                      // Ashenzari, wrath timers
     DID_DESECRATE_HOLY_REMAINS,           // Zin/Ely/TSO/Yredelemnul
     DID_SEE_MONSTER,                      // TSO
+    DID_ILLUMINATE,                       // Dithmenos
+    DID_KILL_ILLUMINATING,                // Dithmenos
+    DID_FIRE,                             // Dithmenos
+    DID_KILL_FIERY,                       // Dithmenos
 
     NUM_CONDUCTS
 };
@@ -1086,6 +1132,8 @@ enum delay_type
     DELAY_INTERRUPTIBLE,                // simple interruptible delay
     DELAY_UNINTERRUPTIBLE,              // simple uninterruptible delay
 
+    DELAY_SHAFT_SELF, // Formicid ability
+
     NUM_DELAYS
 };
 
@@ -1114,7 +1162,10 @@ enum evoc_type
     EVOC_WAND,
     EVOC_ROD,
     EVOC_DECK,
+#if TAG_MAJOR_VERSION == 34
     EVOC_MISC,
+#endif
+    EVOC_TOME,
 };
 
 enum game_direction_type
@@ -1153,9 +1204,9 @@ enum level_state_type
 
     LSTATE_GOLUBRIA       = (1 << 0), // A Golubria trap exists.
     LSTATE_GLOW_MOLD      = (1 << 1), // Any glowing mold exists.
-
     LSTATE_DELETED        = (1 << 2), // The level won't be saved.
     LSTATE_BEOGH          = (1 << 3), // Possibly an orcish priest around.
+    LSTATE_SLIMY_WALL     = (1 << 4), // Any slime walls exist.
 };
 
 // NOTE: The order of these is very important to their usage!
@@ -1163,6 +1214,7 @@ enum level_state_type
 enum dungeon_char_type
 {
     DCHAR_WALL,
+    DCHAR_PERMAWALL,
     DCHAR_WALL_MAGIC,
     DCHAR_FLOOR,
     DCHAR_FLOOR_MAGIC,
@@ -1242,8 +1294,14 @@ enum dungeon_char_type
 //        array, if you want vault map Lua code to be able to use the
 //        feature, and/or you want to be able to create the feature
 //        using the "create feature by name" wizard command.
+// * Any: if its enumerator comes late in the list (as is likely for new
+//        feature types),_cell_feat_show_colour may need a special case to
+//        allow it to be recoloured.
 // Also take note of MINMOVE and MINSEE above.
 //
+// Various pieces of code depend on the relative order of these enumerators,
+// so there is even more reason (beyond the usual save-compatibility issues)
+// to be careful when moving them around.
 enum dungeon_feature_type
 {
     DNGN_UNSEEN,
@@ -1290,9 +1348,10 @@ enum dungeon_feature_type
     DNGN_FLOOR,
     DNGN_OPEN_DOOR,
 
+    // Nothing after this point will be recoloured in console.
     DNGN_TRAP_MECHANICAL,
-    DNGN_TRAP_MAGICAL,
-    DNGN_TRAP_NATURAL,
+    DNGN_TRAP_TELEPORT,
+    DNGN_TRAP_SHAFT,
     DNGN_TRAP_WEB,
     DNGN_UNDISCOVERED_TRAP,
 
@@ -1330,56 +1389,62 @@ enum dungeon_feature_type
     DNGN_ENTER_HELL,
     DNGN_ENTER_LABYRINTH,
     DNGN_TELEPORTER,
+#if TAG_MAJOR_VERSION == 34
     DNGN_ENTER_PORTAL_VAULT,
     DNGN_EXIT_PORTAL_VAULT,
+#endif
     DNGN_EXPIRED_PORTAL,
 
     // Entrances to various branches
 #if TAG_MAJOR_VERSION == 34
-    DNGN_ENTER_DWARVEN_HALL,
+    DNGN_ENTER_DWARF,
 #endif
-    DNGN_ENTER_ORCISH_MINES,
-        DNGN_ENTER_FIRST_BRANCH = DNGN_ENTER_ORCISH_MINES,
+    DNGN_ENTER_ORC,
+        DNGN_ENTER_FIRST_BRANCH = DNGN_ENTER_ORC,
     DNGN_ENTER_LAIR,
-    DNGN_ENTER_SLIME_PITS,
+    DNGN_ENTER_SLIME,
     DNGN_ENTER_VAULTS,
     DNGN_ENTER_CRYPT,
-    DNGN_ENTER_HALL_OF_BLADES,
+    DNGN_ENTER_BLADE,
     DNGN_ENTER_ZOT,
     DNGN_ENTER_TEMPLE,
-    DNGN_ENTER_SNAKE_PIT,
-    DNGN_ENTER_ELVEN_HALLS,
+    DNGN_ENTER_SNAKE,
+    DNGN_ENTER_ELF,
     DNGN_ENTER_TOMB,
     DNGN_ENTER_SWAMP,
     DNGN_ENTER_SHOALS,
-    DNGN_ENTER_SPIDER_NEST,
+    DNGN_ENTER_SPIDER,
+#if TAG_MAJOR_VERSION == 34
     DNGN_ENTER_FOREST,
-        DNGN_ENTER_LAST_BRANCH = DNGN_ENTER_FOREST,
-    DNGN_UNUSED_ENTER_BRANCH_1,
+#endif
+    DNGN_ENTER_DEPTHS,
+        DNGN_ENTER_LAST_BRANCH = DNGN_ENTER_DEPTHS,
 
     // Exits from various branches
     // Order must be the same as above
 #if TAG_MAJOR_VERSION == 34
-    DNGN_RETURN_FROM_DWARVEN_HALL,
+    DNGN_RETURN_FROM_DWARF,
 #endif
-    DNGN_RETURN_FROM_ORCISH_MINES,
-        DNGN_RETURN_FROM_FIRST_BRANCH = DNGN_RETURN_FROM_ORCISH_MINES,
+    DNGN_RETURN_FROM_ORC,
+        DNGN_RETURN_FROM_FIRST_BRANCH = DNGN_RETURN_FROM_ORC,
     DNGN_RETURN_FROM_LAIR,
-    DNGN_RETURN_FROM_SLIME_PITS,
+    DNGN_RETURN_FROM_SLIME,
     DNGN_RETURN_FROM_VAULTS,
     DNGN_RETURN_FROM_CRYPT,
-    DNGN_RETURN_FROM_HALL_OF_BLADES,
+    DNGN_RETURN_FROM_BLADE,
     DNGN_RETURN_FROM_ZOT,
     DNGN_RETURN_FROM_TEMPLE,
-    DNGN_RETURN_FROM_SNAKE_PIT,
-    DNGN_RETURN_FROM_ELVEN_HALLS,
+    DNGN_RETURN_FROM_SNAKE,
+    DNGN_RETURN_FROM_ELF,
     DNGN_RETURN_FROM_TOMB,
     DNGN_RETURN_FROM_SWAMP,
     DNGN_RETURN_FROM_SHOALS,
-    DNGN_RETURN_FROM_SPIDER_NEST,
+    DNGN_RETURN_FROM_SPIDER,
+#if TAG_MAJOR_VERSION == 34
     DNGN_RETURN_FROM_FOREST,
-        DNGN_RETURN_FROM_LAST_BRANCH = DNGN_RETURN_FROM_FOREST,
-    DNGN_UNUSED_RETURN_BRANCH_1,
+#endif
+    DNGN_RETURN_FROM_DEPTHS,
+        DNGN_RETURN_FROM_LAST_BRANCH = DNGN_RETURN_FROM_DEPTHS,
 
     // Order of altars must match order of gods (god_type)
     DNGN_ALTAR_ZIN,
@@ -1401,17 +1466,28 @@ enum dungeon_feature_type
     DNGN_ALTAR_FEDHAS,
     DNGN_ALTAR_CHEIBRIADOS,
     DNGN_ALTAR_ASHENZARI,
-        DNGN_ALTAR_LAST_GOD = DNGN_ALTAR_ASHENZARI,
-    DNGN_UNUSED_ALTAR_1,
+    DNGN_ALTAR_DITHMENOS,
+        DNGN_ALTAR_LAST_GOD = DNGN_ALTAR_DITHMENOS,
+#if TAG_MAJOR_VERSION > 34
+    DNGN_ALTAR_UNUSED_1,
+    DNGN_ALTAR_UNUSED_2,
+    DNGN_ALTAR_UNUSED_3,
+    DNGN_ALTAR_UNUSED_4,
+    DNGN_ALTAR_UNUSED_5,
+    DNGN_ALTAR_UNUSED_6,
+    DNGN_ALTAR_UNUSED_7,
+    DNGN_ALTAR_UNUSED_8,
+#endif
 
     DNGN_FOUNTAIN_BLUE,
     DNGN_FOUNTAIN_SPARKLING,           // aka 'Magic Fountain' {dlb}
     DNGN_FOUNTAIN_BLOOD,
-    // same order as above!
+#if TAG_MAJOR_VERSION == 34
     DNGN_DRY_FOUNTAIN_BLUE,
     DNGN_DRY_FOUNTAIN_SPARKLING,
     DNGN_DRY_FOUNTAIN_BLOOD,
-    DNGN_PERMADRY_FOUNTAIN,
+#endif
+    DNGN_DRY_FOUNTAIN,
 
     // Not meant to ever appear in grd().
     DNGN_EXPLORE_HORIZON, // dummy for redefinition
@@ -1426,6 +1502,36 @@ enum dungeon_feature_type
 
     DNGN_SEALED_STAIRS_UP,
     DNGN_SEALED_STAIRS_DOWN,
+    DNGN_TRAP_ALARM,
+    DNGN_TRAP_ZOT,
+    DNGN_PASSAGE_OF_GOLUBRIA,
+
+    DNGN_ENTER_ZIGGURAT,
+        DNGN_ENTER_FIRST_PORTAL = DNGN_ENTER_ZIGGURAT,
+    DNGN_ENTER_BAZAAR,
+    DNGN_ENTER_TROVE,
+    DNGN_ENTER_SEWER,
+    DNGN_ENTER_OSSUARY,
+    DNGN_ENTER_BAILEY,
+    DNGN_ENTER_ICE_CAVE,
+    DNGN_ENTER_VOLCANO,
+    DNGN_ENTER_WIZLAB,
+        DNGN_ENTER_LAST_PORTAL = DNGN_ENTER_WIZLAB,
+    DNGN_UNUSED_ENTER_PORTAL_1,
+
+    DNGN_EXIT_ZIGGURAT,
+        DNGN_EXIT_FIRST_PORTAL = DNGN_EXIT_ZIGGURAT,
+    DNGN_EXIT_BAZAAR,
+    DNGN_EXIT_TROVE,
+    DNGN_EXIT_SEWER,
+    DNGN_EXIT_OSSUARY,
+    DNGN_EXIT_BAILEY,
+    DNGN_EXIT_ICE_CAVE,
+    DNGN_EXIT_VOLCANO,
+    DNGN_EXIT_WIZLAB,
+    DNGN_EXIT_LABYRINTH,
+        DNGN_EXIT_LAST_PORTAL = DNGN_EXIT_LABYRINTH,
+    DNGN_UNUSED_EXIT_PORTAL_1,
 
     NUM_FEATURES
 };
@@ -1456,7 +1562,9 @@ enum duration_type
 
     DUR_LIQUID_FLAMES,
     DUR_ICY_ARMOUR,
+#if TAG_MAJOR_VERSION == 34
     DUR_REPEL_MISSILES,
+#endif
     DUR_JELLY_PRAYER,
     DUR_PIETY_POOL,             // distribute piety over time
     DUR_DIVINE_VIGOUR,          // duration of Ely's Divine Vigour
@@ -1472,7 +1580,9 @@ enum duration_type
     DUR_BREATH_WEAPON,
     DUR_TRANSFORMATION,
     DUR_DEATH_CHANNEL,
+#if TAG_MAJOR_VERSION == 34
     DUR_DEFLECT_MISSILES,
+#endif
     DUR_PHASE_SHIFT,
 #if TAG_MAJOR_VERSION == 34
     DUR_SEE_INVISIBLE,
@@ -1484,12 +1594,14 @@ enum duration_type
     DUR_CONDENSATION_SHIELD,
     DUR_STONESKIN,
     DUR_GOURMAND,
-    DUR_BARGAIN,
 #if TAG_MAJOR_VERSION == 34
+    DUR_BARGAIN,
     DUR_INSULATION,
 #endif
     DUR_RESISTANCE,
+#if TAG_MAJOR_VERSION == 34
     DUR_SLAYING,
+#endif
     DUR_STEALTH,
     DUR_MAGIC_SHIELD,
     DUR_SLEEP,
@@ -1501,8 +1613,10 @@ enum duration_type
     DUR_COLOUR_SMOKE_TRAIL,
     DUR_SLIMIFY,
     DUR_TIME_STEP,
-    DUR_ICEMAIL_DEPLETED,       // Wait this many turns for full Icemail
+    DUR_ICEMAIL_DEPLETED,       // Wait this many turns for Icemail to return
+#if TAG_MAJOR_VERSION == 34
     DUR_MISLED,
+#endif
     DUR_QUAD_DAMAGE,
     DUR_AFRAID,
     DUR_MIRROR_DAMAGE,
@@ -1538,15 +1652,36 @@ enum duration_type
     DUR_WEAK,
     DUR_DIMENSION_ANCHOR,
     DUR_ANTIMAGIC,
+#if TAG_MAJOR_VERSION == 34
     DUR_SPIRIT_HOWL,
+#endif
     DUR_INFUSION,
     DUR_SONG_OF_SLAYING,
+#if TAG_MAJOR_VERSION == 34
     DUR_SONG_OF_SHIELDING,
+#endif
     DUR_TOXIC_RADIANCE,
     DUR_RECITE,
     DUR_GRASPING_ROOTS,
     DUR_SLEEP_IMMUNITY,
     DUR_FIRE_VULN,
+    DUR_ELIXIR_HEALTH,
+    DUR_ELIXIR_MAGIC,
+#if TAG_MAJOR_VERSION == 34
+    DUR_ANTENNAE_EXTEND,
+#endif
+    DUR_TROGS_HAND,
+    DUR_BARBS,
+    DUR_POISON_VULN,
+    DUR_FROZEN,
+    DUR_SAP_MAGIC,
+    DUR_MAGIC_SAPPED,
+    DUR_PORTAL_PROJECTILE,
+    DUR_FORESTED,
+    DUR_DRAGON_CALL,
+    DUR_DRAGON_CALL_COOLDOWN,
+    DUR_ABJURATION_AURA,
+    DUR_MESMERISE_IMMUNE,
     NUM_DURATIONS
 };
 
@@ -1580,7 +1715,9 @@ enum enchant_type
     ENCH_SHORT_LIVED,
     ENCH_PARALYSIS,
     ENCH_SICK,
+#if TAG_MAJOR_VERSION == 34
     ENCH_SLEEPY,         //   Monster can't wake until this wears off.
+#endif
     ENCH_HELD,           //   Caught in a net.
     ENCH_BATTLE_FRENZY,  //   Monster is in a battle frenzy.
 #if TAG_MAJOR_VERSION == 34
@@ -1656,6 +1793,22 @@ enum enchant_type
     ENCH_GRASPING_ROOTS,
     ENCH_IOOD_CHARGED,
     ENCH_FIRE_VULN,
+    ENCH_TORNADO_COOLDOWN,
+    ENCH_SIREN_SONG,
+    ENCH_BARBS,
+#if TAG_MAJOR_VERSION == 34
+    ENCH_BUILDING_CHARGE,
+#endif
+    ENCH_POISON_VULN,
+    ENCH_ICEMAIL,
+    ENCH_AGILE,
+    ENCH_FROZEN,
+    ENCH_EPHEMERAL_INFUSION,
+    ENCH_BLACK_MARK,
+    ENCH_GRAND_AVATAR,
+    ENCH_SAP_MAGIC,
+    ENCH_SHROUD,
+    ENCH_PHANTOM_MIRROR,
     // Update enchantment names in mon-ench.cc when adding or removing
     // enchantments.
     NUM_ENCHANTMENTS
@@ -1704,11 +1857,13 @@ enum equipment_type
     EQ_RING_SIX,
     EQ_RING_SEVEN,
     EQ_RING_EIGHT,
+    // Finger amulet provides an extra ring slot
+    EQ_RING_AMULET,
     NUM_EQUIP,
 
     EQ_MIN_ARMOUR = EQ_CLOAK,
     EQ_MAX_ARMOUR = EQ_BODY_ARMOUR,
-    EQ_MAX_WORN   = EQ_RING_EIGHT,
+    EQ_MAX_WORN   = EQ_RING_AMULET,
     // these aren't actual equipment slots, they're categories for functions
     EQ_STAFF            = 100,         // weapon with base_type OBJ_STAVES
     EQ_RINGS,                          // check both rings
@@ -1783,6 +1938,7 @@ enum god_type
     GOD_FEDHAS,
     GOD_CHEIBRIADOS,
     GOD_ASHENZARI,
+    GOD_DITHMENOS,
     NUM_GODS,                          // always after last god
 
     GOD_RANDOM = 100,
@@ -1818,13 +1974,6 @@ enum hunger_state_t                    // you.hunger_state
     HS_ENGORGED,
 };
 
-enum immolation_source_type
-{
-    IMMOLATION_SCROLL,
-    IMMOLATION_AFFIX,  // effect when fixing fire brand
-    IMMOLATION_TOME,   // a Tome of Destruction effect
-};
-
 enum item_status_flag_type  // per item flags: ie. ident status, cursed status
 {
     ISFLAG_KNOW_CURSE        = 0x00000001,  // curse status
@@ -1832,11 +1981,6 @@ enum item_status_flag_type  // per item flags: ie. ident status, cursed status
     ISFLAG_KNOW_PLUSES       = 0x00000004,  // to hit/to dam/to AC/charges
     ISFLAG_KNOW_PROPERTIES   = 0x00000008,  // know special artefact properties
     ISFLAG_IDENT_MASK        = 0x0000000F,  // mask of all id related flags
-
-    // these three masks are of the minimal flags set upon using equipment:
-    ISFLAG_EQ_WEAPON_MASK    = 0x0000000B,  // mask of flags for weapon equip
-    ISFLAG_EQ_ARMOUR_MASK    = 0x0000000F,  // mask of flags for armour equip
-    ISFLAG_EQ_JEWELLERY_MASK = 0x0000000F,  // mask of flags for known jewellery
 
     ISFLAG_CURSED            = 0x00000100,  // cursed
     ISFLAG_BLESSED_WEAPON    = 0x00000200,  // personalized TSO's gift
@@ -1863,12 +2007,12 @@ enum item_status_flag_type  // per item flags: ie. ident status, cursed status
 
     ISFLAG_NO_PICKUP         = 0x00400000,  // Monsters won't pick this up
 
-    ISFLAG_NO_RACE           = 0x00000000,  // used for clearing these flags
-    ISFLAG_ORCISH            = 0x01000000,  // low quality items
-    ISFLAG_DWARVEN           = 0x02000000,  // strong and robust items
-    ISFLAG_ELVEN             = 0x04000000,  // light and accurate items
+#if TAG_MAJOR_VERSION == 34
+    ISFLAG_UNUSED1           = 0x01000000,  // was ISFLAG_ORCISH
+    ISFLAG_UNUSED2           = 0x02000000,  // was ISFLAG_DWARVEN
+    ISFLAG_UNUSED3           = 0x04000000,  // was ISFLAG_ELVEN
     ISFLAG_RACIAL_MASK       = 0x07000000,  // mask of racial equipment types
-
+#endif
     ISFLAG_NOTED_ID          = 0x08000000,
     ISFLAG_NOTED_GET         = 0x10000000,
 
@@ -1923,7 +2067,9 @@ enum job_type
     JOB_ARCANE_MARKSMAN,
     JOB_DEATH_KNIGHT,
     JOB_ABYSSAL_KNIGHT,
+#if TAG_MAJOR_VERSION == 34
     JOB_JESTER,
+#endif
     NUM_JOBS,                          // always after the last job
 
     JOB_UNKNOWN = 100,
@@ -1935,7 +2081,7 @@ enum KeymapContext
 {
     KMC_DEFAULT,         // For no-arg getchm(), must be zero.
     KMC_LEVELMAP,        // When in the 'X' level map
-    KMC_TARGETTING,      // Only during 'x' and other targetting modes
+    KMC_TARGETING,       // Only during 'x' and other targeting modes
     KMC_CONFIRM,         // When being asked y/n/q questions
     KMC_MENU,            // For menus
 #ifdef USE_TILE
@@ -2009,6 +2155,7 @@ enum terrain_change_type
     TERRAIN_CHANGE_TOMB,
     TERRAIN_CHANGE_IMPRISON,
     TERRAIN_CHANGE_DOOR_SEAL,
+    TERRAIN_CHANGE_FORESTED,
     NUM_TERRAIN_CHANGE_TYPES
 };
 
@@ -2036,6 +2183,8 @@ enum map_feature
     MF_EXCL_ROOT,
     MF_EXCL,
     MF_PLAYER,
+    MF_DEEP_WATER,
+    MF_PORTAL,
     MF_MAX,
 
     MF_SKIP,
@@ -2071,7 +2220,7 @@ enum targ_mode_type
     TARG_INJURED_FRIEND, // for healing
     TARG_HOSTILE,
     TARG_HOSTILE_SUBMERGED, // Target hostiles including submerged ones
-    TARG_EVOLVABLE_PLANTS,  // Targetting mode for Fedhas' evolution
+    TARG_EVOLVABLE_PLANTS,  // Targeting mode for Fedhas' evolution
     TARG_HOSTILE_UNDEAD,    // For dispel undead
     TARG_NUM_MODES
 };
@@ -2082,6 +2231,9 @@ enum monster_type                      // menv[].type
     MONS_PROGRAM_BUG,
         MONS_0 = MONS_PROGRAM_BUG,
 
+#if TAG_MAJOR_VERSION > 34
+    MONS_GIANT_LIZARD,          // genus
+#endif
     MONS_GIANT_NEWT,
     MONS_GIANT_GECKO,
     MONS_IGUANA,
@@ -2089,14 +2241,23 @@ enum monster_type                      // menv[].type
     MONS_BASILISK,
     MONS_BAT,
     MONS_FIRE_BAT,
+#if TAG_MAJOR_VERSION > 34
+    MONS_SNAKE,                // genus
+#endif
     MONS_BALL_PYTHON,
     MONS_ADDER,
     MONS_WATER_MOCCASIN,
     MONS_BLACK_MAMBA,
     MONS_ANACONDA,
     MONS_SEA_SNAKE,
+#if TAG_MAJOR_VERSION > 34
+    MONS_SHOCK_SERPENT,
+    MONS_MANA_VIPER,
+#endif
     MONS_RAT,
+#if TAG_MAJOR_VERSION == 34
     MONS_GREY_RAT,
+#endif
     MONS_GREEN_RAT,
     MONS_ORANGE_RAT,
 #if TAG_MAJOR_VERSION == 34
@@ -2112,11 +2273,16 @@ enum monster_type                      // menv[].type
     MONS_WOLF,
     MONS_WARG,
     MONS_HELL_HOUND,
+#if TAG_MAJOR_VERSION > 34
+    MONS_RAIJU,
+#endif
     MONS_HOG,
     MONS_HELL_HOG,
     MONS_HOLY_SWINE,            // porkalator
     MONS_GIANT_SLUG,
+#if TAG_MAJOR_VERSION == 34
     MONS_AGATE_SNAIL,
+#endif
     MONS_ELEPHANT_SLUG,
     MONS_GIANT_LEECH,
     MONS_BABY_ALLIGATOR,
@@ -2133,25 +2299,40 @@ enum monster_type                      // menv[].type
     MONS_MANTICORE,
     MONS_HIPPOGRIFF,
     MONS_GRIFFON,
+#if TAG_MAJOR_VERSION > 34
+    MONS_CHIMERA,
+#endif
     MONS_GIANT_FROG,
     MONS_SPINY_FROG,
     MONS_BLINK_FROG,
+#if TAG_MAJOR_VERSION > 34
+    MONS_BEAR,                  // genus
+#endif
     MONS_GRIZZLY_BEAR,
     MONS_POLAR_BEAR,
     MONS_BLACK_BEAR,
     MONS_WORM,
     MONS_BRAIN_WORM,
+#if TAG_MAJOR_VERSION == 34
     MONS_ROCK_WORM,
     MONS_SPINY_WORM,
+#endif
     MONS_WYVERN,
+#if TAG_MAJOR_VERSION > 34
+    MONS_DRAKE,                 // genus
+#endif
     MONS_LINDWURM,
     MONS_FIRE_DRAKE,
     MONS_SWAMP_DRAKE,
     MONS_DEATH_DRAKE,
+#if TAG_MAJOR_VERSION > 34
+    MONS_WIND_DRAKE,
+    MONS_DRAGON,                // genus
+#endif
     MONS_STEAM_DRAGON,
     MONS_MOTTLED_DRAGON,
     MONS_SWAMP_DRAGON,
-    MONS_DRAGON,
+    MONS_FIRE_DRAGON,
     MONS_ICE_DRAGON,
     MONS_SHADOW_DRAGON,
     MONS_STORM_DRAGON,
@@ -2164,7 +2345,9 @@ enum monster_type                      // menv[].type
     MONS_OOZE,
     MONS_JELLY,
     MONS_BROWN_OOZE,
+#if TAG_MAJOR_VERSION == 34
     MONS_GIANT_AMOEBA,
+#endif
     MONS_AZURE_JELLY,
     MONS_DEATH_OOZE,
     MONS_ACID_BLOB,
@@ -2180,6 +2363,7 @@ enum monster_type                      // menv[].type
     MONS_DANCING_WEAPON,
 #if TAG_MAJOR_VERSION > 34
     MONS_SPECTRAL_WEAPON,
+    MONS_GRAND_AVATAR,
 #endif
     MONS_HARPY,
     MONS_RAVEN,
@@ -2196,6 +2380,9 @@ enum monster_type                      // menv[].type
     MONS_WORKER_ANT,
     MONS_SOLDIER_ANT,
     MONS_QUEEN_ANT,
+#if TAG_MAJOR_VERSION > 34
+    MONS_FORMICID,
+#endif
     MONS_KILLER_BEE,
     MONS_QUEEN_BEE,
     MONS_VAMPIRE_MOSQUITO,
@@ -2208,7 +2395,9 @@ enum monster_type                      // menv[].type
     MONS_BORING_BEETLE,
     MONS_BOULDER_BEETLE,
     MONS_GIANT_COCKROACH,
+#if TAG_MAJOR_VERSION == 34
     MONS_GIANT_CENTIPEDE,
+#endif
     MONS_GIANT_MITE,
     MONS_SPIDER,
     MONS_WOLF_SPIDER,
@@ -2220,20 +2409,42 @@ enum monster_type                      // menv[].type
     MONS_SCORPION,
     MONS_EMPEROR_SCORPION,
     MONS_MOTH,                  // genus
+#if TAG_MAJOR_VERSION == 34
     MONS_MOTH_OF_SUPPRESSION,
+#endif
     MONS_GHOST_MOTH,
     MONS_MOTH_OF_WRATH,
     MONS_DEMONIC_CRAWLER,
     MONS_SNAPPING_TURTLE,
     MONS_ALLIGATOR_SNAPPING_TURTLE,
-    MONS_GNOME,                 // single vault
+#if TAG_MAJOR_VERSION == 34
+    MONS_GNOME,
+#endif
     MONS_HALFLING,              // recolouring + single vault.
     MONS_FELID,                 // recolouring + single vault.  Miaow!
     MONS_VAMPIRE_BAT,           // recolouring + vaults
     MONS_DEMIGOD,               // recolouring + single vault
-    MONS_DEMONSPAWN,            // recolouring + single vault... but there are FRs
+    MONS_DEMONSPAWN,
+#if TAG_MAJOR_VERSION > 34
+    MONS_FIRST_DEMONSPAWN = MONS_DEMONSPAWN,
+    MONS_MONSTROUS_DEMONSPAWN,
+    MONS_FIRST_BASE_DEMONSPAWN = MONS_MONSTROUS_DEMONSPAWN,
+    MONS_GELID_DEMONSPAWN,
+    MONS_INFERNAL_DEMONSPAWN,
+    MONS_PUTRID_DEMONSPAWN,
+    MONS_TORTUROUS_DEMONSPAWN,
+    MONS_LAST_BASE_DEMONSPAWN = MONS_TORTUROUS_DEMONSPAWN,
+    MONS_BLOOD_SAINT,
+    MONS_FIRST_NONBASE_DEMONSPAWN = MONS_BLOOD_SAINT,
+    MONS_CHAOS_CHAMPION,
+    MONS_WARMONGER,
+    MONS_CORRUPTER,
+    MONS_BLACK_SUN,
+    MONS_LAST_NONBASE_DEMONSPAWN = MONS_BLACK_SUN,
+    MONS_LAST_DEMONSPAWN = MONS_BLACK_SUN,
+#endif
     MONS_GARGOYLE,
-    MONS_METAL_GARGOYLE,
+    MONS_WAR_GARGOYLE,
     MONS_MOLTEN_GARGOYLE,
     MONS_UGLY_THING,
     MONS_VERY_UGLY_THING,
@@ -2243,19 +2454,29 @@ enum monster_type                      // menv[].type
     MONS_ORB_GUARDIAN,
 
     MONS_GOLEM,                 // genus
-    MONS_CLAY_GOLEM,
 #if TAG_MAJOR_VERSION == 34
+    MONS_CLAY_GOLEM,
     MONS_WOOD_GOLEM,
-#endif
     MONS_STONE_GOLEM,
+#endif
     MONS_IRON_GOLEM,
-    MONS_CRYSTAL_GOLEM,
+    MONS_CRYSTAL_GUARDIAN,
     MONS_TOENAIL_GOLEM,
     MONS_ELECTRIC_GOLEM, // replacing the guardian robot -- bwr
+#if TAG_MAJOR_VERSION > 34
+    MONS_GUARDIAN_GOLEM,
+    MONS_SPELLFORGED_SERVITOR,
+#endif
     MONS_ORB_OF_FIRE,    // Swords renamed to fit -- bwr
+#if TAG_MAJOR_VERSION > 34
+    MONS_ELEMENTAL,             // genus
+#endif
     MONS_EARTH_ELEMENTAL,
     MONS_FIRE_ELEMENTAL,
     MONS_AIR_ELEMENTAL,
+#if TAG_MAJOR_VERSION > 34
+    MONS_IRON_ELEMENTAL,
+#endif
     MONS_TWISTER,        // air miscasts
     MONS_GOLDEN_EYE,
     MONS_FIRE_VORTEX,
@@ -2281,11 +2502,22 @@ enum monster_type                      // menv[].type
     MONS_TOADSTOOL,
     MONS_FUNGUS,
     MONS_WANDERING_MUSHROOM,
+#if TAG_MAJOR_VERSION > 34
+    MONS_DEATHCAP,
+#endif
     MONS_PLANT,
     MONS_OKLOB_SAPLING,
     MONS_OKLOB_PLANT,
     MONS_BUSH,
     MONS_BURNING_BUSH,
+#if TAG_MAJOR_VERSION > 34
+    MONS_THORN_LOTUS,
+    MONS_THORN_HUNTER,
+    MONS_BRIAR_PATCH,
+    MONS_SHAMBLING_MANGROVE,
+    MONS_VINE_STALKER,
+    MONS_ANIMATED_TREE,
+#endif
     MONS_GIANT_SPORE,
     MONS_BALLISTOMYCETE,
     MONS_HYPERACTIVE_BALLISTOMYCETE,
@@ -2307,14 +2539,17 @@ enum monster_type                      // menv[].type
     MONS_ORC_KNIGHT,
     MONS_ORC_SORCERER,
     MONS_ORC_WARLORD,
+#if TAG_MAJOR_VERSION > 34
+    MONS_LAVA_ORC,
+#endif
     MONS_DWARF,
     MONS_DEEP_DWARF,
 #if TAG_MAJOR_VERSION == 34
     MONS_DEEP_DWARF_SCION,
     MONS_DEEP_DWARF_ARTIFICER,
     MONS_DEEP_DWARF_NECROMANCER,
-#endif
     MONS_DEEP_DWARF_BERSERKER,
+#endif
     MONS_DEEP_DWARF_DEATH_KNIGHT,
     MONS_UNBORN,
     MONS_ELF,
@@ -2337,29 +2572,54 @@ enum monster_type                      // menv[].type
     MONS_SPRIGGAN,
     MONS_SPRIGGAN_DRUID,
     MONS_SPRIGGAN_ASSASSIN,
+#if TAG_MAJOR_VERSION > 34
+    MONS_SPRIGGAN_ENCHANTER,
+#endif
     MONS_SPRIGGAN_RIDER,
     MONS_SPRIGGAN_BERSERKER,
     MONS_SPRIGGAN_DEFENDER,
     MONS_SPRIGGAN_AIR_MAGE,
     MONS_FIREFLY,
     MONS_TENGU,
+#if TAG_MAJOR_VERSION > 34
+    MONS_TENGU_WARRIOR,
+    MONS_TENGU_CONJURER,
+    MONS_TENGU_REAVER,
+#endif
     MONS_MINOTAUR,
     MONS_NAGA,
     MONS_NAGA_WARRIOR,
     MONS_NAGA_MAGE,
+#if TAG_MAJOR_VERSION > 34
+    MONS_NAGA_RITUALIST,
+    MONS_NAGA_SHARPSHOOTER,
+#endif
     MONS_GREATER_NAGA,
     MONS_GUARDIAN_SERPENT,
     MONS_OCTOPODE,
+#if TAG_MAJOR_VERSION > 34
+    MONS_OCTOPODE_CRUSHER,
+#endif
     MONS_MERFOLK,
     MONS_MERMAID,
     MONS_SIREN,
+#if TAG_MAJOR_VERSION > 34
+    MONS_DROWNED_SOUL,
+#endif
     MONS_MERFOLK_IMPALER,
     MONS_MERFOLK_AQUAMANCER,
     MONS_MERFOLK_JAVELINEER,
+#if TAG_MAJOR_VERSION > 34
+    MONS_WATER_NYMPH,
+#endif
     MONS_CENTAUR,
     MONS_CENTAUR_WARRIOR,
     MONS_YAKTAUR,
     MONS_YAKTAUR_CAPTAIN,
+#if TAG_MAJOR_VERSION > 34
+    MONS_FAUN,
+    MONS_SATYR,
+#endif
     MONS_OGRE,
     MONS_TWO_HEADED_OGRE,
     MONS_OGRE_MAGE,
@@ -2369,6 +2629,10 @@ enum monster_type                      // menv[].type
 #endif
     MONS_IRON_TROLL,
     MONS_DEEP_TROLL,
+#if TAG_MAJOR_VERSION > 34
+    MONS_DEEP_TROLL_EARTH_MAGE,
+    MONS_DEEP_TROLL_SHAMAN,
+#endif
     MONS_GIANT,                 // genus
     MONS_HILL_GIANT,
     MONS_CYCLOPS,
@@ -2383,6 +2647,12 @@ enum monster_type                      // menv[].type
     MONS_NECROMANCER,
     MONS_WIZARD,
     MONS_VAULT_GUARD,
+#if TAG_MAJOR_VERSION > 34
+    MONS_VAULT_SENTINEL,
+    MONS_VAULT_WARDEN,
+    MONS_IRONBRAND_CONVOKER,
+    MONS_IRONHEART_PRESERVER,
+#endif
     MONS_KILLER_KLOWN,
     MONS_SHAPESHIFTER,
     MONS_GLOWING_SHAPESHIFTER,
@@ -2416,14 +2686,23 @@ enum monster_type                      // menv[].type
 
     // Lava monsters:
     MONS_LAVA_WORM,
+#if TAG_MAJOR_VERSION == 34
     MONS_LAVA_FISH,
+#endif
     MONS_LAVA_SNAKE,
     MONS_SALAMANDER,
+#if TAG_MAJOR_VERSION > 34
+    MONS_SALAMANDER_FIREBRAND,
+    MONS_SALAMANDER_MYSTIC,
+#endif
+
     // Water monsters:
     MONS_BIG_FISH,
     MONS_GIANT_GOLDFISH,
     MONS_ELECTRIC_EEL,
+#if TAG_MAJOR_VERSION == 34
     MONS_JELLYFISH,
+#endif
     MONS_WATER_ELEMENTAL,
     MONS_SWAMP_WORM,
     MONS_SHARK,
@@ -2438,17 +2717,24 @@ enum monster_type                      // menv[].type
     MONS_STATUE,
     MONS_TRAINING_DUMMY,
     MONS_LIGHTNING_SPIRE,
+#if TAG_MAJOR_VERSION > 34
+    MONS_DIAMOND_OBELISK,
+#endif
 
     // Demons:
     MONS_CRIMSON_IMP,
     MONS_QUASIT,
     MONS_WHITE_IMP,
+#if TAG_MAJOR_VERSION == 34
     MONS_LEMURE,
+#endif
     MONS_UFETUBUS,
     MONS_IRON_IMP,
     MONS_SHADOW_IMP,
     MONS_RED_DEVIL,
+#if TAG_MAJOR_VERSION == 34
     MONS_ROTTING_DEVIL,
+#endif
     MONS_HELLWING,
     MONS_SIXFIRHY,
     MONS_NEQOXEC,
@@ -2477,9 +2763,20 @@ enum monster_type                      // menv[].type
     MONS_ICE_FIEND,
     MONS_SHADOW_FIEND,
     MONS_PANDEMONIUM_LORD,
+
+    // Spiritual beings ('R')
     MONS_EFREET,
     MONS_RAKSHASA,
+#if TAG_MAJOR_VERSION == 34
     MONS_RAKSHASA_FAKE,
+#endif
+#if TAG_MAJOR_VERSION > 34
+    MONS_DRYAD,
+    MONS_SNAPLASHER_VINE,
+    MONS_SNAPLASHER_VINE_SEGMENT,
+#endif
+
+    // Abyssals
     MONS_UNSEEN_HORROR,
     MONS_TENTACLED_STARSPAWN,
     MONS_LURKING_HORROR,
@@ -2487,6 +2784,13 @@ enum monster_type                      // menv[].type
     MONS_STARCURSED_MASS,
     MONS_ANCIENT_ZYME,
     MONS_WRETCHED_STAR,
+#if TAG_MAJOR_VERSION > 34
+    MONS_APOCALYPSE_CRAB,
+    MONS_STARSPAWN_TENTACLE,
+    MONS_STARSPAWN_TENTACLE_SEGMENT,
+    MONS_SPATIAL_MAELSTROM,
+    MONS_WORLDBINDER,
+#endif
     MONS_ELDRITCH_TENTACLE,
     MONS_ELDRITCH_TENTACLE_SEGMENT,
     MONS_TENTACLED_MONSTROSITY,
@@ -2496,6 +2800,11 @@ enum monster_type                      // menv[].type
     MONS_MACABRE_MASS,
 
     // Undead:
+#if TAG_MAJOR_VERSION > 34
+    MONS_ZOMBIE,
+    MONS_SKELETON,
+    MONS_SIMULACRUM,
+#endif
     MONS_PLAGUE_SHAMBLER,
     MONS_NECROPHAGE,
     MONS_GHOUL,
@@ -2528,6 +2837,12 @@ enum monster_type                      // menv[].type
     MONS_CURSE_TOE,
     MONS_CURSE_SKULL,
     MONS_PROFANE_SERVITOR,
+#if TAG_MAJOR_VERSION > 34
+    MONS_ANCIENT_CHAMPION,
+    MONS_REVENANT,
+    MONS_LOST_SOUL,
+    MONS_JIANGSHI,
+#endif
     MONS_SKELETON_SMALL,   // recolouring only
     MONS_SKELETON_LARGE,   // recolouring only
     MONS_ZOMBIE_SMALL,     // recolouring only
@@ -2568,6 +2883,11 @@ enum monster_type                      // menv[].type
     MONS_CEREBOV,
     MONS_GLOORX_VLOQ,
     MONS_SERPENT_OF_HELL,
+#if TAG_MAJOR_VERSION > 34
+    MONS_SERPENT_OF_HELL_COCYTUS,
+    MONS_SERPENT_OF_HELL_DIS,
+    MONS_SERPENT_OF_HELL_TARTARUS,
+#endif
     // Random uniques:
     MONS_IJYB,
     MONS_JESSICA,
@@ -2624,23 +2944,44 @@ enum monster_type                      // menv[].type
     MONS_CRAZY_YIUF,
     MONS_MENNAS,
     MONS_MARA,
+#if TAG_MAJOR_VERSION == 34
     MONS_MARA_FAKE,
+#endif
     MONS_GRINDER,
     MONS_JORY,
     MONS_IGNACIO,
     MONS_ARACHNE,
+#if TAG_MAJOR_VERSION > 34
+    MONS_HELLBINDER,
+    MONS_CLOUD_MAGE,
+    MONS_FANNAR,
+    MONS_JORGRUN,
+    MONS_SOJOBO,
+    MONS_ASTERION,
+    MONS_NATASHA,
+    MONS_VASHNIA,
+#endif
     // Sprint uniques:
     MONS_CHUCK,
     MONS_IRON_GIANT,
     MONS_NELLIE,
+#if TAG_MAJOR_VERSION == 34
     MONS_IRON_ELEMENTAL,
+#endif
 
     // Specials:
     MONS_PLAYER_ILLUSION,
     MONS_PLAYER_GHOST,
     MONS_BALL_LIGHTNING,
     MONS_ORB_OF_DESTRUCTION,    // a projectile, not a real mon
+#if TAG_MAJOR_VERSION > 34
+    MONS_FULMINANT_PRISM,
+    MONS_BATTLESPHERE,
+#endif
     MONS_PILLAR_OF_SALT,
+#if TAG_MAJOR_VERSION > 34
+    MONS_BLOCK_OF_ICE,
+#endif
     MONS_HELL_LORD,             // genus
     MONS_MERGED_SLIME_CREATURE, // used only for recolouring
     MONS_SENSED,                // dummy monster for unspecified sensed mons
@@ -2650,9 +2991,13 @@ enum monster_type                      // menv[].type
     MONS_SENSED_NASTY,
     MONS_SENSED_FRIENDLY,
     MONS_PLAYER,                // a certain ugly creature
+#if TAG_MAJOR_VERSION > 34
+    MONS_PLAYER_SHADOW,         // Dithmenos
+#endif
     MONS_TEST_SPAWNER,
 
     // Add new monsters here:
+#if TAG_MAJOR_VERSION == 34
     MONS_SERPENT_OF_HELL_COCYTUS,
     MONS_SERPENT_OF_HELL_DIS,
     MONS_SERPENT_OF_HELL_TARTARUS,
@@ -2680,10 +3025,7 @@ enum monster_type                      // menv[].type
 
     MONS_GIANT_LIZARD,          // genus
     MONS_DRAKE,                 // genus
-
-#if TAG_MAJOR_VERSION == 34
-    MONS_ARACHNOID,             // genus
-#endif
+    MONS_PLAYER_SHADOW,         // Dithmenos
 
     MONS_DEEP_TROLL_EARTH_MAGE,
     MONS_DEEP_TROLL_SHAMAN,
@@ -2711,9 +3053,7 @@ enum monster_type                      // menv[].type
     MONS_FAUN,
     MONS_SATYR,
 
-#if TAG_MAJOR_VERSION == 34
     MONS_PAN,
-#endif
 
     MONS_TENGU_WARRIOR,
     MONS_TENGU_CONJURER,
@@ -2732,17 +3072,64 @@ enum monster_type                      // menv[].type
     MONS_SPIRIT_WOLF,
     MONS_ANCIENT_BEAR,
     MONS_WATER_NYMPH,
-    MONS_TREANT,
+    MONS_SHAMBLING_MANGROVE,
     MONS_THORN_LOTUS,
-#if TAG_MAJOR_VERSION == 34
     MONS_SPECTRAL_WEAPON,
-#endif
-
     MONS_ELEMENTAL_WELLSPRING,
-
     MONS_POLYMOTH,
 
     MONS_DEATHCAP,
+    MONS_IGNIS,
+
+    MONS_FORMICID,
+    MONS_FORMICID_DRONE,
+    MONS_FORMICID_VENOM_MAGE,
+
+    MONS_RAIJU,
+
+    MONS_DRAGON,                // genus
+    MONS_SNAKE,                 // genus
+
+    MONS_MONSTROUS_DEMONSPAWN,
+    MONS_FIRST_DEMONSPAWN = MONS_MONSTROUS_DEMONSPAWN,
+    MONS_FIRST_BASE_DEMONSPAWN = MONS_MONSTROUS_DEMONSPAWN,
+    MONS_GELID_DEMONSPAWN,
+    MONS_INFERNAL_DEMONSPAWN,
+    MONS_PUTRID_DEMONSPAWN,
+    MONS_TORTUROUS_DEMONSPAWN,
+    MONS_LAST_BASE_DEMONSPAWN = MONS_TORTUROUS_DEMONSPAWN,
+    MONS_BLOOD_SAINT,
+    MONS_FIRST_NONBASE_DEMONSPAWN = MONS_BLOOD_SAINT,
+    MONS_CHAOS_CHAMPION,
+    MONS_WARMONGER,
+    MONS_CORRUPTER,
+    MONS_BLACK_SUN,
+    MONS_LAST_NONBASE_DEMONSPAWN = MONS_BLACK_SUN,
+    MONS_LAST_DEMONSPAWN = MONS_BLACK_SUN,
+
+    MONS_WORLDBINDER,
+    MONS_GRAND_AVATAR,
+    MONS_VINE_STALKER,
+
+    MONS_DROWNED_SOUL,
+
+    MONS_SHOCK_SERPENT,
+    MONS_MANA_VIPER,
+    MONS_NAGA_RITUALIST,
+    MONS_NAGA_SHARPSHOOTER,
+
+    MONS_SALAMANDER_FIREBRAND,
+    MONS_SALAMANDER_MYSTIC,
+
+    MONS_ASTERION,
+    MONS_NATASHA,
+    MONS_VASHNIA,
+
+    MONS_BLOCK_OF_ICE,
+    MONS_GUARDIAN_GOLEM,
+    MONS_SPELLFORGED_SERVITOR,
+    MONS_OCTOPODE_CRUSHER,
+#endif
 
     NUM_MONSTERS,               // used for polymorph
 
@@ -2754,6 +3141,7 @@ enum monster_type                      // menv[].type
     RANDOM_TOUGHER_MONSTER, // used for poly upgrading monsters.
     RANDOM_MOBILE_MONSTER, // used for monster generation (shadow creatures)
     RANDOM_COMPATIBLE_MONSTER, // used for player shadow creatures (prevents repulsing summons)
+    RANDOM_BANDLESS_MONSTER,
 
     // A random draconian, either base coloured drac or specialised.
     RANDOM_DRACONIAN,
@@ -2770,6 +3158,10 @@ enum monster_type                      // menv[].type
     RANDOM_MODERATE_OOD, // +5 depth, AKA '9' glyph on maps
     RANDOM_SUPER_OOD, // *2 + 4 depth, AKA '8'
 
+    RANDOM_DEMONSPAWN,
+    RANDOM_BASE_DEMONSPAWN,
+    RANDOM_NONBASE_DEMONSPAWN,
+
     WANDERING_MONSTER = 3500, // only used in monster placement routines - forced limit checks {dlb}
 };
 
@@ -2779,8 +3171,11 @@ enum beh_type
     BEH_WANDER,
     BEH_SEEK,
     BEH_FLEE,
-    BEH_CORNERED,
+    BEH_CORNERED,                      //  wanting to flee, but blocked by an
+                                       //  obstacle or monster
+#if TAG_MAJOR_VERSION == 34
     BEH_PANIC,                         //  like flee but without running away
+#endif
     BEH_LURK,                          //  stay still until discovered or
                                        //  enemy close by
     BEH_RETREAT,                       //  like flee but when cannot attack
@@ -2870,6 +3265,9 @@ enum mutation_type
     MUT_CLEVER,
     MUT_CLUMSY,
     MUT_COLD_RESISTANCE,
+#if TAG_MAJOR_VERSION > 34
+    MUT_COLD_VULNERABILITY,
+#endif
     MUT_CONSERVE_POTIONS,
     MUT_CONSERVE_SCROLLS,
     MUT_DEFORMED,
@@ -2877,8 +3275,12 @@ enum mutation_type
     MUT_DETERIORATION,
     MUT_DOPEY,
     MUT_HEAT_RESISTANCE,
+#if TAG_MAJOR_VERSION > 34
+    MUT_HEAT_VULNERABILITY,
+#endif
     MUT_HERBIVOROUS,
     MUT_HURL_HELLFIRE,
+
     MUT_FAST,
     MUT_FAST_METABOLISM,
 #if TAG_MAJOR_VERSION == 34
@@ -2943,8 +3345,19 @@ enum mutation_type
     MUT_TRAMPLE_RESISTANCE,
 #if TAG_MAJOR_VERSION == 34
     MUT_CLING,
-#endif
     MUT_FUMES,
+#endif
+    MUT_JUMP,
+#if TAG_MAJOR_VERSION == 34
+    MUT_EXOSKELETON,
+#endif
+    MUT_ANTIMAGIC_BITE,
+    MUT_NO_DEVICE_HEAL,
+#if TAG_MAJOR_VERSION == 34
+    MUT_COLD_VULNERABILITY,
+    MUT_HEAT_VULNERABILITY,
+#endif
+    MUT_BLACK_MARK,
     NUM_MUTATIONS,
 
     RANDOM_MUTATION,
@@ -2953,6 +3366,7 @@ enum mutation_type
     RANDOM_BAD_MUTATION,
     RANDOM_SLIME_MUTATION,
     RANDOM_NON_SLIME_MUTATION,
+    RANDOM_CORRUPT_MUTATION,
 };
 
 enum object_class_type                 // mitm[].base_type
@@ -2991,7 +3405,6 @@ enum operation_types
     OPER_READ     = 'r',
     OPER_MEMORISE = 'M',
     OPER_ZAP      = 'Z',
-    OPER_EXAMINE  = 'x',
     OPER_FIRE     = 'f',
     OPER_PRAY     = 'p',
     OPER_EVOKE    = 'v',
@@ -3012,7 +3425,6 @@ enum recite_type
     RECITE_IMPURE,
     RECITE_HERETIC,
     RECITE_UNHOLY,
-    RECITE_ALLY,
     NUM_RECITE_TYPES
 };
 
@@ -3026,7 +3438,7 @@ enum potion_type
 {
     POT_CURING,
     POT_HEAL_WOUNDS,
-    POT_SPEED,
+    POT_HASTE,
     POT_MIGHT,
     POT_BRILLIANCE,
     POT_AGILITY,
@@ -3057,9 +3469,7 @@ enum potion_type
     POT_RESISTANCE,
     POT_BLOOD,
     POT_BLOOD_COAGULATED,
-#if TAG_MAJOR_VERSION == 34
-    POT_FIZZING,
-#endif
+    POT_LIGNIFY,
     POT_BENEFICIAL_MUTATION,
     NUM_POTIONS
 };
@@ -3072,6 +3482,8 @@ enum pronoun_type
     PRONOUN_OBJECTIVE,
 };
 
+// Be sure to update _prop_name[] in wiz-item.cc to match.  Also
+// _randart_propnames(), but order doesn't matter there.
 enum artefact_prop_type
 {
     ARTP_BRAND,
@@ -3116,6 +3528,7 @@ enum artefact_prop_type
     ARTP_FOG,
 #endif
     ARTP_REGENERATION,
+    ARTP_NO_UPGRADE,
     ARTP_NUM_PROPERTIES
 };
 
@@ -3140,13 +3553,12 @@ enum shop_type
     SHOP_ARMOUR_ANTIQUE,
     SHOP_GENERAL_ANTIQUE,
     SHOP_JEWELLERY,
-    SHOP_WAND,
+    SHOP_EVOKABLES, // wands, rods, and misc items
     SHOP_BOOK,
     SHOP_FOOD,
     SHOP_DISTILLERY,
     SHOP_SCROLL,
     SHOP_GENERAL,
-    SHOP_MISCELLANY,
     NUM_SHOPS, // must remain last 'regular' member {dlb}
     SHOP_UNASSIGNED = 100,
     SHOP_RANDOM,
@@ -3295,10 +3707,14 @@ enum species_type
     SP_DEEP_DWARF,
     SP_FELID,
     SP_OCTOPODE,
+#if TAG_MAJOR_VERSION == 34
     SP_DJINNI,
+#endif
     SP_LAVA_ORC,
     SP_GARGOYLE,
-      LAST_VALID_SPECIES = SP_GARGOYLE,
+    SP_FORMICID,
+    SP_VINE_STALKER,
+    LAST_VALID_SPECIES = SP_VINE_STALKER,
 // The high scores viewer still needs enums for removed species.
     SP_ELF,                            // (placeholder)
     SP_HILL_DWARF,                     // (placeholder)
@@ -3308,6 +3724,7 @@ enum species_type
     SP_MOUNTAIN_DWARF,                 // (placeholder)
 #if TAG_MAJOR_VERSION > 34
     SP_SLUDGE_ELF,                     // (placeholder)
+    SP_DJINNI,                         // (placeholder)
 #endif
 
     NUM_SPECIES,                       // always after the last species
@@ -3357,7 +3774,9 @@ enum spell_type
     SPELL_SMITING,
     SPELL_SUMMON_SMALL_MAMMAL,
     SPELL_ABJURATION,
+#if TAG_MAJOR_VERSION == 34
     SPELL_SUMMON_SCORPIONS,
+#endif
     SPELL_BOLT_OF_DRAINING,
     SPELL_LEHUDIBS_CRYSTAL_SPEAR,
     SPELL_BOLT_OF_INACCURACY,
@@ -3400,7 +3819,9 @@ enum spell_type
     SPELL_TUKIMAS_DANCE,
     SPELL_HELLFIRE,
     SPELL_SUMMON_DEMON,
+#if TAG_MAJOR_VERSION == 34
     SPELL_DEMONIC_HORDE,
+#endif
     SPELL_SUMMON_GREATER_DEMON,
     SPELL_CORPSE_ROT,
     SPELL_FIRE_BRAND,
@@ -3431,7 +3852,7 @@ enum spell_type
     SPELL_SYMBOL_OF_TORMENT,
     SPELL_DEFLECT_MISSILES,
     SPELL_THROW_ICICLE,
-    SPELL_ICE_STORM,
+    SPELL_GLACIATE,
     SPELL_AIRSTRIKE,
     SPELL_SHADOW_CREATURES,
     SPELL_CONFUSING_TOUCH,
@@ -3468,7 +3889,7 @@ enum spell_type
     SPELL_CHAIN_LIGHTNING,
     SPELL_EXCRUCIATING_WOUNDS,
     SPELL_PORTAL_PROJECTILE,
-    SPELL_SUMMON_UGLY_THING,
+    SPELL_MONSTROUS_MENAGERIE,
     SPELL_PETRIFY,
     SPELL_GOLUBRIAS_PASSAGE,
 
@@ -3478,7 +3899,9 @@ enum spell_type
     SPELL_VAMPIRE_SUMMON,
 #endif
     SPELL_BRAIN_FEED,
+#if TAG_MAJOR_VERSION == 34
     SPELL_FAKE_RAKSHASA_SUMMON,
+#endif
     SPELL_STEAM_BALL,
     SPELL_SUMMON_UFETUBUS,
     SPELL_SUMMON_HELL_BEAST,
@@ -3511,7 +3934,9 @@ enum spell_type
     SPELL_BLINK_CLOSE,
     SPELL_BLINK_RANGE,
     SPELL_BLINK_AWAY,
+#if TAG_MAJOR_VERSION == 34
     SPELL_MISLEAD,
+#endif
     SPELL_FAKE_MARA_SUMMON,
 #if TAG_MAJOR_VERSION == 34
     SPELL_SUMMON_RAKSHASA,
@@ -3522,7 +3947,9 @@ enum spell_type
     SPELL_IOOD,
     SPELL_INK_CLOUD,
     SPELL_MIGHT,
+#if TAG_MAJOR_VERSION == 34
     SPELL_SUNRAY,
+#endif
     SPELL_AWAKEN_FOREST,
     SPELL_DRUIDS_CALL,
     SPELL_IRON_ELEMENTALS,
@@ -3567,7 +3994,7 @@ enum spell_type
     SPELL_SHROUD_OF_GOLUBRIA,
     SPELL_INNER_FLAME,
     SPELL_PETRIFYING_CLOUD,
-    SPELL_MASS_ABJURATION,
+    SPELL_AURA_OF_ABJURATION,
     SPELL_BEASTLY_APPENDAGE,
     SPELL_SILVER_BLAST,
     SPELL_ENSNARE,
@@ -3575,10 +4002,10 @@ enum spell_type
     SPELL_SUMMON_MINOR_DEMON,
     SPELL_DISJUNCTION,
     SPELL_CHAOS_BREATH,
-#if TAG_MAJOR_VERSION == 34
     SPELL_FRENZY,
-#endif
+#if TAG_MAJOR_VERSION == 34
     SPELL_SUMMON_TWISTER,
+#endif
     SPELL_BATTLESPHERE,
     SPELL_FULMINANT_PRISM,
     SPELL_DAZZLING_SPRAY,
@@ -3604,11 +4031,52 @@ enum spell_type
     SPELL_INFUSION,
     SPELL_SONG_OF_SLAYING,
     SPELL_SPECTRAL_WEAPON,
+#if TAG_MAJOR_VERSION == 34
     SPELL_SONG_OF_SHIELDING,
+#endif
     SPELL_SUMMON_VERMIN,
     SPELL_MALIGN_OFFERING,
     SPELL_SEARING_RAY,
     SPELL_DISCORD,
+#if TAG_MAJOR_VERSION == 34
+    SPELL_SHAFT_SELF,
+#endif
+    SPELL_BLINKBOLT,
+    SPELL_INVISIBILITY_OTHER,
+    SPELL_VIRULENCE,
+    SPELL_IGNITE_POISON_SINGLE,
+    SPELL_ORB_OF_ELECTRICITY,
+    SPELL_EXPLOSIVE_BOLT,
+    SPELL_FLASH_FREEZE,
+    SPELL_LEGENDARY_DESTRUCTION,
+    SPELL_EPHEMERAL_INFUSION,
+    SPELL_FORCEFUL_INVITATION,
+    SPELL_PLANEREND,
+    SPELL_CHAIN_OF_CHAOS,
+    SPELL_CHAOTIC_MIRROR,
+    SPELL_BLACK_MARK,
+    SPELL_GRAND_AVATAR,
+    SPELL_SAP_MAGIC,
+    SPELL_CORRUPT_BODY,
+#if TAG_MAJOR_VERSION == 34
+    SPELL_REARRANGE_PIECES,
+#endif
+    SPELL_MAJOR_DESTRUCTION,
+    SPELL_BLINK_ALLIES_AWAY,
+    SPELL_SHADOW_SHARD,
+    SPELL_SHADOW_BOLT,
+    SPELL_CRYSTAL_BOLT,
+    SPELL_SUMMON_FOREST,
+    SPELL_SUMMON_LIGHTNING_SPIRE,
+    SPELL_SUMMON_GUARDIAN_GOLEM,
+    SPELL_RANDOM_BOLT,
+    SPELL_CLOUD_CONE,
+    SPELL_WEAVE_SHADOWS,
+    SPELL_DRAGON_CALL,
+    SPELL_SPELLFORGED_SERVITOR,
+    SPELL_FORCEFUL_DISMISSAL,
+    SPELL_SUMMON_MANA_VIPER,
+    SPELL_PHANTOM_MIRROR,
     NUM_SPELLS
 };
 
@@ -3628,12 +4096,13 @@ enum stat_type
     STAT_RANDOM,
 };
 
-enum targetting_type
+enum targeting_type
 {
     DIR_NONE,
-    DIR_TARGET,        // smite targetting
+    DIR_TARGET,        // smite targeting
     DIR_DIR,           // needs a clear line to target
     DIR_TARGET_OBJECT, // targets items
+    DIR_JUMP,          // a jump target
 };
 
 enum torment_source_type
@@ -3745,7 +4214,9 @@ enum zap_type
     ZAP_DISINTEGRATE,
     ZAP_BREATHE_STEAM,
     ZAP_THROW_ICICLE,
+#if TAG_MAJOR_VERSION == 34
     ZAP_ICE_STORM,
+#endif
     ZAP_CORONA,
     ZAP_HIBERNATION,
     ZAP_FLAME_TONGUE,
@@ -3761,7 +4232,9 @@ enum zap_type
     ZAP_SLEEP,
     ZAP_PRIMAL_WAVE,
     ZAP_IOOD,
+#if TAG_MAJOR_VERSION == 34
     ZAP_HOLY_LIGHT,
+#endif
     ZAP_BREATHE_MEPHITIC,
     ZAP_INNER_FLAME,
     ZAP_DAZZLING_SPRAY,
@@ -3769,6 +4242,10 @@ enum zap_type
     ZAP_SEARING_RAY_I,
     ZAP_SEARING_RAY_II,
     ZAP_SEARING_RAY_III,
+    ZAP_EXPLOSIVE_BOLT,
+    ZAP_CRYSTAL_BOLT,
+    ZAP_QUICKSILVER_BOLT,
+    ZAP_RANDOM_BOLT_TRACER,
 
     NUM_ZAPS
 };
@@ -3776,10 +4253,9 @@ enum zap_type
 enum montravel_target_type
 {
     MTRAV_NONE = 0,
-    MTRAV_PLAYER,      // Travelling to reach the player.
+    MTRAV_FOE,         // Travelling to reach its foe.
     MTRAV_PATROL,      // Travelling to reach the patrol point.
     MTRAV_SIREN,       // Sirens travelling towards deep water.
-    MTRAV_WALL,        // Rock worms travelling towards a wall.
     MTRAV_UNREACHABLE, // Not travelling because target is unreachable.
     MTRAV_KNOWN_UNREACHABLE, // As above, and the player knows this.
 };
@@ -3830,7 +4306,9 @@ enum daction_type
     DACT_SLIME_NEW_ATTEMPT,
 #endif
     DACT_KIRKE_HOGS,
+#if TAG_MAJOR_VERSION == 34
     DACT_END_SPIRIT_HOWL,
+#endif
     NUM_DACTIONS,
 };
 
@@ -3866,6 +4344,11 @@ enum seen_context_type
     SC_DOOR,            // they opened a door
     SC_GATE,            // ... or a big door
     SC_LEAP_IN,         // leaps into view
+    SC_UPSTAIRS,        // comes up the stairs
+    SC_DOWNSTAIRS,      // comes down the stairs
+    SC_ARCH,            // through the gate
+    SC_ABYSS,           // abyss creation
+    SC_THROWN_IN,       // thrown into view from the monster throw ability
 };
 
 enum los_type
@@ -3895,6 +4378,13 @@ enum uncancellable_type
     UNC_DRAW_THREE,            // arg is inv slot of the deck
     UNC_STACK_FIVE,            // arg is inv slot of the deck
     UNC_MERCENARY,             // arg is mid of the monster
+};
+
+// game-wide random seeds
+enum seed_type
+{
+    SEED_PASSIVE_MAP,          // determinist magic mapping
+    NUM_SEEDS
 };
 
 // Tiles stuff.
@@ -3967,6 +4457,7 @@ enum tile_flags ENUM_INT64
     TILE_FLAG_BLIND      = 0x200000000000ULL,
     TILE_FLAG_ANIM_WEP   = 0x400000000000ULL,
     TILE_FLAG_SUMMONED   = 0x800000000000ULL,
+    TILE_FLAG_PERM_SUMMON= 0x1000000000000ULL,
 
     // MDAM has 5 possibilities, so uses 3 bits.
     TILE_FLAG_MDAM_MASK  = 0x1C0000000ULL,
@@ -3990,7 +4481,6 @@ enum tile_flags ENUM_INT64
     TILE_FLAG_MIMIC_RAVEN = 0x6000000000ULL,
     TILE_FLAG_MIMIC_MASK  = 0x6000000000ULL,
 
-
     //// Background flags
 
     TILE_FLAG_RAY        = 0x00010000ULL,
@@ -4011,25 +4501,29 @@ enum tile_flags ENUM_INT64
     TILE_FLAG_WATER      = 0x04000000ULL,
     TILE_FLAG_NEW_STAIR  = 0x08000000ULL,
 
-    // Kraken tentacle overlays.
-    TILE_FLAG_KRAKEN_NW  = 0x020000000ULL,
-    TILE_FLAG_KRAKEN_NE  = 0x040000000ULL,
-    TILE_FLAG_KRAKEN_SE  = 0x080000000ULL,
-    TILE_FLAG_KRAKEN_SW  = 0x100000000ULL,
+    // Tentacle overlay flags: direction and type.
+    TILE_FLAG_TENTACLE_NW  = 0x020000000ULL,
+    TILE_FLAG_TENTACLE_NE  = 0x040000000ULL,
+    TILE_FLAG_TENTACLE_SE  = 0x080000000ULL,
+    TILE_FLAG_TENTACLE_SW  = 0x100000000ULL,
+    TILE_FLAG_TENTACLE_KRAKEN = 0x0200000000ULL,
+    TILE_FLAG_TENTACLE_ELDRITCH = 0x0400000000ULL,
+    TILE_FLAG_TENTACLE_STARSPAWN = 0x0800000000ULL,
+    TILE_FLAG_TENTACLE_VINE = 0x1000000000ULL,
 
-    // Eldritch tentacle overlays.
-    TILE_FLAG_ELDRITCH_NW = 0x0200000000ULL,
-    TILE_FLAG_ELDRITCH_NE = 0x0400000000ULL,
-    TILE_FLAG_ELDRITCH_SE = 0x0800000000ULL,
-    TILE_FLAG_ELDRITCH_SW = 0x1000000000ULL,
-
-    // Starspawn tentacle overlays.
+#if TAG_MAJOR_VERSION == 34
+    // Starspawn tentacle overlays. Obviated by the above.
     TILE_FLAG_STARSPAWN_NW = 0x02000000000ULL,
     TILE_FLAG_STARSPAWN_NE = 0x04000000000ULL,
     TILE_FLAG_STARSPAWN_SE = 0x08000000000ULL,
     TILE_FLAG_STARSPAWN_SW = 0x10000000000ULL,
+#endif
 
     //// General
+
+    // Should go up with RAY/RAY_OOR, but they need to be exclusive for those
+    // flags and there's no room.
+    TILE_FLAG_LANDING     = 0x20000000000ULL,
 
     // Mask for the tile index itself.
     TILE_FLAG_MASK       = 0x0000FFFFULL,
@@ -4083,5 +4577,23 @@ enum wizard_option_type
 };
 
 #endif
+
+enum timed_effect_type
+{
+    TIMER_CORPSES,
+    TIMER_HELL_EFFECTS,
+    TIMER_STAT_RECOVERY,
+    TIMER_CONTAM,
+    TIMER_DETERIORATION,
+    TIMER_GOD_EFFECTS,
+    TIMER_SCREAM,
+    TIMER_FOOD_ROT,
+    TIMER_PRACTICE,
+    TIMER_LABYRINTH,
+    TIMER_ABYSS_SPEED,
+    TIMER_JIYVA,
+    TIMER_EVOLUTION,
+    NUM_TIMERS,
+};
 
 #endif // ENUM_H

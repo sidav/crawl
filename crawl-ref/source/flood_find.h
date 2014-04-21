@@ -93,7 +93,7 @@ bool flood_find<fgrd, bound_check>::any_point_connected_from(
     set_floodseed(sp);
     const size_t sz = needed_points.size();
     pathfind(RMODE_CONNECTIVITY);
-    return (needed_points.size() < sz);
+    return needed_points.size() < sz;
 }
 
 template <typename fgrd, typename bound_check>
@@ -102,7 +102,7 @@ bool flood_find<fgrd, bound_check>::has_exit_from(
 {
     want_exit = true;
     set_floodseed(sp);
-    return (pathfind(RMODE_CONNECTIVITY) == coord_def(-1, -1));
+    return pathfind(RMODE_CONNECTIVITY) == coord_def(-1, -1);
 }
 
 template <typename fgrd, typename bound_check>

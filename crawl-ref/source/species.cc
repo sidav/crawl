@@ -5,34 +5,31 @@
 #include "libutil.h"
 #include "random.h"
 
+#include "version.h"
+
 // March 2008: change order of species and jobs on character selection
-// screen as suggested by Markus Maier. Summarizing comments below are
-// copied directly from Markus' SourceForge comments. (jpeg)
-//
-// These are listed in two columns to match the selection screen output.
-// Take care to list all valid species here, or they cannot be directly
-// chosen.
-//
-// Fantasy staples and humanoid creatures come first, then diminutive and
-// stealthy creatures, then monstrous creatures, then planetouched and after
-// all living creatures finally the undead. (MM)
-static species_type species_order[] = {
+// screen as suggested by Markus Maier.
+// We have subsequently added a few new categories.
+static species_type species_order[] =
+{
     // comparatively human-like looks
     SP_HUMAN,          SP_HIGH_ELF,
-    SP_DEEP_ELF,
-    SP_DEEP_DWARF,     SP_HILL_ORC,
-    SP_LAVA_ORC,       SP_MERFOLK,
+    SP_DEEP_ELF,       SP_DEEP_DWARF,
+    SP_HILL_ORC,
     // small species
     SP_HALFLING,       SP_KOBOLD,
     SP_SPRIGGAN,
-    // significantly different body type from human
-    SP_NAGA,           SP_CENTAUR,
+    // large species
     SP_OGRE,           SP_TROLL,
-    SP_MINOTAUR,       SP_TENGU,
-    SP_BASE_DRACONIAN, SP_GARGOYLE,
+    // significantly different body type from human ("monstrous")
+    SP_NAGA,           SP_CENTAUR,
+    SP_MERFOLK,        SP_MINOTAUR,
+    SP_TENGU,          SP_BASE_DRACONIAN,
+    SP_GARGOYLE,       SP_FORMICID,
+    // mostly human shape but made of a strange substance
+    SP_LAVA_ORC,       SP_VINE_STALKER,
     // celestial species
     SP_DEMIGOD,        SP_DEMONSPAWN,
-    SP_DJINNI,
     // undead species
     SP_MUMMY,          SP_GHOUL,
     SP_VAMPIRE,
@@ -64,11 +61,15 @@ static const char * Species_Abbrev_List[NUM_SPECIES] =
       // the draconians
       "Dr", "Dr", "Dr", "Dr", "Dr", "Dr", "Dr", "Dr", "Dr", "Dr",
       "Ce", "Dg", "Sp", "Mi", "Ds", "Gh", "Te", "Mf", "Vp", "DD",
-      "Fe", "Op", "Dj", "LO", "Gr",
+      "Fe", "Op",
+#if TAG_MAJOR_VERSION == 34
+      "Dj",
+#endif
+      "LO", "Gr", "Fo", "VS",
       // placeholders
       "El", "HD", "OM", "GE", "Gn", "MD",
 #if TAG_MAJOR_VERSION > 34
-      "SE",
+      "SE", "Dj",
 #endif
 };
 
@@ -76,7 +77,7 @@ const char *get_species_abbrev(species_type which_species)
 {
     ASSERT_RANGE(which_species, 0, NUM_SPECIES);
 
-    return (Species_Abbrev_List[which_species]);
+    return Species_Abbrev_List[which_species];
 }
 
 // Needed for debug.cc and hiscores.cc.
@@ -94,7 +95,7 @@ species_type get_species_by_abbrev(const char *abbrev)
         }
     }
 
-    return ((i < NUM_SPECIES) ? static_cast<species_type>(i) : SP_UNKNOWN);
+    return (i < NUM_SPECIES) ? static_cast<species_type>(i) : SP_UNKNOWN;
 }
 
 int ng_num_species()
@@ -189,17 +190,21 @@ string species_name(species_type speci, bool genus, bool adj)
     default:
         switch (speci)
         {
-        case SP_HUMAN:      res = "Human";                             break;
-        case SP_HALFLING:   res = "Halfling";                          break;
-        case SP_KOBOLD:     res = "Kobold";                            break;
-        case SP_MUMMY:      res = "Mummy";                             break;
-        case SP_NAGA:       res = "Naga";                              break;
-        case SP_CENTAUR:    res = "Centaur";                           break;
-        case SP_SPRIGGAN:   res = "Spriggan";                          break;
-        case SP_MINOTAUR:   res = "Minotaur";                          break;
-        case SP_TENGU:      res = "Tengu";                             break;
-        case SP_GARGOYLE:   res = "Gargoyle";                          break;
+        case SP_HUMAN:    res = "Human";    break;
+        case SP_HALFLING: res = "Halfling"; break;
+        case SP_KOBOLD:   res = "Kobold";   break;
+        case SP_MUMMY:    res = "Mummy";    break;
+        case SP_NAGA:     res = "Naga";     break;
+        case SP_CENTAUR:  res = "Centaur";  break;
+        case SP_SPRIGGAN: res = "Spriggan"; break;
+        case SP_MINOTAUR: res = "Minotaur"; break;
+        case SP_TENGU:    res = "Tengu";    break;
+        case SP_GARGOYLE: res = "Gargoyle"; break;
+        case SP_FORMICID: res = "Formicid"; break;
 
+        case SP_VINE_STALKER:
+            res = (adj ? "Vine" : genus ? "Vine" : "Vine Stalker");
+            break;
         case SP_DEEP_DWARF:
             res = (adj ? "Dwarven" : genus ? "Dwarf" : "Deep Dwarf");
             break;
@@ -217,7 +222,9 @@ string species_name(species_type speci, bool genus, bool adj)
         case SP_GHOUL:      res = (adj ? "Ghoulish"   : "Ghoul");      break;
         case SP_MERFOLK:    res = (adj ? "Merfolkian" : "Merfolk");    break;
         case SP_VAMPIRE:    res = (adj ? "Vampiric"   : "Vampire");    break;
+#if TAG_MAJOR_VERSION == 34
         case SP_DJINNI:     res = (adj ? "Djinn"      : "Djinni");     break;
+#endif
         default:            res = (adj ? "Yakish"     : "Yak");        break;
         }
     }
@@ -242,13 +249,20 @@ int species_has_claws(species_type species, bool mut_level)
 
 bool species_likes_water(species_type species)
 {
-    return (species == SP_MERFOLK || species == SP_GREY_DRACONIAN
-            || species == SP_OCTOPODE);
+    return species == SP_MERFOLK || species == SP_GREY_DRACONIAN
+           || species == SP_OCTOPODE;
 }
 
 bool species_likes_lava(species_type species)
 {
-    return (species == SP_LAVA_ORC);
+    return species == SP_LAVA_ORC;
+}
+
+bool species_can_throw_large_rocks(species_type species)
+{
+    return species == SP_OGRE
+           || species == SP_TROLL
+           || species == SP_FORMICID;
 }
 
 genus_type species_genus(species_type species)
@@ -269,7 +283,9 @@ genus_type species_genus(species_type species)
 
     case SP_HIGH_ELF:
     case SP_DEEP_ELF:
+#if TAG_MAJOR_VERSION == 34
     case SP_SLUDGE_ELF:
+#endif
         return GENPC_ELVEN;
 
     case SP_HILL_ORC:
@@ -290,7 +306,7 @@ size_type species_size(species_type species, size_part_type psize)
         return SIZE_LARGE;
     case SP_NAGA:
     case SP_CENTAUR:
-        return ((psize == PSIZE_TORSO) ? SIZE_MEDIUM : SIZE_LARGE);
+        return (psize == PSIZE_TORSO) ? SIZE_MEDIUM : SIZE_LARGE;
     case SP_HALFLING:
     case SP_KOBOLD:
         return SIZE_SMALL;
@@ -311,7 +327,9 @@ monster_type player_species_to_mons_species(species_type species)
         return MONS_HUMAN;
     case SP_HIGH_ELF:
     case SP_DEEP_ELF:
+#if TAG_MAJOR_VERSION == 34
     case SP_SLUDGE_ELF:
+#endif
         return MONS_ELF;
     case SP_HALFLING:
         return MONS_HALFLING;
@@ -375,14 +393,24 @@ monster_type player_species_to_mons_species(species_type species)
         return MONS_FELID;
     case SP_OCTOPODE:
         return MONS_OCTOPODE;
+#if TAG_MAJOR_VERSION == 34
     case SP_DJINNI:
         return MONS_DJINNI;
+#endif
+    case SP_FORMICID:
+        return MONS_FORMICID;
+    case SP_VINE_STALKER:
+        return MONS_VINE_STALKER;
     case SP_ELF:
     case SP_HILL_DWARF:
     case SP_MOUNTAIN_DWARF:
     case SP_OGRE_MAGE:
     case SP_GREY_ELF:
     case SP_GNOME:
+#if TAG_MAJOR_VERSION > 34
+    case SP_SLUDGE_ELF:
+    case SP_DJINNI:
+#endif
     case NUM_SPECIES:
     case SP_UNKNOWN:
     case SP_RANDOM:
@@ -395,7 +423,24 @@ monster_type player_species_to_mons_species(species_type species)
 
 bool is_valid_species(species_type species)
 {
-    return (species >= 0 && species <= LAST_VALID_SPECIES);
+    return species >= 0 && species <= LAST_VALID_SPECIES;
+}
+
+bool is_species_valid_choice(species_type species)
+{
+#if TAG_MAJOR_VERSION == 34
+    if (species == SP_SLUDGE_ELF || species == SP_DJINNI)
+        return false;
+#endif
+    if ((species == SP_LAVA_ORC)
+        && Version::ReleaseType != VER_ALPHA)
+    {
+        return false;
+    }
+
+    // Non-base draconians cannot be selected either.
+    return is_valid_species(species)
+        && !(species >= SP_RED_DRACONIAN && species < SP_BASE_DRACONIAN);
 }
 
 int species_exp_modifier(species_type species)
@@ -405,16 +450,20 @@ int species_exp_modifier(species_type species)
     case SP_HUMAN:
     case SP_HALFLING:
     case SP_KOBOLD:
+    case SP_FORMICID:
         return 1;
     case SP_HILL_ORC:
     case SP_OGRE:
+#if TAG_MAJOR_VERSION == 34
     case SP_SLUDGE_ELF:
+#endif
     case SP_NAGA:
     case SP_GHOUL:
     case SP_MERFOLK:
     case SP_OCTOPODE:
     case SP_TENGU:
     case SP_GARGOYLE:
+    case SP_VINE_STALKER:
         return 0;
     case SP_SPRIGGAN:
     case SP_DEEP_DWARF:
@@ -437,7 +486,9 @@ int species_exp_modifier(species_type species)
     case SP_VAMPIRE:
     case SP_TROLL:
     case SP_DEMONSPAWN:
+#if TAG_MAJOR_VERSION == 34
     case SP_DJINNI:
+#endif
     case SP_LAVA_ORC:
         return -1;
     case SP_DEMIGOD:
@@ -454,6 +505,7 @@ int species_hp_modifier(species_type species)
     case SP_FELID:
         return -4;
     case SP_SPRIGGAN:
+    case SP_VINE_STALKER:
         return -3;
     case SP_DEEP_ELF:
     case SP_TENGU:
@@ -461,10 +513,12 @@ int species_hp_modifier(species_type species)
     case SP_GARGOYLE:
         return -2;
     case SP_HIGH_ELF:
+#if TAG_MAJOR_VERSION == 34
     case SP_SLUDGE_ELF:
+    case SP_DJINNI:
+#endif
     case SP_HALFLING:
     case SP_OCTOPODE:
-    case SP_DJINNI:
         return -1;
     default:
         return 0;
@@ -506,8 +560,12 @@ int species_mp_modifier(species_type species)
         return -1;
     default:
         return 0;
+#if TAG_MAJOR_VERSION == 34
     case SP_SLUDGE_ELF:
+#endif
     case SP_TENGU:
+    case SP_VINE_STALKER:
+    case SP_FORMICID:
         return 1;
     case SP_FELID:
     case SP_HIGH_ELF:

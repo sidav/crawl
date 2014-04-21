@@ -80,7 +80,9 @@ enum monster_info_flags
     MB_FIREWOOD,
     MB_TWO_WEAPONS,
     MB_NO_REGEN,
+#if TAG_MAJOR_VERSION == 34
     MB_SUPPRESSED,
+#endif
     MB_ROLLING,
     MB_RANGED_ATTACK,
     MB_NO_NAME_TAG,
@@ -103,6 +105,16 @@ enum monster_info_flags
     MB_TOXIC_RADIANCE,
     MB_GRASPING_ROOTS,
     MB_FIRE_VULN,
+    MB_TORNADO,
+    MB_TORNADO_COOLDOWN,
+    MB_BARBS,
+    MB_POISON_VULN,
+    MB_ICEMAIL,
+    MB_AGILE,
+    MB_FROZEN,
+    MB_BLACK_MARK,
+    MB_SAP_MAGIC,
+    MB_SHROUD,
     NUM_MB_FLAGS
 };
 
@@ -128,10 +140,12 @@ struct monster_info_base
     resists_t mresists;
     mon_itemuse_type mitemuse;
     int mbase_speed;
+    mon_energy_usage menergy;
     flight_type fly;
     CrawlHashTable props;
     string constrictor_name;
     vector<string> constricting_name;
+    monster_spells spells;
 
     uint32_t client_id;
 };
@@ -169,8 +183,11 @@ struct monster_info : public monster_info_base
 
     monster_info& operator=(const monster_info& p)
     {
-        this->~monster_info();
-        new (this) monster_info(p);
+        if (this != &p)
+        {
+            this->~monster_info();
+            new (this) monster_info(p);
+        }
         return *this;
     }
 
@@ -193,6 +210,7 @@ struct monster_info : public monster_info_base
             short damage;
             short ac;
             monster_type acting_part;
+            bool can_sinv;
         } ghost;
     } u;
 
@@ -234,7 +252,7 @@ struct monster_info : public monster_info_base
 
     string constriction_description() const;
 
-    monster_type draco_subspecies() const
+    monster_type draco_or_demonspawn_subspecies() const
     {
         return draco_type;
     }
@@ -276,7 +294,27 @@ struct monster_info : public monster_info_base
 
     bool is_named() const
     {
-        return (!mname.empty() || mons_is_unique(type));
+        return !mname.empty() || mons_is_unique(type);
+    }
+
+    bool is_spellcaster() const
+    {
+        return mons_class_flag(this->type, M_SPELLCASTER) || this->props.exists("custom_spells");
+    }
+
+    bool is_actual_spellcaster() const
+    {
+        return mons_class_flag(this->type, M_ACTUAL_SPELLS) || this->props.exists("actual_spellcaster");
+    }
+
+    bool is_priest() const
+    {
+        return mons_class_flag(this->type, M_PRIEST) || this->props.exists("priest");
+    }
+
+    bool is_natural_caster() const
+    {
+        return mons_class_flag(this->type, M_FAKE_SPELLS) || this->props.exists("fake_spells");
     }
 
 protected:

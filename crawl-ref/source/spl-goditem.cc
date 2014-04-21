@@ -14,7 +14,6 @@
 #include "coord.h"
 #include "coordit.h"
 #include "decks.h"
-#include "describe.h"
 #include "env.h"
 #include "godconduct.h"
 #include "godpassive.h"
@@ -44,7 +43,7 @@
 #include "traps.h"
 #include "view.h"
 
-int identify(int power, int item_slot, string *pre_msg)
+int identify(int power, int item_slot, bool alreadyknown, string *pre_msg)
 {
     int id_used = 1;
     int identified = 0;
@@ -57,11 +56,35 @@ int identify(int power, int item_slot, string *pre_msg)
     {
         if (item_slot == -1)
         {
-            item_slot = prompt_invent_item("Identify which item?", MT_INVLIST,
-                                           OSEL_UNIDENT, true, true, false);
+            item_slot = prompt_invent_item(
+                "Identify which item? (\\ to view known items)",
+                MT_INVLIST, OSEL_UNIDENT, true, true, false, 0,
+                -1, NULL, OPER_ANY, true);
         }
-        if (prompt_failed(item_slot))
-            return identified;
+
+        if (item_slot == PROMPT_NOTHING)
+        {
+            return identified > 0 ? identified :
+                   alreadyknown   ? 0 : -1;
+        }
+
+        if (item_slot == PROMPT_ABORT)
+        {
+            if (alreadyknown
+                || crawl_state.seen_hups
+                || yesno("Really abort (and waste the scroll)?", false, 0))
+            {
+                canned_msg(MSG_OK);
+                return identified > 0 ? identified :
+                       alreadyknown   ? 0
+                                      : -1;
+            }
+            else
+            {
+                item_slot = -1;
+                continue;
+            }
+        }
 
         item_def& item(you.inv[item_slot]);
 
@@ -69,13 +92,12 @@ int identify(int power, int item_slot, string *pre_msg)
             && (!is_deck(item) || top_card_is_known(item)))
         {
             mpr("Choose an unidentified item, or Esc to abort.");
-            if (Options.auto_list)
-                more();
+            more();
             item_slot = -1;
             continue;
         }
 
-        if (pre_msg && identified == 0)
+        if (alreadyknown && pre_msg && identified == 0)
             mpr(pre_msg->c_str());
 
         set_ident_type(item, ID_KNOWN_TYPE);
@@ -100,7 +122,7 @@ int identify(int power, int item_slot, string *pre_msg)
         }
 
         // Output identified item.
-        mpr_nocap(item.name(DESC_INVENTORY_EQUIP).c_str());
+        mprf_nocap("%s", item.name(DESC_INVENTORY_EQUIP).c_str());
         if (item_slot == you.equip[EQ_WEAPON])
             you.wield_change = true;
 
@@ -114,7 +136,7 @@ int identify(int power, int item_slot, string *pre_msg)
             learned_something_new(HINT_INACCURACY);
         }
 
-        if (Options.auto_list && id_used > identified)
+        if (id_used > identified)
             more();
 
         // In case we get to try again.
@@ -127,7 +149,7 @@ int identify(int power, int item_slot, string *pre_msg)
 static bool _mons_hostile(const monster* mon)
 {
     // Needs to be done this way because of friendly/neutral enchantments.
-    return (!mon->wont_attack() && !mon->neutral());
+    return !mon->wont_attack() && !mon->neutral();
 }
 
 // Check whether it is possible at all to pacify this monster.
@@ -176,7 +198,6 @@ int is_pacifiable(const monster* mon)
 static int _can_pacify_monster(const monster* mon, const int healed,
                                const int max_healed)
 {
-
     int pacifiable = is_pacifiable(mon);
     if (pacifiable < 0)
         return pacifiable;
@@ -381,8 +402,10 @@ int cast_healing(int pow, int max_pow, bool divine_ability,
 {
     pow = min(50, pow);
     max_pow = min(50, max_pow);
-    return (_healing_spell(pow + roll_dice(2, pow) - 2, (3 * max_pow) - 2,
-                           divine_ability, where, not_self, mode));
+    if (!not_self && !divine_ability && you.mutation[MUT_NO_DEVICE_HEAL])
+        return 0;
+    return _healing_spell(pow + roll_dice(2, pow) - 2, (3 * max_pow) - 2,
+                          divine_ability, where, not_self, mode);
 }
 
 // Antimagic is sort of an anti-extension... it sets a lot of magical
@@ -392,18 +415,21 @@ int cast_healing(int pow, int max_pow, bool divine_ability,
 // not as direct as falling into deep water) -- bwr
 void antimagic()
 {
-    duration_type dur_list[] = {
+    duration_type dur_list[] =
+    {
         DUR_INVIS, DUR_CONF, DUR_PARALYSIS, DUR_HASTE, DUR_MIGHT, DUR_AGILITY,
         DUR_BRILLIANCE, DUR_CONFUSING_TOUCH, DUR_SURE_BLADE, DUR_CORONA,
-        DUR_FIRE_SHIELD, DUR_ICY_ARMOUR, DUR_REPEL_MISSILES,
+        DUR_FIRE_SHIELD, DUR_ICY_ARMOUR,
         DUR_SWIFTNESS, DUR_CONTROL_TELEPORT,
-        DUR_TRANSFORMATION, DUR_DEATH_CHANNEL, DUR_DEFLECT_MISSILES,
+        DUR_TRANSFORMATION, DUR_DEATH_CHANNEL,
         DUR_PHASE_SHIFT, DUR_WEAPON_BRAND, DUR_SILENCE,
         DUR_CONDENSATION_SHIELD, DUR_STONESKIN, DUR_RESISTANCE,
-        DUR_SLAYING, DUR_STEALTH,
-        DUR_MAGIC_SHIELD, DUR_PETRIFIED, DUR_LIQUEFYING, DUR_DARKNESS,
-        DUR_SHROUD_OF_GOLUBRIA, DUR_DISJUNCTION, DUR_SENTINEL_MARK,
-        DUR_ANTIMAGIC /*!*/,
+        DUR_STEALTH, DUR_MAGIC_SHIELD, DUR_PETRIFIED, DUR_LIQUEFYING,
+        DUR_DARKNESS, DUR_SHROUD_OF_GOLUBRIA, DUR_DISJUNCTION,
+        DUR_SENTINEL_MARK, DUR_ANTIMAGIC /*!*/, DUR_REGENERATION,
+        DUR_TOXIC_RADIANCE, DUR_FIRE_VULN, DUR_POISON_VULN,
+        DUR_SAP_MAGIC, DUR_MAGIC_SAPPED,
+        DUR_PORTAL_PROJECTILE, DUR_DIMENSION_ANCHOR,
     };
 
     bool need_msg = false;
@@ -415,31 +441,32 @@ void antimagic()
         need_msg = true;
     }
 
-    // Don't dispel divine regeneration.
-    if (you.duration[DUR_REGENERATION] > 0
-        && !you.attribute[ATTR_DIVINE_REGENERATION])
-    {
-        you.duration[DUR_REGENERATION] = 1;
-        need_msg = true;
-    }
-
     if (you.duration[DUR_TELEPORT] > 0)
     {
         you.duration[DUR_TELEPORT] = 0;
-        mpr("You feel strangely stable.", MSGCH_DURATION);
+        mprf(MSGCH_DURATION, "You feel strangely stable.");
     }
 
     if (you.duration[DUR_PETRIFYING] > 0)
     {
         you.duration[DUR_PETRIFYING] = 0;
-        mpr("You feel limber!", MSGCH_DURATION);
+        mprf(MSGCH_DURATION, "You feel limber!");
     }
 
     if (you.attribute[ATTR_DELAYED_FIREBALL])
     {
         you.attribute[ATTR_DELAYED_FIREBALL] = 0;
-        mpr("Your charged fireball dissipates.", MSGCH_DURATION);
+        mprf(MSGCH_DURATION, "Your charged fireball dissipates.");
     }
+
+    if (you.attribute[ATTR_REPEL_MISSILES])
+        you.attribute[ATTR_REPEL_MISSILES] = 0;
+
+    if (you.attribute[ATTR_DEFLECT_MISSILES])
+        you.attribute[ATTR_DEFLECT_MISSILES] = 0;
+
+    if (you.attribute[ATTR_SWIFTNESS] > 0)
+        you.attribute[ATTR_SWIFTNESS] = 0;
 
     // Post-berserk slowing isn't magic, so don't remove that.
     if (you.duration[DUR_SLOW] > you.duration[DUR_EXHAUSTED])
@@ -635,13 +662,12 @@ static bool _selectively_remove_curse(string *pre_msg)
             || &item == you.weapon() && !is_weapon(item))
         {
             mpr("Choose a cursed equipped item, or Esc to abort.");
-            if (Options.auto_list)
-                more();
+            more();
             continue;
         }
 
         if (!used && pre_msg)
-            mpr(*pre_msg);
+            mprf("%s", pre_msg->c_str());
 
         do_uncurse_item(item, true, false, false);
         used = true;
@@ -687,17 +713,17 @@ bool remove_curse(bool alreadyknown, string *pre_msg)
     if (success)
     {
         if (pre_msg)
-            mpr(*pre_msg);
+            mprf("%s", pre_msg->c_str());
         mpr("You feel as if something is helping you.");
         learned_something_new(HINT_REMOVED_CURSE);
     }
     else if (alreadyknown)
-        mpr("None of your equipped items are cursed.", MSGCH_PROMPT);
+        mprf(MSGCH_PROMPT, "None of your equipped items are cursed.");
     else
     {
         if (pre_msg)
-            mpr(*pre_msg);
-        canned_msg(MSG_NOTHING_HAPPENS);
+            mprf("%s", pre_msg->c_str());
+        mpr("You feel blessed for a moment.");
     }
 
     return success;
@@ -723,64 +749,40 @@ static bool _selectively_curse_item(bool armour, string *pre_msg)
         {
             mprf("Choose an uncursed equipped piece of %s, or Esc to abort.",
                  armour ? "armour" : "jewellery");
-            if (Options.auto_list)
-                more();
+            more();
             continue;
         }
 
         if (pre_msg)
-            mpr(*pre_msg);
+            mprf("%s", pre_msg->c_str());
         do_curse_item(item, false);
+        learned_something_new(HINT_YOU_CURSED);
         return true;
     }
 }
 
-bool curse_item(bool armour, bool alreadyknown, string *pre_msg)
+bool curse_item(bool armour, string *pre_msg)
 {
-    // make sure there's something to curse first
-    int count = 0;
-    int affected = EQ_WEAPON;
+    // Make sure there's something to curse first.
+    bool found = false;
     int min_type, max_type;
     if (armour)
         min_type = EQ_MIN_ARMOUR, max_type = EQ_MAX_ARMOUR;
     else
-        min_type = EQ_LEFT_RING, max_type = EQ_RING_EIGHT;
+        min_type = EQ_LEFT_RING, max_type = EQ_RING_AMULET;
     for (int i = min_type; i <= max_type; i++)
     {
         if (you.equip[i] != -1 && !you.inv[you.equip[i]].cursed())
-        {
-            count++;
-            if (one_chance_in(count))
-                affected = i;
-        }
+            found = true;
     }
-
-    if (affected == EQ_WEAPON)
+    if (!found)
     {
-        if (you_worship(GOD_ASHENZARI) && alreadyknown)
-        {
-            mprf(MSGCH_PROMPT, "You aren't wearing any piece of uncursed %s.",
-                 armour ? "armour" : "jewellery");
-        }
-        else
-        {
-            if (pre_msg)
-                mpr(*pre_msg);
-            canned_msg(MSG_NOTHING_HAPPENS);
-        }
-
+        mprf(MSGCH_PROMPT, "You aren't wearing any piece of uncursed %s.",
+             armour ? "armour" : "jewellery");
         return false;
     }
 
-    if (you_worship(GOD_ASHENZARI) && alreadyknown)
-        return _selectively_curse_item(armour, pre_msg);
-
-    if (pre_msg)
-        mpr(*pre_msg);
-    // Make the name before we curse it.
-    do_curse_item(you.inv[you.equip[affected]], false);
-    learned_something_new(HINT_YOU_CURSED);
-    return true;
+    return _selectively_curse_item(armour, pre_msg);
 }
 
 static bool _do_imprison(int pow, const coord_def& where, bool zin)
@@ -791,7 +793,8 @@ static bool _do_imprison(int pow, const coord_def& where, bool zin)
     // as more or less the theoretical maximum.
     int number_built = 0;
 
-    const dungeon_feature_type safe_tiles[] = {
+    const dungeon_feature_type safe_tiles[] =
+    {
         DNGN_SHALLOW_WATER, DNGN_FLOOR, DNGN_OPEN_DOOR
     };
 
@@ -834,14 +837,11 @@ static bool _do_imprison(int pow, const coord_def& where, bool zin)
 
             // Make sure we have a legitimate tile.
             proceed = false;
-            for (unsigned int i = 0; i < ARRAYSZ(safe_tiles) && !proceed; ++i)
+            if (cell_is_solid(*ai) && !feat_is_opaque(grd(*ai)))
             {
-                if (feat_is_solid(grd(*ai)) && !feat_is_opaque(grd(*ai)))
-                {
-                    success = false;
-                    none_vis = false;
-                    break;
-                }
+                success = false;
+                none_vis = false;
+                break;
             }
         }
 
@@ -879,7 +879,7 @@ static bool _do_imprison(int pow, const coord_def& where, bool zin)
                 if (grd(*ai) == safe_tiles[i] || feat_is_trap(grd(*ai), true))
                     proceed = true;
         }
-        else if (zin && !feat_is_solid(grd(*ai)))
+        else if (zin && !cell_is_solid(*ai))
             proceed = true;
 
         if (proceed)
@@ -956,7 +956,7 @@ static bool _do_imprison(int pow, const coord_def& where, bool zin)
     else
         canned_msg(MSG_NOTHING_HAPPENS);
 
-    return (number_built > 0);
+    return number_built > 0;
 }
 
 bool entomb(int pow)

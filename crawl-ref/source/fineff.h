@@ -33,17 +33,6 @@ protected:
     actor *defender() const { return actor_by_mid(def); }
 };
 
-class lightning_fineff : public final_effect
-{
-public:
-    lightning_fineff(const actor *attack, const coord_def &pos)
-        : final_effect(attack, 0, pos)
-    {
-    }
-    bool mergeable(const final_effect &a) const;
-    void fire();
-};
-
 class mirror_damage_fineff : public final_effect
 {
 public:
@@ -150,15 +139,32 @@ public:
     void fire();
 };
 
+class shock_serpent_discharge_fineff : public final_effect
+{
+public:
+    shock_serpent_discharge_fineff(const actor *serpent, coord_def pos, int pow)
+            : final_effect(0, serpent, coord_def()), position(pos), power(pow),
+                    attitude(mons_attitude(serpent->as_monster()))
+    {
+    }
+    bool mergeable(const final_effect &a) const;
+    void merge(const final_effect &a);
+    void fire();
+protected:
+    coord_def position;
+    int power;
+    mon_attitude_type attitude;
+};
+
 // A fineff that triggers a daction; otherwise the daction
 // occurs immediately (and then later) -- this might actually
 // be too soon in some cases.
 class delayed_action_fineff : public final_effect
 {
 public:
-    delayed_action_fineff(daction_type _action, string _final_msg)
+    delayed_action_fineff(daction_type _action, const char* _final_msg)
             : final_effect(0, 0, coord_def()),
-              action(_action),final_msg(_final_msg)
+              action(_action), final_msg(_final_msg)
     {
     }
 
@@ -167,18 +173,31 @@ public:
 
 protected:
     daction_type action;
-    string final_msg;
+    const char *final_msg;
 };
 
 class kirke_death_fineff : public delayed_action_fineff
 {
 public:
-    kirke_death_fineff(string _final_msg)
+    kirke_death_fineff(const char *_final_msg)
             : delayed_action_fineff(DACT_KIRKE_HOGS, _final_msg)
     {
     }
 
     void fire();
+};
+
+class rakshasa_clone_fineff : public final_effect
+{
+public:
+    rakshasa_clone_fineff(const actor *defend, const coord_def &pos)
+        : final_effect(0, defend, pos)
+    {
+    }
+    bool mergeable(const final_effect &a) const;
+    void fire();
+protected:
+    int damage;
 };
 void fire_final_effects();
 

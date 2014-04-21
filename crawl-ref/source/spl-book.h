@@ -3,7 +3,6 @@
  * @brief Spellbook/rod contents array and management functions
 **/
 
-
 #ifndef SPL_BOOK_H
 #define SPL_BOOK_H
 
@@ -44,7 +43,7 @@ spell_type which_spell_in_book(const item_def &book, int spl);
 spell_type which_spell_in_book(int sbook_type, int spl);
 
 // returns amount practised (or -1 for abort)
-int rod_spell(int zap_device_2);
+int rod_spell(int zap_device_2, bool check_range = false);
 bool is_memorised(spell_type spell);
 
 bool you_cannot_memorise(spell_type spell);

@@ -35,10 +35,17 @@
 #include "xom.h"
 
 #ifdef WIZARD
+static void _swap_equip(equipment_type a, equipment_type b)
+{
+    swap(you.equip[a], you.equip[b]);
+    bool tmp = you.melded[a];
+    you.melded.set(a, you.melded[b]);
+    you.melded.set(b, tmp);
+}
+
 void wizard_change_species(void)
 {
     char specs[80];
-    int i;
 
     msgwin_get_line("What species would you like to be now? " ,
                     specs, sizeof(specs));
@@ -49,7 +56,7 @@ void wizard_change_species(void)
 
     species_type sp = SP_UNKNOWN;
 
-    for (i = 0; i < NUM_SPECIES; ++i)
+    for (int i = 0; i < NUM_SPECIES; ++i)
     {
         const species_type si = static_cast<species_type>(i);
         const string sp_name = lowercase_string(species_name(si));
@@ -76,19 +83,20 @@ void wizard_change_species(void)
     }
 
     // Re-scale skill-points.
-    for (i = SK_FIRST_SKILL; i < NUM_SKILLS; ++i)
+    for (int i = SK_FIRST_SKILL; i < NUM_SKILLS; ++i)
     {
         skill_type sk = static_cast<skill_type>(i);
         you.skill_points[i] *= species_apt_factor(sk, sp)
                                / species_apt_factor(sk);
     }
 
+    species_type old_sp = you.species;
     you.species = sp;
     you.is_undead = get_undead_state(sp);
 
     // Change permanent mutations, but preserve non-permanent ones.
     uint8_t prev_muts[NUM_MUTATIONS];
-    for (i = 0; i < NUM_MUTATIONS; ++i)
+    for (int i = 0; i < NUM_MUTATIONS; ++i)
     {
         if (you.innate_mutations[i] > 0)
         {
@@ -102,7 +110,7 @@ void wizard_change_species(void)
         prev_muts[i] = you.mutation[i];
     }
     give_basic_mutations(sp);
-    for (i = 0; i < NUM_MUTATIONS; ++i)
+    for (int i = 0; i < NUM_MUTATIONS; ++i)
     {
         if (prev_muts[i] > you.innate_mutations[i])
             you.innate_mutations[i] = 0;
@@ -149,7 +157,7 @@ void wizard_change_species(void)
     case SP_DEMONSPAWN:
     {
         roll_demonspawn_mutations();
-        for (i = 0; i < int(you.demonic_traits.size()); ++i)
+        for (int i = 0; i < int(you.demonic_traits.size()); ++i)
         {
             mutation_type m = you.demonic_traits[i].mutation;
 
@@ -182,6 +190,26 @@ void wizard_change_species(void)
         break;
     }
 
+    if ((old_sp == SP_OCTOPODE) != (sp == SP_OCTOPODE))
+    {
+        _swap_equip(EQ_LEFT_RING, EQ_RING_ONE);
+        _swap_equip(EQ_RIGHT_RING, EQ_RING_TWO);
+        // All species allow exactly one amulet.  When (and knowing you guys,
+        // that's "when" not "if") ettins go in, you'll need handle the Macabre
+        // Finger Necklace on neck 2 here.
+    }
+
+    // FIXME: this checks only for valid slots, not for suitability of the
+    // item in question.  This is enough to make assertions happy, though.
+    for (int i = 0; i < NUM_EQUIP; ++i)
+        if (!you_can_wear(i, true) && you.equip[i] != -1)
+        {
+            mprf("%s falls away.", you.inv[you.equip[i]].name(DESC_YOUR).c_str());
+            // Unwear items without the usual processing.
+            you.equip[i] = -1;
+            you.melded.set(i, false);
+        }
+
     // Sanitize skills.
     fixup_skills();
 
@@ -210,7 +238,7 @@ void wizard_cast_spec_spell(void)
     char specs[80], *end;
     int spell;
 
-    mpr("Cast which spell? ", MSGCH_PROMPT);
+    mprf(MSGCH_PROMPT, "Cast which spell? ");
     if (cancellable_get_line_autohist(specs, sizeof(specs))
         || specs[0] == '\0')
     {
@@ -240,7 +268,7 @@ void wizard_memorise_spec_spell(void)
     char specs[80], *end;
     int spell;
 
-    mpr("Memorise which spell? ", MSGCH_PROMPT);
+    mprf(MSGCH_PROMPT, "Memorise which spell? ");
     if (cancellable_get_line_autohist(specs, sizeof(specs))
         || specs[0] == '\0')
     {
@@ -283,12 +311,14 @@ void wizard_heal(bool super_heal)
     you.rotting = 0;
     you.disease = 0;
     you.duration[DUR_CONF]      = 0;
-    you.duration[DUR_MISLED]    = 0;
     you.duration[DUR_POISONING] = 0;
+    you.duration[DUR_EXHAUSTED] = 0;
     set_hp(you.hp_max);
     set_mp(you.max_magic_points);
-    set_hunger(10999, true);
+    set_hunger(HUNGER_VERY_FULL + 100, true);
     you.redraw_hit_points = true;
+    you.redraw_armour_class = true;
+    you.redraw_evasion = true;
 }
 
 void wizard_set_hunger_state()
@@ -309,10 +339,10 @@ void wizard_set_hunger_state()
     switch (c)
     {
     case 't': you.hunger = HUNGER_STARVING / 2;   break;
-    case 'n': you.hunger = 1200;  break;
-    case 'h': you.hunger = 2400;  break;
-    case 's': you.hunger = 5000;  break;
-    case 'f': you.hunger = 8000;  break;
+    case 'n': you.hunger = 1100;  break;
+    case 'h': you.hunger = 2300;  break;
+    case 's': you.hunger = 4900;  break;
+    case 'f': you.hunger = 7900;  break;
     case 'e': you.hunger = HUNGER_MAXIMUM; break;
     default:  canned_msg(MSG_OK); break;
     }
@@ -467,7 +497,6 @@ void wizard_set_skill_level(skill_type skill)
 }
 #endif
 
-
 #ifdef WIZARD
 void wizard_set_all_skills(void)
 {
@@ -555,7 +584,7 @@ bool wizard_add_mutation()
     const bool god_gift = (answer == 1);
 
     msgwin_get_line("Which mutation (name, 'good', 'bad', 'any', "
-                    "'xom', 'slime')? ",
+                    "'xom', 'slime', 'corrupt')? ",
                     specs, sizeof(specs));
 
     if (specs[0] == '\0')
@@ -575,6 +604,8 @@ bool wizard_add_mutation()
         mutat = RANDOM_XOM_MUTATION;
     else if (spec == "slime")
         mutat = RANDOM_SLIME_MUTATION;
+    else if (spec == "corrupt")
+        mutat = RANDOM_CORRUPT_MUTATION;
 
     if (mutat != NUM_MUTATIONS)
     {
@@ -676,7 +707,7 @@ void wizard_set_abyss()
     char buf[80];
     mprf(MSGCH_PROMPT, "Enter values for X, Y, Z (space separated) or return: ");
     if (!cancellable_get_line_autohist(buf, sizeof buf))
-        abyss_teleport(true);
+        abyss_teleport();
 
     uint32_t x = 0, y = 0, z = 0;
     sscanf(buf, "%d %d %d", &x, &y, &z);
@@ -727,7 +758,9 @@ static const char* dur_names[] =
     "exhausted",
     "liquid flames",
     "icy armour",
+#if TAG_MAJOR_VERSION == 34
     "repel missiles",
+#endif
     "prayer",
     "piety pool",
     "divine vigour",
@@ -743,7 +776,9 @@ static const char* dur_names[] =
     "breath weapon",
     "transformation",
     "death channel",
+#if TAG_MAJOR_VERSION == 34
     "deflect missiles",
+#endif
     "phase shift",
 #if TAG_MAJOR_VERSION == 34
     "see invisible",
@@ -755,8 +790,8 @@ static const char* dur_names[] =
     "condensation shield",
     "stoneskin",
     "gourmand",
-    "bargain",
 #if TAG_MAJOR_VERSION == 34
+    "bargain",
     "insulation",
 #endif
     "resistance",
@@ -773,7 +808,9 @@ static const char* dur_names[] =
     "slimify",
     "time step",
     "icemail depleted",
+#if TAG_MAJOR_VERSION == 34
     "misled",
+#endif
     "quad damage",
     "afraid",
     "mirror damage",
@@ -809,15 +846,36 @@ static const char* dur_names[] =
     "weak",
     "dimension anchor",
     "antimagic",
+#if TAG_MAJOR_VERSION == 34
     "spirit howl",
+#endif
     "infused",
     "song of slaying",
+#if TAG_MAJOR_VERSION == 34
     "song of shielding",
+#endif
     "toxic radiance",
     "reciting",
     "grasping roots",
     "sleep immunity",
     "fire vulnerability",
+    "elixir health",
+    "elixir magic",
+#if TAG_MAJOR_VERSION == 34
+    "antennae extend",
+#endif
+    "trogs hand",
+    "manticore barbs",
+    "poison vulnerability",
+    "frozen",
+    "sap magic",
+    "magic sapped",
+    "portal projectile",
+    "forested",
+    "dragon call",
+    "dragon call cooldown",
+    "aura of abjuration",
+    "mesmerisation immunity",
 };
 
 void wizard_edit_durations(void)
@@ -843,11 +901,11 @@ void wizard_edit_durations(void)
             mprf_nocap(MSGCH_PROMPT, "%c) %-*s : %d", 'a' + i, (int)max_len,
                  dur_names[dur], you.duration[dur]);
         }
-        mpr("", MSGCH_PROMPT);
-        mpr("Edit which duration (letter or name)? ", MSGCH_PROMPT);
+        mprf(MSGCH_PROMPT, "");
+        mprf(MSGCH_PROMPT, "Edit which duration (letter or name)? ");
     }
     else
-        mpr("Edit which duration (name)? ", MSGCH_PROMPT);
+        mprf(MSGCH_PROMPT, "Edit which duration (name)? ");
 
     char buf[80];
 
@@ -869,14 +927,14 @@ void wizard_edit_durations(void)
     {
         if (durs.empty())
         {
-            mpr("No existing durations to choose from.", MSGCH_PROMPT);
+            mprf(MSGCH_PROMPT, "No existing durations to choose from.");
             return;
         }
         choice = buf[0] - 'a';
 
         if (choice < 0 || choice >= (int) durs.size())
         {
-            mpr("Invalid choice.", MSGCH_PROMPT);
+            mprf(MSGCH_PROMPT, "Invalid choice.");
             return;
         }
         choice = durs[choice];
@@ -925,11 +983,16 @@ void wizard_edit_durations(void)
 
     if (num == 0)
     {
-        mpr("Can't set duration directly to 0, setting it to 1 instead.",
-            MSGCH_PROMPT);
+        mprf(MSGCH_PROMPT, "Can't set duration directly to 0, setting it to 1 instead.");
         num = 1;
     }
     you.duration[choice] = num;
+}
+
+void wizard_list_props()
+{
+    mprf(MSGCH_DIAGNOSTICS, "props: %s",
+         you.describe_props().c_str());
 }
 
 static void debug_uptick_xl(int newxl, bool train)
@@ -943,9 +1006,13 @@ static void debug_uptick_xl(int newxl, bool train)
     level_change(NON_MONSTER, NULL, true);
 }
 
+/**
+ * Set the player's XL to a new value.
+ * @param newxl  The new experience level.
+ */
 static void debug_downtick_xl(int newxl)
 {
-    you.hp = you.hp_max;
+    set_hp(you.hp_max);
     you.hp_max_perm += 1000; // boost maxhp so we don't die if heavily rotted
     you.experience = exp_needed(newxl);
     level_change();
@@ -962,7 +1029,7 @@ static void debug_downtick_xl(int newxl)
         calc_hp();
     }
 
-    you.hp       = max(1, you.hp);
+    set_hp(max(1, you.hp));
 }
 
 void wizard_set_xl()
@@ -1048,11 +1115,11 @@ void wizard_transform()
                                  transform_name((transformation_type)i));
             if (i % 5 == 4 || i == LAST_FORM)
             {
-                mpr(line, MSGCH_PROMPT);
+                mprf(MSGCH_PROMPT, "%s", line.c_str());
                 line.clear();
             }
         }
-        mpr("Which form (ESC to exit)? ", MSGCH_PROMPT);
+        mprf(MSGCH_PROMPT, "Which form (ESC to exit)? ");
 
         int keyin = toalower(get_ch());
 

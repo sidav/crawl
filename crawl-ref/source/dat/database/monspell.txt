@@ -61,13 +61,17 @@ Animate Dead cast gestures
 
 @The_monster@ throws @possessive@ @arms@ wide.
 %%%%
-Flame Tongue cast
+Blinkbolt cast
 
-@The_monster@ issues a gush of flame.
+@The_monster@ bursts into living lightning!
+%%%%
+unseen Blinkbolt cast
 
-@The_monster@ emits a jet of flame.
+Living lightning bursts into view!
+%%%%
+branch summon cast prefix
 
-@The_monster@ lets out a tongue of flame.
+@The_monster@ calls forth creatures from
 %%%%
 Lesser Healing cast real
 
@@ -93,20 +97,6 @@ Greater Healing cast
 
 @The_monster@ briefly glows brightly.
 %%%%
-Mislead cast
-
-@The_monster@ weaves an illusion.
-
-@The_monster@ misleads you.
-
-@The_monster@ clouds your mind.
-%%%%
-unseen Mislead cast
-
-Something tries to mislead you!
-
-Something weaves an illusion around you!
-%%%%
 Mara Summon cast
 
 @The_monster@ weaves an illusion.
@@ -125,14 +115,6 @@ unseen Symbol of Torment cast
 
 @The_something@ calls on the powers of darkness!
 %%%%
-Holy Word cast
-
-@The_monster@ calls on the powers of Heaven!
-%%%%
-unseen Holy Word cast
-
-@The_something@ calls on the powers of Heaven!
-%%%%
 Orb of Destruction orb spider cast
 
 @The_monster@ weaves a glowing orb of energy.
@@ -148,18 +130,6 @@ Orb of Destruction cast
 Sticky Flame cast
 
 @The_monster@ sprays @target@ with burning goo.
-%%%%
-Sunray cast
-
-@The_monster@ raises @possessive@ hand.
-
-@The_monster@ calls in a beam of light.
-%%%%
-unseen Sunray cast
-
-Suddenly, a bright light shines from nowhere!
-
-An intense light blinds you for a moment.
 %%%%
 Holy Flames cast
 
@@ -185,9 +155,25 @@ Haste Plants cast
 
 @The_monster@ empowers the plants around itself!
 %%%%
+Major Destruction cast
+
+@The_monster@ conjures a destructive force in the name of @possessive_God@!
+%%%%
 Druid's Call cast
 
-@The_monster@ calls out to the beasts of the land!
+@The_monster@ calls out to the beasts of the wild!
+%%%%
+Legendary Destruction cast
+
+@The_monster@ offers @possessive@ life energy for powerful magic!
+%%%%
+Ephemeral Infusion cast
+
+@The_monster@ gestures around itself.
+%%%%
+Phantom Mirror cast
+
+@The_monster@ weaves an illusion.
 #####################################################
 # Individual innate spells (breathing and spitting).
 #####################################################
@@ -265,23 +251,23 @@ Frances cast
 
 @The_monster@ whispers indecipherable words.
 
-@The_monster@ chants phrases taken from a Devil's mouth.
+@The_monster@ chants phrases taken from a devil's mouth.
 
 @The_monster@ screams a word of power!
 %%%%
 Gastronok cast targeted
 
-@The_monster@ looks at @target@ while chanting.
+@The_monster@ looks @at@ @target@ while chanting.
 
-@The_monster@ looks at @target@ and mumbles some strange words.
+@The_monster@ looks @at@ @target@ and mumbles some strange words.
 
-@The_monster@ casts a spell at @target@.
+@The_monster@ casts a spell @at@ @target@.
 %%%%
 Dissolution cast
 
 @The_monster@ gurgles deeply, a call to fellow slimes.
 
-@The_monster@ says, "@God@ sees all!"
+@The_monster@ says, "@My_God@ sees all!"
 %%%%
 Gastronok cast
 
@@ -326,30 +312,21 @@ Berserker Rage Rupert cast
 
 @The_monster@ roars madly and goes into a rage!
 %%%%
-Paralyse Rupert cast
+Rupert cast targeted
 
-@The_monster@ roars, making @target@ freeze in fear.
-%%%%
-Confuse Rupert cast
+@The_monster@ roars wildly @at@ @target@.
 
-# Hrm, this could use more variables to sound acceptable.
-@The_monster@ yells loudly, causing @target@ to lose all wits.
+@The_monster@ yells loudly @at@ @target@.
 %%%%
 Ensnare Arachne cast
 
-@The_monster@ points her staff at @target@, shooting a whitish beam.
+@The_monster@ points her staff @at@ @target@, shooting a stream of webbing.
 
-@The_monster@'s staff shoots out a whitish beam.
+@The_monster@'s staff shoots out a stream of webbing.
 %%%%
 unseen Ensnare Arachne cast
 
-A whitish beam shoots out from seemingly nowhere.
-%%%%
-Pan cast
-
-@The_monster@ weaves a haunting melody.
-
-@The_monster@ plays an eerie tune.
+A stream of webbing shoots out from thin air.
 %%%%
 ########################################################################
 # Individual monsters
@@ -387,7 +364,7 @@ sphinx cast
 %%%%
 eidolon cast targeted
 
-@The_monster@ stares piercingly at @target@.
+@The_monster@ stares piercingly @at@ @target@.
 %%%%
 basilisk cast targeted
 
@@ -403,7 +380,7 @@ thrashing horror cast
 %%%%
 Airstrike wind drake cast
 
-@The_monster@ flaps its wings at @target@.
+@The_monster@ flaps its wings @at@ @target@.
 %%%%
 dryad cast
 
@@ -413,10 +390,6 @@ Minor Healing dryad cast
 
 @The_monster@ draws upon the vitality of nature.
 %%%%
-Summon Water Elementals elemental wellspring cast
-
-The water around @The_monster@ rises up and takes form!
-%%%%
 Cause Fear satyr cast
 
 @The_monster@ plays a frightful melody on his pipes!
@@ -424,6 +397,26 @@ Cause Fear satyr cast
 Sleep satyr cast
 
 @The_monster@ plays a lulling melody on his pipes!
+%%%%
+Metal Splinters war gargoyle cast
+
+@The_monster@ launches @beam@ @at@ @target@.
+%%%%
+Crystal Bolt crystal guardian cast
+
+@The_monster@ fires a crystalline bolt @at@ @target@.
+%%%%
+Blink Other statue cast
+
+@The_monster@ casts a spell @at@ @target@.
+%%%%
+Stone Arrow gargoyle cast
+
+@The_monster@ hurls a @beam@ @at@ @target@.
+%%%%
+Bolt of Magma molten gargoyle cast
+
+@The_monster@ blasts magma @at@ @target@!
 ########################################################################
 # Monster species and genus messages.
 ########################################################################
@@ -431,10 +424,6 @@ Sleep satyr cast
 angel cast targeted
 
 @The_monster@ calls down the wrath of @possessive_God@ upon @target@.
-%%%%
-chaos butterfly cast
-
-@The_monster@ flaps its wings furiously.
 %%%%
 dragon cast targeted
 
@@ -474,9 +463,9 @@ giant eyeball cast
 %%%%
 guardian serpent cast targeted
 
-@The_monster@ coils @reflexive@ and waves @possessive@ upper body at @target@.
+@The_monster@ coils @reflexive@ and waves @possessive@ upper body @at@ @target@.
 
-@The_monster@ casts a spell at @target@.
+@The_monster@ casts a spell @at@ @target@.
 %%%%
 guardian serpent cast
 
@@ -504,6 +493,14 @@ shedu cast
 shedu cast targeted
 
 @The_monster@ beseeches @possessive_God@ to heal @possessive@ mate!
+%%%%
+Shock shock serpent cast
+
+@The_monster@ discharges a narrow tendril of electricity.
+%%%%
+Static Discharge shock serpent cast
+
+@The_monster@ crackles with electricity!
 ###########################################################################
 # Generic messages for priests and wizards which have been polymorphed into
 # something without hands.
@@ -511,7 +508,7 @@ shedu cast targeted
 %%%%
 polymorphed wizard cast targeted
 
-@The_monster@ casts a spell at @target@.
+@The_monster@ casts a spell @at@ @target@.
 %%%%
 polymorphed wizard cast
 
@@ -538,7 +535,7 @@ Might Other priest cast
 %%%%
 Malign Offering priest cast
 
-@The_monster@ utters a dark prayer and points at @target@.
+@The_monster@ utters a dark prayer and points @at@ @target@.
 %%%%
 priest cast targeted
 
@@ -558,21 +555,21 @@ priest cast
 %%%%
 unseen priest cast targeted
 
-You hear @something@ call down the wrath of @God@ upon @target@.
+You hear @something@ call down the wrath of @a_God@ upon @target@.
 
-You hear @something@ mumble some strange prayers to @God@ against @target@.
+You hear @something@ mumble some strange prayers to @a_God@ against @target@.
 
-You hear @something@ invoke the aid of @God@ against @target@.
+You hear @something@ invoke the aid of @a_God@ against @target@.
 %%%%
 unseen priest cast
 
-You hear some strange, mumbled prayers to @God@.
+You hear some strange, mumbled prayers to @a_God@.
 %%%%
 non-humanoid wizard cast targeted
 
-@The_monster@ stares at @target@ and mumbles some strange words.
+@The_monster@ stares @at@ @target@ and mumbles some strange words.
 
-@The_monster@ casts a spell at @target@.
+@The_monster@ casts a spell @at@ @target@.
 %%%%
 non-humanoid wizard cast
 
@@ -586,11 +583,11 @@ You hear some strange, mumbled words.
 %%%%
 wizard cast targeted
 
-@The_monster@ gestures at @target@ while chanting.
+@The_monster@ gestures @at@ @target@ while chanting.
 
-@The_monster@ points at @target@ and mumbles some strange words.
+@The_monster@ points @at@ @target@ and mumbles some strange words.
 
-@The_monster@ casts a spell at @target@.
+@The_monster@ casts a spell @at@ @target@.
 %%%%
 wizard cast
 
@@ -606,7 +603,7 @@ You hear some strange, mumbled words.
 %%%%
 demon cast targeted
 
-@The_monster@ gestures at @target@.
+@The_monster@ gestures @at@ @target@.
 %%%%
 demon cast
 

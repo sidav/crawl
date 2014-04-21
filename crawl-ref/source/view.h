@@ -3,10 +3,11 @@
  * @brief Misc function used to render the dungeon.
 **/
 
-
 #ifndef VIEW_H
 #define VIEW_H
 
+#include "defines.h"
+#include "options.h"
 #include "viewgeom.h"
 
 void init_monsters_seens();
@@ -27,6 +28,12 @@ int viewmap_flash_colour();
 bool view_update();
 void view_update_at(const coord_def &pos);
 class targetter;
+
+static inline void scaled_delay(unsigned int ms)
+{
+    delay(ms * Options.view_delay / DEFAULT_VIEW_DELAY);
+}
+
 // beware, flash_view is broken for USE_TILE_LOCAL
 void flash_view(colour_t colour, targetter *where = NULL);
 void flash_view_delay(colour_t colour, int delay, targetter *where = NULL);

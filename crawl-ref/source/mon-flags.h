@@ -86,7 +86,8 @@ const uint64_t M_INSUBSTANTIAL     = 1<<24;
 // wields two weapons at once
 const uint64_t M_TWO_WEAPONS       = 1<<25;
 
-////////////////////////////////// = 1<<26;
+// has extra-fast regeneration
+const uint64_t M_FAST_REGEN        = 1<<26;
 
 // cannot regenerate
 const uint64_t M_NO_REGEN          = 1<<27;
@@ -120,8 +121,7 @@ const uint64_t M_FAKE_SPELLS       = (uint64_t)1<<35;
 // always leaves a corpse
 const uint64_t M_ALWAYS_CORPSE     = (uint64_t)1<<36;
 
-// is constantly "fleeing"
-const uint64_t M_FLEEING           = (uint64_t)1<<37;
+// 1<<37
 
 // is an artificial being
 const uint64_t M_ARTIFICIAL        = (uint64_t)1<<38;
@@ -160,6 +160,15 @@ const uint64_t M_HYBRID            = (uint64_t)1<<49;
 
 // monster is always alerted to hostiles, and does not forget them over time
 const uint64_t M_VIGILANT          = (uint64_t)1<<50;
+
+// monster starts with Ozocubu's Armour
+const uint64_t M_OZOCUBUS_ARMOUR   = (uint64_t)1<<51;
+
+// monster starts with a Shroud of Golubria
+const uint64_t M_SHROUD            = (uint64_t)1<<52;
+
+// monster is shadowy and cannot be backlit (was M_GLOWS_LIGHT)
+const uint64_t M_SHADOW            = (uint64_t)1<<53;
 
 // Same for flags for actual monsters.
 typedef uint64_t monster_flag_type;
@@ -234,4 +243,6 @@ const uint64_t MF_NAME_NOCORPSE      = BIT(34); // mname should not be used for 
 const uint64_t MF_SEEN_RANGED        = BIT(35); // known to have a ranged attack
 
 const uint64_t MF_POLYMORPHED        = BIT(36); // this monster has been polymorphed.
+const uint64_t MF_JUST_SLEPT         = BIT(37); // just got hibernated/slept
+const uint64_t MF_TSO_SEEN           = BIT(38); // possibly got piety with TSO
 #endif

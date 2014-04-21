@@ -7,13 +7,13 @@
 
 #include "dactions.h"
 
+#include "act-iter.h"
 #include "coordit.h"
 #include "decks.h"
 #include "dungeon.h"
 #include "env.h"
 #include "libutil.h"
 #include "mon-behv.h"
-#include "mon-iter.h"
 #include "mon-stuff.h"
 #include "mon-transit.h"
 #include "mon-util.h"
@@ -56,7 +56,9 @@ static const char *daction_names[] =
     "slimes allow another conversion attempt",
 #endif
     "hogs to humans",
+#if TAG_MAJOR_VERSION == 34
     "end spirit howl",
+#endif
 };
 #endif
 
@@ -68,18 +70,18 @@ bool mons_matches_daction(const monster* mon, daction_type act)
     switch (act)
     {
     case DACT_ALLY_HOLY:
-        return (mon->wont_attack() && is_good_god(mon->god));
+        return mon->wont_attack() && is_good_god(mon->god);
     case DACT_ALLY_UNHOLY_EVIL:
-        return (mon->wont_attack() && (mon->is_unholy() || mon->is_evil()));
+        return mon->wont_attack() && (mon->is_unholy() || mon->is_evil());
     case DACT_ALLY_UNCLEAN_CHAOTIC:
-        return (mon->wont_attack() && (mon->is_unclean() || mon->is_chaotic()));
+        return mon->wont_attack() && (mon->is_unclean() || mon->is_chaotic());
     case DACT_ALLY_SPELLCASTER:
-        return (mon->wont_attack() && mon->is_actual_spellcaster());
+        return mon->wont_attack() && mon->is_actual_spellcaster();
     case DACT_ALLY_YRED_SLAVE:
         // Changed: we don't force enslavement of those merely marked.
         return is_yred_undead_slave(mon);
     case DACT_ALLY_BEOGH: // both orcs and demons summoned by high priests
-        return (mon->wont_attack() && mons_is_god_gift(mon, GOD_BEOGH));
+        return mon->wont_attack() && mons_is_god_gift(mon, GOD_BEOGH);
     case DACT_ALLY_SLIME:
         return is_fellow_slime(mon);
     case DACT_ALLY_PLANT:
@@ -89,17 +91,17 @@ bool mons_matches_daction(const monster* mon, daction_type act)
 
     // Not a stored counter:
     case DACT_ALLY_TROG:
-        return (mon->friendly() && mons_is_god_gift(mon, GOD_TROG));
+        return mon->friendly() && mons_is_god_gift(mon, GOD_TROG);
     case DACT_HOLY_PETS_GO_NEUTRAL:
-        return (mon->friendly()
-                && !mon->has_ench(ENCH_CHARM)
-                && mon->is_holy()
-                && mons_is_god_gift(mon, GOD_SHINING_ONE));
+        return mon->friendly()
+               && !mon->has_ench(ENCH_CHARM)
+               && mon->is_holy()
+               && mons_is_god_gift(mon, GOD_SHINING_ONE);
     case DACT_PIKEL_SLAVES:
-        return (mon->type == MONS_SLAVE
-                && testbits(mon->flags, MF_BAND_MEMBER)
-                && mon->props.exists("pikel_band")
-                && mon->mname != "freed slave");
+        return mon->type == MONS_SLAVE
+               && testbits(mon->flags, MF_BAND_MEMBER)
+               && mon->props.exists("pikel_band")
+               && mon->mname != "freed slave";
 
     case DACT_OLD_ENSLAVED_SOULS_POOF:
         return mons_enslaved_soul(mon);
@@ -111,18 +113,14 @@ bool mons_matches_daction(const monster* mon, daction_type act)
         return mons_is_slime(mon);
 
     case DACT_KIRKE_HOGS:
-        return ((mon->type == MONS_HOG
-                 || mon->type == MONS_HELL_HOG
-                 || mon->type == MONS_HOLY_SWINE)
-                && !mon->is_shapeshifter()
-                // Must be one of Kirke's original band
-                // *or* another monster that got porkalated
-                && (mon->props.exists("kirke_band")
-                    || mon->props.exists(ORIG_MONSTER_KEY)));
-
-    case DACT_END_SPIRIT_HOWL:
-        return (mon->type == MONS_SPIRIT_WOLF
-                && mon->props.exists("howl_called"));
+        return (mon->type == MONS_HOG
+                || mon->type == MONS_HELL_HOG
+                || mon->type == MONS_HOLY_SWINE)
+               && !mon->is_shapeshifter()
+               // Must be one of Kirke's original band
+               // *or* another monster that got porkalated
+               && (mon->props.exists("kirke_band")
+                   || mon->props.exists(ORIG_MONSTER_KEY));
 
     default:
         return false;
@@ -159,7 +157,6 @@ void add_daction(daction_type act)
 
     // And now to any monsters in transit.
     apply_daction_to_transit(act);
-
 }
 
 void apply_daction_to_mons(monster* mon, daction_type act, bool local,
@@ -230,15 +227,6 @@ void apply_daction_to_mons(monster* mon, daction_type act, bool local,
             _daction_hog_to_human(mon, in_transit);
             break;
 
-        case DACT_END_SPIRIT_HOWL:
-            if (!you.can_see(mon))
-            {
-                // This wolf is available to be called again later
-                you.props["spirit_wolf_total"].get_int()++;
-                monster_die(mon, KILL_RESET, NON_MONSTER);
-            }
-            break;
-
         // The other dactions do not affect monsters directly.
         default:
             break;
@@ -267,7 +255,6 @@ static void _apply_daction(daction_type act)
     case DACT_HOLY_PETS_GO_NEUTRAL:
     case DACT_PIKEL_SLAVES:
     case DACT_KIRKE_HOGS:
-    case DACT_END_SPIRIT_HOWL:
         for (monster_iterator mi; mi; ++mi)
         {
             if (mons_matches_daction(*mi, act))
@@ -297,6 +284,9 @@ static void _apply_daction(daction_type act)
         if (player_in_branch(BRANCH_TOMB))
             unset_level_flags(LFLAG_NO_TELE_CONTROL, you.depth != 3);
         break;
+#if TAG_MAJOR_VERSION == 34
+    case DACT_END_SPIRIT_HOWL:
+#endif
     case NUM_DA_COUNTERS:
     case NUM_DACTIONS:
         ;

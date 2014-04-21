@@ -8,7 +8,7 @@
 {{
   -- Vaults:$ common loot substitutions
   function vaults_end_loot(e)
-    e.subst("? = | * .:40 ^:3")
+    e.subst("? = | * .:43")
     e.subst("| = | *:2")
     e.subst("* = * |:2")
   end
@@ -49,38 +49,27 @@
 # Vaults entries
 ###############################################################################
 
-# Dummy Vaults entry
-NAME:   vaults_0_dummy
-TAGS:   vaults_entry
-WEIGHT: 60
-ORIENT: float
-KFEAT:  O = enter_vaults
-MAP
-O
-ENDMAP
-
 ############################################################
 # Generic Vaults entry
 #
 NAME:    david_vaults_1
 TAGS:    vaults_entry
-MONS:    weight:20 nothing / weight:30 human / necromancer / wizard
-ORIENT:  float
-SHUFFLE: !=
-SUBST:   ! = x
-SUBST:   = = +
-SUBST:   ' : cxv
+MONS:    hill giant / troll / two-headed ogre
+MONS:    necromancer / wizard / vampire w:4 / deep elf mage w:4
+SHUFFLE: !-
+SUBST:   ! = x, - = +, c : cxv
+NSUBST:  1 = 1:1 / * = 1.., 2 = 1:2 / * = 2..
 KFEAT:   O = enter_vaults
 MAP
-xxxxx.@.'''''
-x...+...'...'
-x...x...'...'
-x!x=x111'...'
-@.x.x111+.O.'
-x.x.x111'...'
-x.x.x...'...'
-x.+.x...'...'
-xxxxx.@.'''''
+xxxxx.@.ccccc
+x...+...c..2c
+x...x...c...c
+x!x-x.1.c...c
+@.x.x12.+.O1c
+x.x.x.1.c...c
+x.x.x...c...c
+x.+.x...c..2c
+xxxxx.@.ccccc
 ENDMAP
 
 ############################################################
@@ -88,22 +77,20 @@ ENDMAP
 #
 NAME: david_vaults_2
 TAGS: vaults_entry
-MONS: weight:40 nothing / weight:30 yaktaur / yaktaur captain
-MONS: weight:70 nothing / weight:40 ogre / weight:20 two-headed ogre / ogre mage
-MONS: weight:100 nothing / shapeshifter
-SHUFFLE: 123
-ORIENT:  float
+MONS: yaktaur captain, yaktaur, ogre mage, two-headed ogre
+MONS: glowing shapeshifter, shapeshifter
+SHUFFLE: 12 / 34 / 56
 KFEAT:   O = enter_vaults
 MAP
-1111..@......
-111..........
-111..........
-1............
-@.....O.....@
-.............
-.............
-.............
-....@........
+vvvvv.@....
+v1.........
+v..........
+v.....2v.v.
+@....2Ov..@
+.....vvv.v.
+...........
+.....v.v.v.
+......@....
 ENDMAP
 
 ############################################################
@@ -111,9 +98,11 @@ ENDMAP
 #
 NAME:    david_vaults_3
 TAGS:    vaults_entry
-ORIENT:  float
-MONS:    human, human / Donald, human / human / Norris, human / Rupert
-SHUFFLE: 2345
+MONS:    human
+KMONS:   2 = orc knight / Donald, orc knight
+KMONS:   3 = skeletal warrior w:20 / Norris, skeletal warrior
+KMONS:   4 = hill giant / Rupert, hill giant
+SHUFFLE: 2349
 KFEAT:   O = enter_vaults
 MAP
 @..........@
@@ -124,7 +113,7 @@ MAP
 ..1..()..4..
 ..1......1..
 ...1....1...
-....1511....
+....1911....
 @..........@
 ENDMAP
 
@@ -133,30 +122,26 @@ ENDMAP
 #
 NAME:    david_vaults_4
 TAGS:    vaults_entry
-ORIENT:  float
-SHUFFLE: 123456
-MONS:    dragon / golden dragon / ice dragon / iron dragon / shadow dragon /\
-         storm dragon
-MONS:    freezing wraith / shadow wraith / wight / wraith
+MONS:    fire dragon / ice dragon / hydra / lindwurm
+MONS:    freezing wraith / shadow wraith / wraith / phantasmal warrior
 MONS:    deep troll / iron troll / troll
-MONS:    cyclops / ettin / fire giant / frost giant / hill giant /\
-         stone giant / titan
-MONS:    necromancer / shapeshifter / vault guard / wizard
-MONS:    nothing
-MONS:    shapeshifter / weight:30 nothing
-SUBST:   1=.1, 2=.2, 3=.3, 4=.4, 5=.5, *:*.%
-SUBST:   x : xcv
+MONS:    two-headed ogre / cyclops / ettin / hill giant
+MONS:    necromancer / glowing shapeshifter / vault guard / wizard
+MONS:    shapeshifter
+NSUBST:  1 = 1:1 / 1:2 / 1:3. / 1 : 4 .:30 / 1:5 .:70
+SHUFFLE: 12345
+SUBST:   * = *.%, c : cvv, 6 = 6...
 KFEAT:   O = enter_vaults
 MAP
 @..........@
-.xxxxxxxxxx.
-.x..12345.x.
-.x.xxxxx..x.
-.x.x***x..x.
-.x.+**Ox..x.
-.xxxxxxx..x.
-...777....x.
-.xx...xxxxx.
+.cccccccccc.
+.c.11111..c.
+.c.ccccc..c.
+.c.c***c..c.
+.c.+**Oc..c.
+.ccccccc..c.
+...666....c.
+.cc...ccccc.
 @..........@
 ENDMAP
 
@@ -165,12 +150,10 @@ ENDMAP
 #
 NAME:   david_vaults_5
 TAGS:   vaults_entry
-ORIENT: float
-SUBST:  ! : ! .
-SUBST:  ? : ? .
-SUBST:  ? = .:30 0:10 9:4 8:1 %:10 *:4 |:1
-SUBST:  ! = .:30 0:10 9:4 8:1 %:10 *:4 |:1
+KMONS:  O = vault guard
 KFEAT:  O = enter_vaults
+SUBST:  ! : !., ? : ?.
+SUBST:  ?! = .:30 0:10 9:5 %:10 *:5
 MAP
 xxxxxxxxxxxxxx
 xOx!x!x?x!x?xx
@@ -187,20 +170,19 @@ ENDMAP
 ############################################################
 # The Guard of Blades
 #
-NAME:    erik_vaults_1
-TAGS:    vaults_entry
-MONS:    dancing weapon
-ORIENT:  float
-SHUFFLE: vcxxx
-KFEAT:   O = enter_vaults
+NAME:   erik_vaults_1
+TAGS:   vaults_entry
+MONS:   dancing weapon ; long sword good_item
+SUBST:  v : vcxxx
+KFEAT:  O = enter_vaults
 MAP
 .............
 .............
-.....v.v.....
+.....v%v.....
 ....vvvvv....
 .....1O1.....
 ....vvvvv....
-.....v.v.....
+.....v%v.....
 .............
 .............
 ENDMAP
@@ -211,8 +193,7 @@ ENDMAP
 NAME:    erik_vaults_2
 TAGS:    vaults_entry
 MONS:    vault guard
-ORIENT:  float
-SHUFFLE: vxxx, bcc
+SUBST:   v = vxx, b = bcc
 KFEAT:   O = enter_vaults
 MAP
 vvvvvv.vvvvvv
@@ -233,21 +214,19 @@ NAME:    hangedman_vaults_entry_quadrant_bands
 TAGS:    vaults_entry no_monster_gen no_item_gen patrolling
 ORIENT:  float
 MONS:    centaur warrior, centaur / nothing w:5
-MONS:    ogre mage, two-headed ogre / ogre / nothing w:5
+MONS:    ogre mage, two-headed ogre / ogre w:16
 MONS:    orc knight, orc priest / orc warrior / orc wizard / orc w:15
 KMONS:   7 = yaktaur
 KMONS:   8 = yaktaur / nothing w:5
 KMONS:   9 = deep elf knight
-KMONS:   0 = deep elf mage / deep elf summoner / deep elf fighter / nothing w:15
-KMONS:   A = kobold demonologist
-KMONS:   B = kobold demonologist w:1 / big kobold / kobold w:9
+KMONS:   0 = deep elf mage / deep elf priest / deep elf fighter / nothing w:15
+KMONS:   A = boggart / kobold demonologist
+KMONS:   B = big kobold / kobold w:5
 KMONS:   C = skeletal warrior
-KMONS:   D = skeletal warrior / nothing
-KMONS:   E = boggart
-KMONS:   F = boggart w:15 / nothing w:5
+KMONS:   D = skeleton
 KMASK:   @` = !no_item_gen
 KFEAT:   O = enter_vaults
-SHUFFLE: 12 / 34 / 56 / 78 / 90 / AB / CD / EF, O%*|
+SHUFFLE: 12 / 34 / 56 / 78 / 90 / AB / CD, O%*|
 SUBST:   $ = $$., * = **%, | = **|., ` = .
 MAP
 vvvvvvv@@vvvvvvv
@@ -273,26 +252,27 @@ ENDMAP
 #
 NAME:   grunt_vaults_entry_tiered
 TAGS:   vaults_entry no_monster_gen no_rtele_into transparent
-MONS:   w:5 nothing / human
-MONS:   human / w:5 necromancer / w:5 wizard
-MONS:   human / w:5 vault guard
-SUBST:  ' : cxv
+MONS:   human w:29 / orc warrior w:1
+MONS:   necromancer / wizard / yaktaur w:2
+MONS:   vault guard w:29 / deep elf knight w:1
+SUBST:  x : xcv
+NSUBST: 2 = 1:2 / * = 12, 3 = 1:3 / * = 113
 KFEAT:  O = enter_vaults
 MAP
 ...............
-.'''''''''''''.
-.'%%...'...%%'.
-.'%212.+.323%'.
-.'.1T1.+..O2.'.
-.'.1.1.+.323%'.
-.'.....'...%%'.
-.''+++''''''''.
-.'.....'...%%'.
-.'.111.+....%'.
-.'.2T..+.1T1.'.
-.'%111.+.1.1.'.
-.'%%...'.....'.
-.''''''''+++''.
+.xxxxxxxxxxxxx.
+.x%%...x...%%x.
+.x%212.+.323%x.
+.x.1T1.+..O2.x.
+.x.1.1.+.323%x.
+.x.....x...%%x.
+.xx+++xxxxxxxx.
+.x.....x...%%x.
+.x.111.+....%x.
+.x.2T..+.1T1.x.
+.x%111.+.1.1.x.
+.x%%...x.....x.
+.xxxxxxxx+++xx.
 .........@@@...
 ENDMAP
 
@@ -300,36 +280,32 @@ ENDMAP
 # A fortification!
 #
 NAME: grunt_vaults_entry_fortified
-TAGS: vaults_entry no_pool_fixup patrolling
+TAGS: vaults_entry no_pool_fixup no_monster_gen patrolling
 ORIENT: north
-MONS: human hd:10 ; crossbow . bolt q:10 . short sword | dagger . \
+MONS: human ; crossbow . bolt q:10 . short sword | dagger . \
+              leather armour w:5 | ring mail | scale mail / \
+      orc warrior ; crossbow . bolt q:10 . short sword | dagger . \
                     leather armour w:5 | ring mail | scale mail / \
-      orc knight ; crossbow . bolt q:10 . short sword | dagger . \
-                   leather armour w:5 | ring mail | scale mail / \
-      deep elf knight ; crossbow . bolt q:10 . short sword | dagger . \
-                        leather armour w:5 | ring mail | scale mail / \
-      centaur warrior / yaktaur
-MONS: vault guard
-MONS: wizard / orc sorcerer / ogre mage
-MONS: necromancer band / orc high priest band
+      deep elf fighter / gargoyle / yaktaur
+MONS: vault guard / orc knight w:2
+MONS: wizard / tengu conjurer / orc sorcerer / ogre mage
 NSUBST: T = 1:U / *:T
-KFEAT: K = iron_grate
 KFEAT: O = enter_vaults
 MAP
 xxxxxxxxxxxxxxxxxxx
 xxxxxxxvvvvvxxxxxxx
-xxxxxxxvT2Tvxxxxxxx
+xxxxxxxvT.Tvxxxxxxx
 xxxxxxxv2O2vxxxxxxx
 xxxxxxxvT.Tvxxxxxxx
 xvvvvvvvv+vvvvvvvvx
-xv*...3.....4...*vx
-xv.1....2.2....1.vx
+xv*...3.....3...*vx
+xv.......2.......vx
 xv...............vx
-xvK+KvvvK+KvvvK+Kvx
-xv...vxv.2.vxv...vx
+xvv+vvvv.v.vvvv+vvx
 xv...vxv...vxv...vx
-xv...vxv1.1vxv...vx
-xvK12vvv+++vvv21Kvx
+xv...vxv.1.vxv...vx
+xv...vxv...vxv...vx
+xvv12vvv+++vvv21vvx
 .wwwwwwW...Wwwwwww.
 .WwwwwwW...WwwwwwW.
  .WwwwWW...WwwwwW.
@@ -341,7 +317,6 @@ ENDMAP
 
 NAME: lightli_vaults_fourway_checkpoint
 TAGS: vaults_entry transparent
-ORIENT: float
 MONS: vault guard
 KFEAT: O = enter_vaults
 MAP
@@ -410,64 +385,65 @@ MONS: vault guard
   set_feature_name("green_crystal_wall", "heavily etched wall of green crystal")
 }}
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-xxxx..............................................................xxxx
-xxxx..............................................................xxxx
-xxxx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xxxx
-xxxx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xxxx
-xxxx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xxxx
-xxxx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xxxx
-xxxx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xxxx
-xxxx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xxxx
-xxxx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xxxx
-xxxx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xxxx
-xxxx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xxxx
-xxxx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xxxx
-xxxx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xxxx
-xxxx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xxxx
-xxxx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xxxx
-xxxx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xxxx
-xxxx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xxxx
-xxxx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xxxx
-xxxx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xxxx
-xxxx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xxxx
-xxxx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xxxx
-xxxx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xxxx
-xxxx..AAAAAAAAAAAAAAAAAAAAAAAAAAA.11.BBBBBBBBBBBBBBBBBBBBBBBBBBB..xxxx
-xxxx..AAAAAAAAAAAAAAAAAAAAAAAAAA.1111.BBBBBBBBBBBBBBBBBBBBBBBBBB..xxxx
-xxxx..AAAAAAAAAAAAAAAAAAAAAAAAA.1....1.BBBBBBBBBBBBBBBBBBBBBBBBB..xxxx
-xxxx...........................1..(<..1...........................xxxx
-xxxx..........................11.[..{.11..........................xxxx
-xxxx...........................1..<<..1...........................xxxx
-xxxx............................1....1............................xxxx
-xxxx..CCCCCCCCCCCCCCCCCCCCCCCCC..1111..DDDDDDDDDDDDDDDDDDDDDDDDD..xxxx
-xxxx..CCCCCCCCCCCCCCCCCCCCCCCCCC..11..DDDDDDDDDDDDDDDDDDDDDDDDDD..xxxx
-xxxx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xxxx
-xxxx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xxxx
-xxxx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xxxx
-xxxx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xxxx
-xxxx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xxxx
-xxxx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xxxx
-xxxx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xxxx
-xxxx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xxxx
-xxxx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xxxx
-xxxx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xxxx
-xxxx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xxxx
-xxxx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xxxx
-xxxx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xxxx
-xxxx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xxxx
-xxxx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xxxx
-xxxx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xxxx
-xxxx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xxxx
-xxxx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xxxx
-xxxx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xxxx
-xxxx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xxxx
-xxxx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xxxx
-xxxx..............................................................xxxx
-xxxx..............................................................xxxx
-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+xx9..............................0.............................9xx
+xx..............................................................xx
+xx....AAAAAAAAAAAAAAAAAAAAAAA........BBBBBBBBBBBBBBBBBBBBBBB....xx
+xx...AAAAAAAAAAAAAAAAAAAAAAAAA......BBBBBBBBBBBBBBBBBBBBBBBBB...xx
+xx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xx
+xx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xx
+xx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xx
+xx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xx
+xx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xx
+xx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xx
+xx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xx
+xx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xx
+xx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xx
+xx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xx
+xx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xx
+xx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xx
+xx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xx
+xx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xx
+xx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xx
+xx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xx
+xx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xx
+xx..AAAAAAAAAAAAAAAAAAAAAAAAAAA....BBBBBBBBBBBBBBBBBBBBBBBBBBB..xx
+xx..AAAAAAAAAAAAAAAAAAAAAAAAAAA.11.BBBBBBBBBBBBBBBBBBBBBBBBBBB..xx
+xx...AAAAAAAAAAAAAAAAAAAAAAAA..1111..BBBBBBBBBBBBBBBBBBBBBBBB...xx
+xx....AAAAAAAAAAAAAAAAAAAAAAA.1....1.BBBBBBBBBBBBBBBBBBBBBBB....xx
+xx...........................1..(<..1...........................xx
+xx0.........................11.[..{.11..........................xx
+xx...........................1..<<..1..........................0xx
+xx............................1....1............................xx
+xx....CCCCCCCCCCCCCCCCCCCCCCC..1111..DDDDDDDDDDDDDDDDDDDDDDD....xx
+xx...CCCCCCCCCCCCCCCCCCCCCCCC...11...DDDDDDDDDDDDDDDDDDDDDDDD...xx
+xx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xx
+xx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xx
+xx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xx
+xx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xx
+xx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xx
+xx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xx
+xx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xx
+xx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xx
+xx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xx
+xx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xx
+xx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xx
+xx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xx
+xx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xx
+xx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xx
+xx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xx
+xx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xx
+xx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xx
+xx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xx
+xx..CCCCCCCCCCCCCCCCCCCCCCCCCCC....DDDDDDDDDDDDDDDDDDDDDDDDDDD..xx
+xx...CCCCCCCCCCCCCCCCCCCCCCCCC......DDDDDDDDDDDDDDDDDDDDDDDDD...xx
+xx....CCCCCCCCCCCCCCCCCCCCCCC........DDDDDDDDDDDDDDDDDDDDDDD....xx
+xx..............................................................xx
+xx9.............................0..............................9xx
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
-
 
 ############################################################
 # Vaults:$ - the subvault used to place the rune.
@@ -528,9 +504,9 @@ SUBST:   - = 8 9 .:20
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
-xxxxx.................xxxxx
+  ..xxxxxxxxxxxxxxxxxxx..
+ ...xxxxxxxxxxxxxxxxxxx..
+....xx...............xx....
 xxx.......-.....-.......xxx
 xxx...-.............-...xxx
 xx.......................xx
@@ -548,9 +524,9 @@ xx......x.........x......xx
 xx......xxxxxxxxxxx.-....xx
 xxx...-.................xxx
 xxx........-....-.......xxx
-....xx................xxxxx
- ...xxxxxxxxxxxxxxxxxxxxxxx
-  ..xxxxxxxxxxxxxxxxxxxxxxx
+....xx...............xx....
+ ...xxxxxxxxxxxxxxxxxxx...
+  ..xxxxxxxxxxxxxxxxxxx..
 ENDMAP
 
 ############################################################
@@ -564,10 +540,10 @@ SUBST:   a : x .
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxx.a
-xx!x.x.x!x.x.x.x.x.x.x.x.a
-x.x.x.x.x.x.x.x!x.x.x_x.x.a
-xx.x!x.x.x.x.x.x.x.x!x.x.x.
+  a.xxxxxxxxxxxxxxxxxxx.a
+ a!x.x.x!x.x.x.x.x.x.x.x.
+a.x.x.x.x.x.x.x!x.x.x_x.x.a
+.x.x!x.x.x.x.x.x.x.x!x.x.x.
 x.x.x.x.x_x.x.x_x.x.x.x.x.x
 xx.x.x.x.x.x.x.x.x.x.x.x_xx
 x.x.x!x.x.x.x.x.x.x!x.x.x.x
@@ -575,7 +551,7 @@ xx.x_x.x.x!x.x.x.x.x.x.x.xx
 x.x.x.x.x_x.x.x.x.x.x.x.x.x
 xx.x.x.x.x.x.x.x.x.x.x.x!xx
 x_x.x!x.x.x.x.x.x!x.x_x.x.x
-xx.x.x.x.x.x.x.x.x.x.x.x.xx
+xx.x.x.x.x.x.O.x.x.x.x.x.xx
 x.x.x_x.x.x.x.x.x.x.x.x_x.x
 xx.x.x.x.x.x.x_x.x.x.x.x.xx
 x!x.x.x.x!x.x.x.x.x.x.x.x.x
@@ -583,10 +559,10 @@ xx.x.x.x.x.x.x!x.x.x.x.x.xx
 x.x.x.x.x.x.x.x.x.x_x.x.x.x
 xx.x_x.x.x.x.x.x.x.x.x.x_xx
 x.x!x.x.x.x.x.x.x!x.x.x.x.x
-xx.x.x.x.x.x.x_x.x.x.x.x.xx
-x.x.x.x.x.x_x.x.x.x.x.x.x.x
-xO.x.x_x.x.x!x.x.x.x.x!x_xx
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+.x.x.x.x.x.x.x_x.x.x.x.x.x.
+a.x.x.x.x.x_x.x.x.x.x.x.x.a
+ a.x.x_x.x.x!x.x.x.x.x!x_a
+  a.xxxxxxxxxxxxxxxxxxx.a
 ENDMAP
 
 ############################################################
@@ -594,37 +570,36 @@ ENDMAP
 NAME: vaults_end_classical_stripes
 TAGS: vaults_end_quadrant
 # double use of Y=Y. and Z=Z. for decreasing variance
-SUBST:   Y = Y ., Z = Z .
-SUBST:   Y = Y ., Z = Z .
+SUBST:   Y = Y ., Z = Z ., Y = Y ., Z = Z .
 SUBST:   Y = 9:30 8:10 .:40
 SUBST:   Z = 9:10 8:30 .:40
-SUBST:   a : x .
+SUBST:   a : x ., b : x ., c : x .
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-  axaxxaaxaxxxxxxxxxxxxxxxx
- .......................??x
-a................Y..Z...??x
-x..Y..Y..Y..Y..Y..Z..Y..Y.x
+  axaxxaaxaxxxxxxxxxxxxbx
+  ........................
+a................Y..Z.....x
+x..Y..Y..Y..Y..Y..Z..Y..Y.b
 a...Y..Y..Y..Z..Y..Y..Z...x
 x.Y..Y..Y..Y..Z..Y..Z..Y..x
 x..Y..Y..Z..Z..Y..Y..Y..Z.x
 a...Y..Z..Y..Y..Z..Y..Y...x
-a.Y..Y..Z..Z..Y..Y..Y..Z..x
-x..Z..Y..Y..Y..Z..Y..Y..Y.x
-x...Y..Y..Z..Y..Z..Z..Y...x
-x.Z..Z..Y..Y..Z..Y..Z..Z..x
-x..Y..Z..Y..Z..Z..Y..Z..Z.x
-x...Z..Z..Z..Y..Z..Z..Y...x
-x.Y..Z..Y..Z..Z..Z..Z..Z..x
-x..Z..Y..Z..Y.............x
-x...Y..Z..Z..Z...ZZZZZZZZ.x
-x....Z..Y..Z..Y..Z........x
-x..Z..Z..Y..Z....Z..??????x
-x...Z..Y..Z..Z...Z..??????x
-x??..Y..Z..Z..Z..Z..??????x
-x??.................?????Ox
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+a.Y..Y..Z..Z??Y..Y..Y..Z..x
+x..Z..Y..Y??Y??Z..Y..Y..Y.x
+x...Y..Y??Z??Y??Z..Z..Y...x
+x.Z..Z..Y??YO?Z??Y..Z..Z..x
+x..Y..Z..Y??Z??Z?.Y..Z..Z.x
+x...Z..Z..Z??Y?.Z..Z..Y...x
+x.Y..Z..Y..Z?.Z..Z..Z..Z..x
+x..Z..Y..Z..Y..Z..Z..Z..Z.x
+x...Y..Z..Z..Z..Z..Z..Z...x
+x....Z..Y..Z..Y..Z..Z..Z..x
+x..Z..Z..Y..Z..Z..........x
+b...Z..Y..Z..Z............c
+x....Y..Z..Z..Z..Z........x
+ .........................
+  xbxxxxxxxxxxxxxxxxxxxcx
 ENDMAP
 
 ############################################################
@@ -637,8 +612,8 @@ NSUBST: " = 1:. / *:x
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-  xxxxxxxxxxxxxxxxxxxxxxxxx
- .........................x
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ........................
 x.........................x
 x..xxxxxxxxx999xxxxxxxxx..x
 x..x?**....x...x....**?x..x
@@ -658,8 +633,8 @@ x..x**..9..x...x..9..**x..x
 x..x?**....x...x....**?x..x
 x..xxxxxxxxx999xxxxxxxxx..x
 x.........................x
-x.........................x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+ .........................
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -670,8 +645,8 @@ SUBST:  9 = 8 9 *:20
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-xx.x9x.x.x.x.x.x.x.x.x.x..
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ..x9x.x.x.x.x.x.x.x.x.x.
 x.x.x.x.x.x.x.x.x.x.x.x9x.x
 xx.x.x.x.x9x.x.x9x.x.x.x.xx
 x.x.xxxxxxxxx.xxxxxxxxx.x.x
@@ -691,8 +666,8 @@ xx9xxxxxxxxx.x.xxxxxxxxx9xx
 x.x.xxxxxxxxx.xxxxxxxxx.x.x
 xx.x.x.x.x9x.x.x9x.x.x.x.xx
 x.x.x.x.x.x.x.x.x.x.x.x.x.x
-xx.x9x.x.x.x.x.x.x.x.x9x.xx
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+ ..x9x.x.x.x.x.x.x.x.x9x..
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -716,8 +691,8 @@ SUBST:   9 = 8 9 .:20
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
-x.........................x
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ........................
 x..........xxbxx..........x
 x..........xBBBx..........x
 x..xxaxx...bBBBb...xxcxx..x
@@ -737,8 +712,8 @@ x..xFFFx...xEEEx...xGGGx..x
 x..xxfxx...eEEEe...xxgxx..x
 x..........xEEEx..........x
 x..........xxexx..........x
- .........................x
-  xxxxxxxxxxxxxxxxxxxxxxxxx
+ .........................
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -752,9 +727,9 @@ SUBST:  a = x.
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxa
-x.........................
-x.........................a
+  axxxxxxxxxxxxxxxxxxxxxa
+ ........................
+a.........................a
 x.........................x
 x..xxxxxxxxxxxxxxxxxxxxx..x
 x....999............$$$x..x
@@ -772,9 +747,9 @@ x..xxxxxxxxxxxxxxxxxxxxx..x
 x....999............$$$x..x
 x....999............$$$x..x
 x..xxxxxxxxxxxxxxxxxxxxx..x
-x.........................x
-x.........................x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+a.........................a
+  .......................
+  axxxxxxxxxxxxxxxxxxxxxa
 ENDMAP
 
 ############################################################
@@ -787,9 +762,9 @@ SUBST:  9 = 8 9 .:20
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-xxx9..9xxxx9...9xxxx9.....
-xx......xx.......xx.......x
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ..9..9xxxx9...9xxxx9....
+x.......xx.......xx.......x
 x9..xx......xbx......xx...x
 x..xxxx....xx*xx....xxxx..x
 x..xxxx....b*O*b....xxxx..x
@@ -807,9 +782,9 @@ x9..xx9....xx*xx....9xx..9x
 x..xxxx....d*O*d....xxxx..x
 x..xxxx....xx*xx....xxxx..x
 x9..xx......xdx......xx..9x
-xx......xx.......xx......xx
-xxx9..9xxxx9...9xxxx9..9xxx
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+x.......xx.......xx.......x
+ ..9..9xxxx9...9xxxx9..9..
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -820,15 +795,15 @@ SUBST:  9 = 8 9 .:20
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-xxxxxxx9............9.....
-xxxxxx....................x
-xxxxx...xxxxx.xxxxx.......x
-xxxx...xx9.......9xx......x
-xxxx..xx...........xx.....x
-xxx...x...xxx.xxx...x.....x
-xx...xx..xx9...9xx..xx....x
-xx..xx...x.......x...xx...x
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ....xx9...........9xx...
+x.........................x
+x..xx...xxxxx.xxxxx.......x
+x..x...xx9.......9xx......x
+x..x..xx...........xx.....x
+xx....x...xxx.xxx...x....xx
+xx...xx..xx9...9xx..xx...xx
+xx..xx...x.......x...xx..xx
 x9..x9..xx..***..xx..9x..9x
 x..xx..xx9.*****.9xx..xx..x
 x..........**O**..........x
@@ -836,25 +811,25 @@ x..xx..xx9.*****.9xx..xx..x
 x9..x9..xx..***..xx..9x..9x
 xx..xx...x.......x...xx..xx
 xx...xx..xx9...9xx..xx...xx
-xxx...x...xxx.xxx...x...xxx
-xxxx..xx...........xx..xxxx
-xxxx...xx9.......9xx...xxxx
-xxxxx...xxxxx.xxxxx...xxxxx
-xxxxxx...............xxxxxx
-xxxxxxx9...........9xxxxxxx
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+xx....x...xxx.xxx...x....xx
+x..x..xx...........xx..x..x
+x..x...xx9.......9xx...x..x
+x..xx...xxxxx.xxxxx...xx..x
+x.........................x
+ ....xx9...........9xx....
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
-# 15 *, 10 monsters
+# 16 *, 10 monsters
 NAME:  vaults_end_minmay_subdivision
 TAGS:  vaults_end_quadrant
 SUBST: 9 = 8 9 .:20
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-x*....x....*xxx*....x.....
+  xxxxxxxxxxxxxxxxxxxxxxx
+ .....x....*xxx*....x....
 x.....x.....xxx.....x.....x
 x.....x.....xxx.....x.....x
 x....9x9....xxx....9x9....x
@@ -863,9 +838,9 @@ x....9x9....xxx....9x9....x
 x.....x.....xxx.....x.....x
 x.....x.....xxx.....x.....x
 x*....x....*xxx*....x....*x
-xxxxxx.xxxxx9.9xxxxx.xxxxxx
-xxxxxx.xxxxx.O.xxxxx.xxxxxx
-xxxxxx.xxxxx9.9xxxxx.xxxxxx
+xxxxxx.xxxxx9*9xxxxx.xxxxxx
+xxxxxx.xxxxx*O*xxxxx.xxxxxx
+xxxxxx.xxxxx9*9xxxxx.xxxxxx
 x*....x....*xxx*....x....*x
 x.....x.....xxx.....x.....x
 x.....x.....xxx.....x.....x
@@ -874,8 +849,8 @@ xxxxxx.xxxxx...xxxxx.xxxxxx
 x....9x9....xxx....9x9....x
 x.....x.....xxx.....x.....x
 x.....x.....xxx.....x.....x
-x*....x....*xxx*....x....*x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+ .....x....*xxx*....x.....
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -883,32 +858,33 @@ ENDMAP
 NAME:   vaults_end_minmay_triangle_fans
 TAGS:   vaults_end_quadrant
 SUBST:  9 = 8 9 .:20
+NSUBST: O = 1:O / *:*
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-xxxxx.....9xxxx.....9xxxx.
-xxxx..x....xxx..x....xxx..x
-xxx...xx...xx...xx...xx...x
-xx....xxx..x....xxx..x....x
+  ...xxxxxxxxxxxxxxxxxxxx
+ xxxx.....9xxxx.....9xxxx
+.xxx..x....xxx..x....xxx..x
+.xx...xx...xx...xx...xx...x
+.x....xxx..x....xxx..x....x
+x....9xxxx.....9xxxx......x
+x.xxxx9.....xxxx9.....xxxxx
+x..xxx...*x.*xxx...*x..xxxx
+x...xx...xx..Oxx...xx...xxx
+x....x.*xxx...*x.*xxx....xx
+x......xxxx9.....xxxx9....x
+x.........................x
+xxxxx.....9xxxx.....9xxxx.x
+xxxx..x*...xxx*.x*...xxx..x
+xxx...xx...xxO..xx...xx...x
+xx....xxx*.x*...xxx*.x....x
 x....9xxxx.....9xxxx......x
 x.xxxx9.....xxxx9.....xxxxx
 x..xxx....x..xxx....x..xxxx
 x...xx...xx...xx...xx...xxx
 x....x..xxx....x..xxx....xx
-x......xxxx9.....xxxx9....x
-x.........................x
-xxxxx.....9xxxx.....9xxxx.x
-xxxx..x....xxx..x....xxx..x
-xxx...xx...xx...xx...xx...x
-xx....xxx..x....xxx..x....x
-x....9xxxx.....9xxxx......x
-x*xxxx9.....xxxx9.....xxxxx
-x**xxx....x..xxx....x..xxxx
-x***xx...xx...xx...xx...xxx
-x****x..xxx....x..xxx....xx
-xO****.xxxx9.....xxxx9....x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+ ......xxxx9.....xxxx9....
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -919,8 +895,8 @@ SUBST:  9 = 8 9 .:20
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
-x.........................x
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ........................
 x.x.x.x.x.x.x.x.x.x.x.x.x.x
 x.........................x
 x.x.xx9xx..xx9xx..xx9xx.x.x
@@ -940,8 +916,8 @@ x...xx.xx..xx.xx..xx.xx...x
 x.x.xx9xx..xx9xx..xx9xx.x.x
 x.........................x
 x.x.x.x.x.x.x.x.x.x.x.x.x.x
-x.........................
-xxxxxxxxxxxxxxxxxxxxxxxxx
+ .........................
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -952,8 +928,8 @@ SUBST:  9 = 8 9 .:20
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
-x.........................x
+  xxxxxxxxxxxxxxxxxxxxxxx
+ .........................
 x.........................x
 x..x99xxxxxxxxxxxxxxxxxx..x
 x..x................9..9..x
@@ -973,21 +949,21 @@ x..9...................x..x
 x..9...................x..x
 x..xxxxxxxxxxxxxxxxxx99x..x
 x.........................x
-x.........................
-xxxxxxxxxxxxxxxxxxxxxxxxx
+ ........................
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
-# 2 |, 18 *, 16 monsters
+# 2 |, 19 *, 16 monsters
 NAME:   vaults_end_minmay_grid2
 TAGS:   vaults_end_quadrant
 SUBST:  9 = 8 9 .:20
-NSUBST: O = 1:O / *:|
+NSUBST: O = 1:O / 1:* / *:|
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
-xO.xx**xx**xx**xx**xx**xxOx
+  .xxxxxxxxxxxxxxxxxxxxxx
+ ..xx**xx**xx**xx**xx**xx.
 xxx..xx..xx..xx..xx..xx..xx
 xxx.9xx9.xx..xx..xx.9xx9.xx
 x..xx..xx..xx..xx..xx..xx*x
@@ -996,8 +972,8 @@ xxx.9xx9.xx..xx..xx.9xx9.xx
 xxx..xx.9xx9.xx.9xx9.xx..xx
 x..xx..xx..xx..xx..xx..xx*x
 x..xx..xx..xx..xx..xx..xx*x
-xxx..xx.9xx9.xx.9xx9.xx..xx
-xxx..xx.9xx9.xx.9xx9.xx..xx
+xxx..xx.9xx9OxxO9xx9.xx..xx
+xxx..xx.9xx9OxxO9xx9.xx..xx
 x..xx..xx..xx..xx..xx..xx*x
 x..xx..xx..xx..xx..xx..xx*x
 xxx..xx.9xx9.xx.9xx9.xx..xx
@@ -1006,9 +982,9 @@ x..xx..xx..xx..xx..xx..xx*x
 x..xx..xx..xx..xx..xx..xx*x
 xxx.9xx9.xx..xx..xx.9xx9.xx
 xxx..xx..xx..xx..xx..xx..xx
-x..xx..xx..xx..xx..xx..xx.x
- ..xx..xx..xx..xx..xx..xxOx
-  xxxxxxxxxxxxxxxxxxxxxxxxx
+x..xx..xx..xx..xx..xx..xx..
+  .xx..xx..xx..xx..xx..xx.
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -1020,8 +996,8 @@ NSUBST: O = 1:O / *:|
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-x.....x......x......x.....
+  xxxxxxxxxxxxxxxxxxxxxxx
+ .....x......x......x....
 x.........................x
 x.........................x
 x.....x......x......x.....x
@@ -1041,8 +1017,8 @@ xx...xxx9999xxx9999xxx...xx
 x.....x......x......x.....x
 x.........................x
 x.........................x
-x.....x......x......x.....x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+ .....x......x......x.....
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -1050,32 +1026,33 @@ ENDMAP
 NAME:   vaults_end_minmay_broken_diamonds
 TAGS:   vaults_end_quadrant
 SUBST:  9 = 8 9 .:20
+NSUBST: * = 1:O / 14:* / *:.
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-x..xx....9xx...xx9....xx..
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ..xx....9xx...xx9....xx..
 x........xx.....xx........x
 xx......xx...x...xx......xx
 xxx....xx....xx...xx....xxx
 x9xx...x......xx...x...xx9x
-x..xx..........xx.....xx..x
-x...xx...xx....9xx........x
-x.........xx..9xx...x....xx
+x..xx........**xx.....xx..x
+x...xx...xx.***9xx........x
+x.........xx**9xx...x....xx
 x......x...xx9xx...xxx...xx
 xx....xxx...xxx...xx9xx...x
-xx...xx9xx...x...xx9..xx..x
-x...xx..9xx.......xx......x
-x..xx....9xx...x...xx....xx
-x9.......xx....xx...x...xxx
-xx......xx......xx.....xx9x
-xxx....xx...xx..9xx...xx..x
-x*xx...x.....xx9xx........x
-x**xx.....x...xxx...x....xx
-x***xx...xx....x....xx...xx
-x****...xx...........xx...x
-xO****.xx9..xx...xx..9xx..x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+xx...xx9xx...x...xx9**xx..x
+x...xx**9xx.......xx**....x
+x..xx.***9xx...x...xx....xx
+x9.....**xx....xx...x...xxx
+xx......xx....**xx.....xx9x
+xxx....xx...xx**9xx...xx..x
+x.xx...x.....xx9xx........x
+x..xx.....x...xxx...x....xx
+x...xx...xx....x....xx...xx
+x.......xx...........xx...x
+ ......xx9..xx...xx..9xx..
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -1083,33 +1060,33 @@ ENDMAP
 NAME:   vaults_end_minmay_smooth_crossroads
 TAGS:   vaults_end_quadrant
 SUBST:  9 = 8 9 .:20
-NSUBST: O = 1:O / *:*
+NSUBST: O = 1:O / *:.
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-x9...*Ox9.....9x9........9
-x....**x.......x...x......x
-x....*xx...x...x...xx.....x
-x....*x....x...x....x.....x
+  xxxxxxxxxxxxxxxxxxxxxxx
+ 9.....x9.....9x9........
+x......x.......x...x....9.x
+x.....xx...x...x...xx.....x
+x.....x....x...x....x.....x
 x....xx....x...x....xx....x
 x..xxx....xx...xx....xxx..x
-x.xx......x.....x......xxxx
-x........xx.....xx.......9x
-x9.....xxx.......xxx......x
-xxxxxxxx.....9.....xxxx...x
+x.xx......x*...*x......xxxx
+x........xx*...*xx.......9x
+x9.....xxxO.....Oxxx......x
+xxxxxxxx**...9...**xxxx...x
 x9..........9x9..........9x
-x...xxxx.....9.....xxxxxxxx
-x......xxx.......xxx.....9x
-x9.......xx.....xx........x
-xxxx......x.....x......xx.x
-xO*xxx....xx...xx....xxx..x
-x****xx....x...x....xx....x
-x.....x....x...x....x*....x
-x.....xx...x...x...xx*....x
-x......x...x.......x**....x
-x9........9x9.....9xO*...9x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+x...xxxx**...9...**xxxxxxxx
+x......xxxO.....Oxxx.....9x
+x9.......xx*...*xx........x
+xxxx......x*...*x......xx.x
+x..xxx....xx...xx....xxx..x
+x....xx....x...x....xx....x
+x.....x....x...x....x.....x
+x.....xx...x...x...xx.....x
+x......x...x.......x......x
+ 9........9x9.....9x.....9
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -1120,29 +1097,29 @@ SUBST:  9 = 8 9 .:20
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-x9xxx9.......x9...........
+  xxxxxxxxxxxxxxxxxxxxxxx
+ 9xxx9.......x9..........
 x..xxx...xx...x...........x
 x...xxx..9xx...x..........x
 x....xxx...xx...x9........x
 x.x9..xxx...xx...x........x
-x.xx...xxx...xx...x.......x
-x..xx...xxx...xx...x......x
-x...xx...xxx...xx...x.....x
-xx...xx...xxx...xx...x9...x
-x9x...xx...xxx9..xx...x...x
-x..x...xx...9.9...xx...x..x
-x...x...xx..9xxx...xx...x9x
-x...9x...xx...xxx...xx...xx
-x.....x...xx...xxx...xx...x
-x......x...xx...xxx...xx..x
-x.......x...xx...xxx...xx.x
-x*.......x...xx...xxx..9x.x
-x**......9x...xx...xxx....x
-x***.......x...xx9..xxx...x
-x****.......x...xx...xxx..x
-xO****......9x.......9xxx9x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+x.xx...xxx..*xx...x.......x
+x..xx...xxx..*xx...x......x
+x...xx...xxx..*xx...x.....x
+xx...xx...xxx..*xx...x9...x
+x9x...xx*..xxx9.*xx...x...x
+x..x...xx*..9O9..*xx...x..x
+x...x...xx*.9xxx..*xx...x9x
+x...9x...xx*..xxx...xx...xx
+x.....x...xx*..xxx...xx...x
+x......x...xx*..xxx...xx..x
+x.......x...xx*..xxx...xx.x
+x........x...xx...xxx..9x.x
+x........9x...xx...xxx....x
+x..........x...xx9..xxx...x
+x...........x...xx...xxx..x
+ ...........9x.......9xxx9
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -1155,9 +1132,9 @@ SUBST:   9 = 8 9 .:20
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-xxxxxxxxx$$$$$$$$$xxxxx...
-xxx....xxx$$$$$$$xxx......x
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ..xxxxxx$$$$$$$$$xxxxx..
+x......xxx$$$$$$$xxx......x
 xx.9xx9.xxx$$$$$xxx.9xx9.xx
 xx.xxxx.xxxx$$$xxxx.xxxx.xx
 xx.xxxx.xxxxx$xxxxx.xxxx.xx
@@ -1175,9 +1152,9 @@ xx.9xx9..xxxx+xxxx..9xx9.xx
 xx.xxxx.xxxxx$xxxxx.xxxx.xx
 xx.xxxx.xxxx$$$xxxx.xxxx.xx
 xx.9xx9.xxx$$$$$xxx.9xx9.xx
-xxx....xxx$$$$$$$xxx....xxx
-xxxxxxxxx$$$$$$$$$xxxxxxxxx
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+x......xxx$$$$$$$xxx......x
+ ..xxxxxx$$$$$$$$$xxxxxx..
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -1195,29 +1172,29 @@ SUBST:   9 = 8 9 .:20
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-xxxxxxxxxxxxx.....xxxx....
-xxxxxxxxx.................x
-xxxxx.....................x
-xxxx.....................xx
-xxxx.....................xx
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ..xxxxxxxxxx.....xxxx...
+x...xxxxx.................x
+xx........................x
 xxx......................xx
-xxx.......xxxxxxx........xx
-xx.......xxxxxxxxx.......xx
-xx......xxx.999.xxx.......x
+xxxx.....................xx
+xxxx.....................xx
+xxx......9xxxxxxx........xx
+xx......9xxxxxxxxx.......xx
+xx......xxx$999$xxx.......x
 xx......xC.9$$$9.xx.......x
-x.......CC.9$S$9.xx.......x
+x.......CC.9$S$9Oxx.......x
 x.......xC.9$$$9.xx......xx
-x.......xAa.999.xxx......xx
-xx.......xAxDDDxxx.......xx
-xx........xxxDxxx.......xxx
+x.......xAa$999$xxx......xx
+xx.......xAxDDDxxx9......xx
+xx........xxxDxxx9......xxx
+xx.....................xxxx
+xx.....................xxxx
 xx......................xxx
-xx9....................xxxx
-xx$9...................xxxx
-xx$O9.................xxxxx
-xxx$$9............xxxxxxxxx
-xxxxxxxxx.....xxxxxxxxxxxxx
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+x........................xx
+x.................xxxxx...x
+ ....xxxx.....xxxxxxxxxx..
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -1236,8 +1213,8 @@ SUBST:   9 = 8 9 .:20
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-x.........................
+  xxxxxxxxxxxxxxxxxxxxxxx
+ .........................
 x.........................x
 x...xxxxx..xxxxx..xxxxx...x
 x...x'S'x..x'S'x..x'S'x...x
@@ -1257,8 +1234,8 @@ x...x'''x..x'''x..x'''x...x
 x...x'S'x..x'S'x..x'S'x...x
 x...xxxxx..xxxxx..xxxxx...x
 x.........................x
-x.........................x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+ .........................
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -1270,10 +1247,10 @@ SUBST:  * = 9 8 *:20 .
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-xxxx.x.*.x.xxx.x.*.x.xxx..
+  xxxxxxxxxxxxxxxxxxxxxxx
+ xxx.x.*.x.xxx.x.*.x.xxx.
 x.x.*.x.xxx.x.*.x.xxx.x...x
-x*.x.xxx.x.*.x.xxx.x.*.x.xx
+.*.x.xxx.x.*.x.xxx.x.*.x.xx
 x.xxx.x.*.x.xxx.x.*.x.xxx.x
 xx.x.*.x.xxx.x.*.x.xxx.x.*x
 x.*.x.xxx.x.*.x.xxx.x.*.x.x
@@ -1290,9 +1267,9 @@ x.*.x.xxx.x.*.x.xxx.x.*.x.x
 xx.xxx.x.*.x.xxx.x.*.x.xxxx
 xxx.x.*.x.xxx.x.*.x.xxx.x.x
 xx.*.x.xxx.x.*.x.xxx.x.*.xx
-x.x.xxx.x.*.x.xxx.x.*.x.xxx
-xxxx.x.*.x.xxx.x.*.x.xxx.xx
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+..x.xxx.x.*.x.xxx.x.*.x.xxx
+ xxx.x.*.x.xxx.x.*.x.xxx.x
+  xxxxxxxxxxxxxxxxxxxxx..
 ENDMAP
 
 ############################################################
@@ -1304,29 +1281,29 @@ NSUBST: O = 1:O / *:*
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-x.................xxxxxx..
+  x.x.xxxxxxxxxxxxxxxxxxx
+ .................xxxxxx.
 x.xxxx....xxxx.......xx...x
-x...9xxx....9xxx.........xx
+....9xxx....9xxx.........xx
 x.....9xx.....9xx.......xxx
 x......9x......9x.......xxx
 x.......xx......xx.......xx
 x.......9x......9x.......xx
 x........x.......x9......xx
-x.xxxx...xxxxx.**xx.......x
-x...9xxx..xxxxxxO*x9......x
+x.xxxx...xxxxx***xx.......x
+x...9xxx.*xxxxxxO*x9......x
 x.....9xx*xxxxxxx*xx9.....x
-x......9x*Oxxxxxx..xxx9...x
-x.......xx**.xxxxx...xxxx.x
+x......9x*Oxxxxxx*.xxx9...x
+x.......xx***xxxxx...xxxx.x
 xx......9x.......x........x
 xx.......x9......x9.......x
 xx.......xx......xx.......x
-xxx*......x9......x9......x
-xxx*O.....xx9.....xx9.....x
-xxxx**.....xxx9....xxx9...x
-xxxxxx.......xxxx....xxxx.x
-xxxxxxxxx.................x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+xxx.......x9......x9......x
+xxx.......xx9.....xx9.....x
+xx.........xxx9....xxx9....
+x...xx.......xxxx....xxxx.x
+ ..xxxxxx.................
+  xxxxxxxxxxxxxxxxxxx.x.x
 ENDMAP
 
 ############################################################
@@ -1337,29 +1314,29 @@ SUBST:  9 = 8 9 .:20
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-x.9.x.x.x.x.x.x.x.9.x.x...
-x*x.x.x.x.x.x.x.x.x.x.x...x
-x*x.x.x.9.x.9.x.x.x.9.x.x.x
-x*x.9.x.x.x.x.x.x.x.x.x.x.x
-x*x.x.x.x.9.x.x.9.x.x.9.x.x
-x*x.x.9.x.x.x.x.x.x.x.x.x.x
-x*x.x.x.x.x.x.9.x.x.x.9.x.x
-x*x.x.x.9.x.x.x.x.9.9.x.x.x
-x*x.x.x.x.x.9.x.x.x.x.x.x.x
-x*x.x.x.x.x.x.x.x.x.x.x.9.x
-xOx.x.x.x.x.x.9.x.x.x.x.x.x
-x*x.9.x.x.9.x.x.x.9.x.x.x.x
-x*x.x.x.x.x.x.x.x.x.x.9.x.x
-x*x.x.x.9.x.x.9.x.x.x.x.x.x
-x*x.x.x.x.x.x.x.x.x.x.x.9.x
-x*x.x.9.x.9.x.x.9.x.9.x.x.x
-x*x.9.x.x.x.9.x.x.x.x.9.x.x
-x*x.x.x.x.x.x.9.x.x.x.x.x.x
-x*x.x.9.x.x.x.x.x.x.x.x.x.x
-x*x.x.x.x.x.x.x.x.9.x.x.9.x
-x.9.x.x.x.9.9.x.x.x.9.x.x.x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+  xxxxxxxxxxxxxxxxxxxxxxx
+ .9.x.x.x.x.x.x.x.9.x.x...
+x.x.x.x.x.x.x*x.x.x.x.x...x
+x.x.x.x.9.x.9*x.x.x.9.x.x.x
+x.x.9.x.x.x.x*x.x.x.x.x.x.x
+x.x.x.x.x.9.x*x.9.x.x.9.x.x
+x.x.x.9.x.x.x*x.x.x.x.x.x.x
+x.x.x.x.x.x.x*9.x.x.x.9.x.x
+x.x.x.x.9.x.x*x.x.9.9.x.x.x
+x.x.x.x.x.x.9*x.x.x.x.x.x.x
+x.x.x.x.x.x.x*x.x.x.x.x.9.x
+x.x.x.x.x.x.xO9.x.x.x.x.x.x
+x.x.9.x.x.9.x*x.x.9.x.x.x.x
+x.x.x.x.x.x.x*x.x.x.x.9.x.x
+x.x.x.x.9.x.x*9.x.x.x.x.x.x
+x.x.x.x.x.x.x*x.x.x.x.x.9.x
+x.x.x.9.x.9.x*x.9.x.9.x.x.x
+x.x.9.x.x.x.9*x.x.x.x.9.x.x
+x.x.x.x.x.x.x*9.x.x.x.x.x.x
+x.x.x.9.x.x.x*x.x.x.x.x.x.x
+x.x.x.x.x.x.x*x.x.9.x.x.9.x
+ .9.x.x.x.9.9.x.x.x.9.x...
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -1372,9 +1349,9 @@ SUBST:   A = ., B = x
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-x9.......................9
-x.9xx.xxx.xxx.xxx.xxx.xx9.x
+  xxxxxxxxxxxxxxxxxxxxxxx
+ 9......................9
+x.9xx.xxx.xxx.xxx.xxx.xx.9x
 x.xxx.xxx.xxx.xxx.xxx.xxx.x
 x.xxx.xxx.xxx.xxx.xxx.xxx.x
 x.........................x
@@ -1393,8 +1370,8 @@ x.........................x
 x.xxx.xxx.xxx.xxx.xxx.xxx.x
 x.xxx.xxx.xxx.xxx.xxx.xxx.x
 x.9xx.xxx.xxx.xxx.xxx.xx9.x
-x9.......................9x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+ 9.......................9
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -1405,8 +1382,8 @@ SUBST:  9 = 8 9 .:20
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-x.........................
+  xxxxxxxxxxxxxxxxxxxxxxx
+  .......................
 x.........................x
 x..xxxx999xxxxxxx999xxxx..x
 x..9..xxx..xxOxx..xxx..9..x
@@ -1418,16 +1395,16 @@ x..9xx..x..xx*xx..x..xx9..x
 x..9....xx.xx*xx.xx....9..x
 x..xxxx....xx*xx....xxxx..x
 x..9..xxx...x*x...xxx..9..x
-x..9....xx..x*x..xx....9..x
+x..9....xx...*...xx....9..x
 x..xxxx..xx.x*x.xx..xxxx..x
 x..9..xx..x|x*x|x..xx..9..x
 x..xx..xx.xxx*xxx.xx..xx..x
 x..9xx..x..xx*xx..x..xx9..x
 x..9.xx.x..xx*xx..x.xx.9..x
-x..x99x9x99xx*xx99x9x99x..x
+x..x99x9x99xxxxx99x9x99x..x
 x.........................x
-x.........................x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+ .........................
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -1439,9 +1416,9 @@ NSUBST: O = 1:O / *:*
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-xxxx9xxx9xxx9xxx9xxx9xxx..
-xxx...x...x...x...x...x...x
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ..x9xxx9xxx9xxx9xxx9xxx.
+x.....x...x...x...x...x...x
 xx.......................xx
 x9....x.................xxx
 xx...xxx.................xx
@@ -1458,10 +1435,10 @@ xx.....xxx....xxx..xxx...xx
 x9......x......x..xxxxx.xxx
 xx.................xxx...xx
 xxx.................x....9x
-xx.......................xx
-x...x...x...x...x...x...xxx
-x9.xxx9xxx9xxx9xxx9xxx9xxxx
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+xx.9.....................xx
+x...x...x...x...x...x.....x
+ ..xxx9xxx9xxx9xxx9xxx9x..
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -1472,8 +1449,8 @@ SUBST:  9 = 8 9 .:20
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-x.........................
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ........................
 x...x.x.x..x.x.x..x.x.x...x
 x....9.9....9.9....9.9....x
 x...x.x.....x.x.....x.x...x
@@ -1493,8 +1470,8 @@ x....9.......9.......9....x
 x...x.x.....x.x.....x.x...x
 x....9.9....9.9....9.9....x
 x...x.x.x..x.x.x..x.x.x...x
-x.........................x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+ .........................
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -1505,29 +1482,29 @@ SUBST:  9 = 8 9 .:20
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-x.........................
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ........................
 x.........................x
 x..xxxxxxxxxx......xxxxx..x
 x..xxxxxxx9..........xxx..x
 x..xxxxx9.............xx..x
 x..xxxx9...............x..x
-x..xxx9................x..x
-x..xx9..........9xx.......x
-x..xx.........9xxxx.......x
+x..xxx9..........***...x..x
+x..xx9..........9xx*......x
+x..xx.........9xxxx*......x
 x..x9......9xxxxxx9....x..x
 x..x.....9xxxxxxx9.....x..x
 x..x....9xxxxxx9......9x..x
-x.......xxxx9.........xx..x
-x.......xx9..........9xx..x
-x..x****............9xxx..x
-x..x****...........9xxxx..x
-x..xxO**..........9xxxxx..x
-x..xxx**........9xxxxxxx..x
+x......*xxxx9.*.......xx..x
+x......*xx9..........9xx..x
+x..x...O**..........9xxx..x
+x..x*..............9xxxx..x
+x..xx*............9xxxxx..x
+x..xxx..........9xxxxxxx..x
 x..xxxxx......xxxxxxxxxx..x
 x.........................x
-x.........................x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+ .........................
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -1539,29 +1516,29 @@ SUBST:  9 = 8 9 .:20
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-x.........................
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ........................
 x.........................x
 x..xxx..x.x.x9x.x.x..xxx..x
 x..x9.................9x..x
 x..x...................x..x
 x.......x.x.x9x.x.x.......x
 x......9x.........x9......x
-x..x..xxx.........xxx..x..x
+x..x..xxx...*.*...xxx..x..x
 x..........xxAxx..........x
-x..x..x....x.9.x....x..x..x
-x..9..9....A9O9A....9..9..x
-x..x..x....x.9.x....x..x..x
+x..x..x...*x*9*x*...x..x..x
+x..9..9...*A9O9A....9..9..x
+x..x..x....x*9*x*...x..x..x
 x..........xxAxx..........x
-x..x..xxx.........xxx..x..x
+x..x..xxx...*.*...xxx..x..x
 x......9x.........x9......x
 x99.....x.x.x9x.x.x.......x
 xBBx...................x..x
-x**B9.................9x..x
-x**xBx..x.x.x9x.x.x..xxx..x
-x****B9...................x
-x****B9...................x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+x..B9.................9x..x
+x..xBx..x.x.x9x.x.x..xxx..x
+x....B9...................x
+ ....B9...................
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -1573,9 +1550,9 @@ NSUBST: O = 1:O / *:|
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-x9........................
-x9........................x
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ............9...........
+x............9............x
 xxxxx9999xx.....xx9999xxxxx
 x**xx....xx.....xx....xx**x
 x***xx....xx...xx....xx***x
@@ -1583,19 +1560,19 @@ x...xx....xx...xx....xx...x
 x....xx....xx.xx....xx....x
 x....xx....xx.xx....xx....x
 x.....xx....x.x....xx.....x
-x.....xx....x.x....xx.....x
-x.....Oxx...9.9...xxO.....x
+x|....xx....x.x....xx.....x
+xO....99....9*9....99....Ox
+x.....xx....xxx....xx....|x
 x.....xx....xxx....xx.....x
-x.....xx....xxx....xx.....x
-x....xx....xxOxx....xx....x
-x....xx....xx*xx....xx....x
-x...xx....xx***xx....xx...x
-x...xx....xx***xx....xx...x
-x..xx....xx.....xx....xx..x
-x99xx9999xx.....xx9999xx99x
+x....xx....xx.xx....xx....x
+x....xx....xx.xx....xx....x
+x...xx....xx...xx....xx...x
+x*..xx....xx...xx....xx..*x
+x**xx....xx.....xx....xx**x
+xxxxx9999xx.....xx9999xxxxx
 x........9.......9........x
-x........9.......9........x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+ ........9.......9........
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -1607,8 +1584,8 @@ NSUBST: O = 1:O / *:|
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxx
-x.........................
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ........................
 x.xx........xx.......xx...x
 x......xx...9....xx...9...x
 x..xx..9.....xx.....xx.9x.x
@@ -1616,53 +1593,53 @@ x........xx..9...xx.9.x.x.x
 x....xx.......xx.....9x...x
 xxx...9....xx.9..xx.......x
 x.......xx.....xx9.x.x.x..x
-x....xx.9....xx...9x.x.x..x
-x.xx.......xx9....x.......x
-x........xx...xx..x.x.....x
-x......xx9...xxx.x.9x.x...x
-x....xx.....xxx.9x...9x.x.x
-x..xx9....9xxx..x..x...9x.x
+x....xx.9...xxx...9x.x.x..x
+x.xx......xxx9....x.......x
+x.......xxx...xx..x.x.....x
+x*****xxx9...xxx.x.9x.x...x
+x***xxx.....xxx.9x...9x.x.x
+xOxxx9....9xxx..x..x...9x.x
 xxx.......xxx...x..x......x
 x.......9xxx9..x.....x....x
 x.......xxx...9x..x..x....x
-x*.....xxx9...x..9x....x..x
-x**...xxx*....x.......9x..x
-x***.xxx***..x...x.9x.....x
-xO**xxxO****9x...x..x.....x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+x......xxx9...x..9x....x..x
+x.....xxx*....x.......9x..x
+x....xxx***..x...x.9x.....x
+ ...xxxO****9x...x..x.....
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 # 19 *, 12 monsters
 NAME:   vaults_end_grunt_pinched
 TAGS:   vaults_end_quadrant
-NSUBST: O = 1:O / *:*
+NSUBST: O = 1:O / *:.
 SUBST:  9 = 8 9 .:20
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-x......*Ox................
-x......*xx...9............x
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ........x...............
+x.......xx...9............x
 x...9...xx...x............x
 x......xx....xx....9......x
-x.....xx9.....x...........x
-x...xxxxx.....xx..........x
-x9xxxx.xxx.....xx......9..x
-x.......xx..9.9xxxx.......x
-x...9....9....xx.9xxx.....x
-x.9.x........xx....xxxx...x
-x...xxxx....xx........x.9.x
-x.....xxx.9xx.....9.......x
-x.....*Oxxxx..............x
-x..9..**xxx9..............x
-x......xxxxx...9.xx..9.xx9x
-x.....xx.*Oxx....xxxxxxxx.x
-x....xx..**.x.....xxxx....x
+x.....xx9....*x...........x
+x...xxxxx....*xx..........x
+x9xxxx.xxx....9xx......9..x
+x.......xx..9.*xxxx.......x
+x...9....9..**xx.9xxx.....x
+x.9.x**....*Oxx*...xxxx...x
+x...xxxx...*xx*.....**x.9.x
+x.....xxx9*xxO*...9.......x
+x.......xxxx**............x
+x..9....xxx*..............x
+x......xxxxx9..9.xx..9.xx9x
+x.....xx...xx*...xxxxxxxx.x
+x....xx.....x*....xxxx....x
 x...xx......xx....xx......x
-x**xx....9...x.9..x....9..x
-xOxx*........9...xx*......x
-xxxO*............xO*......x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+x..xx....9...x.9..x....9..x
+x.xx.........9...xx.......x
+ ................x........
+  .xxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 # 18 *, 12 monsters
@@ -1679,9 +1656,9 @@ SUBST:   9 = 8 9 .:30
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-xxxxxxxxxxxxxxxxxxxxxxxxx+
-xx..........xxx..........xx
+  xxxxxxxxxxxxxxxxxxxxxxx
+ +xxxxxxxxxxxxxxxxxxxxxxx
+xx..........xxx.........+xx
 x.9..+xx+..9.+.9..+xx+..9.x
 x....x11x....x....x22x....x
 x....x11x....x....x22x....x
@@ -1699,42 +1676,41 @@ xx..........xxx..........xx
 x.9..+xx+..9.+.9..+xx+..9.x
 x....x55x....x....x66x....x
 x....x55x....x....x66x....x
-x.9..+xx+..9.+.9..+xx+..9.x
-xx..........xxx..........xx
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+xx9..+xx+..9.+.9..+xx+..9xx
+ +x.........xxx.........x+
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 # 17 *, 12 monsters
 NAME:   vaults_end_grunt_cloverleaf
 TAGS:   vaults_end_quadrant
-NSUBST: O = 1:O / *:*
 SUBST:  9 = 8 9 .:20
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-xxxxxxxxxxxxxxxxxxxxxx+...
-xxxxx**..xxxxxxxxx....xxx.x
-xxxO*..9...xxxxx...9....x+x
-xx*..9.....xxxxx.....9...xx
-xx*.........xxx..........xx
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ...+xxxxxxxxxxxxxxxxx+..
+x.xxx....xxxxxxxxx....xxx.x
+x+x....9..*xxxxx*..9....x+x
+xx...9.....xxxxx.....9...xx
+xx.........*xxx*.........xx
 xx.9........xxx........9.xx
 xx........9..x..9........xx
-xxx..........+..........xxx
-xxxxx....9.+xxx+.9....xxxxx
+xxx*.........+.........*xxx
+xxxxx*...9.+xxx+.9...*xxxxx
 xxxxxxxx...x.9.x...xxxxxxxx
-xxxxxxxxx+xx9.9xx+xxxxxxxxx
-xxxxxxxx...x.9.x...xxxxxxxx
-xxxxx....9.+xxx+.9....xxxxx
-xxx..........+..........xxx
+xxxxxxxxx+xx9O9xx+xxxxxxxxx
+xxxxxxxx...x*9.x...xxxxxxxx
+xxxxx*...9.+xxx+.9...*xxxxx
+xxx*.........+.........*xxx
 xx........9..x..9........xx
 xx.9........xxx........9.xx
-xx*.........xxx.........*xx
-xx*..9......xxx......9..*xx
-xxxO*..9...xxxxx...9..*Oxxx
-xxxxx**..xxxxxxxxx..**xxxxx
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+xx..........xxx..........xx
+xx...9.....*xxx*.....9...xx
+x+x....9..*xxxxx*..9....x+x
+x.xxx....xxxxxxxxx....xxx.x
+ ...+xxxxxxxxxxxxxxxxx+...
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 # 20 *, 14 monsters
@@ -1744,15 +1720,15 @@ SUBST:  9 = 8 9 .:20
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-xxxxx........9............
-xxxx....xxxxxxxxxxxxx.....x
-xxx...9xx....9......9.....x
-xxx.x9.x..xxxxxxxxxx.9....x
-xx..x.xx.xx..9.....xxx....x
-xx..x.x..x..xxxxxx...xx...x
-xx..x.x.xx.xx9...xxx..x...x
-xx..x.x.x..xx*xx...xx.x...x
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ..xx........9........xx.
+x..x....xxxxxxxxxxxxx..x..x
+xx....9xx....9......9....xx
+xxx.x9.x..xxxxxxxxxx.9..xxx
+xx..x.xx.xx..9.....xxx...xx
+xx..x.x..x..xxxxxx...xx..xx
+xx..x.x.xx.xx9...xxx..x..xx
+xx..x.x.x..xx*xx...xx.x..xx
 x...x.x.x.xx***xxx..x.x...x
 x...x.x.x.x*9*9*xxx.x.x...x
 x..9x9x9x9***O***9x9x9x9..x
@@ -1763,10 +1739,10 @@ xx..x..xxx...9xx.xx.x.x..xx
 xx..xx...xxxxxx..x..x.x..xx
 xx...xxx.....9..xx.xx.x..xx
 xxx..9.xxxxxxxxxx..x.9x.xxx
-xxx...9......9....xx9...xxx
-xxxx..xxxxxxxxxxxxx....xxxx
-xxxxx........9........xxxxx
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+xx....9......9....xx9....xx
+x..x..xxxxxxxxxxxxx....x..x
+ ..xx........9........xx..
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 # 18 *, 12 monsters
@@ -1777,8 +1753,8 @@ NSUBST: O = 1:O / *:*
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-x*.9.........+.........9..
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ..9.........+.........9.
 x...........xxx...........x
 x9.........xxOxx.........9x
 x....9....xx***xx.....9...x
@@ -1787,9 +1763,9 @@ x......+x.........x+......x
 x.....x+...........+x.....x
 x...xxx.............xxx...x
 x..xx........9........xx..x
-x.xx*9...............9*xx.x
-x+xO*......9...9......*Ox+x
-x.xx*9...............9*xx.x
+x.xx*9......*........9*xx.x
+x+xO*......9.*.9......*Ox+x
+x.xx*9........*......9*xx.x
 x..xx........9........xx..x
 x...xxx.............xxx...x
 x.....x+...........+x.....x
@@ -1798,8 +1774,73 @@ x.......xxx.9.9.xxx.......x
 x....9....xx***xx.....9...x
 x9.........xxOxx.........9x
 x...........xxx...........x
-xO.9.........+.........9.*x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+ ..9.........+.........9..
+  xxxxxxxxxxxxxxxxxxxxxxx
+ENDMAP
+
+# 20 *, 14 monsters
+NAME: vaults_grunt_end_bulge
+TAGS: vaults_end_quadrant
+NSUBST: O = 1:O / *:*
+SUBST: 9 = 8 9 .:20
+: vaults_end_loot(_G)
+: vaults_end_rune(_G)
+MAP
+  xxxxxxxxxxxxxxxxxxxxxx.
+ ..xxx.9.................
+x..xxx.....9..........xx...
+x..xxx.9...........9xxxxx.x
+x..xxxx.........xxx.xxxxx.x
+x....xxxx....xxxxxx+xxxx..x
+x.....xxxx9.xxxxx....+.9..x
+x..9...xxxxxxx**..9..xx...x
+x9...9..xxxxx*.....*xxx...x
+x......xxxxO*..9..*xxx....x
+x......xxx*.9.....*xx.....x
+x.....xxx*.......*xxx.....x
+x..9.xxx*.....9.*xxx....9.x
+x....xxx*..9...Oxxx9......x
+x....xx*.....**xxxx.......x
+x.9.xx..9..**xxxxxxx......x
+x....+.....xxxx.xxxxx.....x
+x..xxxx+xxxxxx....xxxx....x
+x.xxxxx.xxx.....9...xxxx..x
+x.xxxxx...........9..xxx..x
+x9.xx.......9...9....xxx..x
+ .9.....9............xxx..
+  xxxxxxxxxxxxxxxxxxxxxxx
+ENDMAP
+
+# 18 *, 12 monsters
+NAME:  vaults_end_grunt_zigzag
+TAGS:  vaults_end_quadrant
+SUBST: 9 = 8 9 .:20
+: vaults_end_loot(_G)
+: vaults_end_rune(_G)
+MAP
+  xxxxxxxxxxxxxxxxxxxxxx.
+ ..9...9xxx9***9xxx....9..
+x....9.xxx.....*xx..xxxx9..
+x.....xx...xx..xx..xx*Ox.9x
+x....xx..xxx..xx..xx***x..x
+x.x.xx..xx...xx..xx9**xx..x
+x.x....xx..xxx..xx.9xxx...x
+x.x9.xxx..xx...xx..xx...xxx
+x.x.xx...xx..xxx..xx..xxx9x
+x.xxx..xxx..xx...xx..xx.**x
+x.xx..xx...xx..xxx..xx...*x
+x.x..xx..xxx9.xx...xx..x.*x
+x.x.xx..xx...xx..xxx..xx.9x
+x.x....xx..xxx..xx...xx..xx
+x.x.9.xx..xx...xx..xxx..xxx
+x.xx...9.xx..xxx..xx...xxxx
+x9*xxx...x..xx...xx..xxx.9x
+x..*xxxx...xx..xxx..xx....x
+xx..9xxx..xx..xx...xx...9.x
+xx...*xx.9...xx..9....xx..x
+x.....*xxxxxxxxxxxxxxxx..9x
+ ..xx.9...................
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ###############################################################################
@@ -1815,9 +1856,9 @@ NSUBST: O = 1:O / *:|
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-x......x|**.....9xxx......
-x......xO|*.....xx9.......x
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ......x|****...9xxx......
+x......xO|*||...xx9.......x
 x......xx|*....9x........xx
 x...x...xxx....xx........xx
 x...x..........x9......9xxx
@@ -1825,19 +1866,19 @@ x...x9........9x.....9xxx9x
 x...xx........xx...xxxx9..x
 x....x9......9x..xxx9.....x
 x....xx9....9xx.xx9.......x
-x.....xxx99xxx..x9........x
-x.......xxxx...xx.........x
+x.....xxx99xxx..x9.......|*x
+x.......xxxx...xx.......|*x
 x..............x9.....x***x
 x...xxxx.......x9.....x||*x
 x.....9xxx.....xx.....xxO|x
 x.......9xx.....x9.....xxxx
 xxxx.....9x.....xx9.......x
-x|Oxx.....xx.....xxx9.....x
-x*||x.....9x.......xxxx...x
-x***x.....9x..............x
+x..xx.....xx.....xxx9.....x
+x...x.....9x.......xxxx...x
+x...x.....9x..............x
 x.........xx..............x
-x........9x...............x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+ ........9x...............
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -1849,29 +1890,29 @@ NSUBST:  * = 1:O / *:*
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-xx$9$xxxxxx.9xxxxxxxxxxxx.
-x$.$.$xxxx9...xxxxxxxxxx.xx
-x9$.$9xxxx...9xxxxxxxxx.xxx
-x$.$.$xxx.x9.xxxxxxxxx.xxxx
-xx$9$xxx.xxxx.xxx.9.x.xxxxx
+  xxxxxxxxxxxxxxxxxxxxxxx
+ x.9.xxxxxx*9xxxxxxxxxxxx
+x.....xxxx9..*xxxxxxxxxx.xx
+x9.$.9xxxx*..9xxxxxxxxx.xxx
+x.....xxx.x9*xxxxxxxxx.xxxx
+xx.9.xxx.xxxx.xxx.9.x.xxxxx
 xxx.xxx.xx$9xx.x.....xxxxxx
-xxxx.x.xx$.$9xx.9...9xxxxxx
-xxx.9.xxx9$.$xxx.....xxxxxx
-xx.....x.x9$xxxxx.9.x.xxxxx
-xx9...9.xxxxxxxxxx.xxx.xxxx
-xx.....x.xxxxxxxx.xxxxx.9xx
-xxx.9.xxx.xxxxxx.xxxxx9...x
-xxxxxxxxxx.xxxx.xxxxx....9x
-xxx9*.*xxxx.9x.xxxxx.xx9.xx
-xx.*.*.*xx9...xxxxx.xxxxxxx
-x.*.*.*.*x...9xxxx.xxx*9xxx
-x*.*.*.*9xx9.xx.9.xxx*.*9xx
-x9*.*.*.*x.xxx.....xx9*.*xx
-x*.*.*.*..xxxx9...9x.x9*xxx
-xx*.*.*.xxxxxx......xxxxxxx
-xxx*.*9xxxxxxxx.9.xxxxxxxxx
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+xxxx.x.xx$*$9xx.9.$.9xxxxxx
+xxx.9.xxx9$*$xxx.....xxxxxx
+xx.$.$.x.x9$*$xxx.9.x.xxxxx
+xx9.$.9.xxxx$*$xxx.xxx.xxxx
+xx.$.$.x.xxxx$x.x.xxxxx*9xx
+xxx.9.xxx.xxxxxx.xxxxx9..*x
+xxxxxxxxxx.xxxx.xxxxx.*..9x
+xxx9*.*xxxx*9x.xxxxx.xx9*xx
+xx.*.*.*xx9..*xxxxx.xxxxxxx
+x........x*..9xxxx.xxx.9xxx
+x.......9xx9*xx*9*xxx.$.9xx
+x9.......x.xxx*.*.*xx9...xx
+x.........xxxx9*.*9x.x9..xx
+x.......xxxxxx*.*.*.xxx...x
+ x....9xxxxxxxx*9*xxxxxx.x
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -1883,8 +1924,8 @@ NSUBST: O = 1:O / *:|
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-  xxxxxxxxxxxxxxxxxxxxxxxxx
- .........................x
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ........................
 x..xx9...............9xx..x
 x..xxx...............xxx..x
 x..9xxx.............xxx9..x
@@ -1904,8 +1945,8 @@ x....xxx...........xxx....x
 x..9xxx.............xxx9..x
 x..xxx...............xxx..x
 x..xx9...............9xx..x
-x.........................x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+ .........................
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -1916,8 +1957,8 @@ SUBST:  9 = 8 9 .:20
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-xx9......9xxxxxxx9........
+  xxxxxxxxxxxxxxxxxxxxxxx
+ .9......9xxxxxxx9.......
 x9.........xxxxx..........x
 x..xxxxx....xxx....xxxxx..x
 x..xxx..x...9x9...x..xxx..x
@@ -1937,8 +1978,8 @@ x..xx|...x.......x...|xx..x
 x..xxx..x...9x9...x..xxx..x
 x..xxxxx....xxx....xxxxx..x
 x9.........xxxxx.........9x
-xx9......9xxxxxxx9......9xx
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+ .9......9xxxxxxx9......9.
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -1946,32 +1987,33 @@ ENDMAP
 NAME:   vaults_end_minmay_slanted
 TAGS:   vaults_end_quadrant_prize
 SUBST:  9 = 8 9 .:20
+NSUBST: O = 1:O / *:|
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
-xO|||||||||.....9.....xxxxx
-x||||||xxxx..9..9..xxxx***x
-x|||xxxx..9..9..xxxx......x
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ...............9..**|xxxx
+x......xxxx..9..9..xxxx....
+x...xxxx..9..9..xxxx......x
 xxxxx.....9..xxxx.........x
 x.........xxxx..9.........x
 x......xxxx..9..9..xxxx999x
 x999xxxx..9..9..xxxx......x
 x.........9..xxxx.........x
-x.........xxxx..9.....xxxxx
-x......xxxx..9..9..xxxx***x
+x.........xxxx||......xxxxx
+x|.....xxxx||O||999xxxx***x
+x***xxxx999||O||xxxx.....|x
+xxxxx......||xxxx.........x
+x.........xxxx..9.........x
+x......xxxx..9..9..xxxx999x
+x999xxxx..9..9..xxxx......x
+x.........9..xxxx.........x
+x.........xxxx..9.....xxx.x
+x|.....xxxx..9..9..xxxx...x
 x***xxxx..9..9..xxxx......x
 xxxxx.....9..xxxx.........x
-x.........xxxx..9.........x
-x......xxxx..9..9..xxxx999x
-x999xxxx..9..9..xxxx......x
-x.........9..xxxx.........x
-x.........xxxx..9.....xxxxx
-x......xxxx..9..9..xxxxxxxx
-x***xxxx..9..9..xxxxxxxxxxx
-xxxxx.....9..xxxxxxxxxxxxxx
- .........xxxxxxxxxxxxxxxxx
-  xxxxxxxxxxxxxxxxxxxxxxxxx
+ .........xxxx|**.........
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -1984,65 +2026,65 @@ SUBST:   9 = 8 9 .:20
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-  xxxxxxxxxxxxxxxxxxxxxxxxx
- .................xxxxxxxxx
-x...................9xxxxxx
-x.....................9xxxx
+  xxxxxxxxxxxxxxxxxxxxxxx
+  ................xxxxxx..
+x...................9xx...x
+x.....................9..xx
 x.......9xxcccccxx.....9xxx
 x....9xxxx9.....9xxxx...xxx
 x...9xx9...........9xx..9xx
 x...xx...............xx..xx
 x..9x9...xxaaaaaxx...9x..xx
-x..xx..xxx9.....9xxx..xx.*x
-x..d9.xx9..|||||..9xx.9b.*x
-x..d..b...|||O|||...d..b.*x
-x..d9.xx9..|||||..9xx.9b.*x
-x..xx..xxx9.....9xxx..xx.*x
+x..xx..xxx9.*.*.9xxx..xx..x
+x..d9.xx9**|||||**9xx.9b..x
+x..d..b..*|||O|||*..d..b.*x
+x..d9.xx9**|||||**9xx.9b.*x
+x..xx..xxx9.*.*.9xxx..xx.*x
 xx..x9...xxcccccxx...9x..xx
 xx..xx...............xx..xx
 xx9..xx9...........9xx..9xx
 xxx...xxxx9.....9xxxx...xxx
 xxx9.....xxaaaaaxx.....9xxx
-xxxx9.................9xxxx
-xxxxxx9.............9xxxxxx
-xxxxxxxxx*********xxxxxxxxx
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+xx..9.................9..xx
+x...xx9.............9xx...x
+ ..xxxxxx**......*xxxxxx..
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
-# about 25 |
+# about 21 |, 29 *
 NAME:   vaults_end_mu_corners
 TAGS:   vaults_end_quadrant_prize
-SUBST:  9 = 8 9 .:10
+SUBST:  9 = 8 9 .
 NSUBST: $ = 1:O / *:$
-SUBST:  $ = | *:20 $
+SUBST:  $ = | *:15 $:5
 SUBST:  a = x.
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
-x$$$$x.......x99...x..$$$$x
-x$$$$x.......x99...x.x$$$$x
-x$$$$x..xxx..x..x..x.x$$$$x
-x$$$$x..xxx..x..x..x.x$$$$x
-x.xxxx..xxx..x..x..x.xxxxxx
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ....x.......x99...x......
+x....x.......x99...x..x...x
+x....x..xxx..x..x..x..x...x
+x.xxxx..xxx..x..x..x..x...x
+x.......xxx..x..x..x..xxxxx
 x.......xxx.....x99.......x
 xxxxxx..xxx.....x99.......x
-x.......xxxxxxxxxxxxxxxx..x
-x.......x99...$$$$x99.....x
-x..xxxxxx99xxx$$$$x99.....x
-x99.....x..xxx$$$$x..xxxxxx
-x99.....x..xxx$$$$x.....99x
-xxxxxx..x..xxxxxxxx.....99x
+x.......xxxxx+xxxxxxxxxx..x
+x.......x99x$$$$$$x99.....x
+x..xxxxxx99x$$$$$$x99.....x
+x99........x$$$$$$x..xxxxxx
+x99........x$$$$$$x.......x
+xxxxxx..x..x$$$$$$x.......x
 x.......x..xxxxxxxxxxxxx..x
-x.......x.................x
-x..xxxxxx.................x
-x99.....x..xxxxxxxxx.xxxxxx
-x99.....x..xxx$$$$xx.x$$$$x
-xxxxxx..x..xxx$$$$xx.x$$$$x
-a.......x99xxx$$$$xx.x$$$$x
- .......x99...$$$$xx..$$$$x
-  axxxxxxxxxxxxxxxxxxxxxxxx
+x.......x...............99x
+x..xxxxxx...............99x
+x99.....x..xxxx+xxxx..xxxxx
+x99.....x..x$$$$$$$x..x...x
+xxxxxx..x..x$$$$$$$x..x...x
+a.......x99x$$$$$$$x..x...x
+ .......x99x$$$$$$$x......
+  axxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -2060,12 +2102,12 @@ SUBST:  a = x.
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
-x999......................x
-x999xxxxxxxxxxxxxxxxxxxxs.x
-x999....................x.x
-x.x.xxxxxxxxxxxxxxxxxxs.x.x
-x.x.x999..............x.x.x
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ........................
+x.99xxxxxxxxxxxxxxxxxxxxs.x
+x.9999..................x.x
+x.x9xxxxxxxxxxxxxxxxxxs.x.x
+x.x9x999..............x.x.x
 x.x.x999xxxxxxxxxxxxs.x.x.x
 x.x.x999;;;;;;;;$$$$x.x.x.x
 x.x.x.x;;;;;;;;;$$$$x.x.x.x
@@ -2081,8 +2123,8 @@ x.x.x................999x.x
 x.x.sxxxxxxxxxxxxxxxx999x.x
 x.x..................999x.x
 x.sxxxxxxxxxxxxxxxxxxxxxx.a
-x.........................
-xxxxxxxxxxxxxxxxxxxxxxxxa
+ ........................
+  xxxxxxxxxxxxxxxxxxxxxxa
 ENDMAP
 
 ############################################################
@@ -2094,33 +2136,36 @@ SUBST:  $ = |*$.
 SUBST:  c = xn9.
 SUBST:  9 = 8 9 .
 NSUBST: D = 1:+ / *:x
+NSUBST: E = 1:+ / *:x
+NSUBST: F = 1:+ / *:x
+NSUBST: G = 1:+ / *:x
 SUBST:  a = xn..
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-  axxxxxxxxxxxxxxxxxxxxxxxx
- ..c.c.c.c.c.c.c.c.c.c.c.cx
-a.c.c.c.c.c.c.c.c.c.c.c.c.x
-xc.c.c.c.c.c.c.c.c.c.c.c.cx
-x.c.c.c.c.c.c.c.c.c.c.c.c.x
-xc.c.c.c.c.c.c.c.c.c.c.c.cx
-x.c.c.c.c.c.c.c.c.c.c.c.c.x
-xc.c.c.c.c.c.c.c.c.c.c.c.cx
-x.c.c.c.c.c.c.c.c.c.c.c.c.x
-xc.c.c.c.c.c.c.c.c.c.c.c.cx
-x.c.c.c.c.c.c.c.c.c.c.c.c.x
-xDxDxDxDxDxDxDxDxDxDxDxDxDx
-x.........................x
-x.........................x
-x.9x..x..x..x9x..x..x..x9.x
-x.........................x
-x.........................x
-xxx+xxxx+xxxx+xxxx+xxxx+xxx
-x$$$$x$$$$$x$$$x$$$$$x$$$$x
-x$$$$x$$$$$x$$$x$$$$$x$$$$x
-x$$$$x$$$$$x$$$x$$$$$x$$$$x
-x$$$$x$$$$$x$$$x$$$$$x$$$$x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+  axxxxxxxxxxxxxxxxxxxxxa
+  .c.c.c..x$$$$$x..c.c.c..
+a.c.c.c.c.+$$$$$+.c.c.c.c.a
+xc.c.c.c..x$$$$$x..c.c.c.cx
+x.c.c.c.c.xxxxxxx.c.c.c.c.x
+xc.c.c.c.cx$$$$$xc.c.c.c.cx
+x.c.c.c.c.x$$$$$x.c.c.c.c.x
+xc.c.c.c.cx$$$$$xc.c.c.c.cx
+x.c.c.c.c.x$$$$$x.c.c.c.c.x
+xDxDxDxDxDxxx+xxxExExExExEx
+x.........x$$$$$x.........x
+x.x9.x..x.+$$9$$+.x..x.9x.x
+x.........x$$$$$x.........x
+xFxFxFxFxFxxx+xxxGxGxGxGxGx
+x.c.c.c.c.x$$$$$x.c.c.c.c.x
+xc.c.c.c.cx$$$$$xc.c.c.c.cx
+x.c.c.c.c.x$$$$$x.c.c.c.c.x
+xc.c.c.c.cx$$$$$xc.c.c.c.cx
+x.c.c.c.c.xxxxxxx.c.c.c.c.x
+xc.c.c.c..x$$$$$x..c.c.c.cx
+a.c.c.c.c.+$$$$$+.c.c.c.c.a
+ ..c.c.c..x$$$$$x..c.c.c..
+  axxxxxxxxxxxxxxxxxxxxxa
 ENDMAP
 
 ############################################################
@@ -2134,10 +2179,10 @@ SUBST:  ! = x:20 .
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
-x.........................x
+  x.xxxxxxxxxxxxxxxxxxxxx
+ .........................
 x.!x..9..xx............x!.x
-x..xx.....xx.9...9..9.xx..x
+...xx.....xx.9...9..9.xx..x
 x...xx..9..xx........xx.9.x
 x....xx.....xx.9..9.xx....x
 x..9..xx..9..xx****xx.9...x
@@ -2155,8 +2200,8 @@ x....xx..9.....9.xx.....xxx
 x...xx............xx..9..xx
 x..xx..9....9....9.xx.....x
 x.!x...............|xx....x
-x..................|?xx...
-xxxxxxxxxxxxxxxxxxxxxxxxx
+ ..................|?xx...
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -2167,7 +2212,7 @@ TAGS:    vaults_end_quadrant_prize vaults_end_quadrant_prize_mall
 SHUFFLE: AB, CD
 SUBST:   A=+, B:xx+, C:xxx+, D:xxxx+
 NSUBST:  S = 2:S / 1:O / *:RRU9
-KFEAT:   S = jewellery shop / antique armour shop / wand shop
+KFEAT:   S = jewellery shop / antique armour shop / gadget shop
 KFEAT:   R = general shop / book shop / scroll shop / antique weapon shop / distillery shop
 KFEAT:   U = stone_arch
 NSUBST:  ' = 22:9 / *:.
@@ -2177,33 +2222,33 @@ SUBST:   a : x.
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
-xxxxxxxxxxx'''x...........x
-xxxxxxx'''D'S'x...........x
-x'''''B'S'D'''x...........x
-x''S''B'''x+++x....xxx....x
-x'''''x+++x........xxx....x
-xxAAAxx............xxx....x
-xx'''+....................x
-xx'S'+...T................x
-xx'''+....................x
-xxCCxx....................x
-x'''+.....................x
-x'S'+.....................x
-x'''+.....................x
-xxxxx.....................x
-x.........................x
-x.........................x
-x...xxx...................x
-x...xxx...................x
-x...xxx...................a
-x.........................a
-x.........................
-xxxxxxxxxxxxxxxxxxxxxxxaa
+  aaxxxxxxxxxxxxxxxxxxxaa
+ .........................
+a.........................a
+a..................xxx....a
+x..............x+++xxx....x
+x..........x+++x'''xxx....x
+x..........x'''D'S'xx.....x
+x..........x'S'D'''xx.....x
+x........xxx'''xxxxxx.....x
+x........xxxBBBxxxxxx.....x
+x........xx''''xx.........x
+x......T.xx'ST'xx.T.......x
+x........xx''''xx.........x
+x....xxxxxxAAAxxx.........x
+x....xxxxxx'''xxx.........x
+x....xx'''C'S'x...........x
+x....xx'S'C'''x...........x
+x...xxx'''x+++x...........x
+x...xxx+++x...............x
+a...xxx...................a
+a.........................a
+ ........................
+  aaxxxxxxxxxxxxxxxxxxxaa
 ENDMAP
 
 ############################################################
-# 27 *, 1 |, 16 monsters
+# 26 *, 16 monsters
 NAME:   vaults_end_minmay_bent_boxes
 TAGS:   vaults_end_quadrant_prize
 SUBST:  9 = 8 9 .:20
@@ -2211,29 +2256,29 @@ NSUBST: O = 1:O / *:|
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-x.....9............9......
+  xxxxxxxxxxxxxxxxxxxxxxx
+ .....9............9.....
 x.....9............9......x
 x.....xxxxxxxxxxxxxx......x
 x................9.xx.....x
 x................9..xx....x
 x99x.....xxxxxxxxx...xx...x
 x..x....xx.9..........xx99x
-x..x...xx..9...........x..x
-x..x..xx...xxxxxxx..x99x..x
-x..x..x....******x..x..x..x
+x..x...xx*.9...........x..x
+x..x..xx**.xxxxxxx..x99x..x
+x..x..x...*******x..x..x..x
 x..x..x99x***O***x99x..x..x
-x..x..x..x******....x..x..x
-x..x99x..xxxxxxx...xx..x..x
-x..x...........9..xx...x..x
+x..x..x..x*******...x..x..x
+x..x99x..xxxxxxx.**xx..x..x
+x..x...........9.*xx...x..x
 x99xx..........9.xx....x..x
 x...xx...xxxxxxxxx.....x99x
 x....xx..9................x
-x*....xx.9................x
-x**....xxxxxxxxxxxxxx.....x
-x***...9............9.....x
-xO***..9............9.....x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+x.....xx.9................x
+x......xxxxxxxxxxxxxx.....x
+x......9............9.....x
+ ......9............9.....
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -2245,8 +2290,8 @@ NSUBST: O = 1:O / *:|
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-x.........................
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ........................
 x.........................x
 x..xxxx..xxxxxxxxx..xxxx..x
 x.....x..9..*x*..9..x.....x
@@ -2259,15 +2304,15 @@ x........x.......x........x
 x........x.......x........x
 x..xxxx99xx99x99xx99xxxx..x
 x..xxxx..xx..x..xx..xxxx..x
-x..9.*x..x.......x..x*.9..x
-x..9.*x**x.......x**x*.9..x
-x..xxxxxxxx..x..xxxxxxxx..x
-x..x**x**x.......x**x**x..x
-x..x..x..x.......x..x..x..x
-x..x99x99xx99x99xx99x99x..x
+x..9.*x......x......x*.9..x
+x..9.*x**....x....**x*.9..x
+x..xxxxxxxx99x99xxxxxxxx..x
+x..x**x**x*..x..*x**x**x..x
+x..x..x..x*..x..*x..x..x..x
+x..x99x99xxxxxxxxx99x99x..x
 x.........................x
-x.........................x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+ .........................
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -2279,8 +2324,8 @@ NSUBST: | = 1:O / *:|
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-x9...9...9...9...9...9....
+  xxxxxxxxxxxxxxxxxxxxxxx
+ 9...9...9...9...9...9...
 x.x.x.xxx.x.x.xxx.x.x.xxx.x
 x.x*x..*..x*x..*..x*x..*..x
 x.x.x.xxx.x.x.xxx.x.x.xxx.x
@@ -2300,8 +2345,8 @@ x9...9...9...9...9...9...9x
 x.x.x.xxx.x.x.xxx.x.x.xxx.x
 x.x*x..*..x*x..*..x*x..*..x
 x.x.x.xxx.x.x.xxx.x.x.xxx.x
-x....9...9...9...9...9...9x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+ ....9...9...9...9...9...9
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -2313,8 +2358,8 @@ NSUBST: | = 1:O / *:|
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-x.........................
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ........................
 x.xx9..9xx.......xx9..9xx.x
 x.xxx**xxx.......xxx**xxx.x
 x.9xxxxxx9.xxxxx.9xxxxxx9.x
@@ -2334,8 +2379,8 @@ x..*xxxx*..x|||x..*xxxx*..x
 x.9xxxxxx9.xxxxx.9xxxxxx9.x
 x.xxx**xxx.......xxx**xxx.x
 x.xx9..9xx.......xx9..9xx.x
-x.........................x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+ .........................
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -2347,9 +2392,9 @@ NSUBST: | = 1:O / *:|
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-xxxxx.....8x8.......8x8...
-xxx........x.........x....x
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ..xx.....8x8.......8x8..
+x..........x.........x....x
 xx....x.........x.........x
 xx...9x9.......9x9.......8x
 x...xxxxx..x..xxxxx..x..xxx
@@ -2367,9 +2412,9 @@ x....9x9.......9x9.......8x
 x.....x.........x.........x
 xx.......................xx
 xx....xxxxx.....xxxxx....xx
-xxx...*|x|*.....*|x|*...xxx
-xxxxx.*|x|*.....*|x|*.xxxxx
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+x.......x||**.**||x.......x
+ ..xx...x||**.**||x...xx..
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -2381,8 +2426,8 @@ NSUBST: O = 1:O / *:|
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-x.........................
+  xxxxxxxxxxxxxxxxxxxxxxx
+ .........................
 x..xx9..9xx.....xx9..9xx..x
 x.xxxx..xxxx...xxxx..xxxx.x
 x.xxxx..xxxx...xxxx..xxxx.x
@@ -2402,8 +2447,8 @@ x..9..**..9.....9..**..9..x
 x..xx....xx.....xx....xx..x
 x..xx9xx9xx.....xx9xx9xx..x
 x.....xx...........xx.....x
-x.........................x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+ .........................
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -2414,29 +2459,29 @@ SUBST:  9 = 8 9 .:20
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-x9999x......xx......xx....
+  xxxxxxxxxxxxxxxxxxxxxxx
+ .999x......xx......xx...
 x....x......xx......xx....x
 x....9..xx...9..xx....9...x
 x....9..xx...9..xx.....9..x
 x....x......xx..........xxx
 x....x......xx..9.......xxx
 x.99.x..xx.......9..xx....x
-x....x..xx..........xx....x
-x....x....9.....xx..9...xxx
-x....x.....9....xx..9...xxx
-x....x......xx......xx....x
-x....x......xx......xx....x
-x...9x99xx......xx......xxx
-x..9.x*.xx......xx......xxx
-x.9..x|*.9......9........9x
-x9...x||*9......9........9x
+x....x*.xx..........xx....x
+x....x*...9.....xx..9...xxx
+x....x|....9....xx..9...xxx
+x...9x|.....xx......xx....x
+x..9.x|99...xx......xx....x
+x.9..x|9xx......xx......xxx
+x9...x||xx9.....xx......xxx
+x....x|*|99.....9........9x
+x....xO||||||**.9........9x
 xxxx.xxxxxxxxxxxxxxxxx..xxx
-x||*.....9...............9x
-x||**x..9............9...9x
-x||||x.9.............9...9x
-xO|||x9..................9x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+x..........9.............9x
+x....x....9..........9...9x
+x....x...9...........9...9x
+ ....x..9.................
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -2448,29 +2493,29 @@ NSUBST: O = 1:O / *:|
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-x**|Ox9...9x9....x9.......
-x.**|x.9.9.x.9...x.9......x
-x..**x..x..x..x..x..xxxx..x
-x...*x..x..x..x..x.....x..x
-x9xxxx..x..x..x..x.....x..x
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ....x9***9x9....x9.......
+x....x.9.9.x.9...x.9......x
+x....x..x..x..x..x..xxxx..x
+x....x..x..x..x..x...**x..x
+x9xxxx..x..x..x..x...**x..x
 x...9x..x..x..x..x..x..x..x
 x..9.x..x..x..x...9.....9.x
 x.9..x..x..x..x....9.....9x
-x9...x..x..x..xxxx..xxxxxxx
-x....x..x..x9....x........x
-x....x..x..x.9...x........x
-x....x..x..x..x..xxxxxxx..x
-x....x..x9.....9........9.x
-x....x..x.9.....9........9x
+x....x..x..x..xxxx..xxxxxxx
+x....x..x..x9..|Ox........x
+x....x..x..x.9..|x.......*x
+x....x..x..x..x..xxxxxxx.*x
+x....x..x|.....9........9*x
+x....x..xO|.....9........9x
 x....x..xxxx..xxxxxxxxxxxxx
-x....x....9x9............9x
-x....x...9.x.9..........9.x
+x....x*...9x9............9x
+x....x**.9.x.9..........9.x
 x....xxxx..xxxxxxxxxxxxx..x
-x...9......x.**|OxO|**.x..x
-x..9.......x..**|x|**..x..x
-x.9........9...**x**...9..x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+x.9.9......x.**|Ox.....x..x
+x..9.......x..**|x.....x..x
+ .9........9...**x.....9..
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -2483,29 +2528,29 @@ SUBST:  X : x., Y : x.
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-xx*O*x.9.x.9.x.9.x.9.x.9.x
-x*x*x.x.x.x.x.x.x.x.x.x.x.x
-xO*x.9.x.9.x...x.9.x.9.x.9x
-x*x.x.x.x.xYx.xYx.x.x.x.x.x
+ .xxxxxxxxxxxxxxxxxxxxxxx
+.....x.9.x.9.x.9.x.9.x.9.
+x.x.x.x.x.x.x*x.x.x.x.x.x.x
+x..x.9.x.9.x*O*x.9.x.9.x.9x
+x.x.x.x.x.xYx*xYx.x.x.x.x.x
 xx.9.x.9.xYYYxYYYx.9.x.9.xx
-x.x.x.x.xXxYxYxYxXx.x.x.x.x
-x9.x.9.xXXXxYYYxXXXx.9.x.9x
+x.x.x.x|xXxYxYxYxXx*x.x.x.x
+x9.x.9|xXXXxYYYxXXXx.9.x.9x
 x.x.x.xYxXxXxYxXxXxYx.x.x.x
 xx.9.xYYYxXXXxXXXxYYYx.9.xx
-x.x.xXxYxYxXxXxXxYxYxXx.x.x
-x9.xXXXxYYYxXXXxYYYxXXXx.9x
-x.x.xXxYxYxXxXxXxYxYxXx.x.x
+x*x*xXxYxYxXxXxXxYxYxXx*x*x
+x9OxXXXxYYYxXXXxYYYxXXXxO9x
+x*x*xXxYxYxXxXxXxYxYxXx*x*x
 xx.9.xYYYxXXXxXXXxYYYx.9.xx
 x.x.x.xYxXxXxYxXxXxYx.x.x.x
-x9.x.9.xXXXxYYYxXXXx.9.x.9x
-x.x.x.x.xXxYxYxYxXx.x.x.x.x
+x9.x.9.xXXXxYYYxXXXx|9.x.9x
+x.x.x.x*xXxYxYxYxXx|x.x.x.x
 xx.9.x.9.xYYYxYYYx.9.x.9.xx
-x*x.x.x.x.xYx.xYx.x.x.x.x*x
-xO*x.9.x.9.x...x.9.x.9.x*Ox
-x*x*x.x.x.x.x.x.x.x.x.x*x*x
-xx*O*x.9.x.9.x.9.x.9.x*O*xx
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+x.x.x.x.x.xYx*xYx.x.x.x.x.x
+x..x.9.x.9.x*O*x.9.x.9.x..x
+x.x.x.x.x.x.x*x.x.x.x.x.x.x
+ ....x.9.x.9.x.9.x.9.x....
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -2516,8 +2561,8 @@ SUBST:  9 = 8 9 .:20
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-x....9x.................x.
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ....9x.................x
 x....x.x...............x9xx
 x....xx9x.............x.xxx
 x...x.xx.x...........x9xx.x
@@ -2533,12 +2578,12 @@ x...9......xxxxxxxxxO||**.x
 x...x.....xx9x...x.xx||**.x
 x........xx.x.....x9xx|**.x
 x...x...xx9x.......x.xx**.x
-x...9..xx.x.........x9xx*.x
+x...9..xx.x.........x9xx*9x
 x...x.xx9x...........x.xx9x
-x....xx.x.............x9x9x
-x....x9x...............x..x
-x.....x.................x9x
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+x....xx.x.............x9xxx
+x....x9x...............x.xx
+ .....x.................x9
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -2551,29 +2596,29 @@ SUBST:   * = * $:4
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-xO***$...9...xx..xx.......
-x*||*$...xx..xx...9....9..x
-x****xx..xx...x.......xxxxx
-xxx$$xx.......x.9.xx..xx..x
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ........9...xx..xx.......
+x........xx..xx...9....9..x
+x....xx..xx...x.......xxxxx
+xxx..xx.......x.9.xx..xx..x
 xxx.......9...xx..xx......x
 x.9.......xxxxxx...x.9....x
-x.....xx..xx.9.....x...xx.x
-x.xx..xx...........xxxxxx.x
-xxxx...x.9.....xx..xx.9...x
-x....9.x...xxxxxx.........x
-x......xxxxxx...x.......xxx
-x..xxxxxx....9..x...xx..xxx
-x9.xx....9......xxxxxx...9x
-x...9.......xx..xx..9.....x
-x.......xxxxxx...x.......xx
-x...xx..xx...9...x...xx$$xx
-xx..xx..9x.......xx..xx***x
-x*$......x...xxxxxx...$*|*x
-x|*$.....xx..xx..9....$*|*x
-x$|*$xx..xx...........xx|*x
-xO$|*xx9..x9......xx..xx*Ox
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+x.....xx|.xx.9.....x...xx.x
+x.xx..xx|..........xxxxxx.x
+xxxx..*x|9..$$$xx*.xx.9...x
+x....9*xO||xxxxxx*........x
+x..$***xxxxxx||Ox*......xxx
+x..xxxxxx$$$..9|x***xx..xxx
+x9.xx$$..9.....|xxxxxx...9x
+x...9.......xx.*xx***$....x
+x.......xxxxxx..*x*9.....xx
+x...xx..xx...9..*x*..xx..xx
+xx..xx..9x...$***xx..xx...x
+x........x...xxxxxx.......x
+x........xx..xx$$9........x
+x....xx..xx...........xx..x
+ ....xx9..x9......xx..xx..
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 # 21 |, 20 monsters
@@ -2584,9 +2629,9 @@ NSUBST:  O = 1:O / *:|
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxx
-xxOxxx|xxx|xxx|xxx|xxx|x..
-xO9.x.9.x.9.x.9.x.9.x.9.x.x
+  xxxxxxxxxxxxxxxxxxxxxxx
+ ..xxx|xxx|xxx|xxx|xxx|x.
+x.9.x.9.x.9.x.9.x.9.x.9.x.x
 xx.x.x.x.x.x.x.x.x.x.x.x.xx
 xxx.9.x.9.x.9.x.9.x.9.x.9|x
 xx.x.x.x.x.x.x.x.x.x.x.x.xx
@@ -2595,18 +2640,18 @@ xx.x.x.x.x.x.x.x.x.x.x.x.xx
 xxx.9.x.9.x.9.x.9.x.9.x.9|x
 xx.x.x.x.x.x.x.x.x.x.x.x.xx
 x|9.x.9.x.9.x.9.x.9.x.9.xxx
+xx.x.x.x.x.xOx.x.x.x.x.x.xx
+xxx|9.x.9.x.9Ox.9.x.9.x.9|x
+xx.x.x.x.x.x.xOx.x.x.x.x.xx
+x|9.x.9.x.9.x.9.x.9.x.9.xxx
 xx.x.x.x.x.x.x.x.x.x.x.x.xx
 xxx.9.x.9.x.9.x.9.x.9.x.9|x
 xx.x.x.x.x.x.x.x.x.x.x.x.xx
 x|9.x.9.x.9.x.9.x.9.x.9.xxx
 xx.x.x.x.x.x.x.x.x.x.x.x.xx
-xxx.9.x.9.x.9.x.9.x.9.x.9|x
-xx.x.x.x.x.x.x.x.x.x.x.x.xx
-xO9.x.9.x.9.x.9.x.9.x.9.xxx
-xx.x.x.x.x.x.x.x.x.x.x.x.xx
-xxx.9.x.9.x.9.x.9.x.9.x.9Ox
-xxxxOxxx|xxx|xxx|xxx|xxxOxx
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+x.x.9.x.9.x.9.x.9.x.9.x.9.x
+ ..x|xxx|xxx|xxx|xxx|xxx..
+  xxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 ############################################################
@@ -2631,29 +2676,29 @@ SUBVAULT: Y : vaults_end_room
 SUBVAULT: Z : vaults_end_room
 SUBST:    VXYZ = .
 MAP
-xxxxxxxxxxxxxxxxxxxxxxxxxxx
-x.........................x
-x.xxxxxxxxxxx..xxxxxxxxJxIx
+  axxxxxxxxxxxxxxxxxxxxxa
+ ............99...........
+a.xxxxxxxxxxx..xxxxxxxxJxIa
 x.xVVVVVVVVVx..xXXXXXXXXx.x
 x.xVVVVVVVVVx..xXXXXXXXXx.x
 x.xVVVVVVVVVx..xXXXXXXXXx.x
 x.xVVVVVVVVVx..xXXXXXXXXx.x
 x.xVVVVVVVVVx..xXXXXXXXXx.x
 x.xVVVVVVVVVx..xXXXXXXXXx.x
-x.xVVVVVVVVVL..KXXXXXXXXx.x
-x.NVVVVVVVVVxxxxxxxxxxxxx.x
-xMxxxxxxxxxxx99988......A.x
-x...........G99xxxxxxxxDx.x
-x.xxxxxxxxxFx99xZZZZZZZZx.x
-x.xYYYYYYYYYx88xZZZZZZZZx.x
+x.NVVVVVVVVVL..KXXXXXXXXx.x
+xMxxxxxxxxxxxxxxxxxxxxxxx.x
+x.9.........G998........A.x
+x.9.........G998........x.x
+x.xxxxxxxxxFx88xxxxxxxxDx.x
+x.xYYYYYYYYYx..xZZZZZZZZx.x
 x.xYYYYYYYYYx..xZZZZZZZZx.x
 x.xYYYYYYYYYx..xZZZZZZZZx.x
 x.xYYYYYYYYYx..xZZZZZZZZx.x
 x.xYYYYYYYYYx..xZZZZZZZZx.x
 x.xYYYYYYYYYx..CZZZZZZZZx.x
-x.xxxxxxxxxEx..xxxxxxxxxx.a
-x...........H..B..........
-xxxxxxxxxxxxxxxxxxxxxxxxa
+a.xxxxxxxxxEx..xxxxxxxxxx.a
+ ...........H..B.........
+  axxxxxxxxxxxxxxxxxxxxxa
 ENDMAP
 
 # Vaults:$ - Rooms Quadrant - Traps and Loot Subvault
@@ -2714,15 +2759,14 @@ ENDMAP
 #            Potentially contains the rune.
 NAME: vaults_end_room_rune
 TAGS: vaults_end_room_rune
-SUBST: ^ = ^.
 : vaults_end_loot(_G)
 : vaults_end_rune(_G)
 MAP
 ......
-.^^^^.
-.^||^.
-.^O|^.
-.^||^.
-.^^^^.
+......
+..||..
+..O|..
+..||..
+......
 ......
 ENDMAP

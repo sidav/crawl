@@ -13,10 +13,6 @@ __cap-T_suffix
 
 Sientes algo en la boca de tu estomago.
 %%%%
-__cap-U_suffix
-
-En el caso de que huya, ¡podría enfadarse!.
-%%%%
 __(_suffix_examine
 
 Ha sido encantada para que dance en el aire y pueda atacar por su cuenta.
@@ -28,25 +24,6 @@ pero cayó en desgracia al saquear unos ladrones el tesoro mientras que dormía.
 Ahora se desliza por el calabozo buscando venganza contra cualquier aspirante a
 saqueador.  Es un consumado hechicero, pero en el combate cuerpo a cuerpo no es
 más peligroso que otros de su misma especie.
-%%%%
-Antaeus
-
-En una ocasión un poderoso y afamado Titán, su arrogancia fue su perdición.
-Ahora está corrompido y contaminado. Ahora es un poderoso demonio que reina
-sobre las heladas ruinas de Cocito. Su gigantesco torso parece un blanco fácil
-para tus ataques, pero desgraciadamente saldrá indemne de todos tus ataques,
-excepto los poderosos.
-%%%%
-Arachne
-
-En una ocasión la mejor tejedora de raza humana, Arachne sufrió una maldición
-que le dejo en su forma actual: mitad humana, mitad araña. Incapaz de
-envejecer, posee la belleza y lozanía de una mujer humana, junto con las patas
-y abdomen de una monstruosa araña gigante.
-
-Siendo varios miles de años de vieja, ha aprendido magia y algunos otros
-trucos. Es de esperar que te intente enredar con telarañas y magia, mientras
-sus mascotas te digieren para después beberte y dejarte seco.
 %%%%
 Asmodeus
 
@@ -129,15 +106,11 @@ Un celoso hermano menor de Sigmund (de hecho, el menor de nueve hermanos). No
 tiene ninguno de los talentos de Sigmund para la magia, pero lo compensa con su
 destreza para la lucha y una astuta mente para el dinero. Está más que
 dispuesto a probar su superioridad matando a desventurados aventureros con su
-caro flagelo y su mente despierta.
+caro mayal y su mente despierta.
 %%%%
 Ereshkigal
 
 Un terrible archi-demonio que domina el mortal inframundo del Tártaro.
-%%%%
-Erica
-
-Una atractiva tejedora de hechizos.
 %%%%
 Erolcha
 
@@ -167,12 +140,6 @@ todo aquél que se encuentre a su paso, con un sombrero puntiagudo que lleva
 desenfadadamente encima de su cabeza. Consiguió el sombrero de la misma forma
 que consiguió su inteligencia y su conocimiento de la magia: consumiendo a su
 antiguo propietario, un poderoso mago.
-%%%%
-Geryon
-
-Un enorme archi-demonio de tres cabezas, el guardián del Vestíbulo del
-Infierno. Las leyendas dicen que su cuerno de plata se usa para abrir las
-puertas del Infierno.
 %%%%
 Gloorx Vloq
 
@@ -209,11 +176,6 @@ Ijyb
 
 Un pequeño y retorcido goblin que viste harapos azules.
 %%%%
-Ilsuiw
-
-Un astuta sirena bruja del mar, que usa su belleza y hechizos para conducir a
-aventureros poco espabilados a su muerte.
-%%%%
 Jessica
 
 Una malvada aprendiz de hechicera. Entró en el calabozo esperando encontrar un
@@ -231,18 +193,6 @@ Joseph
 
 Parece un mercenario.
 %%%%
-Josephine
-
-Una fea y anciana figura, vestida con ropas de druida.
-%%%%
-Khufu
-
-Un emperador increíblemente poderoso en pos de conseguir la divinidad.
-%%%%
-Kirke
-
-Una hermosa encantadora.
-%%%%
 Lom Lobon
 
 Un antiguo y extrañamente sereno demonio. Te mira fríamente con el enorme y
@@ -251,12 +201,6 @@ luminoso ojo que tiene en el centro de su frente.
 Louise
 
 Un hechicero inusualmente acorazado.
-%%%%
-Mara
-
-Este alto y poderoso demonio es Mara, Señor de las Ilusiones, poderoso entre
-los que sueñan. Es capaz de crear ilusiones extremadamente detalladas, capaces
-de confundir incluso a las mentes de los magos más poderosos y brillantes.
 %%%%
 Margery
 
@@ -267,12 +211,19 @@ Y distraer a humanoides masculinos también tiene su valor en combate, además.
 Maud
 
 Una misteriosa princesa guerrera de un reino muy lejano, en pos de recuperar la
-legendaria espada 'Entarex'. Incontables han sido los admiradores que, pensando
+legendaria espada “Entarex”. Incontables han sido los admiradores que, pensando
 en Maud, olvidaron todo lo demás.
 %%%%
 Maurice
 
 Un astuto y conspirador ladrón.
+%%%%
+Menkaure
+
+Un justo y noble soberano de un antiguo y poderoso reino, momificado tras su
+temprana muerte. Sus fieles sacerdotes le infundieron gran y poderosa magia,
+pretendiendo concederle la vida eterna. Ahora ha quedado olvidado y reducido a
+vendajes enmohecidos y huesos secos y quebradizos.
 %%%%
 Mennas
 
@@ -286,36 +237,16 @@ le cortaron la lengua.
 Tanto si este ángel es o no el mismo Mennas es un misterio, pero parece que le
 cueste hablar.
 %%%%
-Menkaure
-
-Un justo y noble soberano de un antiguo y poderoso reino, momificado tras su
-temprana muerte. Sus fieles sacerdotes le infundieron gran y poderosa magia,
-pretendiendo concederle la vida eterna. Ahora ha quedado olvidado y reducido a
-vendajes enmohecidos y huesos secos y quebradizos.
-%%%%
 Mnoleg
 
 Una figura extrañamente luminosa, danzando en los remolinos de aire del
 Pandemonio.
-%%%%
-Murray
-
-Un cráneo demoníaco rodando por el suelo.
 %%%%
 Nellie
 
 Una elefante muy inteligente que viajaba formando parte de un circo. Una noche
 oscura se escapó de su cadena y desapareció en el Pandemonio, para no ser vista
 nunca más.
-%%%%
-Nergalle
-
-Una hechicera arrugada, excepcionalmente fea incluso para los estándares de los
-orcos.
-%%%%
-Nessos
-
-Un guerrero centauro negro con una mirada malintencionada en sus ojos.
 %%%%
 Nikola
 
@@ -326,29 +257,13 @@ ahora fluctúa en diferentes fases de la realidad.
 Norris
 
 Un relajado cultista en paz con la muerte, con un saludable bronceado y una voz
-sosegada. No le importa si eres tú o él quien muera - ambos posiblemente sería
+sosegada. No le importa si eres tú o él quien muera — ambos posiblemente sería
 la mejor opción.
-%%%%
-Pikel
-
-Mientras que los kobolds son normalmente esclavos, la dura vida de Pikel, su
-ambición y su gran tamaño hizo que se rebelara y se convirtiera en un tratante
-de esclavos. Va de camino a las Minas Orcas para vender su mercancía, una
-selección de humanos temerosos que se acobardad a cada chasquido de su látigo.
 %%%%
 Polyphemus
 
 Un pastor cíclope, celoso guardián de su rebaño al que vigila con incansable
 fervor mediante su único ojo masivo.
-%%%%
-Prince Ribbit
-
-Un apuesto príncipe antes de que fuera maldecido, ahora, en busca de un remedio
-para su mal. Atravesando las salas a gran velocidad, frecuentemente desaparece
-de donde estaba y sale de la nada en otro sitio, normalmente para desgracia de
-algún aventurero que pase por allí. Sobre su cabeza puedes ver una corona que
-se inclina hacia uno de los lados como si estuviera dándose un paseo por la
-zona. El como se mantiene sobre la cabeza sin caerse es todo un misterio.
 %%%%
 Psyche
 
@@ -359,11 +274,6 @@ Purgy
 Un troll inusualmente delgado.
 
 Sientes algo en la boca de tu estómago.
-%%%%
-Roxanne
-
-Un bella estatua de zafiro de una famosa maga de la tierra que desapareció
-después de un desastroso fallo al conjurar un hechizo. Está sujetando un libro.
 %%%%
 Rupert
 
@@ -384,7 +294,7 @@ Snorg
 
 Un troll particularmente corpulento con poco temperamento y una importante
 tripa. Sin ningún interés en el Orbe, Snorg se deleita con el sin fin de
-aventureros - esto es, platos fáciles - a los que atrae.
+aventureros — esto es, platos fáciles — a los que atrae.
 %%%%
 Sonja
 
@@ -401,13 +311,8 @@ Terence
 
 Un violento asesino que mata tanto por placer como por interés, Terence se vio
 obligado a esconderse después de que uno de sus trabajos le saliera torcido, y
-no puede permitir que alguien que le haya visto salga vivo del calabazo - hay
+no puede permitir que alguien que le haya visto salga vivo del calabazo — hay
 una recompensa por su cabeza, después de todo.
-%%%%
-Tiamat
-
-Un poderoso dragón con unas potentes alas. Sus escamas parecen relucir y
-cambiar de color mientras las miras.
 %%%%
 Urug
 
@@ -468,11 +373,6 @@ adder
 La serpiente más común del calabozo. Una especie de vetusto reptil que
 habitualmente se halla en lugares subterráneos.
 %%%%
-agate snail
-
-Un enorme y desagradable gasterópodo con una concha de color celadón, dentro de
-la cual se esconde cuando está asustado.
-%%%%
 air elemental
 
 Un espíritu proveniente del plano elemental del aire. Se materializa en este
@@ -496,6 +396,11 @@ anaconda
 Una enorme serpiente que se desplaza con una velocidad asombrosa tanto por
 tierra como por agua. No mata a sus victimas mediante venenos sino que las
 asfixia.
+%%%%
+ancient lich
+
+Un liche el cual, habiendo existido por incontables siglos, ha alcanzado un
+nivel casi inimaginable en el estudio de la magia negra
 %%%%
 angel
 
@@ -580,9 +485,4 @@ ancient champion
 
 Un antiguo e insondable esqueleto. Tiene cientos de sellos dorados grabados en
 sus huesos y palpita con una terrible energía impía.
-%%%%
-Cigotuvi's Monster
-
-Este terrorífico engendro parece haber sido creado usando las partes de
-cualquier criatura imaginable.
 %%%%

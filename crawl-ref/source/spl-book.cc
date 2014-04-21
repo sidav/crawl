@@ -19,6 +19,7 @@
 #include "database.h"
 #include "delay.h"
 #include "describe.h"
+#include "directn.h"
 #include "effects.h"
 #include "externs.h"
 #include "food.h"
@@ -33,14 +34,15 @@
 #include "libutil.h"
 #include "macro.h"
 #include "message.h"
+#include "options.h"
 #include "player.h"
 #include "religion.h"
 #include "species.h"
 #include "spl-cast.h"
-#include "spl-miscast.h"
 #include "spl-util.h"
 #include "state.h"
 #include "stuff.h"
+#include "target.h"
 #ifdef USE_TILE
  #include "tilepick.h"
 #endif
@@ -268,6 +270,7 @@ int book_rarity(uint8_t which_book)
 
     case BOOK_TEMPESTS:
     case BOOK_DEATH:
+    case BOOK_SUMMONINGS:
         return 11;
 
     case BOOK_BURGLARY:
@@ -279,9 +282,6 @@ int book_rarity(uint8_t which_book)
     case BOOK_WARP:
     case BOOK_DRAGON:
         return 15;
-
-    case BOOK_SUMMONINGS:
-        return 18;
 
     case BOOK_ANNIHILATIONS:
     case BOOK_GRAND_GRIMOIRE:
@@ -571,16 +571,16 @@ bool you_cannot_memorise(spell_type spell, bool &form)
     {
         rc = true, form = false;
     }
+#if TAG_MAJOR_VERSION == 34
 
     if (you.species == SP_DJINNI
         && (spell == SPELL_ICE_FORM
          || spell == SPELL_OZOCUBUS_ARMOUR
-         || spell == SPELL_DEATHS_DOOR
-         || spell == SPELL_LEDAS_LIQUEFACTION
-         || spell == SPELL_SONG_OF_SHIELDING))
+         || spell == SPELL_LEDAS_LIQUEFACTION))
     {
         rc = true, form = false;
     }
+#endif
 
     if (you.species == SP_LAVA_ORC
         && (spell == SPELL_STONESKIN
@@ -595,6 +595,14 @@ bool you_cannot_memorise(spell_type spell, bool &form)
         if (!rc)
             form = true;
         return true;
+    }
+
+    if (you.species == SP_FORMICID
+        && (spell == SPELL_BLINK
+         || spell == SPELL_CONTROL_TELEPORT
+         || spell == SPELL_CONTROLLED_BLINK))
+    {
+        rc = true, form = false;
     }
 
     return rc;
@@ -680,7 +688,7 @@ static bool _get_mem_list(spell_list &mem_spells,
     if (you.form == TRAN_WISP)
     {
         if (!just_check)
-            mpr("You can't handle any books in this form.", MSGCH_PROMPT);
+            mprf(MSGCH_PROMPT, "You can't handle any books in this form.");
         return false;
     }
 
@@ -740,20 +748,11 @@ static bool _get_mem_list(spell_list &mem_spells,
         if (!just_check)
         {
             if (num_unknown > 1)
-            {
-                mpr("You must pick up those books before reading them.",
-                    MSGCH_PROMPT);
-            }
+                mprf(MSGCH_PROMPT, "You must pick up those books before reading them.");
             else if (num_unknown == 1)
-            {
-                mpr("You must pick up this book before reading it.",
-                    MSGCH_PROMPT);
-            }
+                mprf(MSGCH_PROMPT, "You must pick up this book before reading it.");
             else
-            {
-                mpr("You aren't carrying or standing over any spellbooks.",
-                    MSGCH_PROMPT);
-            }
+                mprf(MSGCH_PROMPT, "You aren't carrying or standing over any spellbooks.");
         }
         return false;
     }
@@ -770,10 +769,7 @@ static bool _get_mem_list(spell_list &mem_spells,
     else if (book_hash.empty())
     {
         if (!just_check)
-        {
-            mpr("None of the spellbooks you are carrying contain any spells.",
-                MSGCH_PROMPT);
-        }
+            mprf(MSGCH_PROMPT, "None of the spellbooks you are carrying contain any spells.");
         return false;
     }
 
@@ -821,12 +817,12 @@ static bool _get_mem_list(spell_list &mem_spells,
 
     // Return true even if there are only spells we can't memorise _yet_.
     if (just_check)
-        return (num_low_levels > 0 || num_low_xl > 0);
+        return num_low_levels > 0 || num_low_xl > 0;
 
     unsigned int total = num_known + num_race + num_low_xl + num_low_levels;
 
     if (num_known == total)
-        mpr("You already know all available spells.", MSGCH_PROMPT);
+        mprf(MSGCH_PROMPT, "You already know all available spells.");
     else if (num_race == total || (num_known + num_race) == total)
     {
         const bool lichform = (you.form == TRAN_LICH);
@@ -844,8 +840,8 @@ static bool _get_mem_list(spell_list &mem_spells,
     }
     else
     {
-        mpr("You can't memorise any new spells for an unknown reason; "
-            "please file a bug report.", MSGCH_PROMPT);
+        mprf(MSGCH_PROMPT, "You can't memorise any new spells for an unknown "
+                           "reason; please file a bug report.");
     }
 
     if (num_unreadable)
@@ -896,12 +892,12 @@ static bool _sort_mem_spells(spell_type a, spell_type b)
     const int fail_rate_a = failure_rate_to_int(spell_fail(a));
     const int fail_rate_b = failure_rate_to_int(spell_fail(b));
     if (fail_rate_a != fail_rate_b)
-        return (fail_rate_a < fail_rate_b);
+        return fail_rate_a < fail_rate_b;
 
     if (spell_difficulty(a) != spell_difficulty(b))
-        return (spell_difficulty(a) < spell_difficulty(b));
+        return spell_difficulty(a) < spell_difficulty(b);
 
-    return (strcasecmp(spell_title(a), spell_title(b)) < 0);
+    return strcasecmp(spell_title(a), spell_title(b)) < 0;
 }
 
 vector<spell_type> get_mem_spell_list(vector<int> &books)
@@ -1017,7 +1013,6 @@ static spell_type _choose_mem_spell(spell_list &spells,
     {
         spell_menu.set_maxpagesize(52);
     }
-
 
     for (unsigned int i = 0; i < spells.size(); i++)
     {
@@ -1164,6 +1159,13 @@ string desc_cannot_memorise_reason(bool form)
     return desc;
 }
 
+/**
+ * Can the player learn the given spell?
+ *
+ * @param   specspell  The spell to be learned.
+ * @returns            false if the player can't learn the spell for any
+ *                     reason, true otherwise.
+*/
 static bool _learn_spell_checks(spell_type specspell)
 {
     if (!can_learn_spell())
@@ -1203,15 +1205,16 @@ static bool _learn_spell_checks(spell_type specspell)
         return false;
     }
 
-    if (spell_fail(specspell) >= 100 && !vehumet_is_offering(specspell))
-    {
-        mpr("This spell is too difficult to memorise!");
-        return false;
-    }
-
     return true;
 }
 
+/**
+ * Attempt to make the player learn the given spell.
+ *
+ * @param   specspell  The spell to be learned.
+ * @returns            true if the player learned the spell, false
+ *                     otherwise.
+*/
 bool learn_spell(spell_type specspell)
 {
     if (!_learn_spell_checks(specspell))
@@ -1219,12 +1222,14 @@ bool learn_spell(spell_type specspell)
 
     double chance = get_miscast_chance(specspell);
 
-    if (chance >= 0.025)
-        mpr("This spell is very dangerous to cast!", MSGCH_WARN);
+    if (spell_fail(specspell) >= 100 && !vehumet_is_offering(specspell))
+        mprf(MSGCH_WARN, "This spell is impossible to cast!");
+    else if (chance >= 0.025)
+        mprf(MSGCH_WARN, "This spell is very dangerous to cast!");
     else if (chance >= 0.005)
-        mpr("This spell is quite dangerous to cast!", MSGCH_WARN);
+        mprf(MSGCH_WARN, "This spell is quite dangerous to cast!");
     else if (chance >= 0.001)
-        mpr("This spell is slightly dangerous to cast.");
+        mprf(MSGCH_WARN, "This spell is slightly dangerous to cast.");
 
     snprintf(info, INFO_SIZE,
              "Memorise %s, consuming %d spell level%s and leaving %d?",
@@ -1302,7 +1307,7 @@ int count_rod_spells(const item_def &item, bool need_id)
     return nspel;
 }
 
-int rod_spell(int rod)
+int rod_spell(int rod, bool check_range)
 {
     item_def& irod(you.inv[rod]);
 
@@ -1330,7 +1335,7 @@ int rod_spell(int rod)
              "Evoke which spell from the rod ([a-%c] spell [?*] list)? ",
              'a' + num_spells - 1);
 
-        // Note that auto_list is ignored here.
+        // Note that the list of spells is not presented here.
         keyin = get_ch();
 
         if (keyin == '?' || keyin == '*')
@@ -1355,7 +1360,7 @@ int rod_spell(int rod)
 
     const int idx = letter_to_index(keyin);
 
-    if ((idx >= SPELLBOOK_SIZE) || !_is_valid_spell_in_book(irod, idx))
+    if (idx >= SPELLBOOK_SIZE || !_is_valid_spell_in_book(irod, idx))
     {
         canned_msg(MSG_HUH);
         return -1;
@@ -1398,6 +1403,23 @@ int rod_spell(int rod)
         return -1;
     }
 
+    if (check_range && spell_no_hostile_in_range(spell))
+    {
+        // Abort if there are no hostiles within range, but flash the range
+        // markers for a short while.
+        mpr("You can't see any susceptible monsters within range! "
+            "(Use <w>V</w> to cast anyway.)");
+
+        if (Options.darken_beyond_range)
+        {
+            targetter_smite range(&you, calc_spell_range(spell), 0, 0, true);
+            range_view_annotator show_range(&range);
+            delay(50);
+        }
+        crawl_state.zero_turns_taken();
+        return -1;
+    }
+
     // All checks passed, we can cast the spell.
     if (you.confused())
         random_uselessness();
@@ -1413,7 +1435,7 @@ int rod_spell(int rod)
     you.wield_change = true;
     you.turn_is_over = true;
 
-    return (roll_dice(1, 1 + spell_difficulty(spell) / 2));
+    return roll_dice(1, 1 + spell_difficulty(spell) / 2);
 }
 
 static bool _compare_spells(spell_type a, spell_type b)
@@ -1429,7 +1451,7 @@ static bool _compare_spells(spell_type a, spell_type b)
     int level_b = spell_difficulty(b);
 
     if (level_a != level_b)
-        return (level_a < level_b);
+        return level_a < level_b;
 
     unsigned int schools_a = get_spell_disciplines(a);
     unsigned int schools_b = get_spell_disciplines(b);
@@ -1450,10 +1472,10 @@ static bool _compare_spells(spell_type a, spell_type b)
         }
         ASSERT(a_type != NULL);
         ASSERT(b_type != NULL);
-        return (strcmp(a_type, b_type) < 0);
+        return strcmp(a_type, b_type) < 0;
     }
 
-    return (strcmp(spell_title(a), spell_title(b)) < 0);
+    return strcmp(spell_title(a), spell_title(b)) < 0;
 }
 
 bool is_memorised(spell_type spell)
@@ -1850,8 +1872,8 @@ static bool _get_weighted_discs(bool completely_random, god_type god,
     if (num_discs == 0)
     {
 #ifdef DEBUG
-        mpr("No valid disciplines with which to make a themed randart "
-            "spellbook.", MSGCH_ERROR);
+        mprf(MSGCH_ERROR, "No valid disciplines with which to make a themed "
+                          "randart spellbook.");
 #endif
         // Only happens if !completely_random and the player already knows
         // all available spells. We could simply re-allow all disciplines
@@ -2122,7 +2144,8 @@ bool make_book_theme_randart(item_def &book,
 
     ASSERT(disc1 < (1 << (SPTYP_LAST_EXPONENT + 1)));
     ASSERT(disc2 < (1 << (SPTYP_LAST_EXPONENT + 1)));
-    ASSERT(count_bits(disc1) == 1 && count_bits(disc2) == 1);
+    ASSERT(count_bits(disc1) == 1);
+    ASSERT(count_bits(disc2) == 1);
 
     int disc1_pos = 0, disc2_pos = 0;
     for (int i = 0; i <= SPTYP_LAST_EXPONENT; i++)
@@ -2283,9 +2306,6 @@ bool make_book_theme_randart(item_def &book,
             owner = god_name(god, false);
         else if (god_gift && one_chance_in(3) || one_chance_in(5))
         {
-            bool highlevel = (highest_level >= 7 + random2(3)
-                              && (lowest_level > 1 || coinflip()));
-
             if (disc1 != disc2)
             {
                 string schools[2];
@@ -2294,11 +2314,7 @@ bool make_book_theme_randart(item_def &book,
                 sort(schools, schools + 2);
                 string lookup = schools[0] + " " + schools[1];
 
-                if (highlevel)
-                    owner = getRandNameString("highlevel " + lookup + " owner");
-
-                if (owner.empty() || owner == "__NONE")
-                    owner = getRandNameString(lookup + " owner");
+                owner = getRandNameString(lookup + " owner");
 
                 if (owner == "__NONE")
                     owner = "";
@@ -2307,11 +2323,8 @@ bool make_book_theme_randart(item_def &book,
             if (owner.empty() && all_spells_disc1)
             {
                 string lookup = spelltype_long_name(disc1);
-                if (highlevel && disc1 == disc2)
-                    owner = getRandNameString("highlevel " + lookup + " owner");
 
-                if (owner.empty() || owner == "__NONE")
-                    owner = getRandNameString(lookup + " owner");
+                owner = getRandNameString(lookup + " owner");
 
                 if (owner == "__NONE")
                     owner = "";
@@ -2532,8 +2545,8 @@ bool book_has_title(const item_def &book)
     if (!is_artefact(book))
         return false;
 
-    return (book.props.exists("is_named")
-            && book.props["is_named"].get_bool() == true);
+    return book.props.exists("is_named")
+           && book.props["is_named"].get_bool() == true;
 }
 
 void destroy_spellbook(const item_def &book)

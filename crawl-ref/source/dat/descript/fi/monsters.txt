@@ -23,10 +23,6 @@ Dispater
 
 Disin Iron Cityn valtias.
 %%%%
-Erica
-
-Kaunis loitsija.
-%%%%
 Erolcha
 
 Erityisen ovela ogre-maagi.
@@ -51,14 +47,6 @@ Pieni ja kiero maahinen. Hänellä on vaatteinaan joitakin rumia sinisiä rääs
 Joseph
 
 Näyttää aivan palkkasotilaalta.
-%%%%
-Khufu
-
-Ällistyttävän voimakas hallitsija matkalla jumaluuteen.
-%%%%
-Kirke
-
-Kaunis lumoojatar.
 %%%%
 Louise
 

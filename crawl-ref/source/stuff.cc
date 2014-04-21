@@ -29,6 +29,7 @@
 #include "files.h"
 #include "hints.h"
 #include "libutil.h"
+#include "los.h"
 #include "macro.h"
 #include "menu.h"
 #include "message.h"
@@ -109,6 +110,7 @@ void cio_init()
     console_startup();
     set_cursor_enabled(false);
     crawl_view.init_geometry();
+    textbackground(0);
 }
 
 void cio_cleanup()
@@ -281,6 +283,10 @@ NORETURN void game_ended_with_error(const string &message)
     if (crawl_state.seen_hups)
         end(1);
 
+#ifdef USE_TILE_WEB
+    tiles.send_exit_reason("error", message);
+#endif
+
     if (Options.restart_after_game)
     {
         if (crawl_state.io_inited)
@@ -397,7 +403,7 @@ int stepdown_value(int base_value, int stepping, int first_step,
 
 int div_round_up(int num, int den)
 {
-    return (num / den + (num % den != 0));
+    return num / den + (num % den != 0);
 }
 
 void canned_msg(canned_message_type which_message)
@@ -441,7 +447,7 @@ void canned_msg(canned_message_type which_message)
         crawl_state.cancel_cmd_repeat();
         break;
     case MSG_OK:
-        mpr("Okay, then.", MSGCH_PROMPT);
+        mprf(MSGCH_PROMPT, "Okay, then.");
         crawl_state.cancel_cmd_repeat();
         break;
     case MSG_UNTHINKING_ACT:
@@ -464,7 +470,7 @@ void canned_msg(canned_message_type which_message)
         mpr("The spell fizzles.");
         break;
     case MSG_HUH:
-        mpr("Huh?", MSGCH_EXAMINE_FILTER);
+        mprf(MSGCH_EXAMINE_FILTER, "Huh?");
         crawl_state.cancel_cmd_repeat();
         break;
     case MSG_EMPTY_HANDED_ALREADY:
@@ -515,14 +521,14 @@ void canned_msg(canned_message_type which_message)
     case MSG_DECK_EXHAUSTED:
         mpr("The deck of cards disappears in a puff of smoke.");
         break;
-    case MSG_EVOCATION_SUPPRESSED:
-        mpr("You may not evoke while suppressed!");
-        break;
     case MSG_BEING_WATCHED:
         mpr("You feel you are being watched by something.");
         break;
     case MSG_CANNOT_MOVE:
         mpr("You cannot move.");
+        break;
+    case MSG_YOU_DIE:
+        mpr_nojoin(MSGCH_PLAIN, "You die...");
         break;
     }
 }
@@ -547,7 +553,7 @@ bool yes_or_no(const char* fmt, ...)
     va_end(args);
     buf[sizeof(buf)-1] = 0;
 
-    mprf(MSGCH_PROMPT, "%s? (Confirm with \"yes\".) ", buf);
+    mprf(MSGCH_PROMPT, "%s (Confirm with \"yes\".) ", buf);
 
     if (cancellable_get_line(buf, sizeof buf))
         return false;
@@ -584,26 +590,30 @@ bool yesno(const char *str, bool safe, int safeanswer, bool clear_after,
     mouse_control mc(MOUSE_MODE_YESNO);
     while (true)
     {
-#ifdef TOUCH_UI
-        int tmp = pop->pop();
-#else
-        if (!noprompt)
+        int tmp = ESCAPE;
+        if (!crawl_state.seen_hups)
         {
-            if (message)
-                mpr(prompt.c_str(), MSGCH_PROMPT);
-            else
-                cprintf("%s", prompt.c_str());
-        }
+#ifdef TOUCH_UI
+            tmp = pop->pop();
+#else
+            if (!noprompt)
+            {
+                if (message)
+                    mprf(MSGCH_PROMPT, "%s", prompt.c_str());
+                else
+                    cprintf("%s", prompt.c_str());
+            }
 
-        int tmp = getchm(KMC_CONFIRM);
+            tmp = getchm(KMC_CONFIRM);
+        }
 #endif
 
-        // Prevent infinite loop if Curses HUP signal handling happens;
-        // if there is no safe answer, then just save-and-exit immediately,
-        // since there's no way to know if it would be better to return
-        // true or false.
+        // If no safe answer exists, we still need to abort when a HUP happens.
+        // The caller must handle this case, preferably by issuing an uncancel
+        // event that can restart when the game restarts -- and ignore the
+        // the return value here.
         if (crawl_state.seen_hups && !safeanswer)
-            sighup_save_and_exit();
+            return false;
 
         if (map && map->find(tmp) != map->end())
             tmp = map->find(tmp)->second;
@@ -638,9 +648,9 @@ bool yesno(const char *str, bool safe, int safeanswer, bool clear_after,
             status->text = pr;
 #else
             if (message)
-                mpr(pr);
+                mpr(pr.c_str());
             else
-                cprintf(("\n" + pr + "\n").c_str());
+                cprintf("\n%s\n", pr.c_str());
 #endif
         }
     }
@@ -714,7 +724,7 @@ int yesnoquit(const char* str, bool safe, int safeanswer, bool allow_all,
                                         safe, allow_all).c_str());
     while (true)
     {
-        mpr(prompt.c_str(), MSGCH_PROMPT);
+        mprf(MSGCH_PROMPT, "%s", prompt.c_str());
 
         int tmp = getchm(KMC_CONFIRM);
 
@@ -766,15 +776,15 @@ int yesnoquit(const char* str, bool safe, int safeanswer, bool allow_all,
 char index_to_letter(int the_index)
 {
     ASSERT_RANGE(the_index, 0, ENDOFPACK);
-    return (the_index + ((the_index < 26) ? 'a' : ('A' - 26)));
+    return the_index + ((the_index < 26) ? 'a' : ('A' - 26));
 }
 
 int letter_to_index(int the_letter)
 {
     if (the_letter >= 'a' && the_letter <= 'z')
-        return (the_letter - 'a'); // returns range [0-25] {dlb}
+        return the_letter - 'a'; // returns range [0-25] {dlb}
     else if (the_letter >= 'A' && the_letter <= 'Z')
-        return (the_letter - 'A' + 26); // returns range [26-51] {dlb}
+        return the_letter - 'A' + 26; // returns range [26-51] {dlb}
 
     die("slot not a letter: %s (%d)", the_letter ?
         stringize_glyph(the_letter).c_str() : "null", the_letter);
@@ -782,13 +792,13 @@ int letter_to_index(int the_letter)
 
 maybe_bool frombool(bool b)
 {
-    return (b ? MB_TRUE : MB_FALSE);
+    return b ? MB_TRUE : MB_FALSE;
 }
 
 bool tobool(maybe_bool mb)
 {
     ASSERT(mb != MB_MAYBE);
-    return (mb == MB_TRUE);
+    return mb == MB_TRUE;
 }
 
 bool tobool(maybe_bool mb, bool def)
@@ -841,7 +851,7 @@ int prompt_for_int(const char *prompt, bool nonneg)
     msgwin_get_line(prompt, specs, sizeof(specs));
 
     if (specs[0] == '\0')
-        return (nonneg ? -1 : 0);
+        return nonneg ? -1 : 0;
 
     char *end;
     int   ret = strtol(specs, &end, 10);
@@ -868,5 +878,4 @@ double prompt_for_float(const char* prompt)
         ret = -1;
 
     return ret;
-
 }

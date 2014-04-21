@@ -18,8 +18,18 @@ de ces enchantements.
 %%%%
 Breathe Fire ability
 
-Crache un souffle de flammes sur un monstre ciblé, qui laissera probablement un
-nuage enflammé dans son sillage.
+{{
+    local desc = "Crache un souffle de flammes sur un monstre ciblé"
+
+    if you.race() == "Red Draconian" then
+        desc = desc .. ", qui laissera probablement un nuage enflammé à"
+         .. "l'impact."
+    end
+
+    desc = desc .. "."
+
+    return desc
+}}
 %%%%
 Breathe Frost ability
 
@@ -38,8 +48,7 @@ Breathe Sticky Flame ability
 
 Souffle une salve de flammes gluantes sur le monstre ciblé. Comme son nom
 l'indique, une flamme gluante va coller, et le monstre sera couvert de flammes
-pour plusieurs tours avant de s'éteindre. La salve peut éclabousser à
-l'impacte.
+pour plusieurs tours avant de s'éteindre. La salve peut éclabousser à l'impact.
 %%%%
 Breathe Steam ability
 
@@ -59,9 +68,8 @@ Ainsi, vous ne pourrez change de forme si votre Force est trop basse.
 %%%%
 Bottle Blood ability
 
-Au niveau 6 et plus, les Vampires peuvent mettre en bouteille le sang non
-contaminé et non décomposé des corps sur leur position. Faire cela requière la
-capacité de tenir un couteau, comme pour découper.
+À partir du niveau 6, les Vampires peuvent mettre en bouteille le sang des
+corps non décomposés qui en contiennent et sur lesquels ils se tiennent.
 %%%%
 Spit Acid ability
 
@@ -69,10 +77,19 @@ Crache de l'acide sur un monstre ciblé.
 %%%%
 Fly ability
 
-Commencer à voler. Durant la lévitation, vous pouvez traverser en toute
-sécurité les eaux profondes et les obstacles similaires. soyez conscient que la
-lévitation peut s'achever à un moment inopportun et vous faire tomber vers
-votre mort.
+Commencer à voler. En vol, vous pouvez traverser en toute sécurité les eaux
+profondes et les obstacles similaires. Soyez conscient que le vol peut
+s'achever à un moment inopportun et vous faire chuter vers votre mort.
+%%%%
+Jump Attack ability
+
+Un talent qui utilise l'énergie cinétique d'une créature pour déclencher une
+attaque sautée très rapide, qui vous fait atterrir à proximité en toute
+sécurité. Vous ne pouvez pas sauter sur les ennemis volants et ne pouvez sauter
+sur des ennemis géants que s'ils sont plongés dans la lave ou de l'eau
+profonde. Être dans l'eau profonde, la lave, ou sur un sol liquéfié vous
+empêcher également d'utiliser ce talent. Les Felids sont des sauteurs naturels
+et bondiront encore mieux après avoir atteint les niveaux d'expérience 6 et 12.
 %%%%
 Hellfire ability
 
@@ -97,6 +114,16 @@ Device Recharging ability
 
 Au prix de la perte permanente d'un point de magie, recharge une baguette ou un
 sceptre.
+%%%%
+Dig ability
+
+Creuse des tunnels à travers la pierre en ligne droite. Bruyant.
+%%%%
+Shaft Self ability
+
+Vous envoie à une position aléatoire entre un et trois niveaux plus bas, comme
+si vous étiez tombé à travers une trappe piégée. Cela prend du temps de creuser
+le passage et l'atterrissage est bruyant.
 %%%%
 Evoke Teleportation ability
 
@@ -123,13 +150,22 @@ Turn Visible ability
 
 Redevenir à nouveau visible.
 %%%%
+Evoke Jump Attack ability
+
+Un talent qui utilise l'énergie cinétique d'une créature pour déclencher une
+attaque sautée très rapide, qui vous fait atterrir à proximité en toute
+sécurité. Vous ne pouvez pas sauter sur les ennemis volants et ne pouvez sauter
+sur des ennemis géants que s'ils sont plongés dans la lave ou de l'eau
+profonde. Être dans l'eau profonde, la lave, ou sur un sol liquéfié vous
+empêcher également d'utiliser ce talent.
+%%%%
 Stop Flying ability
 
-Arrêter de voler
+Atterrir.
 %%%%
 Evoke Fog ability
 
-Relâches un large et épais brouillard pour diminuer la vision.
+Relâches un large et épais brouillard qui diminue le champ de vision.
 %%%%
 Evoke Teleport Control ability
 
@@ -142,27 +178,27 @@ incanter que les non-contrôlées.
 %%%%
 End Transformation ability
 
-Revenir à votre forme normale, avec un léger retard.
+Revenir progressivement  à votre forme normale.
 %%%%
 Recite ability
 
 Prêchez aux monstres les lois de Zin, ce qui peut amener à différents
-résultats. Il existe quatre livres dont vous pouvez prêcher le contenu :
+résultats. Il existe quatre livres dont vous pouvez prêcher le contenu :
 
-* Livre des Abominations : Ce livre aborde ce qui existe de plus odieux pour
+* Livre des Abominations : Ce livre aborde ce qui existe de plus odieux pour
 Zin – le chaos sous toutes ses formes. La récitation de ces versets invoquera
 le plus puissant des chocs de Zin.
 
-* Livre des Ablutions : Les impurs tiennent une place presque aussi élevée aux
+* Livre des Ablutions : Les impurs tiennent une place presque aussi élevée aux
 yeux du Donneur de Lois. La récitation des versets de ce livre blessera de
 telles créatures.
 
-* Livres des Apostats: Les créatures intelligentes qui ne suivent pas Zin mais
+* Livres des Apostats : Les créatures intelligentes qui ne suivent pas Zin mais
 n'ont pas succombé au mal sont traitées avec moins de véhémence. Les versets de
 ce livre provoque la confusion. Mais ceux qui adore un dieu ennemi de Zin
 pourraient être privés de la possibilité de répandre leur foi impie.
 
-* Livre de l'Anathème : Démons et morts-vivants sont haïs de Zin. Ce livre
+* Livre de l'Anathème : Démons et morts-vivants sont haïs de Zin. Ce livre
 donne les moyens de le leur faire comprendre.
 %%%%
 Vitalisation ability
@@ -180,8 +216,8 @@ prison est accrue avec la compétence Invocations.
 Sanctuary ability
 
 Pour une courte durée, vous gagnez la sécurité d'un refuge divin. Pendant que
-vous êtes à l'intérieur du sanctuaire, les monstres ne vous attaqueront pas
-mais, la protection disparait immédiatement si vous veniez à briser cette paix
+vous êtes à l'intérieur du sanctuaire, les monstres ne vous attaqueront pas,
+mais la protection disparait immédiatement si vous veniez à briser cette paix
 divine.
 %%%%
 Cure All Mutations ability
@@ -234,7 +270,7 @@ actuellement dans le donjon.
 Injury Mirror ability
 
 Blesse les monstres attaquants en leur réfléchissant les dégâts qu'ils vous
-infligent.
+infligent. Le cout en piété est proportionnel aux domages réfléchis.
 %%%%
 Animate Dead ability
 
@@ -272,7 +308,7 @@ Augmente temporairement toutes vos compétences de combat, y compris la capacit�
 %%%%
 Finesse ability
 
-Accroit grandement votre vitesse de combat, avec aucune perte d'efficacité. Cet
+Accroit grandement votre vitesse de combat, avec aucune perte de précision. Cet
 effet surnaturel provoque une faible contamination magique. Une exposition
 prolongée peut être mauvaise pour la santé.
 %%%%
@@ -291,24 +327,25 @@ Tire aléatoirement une explosion ou un faisceau dangereux sur un monstre ciblé
 %%%%
 Greater Servant of Makhleb ability
 
-Convoquer un démon majeur, qui a une chance de vous être hostile si vos
+Convoquer un démon majeur, qui a de grandes chances de vous être hostile si vos
 compétences en Invocations sont faibles.
 %%%%
 Channel Energy ability
 
-Rempli votre réservoir de magie d'un montant dépendant de votre compétence
+Rempli votre réservoir de magie d'une quantité dépendante de votre compétence
 d'Invocations.
 %%%%
 Forget Spell ability
 
-Oubliez n'importe quel sort que vous aviez mémorisé, afin de libérer votre
-mémoire et permettre d'en apprendre de nouveaux.
+Oubliez un des sorts que vous avez mémorisé, afin de libérer votre mémoire et
+vous permettre d'en apprendre de nouveaux.
 %%%%
 Burn Spellbooks ability
 
-Enflamme tous les livres de sorts dans le champ de vision. Le feu est alimenté
-par la haine de Trog, et Trog apprécie encore plus quand vous ignorez
-complètement les folies contenues dans ces livres qui brûlent.
+Enflamme tous les livres de sorts dans votre champ de vision. Le feu est
+alimenté par la haine de Trog, et il est bien plus fort que s'il brûlait de
+simples parchemins — cela peut être fort utile si vous jetez le livre aux pieds
+de quelqu'un. Bien évidemment, Trog apprécie l'utilisation de ce pouvoir.
 %%%%
 Berserk ability
 
@@ -320,7 +357,7 @@ actions comme par exemple, (dés)équiper une arme, boire quelque chose, évoque
 une baguette ou un objet, ou lancer un sort. Une telle rage est toujours suivie
 d'une grande fatigue pendant laquelle vous êtes ralenti et ne pouvez pas
 redevenir berserk. Contrairement à d'autres sources de rage, en fonction de
-votre piété, Trog peut occasionnellement vous empêcher de mourir.
+votre piété, Trog peut occasionnellement vous empêcher de vous évanouir.
 %%%%
 Trog's Hand ability
 
@@ -331,7 +368,7 @@ effets magiques.
 %%%%
 Brothers in Arms ability
 
-Convoque d'énormes alliés en colère pour faire des ravages.
+Convoque d'énormes alliés enragés pour faire des ravages.
 %%%%
 Divine Protection ability
 
@@ -341,12 +378,12 @@ particulièrement pieux pourront obtenir son aide mais, dans ce cas, chaque
 intervention coûtera de la piété (en opposition aux demandes d'aide standard
 qui sont toujours gratuites)
 
-Attention : tuer les autres alors que vous demandez à être sauver est un pêché
-majeur !
+Attention : tuer les autres alors que vous demandez à être sauver est un pêché
+majeur !
 %%%%
 Lesser Healing ability
 
-en fonction de votre compétence d'Invocations, guérissez une autre créature
+En fonction de votre compétence d'Invocations, guérissez une autre créature
 d'un faible montant de points de vie. Utilisez cette aptitude sur des monstres
 hostiles pourra éventuellement les pacifier. Cela marche mieux sur les animaux,
 moins bien sur les humanoïdes de votre propre race, encore moins bien sur les
@@ -418,7 +455,7 @@ Tente de bannir un monstre dans les Abysses.
 %%%%
 Corrupt ability
 
-Corromps le niveau courant en déchainant l'énergie des Abysses. Cela forcera la
+Corrompt le niveau courant en déchainant l'énergie des Abysses. Cela forcera la
 transformation de son apparence et, permettra à des démons des Abysses de
 pénétrer cette dimension pour y semer la destruction. Cela ne fonctionnera pas
 sur des niveaux déjà corrompus ou dans les Abysses.
@@ -430,32 +467,32 @@ recours à cette aptitude entamera votre santé et vos réserves magiques.
 %%%%
 Draw One ability
 
-Choisissez n'importe quel paquet dans votre inventaire et tirez une carte de
+Choisissez n'importe quel paquet de votre inventaire et tirez une carte de
 celui-ci.
 %%%%
 Peek at Two ability
 
-Jeter une carte de n'importe quel paquet de votre inventaire et tirer deux
-cartes de votre paquet, regardez-les, et mélangez les dans le paquet. Le paquet
-sera alors marqué comme contenant ces deux cartes. Si elles sont différentes,
-cela identifiera le paquet.
+Défaussez une carte de n'importe quel paquet de votre inventaire et tirer deux
+cartes de votre paquet, regardez-les, puis mélangez les dans le paquet. Le
+paquet sera alors marqué comme contenant ces deux cartes. Si elles sont
+différentes, cela identifiera le paquet.
 %%%%
 Triple Draw ability
 
-Tirer trois cartes de n'importe quel paquet de votre inventaire, regardez-les
+Piochez trois cartes de n'importe quel paquet de votre inventaire, regardez-les
 et, décidez laquelle conserver avant de jeter les deux autres.
 %%%%
 Deal Four ability
 
-Tirer quatre cartes de n'importe quel paquet non marqué, comme si vous ne
-tiriez qu'une seule carte. Le reste du paquet est perdu. Si le paquet ne
-contient pas assez de cartes, Nemelex vous en donnera une  mais, vous pourriez
-ne pas apprécier du tout.
+Sort quatre cartes de n'importe quel paquet non marqué, comme si vous ne tiriez
+qu'une seule carte. Le reste du paquet est perdu. Si le paquet ne contient pas
+assez de cartes, Nemelex vous en donnera une  mais, vous pourriez ne pas
+apprécier du tout.
 %%%%
 Stack Five ability
 
-Tirez cinq cartes de n'importe quel paquet non marqué de votre inventaire,
-perdant le reste du jeu. Regardez les cartes et arrangez-les dans l'ordre que
+Piochez cinq cartes de n'importe quel paquet non marqué de votre inventaire, et
+défaussez le reste du jeu. Regardez les cartes et arrangez-les dans l'ordre que
 vous voulez. Par la suite, vous tirerez les cartes dans l'ordre choisi.
 %%%%
 Smiting ability
@@ -503,9 +540,9 @@ Evolution ability
 
 Transformez les plantes et les champignons en des espèces plus puissantes.
 Améliorer un champignon requière de la piété, améliorer des plantes requière
-des fruits. Les plantes améliorées gagnent un bonus en efficacité d'attaque
-proportionnel à la compétence d'Invocations de l'utilisateur et, les plantes
-oklob pourraient cracher de l'acide avec un haut niveau d'invocations.
+des fruits. Les plantes améliorées gagnent un bonus en précision proportionnel
+à la compétence d'Invocations de l'utilisateur et, les plantes oklob pourraient
+cracher de l'acide avec un haut niveau d'invocations.
 %%%%
 Bend Time ability
 
@@ -514,8 +551,8 @@ rend plus difficile a résister.
 %%%%
 Temporal Distortion ability
 
-Perturbe l'écoulement du temps autour de vous, déplaçant les monstres plus loin
-dans le temps par rapport à vous.
+Perturbe l'écoulement du temps autour de vous, déplaçant les monstres plus
+avant dans le temps par rapport à vous.
 %%%%
 Slouch ability
 
@@ -561,17 +598,33 @@ End Transfer Knowledge ability
 
 Abandon d'un transfert de compétence en cours.
 %%%%
+Shadow Step ability
+
+Si vous pouvez vous concentrer suffisement sur l'ombre d'une creature présente
+dans votre umbra, vous pourrez traverser cette ombre et vous placer
+immediatement à coté de votre cible.
+%%%%
+Shadow Form ability
+
+Ce pouvoir vous transforme en une masse virevoltante d'ombres ténébreuses.
+Cette forme vous rend invisible, immunisé au poison, au drain, aux tourments et
+aux malédictions. Vous ne recevrez que la moitié des dégâts d'une attaque, et
+de la fumée s'echapera de vos blessures. En contrepartie, les dégâts que vous
+infligerez en combat seront réduits de moitié, vos capacités magiques seront
+grandement réduites, et vos compétences seront drainées à chaque blessure que
+vous recevrez.
+%%%%
 Renounce Religion ability
 
 Renoncez à votre religion. Votre personnage quittera le service de son dieu (et
-généralement le met en colère).
+généralement le mettra en colère).
 %%%%
 Convert to Beogh ability
 
-Jurez fidélité à Beogh, le dieu des cavernes orcs. Ce dieu exige que tous les
-non-croyants doivent mourir, mais les nouveaux croyants doivent être épargné et
-accepté dans le giron. Attention, les orcs n'ayant pas vu en vous le messie,
-peuvent être hostile jusqu'à ce que votre réputation soit plus grande!
+Jurez fidélité à Beogh, le dieu des orcs des cavernes. Ce dieu exige que tous
+les non-croyants perissent, mais les nouveaux croyants doivent être épargné et
+accepté dans son giron. Attention, les orcs n'ayant pas vu en vous le messie
+peuvent être hostile jusqu'à ce que votre réputation soit plus grande !
 
 Tous les autres dieux détestent Beogh, et ne prennent pas à la légère la
 désertion.
@@ -600,7 +653,7 @@ Enlève les malédictions de tout votre équipement.
 Make burning bush ability
 
 Plante un buisson ardent, avec la faculté de projeter du feu et de voir les
-monstres invisibles, sur la localisation ciblée.
+monstres invisibles, sur la position ciblée.
 %%%%
 Make altar ability
 
@@ -608,7 +661,7 @@ Crée à vos pieds l'autel d'un dieu.
 %%%%
 Make grenades ability
 
-Produit un nombre de spores explosifs géants autour de vous.
+Produit plusieurs spores explosifs géants autour de vous.
 %%%%
 Make oklob plant ability
 
@@ -631,7 +684,7 @@ Crée un piège à lance sur la position ciblée.
 Make alarm trap ability
 
 Crée un piège d'alarme qui vous alertera de la présence de monstres sur la
-localisation ciblée.
+position ciblée.
 %%%%
 Make mushroom circle ability
 
@@ -660,8 +713,8 @@ Crée une marre d'eau peu profonde sur votre position.
 %%%%
 Make lightning spire ability
 
-Construit une lance de foudre sur la position ciblée, qui peut tirer des
-éclairs.
+Construit une lance de foudre , qui peut tirer des éclairs, sur la position
+ciblée.
 %%%%
 Make silver statue ability
 
@@ -670,15 +723,15 @@ position ciblée.
 %%%%
 Make bazaar ability
 
-Crée un portail vers un bazar sur votre localisation.
+Crée un portail vers un bazar sur votre position.
 %%%%
 Acquire gold ability
 
-Acquérir une grande quantité d'or.
+Obtenir une grande quantité d'or.
 %%%%
 Make oklob circle ability
 
-Crée un cercle de plantes oklob centré autour de la position ciblée
+Crée un cercle de plantes oklob autour de la position ciblée
 %%%%
 Sage ability
 

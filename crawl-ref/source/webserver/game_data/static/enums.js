@@ -1,5 +1,7 @@
 // TODO: Generate this automatically from enum.h?
 define(function () {
+    "use strict";
+
     var exports = {}, val;
     // Various constants
     exports.gxm = 80;
@@ -94,13 +96,16 @@ define(function () {
         return false;
     }
 
-    function prepare_flags(tileidx, flagdata)
+    function prepare_flags(tileidx, flagdata, cache)
     {
         if (!isNaN(tileidx))
             tileidx = [tileidx];
         else if (tileidx.value !== undefined)
             return tileidx;
         while (tileidx.length < 2) tileidx.push(0);
+
+        if (cache[[tileidx[0],tileidx[1]]] !== undefined)
+            return cache[[tileidx[0],tileidx[1]]];
 
         for (var flagname in flagdata.flags)
         {
@@ -131,6 +136,7 @@ define(function () {
         }
 
         tileidx.value = tileidx[0] & flagdata.mask;
+        cache[[tileidx[0],tileidx[1]]] = tileidx;
         return tileidx;
     }
 
@@ -178,6 +184,7 @@ define(function () {
     fg_flags.flags.BLIND        = [0, 0x2000];
     fg_flags.flags.ANIM_WEP     = [0, 0x4000];
     fg_flags.flags.SUMMONED     = [0, 0x8000];
+    fg_flags.flags.PERM_SUMMON  = [0, 0x10000];
 
     // MDAM has 5 possibilities, so uses 3 bits.
     fg_flags.exclusive_flags.push({
@@ -239,16 +246,24 @@ define(function () {
     bg_flags.flags.ELDRITCH_NE = [0, 0x04];
     bg_flags.flags.ELDRITCH_SE = [0, 0x08];
     bg_flags.flags.ELDRITCH_SW = [0, 0x10];
-
+    bg_flags.flags.LANDING     = [0, 0x200];
     bg_flags.mask              = 0x0000FFFF;
 
+    // Since the current flag implementation is really slow we use a trivial
+    // cache system for now.
+    var fg_cache = {};
     exports.prepare_fg_flags = function (tileidx)
     {
-        return prepare_flags(tileidx, fg_flags);
+        if (Object.keys(fg_cache).length >= 100)
+            fg_cache = {};
+        return prepare_flags(tileidx, fg_flags, fg_cache);
     }
+    var bg_cache = {};
     exports.prepare_bg_flags = function (tileidx)
     {
-        return prepare_flags(tileidx, bg_flags);
+        if (Object.keys(bg_cache).length >= 250)
+            bg_cache = {};
+        return prepare_flags(tileidx, bg_flags, bg_cache);
     }
 
     // Menu flags -- see menu.h
@@ -305,6 +320,8 @@ define(function () {
     exports.MF_EXCL_ROOT = val++;
     exports.MF_EXCL = val++;
     exports.MF_PLAYER = val++;
+    exports.MF_DEEP_WATER = val++;
+    exports.MF_PORTAL = val++;
     exports.MF_MAX = val++;
 
     exports.MF_SKIP = val++;

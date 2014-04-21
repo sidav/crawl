@@ -11,7 +11,6 @@
 #include "tiledoll.h"
 #include "tilemcache.h"
 #include "tilepick.h"
-#include "tilepick-p.h"
 
 DungeonCellBuffer::DungeonCellBuffer(ImageManager *im) :
     m_buf_floor(&im->m_textures[TEX_FLOOR]),
@@ -30,7 +29,7 @@ DungeonCellBuffer::DungeonCellBuffer(ImageManager *im) :
 
 static bool _in_water(const packed_cell &cell)
 {
-    return ((cell.bg & TILE_FLAG_WATER) && !(cell.fg & TILE_FLAG_FLYING));
+    return (cell.bg & TILE_FLAG_WATER) && !(cell.fg & TILE_FLAG_FLYING);
 }
 
 void DungeonCellBuffer::add(const packed_cell &cell, int x, int y)
@@ -225,30 +224,51 @@ void DungeonCellBuffer::pack_background(int x, int y, const packed_cell &cell)
 
         if (!(bg & TILE_FLAG_UNSEEN))
         {
-            if (bg & TILE_FLAG_KRAKEN_NW)
-                m_buf_feat.add(TILE_KRAKEN_OVERLAY_NW, x, y);
-            else if (bg & TILE_FLAG_ELDRITCH_NW)
-                m_buf_feat.add(TILE_ELDRITCH_OVERLAY_NW, x, y);
-            else if (bg & TILE_FLAG_STARSPAWN_NW)
-                m_buf_feat.add(TILE_STARSPAWN_OVERLAY_NW, x, y);
-            if (bg & TILE_FLAG_KRAKEN_NE)
-                m_buf_feat.add(TILE_KRAKEN_OVERLAY_NE, x, y);
-            else if (bg & TILE_FLAG_ELDRITCH_NE)
-                m_buf_feat.add(TILE_ELDRITCH_OVERLAY_NE, x, y);
-            else if (bg & TILE_FLAG_STARSPAWN_NE)
-                m_buf_feat.add(TILE_STARSPAWN_OVERLAY_NE, x, y);
-            if (bg & TILE_FLAG_KRAKEN_SE)
-                m_buf_feat.add(TILE_KRAKEN_OVERLAY_SE, x, y);
-            else if (bg & TILE_FLAG_ELDRITCH_SE)
-                m_buf_feat.add(TILE_ELDRITCH_OVERLAY_SE, x, y);
-            else if (bg & TILE_FLAG_STARSPAWN_SE)
-                m_buf_feat.add(TILE_STARSPAWN_OVERLAY_SE, x, y);
-            if (bg & TILE_FLAG_KRAKEN_SW)
-                m_buf_feat.add(TILE_KRAKEN_OVERLAY_SW, x, y);
-            else if (bg & TILE_FLAG_ELDRITCH_SW)
-                m_buf_feat.add(TILE_ELDRITCH_OVERLAY_SW, x, y);
-            else if (bg & TILE_FLAG_STARSPAWN_SW)
-                m_buf_feat.add(TILE_STARSPAWN_OVERLAY_SW, x, y);
+            // Add tentacle corner overlays.
+            if (bg & TILE_FLAG_TENTACLE_NW)
+            {
+                if (bg & TILE_FLAG_TENTACLE_KRAKEN)
+                    m_buf_feat.add(TILE_KRAKEN_OVERLAY_NW, x, y);
+                else if (bg & TILE_FLAG_TENTACLE_ELDRITCH)
+                    m_buf_feat.add(TILE_ELDRITCH_OVERLAY_NW, x, y);
+                else if (bg & TILE_FLAG_TENTACLE_STARSPAWN)
+                    m_buf_feat.add(TILE_STARSPAWN_OVERLAY_NW, x, y);
+                else if (bg & TILE_FLAG_TENTACLE_VINE)
+                    m_buf_feat.add(TILE_VINE_OVERLAY_NW, x, y);
+            }
+            else if (bg & TILE_FLAG_TENTACLE_NE)
+            {
+                if (bg & TILE_FLAG_TENTACLE_KRAKEN)
+                    m_buf_feat.add(TILE_KRAKEN_OVERLAY_NE, x, y);
+                else if (bg & TILE_FLAG_TENTACLE_ELDRITCH)
+                    m_buf_feat.add(TILE_ELDRITCH_OVERLAY_NE, x, y);
+                else if (bg & TILE_FLAG_TENTACLE_STARSPAWN)
+                    m_buf_feat.add(TILE_STARSPAWN_OVERLAY_NE, x, y);
+                else if (bg & TILE_FLAG_TENTACLE_VINE)
+                    m_buf_feat.add(TILE_VINE_OVERLAY_NE, x, y);
+            }
+            else if (bg & TILE_FLAG_TENTACLE_SW)
+            {
+                if (bg & TILE_FLAG_TENTACLE_KRAKEN)
+                    m_buf_feat.add(TILE_KRAKEN_OVERLAY_SW, x, y);
+                else if (bg & TILE_FLAG_TENTACLE_ELDRITCH)
+                    m_buf_feat.add(TILE_ELDRITCH_OVERLAY_SW, x, y);
+                else if (bg & TILE_FLAG_TENTACLE_STARSPAWN)
+                    m_buf_feat.add(TILE_STARSPAWN_OVERLAY_SW, x, y);
+                else if (bg & TILE_FLAG_TENTACLE_VINE)
+                    m_buf_feat.add(TILE_VINE_OVERLAY_SW, x, y);
+            }
+            else if (bg & TILE_FLAG_TENTACLE_SE)
+            {
+                if (bg & TILE_FLAG_TENTACLE_KRAKEN)
+                    m_buf_feat.add(TILE_KRAKEN_OVERLAY_SE, x, y);
+                else if (bg & TILE_FLAG_TENTACLE_ELDRITCH)
+                    m_buf_feat.add(TILE_ELDRITCH_OVERLAY_SE, x, y);
+                else if (bg & TILE_FLAG_TENTACLE_STARSPAWN)
+                    m_buf_feat.add(TILE_STARSPAWN_OVERLAY_SE, x, y);
+                else if (bg & TILE_FLAG_TENTACLE_VINE)
+                    m_buf_feat.add(TILE_VINE_OVERLAY_SE, x, y);
+            }
         }
 
         if (cell.halo == HALO_MONSTER)
@@ -262,8 +282,6 @@ void DungeonCellBuffer::pack_background(int x, int y, const packed_cell &cell)
                 m_buf_feat.add(TILE_HEAT_AURA + cell.heat_aura - 1, x, y);
             if (cell.is_silenced)
                 m_buf_feat.add(TILE_SILENCED, x, y);
-            if (cell.is_suppressed)
-                m_buf_feat.add(TILE_SUPPRESSED, x, y);
             if (cell.halo == HALO_RANGE)
                 m_buf_feat.add(TILE_HALO_RANGE, x, y);
             if (cell.halo == HALO_UMBRA)
@@ -288,6 +306,8 @@ void DungeonCellBuffer::pack_background(int x, int y, const packed_cell &cell)
             m_buf_feat.add(TILE_RAY, x, y);
         else if (bg & TILE_FLAG_RAY_OOR)
             m_buf_feat.add(TILE_RAY_OUT_OF_RANGE, x, y);
+        else if (bg & TILE_FLAG_LANDING)
+            m_buf_feat.add(TILE_LANDING, x, y);
     }
 }
 
@@ -456,6 +476,8 @@ void DungeonCellBuffer::pack_foreground(int x, int y, const packed_cell &cell)
         m_buf_icons.add(TILEI_ANIMATED_WEAPON, x, y);
     if (fg & TILE_FLAG_SUMMONED)
         m_buf_icons.add(TILEI_SUMMONED, x, y);
+    if (fg & TILE_FLAG_PERM_SUMMON)
+        m_buf_icons.add(TILEI_PERM_SUMMON, x, y);
 
     if (bg & TILE_FLAG_UNSEEN && (bg != TILE_FLAG_UNSEEN || fg))
         m_buf_icons.add(TILEI_MESH, x, y);
@@ -544,7 +566,6 @@ void DungeonCellBuffer::pack_doll(const dolls_data &doll, int x, int y,
 {
     pack_doll_buf(m_buf_doll, doll, x, y, submerged, ghost);
 }
-
 
 void DungeonCellBuffer::pack_mcache(mcache_entry *entry, int x, int y,
                                     bool submerged)

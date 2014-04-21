@@ -94,11 +94,6 @@ Ogre
 Bezmyślne osiłki, kochające wielkie pały. Wbrew pozorom, mają jednak swoje
 sposoby używania magii.
 %%%%
-Sludge Elf
-
-Zdeprawowana rasa elfów, woląca nieuczciwe metody walki i mroczną magię nad
-szlachetniejsze zasady pobratymców.
-%%%%
 Spriggan
 
 Bardzo mali, bardzo delikatni i bardzo szybcy. Sprigganie potrafią wspaniale
@@ -108,9 +103,4 @@ Troll
 
 Wielkie i brutalne, zdolne rozszarpać kogokolwiek swymi szponami, rzadko kiedy
 myślące, zawsze głodne potwory.
-%%%%
-Vampire
-
-Wampiry są częściowo żywe, częściowo nieumarłe. Są dobre w skradaniu się jak i
-w niektórych rodzajach magii.
 %%%%

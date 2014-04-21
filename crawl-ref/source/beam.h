@@ -3,10 +3,8 @@
  * @brief Functions related to ranged attacks.
 **/
 
-
 #ifndef BEAM_H
 #define BEAM_H
-
 
 #include "externs.h"
 #include "random.h"
@@ -97,8 +95,10 @@ struct bolt
     bool        affects_items;         // hits items on ground/inventory
 
     bool        effect_known;          // did we _know_ this would happen?
+    bool        effect_wanton;         // could we have guessed it would happen?
 
     int         draw_delay;            // delay used when drawing beam.
+    int         explode_delay;         // delay when drawing explosions.
 
     bolt*       special_explosion;     // For exploding with a different
                                        // flavour/damage/etc than the beam
@@ -132,7 +132,7 @@ struct bolt
     // INTERNAL use - should not usually be set outside of beam.cc
     int         extra_range_used;
     bool        is_tracer;       // is this a tracer?
-    bool        is_targetting;   // . . . in particular, a targetting tracer?
+    bool        is_targeting;    // . . . in particular, a targeting tracer?
     bool        aimed_at_feet;   // this was aimed at self!
     bool        msg_generated;   // an appropriate msg was already mpr'd
     bool        noise_generated; // a noise has already been generated at this pos
@@ -205,6 +205,8 @@ public:
 
     maybe_bool affects_wall(dungeon_feature_type wall) const;
 
+    int range_used_on_hit() const;
+
 private:
     void do_fire();
     coord_def pos() const;
@@ -216,7 +218,6 @@ private:
     bool is_superhot() const;
     bool can_affect_wall(dungeon_feature_type feat) const;
     bool can_affect_wall_actor(const actor *act) const;
-    bool actor_wall_shielded(const actor *act) const;
     bool is_bouncy(dungeon_feature_type feat) const;
     bool stop_at_target() const;
     bool has_saving_throw() const;
@@ -230,12 +231,10 @@ private:
 
     const actor* beam_source_as_target() const;
 
-    int range_used_on_hit() const;
-
     string zapper() const;
 
     set<string> message_cache;
-    void emit_message(msg_channel_type chan, const char* msg);
+    void emit_message(const char* msg);
     void step();
     bool hit_wall();
 
@@ -262,6 +261,7 @@ public:
     void affect_endpoint();
 
     void beam_hits_actor(actor *act);
+    bool god_cares() const; // Will the god be unforgiving about this beam?
 
     // Stuff when a monster or player is hit.
     void affect_player_enchantment();
@@ -318,6 +318,8 @@ bool enchant_monster_with_flavour(monster* mon, actor *atk,
 
 bool enchant_monster_invisible(monster* mon, const string &how);
 
+bool ench_flavour_affects_monster(beam_type flavour, const monster* mon,
+                                                  bool intrinsic_only = false);
 spret_type mass_enchantment(enchant_type wh_enchant, int pow,
                             bool fail = false);
 
@@ -326,6 +328,8 @@ bool poison_monster(monster* mons, const actor* who, int levels = 1,
 bool miasma_monster(monster* mons, const actor* who);
 bool napalm_monster(monster* mons, const actor* who, int levels = 1,
                     bool verbose = true);
+bool curare_actor(actor* source, actor* target, string name,
+                  string source_name);
 void fire_tracer(const monster* mons, bolt &pbolt,
                   bool explode_only = false);
 bool imb_can_splash(coord_def origin, coord_def center,
@@ -340,5 +344,5 @@ void clear_zap_info_on_exit();
 
 int zap_power_cap(zap_type ztype);
 void zappy(zap_type z_type, int power, bolt &pbolt);
-
+void bolt_parent_init(bolt *parent, bolt *child);
 #endif

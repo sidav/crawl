@@ -9,6 +9,7 @@
 
 #include "branch.h"
 #include "chardump.h"
+#include "crash.h"
 #include "dungeon.h"
 #include "env.h"
 #include "initfile.h"
@@ -74,6 +75,8 @@ static bool mg_do_build_level(int niters)
          mg_build_attempts, mg_vetoes,
          mg_build_attempts? mg_vetoes * 100.0 / mg_build_attempts : 0.0);
 
+    watchdog();
+
     no_messages mx;
     for (int i = 0; i < niters; ++i)
     {
@@ -127,7 +130,7 @@ static bool mg_do_build_level(int niters)
                     level_id::current().describe().c_str(),
                     vaults.c_str());
 
-            dump_map(fp);
+            dump_map(fp, true);
             fclose(fp);
 
             mprf(MSGCH_ERROR,
@@ -145,7 +148,7 @@ static vector<level_id> mg_dungeon_places()
 {
     vector<level_id> places;
 
-    for (int br = BRANCH_MAIN_DUNGEON; br < NUM_BRANCHES; ++br)
+    for (int br = BRANCH_DUNGEON; br < NUM_BRANCHES; ++br)
     {
         if (brdepth[br] == -1)
             continue;
@@ -172,12 +175,14 @@ static bool mg_build_dungeon()
         you.where_are_you = lid.branch;
         you.depth = lid.depth;
 
+#if TAG_MAJOR_VERSION == 34
         // An unholy hack, FIXME!
-        if (startdepth[BRANCH_FOREST] == -1
+        if (!brentry[BRANCH_FOREST].is_valid()
             && lid.branch == BRANCH_FOREST && lid.depth == 5)
         {
             you.unique_creatures.set(MONS_THE_ENCHANTRESS, false);
         }
+#endif
 
         if (!mg_do_build_level(1))
             return false;
@@ -188,7 +193,7 @@ static bool mg_build_dungeon()
 static void mg_build_levels(int niters)
 {
     mesclr();
-    mprf("Generating dungeon map stats");
+    mpr("Generating dungeon map stats");
 
     for (int i = 0; i < niters; ++i)
     {
@@ -244,6 +249,9 @@ static void _mapgen_report_available_random_vaults(FILE *outf)
     for (vector<level_id>::const_iterator i = places.begin();
          i != places.end(); ++i)
     {
+        // The watchdog has already been activated by mg_do_build_level.
+        // Reporting all the vaults could take a while.
+        watchdog();
         fprintf(outf, "\n%s -------------\n", i->describe().c_str());
         mesclr();
         mprf("Examining random maps at %s", i->describe().c_str());
@@ -256,7 +264,7 @@ static void _mapgen_report_available_random_vaults(FILE *outf)
 
 static void _check_mapless(const level_id &lid, vector<level_id> &mapless)
 {
-    if (mapgen_level_mapsused.find(lid) == mapgen_level_mapsused.end())
+    if (!mapgen_level_mapsused.count(lid))
         mapless.push_back(lid);
 }
 
@@ -280,7 +288,7 @@ static void _write_mapgen_stats()
     }
 
     vector<level_id> mapless;
-    for (int i = BRANCH_MAIN_DUNGEON; i < NUM_BRANCHES; ++i)
+    for (int i = BRANCH_DUNGEON; i < NUM_BRANCHES; ++i)
     {
         if (brdepth[i] == -1)
             continue;
@@ -311,7 +319,7 @@ static void _write_mapgen_stats()
     for (int i = 0, size = map_count(); i < size; ++i)
     {
         const map_def *map = map_by_index(i);
-        if (mapgen_try_count.find(map->name) == mapgen_try_count.end()
+        if (!mapgen_try_count.count(map->name)
             && !map->has_tag("dummy"))
         {
             unused_maps.push_back(map->name);

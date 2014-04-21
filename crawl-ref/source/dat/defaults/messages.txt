@@ -1,5 +1,7 @@
 ### Highlighting of various messages
 
+# See also "note_messages" in misc.txt
+
 msc := message_colour
 
 # Really important messages
@@ -17,17 +19,18 @@ msc += $danger:Forgetting.* will destroy the book
 msc += $danger:The blast of calcifying dust hits you!
 msc += $danger:you are engulfed in calcifying dust
 msc += $danger:is moving more slowly
-msc += $danger:^It .* you
+msc += $danger:^Something .* you
 msc += $danger:you block its attack
 msc += $danger:constricts you
 msc += $danger:you convulse
 msc += $danger:You feel a build-up of mutagenic energy
+msc += $danger:place you under penance
 
 msc += $item_dmg:acid corrodes
 msc += $item_dmg:catch(es)? fire
 msc += $item_dmg:freezes? and shatters?
 msc += $item_dmg:covered with spores
-msc += $item_dmg:devours some of your food
+msc += $item_dmg:devoured!$
 msc += $item_dmg:rots? away
 
 # Less urgent, but still significant messages
@@ -66,6 +69,8 @@ msc += $boring:Unknown command
 msc += $boring:disappears? in a puff of smoke
 msc += $boring:dissolves? into (sparkling lights|shadows)
 msc += $boring:crumbles away
+msc += $boring:returns to the deep
+msc += $boring:shimmers and vanishes
 #
 msc += $boring:plain:miss(es)? (the|you|it)
 msc += $boring:but (do no|doesn't do any) damage
@@ -96,3 +101,9 @@ force_more_message += crackle of arcane power
 # Abyss exits and rune
 force_more_message += Found a gateway leading out of the Abyss
 force_more_message += Found .* abyssal rune of Zot
+
+# Generally exciting things that are somewhat automated
+force_more_message += You pick up the .* rune and feel its power
+
+# First chance of Beogh conversion
+force_more_message += press .* to convert to Beogh

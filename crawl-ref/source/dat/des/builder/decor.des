@@ -1,8 +1,8 @@
 # Give deep levels of D an 80% chance for decorative vaults.
 
 NAME:    dungeon_decor
-TAGS:    no_dump extra allow_dup luniq
-DEPTH:   D:13-
+TAGS:    no_dump extra allow_dup nolayout_encompass luniq
+DEPTH:   D:14-, Depths
 CHANCE:  80%
 {{
   local c = 1

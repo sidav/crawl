@@ -3,15 +3,20 @@
  * @brief Functions used when Bad Things happen to the player.
 **/
 
-
 #ifndef OUCH_H
 #define OUCH_H
-
 
 #define DEATH_NAME_LENGTH 10
 
 #include "enum.h"
 #include "beam.h"
+
+/**
+ * Key for <tt>you.props</tt> indicating that the player already received a
+ * message about melting Ozocubu's Armour this turn.  The value does not
+ * matter, only the key's existance in the hash.
+ */
+#define MELT_ARMOUR_KEY "melt_armour"
 
 // Keep in sync with names in hiscores.cc.
 // Note that you can't ever remove entries from here -- not even when a major
@@ -38,7 +43,7 @@ enum kill_method_type
     KILLED_BY_WILD_MAGIC,
     KILLED_BY_XOM,
     KILLED_BY_ROTTING,
-    KILLED_BY_TARGETTING,
+    KILLED_BY_TARGETING,
     KILLED_BY_SPORE,
     KILLED_BY_TSO_SMITING,
     KILLED_BY_PETRIFICATION,
@@ -57,14 +62,16 @@ enum kill_method_type
     KILLED_BY_ROLLING,
     KILLED_BY_MIRROR_DAMAGE,
     KILLED_BY_SPINES,
-
+    KILLED_BY_FRAILTY,
+    KILLED_BY_BARBS,
+    KILLED_BY_BEING_THROWN,
     NUM_KILLBY
 };
 
 int check_your_resists(int hurted, beam_type flavour, string source,
                        bolt *beam = 0, bool doEffects = true);
 void splash_with_acid(int acid_strength, int death_source,
-                      bool corrode_items = true, string hurt_msg = "");
+                      bool corrode_items = true, const char* hurt_msg = nullptr);
 
 class actor;
 int actor_to_death_source(const actor* agent);
@@ -77,10 +84,9 @@ void ouch(int dam, int death_source, kill_method_type death_type,
           const char *death_source_name = NULL, bool attacker_effects = true);
 
 void lose_level(int death_source, const char* aux);
-bool drain_exp(bool announce_full = true, int power = 25);
+bool drain_exp(bool announce_full = true, int power = 25,
+               bool ignore_protection = false);
 
-bool expose_items_to_element(beam_type flavour, const coord_def& where,
-                             int strength = 0);
 bool expose_player_to_element(beam_type flavour, int strength = 0,
                               bool damage_inventory = true,
                               bool slow_dracs = true);

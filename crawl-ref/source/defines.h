@@ -57,6 +57,7 @@ enum extra_monster_index_type
 {
     MAX_MONSTERS = 700,                  // max size of monster array {dlb}
     ANON_FRIENDLY_MONSTER = MAX_MONSTERS,// unknown/dead ally, for actor blaming
+    YOU_FAULTLESS,                       // full xp but no penalty (reflection)
     NON_MONSTER  = NON_ENTITY,           // no monster
 
     MHITNOT = NON_MONSTER,
@@ -73,6 +74,7 @@ enum extra_monster_index_type
 #define MAX_NUM_ATTACKS 4
 
 // size of Pan monster sets. Also used for wave data in ZotDef.
+#define PAN_MONS_ALLOC 10
 #define MAX_MONS_ALLOC 20
 
 #define MAX_SUBTYPES   60
@@ -181,7 +183,7 @@ const int GOURMAND_NUTRITION_BASE = 10  * BASELINE_DELAY;
 const int CHUNK_BASE_NUTRITION    = 1000;
 
 const int ICEMAIL_MAX  = 10;
-const int ICEMAIL_TIME = 300 * BASELINE_DELAY;
+const int ICEMAIL_TIME = 30 * BASELINE_DELAY;
 
 // The maximum number of abilities any god can have
 #define MAX_GOD_ABILITIES               5
@@ -220,12 +222,14 @@ const int INVALID_ABSDEPTH = -1000;
 
 const int ANTITRAIN_PENALTY = 2;
 
+const int AGILITY_BONUS = 5;
+
 #define TORNADO_RADIUS 6
 
 #define NUMBER_OF_RUNES_NEEDED    3
 
 // Size of unique_items in player class
-#define MAX_UNRANDARTS 100
+#define MAX_UNRANDARTS 150
 
 // Haste/slow boost.
 #define haste_mul(x) div_rand_round((x) * 3, 2)
@@ -235,6 +239,8 @@ const int ANTITRAIN_PENALTY = 2;
 
 #define MAX_MONSTER_HP 10000
 #define DJ_MP_RATE 2
+
+#define GRAND_AVATAR_DAMAGE 15
 
 // some shortcuts:
 #define menv   env.mons
@@ -353,6 +359,8 @@ enum mouse_mode
     MOUSE_MODE_YESNO,
     MOUSE_MODE_MAX,
 };
+
+const int DEFAULT_VIEW_DELAY = 600;
 
 #define PI 3.14159265359f
 

@@ -24,10 +24,6 @@ Demonspawn
 Dämonenbruten sind halb Mensch, halb Dämon. Sie erlangen während ihres
 Wachstums starke Mutationen.
 %%%%
-Djinni
-
-Die Dschinn sind Geister des Feuers, für die Magie die Essenz des Lebens ist.
-%%%%
 Draconian
 
 Draken sind vielseitige Hybride. Sie werden mit Level 7 erwachsen und
@@ -116,11 +112,6 @@ Ogre
 Groß und stark, werden sie meistens als Wüstlinge angesehen. Allerdings sind
 Oger sehr gut mit den Grundkenntnissen der Magie vertraut.
 %%%%
-Sludge Elf
-
-Eine verdorbene Elfenart, die List statt fairem Kampf bevorzugt, und dunkle
-Magie statt anderen Zaubern.
-%%%%
 Spriggan
 
 Sehr klein, sehr schmächtig und sehr schnell. Spriggans sind kompetente
@@ -130,9 +121,4 @@ Troll
 
 Große Wüstlinge, bereit, alles mit ihren Klauen zu zermalmen, nie zweimal
 nachdenkend. Sie haben stets Hunger.
-%%%%
-Vampire
-
-Ständig zwischen Leben und Tod wechselnd, sind sie gekonnte Messerstecher und
-Zauberer(?).
 %%%%

@@ -3,7 +3,7 @@
 #include "cluautil.h"
 #include "l_libs.h"
 
-#include "abl-show.h"
+#include "ability.h"
 #include "abyss.h"
 #include "areas.h"
 #include "branch.h"
@@ -95,6 +95,7 @@ LUARET1(you_god_likes_fresh_corpses, boolean,
         god_likes_fresh_corpses(you.religion))
 LUARET2(you_hp, number, you.hp, you.hp_max)
 LUARET2(you_mp, number, you.magic_points, you.max_magic_points)
+LUARET1(you_poison_survival, number, poison_survival())
 LUARET1(you_hunger, number, you.hunger_state)
 LUARET1(you_hunger_name, string, hunger_level())
 LUARET2(you_strength, number, you.strength(false), you.max_strength())
@@ -129,20 +130,23 @@ LUARET1(you_transform, string, you.form ? transform_name() : "")
 LUARET1(you_berserk, boolean, you.berserk())
 LUARET1(you_confused, boolean, you.confused())
 LUARET1(you_shrouded, boolean, you.duration[DUR_SHROUD_OF_GOLUBRIA])
-LUARET1(you_swift, boolean, you.duration[DUR_SWIFTNESS])
+LUARET1(you_swift, number, you.duration[DUR_SWIFTNESS] ? ((you.attribute[ATTR_SWIFTNESS] >= 0) ? 1 : -1) : 0)
 LUARET1(you_paralysed, boolean, you.paralysed())
 LUARET1(you_asleep, boolean, you.asleep())
 LUARET1(you_hasted, boolean, you.duration[DUR_HASTE])
 LUARET1(you_slowed, boolean, you.duration[DUR_SLOW])
 LUARET1(you_exhausted, boolean, you.duration[DUR_EXHAUSTED])
 LUARET1(you_teleporting, boolean, you.duration[DUR_TELEPORT])
+LUARET1(you_anchored, boolean, you.duration[DUR_DIMENSION_ANCHOR])
+LUARET1(you_rooted, boolean, you.duration[DUR_GRASPING_ROOTS])
 LUARET1(you_poisoned, boolean, you.duration[DUR_POISONING])
 LUARET1(you_invisible, boolean, you.duration[DUR_INVIS])
 LUARET1(you_mesmerised, boolean, you.duration[DUR_MESMERISED])
 LUARET1(you_on_fire, boolean, you.duration[DUR_LIQUID_FLAMES])
 LUARET1(you_petrifying, boolean, you.duration[DUR_PETRIFYING])
 LUARET1(you_silencing, boolean, you.duration[DUR_SILENCE])
-LUARET1(you_regenerating, boolean, you.duration[DUR_REGENERATION])
+LUARET1(you_regenerating, boolean, you.duration[DUR_REGENERATION]
+                                   || you.duration[DUR_TROGS_HAND])
 LUARET1(you_breath_timeout, boolean, you.duration[DUR_BREATH_WEAPON])
 LUARET1(you_extra_resistant, boolean, you.duration[DUR_RESISTANCE])
 LUARET1(you_mighty, boolean, you.duration[DUR_MIGHT])
@@ -200,7 +204,7 @@ static int l_you_genus(lua_State *ls)
 
 static int you_floor_items(lua_State *ls)
 {
-    lua_push_floor_items(ls, env.igrid(you.pos()));
+    lua_push_floor_items(ls, you.visible_igrd(you.pos()));
     return 1;
 }
 
@@ -310,6 +314,21 @@ static int l_you_abil_table(lua_State *ls)
     return 1;
 }
 
+static int you_gold(lua_State *ls)
+{
+    if (lua_gettop(ls) >= 1 && !CLua::get_vm(ls).managed_vm)
+    {
+        const int new_gold = luaL_checkint(ls, 1);
+        const int old_gold = you.gold;
+        you.set_gold(max(new_gold, 0));
+        if (new_gold > old_gold)
+            you.attribute[ATTR_GOLD_FOUND] += new_gold - old_gold;
+        else if (old_gold > new_gold)
+            you.attribute[ATTR_MISC_SPENDING] += old_gold - new_gold;
+    }
+    PLUARET(number, you.gold);
+}
+
 static int you_can_consume_corpses(lua_State *ls)
 {
     lua_pushboolean(ls,
@@ -403,7 +422,6 @@ LUAFN(you_train_skill)
     PLUARET(number, you.train[sk]);
 }
 
-
 static const struct luaL_reg you_clib[] =
 {
     { "turn_is_over", you_turn_is_over },
@@ -421,6 +439,7 @@ static const struct luaL_reg you_clib[] =
     { "genus"       , l_you_genus },
     { "wizard"      , you_wizard },
     { "god"         , you_god },
+    { "gold"        , you_gold },
     { "good_god"    , you_good_god },
     { "evil_god"    , you_evil_god },
     { "hp"          , you_hp },
@@ -464,7 +483,10 @@ static const struct luaL_reg you_clib[] =
     { "slowed",       you_slowed },
     { "exhausted",    you_exhausted },
     { "teleporting",  you_teleporting },
+    { "anchored",     you_anchored },
+    { "rooted",       you_rooted },
     { "poisoned",     you_poisoned },
+    { "poison_survival", you_poison_survival },
     { "invisible",    you_invisible },
     { "mesmerised",   you_mesmerised },
     { "on_fire",      you_on_fire },
@@ -571,7 +593,7 @@ LUAFN(you_teleport_to)
 
 LUAFN(you_random_teleport)
 {
-    you_teleport_now(false, false);
+    you_teleport_now(false);
     return 0;
 }
 
@@ -587,21 +609,6 @@ static int _you_uniques(lua_State *ls)
 
     lua_pushboolean(ls, unique_found);
     return 1;
-}
-
-static int _you_gold(lua_State *ls)
-{
-    if (lua_gettop(ls) >= 1)
-    {
-        const int new_gold = luaL_checkint(ls, 1);
-        const int old_gold = you.gold;
-        you.set_gold(max(new_gold, 0));
-        if (new_gold > old_gold)
-            you.attribute[ATTR_GOLD_FOUND] += new_gold - old_gold;
-        else if (old_gold > new_gold)
-            you.attribute[ATTR_MISC_SPENDING] += old_gold - new_gold;
-    }
-    PLUARET(number, you.gold);
 }
 
 LUAWRAP(_you_die,ouch(INSTANT_DEATH, NON_MONSTER, KILLED_BY_SOMETHING))
@@ -730,7 +737,6 @@ static const struct luaL_reg you_dlib[] =
 { "see_cell_no_trans",  you_see_cell_no_trans },
 { "random_teleport",    you_random_teleport },
 { "teleport_to",        you_teleport_to },
-{ "gold",               _you_gold },
 { "uniques",            _you_uniques },
 { "die",                _you_die },
 { "piety",              _you_piety },

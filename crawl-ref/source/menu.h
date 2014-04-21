@@ -142,7 +142,7 @@ public:
 
     bool is_primary_hotkey(int key) const
     {
-        return (hotkeys.size()? hotkeys[0] == key : false);
+        return hotkeys.size()? hotkeys[0] == key : false;
     }
 
     virtual string get_text(const bool unused = false) const
@@ -165,7 +165,7 @@ public:
 
     virtual bool selected() const
     {
-        return (selected_qty > 0 && quantity);
+        return selected_qty > 0 && quantity;
     }
 
     // -1: Invert
@@ -251,27 +251,26 @@ public:
 
 enum MenuFlag
 {
-    MF_NOSELECT         = 0x0000,   /// No selection is permitted
-    MF_SINGLESELECT     = 0x0001,   /// Select just one item
-    MF_MULTISELECT      = 0x0002,   /// Select multiple items
-    MF_NO_SELECT_QTY    = 0x0004,   /// Disallow partial selections
-    MF_ANYPRINTABLE     = 0x0008,   /// Any printable character is valid, and
-                                    /// closes the menu.
-    MF_SELECT_BY_PAGE   = 0x0010,   /// Allow selections to occur only on
-                                    /// currently visible page.
-
-    MF_ALWAYS_SHOW_MORE = 0x0020,   /// Always show the -more- footer
-    MF_NOWRAP           = 0x0040,   /// Paging past the end will not wrap back.
-
-    MF_ALLOW_FILTER     = 0x0080,   /// Control-F will ask for regex and
-                                    /// select the appropriate items.
-    MF_ALLOW_FORMATTING = 0x0100,   /// Parse index for formatted-string
-    MF_SHOW_PAGENUMBERS = 0x0200,   /// Show "(page X of Y)" when appropriate
-    MF_TOGGLE_ACTION    = 0x0400,   /// ToggleableMenu toggles action as well
-    MF_EASY_EXIT        = 0x1000,
-    MF_START_AT_END     = 0x2000,
-    MF_PRESELECTED      = 0x4000,   /// Has a preselected entry.
-    MF_QUIET_SELECT     = 0x8000,   /// No selection box and no count.
+    MF_NOSELECT         = 0x0000,   ///< No selection is permitted
+    MF_SINGLESELECT     = 0x0001,   ///< Select just one item
+    MF_MULTISELECT      = 0x0002,   ///< Select multiple items
+    MF_NO_SELECT_QTY    = 0x0004,   ///< Disallow partial selections
+    MF_ANYPRINTABLE     = 0x0008,   ///< Any printable character is valid, and
+                                    ///< closes the menu.
+    MF_SELECT_BY_PAGE   = 0x0010,   ///< Allow selections to occur only on
+                                    ///< currently-visible page.
+    MF_ALWAYS_SHOW_MORE = 0x0020,   ///< Always show the -more- footer
+    MF_NOWRAP           = 0x0040,   ///< Paging past the end will not wrap back.
+    MF_ALLOW_FILTER     = 0x0080,   ///< Control-F will ask for regex and
+                                    ///< select the appropriate items.
+    MF_ALLOW_FORMATTING = 0x0100,   ///< Parse index for formatted-string
+    MF_SHOW_PAGENUMBERS = 0x0200,   ///< Show "(page X of Y)" when appropriate
+    MF_TOGGLE_ACTION    = 0x0400,   ///< ToggleableMenu toggles action as well
+    MF_EASY_EXIT        = 0x1000,   ///< Exit when scrolling off the end
+    MF_START_AT_END     = 0x2000,   ///< Scroll to end of list
+    MF_PRESELECTED      = 0x4000,   ///< Has a preselected entry.
+    MF_QUIET_SELECT     = 0x8000,   ///< No selection box and no count.
+    MF_DROP_PICKUP      = 0x10000,  ///< Show inventory weights by default
 };
 
 class MenuDisplay
@@ -538,7 +537,7 @@ private:
         column(int marg = 1) : margin(marg), lines(0) { }
     };
 
-    int ncols, pagesize;
+    int pagesize;
     vector<column> columns;
     vector<formatted_string> flines;
 };
@@ -1094,7 +1093,6 @@ class MenuButton : public MenuObject
 public:
 
 protected:
-
 };
 
 /**

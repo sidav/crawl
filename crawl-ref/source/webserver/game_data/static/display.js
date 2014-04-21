@@ -2,6 +2,8 @@ define(["jquery", "comm", "./map_knowledge", "./view_data", "./monster_list",
         "./minimap", "./dungeon_renderer"],
 function ($, comm, map_knowledge, view_data, monster_list, minimap,
           dungeon_renderer) {
+    "use strict";
+
     var overlaid_locs = [];
 
     function invalidate(minimap_too)
@@ -59,7 +61,7 @@ function ($, comm, map_knowledge, view_data, monster_list, minimap,
         var render_time = (new Date() - t1);
         if (!window.render_times)
             window.render_times = [];
-        if (window.render_times.length > 20)
+        if (window.render_times.length >= 20)
             window.render_times.shift();
         window.render_times.push(render_time);
     }

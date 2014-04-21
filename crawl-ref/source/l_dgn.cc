@@ -695,7 +695,7 @@ static int dgn_gly_points(lua_State *ls)
 
     for (int i = 0, size = cs.size(); i < size; ++i)
         dlua_push_coordinates(ls, cs[i]);
-    return (cs.size() * 2);
+    return cs.size() * 2;
 }
 
 static int dgn_original_map(lua_State *ls)
@@ -986,7 +986,6 @@ static int dgn_cloud_at(lua_State *ls)
 
     return 1;
 }
-
 
 static int lua_dgn_set_branch_epilogue(lua_State *ls)
 {
@@ -1400,8 +1399,6 @@ static int dgn_place_cloud(lua_State *ls)
     return 0;
 }
 
-
-
 // XXX: Doesn't allow for messages or specifying the noise source.
 LUAFN(dgn_noisy)
 {
@@ -1595,14 +1592,19 @@ LUAFN(_dgn_place_map)
         COORDS(c, 4, 5);
         where = c;
     }
-    if (dgn_place_map(map, check_collision, no_exits, where)
-        && !env.level_vaults.empty())
     {
-        lua_pushlightuserdata(ls,
-                              env.level_vaults[env.level_vaults.size() - 1]);
+        dgn_map_parameters mp(lua_gettop(ls) >= 6
+                              ? luaL_checkstring(ls, 6)
+                              : "");
+        if (dgn_place_map(map, check_collision, no_exits, where)
+            && !env.level_vaults.empty())
+        {
+            lua_pushlightuserdata(ls,
+                                  env.level_vaults[env.level_vaults.size() - 1]);
+        }
+        else
+            lua_pushnil(ls);
     }
-    else
-        lua_pushnil(ls);
     return 1;
 }
 

@@ -9,7 +9,7 @@
 #include "externs.h"
 
 #include "areas.h"
-#include "delay.h"
+#include "art-enum.h"
 #include "env.h"
 #include "godconduct.h"
 #include "hints.h"
@@ -18,7 +18,6 @@
 #include "misc.h"
 #include "options.h"
 #include "religion.h"
-#include "shout.h"
 #include "spl-cast.h"
 #include "spl-transloc.h"
 #include "spl-util.h"
@@ -48,8 +47,7 @@ spret_type cast_deaths_door(int pow, bool fail)
     {
         fail_check();
         mpr("You feel invincible!");
-        mpr("You seem to hear sand running through an hourglass...",
-            MSGCH_SOUND);
+        mprf(MSGCH_SOUND, "You seem to hear sand running through an hourglass...");
 
         set_hp(allowed_deaths_door_hp());
         deflate_hp(you.hp_max, false);
@@ -67,7 +65,7 @@ spret_type cast_deaths_door(int pow, bool fail)
 
 void remove_ice_armour()
 {
-    mpr("Your icy armour melts away.", MSGCH_DURATION);
+    mprf(MSGCH_DURATION, "Your icy armour melts away.");
     you.redraw_armour_class = true;
     you.duration[DUR_ICY_ARMOUR] = 0;
 }
@@ -76,7 +74,7 @@ spret_type ice_armour(int pow, bool fail)
 {
     if (!player_effectively_in_light_armour())
     {
-        mpr("You are wearing too much armour.");
+        mpr("Your body armour is too heavy.");
         return SPRET_ABORT;
     }
 
@@ -114,42 +112,42 @@ spret_type ice_armour(int pow, bool fail)
 
 spret_type missile_prot(int pow, bool fail)
 {
+    if (you.attribute[ATTR_REPEL_MISSILES]
+        || you.attribute[ATTR_DEFLECT_MISSILES]
+        || player_equip_unrand(UNRAND_AIR))
+    {
+        mpr("You are already protected from missiles.");
+        return SPRET_ABORT;
+    }
     fail_check();
-    you.increase_duration(DUR_REPEL_MISSILES, 8 + roll_dice(2, pow), 100,
-                          "You feel protected from missiles.");
+    you.attribute[ATTR_REPEL_MISSILES] = 1;
+    mpr("You feel protected from missiles.");
     return SPRET_SUCCESS;
 }
 
 spret_type deflection(int pow, bool fail)
 {
+    if (you.attribute[ATTR_DEFLECT_MISSILES])
+    {
+        mpr("You are already deflecting missiles.");
+        return SPRET_ABORT;
+    }
     fail_check();
-    you.increase_duration(DUR_DEFLECT_MISSILES, 15 + random2(pow), 100,
-                          "You feel very safe from missiles.");
+    you.attribute[ATTR_DEFLECT_MISSILES] = 1;
+    mpr("You feel very safe from missiles.");
+    // Replace RMsl, if active.
+    if (you.attribute[ATTR_REPEL_MISSILES])
+        you.attribute[ATTR_REPEL_MISSILES] = 0;
+
     return SPRET_SUCCESS;
 }
 
-void remove_regen(bool divine_ability)
-{
-    mpr("Your skin stops crawling.", MSGCH_DURATION);
-    you.duration[DUR_REGENERATION] = 0;
-    if (divine_ability)
-    {
-        mpr("You feel less resistant to hostile enchantments.", MSGCH_DURATION);
-        you.attribute[ATTR_DIVINE_REGENERATION] = 0;
-    }
-}
-
-spret_type cast_regen(int pow, bool divine_ability, bool fail)
+spret_type cast_regen(int pow, bool fail)
 {
     fail_check();
     you.increase_duration(DUR_REGENERATION, 5 + roll_dice(2, pow / 3 + 1), 100,
                           "Your skin crawls.");
 
-    if (divine_ability)
-    {
-        mpr("You feel resistant to hostile enchantments.");
-        you.attribute[ATTR_DIVINE_REGENERATION] = 1;
-    }
     return SPRET_SUCCESS;
 }
 
@@ -174,7 +172,7 @@ spret_type cast_revivification(int pow, bool fail)
 
         if (you.duration[DUR_DEATHS_DOOR])
         {
-            mpr("Your life is in your own hands once again.", MSGCH_DURATION);
+            mprf(MSGCH_DURATION, "Your life is in your own hands once again.");
             // XXX: better cause name?
             paralyse_player("Death's Door abortion", 5 + random2(5));
             confuse_player(10 + random2(10));
@@ -200,6 +198,12 @@ spret_type cast_swiftness(int power, bool fail)
         return SPRET_ABORT;
     }
 
+    if (you.duration[DUR_SWIFTNESS])
+    {
+        mpr("This spell is already in effect.");
+        return SPRET_ABORT;
+    }
+
     fail_check();
 
     if (you.in_liquid())
@@ -210,12 +214,9 @@ spret_type cast_swiftness(int power, bool fail)
                                              : "liquid ground");
     }
 
-    // [dshaligram] Removed the on-your-feet bit.  Sounds odd when
-    // you're flying, for instance.
-    you.increase_duration(DUR_SWIFTNESS, 20 + random2(power), 100,
-                          you.in_liquid()
-                              ? "You feel like you could be quicker."
-                              : "You feel quick.");
+    you.set_duration(DUR_SWIFTNESS, 12 + random2(power)/2, 30,
+                     "You feel quick.");
+    you.attribute[ATTR_SWIFTNESS] = you.duration[DUR_SWIFTNESS];
     did_god_conduct(DID_HASTY, 8, true);
 
     return SPRET_SUCCESS;
@@ -223,23 +224,8 @@ spret_type cast_swiftness(int power, bool fail)
 
 spret_type cast_fly(int power, bool fail)
 {
-    if (you.form == TRAN_TREE)
-    {
-        mpr("Your roots keep you in place.", MSGCH_WARN);
+    if (!flight_allowed())
         return SPRET_ABORT;
-    }
-
-    if (you.liquefied_ground())
-    {
-        mpr("Such puny magic can't pull you from the ground!", MSGCH_WARN);
-        return SPRET_ABORT;
-    }
-
-    if (you.duration[DUR_GRASPING_ROOTS])
-    {
-        mpr("The grasping roots prevent you from becoming airborne.", MSGCH_WARN);
-        return SPRET_ABORT;
-    }
 
     fail_check();
     const int dur_change = 25 + random2(power) + random2(power);
@@ -287,10 +273,8 @@ int cast_selective_amnesia(string *pre_msg)
     int slot;
 
     // Pick a spell to forget.
-    mpr("Forget which spell ([?*] list [ESC] exit)? ", MSGCH_PROMPT);
-    keyin = Options.auto_list
-            ? list_spells(false, false, false, "Forget which spell?")
-            : get_ch();
+    mprf(MSGCH_PROMPT, "Forget which spell ([?*] list [ESC] exit)? ");
+    keyin = list_spells(false, false, false, "Forget which spell?");
     redraw_screen();
 
     while (true)
@@ -310,6 +294,7 @@ int cast_selective_amnesia(string *pre_msg)
         if (!isaalpha(keyin))
         {
             mesclr();
+            mprf(MSGCH_PROMPT, "Forget which spell ([?*] list [ESC] exit)? ");
             keyin = get_ch();
             continue;
         }
@@ -320,7 +305,7 @@ int cast_selective_amnesia(string *pre_msg)
         if (spell == SPELL_NO_SPELL)
         {
             mpr("You don't know that spell.");
-            mpr("Forget which spell ([?*] list [ESC] exit)? ", MSGCH_PROMPT);
+            mprf(MSGCH_PROMPT, "Forget which spell ([?*] list [ESC] exit)? ");
             keyin = get_ch();
         }
         else
@@ -358,19 +343,9 @@ spret_type cast_song_of_slaying(int pow, bool fail)
     else
         mpr("You start singing a song of slaying.");
 
-    you.increase_duration(DUR_SONG_OF_SLAYING, 20 + pow / 3, 20 + pow / 3);
-
-    noisy(10, you.pos());
+    you.set_duration(DUR_SONG_OF_SLAYING, 20 + random2avg(pow, 2));
 
     you.props["song_of_slaying_bonus"] = 0;
-    return SPRET_SUCCESS;
-}
-
-spret_type cast_song_of_shielding(int pow, bool fail)
-{
-    fail_check();
-    you.increase_duration(DUR_SONG_OF_SHIELDING, 10 + random2(pow) / 3, 40);
-    mpr("You are being protected by your magic.");
     return SPRET_SUCCESS;
 }
 

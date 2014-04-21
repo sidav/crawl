@@ -28,7 +28,8 @@
 # Note that all boolean options (i.e. values of 'true' or 'false') have
 # their non-default value commented out. You can toggle these by just
 # uncommenting.
-# Options with several values, e.g. drop_mode = (multi | single),
+# Options with several values, e.g.
+#   confirm_butcher = (auto | always | never),
 # usually have the first value as default.
 #
 # The options for monster glyphs and item colours don't matter for Tiles.
@@ -86,12 +87,12 @@
 # chunks_autopickup = false
 # assign_item_slot = (forward | backward)
 #
-# drop_mode = (multi | single)
-# pickup_mode = (single | multi | auto:5)
+# pickup_menu = false
+# pickup_menu_limit = 4
 # drop_filter += skeleton, corpse, useless_item
 # default_friendly_pickup = (none | friend | player | all)
 
-##### 3-b       Targetting ############################
+##### 3-b       Targeting ############################
 #
 # default_target = false
 # target_unshifted_dirs = true
@@ -161,7 +162,7 @@
 # tc_exclude_circle = red
 
 # Interrupting run and rest compound commands:
-# runrest_ignore_poison  = 2:30
+# runrest_safe_poison  = 80:100
 # runrest_ignore_monster ^= butterfly:1
 # runrest_ignore_monster ^= swamp worm:3
 # runrest_stop_message += You hear a.* slurping noise
@@ -176,7 +177,6 @@
 
 ##### 3-h       Command Enhancements ##################
 #
-# auto_list     = false
 # auto_switch   = true
 # easy_open     = false
 # easy_unequip  = false
@@ -194,6 +194,9 @@
 # sort_menus = inv: true : equipped, freshness, charged
 
 # autofight_stop = 30
+# automagic_enable = false
+# automagic_stop = 0
+# automagic_fight = false
 
 ##### 3-i       Messages and Display Enhancements #####
 #
@@ -209,34 +212,35 @@
 # msg_max_height               = 10
 # mlist_allow_alternate_layout = true
 # messages_at_top              = true
-# mlist_targetting             = true
+# mlist_targeting              = true
 # show_gold_turns              = false
 # show_game_turns              = false
 # show_newturn_mark            = false
-# clear_messages             = true
-# small_more                 = true
-# show_more                  = false
-# show_inventory_weights     = true
-# item_stack_summary_minimum = 5
-# msg_condense_repeats   = false
-# msg_condense_short     = false
-# skill_focus            = false
-# show_travel_trail       = false (true for online)
+# clear_messages               = true
+# small_more                   = true
+# show_more                    = false
+# show_inventory_weights       = false
+# item_stack_summary_minimum   = 5
+# msg_condense_repeats         = false
+# msg_condense_short           = false
+# skill_focus                  = false
+# show_travel_trail            = false (true for online)
+# view_delay                   = 600
 
 ##### 3-j       Colours (messages and menus) ##########
 #
 # Food is colour coded by default as follows:
 #
-#   yellow     = preferred food                    ($preferred)
-#   darkgrey   = cannot be eaten at all            ($inedible)
-#   lightred   = causes rot                        ($rot-inducing)
-#   magenta    = dangerous to use, mutagenic       ($dangerous, $mutagenic)
-#   red        = considered "evil" by your deity   ($evil)
-#   lightgreen = poisonous                         ($poisonous)
-#   brown      = contaminated, may cause nausea    ($contaminated)
+#   yellow     = preferred food
+#   darkgrey   = cannot be eaten at all
+#   lightred   = causes rot
+#   magenta    = dangerous to use, mutagenic
+#   red        = considered "evil" by your deity
+#   lightgreen = poisonous
+#   brown      = contaminated, may cause nausea
 #
 # You can change colours by using something like
-# $contaminated := magenta
+# menu_colour ^= magenta:contaminated
 
 # You can redefine inventory items like this:
 # menu_colour ^= inventory:magenta:shillelagh
@@ -246,10 +250,10 @@
 # Colouring of messages
 # Messages are colour coded as follows:
 #
-#   lightred   = really important messages  ($danger)
-#   yellow     = significant messages       ($warning)
-#   lightred   = item damaged/destroyed     ($item_dmg [same as $danger])
-#   darkgrey   = boring, message clutter    ($boring)
+#   lightred   = really important messages
+#   yellow     = significant messages
+#   lightred   = item damaged/destroyed
+#   darkgrey   = boring, message clutter
 #
 
 # Notes also use, quite misnamed, menu_colour:
@@ -273,7 +277,7 @@
 #
 # fire_items_start = a
 # fire_order = launcher, return
-# fire_order += javelin / dart / stone / rock / spear / net / handaxe / dagger / club
+# fire_order += javelin / tomahawk / dart / stone / rock / net
 # fire_order += inscribed
 
 ##### 3-l       Channels ##############################
@@ -304,27 +308,31 @@
 ### The following lines define the colours of various objects within the
 ### tiles minimap. See options_guide.txt for more details.
 
-# tile_player_col      = white
-# tile_monster_col     = red
-# tile_neutral_col     = red
-# tile_peaceful_col    = lightred
-# tile_friendly_col    = lightred
-# tile_plant_col       = darkgreen
-# tile_item_col        = green
-# tile_unseen_col      = black
-# tile_floor_col       = lightgrey
-# tile_wall_col        = darkgrey
-# tile_mapped_wall_col = blue
-# tile_door_col        = brown
-# tile_downstairs_col  = magenta
-# tile_upstairs_col    = blue
-# tile_feature_col     = cyan
-# tile_trap_col        = yellow
-# tile_water_col       = grey
-# tile_lava_col        = grey
-# tile_excluded_col    = darkcyan
-# tile_excl_centre     = darkblue
-# tile_window_col      = yellow
+# tile_player_col       = white
+# tile_monster_col      = #660000
+# tile_neutral_col      = #660000
+# tile_peaceful_col     = #664400
+# tile_friendly_col     = #664400
+# tile_plant_col        = #446633
+# tile_item_col         = #005544
+# tile_unseen_col       = black
+# tile_floor_col        = #333333
+# tile_wall_col         = #666666
+# tile_mapped_floor_col = #222266
+# tile_mapped_wall_col  = #444499
+# tile_door_col         = #775544
+# tile_downstairs_col   = #ff00ff
+# tile_upstairs_col     = cyan
+# tile_branchstairs_col = #ff7788
+# tile_portal_col       = #ffdd00
+# tile_feature_col      = #997700
+# tile_trap_col         = #aa6644
+# tile_water_col        = #114455
+# tile_deep_water_col   = #001122
+# tile_lava_col         = #552211
+# tile_excluded_col     = #552266
+# tile_excl_centre_col  = #552266
+# tile_window_col       = #558855
 
 # If Crawl's response rate is too slow, try increasing the update rate.
 # tile_update_rate      = 1000
@@ -351,20 +359,36 @@
 # tile_layout_priority += ability, monster
 
 # tile_font_crt_file  = VeraMono.ttf
-# tile_font_crt_size  = 15
 # tile_font_stat_file = VeraMono.ttf
-# tile_font_stat_size = 16
 # tile_font_msg_file  = VeraMono.ttf
-# tile_font_msg_size  = 14
 # tile_font_tip_file  = VeraMono.ttf
-# tile_font_tip_size  = 15
 # tile_font_lbl_file  = Vera.ttf
-# tile_font_lbl_size  = 14
 # tile_font_ft_light  = false
+
+# tile_font_crt_size  = 15
+# tile_font_stat_size = 16
+# tile_font_msg_size  = 14
+# tile_font_tip_size  = 15
+# tile_font_lbl_size  = 14
 
 # tile_show_minihealthbar = false
 # tile_show_minimagicbar  = false
+# tile_show_demon_tier  = false
 
+# tile_water_anim = false
+# tile_misc_anim = false
+
+### WebTiles only
+
+# tile_font_crt_family  = monospace
+# tile_font_stat_family = monospace
+# tile_font_msg_family  = monospace
+# tile_font_lbl_family  = monospace
+
+# tile_realtime_anim = true
+# tile_display_mode = glyph
+# tile_level_map_hide_messages = false
+# tile_level_map_hide_sidebar = true
 
 ##### 4-  Dump File #################################################
 #
@@ -407,8 +431,7 @@
 # char_set         = ascii
 # use_fake_player_cursor = false
 #
-# Translation to use (in 0.11, only badly incomplete descriptions; Polish
-# has god messages and a few misc, Greek has sheep).
+# Translation to use (descriptions only for now).
 # language = pl|fr|zh|ko|fi|ru|el|da|li|pt|de|lv|cs|hu
 #
 # Joke translations (complete!).
@@ -439,6 +462,9 @@
 #
 # Alternative vi bindings for Dvorak users.
 # include = dvorak_command_keys.txt
+#
+# Alternative vi bindings for Colemak users.
+# include = colemak_command_keys.txt
 #
 # Override the vi movement keys with a non-command.
 # include = no_vi_command_keys.txt

@@ -30,7 +30,6 @@
 #include "stairs.h"
 #include "state.h"
 #include "stuff.h"
-#include "tagstring.h"
 #include "terrain.h"
 #include "travel.h"
 
@@ -142,12 +141,11 @@ static string shoptype_to_string(shop_type s)
     case SHOP_GENERAL:         return "<w>*</w>";
     case SHOP_GENERAL_ANTIQUE: return "<yellow>*</yellow>";
     case SHOP_JEWELLERY:       return "<w>=</w>";
-    case SHOP_WAND:            return "<w>/</w>";
-    case SHOP_BOOK:            return "<w>+</w>";
+    case SHOP_EVOKABLES:       return "<w>}</w>";
+    case SHOP_BOOK:            return "<w>:</w>";
     case SHOP_FOOD:            return "<w>%</w>";
     case SHOP_DISTILLERY:      return "<w>!</w>";
     case SHOP_SCROLL:          return "<w>?</w>";
-    case SHOP_MISCELLANY:      return "<w>}</w>";
     default:                   return "<w>x</w>";
     }
 }
@@ -191,7 +189,7 @@ static string _portals_description_string()
 {
     string disp;
     level_id    last_id;
-    for (branch_type cur_portal = BRANCH_MAIN_DUNGEON; cur_portal < NUM_BRANCHES;
+    for (branch_type cur_portal = BRANCH_DUNGEON; cur_portal < NUM_BRANCHES;
          cur_portal = static_cast<branch_type>(cur_portal + 1))
     {
         last_id.depth = 10000;
@@ -266,8 +264,11 @@ static string _get_seen_branches(bool display)
     {
         const branch_type branch = branches[i].id;
 
+        if (branch == BRANCH_ZIGGURAT)
+            continue;
+
         if (branch == root_branch
-            || stair_level.find(branch) != stair_level.end())
+            || stair_level.count(branch))
         {
             level_id lid(branch, 0);
             lid = find_deepest_explored(lid);
@@ -280,7 +281,7 @@ static string _get_seen_branches(bool display)
             }
 
             // "D" is a little too short here.
-            const char *brname = (branch == BRANCH_MAIN_DUNGEON
+            const char *brname = (branch == BRANCH_DUNGEON
                                   ? branches[branch].shortname
                                   : branches[branch].abbrevname);
 
@@ -319,7 +320,7 @@ static string _get_unseen_branches()
         if (!is_random_subbranch(branch))
             continue;
 
-        if (stair_level.find(branch) != stair_level.end())
+        if (stair_level.count(branch))
         {
             if (parent_branch((branch_type)i) == BRANCH_LAIR)
                 seen_lair_branches++;
@@ -339,15 +340,15 @@ static string _get_unseen_branches()
                     && seen_vaults_branches >= 1))
             continue;
 
-        if (i == BRANCH_VESTIBULE_OF_HELL || !is_connected_branch(branch))
+        if (i == BRANCH_VESTIBULE || !is_connected_branch(branch))
             continue;
 
         if (branch_is_unfinished(branch))
             continue;
 
-        if (stair_level.find(branch) == stair_level.end())
+        if (!stair_level.count(branch))
         {
-            const branch_type parent = parent_branch((branch_type)i);
+            const branch_type parent = branches[branch].parent_branch;
             // Root branches.
             if (parent == NUM_BRANCHES)
                 continue;
@@ -424,6 +425,7 @@ static string _print_altars_for_gods(const vector<god_type>& gods,
     char buffer[100];
     int num_printed = 0;
     char const *colour;
+    const int columns = 4;
 
     for (unsigned int cur_god = 0; cur_god < gods.size(); cur_god++)
     {
@@ -445,7 +447,7 @@ static string _print_altars_for_gods(const vector<god_type>& gods,
         if (!display)
         {
             if (has_altar_been_seen)
-                disp += god_name(god, false) + "\n";
+                disp += uppercase_first(god_name(god, false)) + "\n";
             continue;
         }
 
@@ -453,8 +455,13 @@ static string _print_altars_for_gods(const vector<god_type>& gods,
         if (has_altar_been_seen)
             colour = "white";
         // Good gods don't inflict penance unless they hate your god.
-        if (player_under_penance(god) && (!is_good_god(god) || god_hates_your_god(god)))
-            colour = (you.penance[god] > 10) ? "red" : "lightred";
+        if (player_under_penance(god)
+            && (god == GOD_ASHENZARI || active_penance(god)))
+        {
+            // Active Nemelex penance starts at 101, not 1.
+            colour = (you.penance[god] > (god == GOD_NEMELEX_XOBEH ? 110 : 10))
+                      ? "red" : "lightred";
+        }
         // Indicate good gods that you've abandoned, though.
         else if (player_under_penance(god))
             colour = "magenta";
@@ -470,27 +477,26 @@ static string _print_altars_for_gods(const vector<god_type>& gods,
             colour = "darkgrey";
 
         snprintf(buffer, sizeof buffer, "<%s>%s</%s>",
-                 colour, god_name(god, false).c_str(), colour);
+                 colour, uppercase_first(god_name(god, false)).c_str(), colour);
         disp += buffer;
         num_printed++;
 
-        if (num_printed % 5 == 0)
+        if (num_printed % columns == 0)
             disp += "\n";
         else
-            // manually aligning the god columns: five whitespaces between columns
-            switch (num_printed % 5)
+            // manually aligning the god columns: ten spaces between columns
+            switch (num_printed % columns)
             {
-            case 1: disp += string(14 - strwidth(god_name(god, false)), ' ');
+            case 1: disp += string(19 - strwidth(god_name(god, false)), ' ');
                     break;
-            case 2: disp += string(18 - strwidth(god_name(god, false)), ' ');
+            case 2: disp += string(23 - strwidth(god_name(god, false)), ' ');
                     break;
-            case 3: disp += string(16 - strwidth(god_name(god, false)), ' ');
+            case 3: disp += string(20 - strwidth(god_name(god, false)), ' ');
                     break;
-            case 4: disp += string(13 - strwidth(god_name(god, false)), ' ');
             }
     }
 
-    if (num_printed > 0 && num_printed % 5 != 0)
+    if (num_printed > 0 && num_printed % columns != 0)
         disp += "\n";
     return disp;
 }
@@ -589,7 +595,7 @@ static string _get_notes()
 template <typename Z, typename Key>
 static inline bool _find_erase(Z &map, const Key &k)
 {
-    if (map.find(k) != map.end())
+    if (map.count(k))
     {
         map.erase(k);
         return true;
@@ -623,7 +629,7 @@ static bool _unnotice_stair(const level_pos &pos)
         if (branches[i].entry_stairs == feat)
         {
             const branch_type br = static_cast<branch_type>(i);
-            if (stair_level.find(br) != stair_level.end())
+            if (stair_level.count(br))
             {
                 stair_level[br].erase(level_id::current());
                 if (stair_level[br].empty())
@@ -639,10 +645,10 @@ bool unnotice_feature(const level_pos &pos)
 {
     StashTrack.remove_shop(pos);
     shopping_list.forget_pos(pos);
-    return (_unnotice_portal(pos)
-            || _unnotice_altar(pos)
-            || _unnotice_shop(pos)
-            || _unnotice_stair(pos));
+    return _unnotice_portal(pos)
+        || _unnotice_altar(pos)
+        || _unnotice_shop(pos)
+        || _unnotice_stair(pos);
 }
 
 void display_overview()
@@ -693,10 +699,21 @@ static void _seen_portal(dungeon_feature_type which_thing, const coord_def& pos)
         // hell upstairs are never interesting
         if (player_in_hell())
             break;
+#if TAG_MAJOR_VERSION == 34
     case DNGN_ENTER_PORTAL_VAULT:
+#endif
     case DNGN_ENTER_LABYRINTH:
     case DNGN_ENTER_ABYSS:
     case DNGN_ENTER_PANDEMONIUM:
+    case DNGN_ENTER_ZIGGURAT:
+    case DNGN_ENTER_BAZAAR:
+    case DNGN_ENTER_TROVE:
+    case DNGN_ENTER_SEWER:
+    case DNGN_ENTER_OSSUARY:
+    case DNGN_ENTER_BAILEY:
+    case DNGN_ENTER_ICE_CAVE:
+    case DNGN_ENTER_VOLCANO:
+    case DNGN_ENTER_WIZLAB:
     {
         level_pos where(level_id::current(), pos);
         portals_present[where] = stair_destination(pos).branch;
@@ -866,7 +883,7 @@ bool level_annotation_has(string find, level_id li)
 {
     string str = get_level_annotation(li);
 
-    return (str.find(find) != string::npos);
+    return str.find(find) != string::npos;
 }
 
 void annotate_level()
@@ -896,9 +913,8 @@ void do_annotate(level_id& li)
     string old = get_level_annotation(li, true, true);
     if (!old.empty())
     {
-        mpr("Current level annotation: " +
-            colour_string(old, LIGHTGREY),
-            MSGCH_PROMPT);
+        mprf(MSGCH_PROMPT, "Current level annotation: <lightgrey>%s</lightgrey>",
+             old.c_str());
     }
 
     const string prompt = "New annotation for " + li.describe()

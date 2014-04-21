@@ -4,7 +4,7 @@
 import os, re, sys, codecs, difflib
 from optparse import OptionParser
 from subprocess import Popen, PIPE, call
-from textwrap import TextWrapper
+from textwrap import TextWrapper, _whitespace
 from collections import defaultdict, OrderedDict, Counter
 from platform import system
 from unicodedata import east_asian_width
@@ -26,6 +26,8 @@ parser.add_option("-s", "--source", help="Work on source files (same as -l en)",
                   action="store_true")
 parser.add_option("-t", "--translations", help="Work on translations",
                   action="store_true")
+parser.add_option("-a", "--auto_fix", action="store_true",
+                  help="Apply some automatic fixes to punctuation")
 
 (options, args) = parser.parse_args()
 cmd = args[0] if args else ''
@@ -60,8 +62,9 @@ sep_re = re.compile('[, ]+') # basic separator for user input
 txt_sep_re = re.compile('%{4,}') # txt file entry separator
 cmd_re = re.compile('<(\w)>') # used to find the key in menu command strings
 # Those languages have special wrapping with fullwidth character support
-east_asian_languages = {'ja', 'ko', 'zh'}
-no_space_languages = {'ja', 'zh'}
+east_asian_languages = {'ja_JP', 'ko_KR', 'zh_CN'}
+no_space_languages = {'ja_JP', 'zh_CN'}
+east_asian_punctuation = u'、。，！：；）'
 
 # This object serves as an intermediate step between txt and ini files.
 # Entries are in a raw format: no wrapping, every new line is significant.
@@ -94,7 +97,7 @@ def merge_ini():
 def setup_transifex():
     """Initialize the transifex config file"""
     
-    os.chdir(os.path.join(git_root, tx_path))
+    os.chdir(tx_abs_path)
     call_tx(['init'])
     tx_set = ['set', '--auto-local', '-s', 'en_AU', '-t', 'INI', '--execute']
     for res in res_index.default_resources:
@@ -141,6 +144,8 @@ def unwrap(text, no_space):
     text = text.replace("\n}}", "\\n}}")
     text = text.replace("\n{{", "\\n{{")
 
+    text = text.replace(u"—\n—", u"——")
+    text = text.replace(">\n<", "><")
     text = text.replace("\n", " ")
     text = text.replace("\\n", "\n")
 
@@ -164,6 +169,8 @@ def wrap(text, eac, no_space):
     lines = []
     for line in text.splitlines():
         if line:
+            # This allows breaking lines between tags
+            line = line.replace("><", ">\f<")
             if no_space:
                 # Need to rstrip the lines because when the wrapper tries to
                 # add a single character to the end of the line, it might fail
@@ -175,6 +182,29 @@ def wrap(text, eac, no_space):
                 lines += wrapper.wrap(line)
         elif not lines or lines[-1] != '': # remove consecutive empty lines
             lines += ['']
+
+    lines[:] = [line.replace(">\f<", "><") for line in lines]
+
+# Languages which have no spaces are split on punctuation which make them
+# sometimes wrapped to the beginning of the next line. Since it's quite ugly,
+# we manually move them back to the end of the previous line.
+    if eac or no_space:
+        fixed_lines = []
+        for line in lines:
+            while line and line[0] in east_asian_punctuation and fixed_lines \
+                  and fixed_lines[-1][-1] != line[0]:
+                fixed_lines[-1] += line[0]
+                line = line[1:]
+                if line:
+                    line = line.lstrip()
+                else:
+                    line = None
+                    break
+
+            if line is not None:
+                fixed_lines.append(line)
+        lines = fixed_lines
+
     return "\n".join(lines)
 
 def diff(val, new_val):
@@ -207,7 +237,63 @@ def change_counter(c):
                      for k in sorted(res_index.changes)])
 
 def wide_char(c):
-    return east_asian_width(c) in 'WFA'
+    return c != u'—' and east_asian_width(c) in 'WFA'
+
+def auto_fix(s, lang):
+    """Use with care, it can break things"""
+    s = auto_fix.re_hyphen.sub(u"\\1—\\2", s)
+    s = auto_fix.re_ns.sub(u" \\1", s)
+    if lang == 'fr': # Those ones can break languages which use »« for quotes
+        s = auto_fix.re_ns_opening_quote.sub(u"« ", s)
+        s = auto_fix.re_ns_closing_quote.sub(u" »", s)
+        s = auto_fix.re_missing_space.sub(u" \\1", s)
+        s = auto_fix.re_missing_space2.sub(u"« ", s)
+
+    if s.find('{{') == -1: # Don't mess with lua strings
+        s = auto_fix.re_ascii_single_quotes.sub(u"‘\\1’", s)
+        s = auto_fix.re_ascii_double_quotes.sub(u"“\\1”", s)
+
+    # replace english quotes by localized ones
+    if lang == 'fr':
+        s = auto_fix.re_english_double_quotes.sub(u"« \\1 »", s)
+        s = auto_fix.re_english_single_quotes.sub(u"“\\1”", s)
+    elif lang == 'de' or lang == 'cs':
+        s = auto_fix.re_english_single_quotes.sub(u"‚\\1‘", s)
+        s = auto_fix.re_english_double_quotes.sub(u"„\\1“", s)
+    elif lang == 'da':
+        s = auto_fix.re_english_single_quotes.sub(u"„\\1“", s)
+        s = auto_fix.re_english_double_quotes.sub(u"»\\1«", s)
+    elif lang == 'el' or lang == 'es' or lang == 'it' or lang == 'pt':
+        s = auto_fix.re_english_double_quotes.sub(u"«\\1»", s)
+        s = auto_fix.re_english_single_quotes.sub(u"“\\1”", s)
+    elif lang == 'fi':
+        s = auto_fix.re_english_single_quotes.sub(u"’\\1’", s)
+        s = auto_fix.re_english_double_quotes.sub(u"”\\1”", s)
+    elif lang == 'ja':
+        s = auto_fix.re_english_single_quotes.sub(u"『\\1』", s)
+        s = auto_fix.re_english_double_quotes.sub(u"「\\1」", s)
+    elif lang == 'lt':
+        s = auto_fix.re_english_single_quotes.sub(u"„\\1”", s)
+        s = auto_fix.re_english_double_quotes.sub(u"„\\1”", s)
+    elif lang == 'lv' or lang == 'ru':
+        s = auto_fix.re_english_double_quotes.sub(u"«\\1»", s)
+        s = auto_fix.re_english_single_quotes.sub(u"„\\1”", s)
+    elif lang == 'pl' or lang == 'hu':
+        s = auto_fix.re_english_single_quotes.sub(u"»\\1«", s)
+        s = auto_fix.re_english_double_quotes.sub(u"„\\1”", s)
+    return s
+
+auto_fix.re_hyphen = re.compile("(\s)[-–](\s)") # Replace hyphens by em dashes
+auto_fix.re_ns = re.compile("\s([!?:;])")
+auto_fix.re_ns_opening_quote = re.compile(u"«\s")
+auto_fix.re_ns_closing_quote = re.compile(u"\s»")
+auto_fix.re_missing_space = re.compile(u"(?<=\w)([!?:;»](?!\d))", re.U)
+auto_fix.re_missing_space2 = re.compile(u"«(?=\w)", re.U)
+
+auto_fix.re_ascii_single_quotes = re.compile(u"(?<=\W)'(.*?)'(?=\W)", re.S)
+auto_fix.re_ascii_double_quotes = re.compile(u'"(.*?)"', re.S)
+auto_fix.re_english_single_quotes = re.compile(u'‘([^‚‘’]*?)’', re.S)
+auto_fix.re_english_double_quotes = re.compile(u'“(.*?)”', re.S)
 
 """Subclasses to properly handle wrapping fullwidth unicode character which take
 2 columns to be displayed on a terminal
@@ -234,8 +320,7 @@ class FullWidthTextWrapper(TextWrapper):
         if 'no_space' in kwargs:
             kwargs.pop('no_space')
             # Those languages don't use spaces. Break lines on punctuation.
-            self.wordsep_simple_re = re.compile(r'(\s+|[^\s\w]*\w+[^0-9\W]'
-                                                u'[、。，])')
+            self.wordsep_simple_re = re.compile(u'([\s%s]+)|(—)(?=—)' % east_asian_punctuation)
         TextWrapper.__init__(self, **kwargs)
 
     def _split(self, text):
@@ -260,6 +345,7 @@ class ResourceIndex():
         self.en_src = True # When True, the english language maps to the source
                            # files. When False, it maps to the fake translations
         self.changes = []
+        lang_re = re.compile("[a-z]{2}_[A-Z]{2}")
 
         # Initialize languages with directories in the descript dir
         # and resource with txt files
@@ -267,8 +353,10 @@ class ResourceIndex():
             (basename, ext) = os.path.splitext(f)
             if ext.lower() == '.txt':
                 self.default_resources.append(basename)
-            elif os.path.isdir(f) and f != 'en':
+            elif os.path.isdir(f) and lang_re.match(f):
                 self.default_languages.append(f)
+                if not os.path.exists(f[:2]):
+                    os.makedirs(f[:2])
 
         if options.source:
             self.languages = ['en']
@@ -414,7 +502,7 @@ class ResourceFile():
         self.language = lang
         self.resource = res
         self.path = res + "." + self.ext
-        self.path = os.path.join(lang, self.path)
+        self.path = os.path.join(self.lang_dir, self.path)
         self.git_path = os.path.join(descript_git_path, self.path).replace("\\", "/")
         self.mtime = 0
         self.modified = False
@@ -621,9 +709,11 @@ class TxtFile(ResourceFile):
         if lang:
             self.entries = dict()
             self.source_res = txt_files[('', res)]
+            self.lang_dir = lang[:2]
         else:
             self.entries = OrderedDict()
             self.source_res = self
+            self.lang_dir = ''
         self.key_comment = dict()
         self.value_comment = dict()
         self.ext = 'txt'
@@ -663,10 +753,17 @@ class TxtFile(ResourceFile):
                 value += ":%s\n" % tag
             else:
                 value += ":%s %s\n" % (tag, tag_value)
-        if entry['nowrap']:
-            value += entry.value
+
+        if options.auto_fix:
+            raw_value = auto_fix(entry.value, self.lang())
         else:
-            value += wrap(entry.value, self.eac, self.no_space)
+            raw_value = entry.value
+
+        if entry['nowrap']:
+            value += raw_value
+        else:
+            value += wrap(raw_value, self.eac, self.no_space)
+
         value += "\n"
         ResourceFile.__setitem__(self, key, value)
 
@@ -736,6 +833,7 @@ class IniFile(ResourceFile):
         self.entries = dict()
         self.source_res = txt_files[('', res)]
         self.ext = 'ini'
+        self.lang_dir = lang
         ResourceFile.__init__(self, lang, res)
 
     def __setitem__(self, key, e):
@@ -774,7 +872,7 @@ class IniFile(ResourceFile):
         for line in ResourceFile.read_file(self):
             if not line or line[0] == '#' or line.find('=') == -1: continue
             (key, value) = line.split('=', 1)
-            self.entries[key] = value.replace('&quot;', '"')
+            self.entries[key] = value.replace('&quot;', '"').replace('\\\\', '\\')
 
         return len(self.entries)
 
@@ -875,7 +973,7 @@ class ResourceCollection(OrderedDict):
 
     def write_files(self):
         for res in self:
-            if options.force or res.changed():
+            if res.changed() or options.force and list(res.items(False)):
                 res.write_file()
                 for change_t in res_index.changes:
                     if change_t in res.diff:
@@ -1218,10 +1316,19 @@ class Menu(OrderedDict):
             self.build_main_menu()
             self.show_menu()
 
-wrapper = TextWrapper(width = 79, break_on_hyphens = False)
-FWwrapper = FullWidthTextWrapper(width = 79, break_on_hyphens = False)
-FW_NS_wrapper = FullWidthTextWrapper(width = 79, break_on_hyphens = False,
-                                     no_space = True)
+wrapper_args = {
+    'width' : 79,
+    'break_on_hyphens' : False,
+    'break_long_words' : False,
+    'replace_whitespace' : False}
+
+wrapper = TextWrapper(**wrapper_args)
+# Use hardcoded whitespaces instead of \s because the latter matches
+# non-breaking spaces (see textwrap.py:30).
+wrapper.wordsep_simple_re_uni = re.compile(r'([%s]+)' % _whitespace)
+FWwrapper = FullWidthTextWrapper(**wrapper_args)
+wrapper_args['no_space'] = True
+FW_NS_wrapper = FullWidthTextWrapper(**wrapper_args)
 
 # We initialize the resource index early because we might need it if we have to
 # initialize the transifex configuration.

@@ -92,7 +92,7 @@ public:
 
 public:
     level_range(const raw_range &range);
-    level_range(branch_type br = BRANCH_MAIN_DUNGEON, int s = -1, int d = -1);
+    level_range(branch_type br = BRANCH_DUNGEON, int s = -1, int d = -1);
 
     void set(int s, int d = -1);
     void set(const string &branch, int s, int d) throw (string);
@@ -548,7 +548,6 @@ public:
     int ego;
     int allow_uniques;
     int level;
-    int race;
     int item_special;
     int qty;
     int acquirement_source;
@@ -559,8 +558,7 @@ public:
 
     item_spec() : genweight(10), base_type(OBJ_RANDOM), sub_type(OBJ_RANDOM),
         plus(-1), plus2(-1), ego(0), allow_uniques(1), level(-1),
-        race(MAKE_ITEM_RANDOM_RACE), item_special(0), qty(0),
-        acquirement_source(0), place(), props(),
+        item_special(0), qty(0), acquirement_source(0), place(), props(),
         _corpse_monster_spec(NULL)
     {
     }
@@ -631,7 +629,7 @@ private:
 
 class mons_spec
 {
- public:
+public:
     monster_type type;
     level_id place;
     monster_type monbase;     // Base monster for zombies and dracs.
@@ -724,6 +722,8 @@ private:
 private:
     mons_spec mons_by_name(string name) const;
     mons_spec drac_monspec(string name) const;
+    mons_spec demonspawn_monspec(string name) const;
+    mons_spec soh_monspec(string name) const;
     void get_zombie_type(string s, mons_spec &spec) const;
     mons_spec get_hydra_spec(const string &name) const;
     mons_spec get_slime_spec(const string &name) const;
@@ -800,7 +800,6 @@ struct trap_spec
         : tr_type(static_cast<trap_type>(tr)) { }
 };
 
-
 /**
  * @class feature_spec
  * @ingroup mapdef
@@ -847,7 +846,6 @@ struct map_flags
     static map_flags parse(const string flag_list[],
                            const string &s) throw(string);
 };
-
 
 struct keyed_mapspec
 {
@@ -949,8 +947,8 @@ struct map_chance
 // For the bison parser's token union:
 struct map_chance_pair
 {
-   int priority;
-   int chance;
+    int priority;
+    int chance;
 };
 
 typedef vector<level_range> depth_ranges_v;
@@ -1196,7 +1194,6 @@ public:
     bool run_postplace_hook(bool die_on_lua_error = false);
     void copy_hooks_from(const map_def &other_map, const string &hook_name);
 
-
     // Returns true if the validation passed.
     bool test_lua_validate(bool croak = false);
 
@@ -1291,8 +1288,8 @@ public:
         map_bounds_check(map_def &map_) : map(map_) { }
         bool operator () (const coord_def &c) const
         {
-            return (c.x >= 0 && c.x < map.map.width()
-                    && c.y >= 0 && c.y < map.map.height());
+            return c.x >= 0 && c.x < map.map.width()
+                   && c.y >= 0 && c.y < map.map.height();
         }
     };
 

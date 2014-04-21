@@ -73,6 +73,9 @@ public:
     uint32_t client_id;                // for ID of monster_info between turns
     static uint32_t last_client_id;
 
+    bool went_unseen_this_turn;
+    coord_def unseen_pos;
+
 public:
     void set_new_monster_id();
 
@@ -91,7 +94,6 @@ public:
     bool has_base_name() const;
 
     const monsterentry *find_monsterentry() const;
-    monster_type get_mislead_type() const;
 
     void init_experience();
 
@@ -117,7 +119,7 @@ public:
 
     // Has a hydra-like variable number of attacks based on mons->number.
     bool has_hydra_multi_attack() const;
-    bool has_multitargetting() const;
+    bool has_multitargeting() const;
 
     // Has the 'spellcaster' flag (may not actually have any spells).
     bool can_use_spells() const;
@@ -150,7 +152,7 @@ public:
     void update_ench(const mon_enchant &);
     bool del_ench(enchant_type ench, bool quiet = false, bool effect = true);
     bool lose_ench_duration(const mon_enchant &e, int levels);
-    bool lose_ench_levels(const mon_enchant &e, int lev);
+    bool lose_ench_levels(const mon_enchant &e, int lev, bool infinite = false);
     void lose_energy(energy_use_type et, int div = 1, int mult = 1);
     void gain_energy(energy_use_type et, int div = 1, int mult = 1);
 
@@ -239,6 +241,8 @@ public:
     item_def *missiles();
     item_def *shield() const;
 
+    hands_reqd_type hands_reqd(const item_def &item) const;
+
     bool      can_wield(const item_def &item,
                         bool ignore_curse = false,
                         bool ignore_brand = false,
@@ -260,7 +264,7 @@ public:
     bool      pickup_gold(item_def &item, int near);
     bool      pickup_launcher(item_def &launcher, int near, bool force = false);
     bool      pickup_melee_weapon(item_def &item, int near);
-    bool      pickup_throwable_weapon(item_def &item, int near);
+    bool      pickup_missile(item_def &item, int near);
     bool      pickup_weapon(item_def &item, int near, bool force);
     bool      pickup_armour(item_def &item, int near, bool force);
     bool      pickup_jewellery(item_def &item, int near, bool force);
@@ -299,6 +303,7 @@ public:
     void attacking(actor *other);
     bool can_go_frenzy() const;
     bool can_go_berserk() const;
+    bool can_jump() const;
     void go_berserk(bool intentional, bool potion = false);
     bool go_frenzy(actor *source);
     bool berserk() const;
@@ -351,6 +356,8 @@ public:
                  bool blink = false) const;
     bool res_corr(bool calc_unid = true, bool items = true) const;
 
+    bool stasis(bool calc_unid = true, bool items = true) const;
+
     flight_type flight_mode() const;
     bool can_cling_to_walls() const;
     bool is_banished() const;
@@ -377,11 +384,9 @@ public:
     bool umbra(bool check_haloed = true, bool self_halo = true) const;
     int halo_radius2() const;
     int silence_radius2() const;
-    int liquefying_radius2 () const;
-    int umbra_radius2 () const;
-    int suppression_radius2 () const;
-    int soul_aura_radius2 () const;
-    int heat_radius2 () const;
+    int liquefying_radius2() const;
+    int umbra_radius2() const;
+    int heat_radius2() const;
     bool glows_naturally() const;
     bool petrified() const;
     bool petrifying() const;
@@ -433,7 +438,6 @@ public:
     void blame_damage(const actor *attacker, int amount);
     void blink(bool allow_partial_control = true);
     void teleport(bool right_now = false,
-                  bool abyss_shift = false,
                   bool wizard_tele = false);
     void suicide(int hp = -1);
 
@@ -498,13 +502,18 @@ public:
     // Jumping spiders (jump instead of blink)
     bool is_jumpy() const;
 
+    int  aug_amount() const;
+    int  spell_hd(spell_type spell = SPELL_NO_SPELL) const;
+    void align_avatars(bool force_friendly = false);
+    void remove_avatars();
+
 private:
     void init_with(const monster& mons);
     void swap_slots(mon_inv_type a, mon_inv_type b);
     bool need_message(int &near) const;
     bool level_up();
     bool level_up_change();
-    bool pickup(item_def &item, int slot, int near, bool force_merge = false);
+    bool pickup(item_def &item, int slot, int near);
     void equip_weapon(item_def &item, int near, bool msg = true);
     void equip_armour(item_def &item, int near);
     void equip_jewellery(item_def &item, int near);
@@ -516,7 +525,7 @@ private:
     void id_if_worn(mon_inv_type mslot, object_class_type base_type,
                     int sub_type) const;
 
-    bool decay_enchantment(const mon_enchant &me, bool decay_degree = true);
+    bool decay_enchantment(enchant_type en, bool decay_degree = true);
 
     bool wants_weapon(const item_def &item) const;
     bool wants_armour(const item_def &item) const;

@@ -2,7 +2,6 @@
 #define TARGET_H
 
 #include "beam.h"
-// #include "mon-info.h"
 
 enum aff_type // sign and non-zeroness matters
 {
@@ -12,6 +11,7 @@ enum aff_type // sign and non-zeroness matters
     AFF_YES,         // intended/likely to affect
     // If you want to extend this to pass the probability somehow, feel free to,
     // just keep AFF_YES the minimal "bright" value.
+    AFF_LANDING,     // Valid jump attack landing site
 };
 
 class targetter
@@ -30,6 +30,7 @@ public:
     virtual bool can_affect_walls();
 
     virtual aff_type is_affected(coord_def loc) = 0;
+    virtual bool has_additional_sites(coord_def a);
 protected:
     bool anyone_there(coord_def loc);
 };
@@ -186,6 +187,92 @@ private:
     vector<vector<coord_def> > paths_taken;
     int _range;
     int range2;
+};
+
+enum jump_block_reason
+{
+    BLOCKED_NONE,
+    BLOCKED_OCCUPIED,
+    BLOCKED_FLYING,
+    BLOCKED_GIANT,
+    BLOCKED_MOVE,
+    BLOCKED_PATH,
+    BLOCKED_NO_TARGET,
+    BLOCKED_MOBILE,
+};
+
+class targetter_jump : public targetter
+{
+public:
+    targetter_jump(const actor* act, int r2, bool clear_path = true,
+                   bool immobile = false);
+
+    bool valid_aim(coord_def a);
+    bool set_aim(coord_def a);
+    bool jump_is_blocked;
+    aff_type is_affected(coord_def loc);
+    bool has_additional_sites(coord_def a);
+    set<coord_def> additional_sites;
+    coord_def landing_site;
+private:
+    void set_additional_sites(coord_def a);
+    void get_additional_sites(coord_def a);
+    bool valid_landing(coord_def a, bool check_invis = true);
+    jump_block_reason no_landing_reason;
+    jump_block_reason blocked_landing_reason;
+    set<coord_def> temp_sites;
+    int range2;
+    bool clear_path;
+    bool immobile;
+};
+
+class targetter_explosive_bolt : public targetter_beam
+{
+public:
+    targetter_explosive_bolt(const actor *act, int pow, int range);
+    bool set_aim(coord_def a);
+    aff_type is_affected(coord_def loc);
+private:
+    explosion_map exp_map;
+};
+
+class targetter_cone : public targetter
+{
+public:
+    targetter_cone(const actor *act, int range);
+
+    bool valid_aim(coord_def a);
+    bool set_aim(coord_def a);
+    aff_type is_affected(coord_def loc);
+    map<coord_def, aff_type> zapped;
+    FixedVector< map<coord_def, aff_type>, LOS_RADIUS + 1 > sweep;
+private:
+    int range2;
+};
+
+#define SHOTGUN_BEAMS 11
+
+class targetter_shotgun : public targetter
+{
+public:
+    targetter_shotgun(const actor* act, int range);
+    bool valid_aim(coord_def a);
+    bool set_aim(coord_def a);
+    aff_type is_affected(coord_def loc);
+    FixedVector<ray_def, SHOTGUN_BEAMS> rays;
+    map<coord_def, int> zapped;
+private:
+    int range2;
+};
+
+class targetter_list : public targetter
+{
+public:
+    targetter_list(vector<coord_def> targets, coord_def center);
+    aff_type is_affected(coord_def loc);
+    bool valid_aim(coord_def a);
+private:
+    vector<coord_def> targets;
 };
 
 #endif

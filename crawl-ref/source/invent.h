@@ -32,15 +32,10 @@ enum object_selector
     OSEL_UNCURSED_WORN_JEWELLERY = -16,
     OSEL_SCROLL_TARGET           = -17,
     OSEL_BRANDABLE_WEAPON        = -18,
+    OSEL_ENCHANTABLE_WEAPON      = -19,
 };
 
 #define SLOT_BARE_HANDS      -2
-
-// Only used for butchering messages
-#define SLOT_BUTCHERING_KNIFE -3
-#define SLOT_CLAWS            -4
-#define SLOT_TEETH            -5
-#define SLOT_BIRDIE           -6
 
 #define PROMPT_ABORT         -1
 #define PROMPT_GOT_SPECIAL   -2
@@ -119,6 +114,8 @@ public:
     virtual bool get_tiles(vector<tile_def>& tiles) const;
 #endif
 
+    bool show_weight;
+
 private:
     void add_class_hotkeys(const item_def &i);
 };
@@ -180,19 +177,21 @@ protected:
 
 void get_class_hotkeys(const int type, vector<char> &glyphs);
 
+bool is_item_selected(const item_def &item, int selector);
 bool any_items_to_select(int type_expect, bool msg = false, int excluded_slot = -1);
 
 int prompt_invent_item(const char *prompt,
-                        menu_type type,
-                        int type_expect,
-                        bool must_exist = true,
-                        bool allow_auto_list = true,
-                        bool allow_easy_quit = true,
-                        const char other_valid_char = '\0',
-                        int excluded_slot = -1,
-                        int *const count = NULL,
-                        operation_types oper = OPER_ANY,
-                        bool allow_list_known = false);
+                       menu_type type,
+                       int type_expect,
+                       bool must_exist = true,
+                       bool auto_list = true,
+                       bool allow_easy_quit = true,
+                       const char other_valid_char = '\0',
+                       int excluded_slot = -1,
+                       int *const count = NULL,
+                       operation_types oper = OPER_ANY,
+                       bool allow_list_known = false,
+                       bool do_warning = true);
 
 vector<SelItem> select_items(
                         const vector<const item_def*> &items,
@@ -205,15 +204,14 @@ vector<SelItem> prompt_invent_items(
                         menu_type type,
                         int type_expect,
                         invtitle_annotator titlefn = NULL,
-                        bool allow_auto_list = true,
+                        bool auto_list = true,
                         bool allow_easy_quit = true,
                         const char other_valid_char = '\0',
                         vector<text_pattern> *filter = NULL,
                         Menu::selitem_tfn fn = NULL,
                         const vector<SelItem> *pre_select = NULL);
 
-void browse_inventory();
-unsigned char get_invent(int invent_type);
+unsigned char get_invent(int invent_type, bool redraw = true);
 
 bool in_inventory(const item_def &i);
 
@@ -226,7 +224,7 @@ bool check_warning_inscriptions(const item_def& item, operation_types oper);
 void init_item_sort_comparators(item_sort_comparators &list,
                                 const string &set);
 
-bool prompt_failed(int retval, string msg = "");
+bool prompt_failed(int retval);
 
 bool item_is_wieldable(const item_def &item);
 bool item_is_evokable(const item_def &item, bool reach = true,

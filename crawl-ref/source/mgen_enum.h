@@ -40,6 +40,7 @@ enum band_type
     BAND_DEEP_ELF_HIGH_PRIEST,
     BAND_KOBOLD_DEMONOLOGIST,
     BAND_NAGAS,
+    BAND_GUARDIAN_SERPENT,
     BAND_WOLVES,
     BAND_GREEN_RATS,
     BAND_ORANGE_RATS,
@@ -95,9 +96,28 @@ enum band_type
     BAND_AIR_ELEMENTALS,
     BAND_SPRIGGAN_DRUID,
     BAND_SPRIGGAN_RIDERS,
-    BAND_SPIRIT_WOLVES,
     BAND_PHANTASMAL_WARRIORS,
-    BAND_WATER_ELEMENTALS,
+    BAND_THRASHING_HORRORS,
+    BAND_RAIJU,
+    BAND_RAVENS,
+    BAND_FAUN_PARTY,
+    BAND_NAGA_ELITES,
+    BAND_NAGA_RITUALIST,
+    BAND_NAGA_SHARPSHOOTER,
+    BAND_SALAMANDERS,
+    BAND_SALAMANDER_ELITES,
+    BAND_MONSTROUS_DEMONSPAWN,
+    BAND_GELID_DEMONSPAWN,
+    BAND_INFERNAL_DEMONSPAWN,
+    BAND_PUTRID_DEMONSPAWN,
+    BAND_TORTUROUS_DEMONSPAWN,
+    BAND_BLOOD_SAINT,
+    BAND_CHAOS_CHAMPION,
+    BAND_WARMONGER,
+    BAND_CORRUPTER,
+    BAND_BLACK_SUN,
+    BAND_VASHNIA,
+    BAND_RANDOM_SINGLE,
     NUM_BANDS                   // always last
 };
 
@@ -121,10 +141,11 @@ enum mgen_flag_type
     MG_PERMIT_BANDS = 0x01,
     MG_FORCE_PLACE  = 0x02,
     MG_FORCE_BEH    = 0x04,
-    MG_PLAYER_MADE  = 0x08,
+    MG_AUTOFOE      = 0x08, // will automatically choose in-sight foe (if friendly)
     MG_PATROLLING   = 0x10,
     MG_BAND_MINION  = 0x20,
     MG_DONT_COME    = 0x40, // suppress the "comes into view" spam
+    MG_DONT_CAP     = 0x80, // don't automatically apply the summon cap to this monster
 };
 
 #endif

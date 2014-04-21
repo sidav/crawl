@@ -5,11 +5,13 @@
 #include "coord.h"
 #include "directn.h"
 #include "env.h"
+#include "los.h"
 #include "mon-place.h"
 #include "mon-stuff.h"
 #include "mon-util.h"
 #include "monster.h"
 #include "random.h"
+#include "state.h"
 #include "terrain.h"
 #include "traps.h"
 
@@ -108,6 +110,10 @@ bool monster_pathfind::init_pathfind(const monster* mon, coord_def dest,
     pos    = start;
     allow_diagonals   = diag;
     traverse_unmapped = pass_unmapped;
+    traverse_in_sight = (!crawl_state.game_is_arena()
+                         && !crawl_state.game_is_zotdef()
+                         && mon->friendly() &&  mon->is_summoned()
+                         && you.see_cell_no_trans(mon->pos()));
 
     // Easy enough. :P
     if (start == target)
@@ -423,9 +429,15 @@ bool monster_pathfind::traversable(const coord_def& p)
         {
             return true;
         }
-        // Give wall-walkers a chance to see if this grid is compatible with them
-        else if (!mons || !mons_wall_shielded(mons) || actor_at(p))
-            return false;
+
+        else if (mons && mons->type == MONS_WANDERING_MUSHROOM
+                 && monster_at(p)
+                 && monster_at(p)->type == MONS_TOADSTOOL)
+        {
+            return true;
+        }
+
+        return false;
     }
 
     if (mons)
@@ -438,9 +450,10 @@ bool monster_pathfind::traversable(const coord_def& p)
 // its preferred habit and capability of flight or opening doors.
 bool monster_pathfind::mons_traversable(const coord_def& p)
 {
-    return mons_can_traverse(mons, p) || mons->can_cling_to_walls()
-                                         && cell_is_clingable(pos)
-                                         && cell_can_cling_to(pos, p);
+    return mons_can_traverse(mons, p, traverse_in_sight)
+            || mons->can_cling_to_walls()
+               && cell_is_clingable(pos)
+               && cell_can_cling_to(pos, p);
 }
 
 int monster_pathfind::travel_cost(coord_def npos)

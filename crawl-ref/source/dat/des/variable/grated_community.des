@@ -7,16 +7,16 @@
 #
 # Digging, disintegration or teleportation is required to enter the vault.
 # A wand of disintegration and scroll of teleportation is guaranteed in the
-# home of a local deep dwarf to ensure random teleporters can escape. If
+# home of a local kobold to ensure random teleporters can escape. If
 # all else fails there is an escape hatch in the mall's washroom.
 
-default-depth:  D:18-26
+default-depth:  Depths, !Depths:$
 
 NAME:   grated_community_mu
 TAGS:   no_rotate no_monster_gen no_item_gen
 ORIENT: north
 MONS:   patrolling vault guard, patrolling wolf, patrolling centaur warrior
-MONS:   generate_awake slave, deep dwarf
+MONS:   generate_awake slave, kobold
   : if you.absdepth() < 23 then
 KMONS:  a = patrolling two-headed ogre
   : else
@@ -27,18 +27,18 @@ KMONS:  k = patrolling vampire mage / patrolling boggart
 KMONS:  d = orc warlord
   : if you.absdepth() < 23 then
 KMONS:  e = vampire / yaktaur /\
-            ettin / orc / wolf / draconian / iron troll /\
-            deep troll / cyclops / deep dwarf / centaur / warg / wizard
+            ettin / orc / wolf / gargoyle / iron troll /\
+            deep troll / cyclops / kobold / centaur / warg / wizard
 KMONS:  i = frost giant / fire giant
   : else
 KMONS:  e = vampire / yaktaur / w:5 frost giant / w:5 fire giant /\
-            ettin / orc / wolf / draconian / iron troll /\
-            deep troll / cyclops / deep dwarf / centaur / warg / wizard
+            ettin / orc / wolf / gargoyle / iron troll /\
+            deep troll / cyclops / kobold / centaur / warg / wizard
 KMONS:  i = titan
   : end
 KMONS:  P = plant
-KMONS:  h = generate_awake human / generate_awake elf / generate_awake gnome
-: dgn.delayed_decay(_G, 'h', 'elf chunk / q:2 human chunk / q:2 gnome chunk')
+KMONS:  h = generate_awake human / generate_awake elf / generate_awake kobold
+: dgn.delayed_decay(_G, 'h', 'elf chunk / q:2 human chunk / q:2 kobold chunk')
 KFEAT:  = = floor
 FTILE:  =E79 = floor_grass
 COLOUR: =E7 = green
@@ -57,7 +57,6 @@ SUBST:  9 = 8
 KFEAT:  8 = granite_statue
 KFEAT:  f = fountain_blue
 KFEAT:  j = fountain_sparkling
-KFEAT:  ^ = known blade trap
 KFEAT:  ~ = closed_door
 KFEAT:  7 = tree
 KFEAT:  A = general shop type:Slaves suffix:and_Accessories count:10 ; \
@@ -67,7 +66,8 @@ KFEAT:  B = food shop name:Stan type:Special suffix:Sausages count:10 ; \
             q:5 sausage
 KFEAT:  C = distillery shop type:Miraculous suffix:Elixirs count:10 \
             greed:50 ; potion of confusion
-: kfeat("D = armour shop name:The_Legendary_" .. crawl.make_name() .. " \
+: local smithy = string.gsub(crawl.make_name(), " ", "_")
+: kfeat("D = armour shop name:The_Legendary_" .. smithy .. " \
 :        type:Legendary suffix:Smithy count:10 greed:40 ;\
 :        damaged plate armour ego:none | damaged chain mail ego:none |\
 :        damaged long sword ego:none | damaged shield ego:none |\
@@ -93,10 +93,10 @@ cZ==========EE========EE========EE========...===============================EEZc
 cZ==========EE========EE========EE========...==============================EEEZc
 cZ==-------===QQQQQQQ===TTTTTTT===UUUUUUU=...=ccccccccccccccccccccccccccccccE=Zc
 cZ==-W+..'-===QQQQQQQ===TTTTTTT===UUUUUUU=...=ccccccccccccc$ccccccccccccc$cc==Zc
-cZ==---..--===QQQQQQQ===TTTTTTT===UUUUUUU=...=cc4c4c4c4cca.acW.Wc.^.^c.b.bcc==Zc
-cZ==-#-..P-===QQQQQQQ===TTTTTTT===UUUUUUU=...=ccgcgcgcgcc.A.cc>cc^h^.+..B.cc==Zc
-cZ==-5....-===QQQQQQQ===TTTTTTT===UUUUUUU=...=9c...eee..+.a.cW.Wch^h^c.b..cc==Zc
-cZ==-*....-===QQQQQQQ===TTTTTTT===UUUUUUU=...==n....e...cccccc+cc^h^.ccc+ccc==Zc
+cZ==---..--===QQQQQQQ===TTTTTTT===UUUUUUU=...=cc4c4c4c4cca.acW.Wc....c.b.bcc==Zc
+cZ==-#-..P-===QQQQQQQ===TTTTTTT===UUUUUUU=...=ccgcgcgcgcc.A.cc>cc.h..+..B.cc==Zc
+cZ==-5....-===QQQQQQQ===TTTTTTT===UUUUUUU=...=9c...eee..+.a.cW.Wch.h.c.b..cc==Zc
+cZ==-*....-===QQQQQQQ===TTTTTTT===UUUUUUU=...==n....e...cccccc+cc.h..ccc+ccc==Zc
 cZ==---n-+-===QQQQQQQ===TTTTTTT===UUUUUUU=.....~................ccnncc....cc==Zc
 cZ..........e.......Q.e.......T.e.......U......~.......eee.......e........cc==Zc
 cZ...=7=7=.efe.=7=7=.efe.=7=7=.ife.=7=7=.....==n.......eee.......ee.i...e.cc==Zc
@@ -166,10 +166,12 @@ FTILE:  123456cw#+%*.8$n~ = floor_grey_dirt
 KITEM:  % = animal skin / nothing
 MARKER: + = lua:restrict_door()
 KFEAT:  ~ = closed_door
-: dgn.delayed_decay(_G, '*', 'human skeleton / yak skeleton / elf skeleton /\
-:                            gnome skeleton / elephant skeleton /\
-:                            sheep skeleton / manticore skeleton /\
-:                            w:2 nothing, animal skin')
+SUBST: * = *:35 -:1
+KITEM: - = animal skin
+: dgn.delayed_decay_extra(_G, '*', 'human skeleton / yak skeleton /\
+:                            elf skeleton / kobold skeleton /\
+:                            elephant skeleton / sheep skeleton /\
+:                            manticore skeleton', 'animal skin')
 KFEAT:  8 = granite_statue / orcish_idol / w:5 altar_trog /\
             w:5 altar_beogh / w:1 altar_makhleb / w:4 floor
 KITEM:  $ = q:5 meat ration, giant spiked club, q:2 sausage
@@ -277,12 +279,12 @@ SUBST:   _ = _8
 SUBST:   2 = 2.
 SUBST:   3 = 3.
 NSUBST:  . = 5:% / *:.
-KITEM:   % = w:12 animal skin / race:orcish hammer / race:orcish hand axe /\
+KITEM:   % = w:12 animal skin / hammer / hand axe /\
              sausage / slice of pizza / nothing
 KFEAT:   8 = orcish_idol / w:5 floor
 KFEAT:   _ = altar_beogh / w:15 floor
-KITEM:   $ = race:orcish battleaxe / nothing, race:orcish plate armour /\
-             nothing, meat ration, q:2 sausage / nothing, gold, any, any
+KITEM:   $ = battleaxe / nothing, plate armour / nothing, \
+             meat ration, q:2 sausage / nothing, gold, any, any
 MARKER:  # = lua:fog_machine { cloud_type = "flame", \
                  pow_min = 10, pow_max = 10, delay = 10, \
                  size = 1, walk_dist = 0, start_clouds = 1, excl_rad = 0 }
@@ -306,7 +308,7 @@ NAME: grated_community_mu_troll_home
 TAGS: grated_community_mu_home grated_community_mu_home5 unrand
 MONS: patrolling iron troll / patrolling deep troll
 FTILE:   1.c~+#$%& = floor_dirt
-: dgn.delayed_decay(_G, '%', 'w:20 any skeleton / w:5 any chunk, any / nothing')
+: dgn.delayed_decay_extra(_G, '%', 'w:20 any skeleton / w:5 any chunk', 'any / nothing')
 KITEM:   $ = animal skin
 NSUBST:  . = 7:% / 2:$ / *:.
 KFEAT:   ~ = floor
@@ -331,16 +333,14 @@ ENDMAP
 ####  taur, entrace w/feature, shooting range, closets
 NAME: grated_community_mu_taur_home
 TAGS: grated_community_mu_home grated_community_mu_home6 unrand
-FTILE:  123.c'+%$W8n~ = floor_grass_dirt_mix
+FTILE:  12.c'+%$W8n~ = floor_grass_dirt_mix
 : if crawl.coinflip() then
 MONS:   patrolling centaur warrior, plant
-KITEM:  3 = q:5 arrow
 KITEM:  ' = q:1 arrow
 KITEM:  $ = centaur barding / nothing, q:30 arrow /\
             q:30 arrow ego:flame, any good_item
 : else
 MONS:   patrolling yaktaur captain, plant
-KITEM:  3 = q:5 bolt
 KITEM:  ' = q:1 bolt
 KITEM:  $ = centaur barding / nothing, q:30 bolt /\
             q:30 bolt ego:flame, any good_item
@@ -348,7 +348,6 @@ KITEM:  $ = centaur barding / nothing, q:30 bolt /\
 SHUFFLE: %$
 SUBST:  % = %W
 KITEM:  % = q:2 meat ration
-KMONS:  3 = generate_awake training dummy
 SUBST:  8 = 82
 KFEAT:  8 = granite_statue / floor
 MARKER: + = lua:restrict_door()
@@ -357,7 +356,7 @@ KFEAT:  = = floor
 TILE:   c = wall_brick_vines
 MAP
 ccccccc
-c3''..c
+c'''..c
 ccccc+c
 c%+.1.c
 ccc.8.c

@@ -39,7 +39,7 @@ function interest_check(e)
 end
 }}
 
-default-depth: D
+default-depth: D, Depths
 
 ##############################################################################
 # I    Temples (Multi-altar vaults, containing two or more C)
@@ -48,7 +48,7 @@ default-depth: D
 NAME:    jmf_multi_god_temple
 SHUFFLE: abc
 SUBST:   a:+, b:x, c:x
-DEPTH:   D:8-21, Vaults
+DEPTH:   D:8-, Vaults
 MAP
 ............
 .axxxxxxxxa.
@@ -65,7 +65,7 @@ MAP
 ENDMAP
 
 NAME:  jmf_multi_god_temple2
-DEPTH: D:8-21, Vaults
+DEPTH: D:8-, Vaults
 MAP
 ............
 ..vvvvvvvv..
@@ -103,7 +103,7 @@ MAP
 ENDMAP
 
 NAME:   lemuel_altar_in_water
-DEPTH:  D:2-18, Swamp, Shoals
+DEPTH:  D:2-, Swamp, Shoals
 WEIGHT: 9
 : local brnd = crawl.random2(13)
 : if brnd > 10 then
@@ -130,7 +130,7 @@ ENDMAP
 
 NAME:   lemuel_altar_in_water2
 TAGS:   no_pool_fixup no_monster_gen
-DEPTH:  D:2-18, Lair, Snake, Swamp, Shoals
+DEPTH:  D:2-, Lair, Snake, Swamp, Shoals
 WEIGHT: 1
 : interest_check(_G)
 MAP
@@ -144,7 +144,7 @@ MAP
 ENDMAP
 
 NAME:  lemuel_oklob_altar
-DEPTH: D:6-18, Lair, Snake, Shoals
+DEPTH: D:6-, Lair, Snake, Shoals
 MONS:  oklob plant, plant
 MAP
  2
@@ -154,7 +154,7 @@ ENDMAP
 
 NAME:  lemuel_tele_altar
 TAGS:  transparent mini_float decor
-DEPTH: D:2-18, Vaults
+DEPTH: D:2-, Vaults
 SUBST: Y = X x
 KFEAT: X = known teleport trap
 MAP
@@ -173,7 +173,7 @@ ENDMAP
 
 NAME:  lemuel_statue_altar
 TAGS:  transparent decor
-DEPTH: 2-18, Vaults, Elf
+DEPTH: D:2-, Orc, Depths, Vaults, Elf, Crypt, Forest
 : if you.absdepth() < 10 then
 SUBST: F = G
 : end
@@ -189,7 +189,7 @@ MAP
 ENDMAP
 
 NAME:   lemuel_upstairs_altar
-DEPTH:  D:2-12, Vaults, Elf, Crypt
+DEPTH:  D:2-, Vaults, Elf, Crypt
 ORIENT: float
 SUBST:  T:T., )=)}], c:ccx
 KMASK:  T = no_monster_gen
@@ -238,7 +238,7 @@ xxx...@..xxxx
 ENDMAP
 
 NAME:  lemuel_angel_altar
-DEPTH: D:3-18, Vaults
+DEPTH: D:3-, Vaults
 TAGS:  no_trap_gen
 : if you.absdepth() > 12 then
 MONS: patrolling Daeva / patrolling Angel
@@ -276,11 +276,11 @@ ENDMAP
 #       access the altar early.
 #
 NAME:  lemuel_hellish_altar
-DEPTH: D:8-21, Crypt, Geh
+DEPTH: D:8-, Crypt, Geh
 TAGS:  no_monster_gen mini_float
 MONS:  iron devil/orange demon
-MONS:  hell beast/rotting devil
-MONS:  lemure/iron imp
+MONS:  hell beast/red devil
+MONS:  iron imp
 MONS:  hellion
 SUBST: 2 = 23
 SUBST: 2 = 12
@@ -312,7 +312,7 @@ ENDMAP
 # Note: This altar is too deep to be of use as a Xom overflow altar.
 #
 NAME:       due_chaos_kobolds
-DEPTH:      D:13-, Vaults, Elf, Crypt
+DEPTH:      Depths, Vaults, Elf, Crypt
 TAGS:       no_rotate
 ORIENT:     float
 SUBST:      y  = c.
@@ -324,8 +324,8 @@ MARKER:     P  = lua:fog_machine { cloud_type="blue smoke", walk_dist=1, \
 KFEAT:      _ = altar_lugonu
 KFEAT:      P = enter_abyss
 : kmons("1 = kobold w:" .. you.absdepth() .. " ; quick blade ego:distortion " ..
-:       "w:6 | sabre ego:distortion | short sword ego:distortion / kobold "   ..
-:       "w:80 ; short sword | sabre | quick blade w:3")
+:       "w:6 | cutlass ego:distortion | short sword ego:distortion / kobold "   ..
+:       "w:80 ; short sword | cutlass | quick blade w:3")
 : else
 KFEAT:      _ = altar_xom
 :   if crawl.one_chance_in(4) then
@@ -334,8 +334,8 @@ KMONS:      P = orange crystal statue
 KFEAT:      P = enter_abyss / fountain_sparkling / stone_arch
 :   end
 : kmons("1 = kobold w:" .. you.absdepth() .. " ; quick blade ego:chaos " ..
-:       "w:6 | sabre ego:chaos | short sword ego:chaos / kobold w:80 ;"  ..
-:       "short sword | sabre | quick blade w:3")
+:       "w:6 | cutlass ego:chaos | short sword ego:chaos / kobold w:80 ;"  ..
+:       "short sword | cutlass | quick blade w:3")
 : end
 MAP
   ccccc
@@ -373,13 +373,13 @@ ENDMAP
 ### Altars to Jiyva ##########################################################
 
 NAME:   jiyva_altar_1
-DEPTH:  D:2-20
+DEPTH:  D:2-
 KFEAT:  _ = altar_jiyva
-: if you.depth() < 5 then
+: if you.depth() < 3 then
 SUBST:  1 = 2
-: elseif you.depth() < 7 then
+: elseif you.depth() < 6 then
 NSUBST: 1 = 1:1 / *:2
-: elseif you.depth() < 10 then
+: elseif you.depth() < 9 then
 NSUBST: 1 = 2:1 / *:2
 : elseif you.depth() < 13 then
 NSUBST: 1 = 3:1 / *:2
@@ -391,18 +391,4 @@ MAP
 .1_1.
 ..1..
 .....
-ENDMAP
-
-NAME:  jiyva_altar_2
-DEPTH: D:2-20
-KFEAT: _ = altar_jiyva
-KITEM: 1 = dart
-KMONS: 1 = jelly
-ITEM:  dart
-MAP
-xxxxx
-xdddx
-x<_1x
-xdddx
-xxxxx
 ENDMAP

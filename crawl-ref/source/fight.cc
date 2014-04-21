@@ -12,16 +12,20 @@
 #include <stdio.h>
 #include <algorithm>
 
+#include "art-enum.h"
 #include "cloud.h"
 #include "coordit.h"
 #include "delay.h"
 #include "env.h"
 #include "fineff.h"
+#include "fprop.h"
+#include "godabil.h"
 #include "hints.h"
 #include "invent.h"
 #include "itemprop.h"
 #include "melee_attack.h"
 #include "mgen_data.h"
+#include "misc.h"
 #include "mon-behv.h"
 #include "mon-cast.h"
 #include "mon-place.h"
@@ -29,13 +33,16 @@
 #include "ouch.h"
 #include "player.h"
 #include "random-var.h"
+#include "religion.h"
 #include "shopping.h"
 #include "spl-miscast.h"
 #include "spl-summoning.h"
 #include "state.h"
 #include "stuff.h"
+#include "target.h"
 #include "terrain.h"
 #include "travel.h"
+#include "traps.h"
 
 /* Handles melee combat between attacker and defender
  *
@@ -46,6 +53,7 @@
  */
 bool fight_melee(actor *attacker, actor *defender, bool *did_hit, bool simu)
 {
+    const int orig_hp = defender->stat_hp();
     if (defender->is_player())
     {
         ASSERT(!crawl_state.game_is_arena());
@@ -112,6 +120,9 @@ bool fight_melee(actor *attacker, actor *defender, bool *did_hit, bool simu)
         if (!simu && you.props.exists("spectral_weapon"))
             trigger_spectral_weapon(&you, defender);
 
+        if (!simu && you_worship(GOD_DITHMENOS))
+            dithmenos_shadow_melee(defender);
+
         return true;
     }
 
@@ -120,11 +131,16 @@ bool fight_melee(actor *attacker, actor *defender, bool *did_hit, bool simu)
     // about unpredictable or weird results from players.
 
     // If this is a spectral weapon check if it can attack
-    if (attacker->as_monster()->type == MONS_SPECTRAL_WEAPON
+    if (attacker->type == MONS_SPECTRAL_WEAPON
         && !confirm_attack_spectral_weapon(attacker->as_monster(), defender))
     {
         // Pretend an attack happened,
         // so the weapon doesn't advance unecessarily.
+        return true;
+    }
+    else if (attacker->type == MONS_GRAND_AVATAR
+             && !grand_avatar_check_melee(attacker->as_monster(), defender))
+    {
         return true;
     }
 
@@ -149,7 +165,7 @@ bool fight_melee(actor *attacker, actor *defender, bool *did_hit, bool simu)
             || defender->is_banished())
         {
             if (attacker == defender
-               || !attacker->as_monster()->has_multitargetting())
+               || !attacker->as_monster()->has_multitargeting())
             {
                 break;
             }
@@ -203,19 +219,207 @@ bool fight_melee(actor *attacker, actor *defender, bool *did_hit, bool simu)
     // A spectral weapon attacks whenever the player does
     if (!simu && attacker->props.exists("spectral_weapon"))
         trigger_spectral_weapon(attacker, defender);
+    else if (!simu
+             && attacker->is_monster()
+             && attacker->as_monster()->has_ench(ENCH_GRAND_AVATAR))
+    {
+        trigger_grand_avatar(attacker->as_monster(), defender, SPELL_MELEE,
+                             orig_hp);
+    }
 
     return true;
 }
 
-unchivalric_attack_type is_unchivalric_attack(const actor *attacker,
-                                              const actor *defender)
+// Handles jump attack between attacker and defender.  We need attack_pos since
+// defender may not exist.
+bool fight_jump(actor *attacker, actor *defender, coord_def attack_pos,
+                coord_def landing_pos, set<coord_def> landing_sites,
+                bool jump_blocked, bool *did_hit)
+{
+    set<coord_def>::const_iterator site;
+
+    ASSERT(!crawl_state.game_is_arena());
+
+    melee_attack first_attk(attacker, defender, -1, -1, false, true,
+                            jump_blocked, landing_pos);
+
+    // Do player warnings based on possible landing sites.
+    if (attacker->is_player())
+    {
+        bool conduct_prompted, zot_trap_prompted, trap_prompted,
+            exclusion_prompted, cloud_prompted, terrain_prompted;
+        bool check_landing_only = false;
+        string prompt;
+        item_def *weapon = attacker->weapon(-1);
+
+        conduct_prompted = zot_trap_prompted = trap_prompted
+            = exclusion_prompted = cloud_prompted = terrain_prompted = false;
+
+        // Can't damage orbs this way.
+        if (defender && mons_is_projectile(defender->type) && !you.confused())
+        {
+            you.turn_is_over = false;
+            return false;
+        }
+
+        // Check if the player is fighting with something unsuitable,
+        // or someone unsuitable.
+        if (defender && you.can_see(defender)
+            && !wielded_weapon_check(first_attk.weapon))
+        {
+            you.turn_is_over = false;
+            return false;
+        }
+        else if (!defender || !you.can_see(defender))
+        {
+            prompt = "Really jump-attack where there is no visible monster?";
+            if (!yesno(prompt.c_str(), true, 'n'))
+            {
+                canned_msg(MSG_OK);
+                you.turn_is_over = false;
+                return false;
+            }
+        }
+
+        for (site = landing_sites.begin(); site != landing_sites.end(); site++)
+        {
+            // If we have no defender or have one we can't see and are attacking
+            // from within or at a sanctuary position , prompt.
+            if (!conduct_prompted && (!defender || !you.can_see(defender)))
+            {
+                prompt = "";
+                if (is_sanctuary(attack_pos))
+                    prompt = "Really jump-attack in your sanctuary?";
+                else if (is_sanctuary(*site))
+                    prompt = "Really jump-attack when you might land in your "
+                        "sanctuary?";
+                if (prompt != "")
+                {
+                    if (yesno(prompt.c_str(), true, 'n'))
+                        conduct_prompted = true;
+                    else
+                    {
+                        canned_msg(MSG_OK);
+                        you.turn_is_over = false;
+                        return false;
+                    }
+                }
+            }
+            // If we have a defender that we can see, check the attack on the
+            // defender in general for conduct and check the landing site for
+            // sanctuary; on subsequent sites check only the landing site for a
+            // sanctuary if necessary.
+            if (defender && !conduct_prompted)
+            {
+                if (stop_attack_prompt(defender->as_monster(), false, *site,
+                                       false, &conduct_prompted, *site,
+                                       check_landing_only))
+                {
+                    you.turn_is_over = false;
+                    return false;
+                }
+            }
+
+            // On the first landing site, check the hit function for Devastator.
+            if (!check_landing_only && !conduct_prompted
+                && weapon && is_unrandom_artefact(*weapon)
+                && weapon->special == UNRAND_DEVASTATOR)
+            {
+                const char* verb = "jump-attack";
+                string junk1, junk2;
+                bool junk3 = false;
+                if (defender)
+                {
+                    verb = (bad_attack(defender->as_monster(),
+                                       junk1, junk2, junk3)
+                            ? "jump-attack" : "jump-attack near");
+                }
+
+                targetter_smite hitfunc(attacker, 1, 1, 1, false);
+                hitfunc.set_aim(attack_pos);
+                hitfunc.origin = *site;
+
+                if (stop_attack_prompt(hitfunc, verb, nullptr,
+                                       &conduct_prompted))
+                {
+                    you.turn_is_over = false;
+                    return false;
+                }
+            }
+
+            // Check landing in dangerous clouds.
+            if (!cloud_prompted
+                && !check_moveto_cloud(*site, "jump-attack", &cloud_prompted))
+            {
+                you.turn_is_over = false;
+                return false;
+            }
+
+            //  Check landing on traps, continuing to check for zot traps even
+            //  if we've prompted about other kinds of traps.
+            if (!zot_trap_prompted)
+            {
+                trap_def* trap = find_trap(*site);
+                if (trap && env.grid(*site) != DNGN_UNDISCOVERED_TRAP
+                    && trap->type == TRAP_ZOT)
+                {
+                    if (!check_moveto_trap(*site, "jump-attack",
+                                           &trap_prompted))
+                    {
+                        you.turn_is_over = false;
+                        return false;
+                    }
+                    zot_trap_prompted = true;
+                }
+                else if (!trap_prompted
+                         && !check_moveto_trap(*site, "jump-attack",
+                                               &trap_prompted))
+                {
+                    you.turn_is_over = false;
+                    return false;
+                }
+            }
+
+            // Check landing in exclusions
+            if (!exclusion_prompted
+                && !check_moveto_exclusion(*site, "jump-attack",
+                                           &exclusion_prompted))
+            {
+                you.turn_is_over = false;
+                return false;
+            }
+
+            // Check landing over dangerous terrain while flying or transformed
+            // with expiring status.
+            if (!terrain_prompted
+                && !check_moveto_terrain(*site, "jump-attack", "",
+                                         &terrain_prompted))
+            {
+                you.turn_is_over = false;
+                return false;
+            }
+            check_landing_only = true;
+        }
+    }
+    if (!first_attk.attack() && first_attk.cancel_attack)
+    {
+        you.turn_is_over = false;
+        return false;
+    }
+    if (did_hit)
+        *did_hit = first_attk.did_hit;
+    return true;
+}
+
+stab_type find_stab_type(const actor *attacker,
+                         const actor *defender)
 {
     const monster* def = defender->as_monster();
-    unchivalric_attack_type unchivalric = UCAT_NO_ATTACK;
+    stab_type unchivalric = STAB_NO_STAB;
 
-    // No unchivalric attacks on monsters that cannot fight (e.g.
-    // plants) or monsters the attacker can't see (either due to
-    // invisibility or being behind opaque clouds).
+    // No stabbing monsters that cannot fight (e.g.  plants) or monsters
+    // the attacker can't see (either due to invisibility or being behind
+    // opaque clouds).
     if (defender->cannot_fight() || (attacker && !attacker->can_see(defender)))
         return unchivalric;
 
@@ -223,44 +427,44 @@ unchivalric_attack_type is_unchivalric_attack(const actor *attacker,
     if (attacker && attacker->is_player()
         && def && def->foe != MHITYOU && !mons_is_batty(def))
     {
-        unchivalric = UCAT_DISTRACTED;
+        unchivalric = STAB_DISTRACTED;
     }
 
     // confused (but not perma-confused)
     if (def && mons_is_confused(def, false))
-        unchivalric = UCAT_CONFUSED;
+        unchivalric = STAB_CONFUSED;
 
     // allies
     if (def && def->friendly())
-        unchivalric = UCAT_ALLY;
+        unchivalric = STAB_ALLY;
 
     // fleeing
     if (def && mons_is_fleeing(def))
-        unchivalric = UCAT_FLEEING;
+        unchivalric = STAB_FLEEING;
 
     // invisible
     if (attacker && !attacker->visible_to(defender))
-        unchivalric = UCAT_INVISIBLE;
+        unchivalric = STAB_INVISIBLE;
 
     // held in a net
     if (def && def->caught())
-        unchivalric = UCAT_HELD_IN_NET;
+        unchivalric = STAB_HELD_IN_NET;
 
     // petrifying
     if (def && def->petrifying())
-        unchivalric = UCAT_PETRIFYING;
+        unchivalric = STAB_PETRIFYING;
 
     // petrified
     if (defender->petrified())
-        unchivalric = UCAT_PETRIFIED;
+        unchivalric = STAB_PETRIFIED;
 
     // paralysed
     if (defender->paralysed())
-        unchivalric = UCAT_PARALYSED;
+        unchivalric = STAB_PARALYSED;
 
     // sleeping
     if (defender->asleep())
-        unchivalric = UCAT_SLEEPING;
+        unchivalric = STAB_SLEEPING;
 
     return unchivalric;
 }
@@ -409,11 +613,13 @@ bool wielded_weapon_check(item_def *weapon, bool no_message)
     return true;
 }
 
-static bool _cleave_dont_harm(const actor* attacker, const actor* defender)
+// Used by cleave and jump attack to determine if multi-hit targets will be
+// attacked.
+static bool _dont_harm(const actor* attacker, const actor* defender)
 {
-    return (mons_aligned(attacker, defender)
-            || attacker == &you && defender->wont_attack()
-            || defender == &you && attacker->wont_attack());
+    return mons_aligned(attacker, defender)
+           || attacker == &you && defender->wont_attack()
+           || defender == &you && attacker->wont_attack();
 }
 // Put the potential cleave targets into a list. Up to 3, taken in order by
 // rotating from the def position and stopping at the first solid feature.
@@ -431,11 +637,11 @@ void get_cleave_targets(const actor* attacker, const coord_def& def, int dir,
     for (int i = 0; i < 3; ++i)
     {
         atk_vector = rotate_adjacent(atk_vector, dir);
-        if (feat_is_solid(grd(atk + atk_vector)))
+        if (cell_is_solid(atk + atk_vector))
             break;
 
         actor * target = actor_at(atk + atk_vector);
-        if (target && !_cleave_dont_harm(attacker, target))
+        if (target && !_dont_harm(attacker, target))
             targets.push_back(target);
     }
 }
@@ -443,7 +649,7 @@ void get_cleave_targets(const actor* attacker, const coord_def& def, int dir,
 void get_all_cleave_targets(const actor* attacker, const coord_def& def,
                             list<actor*> &targets)
 {
-    if (feat_is_solid(grd(def)))
+    if (cell_is_solid(def))
         return;
 
     int dir = coinflip() ? -1 : 1;
@@ -461,7 +667,7 @@ void attack_cleave_targets(actor* attacker, list<actor*> &targets,
     {
         actor* def = targets.front();
         if (attacker->alive() && def && def->alive()
-            && !_cleave_dont_harm(attacker, def))
+            && !_dont_harm(attacker, def))
         {
             melee_attack attck(attacker, def, attack_number,
                                ++effective_attack_number, true);
@@ -469,6 +675,33 @@ void attack_cleave_targets(actor* attacker, list<actor*> &targets,
         }
         targets.pop_front();
     }
+}
+
+int weapon_min_delay(const item_def &weapon)
+{
+    if (is_range_weapon(weapon))
+        return range_skill(weapon) == SK_BOWS ? 6 : 7;
+
+    const int base = property(weapon, PWPN_SPEED);
+    int min_delay = base/2;
+
+    // Short blades can get up to at least unarmed speed.
+    if (weapon_skill(weapon) == SK_SHORT_BLADES && min_delay > 5)
+        min_delay = 5;
+
+    // All weapons have min delay 7 or better
+    if (min_delay > 7)
+        min_delay = 7;
+
+    // ... unless it would take more than skill 27 to get there (dark maul).
+    // Round up the reduction from skill, so that min delay is rounded down.
+    min_delay = max(min_delay, base - (MAX_SKILL_LEVEL + 1)/2);
+
+    // never go faster than speed 3 (ie 3.33 attacks per round)
+    if (min_delay < 3)
+        min_delay = 3;
+
+    return min_delay;
 }
 
 int finesse_adjust_delay(int delay)

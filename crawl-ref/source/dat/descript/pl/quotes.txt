@@ -6,6 +6,16 @@ A gateway to Hell
 „Porzućcie wszelką nadzieję, wy, którzy tu wchodzicie”
     -Dante Alighieri, „Boska Komedia”, „Piekło”, pieśń III, około 1315.
 %%%%
+Killer Klown
+
+„Cały świat kocha klauna.”
+    -Cole Porter, „Być Klaunem”. 1948.
+%%%%
+Murray
+
+„Spójrz za siebie! Trzygłowa małpa!”
+    -Guybrush Threepwood, _Tajemnica Wyspy Małp_
+%%%%
 Temple
 
 „W mieście, którego nazwiska nie powiem,
@@ -16,7 +26,12 @@ Temple
  Stare zamczysko, pustoty ohyda)
  Były trzy karczmy, bram cztery ułomki,
  Klasztorów dziewięć i gdzieniegdzie domki.”
-    -Ignacy Krasicki, “Monachomachia”, 1778
+    -Ignacy Krasicki, „Monachomachia”, 1778
+%%%%
+amulet of the gourmand
+
+„Widok biesiadnika wzmógł apetyt Łakomczuchy.”
+    -„Kajko i Kokosz: Rozprawa z Dajmiechem”, Janusz Christa
 %%%%
 buckler
 
@@ -36,8 +51,13 @@ butterfly
  myśli spokojne ponad wodami pochyl miłością.”
     -Konstanty Ildefons Gałczyński, „Prośba o wyspy szczęśliwe”
 
-“Rzekła lilia do motyla: – nikt nie patrzy, niech pan zapyla!”
+„Rzekła lilia do motyla: – nikt nie patrzy, niech pan zapyla!”
     -Jan Sztaudynger
+%%%%
+dark maul
+
+„Ten kaliber będzie odpowiedni.”
+    -„Kajko i Kokosz: Rozprawa z Dajmiechem”, Janusz Christa
 %%%%
 horn of Geryon
 

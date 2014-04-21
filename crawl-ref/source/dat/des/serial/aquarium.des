@@ -10,12 +10,12 @@
 #  branch.  The contents are as follows:
 #   -> D:1-3   grass, bushes, butterfly
 #   -> D:4-6   some shallow water, fungus, bat
-#   -> D:7-9   deep water, giant goldfish, big fish, jellyfish
-#   -> D:10-12 deep water, giant goldfish, big fish, jellyfish
+#   -> D:7-9   deep water, giant goldfish, big fish
+#   -> D:10-12 deep water, giant goldfish, big fish
 #   -> D:13-15 deep water, electric eel, shark, sea snake, snapping turtle
 #   -> D:16-18 ice, polar bear, yak, death yak, wolf
 #   -> D:19-21 ice, ice beast, simulacrum, freezing clouds
-#   -> D:22-24 lava, fire vortex, lava fish, lava snake, salamander
+#   -> D:22-24 lava, fire vortex, lava snake, salamander
 #   -> D:25-27 lava, fire vortex, fire bat, lava worm, fire elemental
 #   -> Elf     deep water, insubstantial wisp, water elemental, air elemental, diamond ob
 #
@@ -119,7 +119,7 @@ function init_aquarium(e)
     e.kfeat('w = w')
     e.kmons('w = w:' .. nothing_weight .. [[ nothing /
                  w:6  generate_awake giant goldfish /
-                 w:6  generate_awake jellyfish /
+                 w:6  generate_awake big fish /
                  w:3  generate_awake electric eel]] )
   elseif you.absdepth() <= 12 then
     e.kfeat('w = w')
@@ -156,7 +156,7 @@ function init_aquarium(e)
                  w:1  generate_awake wolf simulacrum /
                  w:1  generate_awake polar bear simulacrum /
                  w:1  generate_awake boulder beetle simulacrum /
-                 w:1  generate_awake dragon simulacrum /
+                 w:1  generate_awake fire dragon simulacrum /
                  w:1  generate_awake hydra simulacrum]] )
     e.ftile('! = floor_frozen')
     e.lua_marker("!", fog_machine { walk_dist = 8,
@@ -173,8 +173,7 @@ function init_aquarium(e)
     e.kmons('l = w:' .. nothing_weight .. [[ nothing /
                  w:20 generate_awake fire vortex /
                  w:8  generate_awake fire bat /
-                 w:5  generate_awake lava fish /
-                 w:3  generate_awake lava snake]] )
+                 w:5  generate_awake lava snake]] )
   else
     e.subst('w = l:25 !:1')
     e.kfeat('l = l')
@@ -264,7 +263,7 @@ end
 NAME:    serial_aquarium
 TAGS:    allow_dup extra luniq_serial decor
 TAGS:    layout_rooms layout_misc
-DEPTH:   D, Elf
+DEPTH:   D, Depths, Elf
 CHANCE:  1%
 {{
   if crawl.random2(6) < 2 then
@@ -1349,7 +1348,7 @@ ENDMAP
 
 NAME:    aquarium_pool_1
 WEIGHT:  10
-TAGS:    serial_aquarium_pool minifloat
+TAGS:    serial_aquarium_pool mini_float
 NSUBST:  ! = 1:@ / *:!
 SUBST:   ! = @....
 : init_aquarium(_G)
@@ -1365,7 +1364,7 @@ ENDMAP
 
 NAME:    aquarium_pool_2
 WEIGHT:  20
-TAGS:    serial_aquarium_pool minifloat
+TAGS:    serial_aquarium_pool mini_float
 NSUBST:  ! = 1:@ / *:!
 SUBST:   ! = @....
 : init_aquarium(_G)
@@ -1417,7 +1416,7 @@ xxwwm..x
 xcmmc..x
 xx.....!
 xx.....x
-xx!Xx!xx
+xx!xx!xx
 ENDMAP
 
 NAME:    aquarium_pool_double

@@ -3,7 +3,6 @@
  * @brief Functions with decks of cards.
 **/
 
-
 #ifndef DECKS_H
 #define DECKS_H
 
@@ -42,10 +41,11 @@ enum deck_type
 
 enum card_flags_type
 {
-    CFLAG_ODDITY = (1 << 0),
-    CFLAG_SEEN   = (1 << 1),
-    CFLAG_MARKED = (1 << 2),
-    CFLAG_DEALT  = (1 << 4),
+    CFLAG_ODDITY     = (1 << 0),
+    CFLAG_SEEN       = (1 << 1),
+    CFLAG_MARKED     = (1 << 2),
+    CFLAG_PUNISHMENT = (1 << 3),
+    CFLAG_DEALT      = (1 << 4),
 };
 
 enum card_type
@@ -105,7 +105,9 @@ enum card_type
     CARD_STAIRS,                // moves stairs around
 
     CARD_GENIE,                 // acquirement OR rotting/deterioration
+#if TAG_MAJOR_VERSION == 34
     CARD_BARGAIN,               // shopping discount
+#endif
     CARD_WRATH,                 // Godly wrath
     CARD_WRAITH,                // drain XP
     CARD_XOM,
@@ -118,10 +120,13 @@ enum card_type
 };
 
 const char* card_name(card_type card);
+card_type name_to_card(string name);
+const string deck_contents(uint8_t deck_type);
 void evoke_deck(item_def& deck);
 bool deck_triple_draw();
 bool deck_peek();
 bool deck_deal();
+string which_decks(card_type card);
 bool deck_stack();
 bool choose_deck_and_draw();
 void nemelex_shuffle_decks();

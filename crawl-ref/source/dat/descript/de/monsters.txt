@@ -13,10 +13,6 @@ __cap-T_suffix
 
 Du spürst einen Klumpen im inneren deines Magens.
 %%%%
-__cap-U_suffix
-
-Wenn man ihm Angst macht wird es zornig.
-%%%%
 Aizul
 
 Einst der wichtigste Schlangen-Wächter eines legendären Schatzhortes fiel er in
@@ -24,25 +20,6 @@ Ungnade nachdem Diebe ihn plünderten während er schlief. Nun kriecht er im
 Verlies herum und sucht Rache an allen möchtegern Plünderern. Er ist ein
 versierter Hexer, jedoch nicht weniger tödlich im Nahkampf als andere seiner
 Art.
-%%%%
-Antaeus
-
-Einmal ein mächtiger und berühmter Koloss, seine Arroganz war sein Aufmachen.
-Jetzt ist er korrupt und, ein mächtiger Dämon wer Herren über die eingefrorene
-Verschwendung von Cocytus verdorben. Sein riesiger Körper scheint, als ob er
-durch Ihre Angriffe leicht geschlagen würde; leider scheint es auch, als ob es
-unversehrt durch alle außer dem stärksten von ihnen bleiben würde.
-%%%%
-Arachne
-
-Einmal der beste menschliche Weber, Arachne wurde verflucht, indem er in ihre
-gegenwärtige Form umgestaltet worden ist: Halbmensch, Halbspinne. Nicht mehr
-Altern, sie hat die Jugend und Schönheit einer menschlichen Frau, zusammen mit
-den Beinen und dem Abdomen einer monströsen riesigen Spinne.
-
-Tausende von Jahren, sie hat Magie und ziemlich viele andere Tricks erfahren.
-Nehmen Sie an, durch das Web und die Magie während ihre Lieblingsauswahl
-berückt zu werden und dann Sie trocken zu trinken.
 %%%%
 Asmodeus
 
@@ -55,9 +32,9 @@ Ein mächtiger, angriffslustiger Efreet. (Gibt es noch eine andere Art?)
 %%%%
 Boris
 
-Ein alter und starker Leiche. Wie der ganze wahre Leiche ist Boris unsterblich,
-und wird sich regenerieren sein ausgetrockneter Skelett-bleibt selbst wenn
-völlig aufgelöst.
+Ein alter und starker Lich. Wie alle wahren Liche ist Boris unsterblich, und
+wird seine ausgetrockneten Knochenreste regenerieren, selbst wenn diese völlig
+aufgelöst werden.
 %%%%
 Cerebov
 
@@ -67,9 +44,9 @@ gedrehten Schwertes bedeckt ist.
 %%%%
 Chuck
 
-Chuck der Steinriese liebt Felsen, das größere besser! Im Laufe der Jahre hat
-er geschafft, ganz die Sammlung einschließlich einiger seltener, verzauberter
-anzuhäufen.
+Chuck der Steinriese liebt Felsen, je größer desto besser! Im Laufe der Jahre
+hat er es geschafft eine ganze Sammlung einschließlich einiger seltener,
+verzauberter Steine anzuhäufen.
 %%%%
 Crazy Yiuf
 
@@ -119,26 +96,45 @@ Ein einfach aussehender Elfen Kämpfer, der in vielen Formen des Kampfs
 technisch hervorragend, aber wegen seiner übertrieben selbstbewusst ist. Sie
 wird durch die magischen Sachkenntnisse ihres Zwillingsbruders, Dowans ergänzt.
 %%%%
+Edmund
+
+Ein eifersüchtiger Bruder von Sigmund (gewiss, der Jüngste von neun Brüdern).
+Er hat nicht die magischen Fähigkeiten von Sigmund, aber macht dies wett durch
+seine Kampffähigkeiten und Gerissenheit. Er ist bedacht darauf seine
+Überlegenheit zu demonstrieren, indem er unglückselige Abenteurer mit seinem
+wertvollen Flegel und seiner guten Auffassungsgabe tötet.
+%%%%
 Ereshkigal
 
 Ein furchterregender Erzfeind welcher die tödliche Unterwelt von Tartarus
 beherrscht.
 %%%%
-Erica
-
-ein hübscher Spruchweber.
-%%%%
 Erolcha
 
 Ein besonders listiger Oger-Magier.
 %%%%
+Eustachio
+
+Ein angehender Beschwörer mit einem wallenden Schnauzbart. Er hat seltsame
+Ansichten zu Ehre.
+%%%%
+Frederick
+
+Ein anmütiger Kampfmagier, der ein golden eingefasstes Monokel trägt und einen
+würdigen Gegner sucht. Du wirst ihm wahrscheinlich nicht gerecht werden.
+%%%%
+Gloorx Vloq
+
+Eine schattenhafte Gestalt umgeben von abgrundtiefer Dunkelheit.
+%%%%
+Grum
+
+Ein grob aussehender Gnoll, der das Fell eines seiner ehemaligen Kriegshunde
+trägt.
+%%%%
 Joseph
 
 Sieht aus wie ein Söldner.
-%%%%
-Kirke
-
-Eine wunderschöne Zauberin.
 %%%%
 Lom Lobon
 
@@ -167,9 +163,27 @@ Ein ungewöhnlich dünner Troll.
 
 Du spürst einen Klumpen im inneren deines Magens.
 %%%%
+Rupert
+
+Ein Mann mit sehr schlechten Manieren, dessen Rülpser selbst Oger neidisch
+machen können.
+%%%%
+Saint Roka
+
+Ein mächtiger Kriegsherr. Einige Orks sagen sogar, dass er der Auserwählte von
+Beogh ist.
+%%%%
 Xtahua
 
 Ein uralter und mächtiger Drache.
+%%%%
+balrug
+
+Ein riesiger und sehr mächtiger Dämon, der umgeben ist von Feuer und Schatten.
+%%%%
+big fish
+
+Ein kräftiger Fisch mit einem großen zahnigen Maul.
 %%%%
 blizzard demon
 
@@ -195,8 +209,8 @@ deep troll
 Ein alters gebeugter Troll mit dunkler Haut, diese in Höhlen lebenden
 Tiefen-Trolle reisen oft in Gruppen.
 %%%%
-Cigotuvi's Monster
+Executioner
 
-This terrifying creation looks to have been constructed from the body parts of
-every monstrous creature imaginable.
+Ein schrecklich mächtiger und schneller Dämon dessen Form durch eine Wolke von
+herumwirbelnden Sensen-ähnlichen Klingen verzerrt wird.
 %%%%

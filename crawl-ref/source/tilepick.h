@@ -26,6 +26,8 @@ void tileidx_out_of_los(tileidx_t *fg, tileidx_t *bg, tileidx_t *cloud, const co
 tileidx_t tileidx_monster(const monster_info& mon);
 tileidx_t tileidx_draco_base(const monster_info& mon);
 tileidx_t tileidx_draco_job(const monster_info& mon);
+tileidx_t tileidx_demonspawn_base(const monster_info& mon);
+tileidx_t tileidx_demonspawn_job(const monster_info& mon);
 
 tileidx_t tileidx_item(const item_info &item);
 tileidx_t tileidx_item_throw(const item_info &item, int dx, int dy);
@@ -46,7 +48,6 @@ tileidx_t tileidx_corpse_brand(const item_def &item);
 
 tileidx_t get_clean_map_idx(tileidx_t tile_idx, bool mon_only = false);
 tileidx_t tileidx_unseen_flag(const coord_def &gc);
-
 
 // Return the level of enchantment as an int.  None is 0, Randart is 4.
 int enchant_to_int(const item_def &item);

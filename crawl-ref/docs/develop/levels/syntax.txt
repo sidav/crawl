@@ -36,9 +36,9 @@ Terrain
  W - shallow water
  w - deep water - can be randomly turned into shallow water by the
      level-builder; you can prevent this conversion with the no_pool_fixup TAG.
-     Also, water may automatically receive water creatures! For entry
-     vaults, avoid this with the no_monster_gen TAG or KMASK.
- l - lava - again, use the no_monster_gen TAG or KMASK for entry vaults!
+     Also, water may automatically receive water creatures! You can avoid this
+     with the no_monster_gen TAG or KMASK.
+ l - lava - again, use the no_monster_gen TAG or KMASK when appropriate!
 
 Features
 --------
@@ -53,7 +53,7 @@ Features
 
  }{ - Stone stairs - You must be able to reach these from each other. The
       { upstair is also the stair on which the player will enter the
-      dungeon for entry vaults.
+      dungeon for arrival vaults.
  )( - Stone stairs, set 2.
  ][ - Stone stairs, set 3 - minivaults often fail to get this pair if
       the level isn't very interconnected or if any larger vaults are using
@@ -96,9 +96,10 @@ NOTE: The P (place a rune here with 1/3 chance) and R (place a honeycomb with
       KITEM: R = w:2 honeycomb / w:1 royal jelly
 
       The O symbol has been removed. It used to either place an appropriate
-      rune, or an appropriate substitution for a rune (a staircase into a branch
-      in branch entry vaults, a portal in portal entry vaults). This behaviour
-      can be produced with appropriate KITEM and KFEAT lines, for example:
+      rune, or an appropriate substitution for a rune (a staircase/portal into
+      a branch in branch entry vaults, a portal in portal entry vaults). This
+      behaviour can be produced with appropriate KITEM and KFEAT lines, for
+      example:
       KITEM: O = decaying rune of Zot
       KFEAT: O = enter_swamp
       KFEAT: O = enter_portal_vault
@@ -356,15 +357,18 @@ TAGS:     Tags go on a TAGS: line and are space-separated. You can have several
              builder picks a dummy vault, it pretends no vault was selected.
              Dummies are used to reduce the probability of other vaults at the
              same depth / place.
-          * "entry": this tag MUST be there for a vault to be pickable as an
-             entry vault.
+          * "arrival": this tag MUST be there for a vault to be pickable as a
+             D:1 arrival vault.
           * "extra": requests that the dungeon builder treat this as
-             an extra vault and try to immediately place another vault of the
-             same type it was trying to place when it placed this vault.
-             "extra" is good to use for things like labyrinth entries
-             that should not affect the chance of other minivaults on the level.
-             If you use "extra", you probably want to use one of the
-             "luniq" tags as well if your map is tagged "allow_dup".
+             an extra vault. This forbids the vault from being placed as
+             a primary vault if it has an ORIENT: tag; instead it will be
+             placed after all other vaults. For minivaults, if the map is
+             selected, the builder will attempt to place another minivault
+             immediately afterwards. "extra" is good to use for things like
+             labyrinth entries that should not affect the chance of other
+             minivaults on the level. If you use "extra" and your map is
+             tagged "allow_dup", it is a good idea to use a "luniq" tag so
+             that the same map does not place more than once on a given level.
           * "generate_awake": Monsters placed (using MONS, KMONS) in this vault
              will be generated awake.
           * "patrolling": Monsters placed (using MONS, KMONS) in this vault
@@ -379,7 +383,7 @@ TAGS:     Tags go on a TAGS: line and are space-separated. You can have several
              for floating vaults. Has no effect if the minivault has explicitly
              defined exits (the @ glyph).
           * "no_monster_gen": Prevents random monster generation at the time of
-             the vault's creation. Highly advised for entry vaults with a
+             the vault's creation. Highly advised for arrival vaults with a
              player-hostile geography, MUST-HAVE for those with water/lava.
              Can be applied only to particular symbols with KMASK.
           * "no_pool_fixup": prevents water squares next to land from being
@@ -409,9 +413,6 @@ TAGS:     Tags go on a TAGS: line and are space-separated. You can have several
                    this just affects your choice of BAR when using uniq_BAR.)
           * "mnoleg" or the name of some other pandemonium lord. This makes
              the map eligible for said pan lord's lair. See pan.des.
-          * "minotaur" turns this into a labyrinth exit vault.
-            "lab" turns this into an additional labyrinth flavour vault.
-            See lab.des for examples and details.
           * "no_rotate":  Normally, the dungeon builder can, at its whim,
              rotate your vault. This flag tells it, "hey, don't do that to my
              vault!"
@@ -457,12 +458,11 @@ TAGS:     Tags go on a TAGS: line and are space-separated. You can have several
              actual terrain of the vault affects its passability as seen by the
              dungeon builder.
 
-LFLAGS:   Persistent, changeable per-level flags which affect game behaviour
-          (FLAGS just controls how the vault is placed); should only be used
-          for vaults with ORIENT encompass or with PLACE. Causes a level's
-          flags to be set when the level is first created. These flags can
-          later be altered using Lua markers; for examples, look at the slime
-          pit vault in slime.des, and the vaults in hell.des.
+LFLAGS:   Persistent, changeable per-level flags which affect game behaviour;
+          should only be used for vaults with ORIENT encompass or with PLACE.
+          Causes a level's flags to be set when the level is first created.
+          These flags can later be altered using Lua markers; for examples,
+          look at the slime pit vault in slime.des, and the vaults in hell.des.
 
           Valid flags are:
           * no_tele_control - prevents the player from using teleport control
@@ -500,7 +500,7 @@ ITEM:     (list of items, separated by comma)
           Positions can contain multiple possibilities, one of which the
           builder will choose randomly. Separate such multiple possibilities
           using a slash. Note that "nothing" (without the quotes) is a valid
-          possibility. The random choice is done for each individual occurence
+          possibility. The random choice is done for each individual occurrence
           of the letter. You can also give possibilities a "weight," which
           affects their chance of being picked. The default weight is 10. You
           can abbreviate "weight:30" by "w:30". The chance to pick a
@@ -544,7 +544,7 @@ ITEM:     (list of items, separated by comma)
           * "useful" tries to select an item usable by the player, but may
             give an useless one if it has trouble finding one
           * "star_item" by itself makes an item equivalent to the "*" glyph.
-          * "superb_item" by itself makes an item equivallent to the "|" glyph.
+          * "superb_item" by itself makes an item equivalent to the "|" glyph.
           * "any book", "any misc" etc. gives a random item of that class.
             Valid item class names are: gold, weapon, missile, armour, wand,
             food, scroll, jewellery, potion, book, magical staff, orb, misc,
@@ -617,7 +617,7 @@ ITEM:     (list of items, separated by comma)
           99) with the "rotting" property:
 
           ITEM: rotting griffon corpse
-          
+
           Corpses may still rot away before the player finds your vault.
           To prevent corpses from decaying, you can define them using a
           "never_decay" property as:
@@ -627,17 +627,17 @@ ITEM:     (list of items, separated by comma)
           Or combining the two, for a corpse that starts out rotten but
           never rots away:
 
-          ITEM: rotting never_decay griffon corpse 
+          ITEM: rotting never_decay griffon corpse
 
           However, direct use of "never_decay" is not recommended,
           since such items will not behave as the player expects.
           Instead, you can set corpses to stay fresh until seen by the
           player with a delayed_decay marker. Instead of:
 
-             KITEM: e = griffon corpse
+             KITEM: e = griffon corpse / griffon skeleton
 
           you'd use:
-             : dgn.delayed_decay(_G, 'e', 'griffon corpse')
+             : dgn.delayed_decay(_G, 'e', 'griffon corpse / griffon skeleton')
 
           (Note the leading ":" - this is a Lua call).
 
@@ -645,7 +645,13 @@ ITEM:     (list of items, separated by comma)
           item property and creates a trigger that fires when the
           player enters LOS of the square in question. When triggered,
           it clears the "never_decay" property, allowing the item to
-          start decaying normally.
+          start decaying normally. Note that this does not work with
+          "/ nothing" alternatives (or other non-chunk, non-corpse items);
+          for those cases, use SUBST with a second glyph and KITEM.
+
+          If you need to put additional non-corpse, non-chunk items at
+          the same location, use delayed_decay_extra:
+             : dgn.delayed_decay_extra(_G, 'e', 'human corpse', 'mace, shield')
 
           Randart spell books
           -------------------
@@ -703,9 +709,9 @@ MONS:     (list of monsters)
           builder sees a "1" in the vault definition, the second for "2,"
           etc. Note that if, for example, you place a 3 on the map, but your
           MONS: line has no third position, the 3 will be filled with
-          RANDOM_MONSTER. Also note that for entry vaults (D:1), all monsters
-          in sight of the hero are removed. This does not hold for plants.
-          You can use weights as for ITEM: lines.
+          RANDOM_MONSTER. Also note that for arrival vaults (D:1), all
+          monsters in sight of the hero are removed. This does not hold for
+          plants. You can use weights as for ITEM: lines.
 
           A hydra can be given a specific number of heads by calling it
           an "n-headed hydra" (with a maximum of 20 heads):
@@ -740,7 +746,7 @@ MONS:     (list of monsters)
 
           In tiles version, this would create a monster that uses the
           'mons_giant_bat' tile, but is otherwise identical to a rat.
-          Obviously, this substition of one monster onto another should
+          Obviously, this substitution of one monster onto another should
           never be used, but it can be useful for customised vault monsters
           if an alternate tile exists. In ASCII mode, this will do nothing.
 
@@ -887,10 +893,10 @@ MONS:     (list of monsters)
           Is exactly the same as:
               MONS: kobold name:goblin name_replace name_descriptor name_definite
 
-          name_species will make use the name for corpses as-is, without
-          prefixing it with "kobold corpse of X" for name_replace; it will
-          also prevent turning articles into definite unless where forced by
-          name_definite or grammar.
+          name_species uses the name for corpses as-is, without prefixing it
+          with "kobold corpse of X" for name_replace. It also avoids the usual
+          name tag that displays above unique and renamed monsters in local
+          tiles.
 
           name_zombie can be used to redefine already zombified monsters
           (including skeletons, simulacra and spectrals).
@@ -1159,7 +1165,7 @@ SHUFFLE:  def, 12/3?
           two ways:
 
           SHUFFLE: 123w     (i.e. list of glyphs, NOT slash-separated)
-          could, for example, swap all occurences of "1" with "2", as well as
+          could, for example, swap all occurrences of "1" with "2", as well as
           swapping all "3" with "w" (or any other of the 24 possibilities).
 
           SHUFFLE: 12/3w    (i.e. list of slash-separated blocks of same size)
@@ -1380,8 +1386,7 @@ KMASK:    Z = no_monster_gen
           * "no_item_gen":   Prevents random item on that symbol. Items
              explicitly placed on that symbol aren't affected.
           * "no_monster_gen": Prevents random monster generation on that
-             symbol. MUST-HAVE for those with water/lava symbols in
-             entry vaults.
+             symbol.
           * "no_trap_gen": Prevents random trap generation on that symbol.
           * "no_pool_fixup": prevents a water square next to land from being
              randomly converted from deep water (the default) to shallow.
@@ -1441,7 +1446,7 @@ KPROP:    x = bloody
           * "no_cloud_gen": Prevents clouds from being generated over this
              feature (usually lava). Does not stop fog generators or clouds
              entering from nearby squares.
-          * "no_rtele_into": Prevents random teleport from chosing to use this
+          * "no_rtele_into": Prevents random teleport from choosing to use this
              square. Use this to prevent nasty situations like the player
              ending up in a closet (for example, because your map randomises
              wall/floor so much that closets may occur) or an extremely dense
@@ -1653,17 +1658,17 @@ items, split your line after the comma, not before. For example:
 
 Wrong:
         ITEM: potion of healing \
-              , potion of speed
+              , potion of haste
 Right:
         ITEM: potion of healing, \
-              potion of speed
+              potion of haste
 
 But in general, it is preferable to use multiple ITEM or MONS lines if you're
 splitting comma-separated values:
 
 Preferred:
         ITEM: potion of healing
-        ITEM: potion of speed
+        ITEM: potion of haste
 
 Spaces before the \ of the continued line are significant, leading spaces of
 the next (continuing) line are not. In other words, given:

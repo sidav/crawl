@@ -64,6 +64,7 @@ bool is_resting(void);
 void explore_pickup_event(int did_pickup, int tried_pickup);
 bool feat_is_traversable_now(dungeon_feature_type feat, bool try_fallback = false);
 bool feat_is_traversable(dungeon_feature_type feat, bool try_fallback = false);
+bool is_known_branch_id(branch_type branch);
 bool is_unknown_stair(const coord_def &p);
 
 void find_travel_pos(const coord_def& youpos, int *move_x, int *move_y,
@@ -255,7 +256,7 @@ private:
 
         bool operator == (const named_thing<Z> &other) const
         {
-            return (name == other.name);
+            return name == other.name;
         }
     };
 
@@ -317,7 +318,7 @@ public:
 
     string describe() const;
 
-    bool can_travel() const { return (type == PHYSICAL); }
+    bool can_travel() const { return type == PHYSICAL; }
 };
 
 // Information on a level that interlevel travel needs.
@@ -416,7 +417,7 @@ public:
     LevelInfo *find_level_info(const level_id &lev)
     {
         map<level_id, LevelInfo>::iterator i = levels.find(lev);
-        return (i != levels.end()? &i->second : NULL);
+        return i != levels.end()? &i->second : NULL;
     }
 
     void erase_level_info(const level_id& lev)
@@ -427,7 +428,7 @@ public:
     bool know_stair(const coord_def &c) const;
     bool know_level(const level_id &lev) const
     {
-        return levels.find(lev) != levels.end();
+        return levels.count(lev);
     }
     vector<level_id> known_levels() const;
 

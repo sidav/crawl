@@ -33,6 +33,7 @@ warg CORPSE_WARG
 wolf CORPSE_WOLF
 hog CORPSE_HOG
 hell_hound CORPSE_HELL_HOUND
+raiju CORPSE_RAIJU
 hell_hog CORPSE_HELL_HOG
 holy_swine CORPSE_HOLY_SWINE
 %sdir player/felids
@@ -57,13 +58,11 @@ komodo_dragon CORPSE_KOMODO_DRAGON
 %back blood_green blood_green1 blood_green2 blood_green3 blood_green4
 elephant_slug CORPSE_ELEPHANT_SLUG
 giant_slug CORPSE_GIANT_SLUG
-agate_snail CORPSE_AGATE_SNAIL
 
 ## Rodents ('r')
 %back blood_puddle_red blood_puddle_red1 blood_puddle_red2 blood_puddle_red3 blood_puddle_red4
 rat CORPSE_RAT
 quokka CORPSE_QUOKKA
-grey_rat CORPSE_GREY_RAT
 green_rat CORPSE_GREEN_RAT
 orange_rat CORPSE_ORANGE_RAT
 porcupine CORPSE_PORCUPINE
@@ -71,7 +70,6 @@ porcupine CORPSE_PORCUPINE
 
 ## Spiders and insects ('s')
 %back blood_green blood_green1 blood_green2 blood_green3 blood_green4
-giant_centipede CORPSE_GIANT_CENTIPEDE
 giant_mite CORPSE_GIANT_MITE
 scorpion CORPSE_SCORPION
 emperor_scorpion CORPSE_EMPEROR_SCORPION
@@ -101,10 +99,8 @@ apocalypse_crab CORPSE_APOCALYPSE_CRAB
 ## Worms ('w')
 %back blood_green blood_green1 blood_green2 blood_green3 blood_green4
 worm CORPSE_WORM
-swamp_worm CORPSE_SWAMP_WORM
-spiny_worm CORPSE_SPINY_WORM
+../aquatic/swamp_worm CORPSE_SWAMP_WORM
 brain_worm CORPSE_BRAIN_WORM
-rock_worm CORPSE_ROCK_WORM
 giant_leech CORPSE_GIANT_LEECH
 
 ## Wasps ('y')
@@ -113,21 +109,19 @@ yellow_wasp CORPSE_YELLOW_WASP
 red_wasp CORPSE_RED_WASP
 ghost_moth CORPSE_GHOST_MOTH
 moth_of_wrath CORPSE_MOTH_OF_WRATH
-moth_of_suppression CORPSE_MOTH_OF_SUPPRESSION
-polymoth CORPSE_POLYMOTH
 
 ## Aquatics (';')
+%sdir mon/aquatic
 %back blood_puddle_red blood_puddle_red1 blood_puddle_red2 blood_puddle_red3 blood_puddle_red4
 big_fish CORPSE_BIG_FISH
 giant_goldfish CORPSE_GIANT_GOLDFISH
 electric_eel CORPSE_ELECTRIC_EEL
-#lava_fish CORPSE_LAVA_FISH
 shark CORPSE_SHARK
 kraken_head CORPSE_KRAKEN /*'x'*/
 %back blood_green blood_green1 blood_green2 blood_green3 blood_green4
-jellyfish CORPSE_JELLYFISH /*'J'*/
 
 ## Beetles ('B')
+%sdir mon/animals
 goliath_beetle CORPSE_GOLIATH_BEETLE
 boring_beetle CORPSE_BORING_BEETLE
 boulder_beetle CORPSE_BOULDER_BEETLE
@@ -148,12 +142,13 @@ black_mamba CORPSE_BLACK_MAMBA
 water_moccasin CORPSE_WATER_MOCCASIN
 anaconda CORPSE_ANACONDA
 sea_snake CORPSE_SEA_SNAKE
+shock_serpent CORPSE_SHOCK_SERPENT
+mana_viper CORPSE_MANA_VIPER
 
 ## Bears ('U')
 black_bear CORPSE_BLACK_BEAR
 grizzly_bear CORPSE_GRIZZLY_BEAR
 polar_bear CORPSE_POLAR_BEAR
-ancient_bear CORPSE_ANCIENT_BEAR
 
 ## Yaks, sheep and elephants ('Y')
 sheep CORPSE_SHEEP
@@ -209,10 +204,9 @@ orc CORPSE_ORC
 ## Dwarves ('q')
 unique/wiglaf CORPSE_DWARF
 deep_dwarf CORPSE_DEEP_DWARF
-gnome CORPSE_GNOME
 
 ## Ugly things ('u')
-%sdir mon/demons
+%sdir mon/aberr
 ugly_thing CORPSE_UGLY_THING
 ugly_thing1
 ugly_thing2
@@ -246,7 +240,7 @@ wind_drake CORPSE_WIND_DRAKE
 
 ## Dragons ('D')
 wyvern CORPSE_WYVERN
-dragon CORPSE_DRAGON
+fire_dragon CORPSE_FIRE_DRAGON
 hydra5 CORPSE_HYDRA
 steam_dragon CORPSE_STEAM_DRAGON
 ice_dragon CORPSE_ICE_DRAGON
@@ -282,11 +276,6 @@ tengu CORPSE_TENGU
 holy/shedu CORPSE_SHEDU
 unique/arachne_staveless CORPSE_ARACHNE
 
-## Jellies ('J')
-%sdir mon/amorphous
-%back blood_green blood_green1 blood_green2 blood_green3 blood_green4
-giant_amoeba CORPSE_GIANT_AMOEBA
-
 ## Kobolds ('K')
 %sdir mon/
 %back blood_puddle_red blood_puddle_red1 blood_puddle_red2 blood_puddle_red3 blood_puddle_red4
@@ -296,6 +285,7 @@ big_kobold CORPSE_BIG_KOBOLD
 ## Nagas ('N')
 naga CORPSE_NAGA
 guardian_serpent CORPSE_GUARDIAN_SERPENT
+salamander CORPSE_SALAMANDER
 
 ## Ogres ('O')
 ogre CORPSE_OGRE
@@ -311,7 +301,6 @@ deep_troll CORPSE_DEEP_TROLL
 
 ## Human shaped ('@')
 human CORPSE_HUMAN
-demonspawn CORPSE_DEMONSPAWN
 halfling CORPSE_HALFLING
 %back blood_green blood_green1 blood_green2 blood_green3 blood_green4
 shapeshifter CORPSE_SHAPESHIFTER
@@ -379,5 +368,14 @@ glowing_shapeshifter CORPSE_GLOWING_SHAPESHIFTER
 %compose base/draconian_gold_f
 %compose drchead/drchead_yellow
 %finish CORPSE_DRACONIAN_YELLOW
+
+# Demonspawn ('6')
+%sdir mon/demonspawn
+demonspawn CORPSE_DEMONSPAWN
+monstrous CORPSE_MONSTROUS_DEMONSPAWN
+gelid CORPSE_GELID_DEMONSPAWN
+infernal CORPSE_INFERNAL_DEMONSPAWN
+putrid CORPSE_PUTRID_DEMONSPAWN
+torturous CORPSE_TORTUROUS_DEMONSPAWN
 
 %corpse 0

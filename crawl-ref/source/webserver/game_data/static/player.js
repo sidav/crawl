@@ -1,14 +1,16 @@
-define(["jquery", "comm", "./enums", "./map_knowledge", "./messages"],
-function ($, comm, enums, map_knowledge, messages) {
-    var player = {}, last_time;
+define(["jquery", "comm", "./enums", "./map_knowledge", "./messages",
+        "./options"],
+function ($, comm, enums, map_knowledge, messages, options) {
+    "use strict";
 
-    var hp_boosters = "divinely vigorous|berserk";
-    var mp_boosters = "divinely vigorous";
+    var player = {}, last_time;
 
     var stat_boosters = {
         "str": "vitalised|mighty|berserk",
         "int": "vitalised|brilliant",
         "dex": "vitalised|agile",
+        "hp": "divinely vigorous|berserk",
+        "mp": "divinely vigorous"
     };
 
     var defense_boosters = {
@@ -17,6 +19,12 @@ function ($, comm, enums, map_knowledge, messages) {
         "sh": "shielded",
     }
 
+    /**
+     * Update the stats area bar of the given type.
+     * @param name     The name of the bar.
+     * @param propname The player property name, if it is different from the
+     *                 name of the bar defined in game_data/template/game.html
+     */
     function update_bar(name, propname)
     {
         if (!propname) propname = name;
@@ -35,8 +43,27 @@ function ($, comm, enums, map_knowledge, messages) {
         var increase = old_value < value;
         var full_bar = Math.round(10000 * (increase ? old_value : value) / max);
         var change_bar = Math.round(10000 * Math.abs(old_value - value) / max);
-        if (full_bar + change_bar > 10000)
+        // Use poison_survival to display our remaining hp after poison expires.
+        if (name == "hp")
+        {
+            $("#stats_hp_bar_poison").css("width", 0);
+            var poison_survival = player["poison_survival"]
+            if (poison_survival < value)
+            {
+                var poison_bar = Math.round(10000 * (value - poison_survival)
+                                            / max);
+                full_bar = Math.round(10000 * poison_survival / max);
+                $("#stats_hp_bar_poison").css("width", (poison_bar / 100)
+                                              + "%");
+            }
+            if (full_bar + poison_bar + change_bar > 10000)
+                change_bar = 10000 - poison_bar - full_bar;
+        }
+        else if (full_bar + change_bar > 10000)
+        {
             change_bar = 10000 - full_bar;
+        }
+
         $("#stats_" + name + "_bar_full").css("width", (full_bar / 100) + "%");
         $("#stats_" + name + "_bar_" + (increase ? "increase" : "decrease"))
             .css("width", (change_bar / 100) + "%");
@@ -46,17 +73,17 @@ function ($, comm, enums, map_knowledge, messages) {
 
     function update_bar_contam()
     {
-        player.contam_max = 16;
+        player.contam_max = 16000;
         update_bar("contam");
 
         // Calculate level for the colour
         var contam_level = 0;
 
-        if (player.contam > 25)
+        if (player.contam > 25000)
             contam_level = 4;
-        else if (player.contam > 15)
+        else if (player.contam > 15000)
             contam_level = 3;
-        else if (player.contam > 5)
+        else if (player.contam > 5000)
             contam_level = 2;
         else if (player.contam > 0)
             contam_level = 1;
@@ -161,9 +188,10 @@ function ($, comm, enums, map_knowledge, messages) {
         if (player.has_status("lost " + stat))
             return "zero_stat";
 
-        // TODO: stat colour options -- hardcoded for now
-        if (val <= 3)
-            return "low_stat";
+        var limits = options.get("stat_colour")
+        for (var i in limits)
+            if (val <= limits[i].value)
+                return "colour_" + limits[i].colour;
 
         if (player.has_status(stat_boosters[stat]))
             return "boosted_stat";
@@ -188,7 +216,44 @@ function ($, comm, enums, map_knowledge, messages) {
         $("#stats_" + stat).html(elem);
     }
 
+    function percentage_color(name)
+    {
+        var real = false;
+        if (player["real_" + name + "_max"] != player[name + "_max"])
+            real = true;
+
+        $("#stats_" + name).removeClass();
+        $("#stats_" + name + "_separator").removeClass();
+        $("#stats_" + name + "_max").removeClass();
+        if (real)
+            $("#stats_real_" + name + "_max").removeClass();
+
+        if (player.has_status(stat_boosters[name]))
+        {
+            $("#stats_" + name).addClass("boosted_stat");
+            $("#stats_" + name + "_separator").addClass("boosted_stat");
+            $("#stats_" + name + "_max").addClass("boosted_stat");
+            if (real)
+                $("#stats_real_" + name + "_max").addClass("boosted_stat");
+            return;
+        }
+
+        var val = player[name] / player[(real ? "real_" : "") + name + "_max"]
+                  * 100;
+        var limits = options.get(name + "_colour");
+        var colour = null;
+        for (var i in limits)
+            if (val <= limits[i].value)
+                colour = limits[i].colour;
+
+        if (colour)
+            $("#stats_" + name).addClass("colour_" + colour);
+    }
+
     var simple_stats = ["hp", "hp_max", "mp", "mp_max", "xl", "progress", "gold"];
+    /**
+     * Update the stats pane area based on the player's current properties.
+     */
     function update_stats_pane()
     {
         $("#stats_titleline").text(player.name + " the " + player.title);
@@ -251,9 +316,7 @@ function ($, comm, enums, map_knowledge, messages) {
         $("#stats_piety").toggleClass("monk", player.god == "");
 
         for (var i = 0; i < simple_stats.length; ++i)
-        {
             $("#stats_" + simple_stats[i]).text(player[simple_stats[i]]);
-        }
 
         if (player.zp !== null)
         {
@@ -268,6 +331,8 @@ function ($, comm, enums, map_knowledge, messages) {
         else
             $("#stats_real_hp_max").text("");
 
+        percentage_color("hp");
+        percentage_color("mp");
         update_bar("hp");
         if (do_contam)
             update_bar_contam();
@@ -275,9 +340,6 @@ function ($, comm, enums, map_knowledge, messages) {
             update_bar("mp");
         if (do_temperature)
             update_bar_heat();
-
-        $("#stats_hp").toggleClass("boosted_hp", !!player.has_status(hp_boosters));
-        $("#stats_mp").toggleClass("boosted_mp", !!player.has_status(mp_boosters));
 
         update_defense("ac");
         update_defense("ev");
@@ -287,9 +349,19 @@ function ($, comm, enums, map_knowledge, messages) {
         update_stat("int");
         update_stat("dex");
 
-        $("#stats_time").text((player.time / 10.0).toFixed(1));
-        if (player.time_delta)
-            $("#stats_time").append(" (" + (player.time_delta / 10.0).toFixed(1) + ")");
+        if (options.get("show_game_turns") === true)
+        {
+            $("#stats_time_caption").text("Time:");
+            $("#stats_time").text((player.time / 10.0).toFixed(1));
+            if (player.time_delta)
+                $("#stats_time").append(" (" + (player.time_delta / 10.0).toFixed(1) + ")");
+        }
+        else
+        {
+            $("#stats_time_caption").text("Turn:");
+            $("#stats_time").text(player.turn);
+        }
+
         var place_desc = player.place;
         if (player.depth) place_desc += ":" + player.depth;
         $("#stats_place").text(place_desc);
@@ -343,6 +415,25 @@ function ($, comm, enums, map_knowledge, messages) {
         }
     }
 
+    options.add_listener(function ()
+    {
+        if (player.name !== "")
+            update_stats_pane();
+
+        if (options.get("tile_font_stat_size") === 0)
+            $("#stats").css("font-size", "");
+        else
+        {
+            $("#stats").css("font-size",
+                options.get("tile_font_stat_size") + "px");
+        }
+
+        var family = options.get("tile_font_stat_family");
+        if (family !== "")
+            family += ", ";
+        $("#stats").css("font-family", family + "monospace");
+    });
+
     comm.register_handlers({
         "player": handle_player_message,
     });
@@ -351,7 +442,7 @@ function ($, comm, enums, map_knowledge, messages) {
         .on("game_init.player", function () {
             $.extend(player, {
                 name: "", god: "", title: "", species: "",
-                hp: 0, hp_max: 0, real_hp_max: 0,
+                hp: 0, hp_max: 0, real_hp_max: 0, poison_survival: 0,
                 mp: 0, mp_max: 0,
                 ac: 0, ev: 0, sh: 0,
                 xl: 0, progress: 0,

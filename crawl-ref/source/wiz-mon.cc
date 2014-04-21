@@ -4,17 +4,18 @@
 **/
 
 #include "AppHdr.h"
+#include <sstream>
 
 #include "wiz-mon.h"
 
 #include "abyss.h"
+#include "act-iter.h"
 #include "areas.h"
 #include "artefact.h"
 #include "cio.h"
 #include "colour.h"
 #include "dbg-util.h"
 #include "delay.h"
-#include "describe.h"
 #include "directn.h"
 #include "dungeon.h"
 #include "env.h"
@@ -29,7 +30,6 @@
 #include "mapdef.h"
 #include "message.h"
 #include "mgen_data.h"
-#include "mon-iter.h"
 #include "mon-pathfind.h"
 #include "mon-place.h"
 #include "mon-speak.h"
@@ -38,7 +38,6 @@
 #include "output.h"
 #include "religion.h"
 #include "shout.h"
-#include "showsymb.h"
 #include "spl-miscast.h"
 #include "spl-util.h"
 #include "state.h"
@@ -107,12 +106,6 @@ static int _make_mimic_item(object_class_type type)
             set_equip_desc(item, ISFLAG_GLOWING);
         else if (prop < 80)
             set_equip_desc(item, ISFLAG_RUNED);
-        else if (prop < 85)
-            set_equip_race(item, ISFLAG_ORCISH);
-        else if (prop < 90)
-            set_equip_race(item, ISFLAG_DWARVEN);
-        else if (prop < 95)
-            set_equip_race(item, ISFLAG_ELVEN);
         break;
 
     case OBJ_ARMOUR:
@@ -126,16 +119,10 @@ static int _make_mimic_item(object_class_type type)
             make_item_randart(item);
         else if (prop < 40)
             set_equip_desc(item, ISFLAG_GLOWING);
-        else if (prop < 60)
+        else if (prop < 65)
             set_equip_desc(item, ISFLAG_RUNED);
-        else if (prop < 80)
-            set_equip_desc(item, ISFLAG_EMBROIDERED_SHINY);
-        else if (prop < 85)
-            set_equip_race(item, ISFLAG_ORCISH);
         else if (prop < 90)
-            set_equip_race(item, ISFLAG_DWARVEN);
-        else if (prop < 95)
-            set_equip_race(item, ISFLAG_ELVEN);
+            set_equip_desc(item, ISFLAG_EMBROIDERED_SHINY);
         break;
 
     case OBJ_SCROLLS:
@@ -176,7 +163,7 @@ static int _make_mimic_item(object_class_type type)
 void wizard_create_spec_monster_name()
 {
     char specs[1024];
-    mpr("Enter monster name (or MONS spec): ", MSGCH_PROMPT);
+    mprf(MSGCH_PROMPT, "Enter monster name (or MONS spec): ");
     if (cancellable_get_line_autohist(specs, sizeof specs) || !*specs)
     {
         canned_msg(MSG_OK);
@@ -208,13 +195,13 @@ void wizard_create_spec_monster_name()
     mons_spec mspec = mlist.get_monster(0);
     if (mspec.type == MONS_NO_MONSTER)
     {
-        mpr("Such a monster couldn't be found.", MSGCH_DIAGNOSTICS);
+        mprf(MSGCH_DIAGNOSTICS, "Such a monster couldn't be found.");
         return;
     }
 
-    monster_type type = static_cast<monster_type>(mspec.type);
-    if (mons_class_is_zombified(type))
-        type = mspec.monbase;
+    monster_type type =
+        fixup_zombie_type(static_cast<monster_type>(mspec.type),
+                          mspec.monbase);
 
     coord_def place = find_newmons_square(type, you.pos());
     if (!in_bounds(place))
@@ -226,7 +213,7 @@ void wizard_create_spec_monster_name()
 
     if (!in_bounds(place))
     {
-        mpr("Found no space to place monster.", MSGCH_DIAGNOSTICS);
+        mprf(MSGCH_DIAGNOSTICS, "Found no space to place monster.");
         return;
     }
 
@@ -248,7 +235,7 @@ void wizard_create_spec_monster_name()
         int it = _make_mimic_item(item_type);
         if (it == NON_ITEM)
         {
-            mpr("Cannot create item.", MSGCH_DIAGNOSTICS);
+            mprf(MSGCH_DIAGNOSTICS, "Cannot create item.");
             return;
         }
         move_item_to_grid(&it, place);
@@ -263,7 +250,7 @@ void wizard_create_spec_monster_name()
 
     if (!dgn_place_monster(mspec, place, true, false))
     {
-        mpr("Unable to place monster.", MSGCH_DIAGNOSTICS);
+        mprf(MSGCH_DIAGNOSTICS, "Unable to place monster.");
         return;
     }
 
@@ -370,15 +357,15 @@ static bool _sort_monster_list(int a, int b)
         if (!m1->alive() || !m2->alive())
             return false;
 
-        return (m1->name(DESC_PLAIN, true) < m2->name(DESC_PLAIN, true));
+        return m1->name(DESC_PLAIN, true) < m2->name(DESC_PLAIN, true);
     }
 
     const unsigned glyph1 = mons_char(m1->type);
     const unsigned glyph2 = mons_char(m2->type);
     if (glyph1 != glyph2)
-        return (glyph1 < glyph2);
+        return glyph1 < glyph2;
 
-    return (m1->type < m2->type);
+    return m1->type < m2->type;
 }
 
 void debug_list_monsters()
@@ -467,7 +454,7 @@ void debug_list_monsters()
 
 void wizard_spawn_control()
 {
-    mpr("(c)hange spawn rate or (s)pawn monsters? ", MSGCH_PROMPT);
+    mprf(MSGCH_PROMPT, "(c)hange spawn rate or (s)pawn monsters? ");
     const int c = toalower(getchm());
 
     char specs[256];
@@ -498,8 +485,8 @@ void wizard_spawn_control()
 
         if (max_spawn <= 0)
         {
-            mpr("Level already filled with monsters, get rid of some "
-                "of them first.", MSGCH_PROMPT);
+            mprf(MSGCH_PROMPT, "Level already filled with monsters, "
+                               "get rid of some of them first.");
             return;
         }
 
@@ -529,6 +516,15 @@ void wizard_spawn_control()
         canned_msg(MSG_OK);
 }
 
+static const char* ht_names[] =
+{
+    "land",
+    "amphibious",
+    "water",
+    "lava",
+    "amphibious_lava",
+};
+
 // Prints a number of useful (for debugging, that is) stats on monsters.
 void debug_stethoscope(int mon)
 {
@@ -541,7 +537,7 @@ void debug_stethoscope(int mon)
         i = mon;
     else
     {
-        mpr("Which monster?", MSGCH_PROMPT);
+        mprf(MSGCH_PROMPT, "Which monster?");
 
         direction(stth, direction_chooser_args());
 
@@ -610,30 +606,25 @@ void debug_stethoscope(int mon)
     // Print habitat and behaviour information.
     const habitat_type hab = mons_habitat(&mons);
 
+    COMPILE_CHECK(ARRAYSZ(ht_names) == NUM_HABITATS);
     mprf(MSGCH_DIAGNOSTICS,
          "hab=%s beh=%s(%d) foe=%s(%d) mem=%d target=(%d,%d) "
          "firing_pos=(%d,%d) patrol_point=(%d,%d) god=%s",
-         ((hab == HT_LAND)                       ? "land" :
-          (hab == HT_AMPHIBIOUS)                 ? "amphibious" :
-          (hab == HT_WATER)                      ? "water" :
-          (hab == HT_LAVA)                       ? "lava" :
-          (hab == HT_ROCK)                       ? "rock"
-                                                 : "unknown"),
-         (mons.asleep()        ? "sleep" :
-          mons_is_wandering(&mons)       ? "wander" :
-          mons_is_seeking(&mons)         ? "seek" :
-          mons_is_fleeing(&mons)         ? "flee" :
-          mons_is_retreating(&mons)      ? "retreat" :
-          mons_is_cornered(&mons)        ? "cornered" :
-          mons_is_panicking(&mons)       ? "panic" :
-          mons_is_lurking(&mons)         ? "lurk" :
-          mons.behaviour == BEH_WITHDRAW ? "withdraw"
-                                         : "unknown"),
+         (hab >= 0 && hab < NUM_HABITATS) ? ht_names[hab] : "INVALID",
+         mons.asleep()                    ? "sleep"
+         : mons_is_wandering(&mons)       ? "wander"
+         : mons_is_seeking(&mons)         ? "seek"
+         : mons_is_fleeing(&mons)         ? "flee"
+         : mons.behaviour == BEH_RETREAT  ? "retreat"
+         : mons_is_cornered(&mons)        ? "cornered"
+         : mons_is_lurking(&mons)         ? "lurk"
+         : mons.behaviour == BEH_WITHDRAW ? "withdraw"
+         :                                  "unknown",
          mons.behaviour,
-         ((mons.foe == MHITYOU)                    ? "you" :
-          (mons.foe == MHITNOT)                    ? "none" :
-          (menv[mons.foe].type == MONS_NO_MONSTER) ? "unassigned monster"
-          : menv[mons.foe].name(DESC_PLAIN, true).c_str()),
+         mons.foe == MHITYOU                      ? "you"
+         : mons.foe == MHITNOT                    ? "none"
+         : menv[mons.foe].type == MONS_NO_MONSTER ? "unassigned monster"
+         : menv[mons.foe].name(DESC_PLAIN, true).c_str(),
          mons.foe,
          mons.foe_memory,
          mons.target.x, mons.target.y,
@@ -735,8 +726,8 @@ void wizard_dismiss_all_monsters(bool force_all)
     char buf[1024] = "";
     if (!force_all)
     {
-        mpr("What monsters to dismiss (ENTER for all, \"harmful\", \"mobile\" or a regex)? ",
-            MSGCH_PROMPT);
+        mprf(MSGCH_PROMPT, "What monsters to dismiss (ENTER for all, "
+                           "\"harmful\", \"mobile\" or a regex)? ");
         bool validline = !cancellable_get_line_autohist(buf, sizeof buf);
 
         if (!validline)
@@ -754,7 +745,7 @@ void wizard_dismiss_all_monsters(bool force_all)
 
 void debug_make_monster_shout(monster* mon)
 {
-    mpr("Make the monster (S)hout or (T)alk? ", MSGCH_PROMPT);
+    mprf(MSGCH_PROMPT, "Make the monster (S)hout or (T)alk? ");
 
     char type = (char) getchm(KMC_DEFAULT);
     type = toalower(type);
@@ -828,8 +819,7 @@ void wizard_gain_monster_level(monster* mon)
 
 void wizard_apply_monster_blessing(monster* mon)
 {
-    mpr("Apply blessing of (B)eogh, The (S)hining One, or (R)andomly? ",
-        MSGCH_PROMPT);
+    mprf(MSGCH_PROMPT, "Apply blessing of (B)eogh, The (S)hining One, or (R)andomly? ");
 
     char type = (char) getchm(KMC_DEFAULT);
     type = toalower(type);
@@ -1152,7 +1142,7 @@ void wizard_make_monster_summoned(monster* mon)
     int summon_type = 0;
     if (mon->is_summoned(NULL, &summon_type) || summon_type != 0)
     {
-        mpr("Monster is already summoned.", MSGCH_PROMPT);
+        mprf(MSGCH_PROMPT, "Monster is already summoned.");
         return;
     }
 
@@ -1164,11 +1154,10 @@ void wizard_make_monster_summoned(monster* mon)
         return;
     }
 
-    mpr("[a] clone [b] animated [c] chaos [d] miscast [e] zot", MSGCH_PROMPT);
-    mpr("[f] wrath [g] aid                [m] misc    [s] spell",
-        MSGCH_PROMPT);
+    mprf(MSGCH_PROMPT, "[a] clone [b] animated [c] chaos [d] miscast [e] zot");
+    mprf(MSGCH_PROMPT, "[f] wrath [g] aid                [m] misc    [s] spell");
 
-    mpr("Which summon type? ", MSGCH_PROMPT);
+    mprf(MSGCH_PROMPT, "Which summon type? ");
 
     char choice = toalower(getchm());
 
@@ -1207,7 +1196,7 @@ void wizard_make_monster_summoned(monster* mon)
             spell_type spell = spell_by_name(specs, true);
             if (spell == SPELL_NO_SPELL)
             {
-                mpr("No such spell.", MSGCH_PROMPT);
+                mprf(MSGCH_PROMPT, "No such spell.");
                 return;
             }
             type = (int) spell;
@@ -1236,7 +1225,7 @@ void wizard_polymorph_monster(monster* mon)
 
     if (invalid_monster_type(type))
     {
-        mpr("Invalid monster type.", MSGCH_PROMPT);
+        mprf(MSGCH_PROMPT, "Invalid monster type.");
         return;
     }
 
@@ -1256,7 +1245,7 @@ void wizard_polymorph_monster(monster* mon)
 
     if (!mon->alive())
     {
-        mpr("Polymorph killed monster?", MSGCH_ERROR);
+        mprf(MSGCH_ERROR, "Polymorph killed monster?");
         return;
     }
 
@@ -1268,7 +1257,7 @@ void wizard_polymorph_monster(monster* mon)
         change_monster_type(mon, type);
         if (!mon->alive())
         {
-            mpr("Polymorph killed monster?", MSGCH_ERROR);
+            mprf(MSGCH_ERROR, "Polymorph killed monster?");
             return;
         }
 
@@ -1309,6 +1298,11 @@ void debug_pathfind(int idx)
     if (success)
     {
         vector<coord_def> path = mp.backtrack();
+        env.travel_trail = path;
+#ifdef USE_TILE_WEB
+        for (unsigned int i = 0; i < env.travel_trail.size(); ++i)
+            tiles.update_minimap(env.travel_trail[i]);
+#endif
         string path_str;
         mpr("Here's the shortest path: ");
         for (unsigned int i = 0; i < path.size(); ++i)
@@ -1364,7 +1358,7 @@ void debug_miscast(int target_index)
     }
 
     char specs[100];
-    mpr("Miscast which school or spell, by name? ", MSGCH_PROMPT);
+    mprf(MSGCH_PROMPT, "Miscast which school or spell, by name? ");
     if (cancellable_get_line_autohist(specs, sizeof specs) || !*specs)
     {
         canned_msg(MSG_OK);
@@ -1413,12 +1407,9 @@ void debug_miscast(int target_index)
         mprf("Miscasting school %s.", spelltype_long_name(school));
 
     if (spell != SPELL_NO_SPELL)
-        mpr("Enter spell_power,spell_failure: ", MSGCH_PROMPT);
+        mprf(MSGCH_PROMPT, "Enter spell_power,spell_failure: ");
     else
-    {
-        mpr("Enter miscast_level or spell_power,spell_failure: ",
-             MSGCH_PROMPT);
-    }
+        mprf(MSGCH_PROMPT, "Enter miscast_level or spell_power,spell_failure: ");
 
     if (cancellable_get_line_autohist(specs, sizeof specs) || !*specs)
     {
@@ -1525,7 +1516,7 @@ void debug_miscast(int target_index)
 #ifdef DEBUG_BONES
 void debug_ghosts()
 {
-    mpr("(C)reate or (L)oad bones file?", MSGCH_PROMPT);
+    mprf(MSGCH_PROMPT, "(C)reate or (L)oad bones file?");
     const char c = toalower(getchm());
 
     if (c == 'c')

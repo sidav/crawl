@@ -675,11 +675,11 @@
 	</References>
 	<Files>
 		<File
-			RelativePath="..\abl-show.cc"
+			RelativePath="..\ability.cc"
 			>
 		</File>
 		<File
-			RelativePath="..\abl-show.h"
+			RelativePath="..\ability.h"
 			>
 		</File>
 		<File
@@ -1855,14 +1855,6 @@
 			>
 		</File>
 		<File
-			RelativePath="..\mislead.cc"
-			>
-		</File>
-		<File
-			RelativePath="..\mislead.h"
-			>
-		</File>
-		<File
 			RelativePath="..\mon-abil.cc"
 			>
 		</File>
@@ -1884,6 +1876,10 @@
 		</File>
 		<File
 			RelativePath="..\mon-behv.h"
+			>
+		</File>
+		<File
+			RelativePath="..\mon-book.h"
 			>
 		</File>
 		<File
@@ -1932,14 +1928,6 @@
 		</File>
 		<File
 			RelativePath="..\mon-info.h"
-			>
-		</File>
-		<File
-			RelativePath="..\mon-iter.cc"
-			>
-		</File>
-		<File
-			RelativePath="..\mon-iter.h"
 			>
 		</File>
 		<File

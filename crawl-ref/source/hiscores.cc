@@ -95,7 +95,7 @@ static string _score_file_name()
 
 static string _log_file_name()
 {
-    return (Options.shared_dir + "logfile" + crawl_state.game_type_qualifier());
+    return Options.shared_dir + "logfile" + crawl_state.game_type_qualifier();
 }
 
 void hiscores_new_entry(const scorefile_entry &ne)
@@ -193,7 +193,7 @@ void logfile_new_entry(const scorefile_entry &ne)
     logfile = _hs_open("a", _log_file_name());
     if (logfile == NULL)
     {
-        mpr("ERROR: failure writing to the logfile.", MSGCH_ERROR);
+        mprf(MSGCH_ERROR, "ERROR: failure writing to the logfile.");
         return;
     }
 
@@ -346,7 +346,6 @@ static void _construct_hiscore_table(MenuScroller* scroller)
 
     for (int j=0; j<i; j++)
         _add_hiscore_row(scroller, *hs_list[j], j);
-
 }
 
 static void _show_morgue(scorefile_entry& se)
@@ -383,7 +382,6 @@ static void _show_morgue(scorefile_entry& se)
     lk_close(morgue, "r", morgue_path);
 
     clrscr();
-
 
     column_composer cols(2, 40);
     cols.add_formatted(
@@ -496,7 +494,6 @@ void show_hiscore_table()
     }
 }
 
-
 // Trying to supply an appropriate verb for the attack type. -- bwr
 static const char *_range_type_verb(const char *const aux)
 {
@@ -526,7 +523,7 @@ static bool _hiscore_same_day(time_t t1, time_t t2)
 
     struct tm *d2  = TIME_FN(&t2);
 
-    return (d2->tm_mday == day && d2->tm_mon == mon && d2->tm_year == year);
+    return d2->tm_mday == day && d2->tm_mon == mon && d2->tm_year == year;
 }
 
 static void _hiscore_date_string(time_t time, char buff[INFO_SIZE])
@@ -586,7 +583,7 @@ static bool _hs_read(FILE *scores, scorefile_entry &dest)
 
 static int _val_char(char digit)
 {
-    return (digit - '0');
+    return digit - '0';
 }
 
 static time_t _parse_time(const string &st)
@@ -619,12 +616,12 @@ static const char *kill_method_names[] =
     "mon", "pois", "cloud", "beam", "lava", "water",
     "stupidity", "weakness", "clumsiness", "trap", "leaving", "winning",
     "quitting", "draining", "starvation", "freezing", "burning",
-    "wild_magic", "xom", "rotting", "targetting", "spore",
+    "wild_magic", "xom", "rotting", "targeting", "spore",
     "tso_smiting", "petrification", "something",
     "falling_down_stairs", "acid", "curare",
     "beogh_smiting", "divine_wrath", "bounce", "reflect", "self_aimed",
     "falling_through_gate", "disintegration", "headbutt", "rolling",
-    "mirror_damage", "spines",
+    "mirror_damage", "spines", "frailty", "barbs", "being_thrown",
 };
 
 static const char *_kill_method_name(kill_method_type kmt)
@@ -693,9 +690,11 @@ void scorefile_entry::init_from(const scorefile_entry &se)
     lvl               = se.lvl;
     best_skill        = se.best_skill;
     best_skill_lvl    = se.best_skill_lvl;
+    title             = se.title;
     death_type        = se.death_type;
     death_source      = se.death_source;
     death_source_name = se.death_source_name;
+    death_source_flags = se.death_source_flags;
     auxkilldata       = se.auxkilldata;
     indirectkiller    = se.indirectkiller;
     killerpath        = se.killerpath;
@@ -748,7 +747,7 @@ xlog_fields scorefile_entry::get_fields() const
     if (!fields.get())
         return xlog_fields();
     else
-        return (*fields.get());
+        return *fields.get();
 }
 
 bool scorefile_entry::parse(const string &line)
@@ -897,16 +896,21 @@ void scorefile_entry::init_with_fields()
 
     best_skill     = str_to_skill(fields->str_field("sk"));
     best_skill_lvl = fields->int_field("sklev");
+    title          = fields->str_field("title");
 
     death_type        = _str_to_kill_method(fields->str_field("ktyp"));
     death_source_name = fields->str_field("killer");
+    const vector<string> kflags =
+        split_string(" ", fields->str_field("killer_flags"));
+    death_source_flags = set<string>(kflags.begin(), kflags.end());
+
     auxkilldata       = fields->str_field("kaux");
     indirectkiller    = fields->str_field("ikiller");
     if (indirectkiller.empty())
         indirectkiller = death_source_name;
     killerpath        = fields->str_field("kpath");
 
-    branch     = str_to_branch(fields->str_field("br"), BRANCH_MAIN_DUNGEON);
+    branch     = str_to_branch(fields->str_field("br"), BRANCH_DUNGEON);
     dlvl       = fields->int_field("lvl");
     absdepth   = fields->int_field("absdepth");
 
@@ -983,9 +987,7 @@ void scorefile_entry::set_base_xlog_fields() const
     fields->add_field("xl",    "%d", lvl);
     fields->add_field("sk",    "%s", skill_name(best_skill));
     fields->add_field("sklev", "%d", best_skill_lvl);
-    fields->add_field("title", "%s",
-                      skill_title(best_skill, best_skill_lvl,
-                                  race, str, dex, god).c_str());
+    fields->add_field("title", "%s", title.c_str());
 
     fields->add_field("place", "%s",
                       place_name(get_packed_place(branch, dlvl),
@@ -1055,6 +1057,14 @@ void scorefile_entry::set_score_fields() const
 
     const string killer = death_source_desc();
     fields->add_field("killer", "%s", killer.c_str());
+    if (!death_source_flags.empty())
+    {
+        const string kflags = comma_separated_line(
+            death_source_flags.begin(),
+            death_source_flags.end(),
+            " ", " ");
+        fields->add_field("killer_flags", "%s", kflags.c_str());
+    }
     fields->add_field("dam", "%d", damage);
     fields->add_field("sdam", "%d", source_damage);
     fields->add_field("tdam", "%d", turn_damage);
@@ -1126,6 +1136,31 @@ string scorefile_entry::short_kill_message() const
     return msg;
 }
 
+/**
+ * Remove from a string everything up to and including a given infix.
+ *
+ * @param[in,out] str   The string to modify.
+ * @param[in]     infix The infix to remove.
+ * @post If \c infix occured as a substring of <tt>str</tt>, \c str is updated
+ *       by removing all characters up to and including the last character
+ *       of the the first occurrence. Otherwise, \c str is unchanged.
+ * @return \c true if \c str was modified, \c false otherwise.
+ */
+static bool _strip_to(string &str, const char *infix)
+{
+    // Don't treat stripping the empty string as a change.
+    if (*infix == '\0')
+        return false;
+
+    size_t pos = str.find(infix);
+    if (pos != string::npos)
+    {
+        str.erase(0, pos + strlen(infix));
+        return true;
+    }
+    return false;
+}
+
 void scorefile_entry::init_death_cause(int dam, int dsrc,
                                        int dtype, const char *aux,
                                        const char *dsrc_name)
@@ -1139,12 +1174,6 @@ void scorefile_entry::init_death_cause(int dam, int dsrc,
     if (source_monster)
         killer_map = source_monster->originating_map();
 
-    // Save this here. We don't want to completely remove the status, as that
-    // would look odd in the "screenshot", but having DUR_MISLED as a non-zero
-    // value at his point in time will generate such odities as "killed by a
-    // golden eye, wielding an orcish crossbo [19 damage]", etc. {due}
-    unwind_var<int> misled(you.duration[DUR_MISLED], 0);
-
     // Set the default aux data value...
     // If aux is passed in (ie for a trap), we'll default to that.
     if (aux == NULL)
@@ -1154,6 +1183,8 @@ void scorefile_entry::init_death_cause(int dam, int dsrc,
 
     if (!invalid_monster_index(death_source)
         && !env.mons[death_source].alive()
+        && death_type != KILLED_BY_SPORE
+        && death_type != KILLED_BY_WATER
         && auxkilldata != "exploding inner flame")
     {
         death_source = NON_MONSTER;
@@ -1172,7 +1203,8 @@ void scorefile_entry::init_death_cause(int dam, int dsrc,
             || death_type == KILLED_BY_REFLECTION
             || death_type == KILLED_BY_ROLLING
             || death_type == KILLED_BY_SPINES
-            || death_type == KILLED_BY_WATER)
+            || death_type == KILLED_BY_WATER
+            || death_type == KILLED_BY_BEING_THROWN)
         && !invalid_monster_index(death_source)
         && menv[death_source].type != MONS_NO_MONSTER)
     {
@@ -1210,8 +1242,8 @@ void scorefile_entry::init_death_cause(int dam, int dsrc,
         if (death || you.can_see(mons))
             death_source_name = mons->full_name(desc, true);
 
-        if (death && mons->type == MONS_MARA_FAKE)
-            death_source_name = "an illusion of Mara";
+        if (mons_is_player_shadow(mons))
+            death_source_name = "their own shadow"; // heh
 
         if (mons->has_ench(ENCH_SHAPESHIFTER))
             death_source_name += " (shapeshifter)";
@@ -1221,14 +1253,19 @@ void scorefile_entry::init_death_cause(int dam, int dsrc,
         if (mons->type == MONS_PANDEMONIUM_LORD)
             death_source_name += " the pandemonium lord";
 
+        if (mons->has_ench(ENCH_PHANTOM_MIRROR))
+            death_source_name += " (illusionary)";
+
+        if (mons_is_unique(mons->type))
+            death_source_flags.insert("unique");
+
         if (mons->props.exists("blame"))
         {
             const CrawlVector& blame = mons->props["blame"].get_vector();
 
             indirectkiller = blame[blame.size() - 1].get_string();
-
-            if (indirectkiller.find(" by ") != string::npos)
-                indirectkiller.erase(0, indirectkiller.find(" by ") + 4);
+            _strip_to(indirectkiller, " by ");
+            _strip_to(indirectkiller, "ed to "); // "attached to" and similar
 
             killerpath = "";
 
@@ -1298,6 +1335,7 @@ void scorefile_entry::reset()
     race_class_name.clear();
     best_skill           = SK_NONE;
     best_skill_lvl       = 0;
+    title.clear();
     death_type           = KILLED_BY_SOMETHING;
     death_source         = NON_MONSTER;
     death_source_name.clear();
@@ -1306,7 +1344,7 @@ void scorefile_entry::reset()
     killerpath.clear();
     dlvl                 = 0;
     absdepth             = 1;
-    branch               = BRANCH_MAIN_DUNGEON;
+    branch               = BRANCH_DUNGEON;
     map.clear();
     mapdesc.clear();
     final_hp             = -1;
@@ -1349,30 +1387,30 @@ static int _award_modified_experience()
     int result = 0;
 
     if (xp <= 250000)
-        return ((xp * 7) / 10);
+        return xp * 7 / 10;
 
-    result += (250000 * 7) / 10;
+    result += 250000 * 7 / 10;
     xp -= 250000;
 
     if (xp <= 750000)
     {
-        result += (xp * 4) / 10;
+        result += xp * 4 / 10;
         return result;
     }
 
-    result += (750000 * 4) / 10;
+    result += 750000 * 4 / 10;
     xp -= 750000;
 
     if (xp <= 2000000)
     {
-        result += (xp * 2) / 10;
+        result += xp * 2 / 10;
         return result;
     }
 
-    result += (2000000 * 2) / 10;
+    result += 2000000 * 2 / 10;
     xp -= 2000000;
 
-    result += (xp / 10);
+    result += xp / 10;
 
     return result;
 }
@@ -1465,6 +1503,7 @@ void scorefile_entry::init(time_t dt)
     lvl            = you.experience_level;
     best_skill     = ::best_skill(SK_FIRST_SKILL, SK_LAST_SKILL);
     best_skill_lvl = you.skills[ best_skill ];
+    title          = player_title();
 
     // Note all skills at level 27, and also all skills at level >= 15.
     for (int i = SK_FIRST_SKILL; i < NUM_SKILLS; ++i)
@@ -1485,27 +1524,83 @@ void scorefile_entry::init(time_t dt)
     }
 
     // Note active status effects.
-    const int statuses[] = {
-        DUR_AGILITY, DUR_BERSERK, DUR_BRILLIANCE, DUR_CONF,
-        DUR_CONFUSING_TOUCH, DUR_CONTROL_TELEPORT, DUR_DEATH_CHANNEL,
-        DUR_DIVINE_STAMINA, DUR_DIVINE_VIGOUR, DUR_EXHAUSTED,
-        DUR_FIRE_SHIELD, DUR_ICY_ARMOUR, DUR_LIQUID_FLAMES,
-        DUR_LOWERED_MR, DUR_MAGIC_SHIELD, DUR_MIGHT, DUR_MISLED,
-        DUR_PARALYSIS, DUR_PETRIFIED, DUR_PETRIFYING, DUR_RESISTANCE,
-        DUR_SLAYING, DUR_SLIMIFY, DUR_SLEEP, DUR_STONESKIN, DUR_SWIFTNESS,
-        DUR_TELEPATHY, DUR_TELEPORT, DUR_DEATHS_DOOR, DUR_PHASE_SHIFT,
-        DUR_QUAD_DAMAGE, DUR_SILENCE, DUR_STEALTH, DUR_AFRAID,
-        DUR_MIRROR_DAMAGE, DUR_SCRYING, DUR_TORNADO, DUR_LIQUEFYING,
-        DUR_HEROISM, DUR_FINESSE, DUR_LIFESAVING, DUR_DARKNESS,
-        DUR_SHROUD_OF_GOLUBRIA, DUR_DISJUNCTION, DUR_SENTINEL_MARK,
-        STATUS_AIRBORNE, STATUS_BEHELD, STATUS_BURDEN, STATUS_CONTAMINATION,
-        STATUS_BACKLIT, STATUS_UMBRA, STATUS_SUPPRESSED, STATUS_NET,
-        STATUS_HUNGER, STATUS_REGENERATION, STATUS_SICK, STATUS_SPEED,
-        DUR_INVIS, DUR_POISONING, STATUS_MISSILES, DUR_SURE_BLADE,
-        DUR_TRANSFORMATION, STATUS_CONSTRICTED, STATUS_SILENCE, STATUS_RECALL,
-        DUR_WEAK, DUR_DIMENSION_ANCHOR, DUR_ANTIMAGIC, DUR_SPIRIT_HOWL,
-        DUR_FLAYED, DUR_WATER_HOLD, STATUS_DRAINED, DUR_TOXIC_RADIANCE,
-        DUR_FIRE_VULN
+    const int statuses[] =
+    {
+        DUR_AGILITY,
+        DUR_BERSERK,
+        DUR_BRILLIANCE,
+        DUR_CONF,
+        DUR_CONFUSING_TOUCH,
+        DUR_CONTROL_TELEPORT,
+        DUR_DEATH_CHANNEL,
+        DUR_DIVINE_STAMINA,
+        DUR_DIVINE_VIGOUR,
+        DUR_EXHAUSTED,
+        DUR_FIRE_SHIELD,
+        DUR_ICY_ARMOUR,
+        DUR_LIQUID_FLAMES,
+        DUR_LOWERED_MR,
+        DUR_MAGIC_SHIELD,
+        DUR_MIGHT,
+        DUR_PARALYSIS,
+        DUR_PETRIFIED,
+        DUR_PETRIFYING,
+        DUR_RESISTANCE,
+        DUR_SLIMIFY,
+        DUR_SLEEP,
+        DUR_STONESKIN,
+        DUR_SWIFTNESS,
+        DUR_TELEPATHY,
+        DUR_TELEPORT,
+        DUR_DEATHS_DOOR,
+        DUR_PHASE_SHIFT,
+        DUR_QUAD_DAMAGE,
+        DUR_SILENCE,
+        DUR_STEALTH,
+        DUR_AFRAID,
+        DUR_MIRROR_DAMAGE,
+        DUR_SCRYING,
+        DUR_TORNADO,
+        DUR_LIQUEFYING,
+        DUR_HEROISM,
+        DUR_FINESSE,
+        DUR_LIFESAVING,
+        DUR_DARKNESS,
+        DUR_SHROUD_OF_GOLUBRIA,
+        DUR_DISJUNCTION,
+        DUR_SENTINEL_MARK,
+        STATUS_AIRBORNE,
+        STATUS_BEHELD,
+        STATUS_BURDEN,
+        STATUS_CONTAMINATION,
+        STATUS_BACKLIT,
+        STATUS_UMBRA,
+        STATUS_NET,
+        STATUS_HUNGER,
+        STATUS_REGENERATION,
+        STATUS_SICK,
+        STATUS_SPEED,
+        STATUS_INVISIBLE,
+        DUR_POISONING,
+        STATUS_MISSILES,
+        DUR_SURE_BLADE,
+        DUR_TRANSFORMATION,
+        STATUS_CONSTRICTED,
+        STATUS_SILENCE,
+        STATUS_RECALL,
+        DUR_WEAK,
+        DUR_DIMENSION_ANCHOR,
+        DUR_ANTIMAGIC,
+        DUR_FLAYED,
+        DUR_WATER_HOLD,
+        STATUS_DRAINED,
+        DUR_TOXIC_RADIANCE,
+        DUR_FIRE_VULN,
+        DUR_POISON_VULN,
+        DUR_FROZEN,
+        DUR_SAP_MAGIC,
+        STATUS_MAGIC_SAPPED,
+        DUR_PORTAL_PROJECTILE,
     };
 
     status_info inf;
@@ -1636,7 +1731,8 @@ string scorefile_entry::strip_article_a(const string &s) const
 
 string scorefile_entry::terse_missile_name() const
 {
-    const string pre_post[][2] = {
+    const string pre_post[][2] =
+    {
         { "Shot with a", " by " },
         { "Hit by a",    " thrown by " }
     };
@@ -1718,7 +1814,6 @@ string scorefile_entry::single_cdesc() const
                          race_class_name.c_str(), lvl, (wiz_mode == 1) ? "W" : "");
 }
 
-
 static string _append_sentence_delimiter(const string &sentence,
                                          const string &delimiter)
 {
@@ -1729,7 +1824,7 @@ static string _append_sentence_delimiter(const string &sentence,
     if (lastch == '!' || lastch == '.')
         return sentence;
 
-    return (sentence + delimiter);
+    return sentence + delimiter;
 }
 
 string
@@ -1749,10 +1844,7 @@ scorefile_entry::character_description(death_desc_verbosity verbosity) const
     if (verbose)
     {
         snprintf(buf, HIGHSCORE_SIZE, "%8d %s the %s (level %d",
-                  points, name.c_str(),
-                  skill_title(best_skill, best_skill_lvl,
-                               race, str, dex, god, piety).c_str(),
-                  lvl);
+                  points, name.c_str(), title.c_str(), lvl);
         desc = buf;
     }
     else
@@ -1882,7 +1974,7 @@ string scorefile_entry::death_place(death_desc_verbosity verbosity) const
 
 static bool _species_is_undead(int sp)
 {
-    return (sp == SP_MUMMY || sp == SP_GHOUL || sp == SP_VAMPIRE);
+    return sp == SP_MUMMY || sp == SP_GHOUL || sp == SP_VAMPIRE;
 }
 
 string scorefile_entry::death_description(death_desc_verbosity verbosity) const
@@ -2000,7 +2092,8 @@ string scorefile_entry::death_description(death_desc_verbosity verbosity) const
             snprintf(scratch, sizeof(scratch), "%s by ",
                       _range_type_verb(auxkilldata.c_str()));
             desc += scratch;
-            desc += death_source_desc();
+            desc += (death_source_name == "you") ? "themself"
+                                                 : death_source_desc();
 
             if (semiverbose)
             {
@@ -2023,9 +2116,18 @@ string scorefile_entry::death_description(death_desc_verbosity verbosity) const
         {
             // "by" is used for priest attacks where the effect is indirect
             // in verbose format we have another line for the monster
-            needs_called_by_monster_line = true;
-            snprintf(scratch, sizeof(scratch), "Killed %s",
-                      auxkilldata.c_str());
+            if (death_source_name == "you")
+            {
+                needs_damage = true;
+                snprintf(scratch, sizeof(scratch), "Killed by their own %s",
+                         auxkilldata.substr(3).c_str());
+            }
+            else
+            {
+                needs_called_by_monster_line = true;
+                snprintf(scratch, sizeof(scratch), "Killed %s",
+                          auxkilldata.c_str());
+            }
             desc += scratch;
         }
         else
@@ -2037,7 +2139,10 @@ string scorefile_entry::death_description(death_desc_verbosity verbosity) const
             else if (!terse)
                 desc += "Killed from afar by ";
 
-            desc += death_source_desc();
+            if (death_source_name == "you")
+                desc += "themself";
+            else
+                desc += death_source_desc();
 
             if (!auxkilldata.empty())
                 needs_beam_cause_line = true;
@@ -2067,6 +2172,7 @@ string scorefile_entry::death_description(death_desc_verbosity verbosity) const
             {
                 desc += terse? "drowned by " : "Drowned by ";
                 desc += death_source_name;
+                needs_damage = true;
             }
             else
                 desc += terse? "drowned" : "Drowned";
@@ -2206,14 +2312,14 @@ string scorefile_entry::death_description(death_desc_verbosity verbosity) const
             desc += " (" + death_source_desc() + ")";
         break;
 
-    case KILLED_BY_TARGETTING:
+    case KILLED_BY_TARGETING:
         if (terse)
             desc += "shot self";
         else
         {
             desc += "Killed themself with ";
             if (auxkilldata.empty())
-                desc += "bad targetting";
+                desc += "bad targeting";
             else
                 desc += "a badly aimed " + auxkilldata;
         }
@@ -2259,7 +2365,7 @@ string scorefile_entry::death_description(death_desc_verbosity verbosity) const
 
     case KILLED_BY_SELF_AIMED:
         if (terse)
-            desc += "suicidal targetting";
+            desc += "suicidal targeting";
         else
         {
             desc += "Shot themself with ";
@@ -2344,9 +2450,23 @@ string scorefile_entry::death_description(death_desc_verbosity verbosity) const
         if (terse)
             desc += "divine wrath";
         else
-            desc += "Killed by " +
-                    (auxkilldata.empty() ? "divine wrath" : auxkilldata);
+        {
+            desc += "Killed by ";
+            if (auxkilldata.empty())
+                desc += "divine wrath";
+            else
+            {
+                // Lugonu's touch or "the <retribution> of <deity>";
+                // otherwise it's a beam
+                if (!isupper(auxkilldata[0]) && auxkilldata.find("the ") != 0)
+                    desc += is_vowel(auxkilldata[0]) ? "an " : "a ";
+
+                desc += auxkilldata;
+            }
+        }
         needs_damage = true;
+        if (!death_source_name.empty())
+            needs_called_by_monster_line = true;
         break;
 
     case KILLED_BY_DISINT:
@@ -2366,6 +2486,22 @@ string scorefile_entry::death_description(death_desc_verbosity verbosity) const
 
     case KILLED_BY_MIRROR_DAMAGE:
         desc += terse ? "mirror damage" : "Killed by mirror damage";
+        needs_damage = true;
+        break;
+
+    case KILLED_BY_FRAILTY:
+        desc += terse ? "frailty" : "Became unviable by " + auxkilldata;
+        break;
+
+    case KILLED_BY_BARBS:
+        desc += terse ? "barbs" : "Succumbed to a manticore's barbed spikes";
+        break;
+
+    case KILLED_BY_BEING_THROWN:
+        if (terse)
+            desc += apostrophise(death_source_desc()) + " throw";
+        else
+            desc += "Thrown by " + death_source_desc();
         needs_damage = true;
         break;
 
@@ -2528,7 +2664,7 @@ string scorefile_entry::death_description(death_desc_verbosity verbosity) const
                 if (needs_damage && !done_damage && damage > 0)
                     desc += " " + damage_string();
 
-                if (needs_damage)
+                if (needs_damage && !done_damage)
                     desc += _hiscore_newline_string();
 
                 if (you.duration[DUR_PARALYSIS])

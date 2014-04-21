@@ -29,14 +29,14 @@ KMONS:  X = spriggan rider ; bow unrand:storm_bow . arrow
 KMONS:  Y = bush
 KMONS:  a = yellow wasp
 KMONS:  b = ghost moth
-KMONS:  d = oklob plant name:meteorologist n_suf spells:sunray;.;.;airstrike actual_spells
+KMONS:  d = oklob plant name:meteorologist n_suf spells:lightning_bolt;.;.;airstrike actual_spells
 KMONS:  e = oklob plant name:demonologist n_suf spells:summon_demon;.;.;summon_demon;.;malign_gateway actual_spells
 KMONS:  f = oklob plant name:annihilator n_suf spells:poison_arrow;orb_of_destruction;.;.;bolt_of_cold actual_spells
 KMONS:  g = the Enchantress
 KMONS:  h = moth of wrath
 KMONS:  m = green rat
 KMONS:  n = worker ant
-KMONS:  u = grey rat
+KMONS:  u = rat
 KITEM:  j = piece of ambrosia q:3
 KITEM:  k = honeycomb q:3
 KITEM:  n = ring of invisibility ident:type
@@ -47,7 +47,7 @@ KFEAT:  Z = any shop
 MAP
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 xcccccccccccccccccccccccccccccccccccccccccccccccccccccx
-xc{[(Ac....uc.$$$$coooooooooooooc.*+$BBc.E..ccZcc|ccccx
+xc{..Ac....uc.$$$$coooooooooooooc.*+$BBc.E..ccZcc|ccccx
 xcAA..+.%...+.c%%.+ooooooooooooo+.Dc$E$c.F.G+*|cc+ccccx
 xcAAAAc...m.cCcn..coooooooooooooc..ccc+cc.**ccZc$$ccccx
 xccccccccccccccc+ccoooooooooooooc.*ccZZ$+..Fccccc..R.cx
@@ -103,12 +103,13 @@ KFEAT:  M = altar_jiyva
 KFEAT:  N = altar_vehumet
 KFEAT:  O = altar_sif_muna
 KFEAT:  P = altar_makhleb
+KFEAT:  Q = altar_dithmenos
 KMONS:  X = oklob sapling name:priest n_suf spells:cantrip;.;cantrip;smiting priest_spells
 
 MAP
 .T.........T.
 .A.B.C.D.E.F.
-..M.NXO.P.T..
+..M.NXO.P.Q..
 .G.H.I.J.K.L.
 .T.........T.
 ENDMAP

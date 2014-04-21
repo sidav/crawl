@@ -5,7 +5,7 @@
 # - Obsidian axe, Gong and Maxwells are guaranteed in the equipment room, this
 #   is because of a ##crawl joke/challenge involving beating a zig wearing
 #   these items. Despite it being rather fun to use them in the map it may be
-#   slighty imbalanced to hand them out.
+#   slightly imbalanced to hand them out.
 #
 # - Alternatively to the way this map is done, it would be better I think to
 #   make the map a single room that regenerates and becomes bigger each time
@@ -91,7 +91,7 @@ function setup_room(e, id)
             potion of heal wounds ident:all q:2 w:2 / scroll of recharging ident:all w:1 /\
             scroll of fog w:1 ident:all / scroll of holy word w:1 ident:all /\
             potion of might ident:all w:2 / potion of agility w:2 ident:all /\
-            potion of speed q:2 ident:all w:2 / scroll of acquirement w:1 ident:all /\
+            potion of haste q:2 ident:all w:2 / scroll of acquirement w:1 ident:all /\
             scroll of enchant weapon iii ident:all q:2 w:2 /\
             scroll of enchant armour ident:all q:4 w:2 /\
             scroll of brand weapon ident:all")
@@ -115,7 +115,7 @@ function choose_mset_1(e)
   local rnd = crawl.random2(132)
 -- Slime
   if rnd < 9 then
-    e.kmons("1 = jelly w:15 / ooze / giant amoeba w:5 / giant eyeball w:5 / golden eye w:5 /\
+    e.kmons("1 = jelly w:15 / ooze / slime creature w:5 / giant eyeball w:5 / golden eye w:5 /\
                eye of draining w:5")
 -- Snake
   elseif rnd < 19 then
@@ -126,7 +126,7 @@ function choose_mset_1(e)
                jackal / wolf w:5 / giant frog w:5")
 -- Spider
   elseif rnd < 39 then
-    e.kmons("1 = giant centipede / giant mite / scorpion / jumping spider w:5 /\
+    e.kmons("1 = giant mite w:15 / scorpion w:15 / jumping spider w:5 /\
                tarantella w:5")
 -- Crypt
   elseif rnd < 49 then
@@ -203,7 +203,7 @@ function choose_mset_2(e)
   local rnd = crawl.random2(141)
 -- Slime
   if rnd < 9 then
-    e.kmons("1 = jelly w:15 / ooze / giant amoeba / brown ooze w:5 / slime creature w:5 /\
+    e.kmons("1 = jelly w:15 / ooze / brown ooze / slime creature /\
                giant eyeball w:5 / golden eye w:5 / eye of draining w:5 /\
                eye of devastation w:5 / shining eye w:5")
 -- Snake
@@ -217,7 +217,7 @@ function choose_mset_2(e)
                komodo dragon w:5 / basilisk w:5 / place:Lair:1 w:30")
 -- Spider
   elseif rnd < 34 then
-    e.kmons("1 = giant centipede / giant mite / scorpion / jumping spider w:5 /\
+    e.kmons("1 = giant mite w:15 / scorpion w:15 / jumping spider w:5 /\
                tarantella w:5 / wolf spider w:5 / redback w:5")
 -- Crypt
   elseif rnd < 44 then
@@ -251,7 +251,7 @@ function choose_mset_2(e)
     e.kmons("1 = insubstantial wisp / air elemental / vapour w:5")
 -- Earth
   elseif rnd < 90 then
-    e.kmons("1 = toenail golem w:30 / clay golem / stone golem / earth elemental")
+    e.kmons("1 = toenail golem / earth elemental / gargoyle w:2")
 -- Dragon
   elseif rnd < 92 then
     e.kmons("1 = swamp drake / fire drake / mottled dragon / steam dragon / wyvern")
@@ -298,7 +298,7 @@ function choose_mset_3(e)
   local rnd = crawl.random2(116)
 -- Slime
   if rnd < 9 then
-    e.kmons("1 = jelly w:15 / ooze / giant amoeba / brown ooze / slime creature /\
+    e.kmons("1 = jelly w:15 / ooze / brown ooze w:15 / slime creature w:15 /\
                giant eyeball w:2 / golden eye w:5 / eye of draining w:2 /\
                eye of devastation w:5 / shining eye w:5 / acid blob w:5 /\
                death ooze / azure jelly w:5 / great orb of eyes w:5 /\
@@ -348,7 +348,7 @@ function choose_mset_3(e)
 -- Fire
   elseif rnd < 73 then
     e.kmons("1 = fire vortex / hell hound / hell hog / fire elemental /\
-               fire drake / efreet / dragon / fire giant")
+               fire drake / efreet / fire dragon / fire giant")
 -- Ice
   elseif rnd < 75 then
     e.kmons("1 = ice beast / polar bear / white imp / simulacrum /\
@@ -360,12 +360,13 @@ function choose_mset_3(e)
                storm dragon / titan w:2")
 -- Earth
   elseif rnd < 79 then
-    e.kmons("1 = clay golem / stone golem / earth elemental / iron golem /\
-               crystal golem / stone giant w:5 / iron dragon w:5 / quicksilver dragon w:5")
+    e.kmons("1 = earth elemental w:15 / gargoyle w:5 / iron golem w:20 /\
+               crystal guardian / stone giant w:5 / iron dragon w:5 /\
+               quicksilver dragon w:5")
 -- Dragon
   elseif rnd < 81 then
     e.kmons("1 = swamp drake / fire drake / mottled dragon / steam dragon /\
-               death drake / swamp dragon / dragon / ice dragon / wyvern /\
+               death drake / swamp dragon / fire dragon / ice dragon / wyvern /\
                hydra")
 -- Ranged
   elseif rnd < 83 then
@@ -421,7 +422,7 @@ function choose_mset_4(e)
 local rnd = crawl.random2(142)
 -- Slime
   if rnd < 9 then
-    e.kmons("1 = jelly w:5 / giant amoeba / brown ooze / slime creature /\
+    e.kmons("1 = jelly w:5 / brown ooze w:15 / slime creature w:15 /\
                giant eyeball w:2 / golden eye w:4 / eye of draining w:2 /\
                eye of devastation w:5 / shining eye w:4 / acid blob /\
                death ooze / azure jelly / great orb of eyes w:4 /\
@@ -476,7 +477,7 @@ local rnd = crawl.random2(142)
 -- Fire
   elseif rnd < 78 then
     e.kmons("1 = fire vortex / hell hound / hell hog / fire elemental /\
-               fire drake / efreet / dragon / fire giant / orb of fire w:5 /\
+               fire drake / efreet / fire dragon / fire giant / orb of fire w:5 /\
                balrug")
 -- Ice
   elseif rnd < 81 then
@@ -489,12 +490,13 @@ local rnd = crawl.random2(142)
                storm dragon / titan / electric golem")
 -- Earth
   elseif rnd < 87 then
-    e.kmons("1 = clay golem / stone golem / earth elemental / iron golem /\
-               crystal golem / stone giant / iron dragon / quicksilver dragon")
+    e.kmons("1 = earth elemental w:15 / gargoyle w:5 / iron golem /\
+               crystal guardian / stone giant / iron dragon /\
+               quicksilver dragon")
 -- Dragon
   elseif rnd < 90 then
     e.kmons("1 = swamp drake / fire drake / mottled dragon / steam dragon /\
-               death drake / swamp dragon / dragon / ice dragon /\
+               death drake / swamp dragon / fire dragon / ice dragon /\
                shadow dragon / iron dragon / quicksilver dragon /\
                golden dragon / wyvern / hydra")
 -- Ranged
@@ -700,37 +702,38 @@ KFEAT:  o = altar_beogh
 KFEAT:  p = altar_jiyva
 KFEAT:  q = altar_fedhas
 KFEAT:  r = altar_cheibriados
-KITEM:    B = plate armour race:none mundane not_cursed ident:all plus:5, \
+KFEAT:  s = altar_dithmenos
+KITEM:    B = plate armour mundane not_cursed ident:all plus:5, \
               fire dragon armour mundane not_cursed ident:all plus:5, \
               ice dragon armour mundane not_cursed ident:all plus:5, \
               storm dragon armour mundane not_cursed ident:all plus:5, \
               gold dragon armour mundane not_cursed ident:all plus:5, \
               crystal plate armour mundane not_cursed ident:all plus:5
-KITEM:    C = buckler race:none mundane not_cursed ident:all plus:3, \
-              shield race:none mundane not_cursed ident:all plus:3, \
-              large race:none shield mundane not_cursed ident:all plus:3
-KITEM:    D = broad axe race:none mundane not_cursed ident:all plus:5 plus2:5, \
-              battleaxe race:none mundane not_cursed ident:all plus:5 plus2:5, \
-              executioner's axe race:none mundane not_cursed ident:all plus:5 plus2:5
+KITEM:    C = buckler mundane not_cursed ident:all plus:3, \
+              shield mundane not_cursed ident:all plus:3, \
+              large shield mundane not_cursed ident:all plus:3
+KITEM:    D = broad axe mundane not_cursed ident:all plus:5 plus2:5, \
+              battleaxe mundane not_cursed ident:all plus:5 plus2:5, \
+              executioner's axe mundane not_cursed ident:all plus:5 plus2:5
 KITEM:    E = demon trident mundane not_cursed ident:all plus:5 plus2:5, \
-              bardiche race:none mundane not_cursed ident:all plus:5 plus2:5
+              bardiche mundane not_cursed ident:all plus:5 plus2:5
 KITEM:    F = demon whip mundane not_cursed ident:all plus:5 plus2:5, \
-              great mace race:none mundane not_cursed ident:all plus:5 plus2:5, \
+              great mace mundane not_cursed ident:all plus:5 plus2:5, \
               giant club mundane not_cursed ident:all plus:5 plus2:5, \
               giant spiked club mundane not_cursed ident:all plus:5 plus2:5
-KITEM:    G = dagger race:none mundane not_cursed ident:all plus:5 plus2:5, \
-              sabre race:none mundane not_cursed ident:all plus:5 plus2:5, \
-              quick blade race:none mundane not_cursed ident:all plus:5 plus2:5
+KITEM:    G = dagger mundane not_cursed ident:all plus:5 plus2:5, \
+              cutlass mundane not_cursed ident:all plus:5 plus2:5, \
+              quick blade mundane not_cursed ident:all plus:5 plus2:5
 KITEM:    H = demon blade mundane not_cursed ident:all plus:5 plus2:5, \
-              double sword race:none mundane not_cursed ident:all plus:5 plus2:5, \
-              great sword race:none mundane not_cursed ident:all plus:5 plus2:5, \
-              triple sword race:none mundane not_cursed ident:all plus:5 plus2:5
+              bastard sword mundane not_cursed ident:all plus:5 plus2:5, \
+              great sword mundane not_cursed ident:all plus:5 plus2:5, \
+              claymore mundane not_cursed ident:all plus:5 plus2:5
 KITEM:    I = lajatang mundane not_cursed ident:all plus:5 plus2:5
-KITEM:    J = crossbow race:none mundane not_cursed ident:all plus:5 plus2:5, \
+KITEM:    J = crossbow mundane not_cursed ident:all plus:5 plus2:5, \
               bolt q:1000 mundane ident:all, \
-              bow race:none mundane not_cursed ident:all plus:5 plus2:5, \
+              bow mundane not_cursed ident:all plus:5 plus2:5, \
           arrow q:1000 mundane ident:all, \
-              longbow race:none mundane not_cursed ident:all plus:5 plus2:5, \
+              longbow mundane not_cursed ident:all plus:5 plus2:5, \
               sling mundane not_cursed ident:all plus:5 plus2:5, \
               sling bullet q:1000 mundane ident:all
 KITEM:    K = potion of curing q:9 ident:all, \
@@ -741,7 +744,7 @@ KITEM:    K = potion of curing q:9 ident:all, \
               potion of magic q:5 ident:all, \
               potion of experience q:1 ident:all, \
               potion of resistance q:4 ident:all, \
-              potion of speed q:5 ident:all, \
+              potion of haste q:5 ident:all, \
               potion of restore abilities q:2 ident:all, \
               potion of invisibility q:2 ident:all, \
               potion of brilliance q:2 ident:all
@@ -768,15 +771,16 @@ KITEM:    P = ring of strength not_cursed ident:all plus:6, \
           ring of flight not_cursed ident:all
 KITEM:    R = broad axe unrand:obsidian_axe ident:all, \
               shield unrand:shield_of_the_gong ident:all, \
-              plate armour unrand:maxwells_patent_armour ident:all
+              plate armour unrand:maxwells_patent_armour ident:all, \
+              great mace unrand:dark_maul ident:all
 KITEM:    T = longbow unrand:piercer ident:all, \
               long sword unrand:singing_sword ident:all, \
               great mace unrand:mace_of_variability ident:all, \
               great sword unrand:sword_of_power ident:all, \
               scythe unrand:scythe_of_curses ident:all, \
-              double sword unrand:sword_of_zonguldrok ident:all, \
+              bastard sword unrand:sword_of_zonguldrok ident:all, \
               spear unrand:wyrmbane ident:all, \
-              triple sword unrand:plutonium_sword ident:all, \
+              claymore unrand:plutonium_sword ident:all, \
               club unrand:devastator ident:all
 KITEM:    S = disc of storms ident:all, \
               tome of destruction ident:all, tome of destruction ident:all
@@ -794,7 +798,7 @@ c......L..O...n
 ^...C..K..N...^
 b...B.........o
 ^.............^
-a^r^.^^{^^.^q^p
+a^r^.^^{^^s^q^p
 ENDMAP
 
 NAME:  room_1

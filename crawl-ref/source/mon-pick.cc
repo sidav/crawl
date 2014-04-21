@@ -25,11 +25,13 @@ int branch_ood_cap(branch_type branch)
 
     switch (branch)
     {
-    case BRANCH_MAIN_DUNGEON:
-        return 31;
+    case BRANCH_DUNGEON:
+        return 27;
+    case BRANCH_DEPTHS:
+        return 14;
     case BRANCH_VAULTS:
         return 12;
-    case BRANCH_ELVEN_HALLS:
+    case BRANCH_ELF:
         return 7;
     case BRANCH_TOMB:
         return 5;
@@ -100,7 +102,10 @@ monster_type pick_monster_by_hash(branch_type branch, uint32_t hash)
 
 monster_type pick_monster(level_id place, mon_pick_vetoer veto)
 {
-    ASSERT(place.is_valid());
+#ifdef ASSERTS
+    if (!place.is_valid())
+        die("trying to pick a monster from %s", place.describe().c_str());
+#endif
     return pick_monster_from(population[place.branch].pop, place.depth, veto);
 }
 
@@ -131,7 +136,7 @@ monster_type monster_picker::pick_with_veto(const pop_entry *weights,
 // stored veto function. Can subclass further for more complex veto behaviour.
 bool monster_picker::veto(monster_type mon)
 {
-    return _veto && _veto(mon);
+    return _veto && (invalid_monster_type(mon) || _veto(mon));
 }
 
 bool positioned_monster_picker::veto(monster_type mon)
@@ -211,6 +216,24 @@ bool branch_has_monsters(branch_type branch)
 
     ASSERT(branch < NUM_BRANCHES);
     return population[branch].count;
+}
+
+const pop_entry* fish_population(branch_type br, bool lava)
+{
+    COMPILE_CHECK(ARRAYSZ(population_water) == NUM_BRANCHES);
+    COMPILE_CHECK(ARRAYSZ(population_lava) == NUM_BRANCHES);
+    ASSERT_RANGE(br, 0, NUM_BRANCHES);
+    if (lava)
+        return population_lava[br].pop;
+    else
+        return population_water[br].pop;
+}
+
+const pop_entry* zombie_population(branch_type br)
+{
+    COMPILE_CHECK(ARRAYSZ(population_zombie) == NUM_BRANCHES);
+    ASSERT_RANGE(br, 0, NUM_BRANCHES);
+    return population_zombie[br].pop;
 }
 
 #if defined(DEBUG_DIAGNOSTICS) || defined(DEBUG_TESTS)

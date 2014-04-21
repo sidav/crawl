@@ -9,16 +9,15 @@
 
 #include <sstream>
 
+#include "act-iter.h"
 #include "coordit.h"
 #include "database.h"
 #include "env.h"
 #include "godcompanions.h"
 #include "goditem.h"
-#include "itemprop.h"
 #include "libutil.h"
 #include "message.h"
 #include "mon-behv.h"
-#include "mon-iter.h"
 #include "mon-util.h"
 #include "monster.h"
 #include "mon-stuff.h"
@@ -109,9 +108,7 @@ void slime_convert(monster* mons)
         && !mons->is_shapeshifter()
         && !mons->neutral()
         && !mons->friendly()
-        && !testbits(mons->flags, MF_ATT_CHANGE_ATTEMPT)
-        && you.visible_to(mons) && !mons->asleep()
-        && !mons_is_confused(mons) && !mons->paralysed())
+        && !testbits(mons->flags, MF_ATT_CHANGE_ATTEMPT))
     {
         mons->flags |= MF_ATT_CHANGE_ATTEMPT;
         if (!player_under_penance())
@@ -168,7 +165,7 @@ bool yred_slaves_abandon_you()
     int num_reclaim = 0;
     int num_slaves = 0;
 
-    for (radius_iterator ri(you.pos(), LOS_RADIUS); ri; ++ri)
+    for (radius_iterator ri(you.pos(), LOS_DEFAULT); ri; ++ri)
     {
         monster* mons = monster_at(*ri);
         if (mons == NULL)
@@ -219,7 +216,7 @@ bool beogh_followers_abandon_you()
     int num_reconvert = 0;
     int num_followers = 0;
 
-    for (radius_iterator ri(you.pos(), LOS_RADIUS); ri; ++ri)
+    for (radius_iterator ri(you.pos(), LOS_DEFAULT); ri; ++ri)
     {
         monster* mons = monster_at(*ri);
         if (mons == NULL)
@@ -301,7 +298,7 @@ static void _print_good_god_holy_being_speech(bool neutral,
     {
         msg = do_mon_str_replacements(msg, mon);
         strip_channel_prefix(msg, channel);
-        mpr(msg.c_str(), channel);
+        mprf(channel, "%s", msg.c_str());
     }
 }
 
@@ -380,7 +377,7 @@ static void _print_converted_orc_speech(const string key,
     {
         msg = do_mon_str_replacements(msg, mon);
         strip_channel_prefix(msg, channel);
-        mpr(msg.c_str(), channel);
+        mprf(channel, "%s", msg.c_str());
     }
 }
 
@@ -462,6 +459,8 @@ static void _fedhas_neutralise_plant(monster* plant)
 static void _jiyva_convert_slime(monster* slime)
 {
     ASSERT(mons_is_slime(slime));
+
+    behaviour_event(slime, ME_ALERT);
 
     if (you.can_see(slime))
     {

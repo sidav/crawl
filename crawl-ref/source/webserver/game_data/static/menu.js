@@ -1,6 +1,8 @@
-define(["jquery", "comm", "client", "./enums",
-        "./dungeon_renderer", "./cell_renderer", "./util"],
-function ($, comm, client, enums, dungeon_renderer, cr, util) {
+define(["jquery", "comm", "client", "./enums", "./dungeon_renderer",
+        "./cell_renderer", "./util", "./options"],
+function ($, comm, client, enums, dungeon_renderer, cr, util, options) {
+    "use strict";
+
     var chunk_size = 50;
 
     // Helpers
@@ -36,7 +38,7 @@ function ($, comm, client, enums, dungeon_renderer, cr, util) {
         }
 
         if (item.tiles && item.tiles.length > 0
-            && dungeon_renderer.display_mode == "tiles")
+            && options.get("tile_display_mode") == "tiles")
         {
             var renderer = new cr.DungeonCellRenderer();
             var canvas = $("<canvas>");
@@ -57,6 +59,24 @@ function ($, comm, client, enums, dungeon_renderer, cr, util) {
 
     var menu_stack = [];
     var menu = null;
+    var update_server_scroll_timeout = null;
+    var menu_close_timeout = null;
+
+    function menu_cleanup()
+    {
+        menu_stack = [];
+        menu = null;
+        if (update_server_scroll_timeout)
+        {
+            clearTimeout(update_server_scroll_timeout);
+            update_server_scroll_timeout = null;
+        }
+        if (menu_close_timeout)
+        {
+            clearTimeout(menu_close_timeout);
+            menu_close_timeout = null;
+        }
+    }
 
     function display_menu()
     {
@@ -366,7 +386,6 @@ function ($, comm, client, enums, dungeon_renderer, cr, util) {
         menu.last_visible = menu.last_visible || menu.last_present;
     }
 
-    var update_server_scroll_timeout = null;
     function update_server_scroll()
     {
         if (update_server_scroll_timeout)
@@ -460,7 +479,10 @@ function ($, comm, client, enums, dungeon_renderer, cr, util) {
             // Delay closing the dialog a bit to prevent flickering
             // if the game immediately opens another one
             // (e.g. when looking at an item from the inventory)
-            setTimeout(function () {
+            if (menu_close_timeout)
+                clearTimeout(menu_close_timeout);
+            menu_close_timeout = setTimeout(function () {
+                menu_close_timeout = null;
                 if (menu_stack.length == 0)
                     client.hide_dialog();
             }, 50);
@@ -660,6 +682,30 @@ function ($, comm, client, enums, dungeon_renderer, cr, util) {
             comm.send_message("input", { data: [ item.hotkeys[0] ] });
     }
 
+    options.add_listener(function ()
+    {
+        if (options.get("tile_font_crt_size") === 0)
+        {
+            $("#crt").css("font-size", "");
+            $("#menu").css("font-size", "");
+        }
+        else
+        {
+            $("#crt").css("font-size",
+                options.get("tile_font_crt_size") + "px");
+            $("#menu").css("font-size",
+                options.get("tile_font_crt_size") + "px");
+        }
+
+        var family = options.get("tile_font_crt_family");
+        if (family !== "")
+            family += ", ";
+        $("#crt").css("font-family", family + "monospace");
+        $("#menu").css("font-family", family + "monospace");
+
+        client.center_element($("#menu"));
+    });
+
     $(document).off("game_init.menu")
                .on("game_init.menu", function () {
         menu_stack = [];
@@ -668,5 +714,7 @@ function ($, comm, client, enums, dungeon_renderer, cr, util) {
         $(document).off("game_keydown.menu game_keypress.menu")
                    .on("game_keydown.menu", menu_keydown_handler)
                    .on("game_keypress.menu", menu_keypress_handler);
+        $(document).off("game_cleanup_menu")
+                   .on("game_cleanup.menu", menu_cleanup);
     });
 });

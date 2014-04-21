@@ -1,8 +1,11 @@
 %%%%
-Breathe Fire ability
+No ability ability
 
-Uwalnia uderzenie ognia w zaznaczony cel, możliwe jest pozostawienie płonącej
-chmury.
+Jeśli widzisz ten napis, jest to bug.
+%%%%
+Spit Poison ability
+
+Opluj trucizną wyznaczonego przeciwnika.
 %%%%
 Breathe Frost ability
 
@@ -34,12 +37,25 @@ Uwalnia uderzenie trujących spalin na wybranym celu.
 Bottle Blood ability
 
 Na poziomie doświadczenia 6 bądź wyżej. Wampiry mogą zabutelkować krew z nie
-zepsutych i posiadających krew zwłok nad którymi stoją. By tego dokonać
-wymagana jest umiejętność noszenia noża by móc pociąć zwłoki.
+zepsutych i posiadających krew zwłok nad którymi stoją.
+%%%%
+Spit Acid ability
+
+Opluj kwasem zaznaczonego przeciwnika.
+%%%%
+Fly ability
+
+Lataj. W czasie lotu możesz bezpiecznie przelecieć nad wodą i innymi podobnymi
+przeszkodami. Pamiętaj jednak, że czas lotu może skończyć się w najmniej
+spodziewanym momencie doprowadzając do twojej śmierci.
 %%%%
 Hellfire ability
 
 Niszczy wrogów  piekielnym ogniem.
+%%%%
+Stop Singing ability
+
+Przestań śpiewać Pieśń Mordowania
 %%%%
 Device Recharging ability
 
@@ -53,6 +69,14 @@ Evoke Invisibility ability
 
 Stajesz się niewidzialny na pewien okres czasu. Włączenie niewidzialności
 zwiększa twoje magiczne zanieczyszczenie i może spowodować świecenie.
+%%%%
+Turn Visible ability
+
+Powróć do bycia widocznym.
+%%%%
+Stop Flying ability
+
+Przestań latać
 %%%%
 End Transformation ability
 
@@ -71,11 +95,6 @@ Wywołuje wielki wybuch świętej furii którego epicentrum jest w tobie,
 kilkukrotnie zadając obrażenia nieumarłym i demonom. Wszystkie inne wrogie
 stwory także otrzymują obrażenia lecz nie tak silne. Nie wpływa na
 sprzymierzeńców.
-%%%%
-Injury Mirror ability
-
-Rani atakujące cię stworzenia poprzez obijanie części obrażeń które Ci one
-zadają.
 %%%%
 Animate Dead ability
 
@@ -105,16 +124,16 @@ Animate Remains or Dead ability
 
 Jeśli otrzymałeś ten opis, gdzieś wystąpił błąd.
 %%%%
+Heroism ability
+
+Chwilowo podnieś poziom wszystkich swoich umiejętności bojowych, włącznie z
+umiejętnością skradania się.
+%%%%
 Finesse ability
 
 Silnie zwiększa twoją prędkość walki,bez straty celności. Ten nienaturalny
 efekt może powodować małe zanieczyszczenie magią m  wydłużone trwanie tego
 efektu jest złe dla twojego zdrowia.
-%%%%
-Greater Servant of Makhleb ability
-
-Przyzywa większego demona, może się zdarzyć że nie będzie on posłużny jeśli nie
-jesteś obeznany w wywoływaniu.
 %%%%
 Channel Energy ability
 
@@ -130,10 +149,10 @@ Divine Protection ability
 
 Wzywa Elyvilon by ocalić twe życie. Jeśli jesteś śmiertelnie ranny, Uzdrowiciel
 może cofnąć śmiertelne ciosy. Ta forma pomocy jest szczególnie pobożna i wymaga
-w zamian punktów pobożności ( w przeciwieństwie do  jedynie proszenia o
-interwencję,które jest darmowe jednak nie zawsze przyzwie Elyvilon ).
+w zamian punktów pobożności (w przeciwieństwie do  jedynie proszenia o
+interwencję,które jest darmowe jednak nie zawsze przyzwie Elyvilon).
 
-Uważaj : zabicie kogoś podczas proszenia o ocalenie jest  wielkim grzechem !
+Uważaj: zabicie kogoś podczas proszenia o ocalenie jest wielkim grzechem!
 %%%%
 Lesser Self-Healing ability
 
@@ -150,17 +169,6 @@ oraz bardzo słabo na demonach i nieumarłych. Bezmózgie kreatury nie mogą zos
 zneutralizowane oraz każda śpiąca kreatura także. Szansa na neutralizację
 zależy od umiejętności leczenia.
 %%%%
-Divine Vigour ability
-
-Zależnie od twoich umiejętności wywoływania, przywraca duże ilości punktów
-życia i magii, oraz czasowo zwiększa ich zasób.
-%%%%
-Bend Space ability
-
-Zagina poszycie przestrzeni dookoła ciebie, natychmiastowo przemieszczając cię
-na małą odległość, jednocześnie może przenieść i zadać obrażenia potworkom w
-twoim sąsiedztwie.
-%%%%
 Banish ability
 
 Usiłuje odesłać stwora w otchłań.
@@ -176,6 +184,11 @@ Draw One ability
 
 Wybierz dowolny zestaw ze swojego ekwipunku i wyciągnij z niego kartę.
 %%%%
+Triple Draw ability
+
+Wyciągnij trzy karty z jakiejkolwiek talii w ekwipunku, obejrzyj je po czym
+zostaw tylko jedną niszcząc dwie pozostałe.
+%%%%
 Bend Time ability
 
 Usiłuje spowolnić wszystkich w twoim sąsiedztwie. Wysoki poziom tej
@@ -185,7 +198,19 @@ Cure Bad Mutation ability
 
 Oczyszcza losowo z wybranej złej mutacji.
 %%%%
+Transfer Knowledge ability
+
+Poświęć część jednej ze swoich umiejętności ulepszając inną
+%%%%
 End Transfer Knowledge ability
 
 Przerwij trwający transfer umiejętności.
+%%%%
+Make altar ability
+
+Stwórz ołtarz wybranemu bogu w twojej lokacji.
+%%%%
+Make bazaar ability
+
+Stwórz portal prowadzący do bazaru w miejscu, w którym się znajdujesz.
 %%%%

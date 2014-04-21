@@ -15,7 +15,10 @@
 
 #include "externs.h"
 
-#include "abl-show.h"
+#include "ability.h"
+#include "act-iter.h"
+#include "art-enum.h"
+#include "artefact.h"
 #include "cio.h"
 #include "coordit.h"
 #include "delay.h"
@@ -33,7 +36,6 @@
 #include "mgen_data.h"
 #include "misc.h"
 #include "mon-place.h"
-#include "mon-iter.h"
 #include "mon-stuff.h"
 #include "mon-util.h"
 #include "notes.h"
@@ -51,7 +53,8 @@
 
 static int _body_covered();
 
-static const mutation_def mut_data[] = {
+static const mutation_def mut_data[] =
+{
 #include "mutation-data.h"
 };
 
@@ -113,22 +116,20 @@ void init_mut_index()
     }
 }
 
-static const mutation_def* _seek_mutation(mutation_type mut)
+const mutation_def& get_mutation_def(mutation_type mut)
 {
     ASSERT_RANGE(mut, 0, NUM_MUTATIONS);
-    if (mut_index[mut] == -1)
-        return NULL;
-    else
-        return &mut_data[mut_index[mut]];
+    ASSERT(mut_index[mut] != -1);
+    return *&mut_data[mut_index[mut]];
 }
 
-bool is_valid_mutation(mutation_type mut)
+static bool _is_valid_mutation(mutation_type mut)
 {
-    return (mut >= 0 && mut < NUM_MUTATIONS
-            && _seek_mutation(mut));
+    return mut >= 0 && mut < NUM_MUTATIONS && mut_index[mut] != -1;
 }
 
-static const mutation_type _all_scales[] = {
+static const mutation_type _all_scales[] =
+{
     MUT_DISTORTION_FIELD,           MUT_ICY_BLUE_SCALES,
     MUT_IRIDESCENT_SCALES,          MUT_LARGE_BONE_PLATES,
     MUT_MOLTEN_SCALES,              MUT_ROUGH_BLACK_SCALES,
@@ -157,12 +158,6 @@ bool is_body_facet(mutation_type mut)
     return false;
 }
 
-const mutation_def& get_mutation_def(mutation_type mut)
-{
-    ASSERT(is_valid_mutation(mut));
-    return *_seek_mutation(mut);
-}
-
 mutation_activity_type mutation_activity_level(mutation_type mut)
 {
     // First make sure the player's form permits the mutation.
@@ -176,6 +171,8 @@ mutation_activity_type mutation_activity_level(mutation_type mut)
             if (mut == MUT_UNBREATHING && drag == MONS_IRON_DRAGON)
                 return MUTACT_FULL;
             if (mut == MUT_ACIDIC_BITE && drag == MONS_GOLDEN_DRAGON)
+                return MUTACT_FULL;
+            if (mut == MUT_STINGER && drag == MONS_SWAMP_DRAGON)
                 return MUTACT_FULL;
         }
         // Dex and HP changes are kept in all forms.
@@ -209,7 +206,7 @@ mutation_activity_type mutation_activity_level(mutation_type mut)
         case MUT_MOLTEN_SCALES:
         case MUT_SLIMY_GREEN_SCALES:
         case MUT_THIN_METALLIC_SCALES:
-            return (you.mutation[mut] > 2 ? MUTACT_PARTIAL : MUTACT_INACTIVE);
+            return you.mutation[mut] > 2 ? MUTACT_PARTIAL : MUTACT_INACTIVE;
         default:
             break;
         }
@@ -507,7 +504,7 @@ string describe_mutations(bool center_title)
 
     case SP_FELID:
         result += "You cannot wear armour.\n";
-        result += "You are incapable of any advanced item manipulation.\n";
+        result += "You are incapable of wielding weapons or throwing items.\n";
         result += _annotate_form_based("Your paws have sharp claws.",
             !form_keeps_mutations() || you.form == TRAN_BLADE_HANDS);
         have_any = true;
@@ -524,6 +521,7 @@ string describe_mutations(bool center_title)
             !form_keeps_mutations());
         have_any = true;
         break;
+#if TAG_MAJOR_VERSION == 34
 
     case SP_DJINNI:
         result += "You are immune to all types of fire, even holy and hellish.\n";
@@ -532,6 +530,7 @@ string describe_mutations(bool center_title)
         result += "You have no legs.\n";
         have_any = true;
         break;
+#endif
 
     case SP_LAVA_ORC:
     {
@@ -540,19 +539,6 @@ string describe_mutations(bool center_title)
 
         col = (temperature_effect(LORC_STONESKIN)) ? "lightgrey" : "darkgrey";
         result += "<" + col + ">You have stony skin.</" + col + ">\n";
-
-        if (temperature_effect(LORC_FAST_MOVE))
-        {
-            // Fast move
-            col = "lightred";
-            result += "<" + col + ">You cover ground quickly.</" + col + ">\n";
-        }
-        else
-        {
-            // Slow or normal move
-            col = (temperature_effect(LORC_SLOW_MOVE)) ? "lightgrey" : "darkgrey";
-            result += "<" + col + ">You cover ground slowly.</" + col + ">\n";
-        }
 
         // Fire res
         col = (temperature_effect(LORC_FIRE_RES_III)) ? "lightred" :
@@ -569,12 +555,12 @@ string describe_mutations(bool center_title)
         if (temperature_effect(LORC_LAVA_BOOST))
         {
             col = "white";
-            result += "<" + col + ">Your lava-based spells are more powerful.<" + col + ">\n";
+            result += "<" + col + ">Your lava-based spells are more powerful.</" + col + ">\n";
         }
         else if (temperature_effect(LORC_FIRE_BOOST))
         {
             col = "lightred";
-            result += "<" + col + ">Your fire spells are more powerful.<" + col + ">\n";
+            result += "<" + col + ">Your fire spells are more powerful.</" + col + ">\n";
         }
 
         // Cold vulnerability
@@ -596,10 +582,18 @@ string describe_mutations(bool center_title)
         break;
     }
 
+    case SP_FORMICID:
+        result += "Your are under a permanent stasis effect.\n";
+        result += "You can dig through walls and to a lower floor.\n";
+        result += "Your four strong arms can wield two-handed weapons with a shield.\n";
+        have_any = true;
+        break;
+
     case SP_GARGOYLE:
     {
         result += "You are resistant to torment.\n";
         result += "You are immune to poison.\n";
+        result += "You are immune to rotting.\n";
         if (you.experience_level >= 14)
             result += "You can fly continuously.\n";
 
@@ -614,29 +608,33 @@ string describe_mutations(bool center_title)
         break;
     }
 
+    case SP_VINE_STALKER:
+        result += "You are immune to rotting.\n";
+        break;
 
     default:
         break;
     }
 
-    switch (you.body_size(PSIZE_TORSO, true))
+    if (you.species != SP_FELID)
     {
-    case SIZE_LITTLE:
-        if (you.species == SP_FELID)
+        switch (you.body_size(PSIZE_TORSO, true))
+        {
+        case SIZE_LITTLE:
+            result += "You are tiny and cannot use many weapons and most armour.\n";
+            have_any = true;
             break;
-        result += "You are tiny and cannot use many weapons and most armour.\n";
-        have_any = true;
-        break;
-    case SIZE_SMALL:
-        result += "You are small and have problems with some larger weapons.\n";
-        have_any = true;
-        break;
-    case SIZE_LARGE:
-        result += "You are too large for most types of armour.\n";
-        have_any = true;
-        break;
-    default:
-        break;
+        case SIZE_SMALL:
+            result += "You are small and have problems with some larger weapons.\n";
+            have_any = true;
+            break;
+        case SIZE_LARGE:
+            result += "You are too large for most types of armour.\n";
+            have_any = true;
+            break;
+        default:
+            break;
+        }
     }
 
     if (player_genus(GENPC_DRACONIAN))
@@ -667,18 +665,6 @@ string describe_mutations(bool center_title)
 
     result += "</lightblue>";
 
-    if (beogh_water_walk())
-    {
-        result += "<green>You can walk on water.</green>\n";
-        have_any = true;
-    }
-
-    if (you.duration[DUR_FIRE_SHIELD])
-    {
-        result += "<green>You are immune to clouds of flame.</green>\n";
-        have_any = true;
-    }
-
     textcolor(LIGHTGREY);
 
     // First add (non-removable) inborn abilities and demon powers.
@@ -691,6 +677,18 @@ string describe_mutations(bool center_title)
             result += "\n";
             have_any = true;
         }
+    }
+
+    if (beogh_water_walk())
+    {
+        result += "<green>You can walk on water.</green>\n";
+        have_any = true;
+    }
+
+    if (you.duration[DUR_FIRE_SHIELD])
+    {
+        result += "<green>You are immune to clouds of flame.</green>\n";
+        have_any = true;
     }
 
     // Now add removable mutations.
@@ -751,41 +749,41 @@ static void _display_vampire_attributes()
     const int lines = 15;
     string column[lines][7] =
     {
-       {"                     ", "<lightgreen>Alive</lightgreen>      ", "<green>Full</green>    ",
-        "Satiated  ", "<yellow>Thirsty</yellow>  ", "<yellow>Near...</yellow>  ",
-        "<lightred>Bloodless</lightred>"},
-                                //Alive          Full       Satiated      Thirsty   Near...      Bloodless
-       {"Metabolism           ", "very fast  ", "fast    ", "fast      ", "normal   ", "slow     ", "none  "},
+        {"                     ", "<lightgreen>Alive</lightgreen>      ", "<green>Full</green>    ",
+         "Satiated  ", "<yellow>Thirsty</yellow>  ", "<yellow>Near...</yellow>  ",
+         "<lightred>Bloodless</lightred>"},
+                                 //Alive          Full       Satiated      Thirsty   Near...      Bloodless
+        {"Metabolism           ", "very fast  ", "fast    ", "fast      ", "normal   ", "slow     ", "none  "},
 
-       {"Regeneration         ", "very fast  ", "fast    ", "normal    ", "slow     ", "slow     ", "none  "},
+        {"Regeneration         ", "very fast  ", "fast    ", "normal    ", "slow     ", "slow     ", "none  "},
 
-       {"Stealth boost        ", "none       ", "none    ", "none      ", "minor    ", "major    ", "large "},
+        {"Stealth boost        ", "none       ", "none    ", "none      ", "minor    ", "major    ", "large "},
 
-       {"Spell hunger         ", "full       ", "full    ", "full      ", "halved   ", "none     ", "none  "},
+        {"Spell hunger         ", "full       ", "full    ", "full      ", "halved   ", "none     ", "none  "},
 
-       {"\n<w>Resistances</w>\n"
-        "Poison resistance    ", "           ", "        ", "          ", " +       ", " +       ", " +    "},
+        {"\n<w>Resistances</w>\n"
+         "Poison resistance    ", "           ", "        ", "          ", " +       ", " +       ", " +    "},
 
-       {"Cold resistance      ", "           ", "        ", "          ", " +       ", " ++      ", " ++   "},
+        {"Cold resistance      ", "           ", "        ", "          ", " +       ", " ++      ", " ++   "},
 
-       {"Negative resistance  ", "           ", "        ", " +        ", " ++      ", " +++     ", " +++  "},
+        {"Negative resistance  ", "           ", "        ", " +        ", " ++      ", " +++     ", " +++  "},
 
-       {"Rotting resistance   ", "           ", "        ", "          ", " +       ", " +       ", " +    "},
+        {"Rotting resistance   ", "           ", "        ", "          ", " +       ", " +       ", " +    "},
 
-       {"Torment resistance   ", "           ", "        ", "          ", "         ", "         ", " +    "},
+        {"Torment resistance   ", "           ", "        ", "          ", "         ", "         ", " +    "},
 
-       {"\n<w>Other effects</w>\n"
-        "Mutation chance      ", "always     ", "often   ", "sometimes ", "never    ", "never    ", "never "},
+        {"\n<w>Other effects</w>\n"
+         "Mutation chance      ", "always     ", "often   ", "sometimes ", "never    ", "never    ", "never "},
 
-       {"Non-physical \n"
-        "mutation effects     ", "full       ", "capped  ", "capped    ", "none     ", "none     ", "none  "},
+        {"Non-physical \n"
+         "mutation effects     ", "full       ", "capped  ", "capped    ", "none     ", "none     ", "none  "},
 
-       {"Potion effects       ", "full       ", "full    ", "full      ", "halved   ", "halved   ", "halved"},
+        {"Potion effects       ", "full       ", "full    ", "full      ", "halved   ", "halved   ", "halved"},
 
-       {"Bat Form             ", "no         ", "no      ", "yes       ", "yes      ", "yes      ", "yes   "},
+        {"Bat Form             ", "no         ", "no      ", "yes       ", "yes      ", "yes      ", "yes   "},
 
-       {"Other transformation \n"
-        "or going berserk     ", "yes        ", "yes     ", "no        ", "no       ", "no       ", "no    "}
+        {"Other transformation \n"
+         "or going berserk     ", "yes        ", "yes     ", "no        ", "no       ", "no       ", "no    "}
     };
 
     int current = 0;
@@ -975,7 +973,6 @@ void display_mutations()
     {
         _display_temperature();
     }
-
 }
 
 static int _calc_mutation_amusement_value(mutation_type which_mutation)
@@ -1010,7 +1007,6 @@ static int _calc_mutation_amusement_value(mutation_type which_mutation)
     case MUT_DOPEY:
     case MUT_CLUMSY:
     case MUT_TELEPORT:
-    case MUT_FAST:
     case MUT_DEFORMED:
     case MUT_SPIT_POISON:
     case MUT_BREATHE_FLAMES:
@@ -1031,7 +1027,6 @@ static int _calc_mutation_amusement_value(mutation_type which_mutation)
     case MUT_STINGER:
     case MUT_BIG_WINGS:
     case MUT_LOW_MAGIC:
-    case MUT_SLOW:
     case MUT_EVOLUTION:
         amusement *= 2; // funny!
         break;
@@ -1045,7 +1040,7 @@ static int _calc_mutation_amusement_value(mutation_type which_mutation)
 
 static bool _accept_mutation(mutation_type mutat, bool ignore_rarity = false)
 {
-    if (!is_valid_mutation(mutat))
+    if (!_is_valid_mutation(mutat))
         return false;
 
     if (physiology_mutation_conflict(mutat))
@@ -1067,7 +1062,8 @@ static bool _accept_mutation(mutation_type mutat, bool ignore_rarity = false)
 
 static mutation_type _get_random_slime_mutation()
 {
-    const mutation_type slime_muts[] = {
+    const mutation_type slime_muts[] =
+    {
         MUT_GELATINOUS_BODY, MUT_EYEBALLS, MUT_TRANSLUCENT_SKIN,
         MUT_PSEUDOPODS, MUT_ACIDIC_BITE, MUT_TENDRILS,
         MUT_JELLY_GROWTH, MUT_JELLY_MISSILE
@@ -1099,15 +1095,16 @@ static mutation_type _delete_random_slime_mutation()
 
 static bool _is_slime_mutation(mutation_type m)
 {
-    return (m == MUT_GELATINOUS_BODY || m == MUT_EYEBALLS
-            || m == MUT_TRANSLUCENT_SKIN || m == MUT_PSEUDOPODS
-            || m == MUT_ACIDIC_BITE || m == MUT_TENDRILS
-            || m == MUT_JELLY_GROWTH || m == MUT_JELLY_MISSILE);
+    return m == MUT_GELATINOUS_BODY || m == MUT_EYEBALLS
+           || m == MUT_TRANSLUCENT_SKIN || m == MUT_PSEUDOPODS
+           || m == MUT_ACIDIC_BITE || m == MUT_TENDRILS
+           || m == MUT_JELLY_GROWTH || m == MUT_JELLY_MISSILE;
 }
 
 static mutation_type _get_random_xom_mutation()
 {
-    const mutation_type bad_muts[] = {
+    const mutation_type bad_muts[] =
+    {
         MUT_WEAK,          MUT_DOPEY,
         MUT_CLUMSY,        MUT_DEFORMED,      MUT_SCREAM,
         MUT_DETERIORATION, MUT_BLURRY_VISION, MUT_FRAIL
@@ -1127,6 +1124,20 @@ static mutation_type _get_random_xom_mutation()
     while (!_accept_mutation(mutat, false));
 
     return mutat;
+}
+
+static mutation_type _get_random_corrupt_mutation()
+{
+    const mutation_type corrupt_muts[] =
+    {
+        MUT_DEFORMED,      MUT_DETERIORATION, MUT_BLURRY_VISION,
+        MUT_SLOW_HEALING,  MUT_FRAIL,         MUT_LOW_MAGIC,
+        MUT_HEAT_VULNERABILITY,
+        MUT_COLD_VULNERABILITY,
+        MUT_FAST_METABOLISM
+    };
+
+    return RANDOM_ELEMENT(corrupt_muts);
 }
 
 static mutation_type _get_random_mutation(mutation_type mutclass)
@@ -1174,7 +1185,8 @@ static int _handle_conflicting_mutations(mutation_type mutation,
                                          const string &reason,
                                          bool temp = false)
 {
-    const int conflict[][3] = {
+    const int conflict[][3] =
+    {
         { MUT_REGENERATION,        MUT_SLOW_METABOLISM,  0},
         { MUT_REGENERATION,        MUT_SLOW_HEALING,     0},
         { MUT_ACUTE_VISION,        MUT_BLURRY_VISION,    0},
@@ -1199,6 +1211,9 @@ static int _handle_conflicting_mutations(mutation_type mutation,
         { MUT_ACUTE_VISION,        MUT_BLURRY_VISION,    1},
         { MUT_FAST,                MUT_SLOW,             1},
         { MUT_MUTATION_RESISTANCE, MUT_EVOLUTION,       -1},
+        { MUT_ANTIMAGIC_BITE,      MUT_ACIDIC_BITE,     -1},
+        { MUT_HEAT_RESISTANCE,     MUT_HEAT_VULNERABILITY, -1},
+        { MUT_COLD_RESISTANCE,     MUT_COLD_VULNERABILITY, -1},
         };
 
     // If we have one of the pair, delete all levels of the other,
@@ -1243,7 +1258,6 @@ static int _handle_conflicting_mutations(mutation_type mutation,
                         return 1;     // Nothing more to do.
                     }
 
-
                 default:
                     die("bad mutation conflict resulution");
                 }
@@ -1287,7 +1301,7 @@ bool physiology_mutation_conflict(mutation_type mutat)
                 found = true;
         }
 
-        return (!found);
+        return !found;
     }
 
     // Strict 3-scale limit.
@@ -1318,6 +1332,10 @@ bool physiology_mutation_conflict(mutation_type mutat)
     {
         return true;
     }
+
+    // Naga poison spit can be upgraded to breathe poison instead.
+    if (you.species == SP_NAGA && mutat == MUT_SPIT_POISON)
+        return true;
 
     // Only Nagas can get this upgrade.
     if (you.species != SP_NAGA && mutat == MUT_BREATHE_POISON)
@@ -1364,13 +1382,31 @@ bool physiology_mutation_conflict(mutation_type mutat)
         return true;
     }
 
+    if (you.species == SP_FORMICID)
+    {
+        // Formicids have stasis and so prevent mutations that would do nothing.
+        // Antennae provides SInv, so acute vision is pointless.
+        if (mutat == MUT_BERSERK
+            || mutat == MUT_BLINK
+            || mutat == MUT_TELEPORT
+            || mutat == MUT_TELEPORT_CONTROL
+            || mutat == MUT_ACUTE_VISION)
+        {
+            return true;
+        }
+    }
+#if TAG_MAJOR_VERSION == 34
+
     // Heat doesn't hurt fire, djinn don't care about hunger.
     if (you.species == SP_DJINNI && (mutat == MUT_HEAT_RESISTANCE
+        || mutat == MUT_HEAT_VULNERABILITY
+        || mutat == MUT_BERSERK
         || mutat == MUT_FAST_METABOLISM || mutat == MUT_SLOW_METABOLISM
         || mutat == MUT_CARNIVOROUS || mutat == MUT_HERBIVOROUS))
     {
         return true;
     }
+#endif
 
     // Already immune.
     if (you.species == SP_GARGOYLE && mutat == MUT_POISON_RESISTANCE)
@@ -1437,9 +1473,7 @@ bool undead_mutation_rot(bool is_beneficial_mutation)
 {
     if (you.is_undead == US_SEMI_UNDEAD)
     {
-        // Let beneficial mutation potions work at satiated or higher
-        // for convenience
-        if (is_beneficial_mutation && you.hunger_state >= HS_SATIATED)
+        if (is_beneficial_mutation)
             return false;
         switch (you.hunger_state)
         {
@@ -1458,7 +1492,7 @@ bool mutate(mutation_type which_mutation, const string &reason, bool failMsg,
             bool force_mutation, bool god_gift, bool beneficial,
             bool demonspawn, bool no_rot, bool temporary)
 {
-    if (which_mutation == RANDOM_BAD_MUTATION
+    if (which_mutation == RANDOM_BAD_MUTATION && !temporary
         && crawl_state.disables[DIS_AFFLICTIONS])
     {
         return true; // no fallbacks
@@ -1494,7 +1528,7 @@ bool mutate(mutation_type which_mutation, const string &reason, bool failMsg,
                     && !one_chance_in(temporary ? 2 : 3)))
             {
                 if (failMsg)
-                    mpr("You feel odd for a moment.", MSGCH_MUTATION);
+                    mprf(MSGCH_MUTATION, "You feel odd for a moment.");
                 maybe_id_resist(BEAM_MALMUTATE);
                 return false;
             }
@@ -1521,7 +1555,7 @@ bool mutate(mutation_type which_mutation, const string &reason, bool failMsg,
             lose_stat(STAT_RANDOM, 1, false, reason);
         else
         {
-            mpr("Your body decomposes!", MSGCH_MUTATION);
+            mprf(MSGCH_MUTATION, "Your body decomposes!");
 
             if (coinflip())
                 lose_stat(STAT_RANDOM, 1, false, reason);
@@ -1549,8 +1583,8 @@ bool mutate(mutation_type which_mutation, const string &reason, bool failMsg,
             if (!one_chance_in(3) && !god_gift && !force_mutation)
                 return false;
             else
-                return (delete_mutation(RANDOM_MUTATION, reason, failMsg,
-                                        force_mutation, false));
+                return delete_mutation(RANDOM_MUTATION, reason, failMsg,
+                                       force_mutation, false);
         }
     }
 
@@ -1567,33 +1601,19 @@ bool mutate(mutation_type which_mutation, const string &reason, bool failMsg,
     case RANDOM_SLIME_MUTATION:
         mutat = _get_random_slime_mutation();
         break;
+    case RANDOM_CORRUPT_MUTATION:
+        mutat = _get_random_corrupt_mutation();
+        break;
     default:
         break;
     }
 
-    if (!is_valid_mutation(mutat))
+    if (!_is_valid_mutation(mutat))
         return false;
 
     // [Cha] don't allow teleportitis in sprint
     if (mutat == MUT_TELEPORT && crawl_state.game_is_sprint())
         return false;
-
-    if (you.species == SP_NAGA)
-    {
-        // gdl: Spit poison 'upgrades' to breathe poison.  Why not...
-        if (mutat == MUT_SPIT_POISON)
-        {
-            if (coinflip())
-                return false;
-
-            mutat = MUT_BREATHE_POISON;
-
-            // Breathe poison replaces spit poison (so it takes the slot).
-            for (int i = 0; i < 52; ++i)
-                if (you.ability_letter_table[i] == ABIL_SPIT_POISON)
-                    you.ability_letter_table[i] = ABIL_BREATHE_POISON;
-        }
-    }
 
     if (physiology_mutation_conflict(mutat))
         return false;
@@ -1628,128 +1648,150 @@ bool mutate(mutation_type which_mutation, const string &reason, bool failMsg,
 
     const unsigned int old_talents = your_talents(false).size();
 
+    int count = (which_mutation == RANDOM_CORRUPT_MUTATION)
+                ? min(2, mdef.levels - you.mutation[mutat])
+                : 1;
+
     bool gain_msg = true;
 
-    you.mutation[mutat]++;
-
-    // More than three messages, need to give them by hand.
-    switch (mutat)
+    while (count-- > 0)
     {
-    case MUT_STRONG: case MUT_AGILE:  case MUT_CLEVER:
-    case MUT_WEAK:   case MUT_CLUMSY: case MUT_DOPEY:
-        mprf(MSGCH_MUTATION, "You feel %s.", _stat_mut_desc(mutat, true));
-        gain_msg = false;
-        break;
+        you.mutation[mutat]++;
 
-    case MUT_LARGE_BONE_PLATES:
+        // More than three messages, need to give them by hand.
+        switch (mutat)
         {
-            const char *arms;
-            if (you.species == SP_FELID)
-                arms = "legs";
-            else if (you.species == SP_OCTOPODE)
-                arms = "tentacles";
-            else
-                break;
-            mpr(replace_all(mdef.gain[you.mutation[mutat]-1], "arms",
-                            arms).c_str(), MSGCH_MUTATION);
+        case MUT_STRONG: case MUT_AGILE:  case MUT_CLEVER:
+        case MUT_WEAK:   case MUT_CLUMSY: case MUT_DOPEY:
+            mprf(MSGCH_MUTATION, "You feel %s.", _stat_mut_desc(mutat, true));
             gain_msg = false;
+            break;
+
+        case MUT_LARGE_BONE_PLATES:
+            {
+                const char *arms;
+                if (you.species == SP_FELID)
+                    arms = "legs";
+                else if (you.species == SP_OCTOPODE)
+                    arms = "tentacles";
+                else
+                    break;
+                mprf(MSGCH_MUTATION, "%s",
+                     replace_all(mdef.gain[you.mutation[mutat]-1], "arms",
+                                 arms).c_str());
+                gain_msg = false;
+            }
+            break;
+
+        case MUT_BREATHE_POISON:
+            if (you.species == SP_NAGA)
+            {
+                // Breathe poison replaces spit poison (so it takes the slot).
+                for (int i = 0; i < 52; ++i)
+                {
+                    if (you.ability_letter_table[i] == ABIL_SPIT_POISON)
+                        you.ability_letter_table[i] = ABIL_BREATHE_POISON;
+                }
+            }
+            break;
+
+        default:
+            break;
         }
-        break;
 
-    default:
-        break;
-    }
+        // For all those scale mutations.
+        you.redraw_armour_class = true;
 
-    // For all those scale mutations.
-    you.redraw_armour_class = true;
+        notify_stat_change("gaining a mutation");
 
-    notify_stat_change("gaining a mutation");
+        if (gain_msg)
+            mprf(MSGCH_MUTATION, "%s", mdef.gain[you.mutation[mutat]-1]);
 
-    if (gain_msg)
-        mpr(mdef.gain[you.mutation[mutat]-1], MSGCH_MUTATION);
-
-    // Do post-mutation effects.
-    switch (mutat)
-    {
-    case MUT_FRAIL:
-    case MUT_ROBUST:
-    case MUT_RUGGED_BROWN_SCALES:
-        calc_hp();
-        break;
-
-    case MUT_LOW_MAGIC:
-    case MUT_HIGH_MAGIC:
-        calc_mp();
-        break;
-
-    case MUT_PASSIVE_MAPPING:
-        add_daction(DACT_REAUTOMAP);
-        break;
-
-    case MUT_HOOVES:
-    case MUT_TALONS:
-        // Hooves and talons force boots off at 3.
-        if (you.mutation[mutat] >= 3 && !you.melded[EQ_BOOTS])
-            remove_one_equip(EQ_BOOTS, false, true);
-        break;
-
-    case MUT_CLAWS:
-        // Claws force gloves off at 3.
-        if (you.mutation[mutat] >= 3 && !you.melded[EQ_GLOVES])
-            remove_one_equip(EQ_GLOVES, false, true);
-        break;
-
-    case MUT_HORNS:
-    case MUT_ANTENNAE:
-        // Horns & Antennae 3 removes all headgear.  Same algorithm as with
-        // glove removal.
-        if (you.mutation[mutat] >= 3 && !you.melded[EQ_HELMET])
-            remove_one_equip(EQ_HELMET, false, true);
-        // Intentional fall-through
-    case MUT_BEAK:
-        // Horns, beaks, and antennae force hard helmets off.
-        if (you.equip[EQ_HELMET] != -1
-            && is_hard_helmet(you.inv[you.equip[EQ_HELMET]])
-            && !you.melded[EQ_HELMET])
+        // Do post-mutation effects.
+        switch (mutat)
         {
-            remove_one_equip(EQ_HELMET, false, true);
+        case MUT_FRAIL:
+        case MUT_ROBUST:
+        case MUT_RUGGED_BROWN_SCALES:
+            calc_hp();
+            break;
+
+        case MUT_LOW_MAGIC:
+        case MUT_HIGH_MAGIC:
+            calc_mp();
+            break;
+
+        case MUT_PASSIVE_MAPPING:
+            add_daction(DACT_REAUTOMAP);
+            break;
+
+        case MUT_HOOVES:
+        case MUT_TALONS:
+            // Hooves and talons force boots off at 3.
+            if (you.mutation[mutat] >= 3 && !you.melded[EQ_BOOTS])
+                remove_one_equip(EQ_BOOTS, false, true);
+            break;
+
+        case MUT_CLAWS:
+            // Claws force gloves off at 3.
+            if (you.mutation[mutat] >= 3 && !you.melded[EQ_GLOVES])
+                remove_one_equip(EQ_GLOVES, false, true);
+            break;
+
+        case MUT_HORNS:
+        case MUT_ANTENNAE:
+            // Horns & Antennae 3 removes all headgear.  Same algorithm as with
+            // glove removal.
+
+            if (you.mutation[mutat] >= 3 && !you.melded[EQ_HELMET])
+                remove_one_equip(EQ_HELMET, false, true);
+            // Intentional fall-through
+        case MUT_BEAK:
+            // Horns, beaks, and antennae force hard helmets off.
+            if (you.equip[EQ_HELMET] != -1
+                && is_hard_helmet(you.inv[you.equip[EQ_HELMET]])
+                && !you.melded[EQ_HELMET])
+            {
+                remove_one_equip(EQ_HELMET, false, true);
+            }
+            break;
+
+        case MUT_ACUTE_VISION:
+            // We might have to turn autopickup back on again.
+            autotoggle_autopickup(false);
+            break;
+
+        case MUT_NIGHTSTALKER:
+            update_vision_range();
+            break;
+
+        default:
+            break;
         }
-        break;
 
-    case MUT_NIGHTSTALKER:
-        update_vision_range();
-        break;
+        // Amusement value will be 12 * (11-rarity) * Xom's-sense-of-humor.
+        xom_is_stimulated(_calc_mutation_amusement_value(mutat));
 
-    case MUT_DEMONIC_GUARDIAN:
-        if (you_worship(GOD_OKAWARU))
+        if (!temporary)
         {
-            mpr("Your demonic guardian will not assist you as long as you "
-                "worship Okawaru.", MSGCH_MUTATION);
+            take_note(Note(NOTE_GET_MUTATION, mutat, you.mutation[mutat],
+                           reason.c_str()));
         }
-        break;
+        else
+        {
+            you.temp_mutations[mutat]++;
+            you.attribute[ATTR_TEMP_MUTATIONS]++;
+            you.attribute[ATTR_TEMP_MUT_XP] =
+                    min(you.experience_level, 17)
+                    * (500 + roll_dice(5, 500)) / 17;
+        }
 
-    default:
-        break;
-    }
-
-    // We might have to turn autopickup back on again.
-    if (mutat == MUT_ACUTE_VISION
-        || (mutat == MUT_ANTENNAE && you.mutation[mutat] >= 3))
-    {
-        autotoggle_autopickup(false);
-    }
-
-    // Amusement value will be 12 * (11-rarity) * Xom's-sense-of-humor.
-    xom_is_stimulated(_calc_mutation_amusement_value(mutat));
-
-    if (!temporary)
-        take_note(Note(NOTE_GET_MUTATION, mutat, you.mutation[mutat], reason.c_str()));
-    else
-    {
-        you.temp_mutations[mutat]++;
-        you.attribute[ATTR_TEMP_MUTATIONS]++;
-        you.attribute[ATTR_TEMP_MUT_XP] =
-                min(you.experience_level, 17) * (500 + roll_dice(5, 500)) / 17;
+        if (you.hp <= 0)
+        {
+            ouch(0, NON_MONSTER, KILLED_BY_FRAILTY,
+                 make_stringf("gaining the %s mutation",
+                              mutation_name(mutat)).c_str());
+        }
     }
 
 #ifdef USE_TILE_LOCAL
@@ -1777,7 +1819,7 @@ static bool _delete_single_mutation_level(mutation_type mutat,
     if (you.innate_mutations[mutat] >= you.mutation[mutat])
         return false;
 
-    if (!transient && (you.temp_mutations[mutat] >= you.mutation[mutat]))
+    if (!transient && you.temp_mutations[mutat] >= you.mutation[mutat])
         return false;
 
     const mutation_def& mdef = get_mutation_def(mutat);
@@ -1795,7 +1837,6 @@ static bool _delete_single_mutation_level(mutation_type mutat,
         break;
 
     case MUT_BREATHE_POISON:
-        // can't be removed yet, but still covered:
         if (you.species == SP_NAGA)
         {
             // natural ability to spit poison retakes the slot
@@ -1821,7 +1862,7 @@ static bool _delete_single_mutation_level(mutation_type mutat,
     notify_stat_change("losing a mutation");
 
     if (lose_msg)
-        mpr(mdef.lose[you.mutation[mutat]], MSGCH_MUTATION);
+        mprf(MSGCH_MUTATION, "%s", mdef.lose[you.mutation[mutat]]);
 
     // Do post-mutation effects.
     if (mutat == MUT_FRAIL || mutat == MUT_ROBUST
@@ -1834,6 +1875,12 @@ static bool _delete_single_mutation_level(mutation_type mutat,
 
     if (!transient)
         take_note(Note(NOTE_LOSE_MUTATION, mutat, you.mutation[mutat], reason.c_str()));
+
+    if (you.hp <= 0)
+    {
+        ouch(0, NON_MONSTER, KILLED_BY_FRAILTY,
+             make_stringf("losing the %s mutation", mutation_name(mutat)).c_str());
+    }
 
     return true;
 }
@@ -1864,7 +1911,7 @@ bool delete_mutation(mutation_type which_mutation, const string &reason,
                     || coinflip()))
             {
                 if (failMsg)
-                    mpr("You feel rather odd for a moment.", MSGCH_MUTATION);
+                    mprf(MSGCH_MUTATION, "You feel rather odd for a moment.");
                 return false;
             }
         }
@@ -1877,7 +1924,8 @@ bool delete_mutation(mutation_type which_mutation, const string &reason,
         || which_mutation == RANDOM_XOM_MUTATION
         || which_mutation == RANDOM_GOOD_MUTATION
         || which_mutation == RANDOM_BAD_MUTATION
-        || which_mutation == RANDOM_NON_SLIME_MUTATION)
+        || which_mutation == RANDOM_NON_SLIME_MUTATION
+        || which_mutation == RANDOM_CORRUPT_MUTATION)
     {
         while (true)
         {
@@ -1951,15 +1999,27 @@ bool delete_temp_mutation()
 {
     if (you.attribute[ATTR_TEMP_MUTATIONS] > 0)
     {
-        mutation_type mutat;
+        mutation_type mutat = NUM_MUTATIONS;
 
-        while (true)
+        int count = 0;
+        for (int i = 0; i < NUM_MUTATIONS; i++)
+            if (you.temp_mutations[i] > 0 && one_chance_in(++count))
+                mutat = static_cast<mutation_type>(i);
+
+#if TAG_MAJOR_VERSION == 34
+        // We had a brief period (between 0.14-a0-1589-g48c4fed and
+        // 0.14-a0-1604-g40af2d8) where we corrupted attributes in transferred
+        // games.
+        if (mutat == NUM_MUTATIONS)
         {
-            mutat = static_cast<mutation_type>(random2(NUM_MUTATIONS));
-
-            if (you.temp_mutations[mutat] > 0)
-                break;
+            mprf(MSGCH_ERROR, "Found no temp mutations, clearing.");
+            you.attribute[ATTR_TEMP_MUTATIONS] = 0;
+            return false;
         }
+#else
+        ASSERTM(mutat != NUM_MUTATIONS, "Found no temp mutations, expected %d",
+                                        you.attribute[ATTR_TEMP_MUTATIONS]);
+#endif
 
         if (_delete_single_mutation_level(mutat, "temp mutation expiry", true))
         {
@@ -1974,7 +2034,7 @@ bool delete_temp_mutation()
 
 const char* mutation_name(mutation_type mut)
 {
-    if (!is_valid_mutation(mut))
+    if (!_is_valid_mutation(mut))
         return nullptr;
 
     return get_mutation_def(mut).wizname;
@@ -2162,7 +2222,7 @@ static const facet_def _demon_facets[] =
     { 2, { MUT_POWERED_BY_DEATH, MUT_POWERED_BY_DEATH, MUT_POWERED_BY_DEATH },
       { -33, 0, 0 } },
     { 2, { MUT_DEMONIC_GUARDIAN, MUT_DEMONIC_GUARDIAN, MUT_DEMONIC_GUARDIAN },
-      { -66, 33, 66 } },
+      { -66, 17, 50 } },
     { 2, { MUT_NIGHTSTALKER, MUT_NIGHTSTALKER, MUT_NIGHTSTALKER },
       { -33, 0, 0 } },
     { 2, { MUT_SPINY, MUT_SPINY, MUT_SPINY },
@@ -2180,8 +2240,8 @@ static const facet_def _demon_facets[] =
       { 50, 50, 50 } },
     { 3, { MUT_ROBUST, MUT_ROBUST, MUT_ROBUST },
       { 50, 50, 50 } },
-    { 3, { MUT_NEGATIVE_ENERGY_RESISTANCE, MUT_NEGATIVE_ENERGY_RESISTANCE,
-           MUT_STOCHASTIC_TORMENT_RESISTANCE },
+    { 3, { MUT_NEGATIVE_ENERGY_RESISTANCE, MUT_STOCHASTIC_TORMENT_RESISTANCE,
+           MUT_BLACK_MARK },
       { 50, 50, 50 } },
     { 3, { MUT_AUGMENTATION, MUT_AUGMENTATION, MUT_AUGMENTATION },
       { 50, 50, 50 } },
@@ -2262,7 +2322,7 @@ try_again:
             do
                 next_facet = &RANDOM_ELEMENT(_demon_facets);
             while (!_works_at_tier(*next_facet, tier)
-                   || facets_used.find(next_facet) != facets_used.end()
+                   || facets_used.count(next_facet)
                    || !_slot_is_unique(next_facet->muts, facets_used));
 
             facets_used.insert(next_facet);
@@ -2389,7 +2449,7 @@ void roll_demonspawn_mutations()
 
 bool perma_mutate(mutation_type which_mut, int how_much, const string &reason)
 {
-    ASSERT(is_valid_mutation(which_mut));
+    ASSERT(_is_valid_mutation(which_mut));
 
     int cap = get_mutation_def(which_mut).levels;
     how_much = min(how_much, cap);
@@ -2414,7 +2474,7 @@ bool perma_mutate(mutation_type which_mut, int how_much, const string &reason)
             // than zero, and the innate mutation level for the mutation
             // in question is one less than the cap, we are permafying a
             // temporary mutation. This fails to produce any output normally.
-            mpr("Your mutations feel more permanent.", MSGCH_MUTATION);
+            mprf(MSGCH_MUTATION, "Your mutations feel more permanent.");
         }
         else if (you.mutation[which_mut] < cap
             && !mutate(which_mut, reason, false, true, false, false, true))
@@ -2425,7 +2485,7 @@ bool perma_mutate(mutation_type which_mut, int how_much, const string &reason)
     }
     you.innate_mutations[which_mut] += levels;
 
-    return (levels > 0);
+    return levels > 0;
 }
 
 bool temp_mutate(mutation_type which_mut, const string &reason)
@@ -2480,8 +2540,8 @@ static bool _balance_demonic_guardian()
             && !one_chance_in(3)
             && !mons->has_ench(ENCH_LIFE_TIMER))
         {
-            mpr(mons->name(DESC_THE) + " "
-                + summoned_poof_msg(*mons) + "!", MSGCH_PLAIN);
+            mprf("%s %s!", mons->name(DESC_THE).c_str(),
+                           summoned_poof_msg(*mons).c_str());
             monster_die(*mons, KILL_NONE, NON_MONSTER);
         }
         else
@@ -2498,10 +2558,6 @@ static bool _balance_demonic_guardian()
 // _balance_demonic_guardian()
 void check_demonic_guardian()
 {
-    // Don't spawn guardians with Oka, they're a huge pain.
-    if (you_worship(GOD_OKAWARU))
-        return;
-
     const int mutlevel = player_mutation_level(MUT_DEMONIC_GUARDIAN);
 
     if (!_balance_demonic_guardian() &&
@@ -2512,7 +2568,7 @@ void check_demonic_guardian()
         switch (mutlevel)
         {
         case 1:
-            mt = random_choose(MONS_WHITE_IMP, MONS_LEMURE, MONS_UFETUBUS,
+            mt = random_choose(MONS_WHITE_IMP, MONS_QUASIT, MONS_UFETUBUS,
                                MONS_IRON_IMP, MONS_CRIMSON_IMP, -1);
             break;
         case 2:
@@ -2529,7 +2585,8 @@ void check_demonic_guardian()
 
         monster *guardian = create_monster(mgen_data(mt, BEH_FRIENDLY, &you,
                                                      2, 0, you.pos(),
-                                                     MHITYOU, MG_FORCE_BEH));
+                                                     MHITYOU, MG_FORCE_BEH
+                                                              | MG_AUTOFOE));
 
         if (!guardian)
             return;
@@ -2544,15 +2601,15 @@ void check_demonic_guardian()
     }
 }
 
-void check_antennae_detect()
+/**
+ * Update the map knowledge based on any monster detection sources the player
+ * has.
+ */
+void check_monster_detect()
 {
-    int radius = player_mutation_level(MUT_ANTENNAE) * 2;
-    if (you_worship(GOD_ASHENZARI) && !player_under_penance())
-        radius = max(radius, you.piety / 20);
+    int radius = player_monster_detect_radius();
     if (radius <= 0)
         return;
-    radius = min(radius, LOS_RADIUS);
-
     for (radius_iterator ri(you.pos(), radius, C_ROUND); ri; ++ri)
     {
         discover_mimic(*ri, false);
@@ -2608,12 +2665,13 @@ void check_antennae_detect()
     }
 }
 
-int handle_pbd_corpses(bool do_rot)
+int handle_pbd_corpses()
 {
     int corpse_count = 0;
 
     for (radius_iterator ri(you.pos(),
-         player_mutation_level(MUT_POWERED_BY_DEATH) * 3); ri; ++ri)
+         player_mutation_level(MUT_POWERED_BY_DEATH) * 3, C_ROUND, LOS_DEFAULT);
+         ri; ++ri)
     {
         for (stack_iterator j(*ri); j; ++j)
         {
@@ -2623,14 +2681,6 @@ int handle_pbd_corpses(bool do_rot)
                 && !j->props.exists("never_hide"))
             {
                 ++corpse_count;
-
-                int chance = player_mutation_level(MUT_POWERED_BY_DEATH)*16;
-                if (do_rot && x_chance_in_y(you.duration[DUR_POWERED_BY_DEATH],
-                                chance))
-                {
-                    j->special -= random2(3);
-                }
-
                 if (corpse_count == 7)
                     break;
             }

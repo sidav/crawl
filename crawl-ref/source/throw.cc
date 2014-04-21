@@ -4,10 +4,10 @@
 **/
 
 #include "AppHdr.h"
+#include <sstream>
+#include <math.h>
 
 #include "throw.h"
-
-#include <math.h>
 
 #include "externs.h"
 
@@ -16,11 +16,11 @@
 #include "colour.h"
 #include "command.h"
 #include "delay.h"
-#include "describe.h"
 #include "env.h"
 #include "exercise.h"
 #include "fight.h"
 #include "fineff.h"
+#include "godabil.h"
 #include "godconduct.h"
 #include "hints.h"
 #include "invent.h"
@@ -34,14 +34,15 @@
 #include "mon-behv.h"
 #include "mutation.h"
 #include "options.h"
+#include "religion.h"
 #include "shout.h"
 #include "skills2.h"
+#include "spl-summoning.h"
 #include "state.h"
 #include "stuff.h"
 #include "teleport.h"
 #include "terrain.h"
 #include "transform.h"
-#include "version.h"
 #include "view.h"
 #include "viewchar.h"
 
@@ -50,7 +51,7 @@ static bool _fire_validate_item(int selected, string& err);
 
 bool item_is_quivered(const item_def &item)
 {
-    return (item.link == you.m_quiver->get_fire_item());
+    return item.link == you.m_quiver->get_fire_item();
 }
 
 int get_next_fire_item(int current, int direction)
@@ -75,7 +76,7 @@ int get_next_fire_item(int current, int direction)
     return fire_order[next];
 }
 
-class fire_target_behaviour : public targetting_behaviour
+class fire_target_behaviour : public targeting_behaviour
 {
 public:
     fire_target_behaviour()
@@ -87,7 +88,7 @@ public:
         set_prompt();
     }
 
-    // targetting_behaviour API
+    // targeting_behaviour API
     virtual command_type get_command(int key = -1);
     virtual bool should_redraw() const { return need_redraw; }
     virtual void clear_redraw()        { need_redraw = false; }
@@ -204,7 +205,7 @@ void fire_target_behaviour::pick_fire_item_from_inventory()
     }
     else if (!err.empty())
     {
-        mpr(err);
+        mprf("%s", err.c_str());
         more();
     }
     set_prompt();
@@ -212,7 +213,7 @@ void fire_target_behaviour::pick_fire_item_from_inventory()
 
 void fire_target_behaviour::display_help()
 {
-    show_targetting_help();
+    show_targeting_help();
     redraw_screen();
     need_redraw = true;
     set_prompt();
@@ -232,7 +233,7 @@ command_type fire_target_behaviour::get_command(int key)
     case CMD_TARGET_CANCEL: chosen_ammo = false; break;
     }
 
-    return targetting_behaviour::get_command(key);
+    return targeting_behaviour::get_command(key);
 }
 
 vector<string> fire_target_behaviour::get_monster_desc(const monster_info& mi)
@@ -282,6 +283,12 @@ static bool _fire_choose_item_and_target(int& slot, dist& target,
             canned_msg(MSG_OK);
         return false;
     }
+    if (teleport && cell_is_solid(target.target))
+    {
+        const char *feat = feat_type_name(grd(target.target));
+        mprf("There is %s there.", article_a(feat).c_str());
+        return false;
+    }
 
     you.m_quiver->on_item_fired(*beh.active_item(), beh.chosen_ammo);
     you.redraw_quiver = true;
@@ -322,11 +329,6 @@ static bool _fire_validate_item(int slot, string &err)
     else if (item_is_worn(slot))
     {
         err = "You are wearing that object!";
-        return false;
-    }
-    else if (you.inv[slot].base_type == OBJ_ORBS)
-    {
-        err = "You don't feel like leaving the orb behind!";
         return false;
     }
     return true;
@@ -436,14 +438,21 @@ int get_ammo_to_shoot(int item, dist &target, bool teleport)
 void fire_thing(int item)
 {
     dist target;
-    item = get_ammo_to_shoot(item, target);
+    // Portal Projectile, requires MP per shot.
+    bool teleport = !you.confused()
+                    && you.duration[DUR_PORTAL_PROJECTILE]
+                    && enough_mp(1, true, false);
+    int acc_bonus = 0;
+    item = get_ammo_to_shoot(item, target, teleport);
     if (item == -1)
         return;
 
     if (check_warning_inscriptions(you.inv[item], OPER_FIRE))
     {
         bolt beam;
-        throw_it(beam, item, false, 0, &target);
+        if (teleport)
+            acc_bonus = random2(you.attribute[ATTR_PORTAL_PROJECTILE] / 4);
+        throw_it(beam, item, teleport, acc_bonus, &target);
     }
 }
 
@@ -489,7 +498,7 @@ static int _launcher_shield_slowdown(const item_def &launcher,
                                      const item_def *shield)
 {
     int speed_adjust = 100;
-    if (!shield || hands_reqd(launcher, you.body_size()) == HANDS_ONE)
+    if (!shield || you.hands_reqd(launcher) == HANDS_ONE)
         return speed_adjust;
 
     const int shield_type = shield->sub_type;
@@ -516,12 +525,8 @@ int launcher_final_speed(const item_def &launcher, const item_def *shield, bool 
     const int bow_brand = get_weapon_brand(launcher);
 
     int speed_base = 10 * property(launcher, PWPN_SPEED);
-    int speed_min = 70;
+    int speed_min = 10 * weapon_min_delay(launcher);
     int speed_stat = str_weight * you.strength() + dex_weight * you.dex();
-
-    // Reduce runaway bow overpoweredness.
-    if (launcher_skill == SK_BOWS)
-        speed_min = 60;
 
     if (shield)
     {
@@ -574,17 +579,14 @@ static bool _elemental_missile_beam(int launcher_brand, int ammo_brand)
         return true;
     if (ammo_brand != SPMSL_NORMAL)
         return false;
-    return (launcher_brand == SPWPN_CHAOS || launcher_brand == SPWPN_FROST ||
-            launcher_brand == SPWPN_FLAME);
+    return launcher_brand == SPWPN_CHAOS || launcher_brand == SPWPN_FROST ||
+           launcher_brand == SPWPN_FLAME;
 }
 
 static bool _poison_hit_victim(bolt& beam, actor* victim, int dmg)
 {
-    if (victim->is_player() && victim->res_poison() > 0)
-    {
+    if (victim->is_player())
         maybe_id_resist(BEAM_POISON);
-        return false;
-    }
 
     if (!victim->alive() || victim->res_poison() > 0)
         return false;
@@ -599,7 +601,8 @@ static bool _poison_hit_victim(bolt& beam, actor* victim, int dmg)
     if (dmg > 0 || beam.ench_power == AUTOMATIC_HIT
                    && x_chance_in_y(90 - 3 * victim->armour_class(), 100))
     {
-        levels = 1 + random2(3);
+        levels = 1 + roll_dice(2, 9)
+                 + random2avg(div_rand_round(beam.damage.num * beam.damage.size, 3), 2);
     }
 
     if (levels <= 0)
@@ -621,8 +624,8 @@ static bool _item_penetrates_victim(const bolt &beam, int &used)
     return true;
 }
 
-static bool _silver_damages_victim(bolt &beam, actor* victim, int &dmg,
-                                   string &dmg_msg)
+bool silver_damages_victim(bolt &beam, actor* victim, int &dmg,
+                           string &dmg_msg)
 {
     int mutated = 0;
 
@@ -641,12 +644,12 @@ static bool _silver_damages_victim(bolt &beam, actor* victim, int &dmg,
     }
     else if (victim->is_player() && mutated > 0)
     {
-        int multiplier = 100 + (mutated * 5);
+        int multiplier = 100 + mutated * 5;
 
         if (multiplier > 175)
             multiplier = 175;
 
-        dmg = (dmg * multiplier) / 100;
+        dmg = dmg * multiplier / 100;
     }
     else
         return false;
@@ -679,35 +682,16 @@ static bool _dispersal_hit_victim(bolt& beam, actor* victim, int dmg)
 
     coord_def pos, pos2;
 
-    int tries = 0;
-    do
-    {
-        if (!random_near_space(victim->pos(), pos, false, true, false,
-                               no_sanct))
-        {
-            return false;
-        }
-    }
-    while (!victim->is_habitable(pos) && tries++ < 100);
-
-    if (!victim->is_habitable(pos))
+    if (!random_near_space(victim, victim->pos(), pos, false, no_sanct))
         return false;
 
-    tries = 0;
-    do
-        random_near_space(victim->pos(), pos2, false, true, false, no_sanct);
-    while (!victim->is_habitable(pos2) && tries++ < 100);
-
-    if (!victim->is_habitable(pos2))
+    if (!random_near_space(victim, victim->pos(), pos2, false, no_sanct))
         return false;
 
     // Pick the square further away from the agent.
     const coord_def from = agent->pos();
-    if (in_bounds(pos2) && distance2(pos2, from) > distance2(pos, from))
+    if (distance2(pos2, from) > distance2(pos, from))
         pos = pos2;
-
-    if (pos == victim->pos())
-        return false;
 
     const coord_def oldpos = victim->pos();
     victim->clear_clinging();
@@ -717,7 +701,8 @@ static bool _dispersal_hit_victim(bolt& beam, actor* victim, int dmg)
         stop_delay(true);
 
         // Leave a purple cloud.
-        place_cloud(CLOUD_TLOC_ENERGY, you.pos(), 1 + random2(3), &you);
+        if (!cell_is_solid(you.pos()))
+            place_cloud(CLOUD_TLOC_ENERGY, you.pos(), 1 + random2(3), &you);
 
         canned_msg(MSG_YOU_BLINK);
         move_player_to_grid(pos, false, true);
@@ -732,7 +717,8 @@ static bool _dispersal_hit_victim(bolt& beam, actor* victim, int dmg)
         mon->move_to_pos(pos);
 
         // Leave a purple cloud.
-        place_cloud(CLOUD_TLOC_ENERGY, oldpos, 1 + random2(3), victim);
+        if (!cell_is_solid(oldpos))
+            place_cloud(CLOUD_TLOC_ENERGY, oldpos, 1 + random2(3), victim);
 
         mon->apply_location_effects(oldpos);
         mon->check_redraw(oldpos);
@@ -778,9 +764,6 @@ static bool _charged_damages_victim(bolt &beam, actor* victim, int &dmg,
             dmg_msg = "There is a sudden explosion of sparks!";
     }
 
-    if (feat_is_water(grd(victim->pos())))
-        (new lightning_fineff(beam.agent(), victim->pos()))->schedule();
-
     return false;
 }
 
@@ -789,7 +772,7 @@ static bool _blessed_damages_victim(bolt &beam, actor* victim, int &dmg,
 {
     if (victim->undead_or_demonic())
     {
-        dmg += 1 + (random2(dmg * 15) / 10);
+        dmg += 1 + random2(dmg * 15) / 10;
 
         if (!beam.is_tracer && you.can_see(victim))
            dmg_msg = victim->name(DESC_THE) + " "
@@ -842,7 +825,8 @@ static int _blowgun_duration_roll(bolt &beam, const actor* victim,
                 return 5 + random2(5);
         }
     }
-    else return (5 + random2(base_power + blowgun->plus));
+    else
+        return 5 + random2(base_power + blowgun->plus);
 }
 
 static bool _blowgun_check(bolt &beam, actor* victim, special_missile_type type,
@@ -1067,10 +1051,7 @@ static bool _setup_missile_beam(const actor *agent, bolt &beam, item_def &item,
         ammo_brand = SPMSL_NORMAL;
     }
 
-    // This is a bit of a special case because it applies even for melee
-    // weapons, for which brand is normally ignored.
-    returning = get_weapon_brand(item) == SPWPN_RETURNING
-                || ammo_brand == SPMSL_RETURNING;
+    returning = ammo_brand == SPMSL_RETURNING;
 
     if (agent->is_player())
     {
@@ -1099,13 +1080,16 @@ static bool _setup_missile_beam(const actor *agent, bolt &beam, item_def &item,
 
     beam.can_see_invis = agent->can_see_invisible();
 
+    beam.name = item.name(DESC_PLAIN, false, false, false);
+    ammo_name = item.name(DESC_PLAIN);
+
     const unrandart_entry* entry = launcher && is_unrandom_artefact(*launcher)
         ? get_unrand_entry(launcher->special) : NULL;
 
-    if (entry && entry->fight_func.launch)
+    if (entry && entry->launch)
     {
         setup_missile_type sm =
-            entry->fight_func.launch(launcher, &beam, &ammo_name,
+            entry->launch(launcher, &beam, &ammo_name,
                                      &returning);
 
         switch (sm)
@@ -1124,10 +1108,7 @@ static bool _setup_missile_beam(const actor *agent, bolt &beam, item_def &item,
 
     const bool exploding    = (ammo_brand == SPMSL_EXPLODING);
     const bool penetrating  = (bow_brand  == SPWPN_PENETRATION
-                                || ammo_brand == SPMSL_PENETRATION
-                                || (Version::ReleaseType == VER_ALPHA
-                                    && item.base_type == OBJ_MISSILES
-                                    && item.sub_type == MI_LARGE_ROCK));
+                                || ammo_brand == SPMSL_PENETRATION);
     const bool silver       = (ammo_brand == SPMSL_SILVER);
     const bool disperses    = (ammo_brand == SPMSL_DISPERSAL);
     const bool charged      = bow_brand  == SPWPN_ELECTROCUTION;
@@ -1147,8 +1128,6 @@ static bool _setup_missile_beam(const actor *agent, bolt &beam, item_def &item,
 
     ASSERT(!exploding || !is_artefact(item));
 
-    beam.name = item.name(DESC_PLAIN, false, false, false);
-
     // Note that bow_brand is known since the bow is equipped.
 
     bool beam_changed = false;
@@ -1163,6 +1142,7 @@ static bool _setup_missile_beam(const actor *agent, bolt &beam, item_def &item,
             item.special = SPMSL_NORMAL;
 
         beam.effect_known = false;
+        beam.effect_wanton = true;
 
         beam.flavour = BEAM_CHAOS;
         if (ammo_brand != SPMSL_CHAOS)
@@ -1205,21 +1185,16 @@ static bool _setup_missile_beam(const actor *agent, bolt &beam, item_def &item,
     if (beam_changed)
         beam.name = item.name(DESC_PLAIN, false, false, false);
 
-    ammo_name = item.name(DESC_PLAIN);
-
     ASSERT(beam.flavour == BEAM_MISSILE || !is_artefact(item));
 
     if (silver)
-        beam.damage_funcs.push_back(_silver_damages_victim);
+        beam.damage_funcs.push_back(silver_damages_victim);
     if (poisoned)
         beam.hit_funcs.push_back(_poison_hit_victim);
     if (penetrating)
     {
         beam.range_funcs.push_back(_item_penetrates_victim);
-        if (item.base_type == OBJ_MISSILES && item.sub_type == MI_LARGE_ROCK)
-            beam.hit_verb = "crashes through";
-        else
-            beam.hit_verb = "pierces through";
+        beam.hit_verb = "pierces through";
     }
     if (disperses)
         beam.hit_funcs.push_back(_dispersal_hit_victim);
@@ -1268,8 +1243,7 @@ static bool _setup_missile_beam(const actor *agent, bolt &beam, item_def &item,
         ammo_name = "poisoned " + ammo_name;
     }
 
-    if (penetrating && item.special != SPMSL_PENETRATION
-        && item.sub_type != MI_LARGE_ROCK)
+    if (penetrating && item.special != SPMSL_PENETRATION)
     {
         beam.name = "penetrating " + beam.name;
         ammo_name = "penetrating " + ammo_name;
@@ -1303,9 +1277,8 @@ static bool _setup_missile_beam(const actor *agent, bolt &beam, item_def &item,
             expl->name   += " fragments";
 
             const string short_name =
-                item.name(DESC_PLAIN, false, false, false, false,
-                          ISFLAG_IDENT_MASK | ISFLAG_COSMETIC_MASK
-                          | ISFLAG_RACIAL_MASK);
+                item.name(DESC_BASENAME, true, false, false, false,
+                          ISFLAG_IDENT_MASK | ISFLAG_COSMETIC_MASK);
 
             expl->name = replace_all(expl->name, item.name(DESC_PLAIN),
                                      short_name);
@@ -1432,7 +1405,6 @@ bool throw_it(bolt &pbolt, int throw_2, bool teleport, int acc_bonus,
     bool returning   = false;    // Item can return to pack.
     bool did_return  = false;    // Returning item actually does return to pack.
     int slayDam      = 0;
-    bool speed_brand = false;
 
     if (you.confused())
     {
@@ -1531,35 +1503,55 @@ bool throw_it(bolt &pbolt, int throw_2, bool teleport, int acc_bonus,
     if (!pbolt.effect_known)
         pbolt.special_explosion = NULL;
 
-    // Don't do the tracing when using Portaled Projectile, or when confused.
-    if (!teleport && !you.confused())
+    // Don't trace at all when confused.
+    // Give the player a chance to be warned about helpless targets when using
+    // Portaled Projectile, but obviously don't trace a path.
+    bool cancelled = false;
+    if (!you.confused())
     {
-        // Set values absurdly high to make sure the tracer will
-        // complain if we're attempting to fire through allies.
-        pbolt.hit    = 100;
-        pbolt.damage = dice_def(1, 100);
-
-        // Init tracer variables.
-        pbolt.foe_info.reset();
-        pbolt.friend_info.reset();
-        pbolt.foe_ratio = 100;
-        pbolt.is_tracer = true;
-
-        pbolt.fire();
-
-        // Should only happen if the player answered 'n' to one of those
-        // "Fire through friendly?" prompts.
-        if (pbolt.beam_cancelled)
+        // Kludgy. Ideally this would handled by the same code.
+        // Perhaps some notion of a zero length bolt, with the source and
+        // target both set to the target?
+        if (teleport)
         {
-            canned_msg(MSG_OK);
-            you.turn_is_over = false;
-            if (pbolt.special_explosion != NULL)
-                delete pbolt.special_explosion;
-            return false;
+            // This block is roughly equivalent to bolt::affect_cell for
+            // normal projectiles.
+            monster *m = monster_at(target->target);
+            if (m)
+                cancelled = stop_attack_prompt(m, false, target->target, false);
         }
-        pbolt.hit    = 0;
-        pbolt.damage = dice_def();
+        else
+        {
+            // Set values absurdly high to make sure the tracer will
+            // complain if we're attempting to fire through allies.
+            pbolt.hit    = 100;
+            pbolt.damage = dice_def(1, 100);
+
+            // Init tracer variables.
+            pbolt.foe_info.reset();
+            pbolt.friend_info.reset();
+            pbolt.foe_ratio = 100;
+            pbolt.is_tracer = true;
+
+            pbolt.fire();
+
+            cancelled = pbolt.beam_cancelled;
+
+            pbolt.hit    = 0;
+            pbolt.damage = dice_def();
+        }
     }
+
+    // Should only happen if the player answered 'n' to one of those
+    // "Fire through friendly?" prompts.
+    if (cancelled)
+    {
+        you.turn_is_over = false;
+        if (pbolt.special_explosion != NULL)
+            delete pbolt.special_explosion;
+        return false;
+    }
+
     pbolt.is_tracer = false;
 
     // Reset values.
@@ -1596,15 +1588,7 @@ bool throw_it(bolt &pbolt, int throw_2, bool teleport, int acc_bonus,
     baseHit = min(0, you.strength() - item_mass(item) / 10);
     baseDam = item_mass(item) / 100;
 
-    // special: might be throwing generic weapon;
-    // use base wep. damage, w/ penalty
-    if (wepClass == OBJ_WEAPONS)
-    {
-        baseDam = max(0, property(item, PWPN_DAMAGE) - 4);
-        ammoHitBonus = item.plus;
-        ammoDamBonus = item.plus2;
-    }
-    else if (wepClass == OBJ_MISSILES)
+    if (wepClass == OBJ_MISSILES)
     {
         skill_type sk = SK_THROWING;
         if (projected == LRET_LAUNCHED)
@@ -1625,7 +1609,7 @@ bool throw_it(bolt &pbolt, int throw_2, bool teleport, int acc_bonus,
         ammo_brand = SPMSL_NORMAL;
     }
 
-    // CALCULATIONS FOR LAUNCHED WEAPONS
+    // CALCULATIONS FOR LAUNCHED MISSILES
     if (projected == LRET_LAUNCHED)
     {
         const item_def &launcher = *you.weapon();
@@ -1662,28 +1646,9 @@ bool throw_it(bolt &pbolt, int throw_2, bool teleport, int acc_bonus,
                         baseHit, baseDam,
                         item_base_dam, lnch_base_dam);
 
-        // elves with elven bows
-        if (get_equip_race(*you.weapon()) == ISFLAG_ELVEN
-            && player_genus(GENPC_ELVEN))
-        {
-            baseHit++;
-        }
-
         // Lower accuracy if held in a net.
         if (you.attribute[ATTR_HELD])
             baseHit = baseHit / 2 - 1;
-
-        // For all launched weapons, maximum effective specific skill
-        // is twice throwing skill.  This models the fact that no matter
-        // how 'good' you are with a bow, if you know nothing about
-        // trajectories you're going to be a damn poor bowman.  Ditto
-        // for crossbows and slings.
-
-        // [dshaligram] Throwing now two parts launcher skill, one part
-        // ranged combat. Removed the old model which is... silly.
-
-        // [jpeg] Throwing now only affects actual throwing weapons,
-        // i.e. not launched ones. (Sep 10, 2007)
 
         shoot_skill = you.skill_rdiv(launcher_skill);
         effSkill    = shoot_skill;
@@ -1705,7 +1670,13 @@ bool throw_it(bolt &pbolt, int throw_2, bool teleport, int acc_bonus,
                                        : -random2(-lnchHitBonus + 1));
 
         practise(EX_WILL_LAUNCH, launcher_skill);
-        count_action(CACT_FIRE, launcher.sub_type);
+        if (is_unrandom_artefact(launcher)
+            && get_unrand_entry(launcher.special)->type_name)
+        {
+            count_action(CACT_FIRE, launcher.special);
+        }
+        else
+            count_action(CACT_FIRE, launcher.sub_type);
 
         // Removed 2 random2(2)s from each of the learning curves, but
         // left slings because they're hard enough to develop without
@@ -1801,79 +1772,44 @@ bool throw_it(bolt &pbolt, int throw_2, bool teleport, int acc_bonus,
 
         if (_elemental_missile_beam(bow_brand, ammo_brand))
             dice_mult = dice_mult * 140 / 100;
-
-        if (get_weapon_brand(launcher) == SPWPN_SPEED)
-            speed_brand = true;
     }
 
     // check for returning ammo from launchers
     if (returning && projected == LRET_LAUNCHED)
     {
-        if (!x_chance_in_y(1, 1 + skill_bump(range_skill(*you.weapon()))))
+        if (!one_chance_in(1 + skill_bump(range_skill(*you.weapon()))))
             did_return = true;
     }
 
-    // CALCULATIONS FOR THROWN WEAPONS
+    // CALCULATIONS FOR THROWN MISSILES
     if (projected == LRET_THROWN)
     {
         returning = returning && !teleport;
 
-        if (returning && !x_chance_in_y(1, 1 + skill_bump(SK_THROWING)))
+        if (returning && !one_chance_in(1 + skill_bump(SK_THROWING)))
             did_return = true;
 
         baseHit = 0;
 
-        // All weapons that use 'throwing' go here.
-        if (wepClass == OBJ_WEAPONS
-            || (wepClass == OBJ_MISSILES
-                && (wepType == MI_STONE || wepType == MI_LARGE_ROCK
-                    || wepType == MI_DART || wepType == MI_JAVELIN
-#if TAG_MAJOR_VERSION == 34
-                    || wepType == MI_PIE
-#endif
-                    )))
+        ASSERT(wepClass == OBJ_MISSILES);
+        if (wepType == MI_STONE || wepType == MI_LARGE_ROCK
+            || wepType == MI_DART || wepType == MI_JAVELIN
+            || wepType == MI_TOMAHAWK)
         {
-            // Elves with elven weapons.
-            if (get_equip_race(item) == ISFLAG_ELVEN
-                && player_genus(GENPC_ELVEN))
-            {
-                baseHit++;
-            }
-
             // Give an appropriate 'tohit':
-            // * clubs and hand axes are -5
-            // * spears are -1
             // * large rocks, stones and throwing nets are 0
-            // * daggers and javelins are +1
+            // * javelins are +1
             // * darts are +2
-            if (wepClass == OBJ_WEAPONS)
+            switch (wepType)
             {
-                switch (wepType)
-                {
-                    case WPN_DAGGER:
-                        baseHit++;
-                        break;
-                    case WPN_SPEAR:
-                        baseHit--;
-                        break;
-                    default:
-                        baseHit -= 5;
-                        break;
-                }
-            }
-            else if (wepClass == OBJ_MISSILES)
-            {
-                switch (wepType)
-                {
-                    case MI_DART:
-                        baseHit += 2;
-                        break;
-                    case MI_JAVELIN:
-                        baseHit++;
-                        break;
-                    default:
-                        break;
-                }
+                case MI_DART:
+                    baseHit += 2;
+                    break;
+                case MI_JAVELIN:
+                    baseHit++;
+                    break;
+                default:
+                    break;
             }
 
             exHitBonus = you.skill(SK_THROWING, 2);
@@ -1883,17 +1819,8 @@ bool throw_it(bolt &pbolt, int throw_2, bool teleport, int acc_bonus,
             // [dshaligram] The defined base damage applies only when used
             // for launchers. Hand-thrown stones do only half
             // base damage. Yet another evil 4.0ism.
-            if (wepClass == OBJ_MISSILES && wepType == MI_STONE)
+            if (wepType == MI_STONE)
                 baseDam = div_rand_round(baseDam, 2);
-
-            // Dwarves/orcs with dwarven/orcish weapons.
-            if (get_equip_race(item) == ISFLAG_DWARVEN
-                   && you.species == SP_DEEP_DWARF
-                || get_equip_race(item) == ISFLAG_ORCISH
-                   && player_genus(GENPC_ORCISH))
-            {
-                baseDam++;
-            }
 
             exDamBonus = (you.skill(SK_THROWING, 5) + you.strength() * 10 - 100)
                        / 12;
@@ -1904,69 +1831,52 @@ bool throw_it(bolt &pbolt, int throw_2, bool teleport, int acc_bonus,
             exDamBonus = (exDamBonus * (3 * baseDam + ammoDamBonus)) / 30;
         }
 
-        if (wepClass == OBJ_MISSILES)
+        switch (wepType)
         {
-            switch (wepType)
-            {
-            case MI_LARGE_ROCK:
-                if (you.can_throw_large_rocks())
-                    baseHit = 1;
-                break;
-
-            case MI_DART:
-#if TAG_MAJOR_VERSION == 34
-            case MI_PIE:
-#endif
-                // Darts use throwing skill.
-                exHitBonus += skill_bump(SK_THROWING);
-                exDamBonus += you.skill(SK_THROWING, 3) / 5;
-                break;
-
-            case MI_JAVELIN:
-                // Javelins use throwing skill.
-                exHitBonus += skill_bump(SK_THROWING);
-                exDamBonus += you.skill(SK_THROWING, 3) / 5;
-
-                // Adjust for strength and dex.
-                exDamBonus = str_adjust_thrown_damage(exDamBonus);
-                exHitBonus = dex_adjust_thrown_tohit(exHitBonus);
-
-                // High dex helps damage a bit, too (aim for weak spots).
-                exDamBonus = stat_adjust(exDamBonus, you.dex(), 20, 150, 100);
-                break;
-
-            case MI_THROWING_NET:
-                // Nets use throwing skill. They don't do any damage!
-                baseDam = 0;
-                exDamBonus = 0;
-                ammoDamBonus = 0;
-
-                // ...but accuracy is important for them.
+        case MI_LARGE_ROCK:
+            if (you.can_throw_large_rocks())
                 baseHit = 1;
-                exHitBonus += skill_bump(SK_THROWING, 7) / 2;
-                // Adjust for strength and dex.
-                exHitBonus = dex_adjust_thrown_tohit(exHitBonus);
-                break;
-            }
+            break;
 
-            if (ammo_brand == SPMSL_STEEL)
-                dice_mult = dice_mult * 130 / 100;
+        case MI_DART:
+        case MI_TOMAHAWK:
+            // Darts use throwing skill.
+            exHitBonus += skill_bump(SK_THROWING);
+            exDamBonus += you.skill(SK_THROWING, 3) / 5;
+            break;
 
-            practise(EX_WILL_THROW_MSL, wepType);
-            count_action(CACT_THROW, wepType | (OBJ_MISSILES << 16));
+        case MI_JAVELIN:
+            // Javelins use throwing skill.
+            exHitBonus += skill_bump(SK_THROWING);
+            exDamBonus += you.skill(SK_THROWING, 3) / 5;
+
+            // Adjust for strength and dex.
+            exDamBonus = str_adjust_thrown_damage(exDamBonus);
+            exHitBonus = dex_adjust_thrown_tohit(exHitBonus);
+
+            // High dex helps damage a bit, too (aim for weak spots).
+            exDamBonus = stat_adjust(exDamBonus, you.dex(), 20, 150, 100);
+            break;
+
+        case MI_THROWING_NET:
+            // Nets use throwing skill. They don't do any damage!
+            baseDam = 0;
+            exDamBonus = 0;
+            ammoDamBonus = 0;
+
+            // ...but accuracy is important for them.
+            baseHit = 1;
+            exHitBonus += skill_bump(SK_THROWING, 7) / 2;
+            // Adjust for strength and dex.
+            exHitBonus = dex_adjust_thrown_tohit(exHitBonus);
+            break;
         }
-        else
-        {
-            practise(EX_WILL_THROW_WEAPON);
-            if (item.base_type == OBJ_WEAPONS)
-                if (is_unrandom_artefact(item)
-                    && get_unrand_entry(item.special)->type_name)
-                {
-                    count_action(CACT_THROW, item.special | (OBJ_WEAPONS << 16));
-                }
-                else
-                    count_action(CACT_THROW, item.sub_type | (OBJ_WEAPONS << 16));
-        }
+
+        if (ammo_brand == SPMSL_STEEL)
+            dice_mult = dice_mult * 130 / 100;
+
+        practise(EX_WILL_THROW_MSL, wepType);
+        count_action(CACT_THROW, wepType | (OBJ_MISSILES << 16));
 
         you.time_taken = finesse_adjust_delay(you.time_taken);
     }
@@ -2017,15 +1927,15 @@ bool throw_it(bolt &pbolt, int throw_2, bool teleport, int acc_bonus,
         pbolt.damage.size += ammoDamBonus + lnchDamBonus;
     }
 
-    if (speed_brand)
-        pbolt.damage.size = div_rand_round(pbolt.damage.size * 9, 10);
-
     // Add in bonus (only from Portal Projectile for now).
     if (acc_bonus != DEBUG_COOKIE)
         pbolt.hit += acc_bonus;
 
     if (you.inaccuracy())
         pbolt.hit -= 5;
+
+    if (you.duration[DUR_WEAK])
+        pbolt.damage.size = (div_rand_round(pbolt.damage.size * 3, 4));
 
     scale_dice(pbolt.damage);
 
@@ -2061,6 +1971,8 @@ bool throw_it(bolt &pbolt, int throw_2, bool teleport, int acc_bonus,
         pbolt.affect_endpoint();
         if (!did_return && acc_bonus != DEBUG_COOKIE)
             pbolt.drop_object();
+        // Costs 1 MP per shot.
+        dec_mp(1);
     }
     else
     {
@@ -2089,6 +2001,9 @@ bool throw_it(bolt &pbolt, int throw_2, bool teleport, int acc_bonus,
 
     if (ammo_brand == SPMSL_FRENZY)
         did_god_conduct(DID_HASTY, 6 + random2(3), ammo_brand_known);
+
+    if (bow_brand == SPWPN_FLAME || ammo_brand == SPMSL_FLAME)
+        did_god_conduct(DID_FIRE, 1, true);
 
     if (did_return)
     {
@@ -2128,6 +2043,14 @@ bool throw_it(bolt &pbolt, int throw_2, bool teleport, int acc_bonus,
     if (pbolt.special_explosion != NULL)
         delete pbolt.special_explosion;
 
+    if (!teleport
+        && you_worship(GOD_DITHMENOS)
+        && thrown.base_type == OBJ_MISSILES
+        && thrown.sub_type != MI_NEEDLE)
+    {
+        dithmenos_shadow_throw(thr.target);
+    }
+
     return hit;
 }
 
@@ -2145,12 +2068,11 @@ void setup_monster_throw_beam(monster* mons, bolt &beam)
 }
 
 // msl is the item index of the thrown missile (or weapon).
-bool mons_throw(monster* mons, bolt &beam, int msl)
+bool mons_throw(monster* mons, bolt &beam, int msl, bool teleport)
 {
     string ammo_name;
 
     bool returning = false;
-    bool speed_brand = false;
 
     int baseHit = 0, baseDam = 0;       // from thrown or ammo
     int ammoHitBonus = 0, ammoDamBonus = 0;     // from thrown or ammo
@@ -2163,7 +2085,7 @@ bool mons_throw(monster* mons, bolt &beam, int msl)
     int diceMult = 100;
 
     // Some initial convenience & initializations.
-    const int wepClass  = mitm[msl].base_type;
+    ASSERT(mitm[msl].base_type == OBJ_MISSILES);
     const int wepType   = mitm[msl].sub_type;
 
     const int weapon    = mons->inv[MSLOT_WEAPON];
@@ -2172,8 +2094,13 @@ bool mons_throw(monster* mons, bolt &beam, int msl)
     mon_inv_type slot = get_mon_equip_slot(mons, mitm[msl]);
     ASSERT(slot != NUM_MONSTER_SLOTS);
 
-    mons->lose_energy(EUT_MISSILE);
+    // Energy is already deducted for the spell cast, if using portal projectile
+    if (!teleport)
+        mons->lose_energy(EUT_MISSILE);
     const int throw_energy = mons->action_energy(EUT_MISSILE);
+
+    actor* victim = actor_at(beam.target);
+    const int old_hp = (victim) ? victim->stat_hp() : 0;
 
     // Dropping item copy, since the launched item might be different.
     item_def item = mitm[msl];
@@ -2200,33 +2127,20 @@ bool mons_throw(monster* mons, bolt &beam, int msl)
         lnchDamBonus = mitm[weapon].plus2;
         lnchBaseDam  = property(mitm[weapon], PWPN_DAMAGE);
     }
+    else if (projected == LRET_THROWN)
+        returning = returning && !teleport;
 
-    // extract weapon/ammo bonuses due to magic
-    if (wepClass == OBJ_WEAPONS)
-    {
-        ammoHitBonus = item.plus;
-        ammoDamBonus = item.plus2;
-    }
-    else if (wepClass == OBJ_MISSILES)
-        ammoHitBonus = ammoDamBonus = min(3, div_rand_round(mons->hit_dice , 3));
+    // FIXME: ammo enchantment
+    ammoHitBonus = ammoDamBonus = min(3, div_rand_round(mons->hit_dice , 3));
 
-    // Archers get a boost from their melee attack.
-    if (mons->is_archer())
-    {
-        const mon_attack_def attk = mons_attack_spec(mons, 0);
-        if (attk.type == AT_SHOOT)
-        {
-            if (projected == LRET_THROWN && wepClass == OBJ_MISSILES)
-                ammoHitBonus += random2avg(attk.damage, 2);
-            else
-                ammoDamBonus += random2avg(attk.damage, 2);
-        }
-    }
+    // Archers get an accuracy boost with thrown weapons
+    if (mons->is_archer() && projected == LRET_THROWN)
+        ammoHitBonus += random2avg(mons->hit_dice * 4 / 3, 2);
 
     if (projected == LRET_THROWN)
     {
         // Darts are easy.
-        if (wepClass == OBJ_MISSILES && wepType == MI_DART)
+        if (wepType == MI_DART)
         {
             baseHit = 11;
             hitMult = 40;
@@ -2241,15 +2155,12 @@ bool mons_throw(monster* mons, bolt &beam, int msl)
 
         baseDam = property(item, PWPN_DAMAGE);
 
-        if (wepClass == OBJ_MISSILES)   // throw missile
+        // [dshaligram] Thrown stones/darts do only half the damage of
+        // launched stones/darts. This matches 4.0 behaviour.
+        if (wepType == MI_DART || wepType == MI_STONE
+            || wepType == MI_SLING_BULLET)
         {
-            // [dshaligram] Thrown stones/darts do only half the damage of
-            // launched stones/darts. This matches 4.0 behaviour.
-            if (wepType == MI_DART || wepType == MI_STONE
-                || wepType == MI_SLING_BULLET)
-            {
-                baseDam = div_rand_round(baseDam, 2);
-            }
+            baseDam = div_rand_round(baseDam, 2);
         }
 
         // give monster "skill" bonuses based on HD
@@ -2315,15 +2226,8 @@ bool mons_throw(monster* mons, bolt &beam, int msl)
 
         // [dshaligram] This is a horrible hack - we force beam.cc to
         // consider this beam "needle-like".
-        if (wepClass == OBJ_MISSILES && wepType == MI_NEEDLE)
+        if (wepType == MI_NEEDLE)
             beam.ench_power = AUTOMATIC_HIT;
-
-        // elf with elven launcher
-        if (get_equip_race(mitm[weapon]) == ISFLAG_ELVEN
-            && mons_genus(mons->type) == MONS_ELF)
-        {
-            beam.hit++;
-        }
 
         // Vorpal brand increases damage dice size.
         if (bow_brand == SPWPN_VORPAL)
@@ -2339,10 +2243,9 @@ bool mons_throw(monster* mons, bolt &beam, int msl)
         {
             if (bow_brand == SPWPN_SPEED)
             {
-                // Speed crossbows take 50% less time to use than
+                // Speed crossbows take 33% less time to use than
                 // ordinary crossbows.
-                speed_delta = div_rand_round(throw_energy * 2, 5);
-                speed_brand = true;
+                speed_delta = div_rand_round(throw_energy, 5);
             }
             else
             {
@@ -2353,13 +2256,14 @@ bool mons_throw(monster* mons, bolt &beam, int msl)
         }
         else if (bow_brand == SPWPN_SPEED)
         {
-            // Speed bows take 50% less time to use than
+            // Speed bows take 33% less time to use than
             // ordinary bows.
-            speed_delta = div_rand_round(throw_energy, 2);
-            speed_brand = true;
+            speed_delta = div_rand_round(throw_energy, 3);
         }
 
-        mons->speed_increment += speed_delta;
+        // Portal projectile is independent of weapon speed
+        if (!teleport)
+            mons->speed_increment += speed_delta;
     }
 
     // Chaos, flame, and frost.
@@ -2387,9 +2291,13 @@ bool mons_throw(monster* mons, bolt &beam, int msl)
         }
     }
 
+    // Portal projectile accuracy bonus (power / 4):
+    if (teleport)
+        beam.hit += 3 * mons->hit_dice;
+
     // Now, if a monster is, for some reason, throwing something really
     // stupid, it will have baseHit of 0 and damage of 0.  Ah well.
-    string msg = mons->name(DESC_THE);
+    string msg = ((teleport) ? "Magically, " : "") + mons->name(DESC_THE);
     msg += ((projected == LRET_LAUNCHED) ? " shoots " : " throws ");
 
     if (!beam.name.empty() && projected == LRET_LAUNCHED)
@@ -2412,11 +2320,6 @@ bool mons_throw(monster* mons, bolt &beam, int msl)
 
     _throw_noise(mons, beam, item);
 
-    // Store misled values here, as the setting up of the aux source
-    // will use the wrong monster name.
-    int misled = you.duration[DUR_MISLED];
-    you.duration[DUR_MISLED] = 0;
-
     // [dshaligram] When changing bolt names here, you must edit
     // hiscores.cc (scorefile_entry::terse_missile_cause()) to match.
     if (projected == LRET_LAUNCHED)
@@ -2431,9 +2334,6 @@ bool mons_throw(monster* mons, bolt &beam, int msl)
                  (is_vowel(beam.name[0]) ? "n" : ""), beam.name.c_str(),
                  mons->name(DESC_A).c_str());
     }
-
-    // And restore it here.
-    you.duration[DUR_MISLED] = misled;
 
     // Add everything up.
     beam.hit = baseHit + random2avg(exHitBonus, 2) + ammoHitBonus;
@@ -2481,9 +2381,6 @@ bool mons_throw(monster* mons, bolt &beam, int msl)
     if (mons->has_ench(ENCH_WIND_AIDED))
         beam.hit = beam.hit * 125 / 100;
 
-    if (speed_brand)
-        beam.damage.size = div_rand_round(beam.damage.size * 9, 10);
-
     scale_dice(beam.damage);
 
     // decrease inventory
@@ -2498,11 +2395,22 @@ bool mons_throw(monster* mons, bolt &beam, int msl)
     // Redraw the screen before firing, in case the monster just
     // came into view and the screen hasn't been updated yet.
     viewwindow();
-    beam.fire();
+    if (teleport)
+    {
+        beam.use_target_as_pos = true;
+        beam.affect_cell();
+        beam.affect_endpoint();
+        if (!really_returns)
+            beam.drop_object();
+    }
+    else
+    {
+        beam.fire();
 
-    // The item can be destroyed before returning.
-    if (really_returns && thrown_object_destroyed(&item, beam.target))
-        really_returns = false;
+        // The item can be destroyed before returning.
+        if (really_returns && thrown_object_destroyed(&item, beam.target))
+            really_returns = false;
+    }
 
     if (really_returns)
     {
@@ -2531,6 +2439,14 @@ bool mons_throw(monster* mons, bolt &beam, int msl)
 
     if (beam.special_explosion != NULL)
         delete beam.special_explosion;
+
+    if (mons->has_ench(ENCH_GRAND_AVATAR))
+    {
+        // We want this to be a ranged attack, like the spell mirroring,
+        // so any spell that fires a battlesphere will do here.
+        // XXX: make triggering of this less hacky
+        trigger_grand_avatar(mons, victim, SPELL_MAGIC_DART, old_hp);
+    }
 
     return true;
 }
@@ -2562,11 +2478,6 @@ bool thrown_object_destroyed(item_def *item, const coord_def& where)
         chance = (brand == SPMSL_CURARE ? 6 : 12);
         break;
 
-#if TAG_MAJOR_VERSION == 34
-    case MI_PIE:
-        return true;
-#endif
-
     case MI_SLING_BULLET:
     case MI_STONE:
     case MI_ARROW:
@@ -2576,6 +2487,10 @@ bool thrown_object_destroyed(item_def *item, const coord_def& where)
 
     case MI_DART:
         chance = 6;
+        break;
+
+    case MI_TOMAHAWK:
+        chance = 30;
         break;
 
     case MI_JAVELIN:

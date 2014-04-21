@@ -29,7 +29,6 @@
  #include "tilefont.h"
  #include "tilereg-crt.h"
  #include "tilereg-menu.h"
- #include "tilereg-popup.h"
 #endif
 #ifdef USE_TILE
  #include "mon-stuff.h"
@@ -906,7 +905,6 @@ FeatureMenuEntry::FeatureMenuEntry(const string &str,
     quantity = 1;
 }
 
-
 #ifdef USE_TILE
 PlayerMenuEntry::PlayerMenuEntry(const string &str) :
     MenuEntry(str, MEL_ITEM, 1)
@@ -1297,7 +1295,7 @@ int Menu::item_colour(int, const MenuEntry *entry) const
     if (highlighter)
         icol = highlighter->entry_colour(entry);
 
-    return (icol == -1 ? entry->colour : icol);
+    return icol == -1 ? entry->colour : icol;
 }
 
 void Menu::draw_title()
@@ -1350,7 +1348,7 @@ void Menu::write_title()
 
 bool Menu::in_page(int index) const
 {
-    return (index >= first_entry && index < first_entry + pagesize);
+    return index >= first_entry && index < first_entry + pagesize;
 }
 
 void Menu::draw_item(int index) const
@@ -1657,7 +1655,7 @@ void Menu::webtiles_update_section_boundaries()
         {
             _webtiles_section_start--;
         }
-        _webtiles_section_end = first_entry + 1;
+        _webtiles_section_end = min(first_entry + 1, (int) items.size());
         while (_webtiles_section_end < (int) items.size()
                && items[_webtiles_section_end]->level != MEL_TITLE)
         {
@@ -1690,15 +1688,15 @@ int menu_colour(const string &text, const string &prefix, const string &tag)
 
 int MenuHighlighter::entry_colour(const MenuEntry *entry) const
 {
-    return (entry->colour != MENU_ITEM_STOCK_COLOUR ? entry->colour
-            : entry->highlight_colour());
+    return entry->colour != MENU_ITEM_STOCK_COLOUR ? entry->colour
+           : entry->highlight_colour();
 }
 
 ///////////////////////////////////////////////////////////////////////
 // column_composer
 
 column_composer::column_composer(int cols, ...)
-    : ncols(cols), pagesize(0), columns()
+    : pagesize(0), columns()
 {
     ASSERT(cols > 0);
 
@@ -1948,7 +1946,7 @@ bool formatted_scroller::page_down()
             break;
     }
     first_entry = target;
-    return (old_first != first_entry);
+    return old_first != first_entry;
 }
 
 bool formatted_scroller::page_up()
@@ -1970,7 +1968,7 @@ bool formatted_scroller::page_up()
         --first_entry;
     }
 
-    return (old_first != first_entry);
+    return old_first != first_entry;
 }
 
 bool formatted_scroller::line_down()
@@ -2663,7 +2661,6 @@ COLORS MenuItem::get_highlight_colour() const
     return m_highlight_colour;
 }
 
-
 void MenuItem::set_bg_colour(COLORS colour)
 {
     m_bg_colour = colour;
@@ -2826,7 +2823,8 @@ void TextItem::render()
         cgotoxy(m_min_coord.x, m_min_coord.y + i);
         textcolor(m_fg_colour);
         textbackground(m_bg_colour);
-        cprintf("%s", m_render_text.substr(newline_pos, endline_pos).c_str());
+        cprintf("%s", m_render_text.substr(newline_pos,
+                endline_pos - newline_pos).c_str());
         if (endline_pos != string::npos)
             newline_pos = endline_pos + 1;
         else
@@ -3001,7 +2999,6 @@ void TextTileItem::render()
                        m_min_coord.x + tile_offset,
                        m_min_coord.y + get_vertical_offset());
 
-
         m_dirty = false;
     }
 
@@ -3106,8 +3103,6 @@ void SaveMenuItem::_pack_doll()
     }
 }
 #endif
-
-
 
 MenuObject::MenuObject() : m_dirty(false), m_allow_focus(true), m_min_coord(0,0),
                            m_max_coord(0,0)
@@ -3264,8 +3259,6 @@ bool MenuObject::is_visible() const
     return m_visible;
 }
 
-
-
 MenuFreeform::MenuFreeform(): m_active_item(NULL), m_default_item(NULL)
 {
 }
@@ -3329,7 +3322,6 @@ MenuObject::InputReturnValue MenuFreeform::process_input(int key)
             set_active_item(m_default_item);
             return MenuObject::INPUT_ACTIVE_CHANGED;
         }
-
 
     MenuItem* find_entry = NULL;
     switch (key)
@@ -4302,7 +4294,6 @@ void MenuDescriptor::_place_items()
         textcolor(LIGHTGRAY);
 #endif
 
-
         if (tmp == NULL)
              m_desc_item.set_text("");
         else
@@ -4325,8 +4316,6 @@ vector<MenuItem*> BoxMenuHighlighter::get_selected_items()
     vector<MenuItem*> ret_val;
     return ret_val;
 }
-
-
 
 MenuObject::InputReturnValue BoxMenuHighlighter::process_input(int key)
 {
@@ -4390,7 +4379,6 @@ void BoxMenuHighlighter::_place_items()
 #endif
     m_active_item = tmp;
 }
-
 
 BlackWhiteHighlighter::BlackWhiteHighlighter(PrecisionMenu* parent):
     BoxMenuHighlighter(parent)

@@ -81,7 +81,7 @@ static int crawl_mpr(lua_State *ls)
     if (ch < 0 || ch >= NUM_MESSAGE_CHANNELS)
         ch = MSGCH_PLAIN;
 
-    mpr(message, static_cast<msg_channel_type>(ch));
+    mprf(static_cast<msg_channel_type>(ch), "%s", message);
     return 0;
 }
 
@@ -224,8 +224,8 @@ LUAWRAP(crawl_flush_input, flush_input_buffer(FLUSH_LUA))
 
 static char _lua_char(lua_State *ls, int ndx, char defval = 0)
 {
-    return (lua_isnone(ls, ndx) || !lua_isstring(ls, ndx)? defval
-            : lua_tostring(ls, ndx)[0]);
+    return lua_isnone(ls, ndx) || !lua_isstring(ls, ndx)? defval
+           : lua_tostring(ls, ndx)[0];
 }
 
 /*
@@ -508,7 +508,6 @@ static int crawl_regex(lua_State *ls)
     if (!s)
         return 0;
 
-
     text_pattern **tpudata =
             clua_new_userdata< text_pattern* >(ls, REGEX_METATABLE);
     if (tpudata)
@@ -721,7 +720,8 @@ static int crawl_worley_diff(lua_State *ls)
 static int crawl_split_bytes(lua_State *ls)
 {
     uint32_t val = lua_tonumber(ls,1);
-    uint8_t bytes[4] = {
+    uint8_t bytes[4] =
+    {
         (uint8_t)(val >> 24),
         (uint8_t)(val >> 16),
         (uint8_t)(val >> 8),
@@ -952,7 +952,7 @@ static int crawl_call_dlua(lua_State *ls)
             const char *msg = lua_tostring(dlua, -1);
             if (msg == NULL)
                 msg = "(error object is not a string)";
-            mpr(msg, MSGCH_ERROR);
+            mprf(MSGCH_ERROR, "%s", msg);
         }
 
         lua_settop(dlua, 0); // don't bother unwinding, just nuke the stack
@@ -972,7 +972,7 @@ static int crawl_call_dlua(lua_State *ls)
             lua_pushstring(ls, ret);
         else
         {
-            mpr("call_dlua: cannot pass non-scalars yet (TODO)", MSGCH_ERROR);
+            mprf(MSGCH_ERROR, "call_dlua: cannot pass non-scalars yet (TODO)");
             lua_pushnil(ls);
         }
 
@@ -998,7 +998,7 @@ static const struct luaL_reg crawl_clib[] =
     { "delay",          crawl_delay },
     { "random2",        crawl_random2 },
     { "one_chance_in",  crawl_one_chance_in },
-    { "random2avg"   ,  crawl_random2avg },
+    { "random2avg",     crawl_random2avg },
     { "coinflip",       crawl_coinflip },
     { "roll_dice",      crawl_roll_dice },
     { "x_chance_in_y",  crawl_x_chance_in_y },

@@ -113,12 +113,20 @@ bool scramble(void);
 bool interrupt_cmd_repeat(activity_interrupt_type ai,
                           const activity_interrupt_data &at);
 
-bool bad_attack(const monster *mon, string& adj, string& suffix);
+bool bad_attack(const monster *mon, string& adj, string& suffix,
+                bool& would_cause_penance,
+                coord_def attack_pos = coord_def(0, 0),
+                bool check_landing_only = false);
+
 bool stop_attack_prompt(const monster* mon, bool beam_attack,
                         coord_def beam_target, bool autohit_first = false,
+                        bool *prompted = nullptr,
+                        coord_def attack_pos = coord_def(0, 0),
+                        bool check_landing_only = false);
+
+bool stop_attack_prompt(targetter &hitfunc, const char* verb,
+                        bool (*affects)(const actor *victim) = 0,
                         bool *prompted = nullptr);
-bool stop_attack_prompt(targetter &hitfunc, string verb,
-                        bool (*affects)(const actor *victim) = 0);
 
 bool is_dragonkind(const actor *act);
 
@@ -195,7 +203,7 @@ struct position_node
 
     int total_dist() const
     {
-        return (estimate + path_distance);
+        return estimate + path_distance;
     }
 };
 
@@ -204,11 +212,9 @@ struct path_less
     bool operator()(const set<position_node>::iterator & left,
                     const set<position_node>::iterator & right)
     {
-        return (left->total_dist() > right->total_dist());
+        return left->total_dist() > right->total_dist();
     }
-
 };
-
 
 template<typename cost_T, typename est_T>
 struct simple_connect
@@ -263,7 +269,6 @@ struct coord_wrapper
 
     coord_wrapper()
     {
-
     }
 };
 
@@ -280,7 +285,6 @@ void search_astar(position_node & start,
 
     set<position_node>::iterator current = visited.insert(start).first;
     fringe.push(current);
-
 
     bool done = false;
     while (!fringe.empty())

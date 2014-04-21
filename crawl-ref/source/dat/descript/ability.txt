@@ -18,8 +18,17 @@ enchantments.
 %%%%
 Breathe Fire ability
 
-Breathe a blast of fire at a targeted monster, possibly leaving fire clouds in
-its wake.
+{{
+    local desc = "Breathe a blast of fire at a targeted monster"
+
+    if you.race() == "Red Draconian" then
+        desc = desc .. ", leaving a cloud of flames at the endpoint"
+    end
+
+    desc = desc .. "."
+
+    return desc
+}}
 %%%%
 Breathe Frost ability
 
@@ -60,8 +69,7 @@ weight of your possessions or some disability would normally drag you down.
 Bottle Blood ability
 
 At experience level 6 and higher, Vampires can bottle the blood from non-rotten
-and blood-containing corpses they are standing on. Doing so requires the
-capability of wielding your knife, as is the case for butchering.
+and blood-containing corpses they are standing on.
 %%%%
 Spit Acid ability
 
@@ -74,6 +82,15 @@ Start flying. During flight you can safely cross water and similar obstacles.
 Be warned, though, that flight may time out at inopportune moments and cause
 you to fall to your death.
 %%%%
+Jump Attack ability
+
+Leap at a nearby enemy and perform a melee attack, landing somewhere adjacent
+to the target. You cannot jump over flying enemies and can only leap giant
+enemies submerged in lava or deep water. Standing or swimming in water, lava,
+or liquefied ground will also prevent you from using this ability. Felids are
+natural jumpers and will become more skilled at pouncing upon reaching
+experience levels 6 and 12.
+%%%%
 Hellfire ability
 
 Blast your enemies with hellfire. This ball of unholy flames explodes on
@@ -83,7 +100,7 @@ hellfire entirely.
 %%%%
 Release Delayed Fireball ability
 
-Instantly release a previously memorised (delayed) fireball without additional
+Instantly release a previously prepared (delayed) fireball without additional
 cost in terms of magic or hunger.
 %%%%
 Stop Singing ability
@@ -93,11 +110,23 @@ Stop singing your Song of Slaying.
 Self-Restoration ability
 
 At the permanent loss of one magic point restore your Strength, Dexterity and
-Intelligence, and heal a large amount of rotted hit points.
+Intelligence, and heal any rotted hit points.
 %%%%
 Device Recharging ability
 
 At the permanent loss of one magic point recharge a wand or rod.
+%%%%
+Dig ability
+
+Allows making tunnels through soft rock and rusted grates. Using this ability
+merely states your intent to dig; to actually tunnel you need to move into a
+wall. Doing so is a little slower than walking, creates some noise and causes
+hunger.
+%%%%
+Shaft Self ability
+
+Sends you to a random position one to three floors down, as if you jumped into
+a shaft trap. It takes some time to dig the shaft.
 %%%%
 Evoke Teleportation ability
 
@@ -130,6 +159,13 @@ Evoke Flight ability
 
 <Fly ability>
 %%%%
+Evoke Jump Attack ability
+
+Leap at a nearby enemy and perform a melee attack, landing somewhere adjacent
+to the target. You cannot jump over flying enemies and can only leap giant
+enemies submerged in lava or deep water. Standing or swimming in water, lava,
+or liquefied ground will also prevent you from using this ability.
+%%%%
 Stop Flying ability
 
 Stop flying.
@@ -153,23 +189,20 @@ Revert to your normal form, with a short delay.
 # Zin
 Recite ability
 
-Preach to monsters about Zin's laws, which can lead to various results. There
-are four books you can preach from:
-
-* Book of Abominations: This book deals with the very thing most abhorrent to
-Zin — chaos in all its forms. These recitations will invoke Zin's most powerful
+Preach to monsters about Zin's laws, which can lead to various results. The
+recitation will continue for a short while, but will be interrupted by actions
+such as spellcasting, reading scrolls or quaffing potions. There are four books
+you can preach from:
+ • Book of Abominations: This book deals with the thing most abhorrent to Zin —
+chaos in all its forms. These recitations will invoke Zin's most powerful
 smiting.
-
-* Book of Ablutions: The impure are nearly as loathed by the Law-Giver.
+ • Book of Ablutions: The impure are nearly as loathed by the Law-Giver.
 Recitations from this book will deal damage to such creatures.
-
-* Book of Apostates: Intelligent creatures who do not worship Zin but do no
-other evil will be dealt with least harshly. The recitations from this book
-merely sow confusion. Yet those who dare to worship a god alien to Zin may be
+ • Book of Apostates: Recitations from this book will sow confusion amongst
+intelligent creatures. Those who dare to worship a god other than Zin may be
 permanently deprived of means to spread their foul faith.
-
-* Book of Anathema: Demons and the undead are hated by Zin. This book gives you
-means to rebuke them.
+ • Book of Anathema: Demons and the undead are hated by Zin. This book gives
+you means to rebuke them.
 %%%%
 Vitalisation ability
 
@@ -238,7 +271,8 @@ surroundings.
 %%%%
 Injury Mirror ability
 
-Hurt attacking monsters by reflecting damage they do to you back at them.
+Hurt attacking monsters by reflecting damage they do to you back at them,
+reducing piety depending on the amount of damage that is reflected.
 %%%%
 Animate Dead ability
 
@@ -284,7 +318,8 @@ Shoot a random harmful blast at the targeted monster.
 %%%%
 Lesser Servant of Makhleb ability
 
-Summon a minor demon, with a chance of being hostile at low Invocations skill.
+Summon a minor demon. High Invocations skill reduces the chance of it being
+hostile.
 %%%%
 Major Destruction ability
 
@@ -292,7 +327,8 @@ Shoot a random harmful beam or explosion at the targeted monster.
 %%%%
 Greater Servant of Makhleb ability
 
-Summon a major demon, with a chance of being hostile at low Invocations skill.
+Summon a major demon. High Invocations skill reduces the chance of it being
+hostile.
 %%%%
 # Sif Muna
 Channel Energy ability
@@ -309,8 +345,9 @@ memory to learn others.
 Burn Spellbooks ability
 
 Set all spellbooks within your field of vision on fire. The fire is fuelled by
-Trog's hatred, and Trog likes it most when you don't even care which books of
-madness burst into flames.
+Trog's hatred, and it burns hotter than mere parchment would — which can be
+useful if you throw the book under someone's feet first. Obviously, Trog
+greatly appreciates using this ability.
 %%%%
 Berserk ability
 
@@ -326,8 +363,8 @@ Trog may occasionally prevent you from passing out.
 Trog's Hand ability
 
 Invoke a powerful regeneration ability which stacks with all other sources and
-even allows otherwise non-healing species to regenerate. This will also
-increase protection from magical effects.
+even allows otherwise non-healing species to regenerate. While active, you will
+also be granted powerful protection from hostile enchantments.
 %%%%
 Brothers in Arms ability
 
@@ -352,8 +389,8 @@ other humanoids, and worst of all on demons and undead. Mindless creatures
 cannot be pacified, and no monster can be pacified while it is asleep. The
 chance for successful pacification depends on the healing power.
 
-Whether the pacification succeeds or not, the invested food and magic point are
-lost. If it does succeed, the monster is healed and you gain half the monster's
+Whether the pacification succeeds or not, the invested food and magic are lost.
+If it does succeed, the monster is healed and you gain half the monster's
 experience value and possibly some piety. Otherwise, the monster is unaffected
 and you gain nothing.
 
@@ -394,8 +431,9 @@ Lesser Healing at a slightly higher total piety cost.
 %%%%
 Divine Vigour ability
 
-Depending on your Invocations skill, restore a large amount of, and temporarily
-increase, both your hit points and your magic points.
+Greatly increase your maximum hit points and magic points, depending on
+Invocations skill. Your current hit points and magic points will also be
+increased proportionally.
 %%%%
 # Lugonu
 Depart the Abyss ability
@@ -406,7 +444,8 @@ Bend Space ability
 
 Bend the fabric of space around you, instantly translocating you a small
 distance, and possibly also translocating and damaging monsters in your
-vicinity.
+vicinity. In warping the fabric of space, this ability ignores effects that
+would usually prevent translocations.
 %%%%
 Banish ability
 
@@ -433,8 +472,7 @@ Peek at Two ability
 
 Discard one card from any deck in your inventory to draw two cards from the
 deck, look at them, and shuffle them back into the deck. The deck will be
-inscribed as containing those two cards, and, if they are different, this will
-identify the deck.
+identified and inscribed as containing those two cards.
 %%%%
 Triple Draw ability
 
@@ -480,8 +518,8 @@ Growth ability
 
 Use fruit to grow a ring of plants around yourself. If a complete ring cannot
 be formed (because you do not have enough fruit), plants will grow on squares
-adjacent to you that are close to monsters. The plants you create gain bonus HP
-proportional to your Invocations skill.
+adjacent to you that are close to monsters. The plants you create gain bonus
+health proportional to your Invocations skill.
 %%%%
 Rain ability
 
@@ -514,8 +552,8 @@ relative to you.
 %%%%
 Slouch ability
 
-Cause damage to everyone in sight who is moving faster than you. Those
-magically hasted will be hurt particularly painfully.
+Cause damage to everyone in sight who is moving faster than you, dealing more
+damage with greater differences in speed.
 %%%%
 Step From Time ability
 
@@ -531,7 +569,8 @@ Create a neutral jelly that will wander the floor and digest items.
 %%%%
 Jelly Paralyse ability
 
-Pray to temporarily halt your slimes' item consumption.
+Pray to temporarily halt the item consumption of any visible slimes. This
+ability costs piety depending on the number of jellies that are affected.
 %%%%
 Slimify ability
 
@@ -555,6 +594,22 @@ Sacrifice part of one of your skills to improve another.
 End Transfer Knowledge ability
 
 Abort an ongoing skill transfer.
+%%%%
+# Dithmenos
+Shadow Step ability
+
+If a creature within your umbra is still enough for you to focus on its shadow,
+this ability allows you to step through that shadow to immediately be placed
+adjacent to that creature.
+%%%%
+Shadow Form ability
+
+This invocation transforms you into a swirling mass of dark shadows. While in
+this form, you are permanently invisible and are immune to poison, draining,
+torment, and hostile enchantments. All incoming damage will be halved, and you
+will bleed smoke on any incoming attack. However, your ability to deal damage
+in melee will be halved, your spellcasting power will be greatly hampered, and
+your skills will be further drained when taking damage.
 %%%%
 Renounce Religion ability
 

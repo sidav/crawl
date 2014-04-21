@@ -23,10 +23,6 @@ Demonspawn
 Démonik je napůl člověk, napůl démon, který postupně získáva silné démonické
 mutace.
 %%%%
-Djinni
-
-Džinové jsou duchové ohně, pro které je magie životodárnou silou.
-%%%%
 Draconian
 
 Drakoni jsou všeumělové, kteří dospívají na sedmé úrovni, kdy získavají
@@ -111,11 +107,6 @@ Ogre
 Velcí a silní, povětšinou považováni za bezmyšlenkovité bijce. Obrové jsou však
 zběhlí i v základech magie.
 %%%%
-Sludge Elf
-
-Zkažená rasa elfů, která dává přednost lstem před rovným bojem, a temné magii
-před jinými druhy kouzel.
-%%%%
 Spriggan
 
 Hodně malí, hodně slabí a hodně rychlí. Sprigané jsou vysoce schopní co se týče
@@ -125,9 +116,4 @@ Troll
 
 Velcí surovci, kteří neváhají svými drápy rozsápat, co jim pod ruku přijde.
 Neustále mají hlad.
-%%%%
-Vampire
-
-Uznávaní v umění špicování a magie, a neustále se nacházejí mezi životem a
-neživotem.
 %%%%

@@ -24,9 +24,9 @@ The contents of this text are:
 3-a     Dropping and Picking up.
                 autopickup, autopickup_exceptions, default_autopickup,
                 autopickup_no_burden, pickup_thrown, chunks_autopickup,
-                assign_item_slot, drop_mode, pickup_mode, drop_filter,
-                default_friendly_pickup
-3-b     Targetting.
+                assign_item_slot, pickup_menu, pickup_menu_limit,
+                drop_filter, default_friendly_pickup
+3-b     Targeting.
                 default_target, target_unshifted_dirs, darken_beyond_range
 3-c     Passive Sightings (detected and remembered entities).
                 detected_monster_colour, detected_item_colour,
@@ -48,7 +48,7 @@ The contents of this text are:
                 travel_key_stop, tc_reachable, tc_dangerous, tc_disconnected,
                 tc_excluded, tc_exclude_circle,
                 runrest_ignore_message, runrest_stop_message,
-                runrest_ignore_poison, runrest_ignore_monster,
+                runrest_safe_poison, runrest_ignore_monster,
                 trapwalk_safe_hp, rest_wait_both, auto_exclude
 3-h     Command Enhancements.
                 auto_list, auto_switch, easy_open, easy_unequip,
@@ -56,7 +56,9 @@ The contents of this text are:
                 confirm_butcher, easy_eat_chunks, auto_drop_chunks,
                 prompt_for_swap, easy_quit_item_prompts,
                 easy_exit_menu, sort_menus, spell_slot, autofight_stop,
-                autofight_throw, autofight_throw_nomove, autofight_fire_stop
+                autofight_throw, autofight_throw_nomove, autofight_fire_stop,
+                autofight_caught, automagic_enable, automagic_slot,
+                automagic_fight, automagic_stop
 3-i     Message and Display Improvements.
                 hp_warning, mp_warning, hp_colour, mp_colour, stat_colour,
                 status_caption_colour, enemy_hp_colour, clear_messages,
@@ -65,18 +67,20 @@ The contents of this text are:
                 item_stack_summary_minimum,
                 mlist_min_height, msg_min_height, msg_max_height,
                 messages_at_top, skill_focus,
-                mlist_allow_alternate_layout, mlist_targetting,
+                mlist_allow_alternate_layout, mlist_targeting,
                 menu_colour, message_colour, force_more_message,
                 msg_condense_repeats, msg_condense_short, show_travel_trail,
-                monster_list_colour
+                monster_list_colour, view_delay
 3-j     Missiles.
                 fire_items_start, fire_order
 3-k     Message Channels.
                 plain, prompt, god, pray, duration, danger, food, warning,
-                recovery, talk, talk_visual, intrinsic_gain, mutation,
-                monster_spell, monster_enchant, friend_spell, friend_enchant,
-                monster_damage, rotten_meat, equipment, floor, multiturn,
-                examine, examine_filter, diagnostics, error, tutorial
+                recovery, talk, talk_visual, timed_portal, sound,
+                intrinsic_gain, mutation, monster_spell, monster_enchant,
+                friend_spell, friend_enchant, friend_action, monster_damage,
+                monster_target, banishment, rotten_meat, equipment, floor,
+                multiturn, examine, examine_filter, diagnostics, error,
+                tutorial, orb, hell_effect
 3-l     Inscriptions.
                 autoinscribe, autoinscribe_cursed
 3-m     Macro related Options.
@@ -86,25 +90,24 @@ The contents of this text are:
                 tile_show_items, tile_skip_title, tile_menu_icons,
                 tile_player_col, tile_monster_col, tile_neutral_col,
                 tile_peaceful_col, tile_friendly_col, tile_plant_col,
-                tile_item_col, tile_unseen_col, tile_floor_col,
-                tile_wall_col, tile_mapped_wall_col, tile_door_col,
-                tile_downstairs_col, tile_upstairs_col,
-                tile_feature_col, tile_trap_col, tile_water_col,
-                tile_lava_col, tile_excluded_col,
-                tile_excl_centre_col, tile_update_rate,
-                tile_runrest_rate, tile_key_repeat_delay,
-                tile_tooltip_ms, tile_tag_pref, tile_full_screen,
-                tile_window_width, tile_window_height,
-                tile_map_pixels, tile_cell_pixels, tile_force_overlay,
-                tile_font_crt_file, tile_font_stat_file,
-                tile_font_msg_file, tile_font_tip_file,
-                tile_font_lbl_file, tile_font_crt_size,
-                tile_font_stat_size, tile_font_msg_size,
-                tile_font_tip_size, tile_font_lbl_size,
-                tile_font_ft_light, tile_show_minihealthbar,
-                tile_show_minimagicbar, tile_show_demon_tier,
-                tile_water_anim, tile_layout_priority,
-                tile_force_regenerate_levels
+                tile_item_col, tile_unseen_col, tile_floor_col, tile_wall_col,
+                tile_mapped_floor_col, tile_mapped_wall_col, tile_door_col,
+                tile_downstairs_col, tile_upstairs_col, tile_branchstairs_col,
+                tile_feature_col, tile_trap_col, tile_water_col, tile_lava_col,
+                tile_excluded_col, tile_excl_centre_col, tile_update_rate,
+                tile_runrest_rate, tile_key_repeat_delay, tile_tooltip_ms,
+                tile_tag_pref, tile_full_screen, tile_window_width,
+                tile_window_height, tile_map_pixels, tile_cell_pixels,
+                tile_force_overlay, tile_font_crt_file, tile_font_stat_file,
+                tile_font_msg_file, tile_font_tip_file, tile_font_lbl_file,
+                tile_font_crt_family, tile_font_stat_family,
+                tile_font_msg_family, tile_font_lbl_family, tile_font_crt_size,
+                tile_font_stat_size, tile_font_msg_size, tile_font_tip_size,
+                tile_font_lbl_size, tile_font_ft_light,
+                tile_show_minihealthbar, tile_show_minimagicbar,
+                tile_show_demon_tier, tile_water_anim, tile_misc_anim,
+                tile_realtime_anim, tile_layout_priority, tile_display_mode,
+                tile_level_map_hide_messages, tile_level_map_hide_sidebar
 4-  Character Dump.
 4-a     Saving.
                 dump_on_save
@@ -116,7 +119,7 @@ The contents of this text are:
                 user_note_prefix, note_items, note_monsters,
                 note_hp_percent, note_skill_levels, note_all_skill_levels,
                 note_skill_max, note_xom_effects, note_messages,
-                note_chat_messages
+                note_chat_messages, note_dgl_messages
 5-  Miscellaneous.
 5-a     All OS.
                 mouse_input, wiz_mode, char_set, colour, cset, feature,
@@ -203,10 +206,10 @@ There are two styles you can use to set options. The classic
 name=value syntax, one option per-line:
     remember_name  = true
     explore_greedy = false
-    drop_mode      = multi
+    confirm_butcher= never
 
 And the NetHack-style combined option line:
-    OPTION = remember_name, !explore_greedy, drop_mode:multi
+    OPTION = remember_name, !explore_greedy, confirm_butcher:never
 
 The second style is useful to specify simple options in a few lines,
 but it cannot be used for options that take complex lists of values
@@ -284,7 +287,10 @@ This is useful if you wish to prevent an included file from altering
 a variable.
 
 See settings/standard_colours.txt and settings/food_colouring.txt
-for usage of aliases and variables.
+for usage of aliases and variables. Note that changing the variables defined
+in these files will only affect your own configuration file, as the default
+options will have already been loaded. If you want to change them, you will
+have to override the options themselves.
 
 
 1-  Starting Screen.
@@ -307,15 +313,15 @@ remember_name = true
         initial name prompt - hitting Enter at the name prompt will
         simply reuse your old name if remember_name is set.
 
-weapon = (short sword | falchion | quarterstaff | hand axe | spear | mace
-          | trident | unarmed | random | viable)
+weapon = (short sword | falchion | quarterstaff |...| unarmed | random | viable)
         Specifying the weapon option allows you to bypass the weapon
-        selection screen. Tridents and falchions are restricted to only
-        fighters and gladiators, quarterstaves are restricted to gladiators,
-        and unarmed is restricted to races with claws. The standard weapon
-        prompt will be shown if an illegal choice for the selected
-        background is specified. The "viable" option makes a random choice
-        from among the "good" weapons for the chosen character.
+        selection screen. Tridents, flails, cutlasses, long swords, and war
+        axes are restricted to fighters and gladiators only, quarterstaves
+        are restricted to gladiators, and unarmed is restricted to races
+        with claws. The standard weapon prompt will be shown if an illegal
+        choice for the selected background is specified. The "viable" option
+        makes a random choice from among the "good" weapons for the chosen
+        character.
 
 species = (Human |...| Vampire | random | viable)
         The usual abbreviations (Hu, HE, etc.) work. Because species and
@@ -324,7 +330,7 @@ species = (Human |...| Vampire | random | viable)
         option is also set.
 
 background = (Fighter |...| Wanderer | random | viable)
-        Here again the abbreviations (Fi, Wz, Pr, etc.) can be used. The same
+        Here again the abbreviations (Fi, Wz, AK, etc.) can be used. The same
         caveat applies to "viable": it is only really meaningful if the
         species option is also set.
 
@@ -487,31 +493,19 @@ assign_item_slot = (forward | backward)
         With "backward", items dropped/fired and picked up later are
         more likely to get their old slot back.
 
-drop_mode = (multi | single)
-        Single is the classic behaviour; when you select an inventory
-        letter, that item will be dropped immediately. Multidrop allows
-        you to select multiple items to be dropped. (You can also switch
-        to multidrop from the classic drop menu using the '@' key).
+pickup_menu = true
+        When true (the default), makes a menu appear, where you can
+        choose which items to pick up. Note that no matter how many
+        items you choose, picking up will always take one turn.
+        Setting this to false invokes another behaviour: when picking up
+        items, if there are at least 4 items on your square, the menu will
+        appear, and you are prompted one by one otherwise.
+        This number can be adjusted with the pickup_menu_limit option.
 
-        Multidrop is the default and can be very convenient, but be
-        aware that every item dropped takes one turn. (This is different
-        from picking up.)
-        When selecting multidrops, the top right corner shows the
-        estimated number of turns.
-
-        The order in which items get dropped is from top to bottom in
-        the inventory listing, but equipped items will be dropped last,
-        and may be dropped out of order.
-
-pickup_mode = (multi | single | auto:X)
-        Single is the classical behaviour (and default): when picking up
-        items, you are prompted for them one by one. Multi makes a menu
-        appear, where you can choose which items to pick up. Note that
-        no matter how many items you choose, picking up will always take
-        one turn.
-        If pickup_mode is auto:X, where X is some number (for example,
-        auto:5), then pickup will give a menu if there are at least X
-        items on your square, and will prompt one by one otherwise.
+pickup_menu_limit = 4
+        The number of items on your square that will activate menu for pickup
+        when pickup_menu is set to false.  If zero, never use the menu.
+        If negative, use the value of item_stack_summary_minimum instead.
 
 drop_filter += <regex>, <regex>, ...
         (List option)
@@ -560,16 +554,16 @@ default_friendly_pickup = (friend | player | none | all)
         Also, friendly jellies won't ever eat any items, regardless of
         this option.
 
-3-b     Targetting.
+3-b     Targeting.
 -------------------
 
 default_target = true
-        If set to true (the default), targetting will start on either
+        If set to true (the default), targeting will start on either
         your previous target (if it is still visible) or the closest
         monster (if not) rather than on the character. If no monsters
-        are in view, targetting will start on the character regardless.
+        are in view, targeting will start on the character regardless.
 
-        If default_target = false, the targetting cursor will always
+        If default_target = false, the targeting cursor will always
         start aimed at the character.
 
         default_target is mutually exclusive with
@@ -577,18 +571,18 @@ default_target = true
         disable target_unshifted_dirs.
 
 target_unshifted_dirs = false
-        If set to true, targetting will use the old Stone Soup 0.1 /
-        Crawl 4.0 targetting keymap where unshifted direction keys fire
+        If set to true, targeting will use the old Stone Soup 0.1 /
+        Crawl 4.0 targeting keymap where unshifted direction keys fire
         in that direction immediately. The default is to use the new
-        targetting keymap where unshifted direction keys move the
-        targetting cursor (and shifted directions fire in the given
+        targeting keymap where unshifted direction keys move the
+        targeting cursor (and shifted directions fire in the given
         direction immediately).
 
         If you use target_unshifted_dirs, default_target will be
         automatically disabled.
 
 darken_beyond_range = true
-        If set to true, everything beyond range when targetting will be
+        If set to true, everything beyond range when targeting will be
         coloured grey. Setting this to false will also suppress the brief
         flash if there are no visible monsters within range, both for
         ASCII and the Tiles version.
@@ -778,8 +772,8 @@ travel_delay = 20 (defaults to -1 for online servers)
 explore_delay = -1
         How long auto-explore waits after each move (milliseconds). Depends on
         platform. In particular, setting travel_delay = -1 and
-        explore_delay = 20 means you will see the invividual moves of
-        autoexplore, but not the invidivual moves of other forms of travel.
+        explore_delay = 20 means you will see the individual moves of
+        autoexplore, but not the individual moves of other forms of travel.
         Setting to -1 means the auto-explore delay will be the same as
         travel_delay.
 
@@ -945,14 +939,17 @@ runrest_stop_message += <regex>, <regex>, ...
         Note also that runrest_ignore_message has no effect on what
         explore_stop stops for.
 
-runrest_ignore_poison = <poison damage>:<minimum hp>
-        Poison damage of x will be ignored if you have at least y hp if
-        you've defined a runrest_ignore_poison = x:y option. Running here
-        means shift-running and resting only. Only one runrest_ignore_poison
-        line is considered. Note that for this work, you should also tell
-        Crawl to ignore the "You feel sick" messages. For example,
+runrest_safe_poison = <% of hp>:<% of mhp>
+        Poison damage will be ignored if it is projected to drop your hp
+        by less than x% of your current hp and less than y% of your max
+        hp if you have defined runrest_safe_poison = x:y. Running here
+        means shift-running and resting only. Only one runrest_safe_poison
+        line is considered. Note that for this to work, Crawl needs to
+        know to ignore the "You feel sick" messages as well as the
+        damage. For example,
              runrest_ignore_message ^= You feel.*sick
-             runrest_ignore_poison = 4:100
+             runrest_safe_poison = 80:100
+        are the defaults.
 
 runrest_ignore_monster ^= <regex>:<distance>, <regex>:<distance>, ...
         (Ordered list option)
@@ -960,7 +957,7 @@ runrest_ignore_monster ^= <regex>:<distance>, <regex>:<distance>, ...
         activity if the distance between you and the monster is less than the
         specified number. E.g. with
              runrest_ignore_monster ^= fish:3
-        all of big fish, jellyfish, giant goldfish and lavafish will be
+        all of big fish, jellyfish, giant goldfish and lava fish will be
         considered safe for travel, explore and resting as long as the
         distance is at least 3. If a monster matches multiple expressions,
         its distance is compared with the first match.
@@ -995,14 +992,6 @@ auto_exclude += <monster name>, <monster name>, ...
 3-h     Command Enhancements.
 -----------------------------
 
-auto_list = true
-        When set (the default), the appropriate inventory items are
-        automatically listed for commands like eat and read. This is
-        like immediately hitting '?', and can be confusing to beginners
-        because they won't get to see the prompts. This option does not
-        apply to spell casting... Conjurers would probably find that
-        really annoying.
-
 auto_switch = false
         If you've got a melee weapon in slot a and a ranged weapon in
         slot b (or the opposite), this option will allow you to
@@ -1032,12 +1021,12 @@ easy_confirm = (none | safe | all)
         questions.
 
 allow_self_target = (yes | no | prompt)
-        Allow targetting yourself with risky magic (e.g., the spell
+        Allow targeting yourself with risky magic (e.g., the spell
         Bolt of Fire or a wand of slowing.)
         When set to 'yes', you are a valid target. When set to 'no',
         you cannot target yourself with such spells. When set to
         'prompt' (the default), you will be required to confirm
-        self-targetting. This option has no effect on area-effect
+        self-targeting. This option has no effect on area-effect
         spells, such as Mephitic Cloud, where you are always a valid target.
 
 confirm_butcher = (always | never | auto)
@@ -1070,7 +1059,7 @@ auto_drop_chunks = (never | rotten | yes)
 prompt_for_swap = true
         If true, then if an auto-switch butchery is interrupted by a
         hostile monster, the game will ask if you wish to switch back to
-        your weapon. It will also prompt you if after butchery is interupted
+        your weapon. It will also prompt you if after butchery is interrupted
         you teleport or change levels and find yourself near hostile monsters.
 
 easy_quit_item_prompts = true
@@ -1244,8 +1233,9 @@ autofight_throw = false
         launcher (a bow, crossbow, sling or blowgun) will be considered.
 
 autofight_throw_nomove = true
-        This works same as above, except that only for ===hit_adjacent
-        rather than ===hit_closest; this is usually bound to shift-Tab.
+        This works same as above, except that only for
+        ===hit_closest_nomove rather than ===hit_closest; this is usually
+        bound to shift-Tab.
 
 autofight_fire_stop = false
         When firing missiles or throwing objects using autofight, if this
@@ -1253,6 +1243,29 @@ autofight_fire_stop = false
         continuing past. Note that this setting may be decidedly suboptimal
         for missiles of penetration.
 
+autofight_caught = false
+        If true, autofight will attempt to escape webs or nets that are
+        holding you, even if no enemies are in view.
+
+automagic_enable = false
+        If true, the autofight function will resort to casting an assigned
+        spell at a target. Initial spell slot is a.
+
+automagic_slot = a
+        Setting this changes the initial spell slot for automagic. Can be
+        changed for games in progress in-game by setting a macro to call
+        ===am_set_spell.
+
+automagic_fight = false
+        Setting this to true causes melee combat when trying to cast a spell
+        that you either do not have enough magic points for, or are below
+        the set threshold. If false, a message will appear and no further
+        action is taken.
+
+automagic_stop = 0
+        Similar to autofight_stop, if magic points are below this number
+        (percentage of total), casting is prevented. What happens depends
+        on automagic_fight setting.
 
 3-i     Messages and Display Enhancements.
 ------------------------------------------
@@ -1313,9 +1326,12 @@ small_more = false
         small_more = true, it is just the bottom left character if
         clear_messages is not set.
 
-show_inventory_weights = false
+show_inventory_weights = sometimes|true|false
         When this is set to true, inventory listings will mention the
-        weight of each item.
+        weight of each item.  When set to "sometimes" (the default), or
+        indeed any value other than true/false/yes/no, the menus for
+        picking up and dropping items will list item weights, but other
+        inventory menus will not.
         Note: This option doesn't currently work for Tiles unless you use
               tile_menu_icons = false.
 
@@ -1378,9 +1394,9 @@ mlist_allow_alternate_layout = false
         than using the fixed position below the stat area.
         This option is not supported in the tiles build.
 
-mlist_targetting = false
+mlist_targeting = false
         Using the monster list you can directly target monsters in
-        targetting mode. There's a toggle that allows you to turn this
+        targeting mode. There's a toggle that allows you to turn this
         feature on and off. This option controls the initial setting
         at game start or reload.
 
@@ -1540,6 +1556,10 @@ monster_list_colour -= <key>
          attack will appear in the "evil colour" (magenta by default)
          regardless of this option.
 
+view_delay = 600
+        Controls the speed of animations from, e.g., ranged and magical
+        attacks and invocations with visual effects.
+
 3-j     Missiles.
 -----------------
 
@@ -1548,7 +1568,7 @@ fire_items_start = a
         missiles to fire. The default is a.
 
 fire_order  = launcher, return
-fire_order += javelin / dart / stone / rock / spear / net / handaxe / dagger
+fire_order += javelin / tomahawk / dart / stone / rock / net
 fire_order += inscribed
         (Ordered list option)
         Controls the order of items autoselected for firing. Items
@@ -1694,7 +1714,7 @@ bindkey = [^D] CMD_BUTCHER
         ^X meaning Ctrl-X. After that name the command to be bound to
         that key. You can bind several commands to the same key, as long
         as they take effect in different areas of the game, i.e. one
-        targetting command and one for the main game. Likewise, you can
+        targeting command and one for the main game. Likewise, you can
         bind the same command to different keys.
         For a full list of possible commands, see keybind.txt.
 
@@ -1718,30 +1738,34 @@ tile_menu_icons = true
         the reduction of space.
         If you would rather have the plain menus set this option to false.
 
-tile_player_col      = white
-tile_monster_col     = red
-tile_neutral_col     = red
-tile_peaceful_col    = lightred
-tile_friendly_col    = lightred
-tile_plant_col       = darkgreen
-tile_item_col        = green
-tile_unseen_col      = black
-tile_floor_col       = lightgrey
-tile_wall_col        = darkgrey
-tile_mapped_wall_col = blue
-tile_door_col        = brown
-tile_downstairs_col  = magenta
-tile_upstairs_col    = blue
-tile_feature_col     = cyan
-tile_trap_col        = yellow
-tile_water_col       = grey
-tile_lava_col        = grey
-tile_excluded_col    = darkcyan
-tile_excl_centre_col = darkblue
-tile_window_col      = yellow
+tile_player_col       = white
+tile_monster_col      = #660000
+tile_neutral_col      = #660000
+tile_peaceful_col     = #664400
+tile_friendly_col     = #664400
+tile_plant_col        = #446633
+tile_item_col         = #005544
+tile_unseen_col       = black
+tile_floor_col        = #333333
+tile_wall_col         = #666666
+tile_mapped_floor_col = #222266
+tile_mapped_wall_col  = #444499
+tile_door_col         = #775544
+tile_downstairs_col   = #ff00ff
+tile_upstairs_col     = cyan
+tile_branchstairs_col = #ff7788
+tile_portal_col       = #ffdd00
+tile_feature_col      = #997700
+tile_trap_col         = #aa6644
+tile_water_col        = #114455
+tile_deep_water_col   = #001122
+tile_lava_col         = #552211
+tile_excluded_col     = #552266
+tile_excl_centre_col  = #552266
+tile_window_col       = #558855
 
-These options allow configuring the colours used for the minimap of
-the dungeon level.
+These options allow configuring the colours used for the minimap of the dungeon
+level. Using RGB hex codes is also allowed, such as #00ff00 for green.
    tile_player_col       - colour of player position, as well as of
                            map centre during level map mode ('X')
    tile_monster_col      - colour of hostile monsters
@@ -1751,15 +1775,20 @@ the dungeon level.
    tile_plant_col        - colour of zero xp monsters (plant and fungus)
    tile_item_col         - colour of known or detected items
    tile_unseen_col       - colour of unseen areas (usually stone)
+   tile_floor_col        - colour of floor
+   tile_mapped_floor_col - colour of floor detected via magic mapping
    tile_wall_col         - colour of any wall type
    tile_mapped_wall_col  - colour of walls detected via magic mapping
    tile_door_col         - colour of known doors, open or closed
-   tile_downstairs_col   - colour of downstairs, including branch stairs
-   tile_upstairs_col     - colour of upstairs, including branch stairs
-   tile_feature_col      - colour of any non-stair feature
-                           (altar, shop, portal, fountain, ...)
+   tile_downstairs_col   - colour of downstairs
+   tile_upstairs_col     - colour of upstairs, including branch exits
+   tile_branchstairs_col - colour of branch entrances
+   tile_portal_col       - colour of any portal
+   tile_feature_col      - colour of any non-stair, non-portal feature
+                           (altar, shop, fountain, ...)
    tile_trap_col         - colour of known traps of any type
-   tile_water_col        - colour of both shallow and deep water
+   tile_water_col        - colour of shallow water
+   tile_deep_water_col   - colour of deep water
    tile_lava_col         - colour of lava
    tile_excluded_col     - colour of squares excluded for autotravel
                            (will only override tile_floor_col colour)
@@ -1803,12 +1832,12 @@ tile_window_height = 0
         The width and height of the window, in pixels. If set to zero, it
         will auto-size the window.
 
-tile_map_pixels = 3
+tile_map_pixels = 0
         The maximum number of pixels each minimap square should take up. If you
         have a low resolution, and feel like the inventory is too small, you
         can try setting this to 1 to get more space for the inventory. The
-        downside is that traveling by clicking on the minimap becomes much
-        harder.
+        downside is that travelling by clicking on the minimap becomes much
+        harder. If set to zero, it will auto-size the minimap.
 
 tile_cell_pixels = 32
         The width and height of tiles in the dungeon view. If you want
@@ -1818,7 +1847,7 @@ tile_cell_pixels = 32
         the screen.
 
 tile_filter_scaling = false
-        Used in conjonction with tile_cell_pixels. Setting it to true filter
+        Used in conjunction with tile_cell_pixels. Setting it to true filter
         the textures resulting in a smoother but blurrier image.
 
 tile_force_overlay = false
@@ -1836,9 +1865,10 @@ tile_font_stat_file = VeraMono.ttf
 tile_font_msg_file  = VeraMono.ttf
 tile_font_tip_file  = VeraMono.ttf
 tile_font_lbl_file  = Vera.ttf
-        Fonts used in various sections of the screen. If you want to use
-        another font, you'll have to place the corresponding *.ttf file into
-        the dat/tiles/ folder.
+        Fonts used in various sections of the screen for local tiles. For
+        WebTiles use tile_font_*_family instead. If you want to use another
+        font, you'll have to place the corresponding *.ttf file into the
+        dat/tiles/ folder.
         Screen regions are as follows:
             crt  - non-map screens (menus, message history, etc.)
             stat - stat area (hit points, AC, etc.)
@@ -1846,12 +1876,20 @@ tile_font_lbl_file  = Vera.ttf
             tip  - tooltips (mouseover information)
             lbl  - item/monster names in inventory/main map
 
+tile_font_crt_family  = monospace
+tile_font_stat_family = monospace
+tile_font_msg_family  = monospace
+tile_font_lbl_family  = monospace
+        Fonts used in various sections of the screen for WebTiles. For local
+        tiles use tile_font_*_file instead.
+
 tile_font_crt_size  = 15
 tile_font_stat_size = 16
 tile_font_msg_size  = 14
 tile_font_tip_size  = 15
 tile_font_lbl_size  = 14
-        Font size for the screen regions listed above.
+        Font size for the screen regions listed above. If set to zero (default),
+        size will be based on screen size.
 
 tile_font_ft_light = false
         Selects 'light' font hinting.
@@ -1868,6 +1906,16 @@ tile_show_demon_tier = true
 
 tile_water_anim = true
         If disabled, animation of liquids will be suppressed.
+        Defaults to false on WebTiles.
+
+tile_misc_anim = true
+        If disabled, animation of miscellaneous things such as altars and
+        torches will be suppressed.
+
+tile_realtime_anim = false
+        If enabled, tile animations will run in real time and will not be tied
+        to player actions.
+        This option is only available on WebTiles.
 
 tile_layout_priority = minimap, inventory, gold_turn, command, spell, monster
         (Ordered list option)
@@ -1883,12 +1931,16 @@ tile_layout_priority = minimap, inventory, gold_turn, command, spell, monster
         between the stat area and the tabs. The memorisation and skill tabs can
         be added to the list too, but are not by default.
 
-tile_force_regenerate_levels = false
-        If set to true, this will cause the tiles information of existing
-        levels to be regenerated when loading the level, thus repairing
-        save files where this information has become corrupted. This
-        shouldn't be ever needed anymore.
+tile_display_mode = (tiles | glyphs | hybrid)
+        Controls how the dungeon is rendered. You can use normal tiles (default)
+        or make it look like the console version by using glyphs. Hybrid
+        overlays icons on top of the glyph view.
+        This option is only available on WebTiles.
 
+tile_level_map_hide_messages = true
+tile_level_map_hide_sidebar = false
+        Controls what screen elements are hidden when using the level map.
+        These options are only available on WebTiles.
 
 4-  Character Dump.
 ===================
@@ -1995,7 +2047,9 @@ You can use the command ':' for manually adding notes.
 
 user_note_prefix = <string>
         Prefixes manually added notes with the given string, to make
-        them easier to find.
+        them easier to find. It is not currently possible to add a
+        space at the end of this or any option, but you can use the
+        Unicode non-breaking space character ' ' instead.
 
 note_items += <regex>, <regex>, ...
         (List option)
@@ -2050,8 +2104,13 @@ note_messages += <regex>, <regex>, ...
              note_messages += Your scales start
 
 note_chat_messages = false
-        If set to false, this will disable logging of chat messages
-        from other players. (This setting only applies on the online
+        If set to false, this will disable logging of webtiles chat
+        messages from other players. (This setting only applies on the
+        online servers).
+
+note_dgl_messages = true
+        If set to false, this will disable logging of DGL messages
+        sent by other players. (This setting only applies on the online
         servers).
 
 
@@ -2279,7 +2338,7 @@ background_colour = black
 
 use_fake_cursor = true
         If true, Crawl draws the cursor explicitly on the level-map and
-        targetting screens instead of relying on the term to draw the
+        targeting screens instead of relying on the term to draw the
         cursor. Use this if your term cannot show a cursor over
         darkgrey/black squares.
         On non-Unix builds this option defaults to false.
@@ -2360,7 +2419,7 @@ autopickup = $?+"/
 autopickup = $?+"/!%
 : end
 
-Options can be rerefenced by lua via "options.option_name". For
+Options can be referenced by lua via "options.option_name". For
 example:
 
 :if string.find(options.autopickup, "!") then

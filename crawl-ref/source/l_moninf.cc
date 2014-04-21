@@ -128,6 +128,13 @@ LUAFN(moninf_get_stabbability)
     return 1;
 }
 
+LUAFN(moninf_get_is_caught)
+{
+    MONINF(ls, 1, mi);
+    lua_pushboolean(ls, mi->is(MB_CAUGHT) || mi->is(MB_WEBBED));
+    return 1;
+}
+
 LUAFN(moninf_get_is_constricted)
 {
     MONINF(ls, 1, mi);
@@ -195,14 +202,9 @@ LUAFN(moninf_get_reach_range)
 LUAFN(moninf_get_is_unique)
 {
     MONINF(ls, 1, mi);
-    // XXX: A bit of a hack to prevent using this to determine which is fake.
-    if (mi->type == MONS_MARA_FAKE)
-        lua_pushboolean(ls, true);
-    else
-        lua_pushboolean(ls, mons_is_unique(mi->type));
+    lua_pushboolean(ls, mons_is_unique(mi->type));
     return 1;
 }
-
 
 LUAFN(moninf_get_damage_desc)
 {
@@ -244,6 +246,7 @@ static const struct luaL_reg moninf_lib[] =
     MIREG(holiness),
     MIREG(attitude),
     MIREG(threat),
+    MIREG(is_caught),
     MIREG(is_constricted),
     MIREG(is_constricting),
     MIREG(is_constricting_you),
@@ -262,7 +265,7 @@ static const struct luaL_reg moninf_lib[] =
 // This uses relative coordinates with origin the player.
 bool in_show_bounds(const coord_def &s)
 {
-    return (s.rdist() <= ENV_SHOW_OFFSET);
+    return s.rdist() <= ENV_SHOW_OFFSET;
 }
 
 LUAFN(mi_get_monster_at)

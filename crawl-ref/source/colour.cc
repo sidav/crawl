@@ -45,7 +45,7 @@ protected:
 
 int element_colour_calc::rand(bool non_random)
 {
-    return non_random ? 0 : random2(120);
+    return non_random ? 0 : ui_random(120);
 }
 
 int element_colour_calc::get(const coord_def& loc, bool non_random)
@@ -68,7 +68,7 @@ int random_element_colour_calc::get(const coord_def& loc, bool non_random)
 
 colour_t random_colour(void)
 {
-    return (1 + random2(15));
+    return 1 + random2(15);
 }
 
 colour_t random_uncommon_colour()
@@ -84,18 +84,18 @@ colour_t random_uncommon_colour()
 
 bool is_low_colour(colour_t colour)
 {
-    return (colour <= 7);
+    return colour <= 7;
 }
 
 bool is_high_colour(colour_t colour)
 {
-    return (colour >= 8 && colour <= 15);
+    return colour >= 8 && colour <= 15;
 }
 
 colour_t make_low_colour(colour_t colour)
 {
     if (is_high_colour(colour))
-        return (colour - 8);
+        return colour - 8;
 
     return colour;
 }
@@ -103,7 +103,7 @@ colour_t make_low_colour(colour_t colour)
 colour_t make_high_colour(colour_t colour)
 {
     if (is_low_colour(colour))
-        return (colour + 8);
+        return colour + 8;
 
     return colour;
 }
@@ -114,7 +114,7 @@ static bool _is_element_colour(int col)
     // stripping any COLFLAGS (just in case)
     col = col & 0x007f;
     ASSERT(col < NUM_COLOURS);
-    return (col >= ETC_FIRE);
+    return col >= ETC_FIRE;
 }
 
 static int _randomized_element_colour(int rand, const coord_def&,
@@ -157,6 +157,10 @@ static int _etc_elven_brick(int, const coord_def& loc)
 
 static int _etc_waves(int, const coord_def& loc)
 {
+    // Shouldn't have this outside of Shoals, but it can happen.
+    // See !lg lakren crash 8 .
+    if (!env.heightmap.get())
+        return CYAN;
     short height = dgn_height_at(loc);
     int cycle_point = you.num_turns % 20;
     int min_height = -90 + 5 * cycle_point,
@@ -229,7 +233,6 @@ static int _etc_liquefied(int, const coord_def& loc)
     else
         return phase ? YELLOW : BROWN;
 }
-
 
 static int _etc_tree(int, const coord_def& loc)
 {
@@ -311,6 +314,31 @@ int dam_colour(const monster_info& mi)
     }
 }
 
+colour_t rune_colour(int type)
+{
+    switch (type)
+    {
+        case RUNE_SWAMP: return GREEN;
+        case RUNE_SNAKE: return GREEN;
+        case RUNE_SHOALS: return LIGHTBLUE;
+        case RUNE_SLIME: return LIGHTGREEN;
+        case RUNE_VAULTS: return WHITE;
+        case RUNE_TOMB: return YELLOW;
+        case RUNE_DIS: return CYAN;
+        case RUNE_GEHENNA: return RED;
+        case RUNE_COCYTUS: return LIGHTCYAN;
+        case RUNE_TARTARUS: return LIGHTMAGENTA;
+        case RUNE_ABYSSAL: return MAGENTA;
+        case RUNE_DEMONIC: return MAGENTA;
+        case RUNE_MNOLEG: return LIGHTGREEN;
+        case RUNE_LOM_LOBON: return BLUE;
+        case RUNE_CEREBOV: return RED;
+        case RUNE_GLOORX_VLOQ: return DARKGRAY;
+        case RUNE_SPIDER: return BROWN;
+        default: return GREEN;
+    }
+}
+
 static int _etc_random(int, const coord_def&)
 {
     return random_colour();
@@ -353,7 +381,7 @@ void add_element_colour(element_colour_calc *colour)
     else
     {
         ASSERT(!element_colours[colour->type]);
-        ASSERT(element_colours_str.find(colour->name) == element_colours_str.end());
+        ASSERT(!element_colours_str.count(colour->name));
     }
     element_colours[colour->type] = colour;
     element_colours_str[colour->name] = colour;
@@ -604,6 +632,12 @@ void init_element_colours()
     add_element_colour(new element_colour_calc(
                             ETC_RANDOM, "random", _etc_random
                        ));
+    add_element_colour(_create_random_element_colour_calc(
+                            ETC_DITHMENOS, "dithmenos",
+                            40,  DARKGREY,
+                            40,  MAGENTA,
+                            40,  BLUE,
+                        0));
     // redefined by Lua later
     add_element_colour(new element_colour_calc(
                             ETC_DISCO, "disco", _etc_random
@@ -635,41 +669,69 @@ int element_colour(int element, bool no_random, const coord_def& loc)
 
     ASSERT(!_is_element_colour(ret));
 
-    return ((ret == BLACK) ? GREEN : ret);
+    return (ret == BLACK) ? GREEN : ret;
 }
 
 #ifdef USE_TILE
-static string tile_cols[24] =
+static int _hex(char c)
 {
-    "black", "darkgrey", "grey", "lightgrey", "white",
-    "blue", "lightblue", "darkblue",
-    "green", "lightgreen", "darkgreen",
-    "cyan", "lightcyan", "darkcyan",
-    "red", "lightred", "darkred",
-    "magenta", "lightmagenta", "darkmagenta",
-    "yellow", "lightyellow", "darkyellow", "brown"
-};
+    if (c >= '0' && c <= '9')
+        return c - '0';
+    if (c >= 'a' && c <= 'f')
+        return 10 + c - 'a';
+    if (c >= 'A' && c <= 'F')
+        return 10 + c - 'A';
+    return 0;
+}
 
-unsigned int str_to_tile_colour(string colour)
+VColour str_to_tile_colour(string colour)
 {
     if (colour.empty())
-        return 0;
+        return VColour(0, 0, 0);
 
-    lowercase(colour);
-
-    if (colour == "darkgray")
-        colour = "darkgrey";
-    else if (colour == "gray")
-        colour = "grey";
-    else if (colour == "lightgray")
-        colour = "lightgrey";
-
-    for (unsigned int i = 0; i < 24; i++)
+    if (colour[0] == '#' && colour.length() == 7)
     {
-        if (tile_cols[i] == colour)
-            return i;
+        return VColour((_hex(colour[1]) << 4) + _hex(colour[2]),
+                (_hex(colour[3]) << 4) + _hex(colour[4]),
+                (_hex(colour[5]) << 4) + _hex(colour[6]));
     }
-    return 0;
+    else
+    {
+        lowercase(colour);
+
+        if (colour == "darkgray")
+            colour = "darkgrey";
+        else if (colour == "gray")
+            colour = "grey";
+        else if (colour == "lightgray")
+            colour = "lightgrey";
+
+        if (colour == "black")             return VColour(  0,   0,   0);
+        else if (colour == "darkgrey")     return VColour(128, 128, 128);
+        else if (colour == "grey")         return VColour(160, 160, 160);
+        else if (colour == "lightgrey")    return VColour(192, 192, 192);
+        else if (colour == "white")        return VColour(255, 255, 255);
+        else if (colour == "blue")         return VColour(  0,  64, 255);
+        else if (colour == "lightblue")    return VColour(128, 128, 255);
+        else if (colour == "darkblue")     return VColour(  0,  32, 128);
+        else if (colour == "green")        return VColour(  0, 255,   0);
+        else if (colour == "lightgreen")   return VColour(128, 255, 128);
+        else if (colour == "darkgreen")    return VColour(  0, 128,   0);
+        else if (colour == "cyan")         return VColour(  0, 255, 255);
+        else if (colour == "lightcyan")    return VColour( 64, 255, 255);
+        else if (colour == "darkcyan")     return VColour(  0, 128, 128);
+        else if (colour == "red")          return VColour(255,   0,   0);
+        else if (colour == "lightred")     return VColour(255, 128, 128);
+        else if (colour == "darkred")      return VColour(128,   0,   0);
+        else if (colour == "magenta")      return VColour(192,   0, 255);
+        else if (colour == "lightmagenta") return VColour(255, 128, 255);
+        else if (colour == "darkmagenta")  return VColour( 96,   0, 128);
+        else if (colour == "yellow")       return VColour(255, 255,   0);
+        else if (colour == "lightyellow")  return VColour(255, 255,  64);
+        else if (colour == "darkyellow")   return VColour(128, 128,   0);
+        else if (colour == "brown")        return VColour(165,  91,   0);
+        else return VColour(0, 0, 0);
+    }
 }
 #endif
 

@@ -55,6 +55,7 @@ enum element_type
     ETC_MANGROVE,       // colour of trees on water
     ETC_ORB_GLOW,       // halo coming from the Orb of Zot
     ETC_DISJUNCTION,    // halo from Disjunction
+    ETC_DITHMENOS,      // Dithmenos altar colours
     ETC_DISCO = 96,
     ETC_FIRST_LUA = ETC_DISCO, // colour indices have to be <128
 
@@ -87,7 +88,9 @@ protected:
 int str_to_colour(const string &str, int default_colour = -1,
                   bool accept_number = true);
 const string colour_to_str(colour_t colour);
-unsigned int str_to_tile_colour(string colour);
+#ifdef USE_TILE
+VColour str_to_tile_colour(string colour);
+#endif
 
 void init_element_colours();
 void add_element_colour(element_colour_calc *colour);
@@ -104,6 +107,7 @@ int get_disjunct_phase(const coord_def& loc);
 bool get_tornado_phase(const coord_def& loc);
 bool get_orb_phase(const coord_def& loc);
 int dam_colour(const monster_info&);
+colour_t rune_colour(int type);
 
 // Applies ETC_ colour substitutions and brands.
 unsigned real_colour(unsigned raw_colour, const coord_def& loc = coord_def());

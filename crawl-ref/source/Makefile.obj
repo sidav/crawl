@@ -1,5 +1,5 @@
 OBJECTS = \
-abl-show.o \
+ability.o \
 abyss.o \
 acquire.o \
 act-iter.o \
@@ -73,6 +73,7 @@ godmenu.o \
 godpassive.o \
 godprayer.o \
 godwrath.o \
+hash.o \
 hints.o \
 hiscores.o \
 initfile.o \
@@ -130,7 +131,6 @@ menu.o \
 message-stream.o \
 message.o \
 misc.o \
-mislead.o \
 mon-abil.o \
 mon-act.o \
 mon-behv.o \
@@ -142,7 +142,6 @@ mon-ench.o \
 mon-gear.o \
 mon-grow.o \
 mon-info.o \
-mon-iter.o \
 mon-movetarget.o \
 mon-pathfind.o \
 mon-pick.o \
@@ -180,7 +179,6 @@ random.o \
 random-var.o \
 ray.o \
 religion.o \
-rng.o \
 shopping.o \
 shout.o \
 show.o \
@@ -216,7 +214,6 @@ store.o \
 stuff.o \
 syscalls.o \
 tags.o \
-tagstring.o \
 target.o \
 teleport.o \
 terrain.o \

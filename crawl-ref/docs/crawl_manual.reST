@@ -46,32 +46,45 @@ You can:
 
 The relevant webpage, telnet and ssh addresses are:
 
-akrasiac.org (located in North America)
+akrasiac.org (located in North America) (CAO)
   :http: ``http://crawl.akrasiac.org``
   :tiles: ``http://webtiles.akrasiac.org``
   :telnet: ``crawl.akrasiac.org:23``
   :ssh: ``joshua@crawl.akrasiac.org (ssh key or password joshua)``
 
-s-z.org (located in North America)
+s-z.org (located in North America) (CSZO)
   :http: ``http://dobrazupa.org``
   :tiles: ``https://crawl.s-z.org``
   :ssh: ``crawl@crawl.s-z.org (ssh key or password crawlingtotheusa)``
 
-develz.org (located in Europe)
+berotato.org (located in North America) (CBRO)
+  :http: ``http://crawl.berotato.org/crawl/``
+  :tiles: ``http://crawl.berotato.org``
+  :ssh: ``crawler@crawl.berotato.org (ssh key required)``
+
+develz.org (located in Europe) (CDO)
   :http: ``http://crawl.develz.org``
   :telnet: ``crawl.develz.org:345``
   :ssh: ``crawl@crawl.develz.org (ssh key required)``
 
+lantea.net (located in Europe) (CLAN)
+  :http: ``http://crawl.lantea.net/crawl/``
+  :tiles: ``https://crawl.lantea.net:8080``
+  :ssh: ``terminal@crawl.lantea.net (ssh key or password terminal)``
+
 An ssh key can be obtained at:
 
-  http://crawl.develz.org/cao_key (PuTTY: http://crawl.develz.org/cao_key.ppk)
+  http://crawl.develz.org/cao_key (PuTTY: http://crawl.develz.org/cao_key.ppk) (for CAO, CDO, CLAN)
 
-The servers carry no guarantees, though they are generally always running and no
-one has lost their save file yet. :) More information is available at the URLs
-above.
+  http://dobrazupa.org/cszo_key (PuTTY: http://dobrazupa.org/cszo_key.ppk) (for CSZO)
 
-There is also a lively IRC channel dedicated to Crawl at ##crawl on freenode.
-You can ask for help and there will always be someone to supervise your game and
+  http://crawl.berotato.org/crawl/keys/ (PuTTY: cbro_key.ppk, unix: cbro_key) (for CBRO)
+
+The servers carry no guarantees, though they are generally always running. More
+information is available at: http://crawl.develz.org/wordpress/howto
+
+There is also a lively IRC channel dedicated to Crawl at ##crawl on irc.freenode.net.
+You can ask for help and there will always be someone to watch your game and
 give hints if you happen to play on a server.
 
 ****************************************
@@ -127,16 +140,17 @@ species-dependent:
 
 Major:
 
-- Your rate of level advancement
+- The amount of hit points you get each level
 - Your rate of skill advancement
 - Your initial primary attributes (this also depends on background)
 - Various special abilities, powers and limitations
 
 Minor:
 
+- Your rate of level advancement
 - Occasional bonus points added to some primary attributes
-- The amount of hit points you get each level
 - The amount of magic points you get each level
+- Your innate resistance to hostile enchantments
 - Your initial equipment (this also depends on background)
 
 .. note:: Humans are the average to which all other species are compared.
@@ -144,11 +158,11 @@ Minor:
 The choice of character background is definitely less decisive than that of
 species in Crawl. Basically, the background determines what the character has
 learned prior to entering the dungeon (i.e. the starting skills), and also helps
-determine equipment and hit/magic points at start.
+determine equipment at start.
 
-You will notice that a different set of backgrounds will be recommended (light
-grey) for each species. Although you are free to pick any background with almost
-any species (the only restrictions are religious backgrounds where some species
+You will notice that a different set of backgrounds will be recommended (white)
+for each species. Although you are free to pick any background with almost any
+species (the only restrictions are religious backgrounds where some species
 are not permitted to worship certain gods, or backgrounds where the starting
 equipment is completely unusable by a given species), looking at the recommended
 combinations should give you a rough impression of the weaknesses and strengths
@@ -175,7 +189,7 @@ i
   a general, if terse, overview of your gear and most attributes
 
 Ctrl-O
-  an overview of the part of the dungeon you discovered so far
+  an overview of the parts of the dungeon you have discovered so far
 
 ****************************************
 C. Attributes and stats
@@ -191,21 +205,17 @@ numbers. These describe different aspects of the hero.
 Health
   A measure of life force. Synonymous with hit points and sometimes abbreviated
   as HP. You die if your health drops to zero or less (although you can die in
-  other ways, too). The main screen shows hit points in a particular format. If
-  your character's Health is displayed as 'Health: 8/10', Crawl is actually
-  showing that your character's maximum hit points are 10, while the character
-  currently has 8. Usually, you regain hit points slowly over time. Pressing '5'
-  or Shift-Num-5 lets you wait for a longer period. Some very battle-fixated
-  characters may end up with more than 250 hit points, yet some spellcasters are
-  known to have finished the game victorious with less than 100.
+  other ways, too). The main screen shows both your current and maximum hit
+  points. Usually, you regain hit points slowly over time. Pressing '5' or
+  Shift-Num-5 lets you wait for a longer period.
 
 Magic
   A measure of magic or other intrinsic power. This is used primarily for
   spellcasting, but is sometimes also used for the evoking and invoking of many
   other special abilities. They are displayed in the same way as hit points;
   nothing bad happens if these drop to zero, except, of course, that you can't
-  cast any spells. Resting restores these, too. It is uncommon to have more than
-  50 magic points (without using external devices).
+  cast any spells. Resting restores these, too. It is difficult to have more than
+  50 magic points without using external devices.
 
 Next come your defences. For all of them, more is better.
 
@@ -224,8 +234,8 @@ Shield
 Your hero's primary attributes are Strength, Intelligence and Dexterity:
 
 Strength
-  Abbreviated to "Str". Affects how much stuff you can carry and also your
-  ability to use heavy armours effectively.
+  Abbreviated to "Str". Affects how much you can carry and your ability to use
+  heavy armours effectively.
 
 Intelligence
   Abbreviated to "Int". Affects how well you can cast spells as well as how much
@@ -233,16 +243,20 @@ Intelligence
   influenced by your intelligence.
 
 Dexterity
-  Abbreviated to "Dex". Affects your ability to dodge attacks aimed at you, your
-  general effectiveness with missile weapons, and your ability to use thiefly
-  skills such as backstabbing and disarming traps.
+  Abbreviated to "Dex". Significantly affects your ability to dodge attacks aimed
+  at you, your general effectiveness with shields, your stealth, and your
+  effectiveness when stabbing unaware enemies.
+
+Strength and Dexterity also both increase your effectiveness with melee and ranged
+weapons.
 
 They grow permanently from gaining levels, and may increase or decrease
 temporarily from mutations or using appropriate artefacts or abilities.
 
 If any one of these drops to zero for some reason, you will experience very
-unpleasant side-effects, which will persist for a short while even after the
-attribute is restored.
+unpleasant side-effects, being slowed significantly and taking damage if the
+stat is drained further, as well as some stat-specific negative effects. These
+effects will persist for a short while even after the attribute is restored.
 
 Upon gaining levels 3, 6, 9, etc., you may choose an attribute to raise. Most
 species gain additional attributes at some levels, with the frequency and the
@@ -253,7 +267,7 @@ The next numbers shown are Experience and the (dungeon) Level:
 Experience Level
   Abbreviated to "XL". Starting characters have experience level 1; the highest
   possible level is 27. Gaining a level nets additional hit and magic points,
-  and will sometimes grant spell slots or primary attributes (see below).
+  and will grant spell slots and sometimes primary attributes.
 
 Place
   This shows the branch you are currently in, as well as the level within the
@@ -275,22 +289,20 @@ Magic Resistance
 
 Stealth
   High stealth allows your character to move through the dungeon undetected.
-  It is affected by your species, dexterity, Stealth skill, and some armours
-  (many elven pieces of armour boost stealth, while heavy armours hamper it).
-  Your current Stealth level can also been seen by pressing '@' or '%'.
+  It is affected by your species, dexterity, Stealth skill, and the encumbrance
+  of your body armour. Your current Stealth level can also been seen by pressing
+  '@' or '%'.
 
 There are many ailments or enchantments that can temporarily befall you. These
 are noted in the stats area below the experience line. Many of them are
-self-explanatory, like Pray or Hungry. Many others, however, can be subtle, and
+self-explanatory, like Pois or Hungry. Many others, however, can be subtle, and
 a full list with explanations is given in Appendix `5. List of Enchantments`_.
 
 Monsters within your field of vision are listed on a special panel, the monster
 list. Single monsters also get indicators of their health status in the form of
-a coloured box, and also on effects they enjoy or suffer from; additionally, for
-those who worship the Shining One, monsters whom it would be unchivalric to
-attack have their name and effect status coloured red.  Within target mode you
-can directly target single monsters by use of the monster list. Use 'Ctrl-L' to
-toggle this.
+a coloured box, and also on effects they enjoy or suffer from. Within target
+mode you can directly target single monsters by use of the monster list. Use
+'Ctrl-L' to toggle this.
 
 Sometimes characters will be able to use special abilities, e.g. the Naga's
 ability to spit poison or the magical power to turn invisible granted by a ring.
@@ -321,7 +333,7 @@ Resting
 
 If you press '5', you rest for 100 turns or until your hit points or magic
 return to full, whichever is sooner. You can rest for just one turn by pressing
-'.', Delete or 's'.
+'.' or 's'.
 
 Resting stops if a monster appears or if you are otherwise interrupted.
 
@@ -334,9 +346,9 @@ the parts of the level which you have visited, but cannot currently see. The 'x'
 command lets you move the cursor around to get a description of the various
 dungeon features, and typing 'v' when the cursor is over a monster or feature
 brings up a short description of that monster, as well as a short list of its
-various strengths, weaknesses, immunities, etc. This is generally useful with
-monsters you've never encountered before. You can get a map of the whole level
-(which shows where you've already been) by typing 'X'.
+various strengths, weaknesses, immunities, and any spells or abilities it has.
+This is generally useful with monsters you've never encountered before. You can
+get a map of the whole level (which shows where you've already been) by typing 'X'.
 
 You can see the full set of commands available while looking around by pressing
 '?', both in the 'x' and 'X' modes.
@@ -363,7 +375,7 @@ least three magical runes of Zot. The bottoms of several branches contain such
 runes.
 
 Occasionally you will find an archway (displayed as "\\" or as an actual arch);
-these lead to special places like shops, mythical labyrinths, or Hell. You can
+these lead to special places like shops, a mythical labyrinth, or Hell. You can
 enter it by typing '<' or '>'. A few portals only accept one of '<' and '>'.
 
 Doors and Traps
@@ -377,13 +389,12 @@ a direction, will open/close doors, too.
 If there is no door in the indicated space, both Ctrl-direction and
 '*'-direction will attempt to attack any monster which may be standing there
 (this is the only way to attack a friendly creature hand-to-hand). If there is
-no creature there, you will attempt to disarm any trap in the target square. If
-there is apparently nothing there, you will still attack it, just in case
-there's something invisible lurking around.
+apparently nothing there, you will still attack it, just in case there's
+something invisible lurking around.
 
 A variety of dangerous and irritating traps are hidden around the dungeon. Traps
-look like normal floor until discovered. Some traps can be disarmed with the
-Ctrl-direction commands.
+sometimes like normal floor until discovered. Some traps can be disarmed with
+the Ctrl-direction commands.
 
 Shops
 ========================================
@@ -393,9 +404,6 @@ choose what to buy. Unfortunately, the shopkeepers all have an exclusive deal
 with the Guild of Dungeon Procurers which prevents them using non-guild labour
 to obtain stock, so you can't sell anything in a shop. (But then, what
 shopkeeper would buy stolen goods from a disreputable adventurer, anyway?)
-
-You can check your inventory and the items you've identified while you are
-shopping, which may help to decide if you really need that expensive item.
 
 To purchase one or more items, select them by pressing the letters of the item
 in the shop menu and then press Enter to make the purchase; you can examine
@@ -434,15 +442,9 @@ cursor on that square. See Appendix `4. List of Keys and Commands`_ for all
 commands and shortcuts in level-map mode, or press 'G?' or 'X?' within the game.
 
 Another use of autotravel is exploration: 'o' makes your character move to the
-nearest unexplored area. This can be dangerous - do not use it when known
-hostiles are around! Also note that this algorithm does not attempt any
-optimisation: By manual exploration you can save turns, but auto-explore will
-usually save real time.
-
-If you like the use of automated exploration, take note of the option setting
-'explore_greedy = true' (default setting) in the init file. This will cause
-Crawl to run to and pick up all items seen which are on the autopickup list. It
-also makes the character go to piles of items in order to check their contents.
+nearest unexplored area. Note that this algorithm does not attempt any
+optimisation by default. By manual exploration you can save turns, but auto-explore
+will usually save real time.
 
 Stashes and Searching
 ========================================
@@ -456,7 +458,7 @@ of all places where objects matching the search are (or have been) located; you
 can then travel there or examine the pile. The Find command will also search in
 shop inventories. Furthermore, you can search skills like 'long blades' (this
 will find all weapons training the long blades skill) or general terms like
-'shop', 'altar', 'portal', 'artefact', 'dart trap', etc. You can get help on
+'shop', 'altar', 'portal', 'artefact', 'teleport trap', etc. You can get help on
 finding by pressing '?' at the prompt.
 
 The Goal
@@ -478,7 +480,7 @@ To access Crawl's help menu, press '?'. To get the list of all commands, press
 Appendix `4. List of Keys and Commands`_ of this text. Various other help texts
 are available as well, including this manual. You can also read the logbook from
 there by pressing ':'. Note that several commands have their own help screens,
-among them are targetting ('f'), level map ('X'), travel ('G' or 'Ctrl-G') and
+among them are targeting ('f'), level map ('X'), travel ('G' or 'Ctrl-G') and
 searching ('Ctrl-F'); again, press '?' when asked for input.
 
 If you don't like the standard keyset (either because some keys do not work
@@ -499,7 +501,7 @@ Additionally, the experience you gain is used to train your skills. These skills
 represent proficiency with all areas of endeavour an ambitious adventurer might
 need in the dungeons. They range from different weapon skills (both for close
 and ranged combat) to many magical skills and several additional activities like
-Dodging or Stabbing. See Appendix `3. List of Skills`_ for a detailed
+Dodging or Stealth. See Appendix `3. List of Skills`_ for a detailed
 description of all skills present in Crawl. The ease with which a character
 learns a skill depends solely on species. These aptitudes are hinted at in the
 list of species (see Appendix `1. List of Character Species`_). For the curious,
@@ -508,10 +510,9 @@ play via '?%'), though it is not necessary to bother with the numbers in order
 to win!
 
 You can see your character's skills by pressing the 'm' key; the higher the
-level of a skill, the better you are at it. Almost all characters start with a
-few skills already trained (which depends essentially on their background),
-those which are not present have to be learned from scratch. Each skill can go
-up to 27.
+level of a skill, the better you are at it. All characters start with a few
+skills already trained (which depends essentially on their background), those
+which are not present have to be learned from scratch. Each skill can go up to 27.
 
 The skill screen allows you to change which skills are exercised and at what
 speed. Note to new players: it is generally not necessary to finetune the skill
@@ -532,14 +533,15 @@ selecting it once or twice in the skill screen.
 Dark grey skills will not be trained, so that the skill will remain static and
 no experience points will be used to increase it. As a consequence, more
 experience will be spent on your other skills (and thus they will increase more
-quickly. Note that you cannot deselect all skills; at least one skill must be
+quickly). Note that you cannot deselect all skills; at least one skill must be
 actively exercised.
 
-Highlighted skills are focused on and will train faster than the others. You can
-highlight as many skills as you like.
+Highlighted skills are focused on and will use a higher proportion of available
+experience. You can highlight as many skills as you like, though obviously if
+all skills being trained are highlighted there will be no net effect.
 
 Occasionally you may find a manual of a skill which allows you to make quick
-progress in this area. When you are carrying it experience used to practise the
+progress in this area. When you are carrying it, experience used to practise the
 given skill will have twice the usual effect for a while.
 
 ****************************************
@@ -558,10 +560,10 @@ encounters to their liking.
 There are several other less dangerous methods you can use to kill monsters.
 Hunters and similarly oriented characters will prefer ranged combat to mindless
 bashing. When wielding some launcher, the 'f' and 'F' commands will fire
-appropriate missiles. See the section on Targetting in the Items Chapter for
+appropriate missiles. See the section on Targeting in the Items Chapter for
 more on this. Likewise, many magicians will prefer to use spells from a safe
 distance. They can use the 'z' command to cast spells previously memorised.
-Again, see the Targetting section.
+Again, see the Targeting section.
 
 Some monsters can be friendly; friendly monsters will follow you around and
 fight on your behalf (but they gain some of the normal experience points for any
@@ -595,7 +597,7 @@ G. Items
 ****************************************
 
 In the dungeons of Crawl there are many different kinds of normal and magical
-artefacts to be found and used. Some of them are useful, some are nasty, and
+items to be found and used. Some of them are useful, some are nasty, and
 some give great power, but at a price. Some items are unique; these have
 interesting properties which can make your life rather bizarre for a while. They
 all fall into several classes of items, each of which is used in a different
@@ -615,7 +617,7 @@ adventures, how they are displayed, and what commands there are to use them:
 \\ or |  staves, rods   (use 'w'ield for staves; 'v' for evoking rods)
 \+ or :  spellbooks     (use 'r'ead and 'M'emorise and 'z'ap)
 }        miscellaneous  (use 'V' for evoking from the inventory)
-$        gold           (picking it up takes no turns)
+$        gold           (use 'g' to pick up)
 =======  =============  ================================================
 
 There are several general keys for item management:
@@ -625,8 +627,7 @@ d
   example), then press 'd' followed by a number and then the item's slot key
 
 g
-  pick up item from the ground (also with the comma key ','); for several items,
-  press 'g' or ',' twice to get a pickup menu
+  pick up item from the ground (also with the comma key ',')
 
 =
   reassign item slot (works also for spell slots and abilities)
@@ -655,11 +656,10 @@ more turns.
 
 Typing 'i' displays your inventory (what you are carrying). When you are given a
 prompt like "Throw [or Wield, Wear, etc] which item?", you usually get a list of
-all available options (this behaviour can be changed with the auto_list option).
-You can press '*' in case you want to wield something unusual. When the
-inventory screen shows "-more-", to show you that there is another page of
-items, you can type the letter of the item you want, even if it is not visible,
-instead of pressing Space or Enter to see the next page.
+all available options. You can press '*' in case you want to wield something
+unusual. When the inventory screen shows "-more-", to show you that there is
+another page of items, you can type the letter of the item you want, even if it
+is not visible, instead of pressing Space or Enter to see the next page.
 
 You can carry at most 52 items at once, and your total weight is limited by your
 carrying capacity. Both of these are printed at the top of the inventory screen.
@@ -688,11 +688,9 @@ of armours and weapons, but don't expect too much information from examining
 unidentified items.
 
 Another useful command is the '{' key, which lets you inscribe items with a
-comment. This is often used to denote special properties of an item, making for
-easier navigation of large quantities of artefacts. You can also inscribe items
-when looking at your inventory with 'i', simply by pressing the letter of an
-item. For more details, and how to automatise this process, check Appendix `6.
-Inscriptions`_.
+comment. You can also inscribe items when looking at your inventory with 'i',
+simply by pressing the letter of an item. For more details, and how to automate
+this process, check Appendix `6. Inscriptions`_.
 
 ) Weapons
 ========================================
@@ -703,19 +701,18 @@ polearms. Each type of weapon does a different amount of damage, has a different
 chance of hitting its target, and takes a different amount of time to swing.
 There are several weapon skills (press 'm' to show a list of those that you are
 training) like Short Blades, Long Blades, Axes, etc. These skills affect damage,
-accuracy, and speed. (The same goes for Unarmed Combat.)
+accuracy, and speed (up to a point). The same goes for Unarmed Combat.
 
-Weapons can be enchanted; when they are identified, they have values which tell
-you how much more effective they are than an unenchanted version. The first
-number is the enchantment to-hit, which affects the weapon's accuracy, and the
-second is its damage enchantment; weapons which are not enchanted are simply
-'+0'. Some weapons also have special magical effects which make them very
-effective in certain situations. Some types of hand weapons (especially daggers,
-spears and hand axes) are quite effective when thrown.
+Weapons can be enchanted; when you first wield or otherwise identify them,
+you reveal values which tell you how much more effective they are than an
+unenchanted version. The first number is the enchantment to-hit, which affects
+the weapon's accuracy, and the second is its damage enchantment; weapons which
+are not enchanted are simply '+0'. Some weapons also have special magical
+effects which make them very effective in certain situations.
 
 You can wield weapons with the 'w' command, which is a very quick action. If for
 some reason you want to go bare-handed, type 'w' followed by a hyphen ('-').
-Note that weapons are not the only class of item which is useful to wield.
+Note that sometimes wielding non-weapons can be useful.
 
 The ' (apostrophe) key is a shortcut which automatically wields the item in slot
 a. If item a is being wielded, ' causes you to wield item b instead, if
@@ -723,9 +720,6 @@ possible. Try assigning the letter a to your primary weapon, and b to your bow
 or something else you need to wield only sometimes. Note that this is just a
 typing shortcut and is not functionally different to wielding these items
 normally.
-
-You can press '}' to show your primary (wielded) and secondary (slot b) weapons,
-as well as the preferred missiles (to be shot when using 'f' to fire).
 
 ( Missiles
 ========================================
@@ -737,29 +731,27 @@ require you to wield an appropriate device to inflict worthwhile damage. Upon
 impact, missiles may become destroyed. The chance for this to occur depends on
 the type of missile.
 
-The 'f' command fires or throws a missile, typically chosen from lots suitable
-for your weapon. The default lot (your "quiver") is displayed on the main screen
-beneath your wielded weapon. The quivered item will always be what Crawl thinks
-is most likely to be what you want. Thus it will either be an item you
-previously chose and fired (with 'f') or directly quivered (with 'Q'), or the
-item in your inventory that ranks highest in fire_order - if there are several
-of similar order, the one with the lowest inventory slot is chosen.
+The 'f' command fires or throws a missile. The default missile to be fired or
+thrown (your "quiver") is displayed on the main screen beneath your wielded
+weapon. The quivered item will always be what Crawl thinks is most likely to be
+what you want. Thus it will either be an item you previously chose and fired
+(with 'f') or directly quivered (with 'Q'), or the item in your inventory that
+ranks highest in fire_order - if there are several of similar order, the one
+with the lowest inventory slot is chosen.
 
 See Appendix `6. Inscriptions`_ for inscriptions which let you fine-tune the
 list of items to choose from. See also the Missiles section of
 options_guide.txt.
 
 The firing interface also allows you to manually select an item to throw with
-'i'; but it may not be very effective if you lack the correct launcher. At times
-it is sensible to throw weapons like daggers, clubs, spears or hand axes.
+'i'; but it may not be very effective if you lack the correct launcher.
 
 Use the '(', ')' to cycle through your quiver without firing, and 'Q' to choose
-the quivered item from a list. If you would like to throw something without
-inserting it into the quiver use 'F' instead. Note that non-weapon, non-missile
-items will never be quivered.
+the quivered item from a list. If you would like to choose something to fire
+without inserting it into the quiver use 'F' instead.
 
 The interface for shooting or throwing things is also used for evoking wands and
-casting certain spells, and is described in detail in section I (Targetting).
+casting certain spells, and is described in detail in section I (Targeting).
 
 [ Armour
 ========================================
@@ -771,20 +763,21 @@ of your EV (evasion) and stealth. Heavier types of armour also hamper your melee
 accuracy, making it harder for you to hit monsters. Wearing heavy armour also
 increases your chances of miscasting spells, an effect which is only slightly
 reduced by your Armour skill. These penalties are smaller if you have a high
-Armour skill, but larger if you have insufficient Strength. On the other hand,
-body armour will also provide some guaranteed damage reduction against melee
+Armour skill, but larger if you have low Strength. On the other hand, body
+armour will also provide some guaranteed damage reduction against melee
 attacks, and heavier armours are better at this.
 
-A shield normally affects neither your AC nor your evasion, but it lets you
+A shield normally increases neither your AC nor your evasion, but it lets you
 attempt to block melee attacks and some ranged attacks aimed at you. Wearing a
 shield (especially larger shields) with insufficient Shields skill makes you
-less effective in hand combat and hampers your ability to cast spells. Also, you
-cannot wield a two-handed weapon while wearing a shield. Shields are more
-effective when you're fighting a small number of foes than when you're
-surrounded. There are three types: bucklers, shields, and large shields. While
-it is possible to use bows or crossbows while wearing a shield, you'll be much
-less effective at doing so. Slings can be used with a shield without penalty,
-however.
+less effective in hand combat and hampers your ability to cast spells. It also
+lowers your evasion if you do not have sufficient skill, and you obviously
+cannot wield a two-handed weapon while wearing a shield. Shields are most
+effective on the first attack on you each turn and become less useful on
+every one after that. There are three types: bucklers, shields, and large
+shields. While it is possible to use bows or crossbows while wearing a shield,
+you'll be much less effective at doing so. Slings can be used with a shield
+without penalty, however.
 
 Some magical armours have special powers. These powers are sometimes automatic,
 affecting you whenever you wear the armour, and sometimes must be activated with
@@ -810,10 +803,9 @@ You may wish to dine on the corpses of your casualties (unless you are a
 Spriggan, and cannot eat meat, or you are a Mummy, who need not, and cannot, eat
 at all). Despite the fact that corpses are represented by the same '%' sign as
 food, you can't eat them without first cutting off the more edible pieces with
-the 'c' command. Being hungry helps you choke down the raw flesh. Even then, you
-should choose your homemade food with great care. Cutting off the best
-parts will take some turns and produce a number of 'chunks' eventually. These
-can be eaten with the 'e' command as above.
+the 'c' command. Being hungry helps you choke down the raw flesh. Cutting off the
+best parts will take some turns and produce a number of 'chunks' eventually.
+These can be eaten with the 'e' command as above.
 
 Some species are less fastidious about their food. Orcs, Ogres, Kobolds,
 Trolls and Ghouls care less (in different degrees) about the quality of the
@@ -841,8 +833,7 @@ While scrolls tend to affect your equipment or your environment, most potions
 affect your character in some way. The most common type is the simple curing
 potion, which restores some hit points and cures many ailments, but there are
 many other varieties of potions to be found. Potions can be quaffed (drunk) with
-the 'q' command. Try to avoid drinking poisonous potions! By the way, you can
-also drink from the fountains you encounter in the dungeon.
+the 'q' command. Try to avoid drinking poisonous potions!
 
 / Wands
 ========================================
@@ -854,7 +845,7 @@ uses it has left. This can be done with a scroll of identify; characters with a
 good Evocations skill may also deduce the number of charges simply upon evoking
 the wand. Wands are aimed in the same way as missile weapons, and you can
 release the power of a wand by evoking it with 'V'. See section I for
-targetting. There are also a number of wands that may be useful to aim at
+targeting. There are also a number of wands that may be useful to aim at
 yourself, but it is usually prudent to know what you are evoking before you do
 so.
 
@@ -870,9 +861,8 @@ you will be asked which one to remove. Octopodes are an exception, and may
 wear up to eight rings on their tentacles. Some rings function automatically,
 while others require activation (the 'a' command).
 
-Amulets are similar to rings, but have a different range of effects (which tend
-to be more subtle). Amulets are worn around the neck, and you can wear only one
-at a time.
+Amulets are similar to rings, but have different range of effects. Amulets are
+worn around the neck, and you can wear only one at a time.
 
 You can press '"' to quickly check what jewellery you're wearing.
 
@@ -890,16 +880,14 @@ magic school tend to have no combat powers at all.
 \| Rods
 ========================================
 
-Rods ('|') hold one or more spells that you can evoke while wielding the rod,
+Rods ('|') hold unique spells that you can evoke while wielding the rod,
 using the 'v' command. They have a pool of magical energy which regenerates
 according to the rod's enchantment (which can be increased using scrolls of
 recharging) and your Evocations skill. They're shorter than full-length staves
 and thus use the Maces &amp; Flails skill instead of Staves when used as cudgels.
 
-\+ Books
+: Books
 ========================================
-
-(Depending on your settings, books may also be shown as : symbols.)
 
 Most books contain magical spells which your character may be able to learn. You
 can read a book with the 'r' command, which lets you access a description of
@@ -944,45 +932,20 @@ achievement in any regard.
 $ Gold
 ========================================
 
-Gold can be used to buy items should you run across shops. (Shops do not buy, by
-the way.) There are also a few more esoteric uses for gold. Gold coins do not
-have any weight in Crawl.
+Gold can be used to buy items should you run across shops. There are also a
+few more esoteric uses for gold. Gold coins do not have any weight in Crawl.
 
 Whenever you pick up gold, your total wealth is shown as well. Should you want
 to have a glance at your finances at some other opportunity, pressing '$' (or
 '%') allows you to do so.
-
-Racial Items
-========================================
-
-Some items have been crafted by members of a gifted species, and have special
-properties.
-
-Dwarven weapons and armours are very durable, and do not rust or corrode easily.
-All species get a bonus when wearing Dwarven armours at the expense that these
-mails make spellcasting slightly more difficult. Dwarves get a larger bonus
-without the magical hampering.
-
-In general, Orcs do better with gear from their own kin; this applies to
-weapons, as well as to armours.
-
-Elven body armour does not hamper spellcasting as much as other armours of the
-same type would. Elven cloaks and boots are particularly useful to those who
-wish to be stealthy. An Elf does a bit better when wearing armour or weapons of
-his own kind.
-
-Demonspawn receive bonuses when using demonic weapons.
-
-Centaurs and Nagas have uniquely shaped bodies. With luck, however, a character
-of these species might find a Centaur or Naga barding.
 
 Artefacts
 ========================================
 
 Weapons, armour, jewellery and spellbooks can be artefacts. These come in two
 flavours: randomly created artefacts ('randarts') and predefined ones
-('unrandarts'). Artefacts will always carry unusual names, such as "golden
-sword" or "shimmering scale mail". Also, artefacts cannot be modified in any
+('unrandarts'). Randarts will always carry unusual names, such as "golden
+bastard sword" or "shimmering scale mail". Artefacts cannot be modified in any
 way, including enchantments.
 
 Apart from that, otherwise mundane items can get one special property. These are
@@ -996,20 +959,15 @@ enchantment, though):
 
 :general: glowing, runed;
 :metal armours: shiny;
-:leather armours, animal skins: dyed;
+:leather armours: dyed;
 :other armours: embroidered.
-
-Normal and ego helmets can both have extra decorations ("winged", "plumed",
-etc.).
 
 ****************************************
 H. Spellcasting
 ****************************************
 
 Magical spells are a very important part of surviving in the dungeon. Every
-character can make use of magical spells, although those who enter the dungeon
-without magical skills must first train at least one magic skill before they
-can learn any spells.
+character can make use of magical spells.
 
 There are many skills related to magic, the principal one being Spellcasting.
 Spellcasting determines the number of Magic Points available; it also helps in
@@ -1017,8 +975,8 @@ several respects during the actual casting of spells. Next, there are several
 general magical skill areas (Conjuration, Hexes, Charms, Summoning, Necromancy,
 Translocation and Transmutation) as well as several elemental areas (Fire, Ice,
 Air and Earth) and, finally, Poison. A particular spell can belong to (and thus
-train) up to three areas. Being good in the areas of a spell will improve the
-casting chance and, in many cases, the effect as well.
+allow training of) up to three areas. Being good in the areas of a spell will
+improve the casting chance and, in many cases, the effect as well.
 
 Spells are stored in books, which you will occasionally find in the dungeon. You
 can read books with 'r' to check what spells they contain; doing so will allow
@@ -1062,23 +1020,21 @@ the spell description (obtained by reading the spellbook in which you found the
 spell) before casting anything.
 
 There is a completely different way to use spells: via rods. These are magical
-staves holding a number of spells. Rods store a certain number of magic points,
-which are used for powering the spells they contain; when not fully charged,
-they regenerate magic points gradually. You can spend scrolls of recharging on
-rods in order to increase the maximal size of their magical reservoir. The
-effectiveness of your rod's spells is governed by your Evocations skill.
+staves holding their own unique spells. Rods store a certain number of magic
+points, which are used for powering the spells they contain; when not fully
+charged, they regenerate magic points gradually. You can spend scrolls of
+recharging on rods in order to increase the size of their magical reservoir.
+The effectiveness of your rod's spells is governed by your Evocations skill.
 
 Be careful of magic-using enemies! Some of them can use magic just as well as
 you, if not better, and often use it intelligently.
 
 ****************************************
-I. Targetting
+I. Targeting
 ****************************************
 
 When throwing something, evoking certain wands, or casting spells, you are asked
 for a direction. There are several ways to tell Crawl which monster to target.
-(The following list assumes the option setting default_target = true, which is
-the default.)
 
 You can press '?' when asked for a direction; this will bring up a help screen.
 Otherwise, you use the following commands:
@@ -1097,7 +1053,7 @@ Otherwise, you use the following commands:
   missiles won't end up in deep water.
 - You can press Escape if you changed your mind - no turns are deducted.
 
-There are some shortcuts while targetting:
+There are some shortcuts while targeting:
 
 - Typing Shift-direction on your keypad fires straight away in that direction.
 - Pressing 'p' or 'f' fires at the previous target (if it is still alive and in
@@ -1112,12 +1068,12 @@ of '.', Enter, etc. - except if you want to heal or haste someone else. If you
 target yourself while firing something harmful (which can be sensible at times),
 you will be asked for confirmation.
 
-Finally, there are some more targetting related commands:
+Finally, there are some more targeting related commands:
 
 - '(' and ')' allow to change the ammunition. This is useful when you have
   several types of appropriate ammunition, say poisoned needles and curare
   needles. Your last usage will be remembered. Note that you can use '(' for
-  changing the quiver ammunition even outside of targetting.
+  changing the quiver ammunition even outside of targeting.
 - The ':' key allows you to hide the path of your spell/wand/missile.
 
 ****************************************
@@ -1128,14 +1084,14 @@ There are a number of gods, demons and other assorted powers who will accept
 your character's worship, and sometimes give out favours in exchange. You can
 use the '^' command to check the requirements of whoever it is that you worship,
 and if you find religion to be an inconvenience you can always renounce your
-faith (use the 'a' command - but most gods resent being scorned). For most gods,
-there is a second page with additional details, press '^!' to access it.
+faith (use the 'a' command - but most gods resent being scorned). There is also
+a second page with additional details, press '^!' to access it.
 
 The 'p' command lets you pray to your god, in order to sacrifice items. For
 example, blood gods will want you to offer corpses to them by pressing 'p' over
 the corpse(s). Praying also gives you a sense of what your god thinks of you.
-Some gods have a special conduct at their altars; if so, this is explained in
-the '^' and '^!' screens.
+Some gods may grant a gift at their altar; if so, this is explained in the '^'
+and '^!' screens.
 
 To use any powers which your god deems you fit for, access the abilities menu
 via the 'a' command; god-given abilities are listed as invocations.
@@ -1153,7 +1109,7 @@ pressing '?/G'.
 Note that the good gods will not accept demonic or undead devotees.
 
 If you like to start the game with a religion, choose your background from
-Healer, Berserker, Chaos Knight, Abyssal Knight or Death Knight.
+Healer, Berserker, Chaos Knight, Abyssal Knight, or Death Knight.
 
 ****************************************
 K. Mutations
@@ -1166,9 +1122,7 @@ she undergoes physiological change, you can use the 'A' command to see how much
 of a freak they've become and the 'a' command to activate any mutations which
 can be controlled. Many mutations are actually beneficial to the characters, but
 there are plenty of nasty ones as well. Many mutations have three levels, each
-of which counts as a single mutation. Some changes to the primary attributes
-Strength, Intelligence and Dexterity (apart from those by leveling) are also
-handled as mutations - in particular, these are not permanent.
+of which counts as a single mutation.
 
 You can also become mutated by overusing certain powerful enchantments,
 particularly Haste (not the kind you get from being berserk) and Invisibility,
@@ -1186,7 +1140,7 @@ is to quaff a potion of cure mutation, which will attempt to remove one or more
 random mutations.
 
 Demonspawn are a special case. Characters of this species get certain special
-powers during their career; these are listed in cyan. They are permanent and
+mutations as they gain levels; these are listed in cyan. They are permanent and
 can never be removed. If one of your Demonspawn powers has been augmented by a
 mutation, it is displayed in a lighter colour.
 
@@ -1195,6 +1149,9 @@ of Centaurs or Spriggans, or the eating habits of Trolls, Kobolds and others.
 These are often, but not always, like a preset mutation. In case such an innate
 feature gets amplified by an ordinary mutation, it is displayed in a light blue
 colour.
+
+Some mutations are only temporary and will dissipate after slaying more enemies.
+These are listed in purple on the list of mutations, and marked as temporary.
 
 ****************************************
 L. Licence, contact, history
@@ -1277,7 +1234,7 @@ themselves are set in the file ~/.crawlrc (for UNIX systems - copy over init.txt
 to ~/.crawlrc) or init.txt (for Windows).
 
 Several interface routines are outsourced to external Lua scripts. The standard
-distribution has them in the dat/lua/ directory. Have a look at the single
+distribution has them in the dat/clua/ directory. Have a look at the single
 scripts for short descriptions.
 
 Generally, Crawl should run swiftly on all machines (it compiles out of the box
@@ -1444,7 +1401,7 @@ Many different species
 
 Dungeon layout
   Even veteran players will find the Tomb or the Hells exciting (which are
-  construed such that life endangering situations can always pop up). These and
+  designed such that life endangering situations can always pop up). These and
   other branches may or may not fit a given character's buildup. By the way, we
   strongly believe that games are pointless if you can reach the invincible
   state.
@@ -1489,7 +1446,7 @@ Appendices
 Humans
   Humans tend to be hardworking and industrious, and learn new things quickly.
   The Human species is the most versatile of all the species available to
-  players. Humans advance quickly in levels and have equal abilities in all
+  players. Humans advance quickly in levels and have equal abilities in most
   skills.
 
 Hill Orcs
@@ -1500,7 +1457,7 @@ Hill Orcs
   Hill Orcs are as robust as the Minotaurs, yet they have human-like reserves of
   magical energy. Their forte is brute-force fighting, and they are skilled at
   using most hand weapons (particularly axes, with which they are experts),
-  though they are not particularly good at using missile weapons. Orcs are
+  though they are not particularly good at using missile weapons. Hill Orcs are
   passable users of most types of magic and are particularly skilled with Fire.
 
   Many Orcs feel superior to all other species and beings, and they have formed
@@ -1574,7 +1531,7 @@ Nagas
   instead of legs.
 
   They are reasonably good at most things and advance in experience levels at
-  the same rate as Hill Orcs. They are naturally resistant to poisons, can see
+  the same rate as Merfolk. They are naturally resistant to poisons, can see
   invisible creatures, and have tough skin, but their tails are relatively slow
   and cannot move them around as quickly as can other creatures' legs (this only
   affects their movement rate; all other actions are at normal speed). Their
@@ -1582,8 +1539,8 @@ Nagas
   Naga's biggest forte is stealth: Nagas are very good at moving unnoticed.
   Their tails eventually grow strong enough to constrict their foes in combat.
 
-  Every now and then, a Naga can spit poison; the range, accuracy and damage of
-  this poison increases with the Naga's experience level.
+  Nagas can spit poison; the range, accuracy and damage of this poison increases
+  with the Naga's experience level.
 
 Centaurs
   The Centaurs are another species of hybrid creatures: horses with Human
@@ -1635,9 +1592,9 @@ Tengu
   The Tengu are an ancient and feared species of bird-people with a legendary
   propensity for violence. Basically humanoid with bird-like heads and clawed
   feet, the Tengu can wear all types of armour except helmets and boots. Despite
-  their lack of wings, powerful Tengu can fly, and very powerful members of this
-  species can stay in the air for as long as they wish to do so. Their movement
-  is a bit faster than normal while flying.
+  their lack of wings, powerful Tengu can fly magically, and very powerful
+  members of this species can stay in the air indefinitely. Their movement speed
+  and evasion are increased slightly while flying.
 
   They are experts at all forms of fighting, including the magical arts of
   combat (conjurations, summonings and, to a lesser extent, necromancy). They
@@ -1646,17 +1603,16 @@ Tengu
   invocations. Their light avian bodies cannot sustain a great deal of injury.
 
 Demigods
-  Demigods are mortals (Humans, Orcs or Elves, for example) with some divine or
-  angelic ancestry, however distant; they can be created by a number of
-  processes, including magical experiments and the time-honoured practice of
-  interplanar miscegenation.
+  Demigods are mortals with some divine or angelic ancestry, however distant;
+  they can be created by a number of processes, including magical experiments
+  and the time-honoured practice of interplanar miscegenation.
 
   Demigods look more or less like members of their mortal part's species, but
   have excellent attributes (Str, Int, Dex) and are extremely robust; they can
   also draw on great supplies of magical energy. On the downside, they advance
-  very slowly in experience, gain skills slightly less quickly than Humans and,
-  due to their status, cannot worship the various gods and powers available to
-  other classes of being.
+  more slowly in experience than any other race, gain skills slightly less
+  quickly than Humans and, due to their status, cannot worship the various gods
+  and powers available to other classes of being.
 
 Demonspawn
   Demonspawn are horrible half-mortal, half-infernal creatures - the flip side
@@ -1691,12 +1647,10 @@ Deep Dwarves
   damage. Offensively, they are skilled users of axes, crossbows, and slings.
   Deep Dwarves are highly spiritual beings, often portrayed as actual spirits
   by outsiders; because of this, their skill with invocations is great. They
-  are most at home with the magic of earth and death.
+  are most at home with the magic of earth and death, eventually gaining some
+  resistance to the dark powers of necromancy.
 
-  Deep Dwarves are gifted forgers. Their armour and weapons are very
-  well-crafted and much more durable than the products of lesser artisans, and
-  particularly dangerous when in the hands of a true Dwarf. In addition, Deep
-  Dwarves can tinker with gadgets so as to recharge them. However, each time
+  Deep Dwarves can tinker with wands so as to recharge them. However, each time
   they do so, they lose a bit of their magical essence.
 
 Felids
@@ -1706,18 +1660,17 @@ Felids
   case, eviscerated their former masters and gone out into the world.
 
   While fully capable of using speech and most forms of magic, Felids are at a
-  serious disadvantage due to their inability to use armour or weapons, or even
-  grasping items well enough to throw a dart or point a wand. They can use their
-  mouths and paws for simple manipulation like uncorking a bottle or unrolling a
-  scroll. Like all cats, Felids are incapable of thriving on vegetable food, and
-  need meat to survive.
+  serious disadvantage due to their inability to use armour or weapons. Like all
+  cats, Felids are incapable of thriving on vegetable food, and need meat to
+  survive.
 
   Their agility and stealth are legendary, as is their ability to get to hard to
   reach places. They move faster than most races, but don't run as fast as
   Centaurs or Spriggans. Felids advance in levels very slowly. They are skilled
   with many forms of magic, though less so with raw elemental magic.
 
-  The tale of a Felid who had nine lives isn't far from truth, as well.
+  Felids gain extra lives as they increase in levels. Upon death, they will be
+  resurrected in a safe place, losing an experience level in the process.
 
 Octopodes
   These land-capable relatives of common octopuses can move about as fast as
@@ -1735,64 +1688,58 @@ Octopodes
   knowledge of poisons as well. They are also able to use their tentacles to
   constrict enemies - potentially several at a time!
 
-Djinn
-  Of the same stock as angels or demons, these spirits have been created from
-  smokeless fire by some deranged god. Unlike regular living beings, they draw
-  their sustenance from magic rather than eating or drinking, although for some
-  reason they can still do the latter - probably due to being unintelligently
-  designed by a creator with no knowledge of evolution.
-
-  Magic is literally their life, to the point of their health and magical
-  powers' being one force, called "essence". The Djinn can also withstand more
-  magical contamination than most, and slowly recover from its effects.
-
-  Being spirits of fire, they obviously suffer no harm from any kind of fire,
-  but the same cannot be said of their equipment. Accordingly, cold and water
-  cause them great harm. Fortunately, levitation allows them to cross bodies of
-  liquid, although without external means to power their flight it takes them
-  much effort to do so.
-
-  Djinn make great fire mages (duh). They are competent with air magic,
-  enchantments, magic items and weapons with long reaches that don't require
-  high dexterity. They are terrible with ice, earth, necromancy and poison.
-
-Lava Orcs
-  These strange humanoids are made of living stone, with a unique heat-based
-  metabolism. Ordinarily slow and hardy, when anything puts some stress on them,
-  they literally fire up, turning into fast-moving lava. Outwardly, their shape
-  mostly resembles that of Orcs, thus the name.
-
-  They are unique in their ability to swim in lava: even the Djinn, while immune
-  to fire, can't swim through a treacle of molten rock. In order to be able to
-  use regular equipment, Lava Orcs have invented special fire-proof backpacks;
-  vulnerable items like scrolls or books are not accessible when their owner is
-  too hot.
-
-  Many things can fire up their metabolism: facing multiple and/or dangerous
-  enemies, being badly hurt, suffering fire damage, berserking, and obviously
-  being submerged in lava. As their heat grows, Lava Orcs gain normal speed,
-  become more accustomed to fire, have their stony skin soften, gain extra power
-  when casting fire magic, become vulnerable to cold, speed up even more, and
-  finally cause fire damage to all creatures in their presence.
-
-  Lava Orcs make good melee fighters, preferring axes. They're pretty bad
-  spellcasters, except for transmutations, fire and earth magic.
-
-  Many Orcs feel superior to all other species and beings, and they have formed
-  a religion around that idea. Only Orcs can worship Beogh, the Orc god. They
-  can join Beogh whenever an orc priest is in sight.
-
 Gargoyles
   A cross between ordinary stone gargoyles and living beings, Gargoyles are
-  hideous humanoids with an affinity to rock. They are immune to petrification,
-  and their stony weight protects them from being trampled.
+  hideous humanoids with an affinity to rock. They have low health, but large
+  amounts of innate armour which increases further as they gain levels. They
+  eventually gain the ability to fly continuously.
 
-  Gargoyles' partially living form makes them less susceptible to effects of
-  necromancy and cold than most beings. Their metabolisms are slow, and they
-  blend into the dungeon pretty well. Their fangs and talons make them dangerous
-  unarmed fighters, although they're incompetent with weapons other than maces.
-  They can be exceptional earth-based conjurers, although they're bad with all
-  other magic schools besides ice.
+  Gargoyles' partially living form grants them immunity to poison, as well as
+  resistance to electricity, and protection from some effects of necromancy.
+  Their natural armour makes them strong melee fighters, and they are naturally
+  skilled with blunt weapons and in unarmed combat. They can also be exceptional
+  earth-based conjurers.
+
+Formicids
+  The Formicids are a species of humanoid ants. Just like their tiny insect
+  ancestors, the Formicids are well adept at earth work, both on the physical
+  and magical sides. Their abilities have been used to tunnel immense underground
+  communities and structures, many of which are tens of thousands of years old.
+
+  Perhaps unfortunately, their strong ties to to earth have left them completely
+  impervious to being teleported or hasted; Formicids are tied to the earth with
+  a complete sense of stasis. While this is a seemingly bad property for a
+  dungeon adventurer, stasis has the beneficial effect of preventing many types
+  of nasty hexes and maledictions.
+
+  With the ability to lift ten times their own weight, the Formicids have
+  strength rivaling that of ogres. This, along with the fact that they have four
+  arms, allows Formicid warriors to equip both a shield and a two-handed weapon
+  at the same time.
+
+  Formicids make good earth and venom mages, but are quite capable at both melee
+  and ranged combat too. They are naturally bad at air magic and conjurations.
+
+Vine Stalkers
+  Limber in shape, Vine Stalkers are anthropomorphic masses of thick vines.
+  They possess a once-humanoid core, parasitised moments before death by the
+  magical vines. Lacking any other discernible features, their faces are
+  dominated by their disproportionate, vicious maw with which they disrupt and
+  devour the magical energies of their foes.
+
+  Magic courses freely through their bodies, and any damage they take is split
+  between their health and magical reserves. They also physically regenerate
+  at an alarming rate. However these traits come at a price: the dual nature of
+  their bodies makes them frail to the extreme and they cannot benefit from
+  potions or wands to heal their wounds.
+
+  Living examples of adaptation, Vine Stalkers level up quickly and lend well
+  to an all-out offensive style; trusting their stealth to choose their prey
+  and then their regenerating capabilities to power through the wounds they may
+  sustain in battle. Many members of the species however, are seen wielding
+  magic quite competently and then switching to a hybrid style when their
+  reserves start to run low, thus replenishing their shroud of magic and their
+  spells' fuel with each voracious bite.
 
 Elves
 ========================================
@@ -1802,8 +1749,7 @@ but long-lived people, quicker-witted than Humans, but sometimes slower to learn
 new things. Elves are especially good at using those skills which require a
 degree of finesse, such as stealth, sword-fighting and archery, but tend to be
 poor at using brute force and inelegant forms of combat. They find heavy armour
-to be uncomfortable, and make the finest, lightest armours to be found anywhere.
-Elves are particularly good at using Elven weapons.
+to be uncomfortable.
 
 Due to their fey natures, all Elves are good at using magic in general and
 elemental magic in particular, while their affinity for other types of magic
@@ -1813,18 +1759,18 @@ High Elves
   This is a tall and powerful Elven species who advance in levels slowly,
   requiring half again as much experience as Humans. They have good intelligence
   and dexterity, but suffer in strength. Compared with Humans, they have fewer
-  HP but more magic. Among all Elves, they are best with blades and bows. They
+  HP but more magic. Among all races, they are best with blades and bows. They
   are not very good with necromancy or with earth or poison magic, but are
-  highly skilled with most other forms of magic.
+  highly skilled with most other forms of magic, especially Air and Charms.
 
 Deep Elves
   This is an Elven species who long ago fled the overworld to live in darkness
   underground. There, they developed their mental powers, evolving a natural
   gift for all forms of magic (including necromancy and earth magic), and
   adapted physically to their new environment, becoming shorter and weaker than
-  other Elves and losing all colouration. They are poor at hand-to-hand combat,
-  but excellent at fighting from a distance. They advance in levels as fast as
-  High Elves.
+  High Elves and losing all colouration. They are poor at hand-to-hand combat,
+  but excellent at fighting from a distance. They advance in levels at the same
+  speed as High Elves.
 
 The Undead
 ========================================
@@ -1849,7 +1795,7 @@ Mummies
   to eat or drink and, in any case, are incapable of doing so.
 
 Ghouls
-  They are horrible undead creatures, slowly rotting away. Although Ghouls can
+  Ghouls are horrible undead creatures, slowly rotting away. Although Ghouls can
   sleep in their graves for years on end, when they rise to walk among the
   living, they must eat flesh to survive. Raw flesh is preferred, especially
   rotting or tainted meat, and Ghouls gain resilience from consuming it.
@@ -1863,11 +1809,11 @@ Vampires
   fresh blood, they may become alive. A bloodless Vampire has all the traits of
   an undead, but cannot regain lost physical attributes or regenerate from
   wounds over time - in particular, magical items or spells which increase the
-  rate of regeneration will not work. On the other hand, a Vampire full with
-  blood will regenerate very quickly, but lose all undead powers. Vampires can
-  never starve. They can drink from fresh corpses with the 'e' command. Upon
-  growing, they learn to transform into quick bats and, later, how to draw
-  potions of blood from fresh corpses.
+  rate of regeneration will not work (though divine ones will). On the other
+  hand, a Vampire full with blood will regenerate very quickly, but lose all
+  undead powers. Vampires can never starve. They can drink from fresh corpses
+  with the 'e' command. Upon growing, they learn to transform into quick bats
+  and, later, how to draw potions of blood from fresh corpses.
 
 Draconians
 ========================================
@@ -1878,7 +1824,7 @@ immature form with brown scales, but as they grow in power they take on a
 variety of colours. This happens at an early stage in their career, and the
 colour is determined by chromosomes, not by behaviour.
 
-Some types of Draconians have breath weapons or special resistances. Draconians
+Most types of Draconians have breath weapons or special resistances. Draconians
 cannot wear body armour and advance very slowly in levels, but are reasonably
 good at all skills other than missile weapons. Still, each colour has its own
 strengths and some have complementary weaknesses, which sometimes requires a bit
@@ -1915,13 +1861,14 @@ Black Draconians
 
 Mottled Draconians
   are somewhat in touch with fire, yet are not weak with ice. They can spit
-  globs of sticky flame a short distance.
+  globs of sticky flame at those adjacent to them.
 
 Purple Draconians
   are highly adapted to all spellcasting in general, and to hexes and charms in
   particular. They are a bit better at evoking things than most other
   Draconians. They can breathe dispelling energy which strips those it hits of
-  their enchantments.
+  their enchantments, and are naturally more resistant to hostile enchantments
+  than other draconians.
 
 Pale Draconians
   are better at air and fire magic, and have no deficiencies in other schools.
@@ -1935,24 +1882,25 @@ Pale Draconians
 In your quest, you play as one of a large number of different types of
 characters. Although each has its own strengths and weaknesses, some are
 definitely easier than others, at least to begin with. The best backgrounds for
-a beginner are probably Fighters, Gladiators and Berserkers; if you really want
-to play a magician, try a Conjurer or a Wizard. However, not all species are
-equally well suited for all backgrounds. The lighter coloured choices on the
-selection screen are generally considered to be the more accessible ones.
+a beginner are probably Gladiators and Berserkers; if you really want to play a
+magician, try a Conjurer or a Wizard. However, not all species are equally well
+suited for all backgrounds. The lighter coloured choices on the selection screen
+are generally considered to be the more accessible ones.
 
 Each background starts out with a different set of skills and items, but from
 there you can shape them as you will. Note that due to peculiarities of size or
 body shape, some characters start with a different inventory.
 
 Fighters
-  Fighters usually start with a decent weapon, a suit of heavy armour and a
-  shield. They have a good general grounding in the arts of fighting.
+  Fighters usually start with a good weapon, a suit of heavy armour, a
+  shield, and a potion of might. They have a good general grounding in the
+  arts of fighting.
 
 Gladiators
   The Gladiator has been trained to fight in the ring, and so is versed in the
   arts of fighting, but is not so good at anything else. In fact, Gladiators
   have never learned anything except bashing monsters with heavy things. They
-  start with a nasty weapon, light armour, headgear and some nets or darts.
+  start with a nasty weapon, light armour, headgear and some nets.
 
 Monks
   The Monk is a member of an ascetic order dedicated to the perfection of one's
@@ -1979,8 +1927,8 @@ Chaos Knights
 
 Death Knights
   The Death Knight is a fighter who aligns him or herself with the powers of
-  death and worships Yredelemnul the Dark, who will soon grant the ability to
-  re-animate the dead.
+  death and worships Yredelemnul the Dark, who grants followers the ability to
+  re-animate the dead and eventually many more powerful undead followers.
 
 Abyssal Knights
   The Abyssal Knight is a fighter serving Lugonu the Unformed, ruler of the
@@ -1997,16 +1945,16 @@ Skalds
 Warpers
   Warpers specialise in translocation magic, and are experts in traveling long
   distances and positioning themselves precisely and use this to their advantage
-  in melee or missile combat.
+  in melee or missile combat. They start with a scroll of blinking.
 
 Assassins
   An Assassin is a stealthy character who is especially good at killing, using
-  daggers or blowguns.
+  daggers or blowguns. They start with some deadly curare needles.
 
 Hunters
   The Hunter is a type of fighter who specialises in missile weapons. A Hunter
   starts with either some throwing weapons or a ranged weapon and some
-  ammunition, as well as a short sword and a set of leathers.
+  ammunition, as well as a short sword or club and a set of leathers.
 
 Arcane Marksmen
   Arcane Marksmen are Hunters who use debilitating spells to assist their ranged
@@ -2016,15 +1964,14 @@ Artificers
   Artificers are attuned to gadgets, mechanics and magic elicited from arcane
   items, as opposed to casting magic themselves. As a consequence, they enter
   the Dungeon with an assortment of wands. Artificers are skilled at evoking
-  magical items and finding traps, and also understand the basics of melee
-  combat. They also have some prior experience with scrolls of recharging.
+  magical items, and also understand the basics of melee combat.
 
 Wanderers
   Wanderers are people who have not learned a specific trade. Instead, they've
   travelled around becoming "jacks-of-all-trades, masters of none". They start
-  the game with a large assortment of skills and maybe some small items they
-  picked up along the way, but, other than that, they're pretty much on their
-  own.
+  the game with a large, random assortment of skills and maybe some small
+  items they picked up along the way, but, other than that, they're pretty much
+  on their own.
 
 Magicians
 ========================================
@@ -2048,8 +1995,8 @@ Enchanters
   The Enchanter specialises in the subtle art of hexes. Instead of directly
   damaging foes, hexes disable and debilitate them, allowing the Enchanter to
   finish the helpless creatures in combat. The Enchanter begins with lightly
-  enchanted weapons and armour, as well as the Corona spell and some enchanted
-  darts, which should help them out until they can use the higher level hexes.
+  enchanted weapons and armour, as well as the Corona spell and some darts,
+  which should help them out until they can use the higher level hexes.
 
 Summoners
   The Summoner specialises in calling creatures from this and other worlds to
@@ -2069,9 +2016,7 @@ Transmuters
 
 Venom Mages
   Venom Mages specialise in poison magic, which is extremely useful in the
-  shallower levels of the dungeon where few creatures are immune to it. Poison
-  is especially effective when used against insects, damaging their tracheae
-  quite effectively.
+  shallower levels of the dungeon where few creatures are immune to it.
 
 Elementalists
   Elementalists are magicians who specialise in one of the four types of
@@ -2096,7 +2041,7 @@ Elementalists
 
 Here is a description of the skills you may have. You can check your current
 skills with the 'm' command, and therein toggle between progress display and
-aptitude display using '!'. You can also read the table of aptitudes from the
+aptitude display using '*'. You can also read the table of aptitudes from the
 help menu using '?%', and during character choice with '%'.
 
 Fighting skills
@@ -2106,7 +2051,8 @@ Fighting is the basic skill used in hand-to-hand combat, and applies no matter
 which weapon your character is wielding (if any). Fighting is also the skill
 that determines the number of hit points your character gets as they increase in
 levels (note that this is calculated so that you don't get a long run advantage
-by starting out with a high Fighting skill).
+by starting out with a high Fighting skill). Unlike the specific weapon skill,
+Fighting does not change the speed with which you make your attacks.
 
 Weapon skills affect your ability to fight with specific melee weapons. Weapon
 skills include:
@@ -2132,22 +2078,29 @@ is marked with a green asterisk. Similar types of weapons are:
   * Staves and Polearms
   * Staves and Maces &amp; Flails
 
-Being good at a specific weapon improves the speed with which you can use it by
-about 10% every two skill levels. Although lighter weapons are easier to use
+Being good at a specific weapon improves the speed with which you attack with it.
+Both the base speed and the best (lowest) possible speed are displayed in the
+inventory entry for a weapon. Although lighter weapons are easier to use
 initially, as they strike quickly and accurately, heavier weapons increase in
-damage potential very quickly as you improve your skill with them.
+damage potential very quickly as you improve your skill with them. You can check
+the current delay of your weapon by swinging it at air (using ctrl-direction) and
+looking at the number in parentheses next to your turncount.
 
 Some weapon types have special abilities. Axes are able to cleave through
 multiple enemies in a single swing, hitting enemies in an arc around the
-wielder with every attack. Polearms and certain whips can reach farther and
-allow the wielder to attack an opponent two squares away, and even reach over
-monsters. Use the 'v' command to target a specific monster with a reaching
-attack, or use Autofight ('tab') to reach automatically.
+wielder with every attack. Polearms can reach farther and allow the wielder to
+attack an opponent two squares away, and even reach over monsters. Use the 'v'
+command to target a specific monster with a reaching attack, or use Autofight
+('tab') to reach automatically.
 
 Unarmed Combat is a special fighting skill. It allows your character to make a
 powerful attack when unarmed and also to punch with the off hand as an
 additional melee attack. Unarmed combat is particularly difficult to use in
-combination with heavy armour or shields.
+combination with heavy armour or shields. The Unarmed Combat skill continues to
+increase your attack speed while unarmed until it can be raised no more.
+
+Note that auxiliary attacks (such as a Centaur's kick or a Minotaur's headbutt)
+are not affected by the Unarmed Combat skill.
 
 Ranged combat skills
 ========================================
@@ -2159,11 +2112,11 @@ There are a number of individual weapon skills for missile weapons:
   * Crossbows
   * Slings
 
-Throwing is the skill for all things hurled without a launcher: axes, spears,
-stones, nets, etc. The other skills refer to various types of missiles shot with
-a launcher. An exception to this are needles: these are launched using blowguns,
-an action which uses the Throwing skill. Since stones can be thrown without
-launchers to good effect, these skills crosstrain:
+Throwing is the skill for all things hurled without a launcher: tomahawks,
+javelins, darts, nets, etc. The other skills refer to various types of missiles
+shot with a launcher. An exception to this are needles: these are launched
+using blowguns, an action which uses the Throwing skill. Since stones can be
+thrown without launchers to some effect, these skills crosstrain:
 
   * Throwing and Slings
 
@@ -2172,10 +2125,11 @@ Magic skills
 
 Spellcasting is the basic skill for magic use. It affects your reserves of
 magical energy (Magic) in the same way that Fighting affects your hit points:
-every time you increase the Spellcasting skill you gain some magic points and
-spell levels. This skill greatly influences the amount by which casting causes
-hunger. Spellcasting also helps with the power and success rate of your
-spells, but to a lesser extent than the more specialised magical skills.
+every time you increase the Spellcasting skill you gain some magic points, and
+you gain a spell level every time you reach a skill level divisible by 0.5.
+This skill greatly influences the amount by which casting causes hunger.
+Spellcasting also helps with the power and success rate of your spells, but to
+a lesser extent than the more specialised magical skills.
 
 There are also individual skills for each different type of magic; the higher
 the skill, the more powerful the spell. Multidisciplinary spells use an average
@@ -2204,12 +2158,12 @@ Armour
   Having a high Armour skill means that you are used to wearing heavy armour,
   allowing you to move more freely and gain more protection. When you look at an
   armour's description (from within the inventory), you can see in particular
-  how cumbersome it is. This is measured by the Evasion modifier.
+  how cumbersome it is. This is measured by the encumbrance rating.
 
   This skill helps to overcome the evasion penalty of body armours, reduces the
-  amount by which heavy armour hamper melee fighting and also mitigates the bad
-  effects of heavy armour on spellcasting. High Armour skill also increases
-  the AC provided by other types of armour (gloves, cloaks, etc.).
+  amount by which heavy armour hamper melee fighting and also somewhat mitigates
+  the bad effects of heavy armour on spellcasting. High Armour skill also
+  increases the AC provided by other types of armour (gloves, cloaks, etc.).
 
 Dodging
   A high Dodging skill helps you to evade melee and ranged attacks more
@@ -2222,24 +2176,22 @@ Stealth
   encumbered penalises stealth attempts. Large creatures (like Trolls) are bad
   at stealth, except for Nagas, which are unusually stealthy.
 
-Stabbing
-  Lets you make a very powerful first strike against a sleeping/resting monster
-  who hasn't noticed you yet. This is most effective with a dagger, slightly
-  less effective with other short blades and less useful (although by no means
-  negligible) with any other weapon. Stabbing also improves some melee attacks
-  against confused or otherwise incapacitated monsters, though this is much
-  less effective than when the monster is asleep or paralyzed.
+  Stealth also helps you make a very powerful first strike against a
+  sleeping/resting monster who hasn't noticed you yet. This is most effective
+  with a dagger, slightly less effective with other short blades and less useful
+  (although by no means negligible) with any other weapon. Stabbing also improves
+  some melee attacks against confused or otherwise incapacitated monsters, though
+  this is much less effective than when the monster is asleep or paralyzed.
+
+  Note that in addition to the bonus from using a short blade/dagger, there is an
+  additional stabbing bonus based on the average of your stealth skill and your
+  skill in your wielded weapon.
 
 Shields
   Affects the amount of protection you gain by using a shield, and the degree to
-  which it hinders you.
-
-Traps
-  Affects your ability to notice traps and to disarm them when you find them.
-  While you may be able to spot some traps even without this skill, most traps are
-  hidden cunningly enough to avoid detection without at least some training. More
-  skilled people may be able to spot traps at a distance, yet after looking closely
-  enough, spending more time is pointless unless your skill grows.
+  which it hinders you. For most races, 5/15/25 skill us enough to mitigate the
+  encumbrance of bucklers/shields/large shields respectively, though larger
+  races need less skill and and smaller races more.
 
 Invocations
   Affects your ability to call on your god for aid. Those skilled at Invocations
@@ -2250,8 +2202,8 @@ Evocations
   This skill lets you use wands much more effectively, in terms of both damage
   and precision. Furthermore, with high Evocations, you can easily deduce the
   number of charges in a wand through usage. Similarly, all other items that
-  have certain powers (like crystal balls) work better for characters trained in
-  this skill.
+  have certain powers (such as crystal balls, decks of cards, or elemental
+  summoners) work better for characters trained in this skill.
 
   Invocations and Evocations can increase your maximum magical reserves,
   although both have a smaller effect than Spellcasting in this regard. The
@@ -2270,7 +2222,7 @@ confusing, since there are also several modes; here is the full list. Some
 commands are particularly useful in combination with certain interface options;
 such options are mentioned in the list. For a description of them, please look
 into options_guide.txt. For a more terse list of all commands, use '??' in-game.
-Most modes (targetting, level map, interlevel travel) also have help menus via
+Most modes (targeting, level map, interlevel travel) also have help menus via
 '?' on their own.
 
 Movement
@@ -2304,12 +2256,12 @@ Resting and Searching
 
 s, Del, . or Numpad 5
   Rests and searches (these are not distinguished) for one turn. This is most
-  often used tactically for waiting a few turns. Serious resting or searching
-  should be done with the 5 command.
+  often used tactically for waiting a few turns. Serious resting should be
+  done with the 5 command.
 
 5 or Shift-Numpad 5
-  Long resting/searching (until both health and magic points are full or
-  something is found or 100 turns are over).
+  Long resting, until both health and magic points are full or 100 turns
+  are over.
 
 Dungeon interaction
 ----------------------------------------
@@ -2429,9 +2381,6 @@ z
 Z
   Cast a spell regardless of range limitations.
 
-I
-  List spells memorised.
-
 t
   Tell commands to allies, or shout (with tt).
 
@@ -2511,13 +2460,12 @@ Stashes
 Ctrl-F
   Find. This searches in stashes and shops, you can use regular expressions and
   also terms like 'long blades', 'shop', 'altar', 'artefact'. If you are looking
-  for altars to a special god, a search for 'Trog' , etc. works. If all items
-  are stashed (the default), then a string like 'D:13' will list all known items
-  on that level. 'D:1}' will search for items on level 1 only, as opposed to
-  'D:1', which will also list items on D:10 through D:19. Once the list of all
-  found places is displayed, you can cause auto-travel to go there (press the
-  associated letter) or you can examine the items (press ? followed by the
-  letter).
+  for altars to a special god, a search for 'Trog' , etc. works. A string like
+  'D:13' will list all known items on that level. 'D:1}' will search for items
+  on level 1 only, as opposed to 'D:1', which will also list items on D:10
+  through D:19. Once the list of all   found places is displayed, you can cause
+  auto-travel to go there (press the associated letter) or you can examine the
+  items (press ? followed by the letter).
 
 Item interaction (inventory)
 ========================================
@@ -2564,7 +2512,7 @@ w
 
 v
   Evoke power of wielded item. Also used to attack non-adjacent monsters with
-  weapons of reaching.
+  a polearm.
 
 V
   Evoke an item from the inventory. This includes using wands.
@@ -2585,9 +2533,8 @@ Item interaction (floor)
 ========================================
 
 g or ,
-  Pick up items; press twice for pick up menu. Use a prefix to pick up smaller
-  quantities. As with dropping, Ctrl-F allows you to  pick up items matching a
-  regular expression.
+  Pick up items. Use a prefix to pick up smaller quantities. As with dropping,
+  Ctrl-F allows you to pick up items matching regular expression.
 
 d
   Drop an item. Within the drop list, you can select slots based on a regular
@@ -2600,11 +2547,8 @@ D
   Drop item(s) picked up last.
 
 c
-  Chop up a corpse. This will switch to the knife in your pack (unless you wield
-  an edged weapon already or have a mutation like claws), cut up a single corpse
-  on the ground and switch back to your primary weapon. In case there are
-  several corpses on the ground, you are prompted one by one. There, you can
-  answer
+  Chop up a corpse. In case there are several corpses on the ground, you are
+  prompted one by one. There, you can answer
 
   =========  ================================
   y, c       yes (chop up this corpse)
@@ -2616,9 +2560,9 @@ c
 Shortcuts in lists (like multidrop)
 ========================================
 
-When dropping (with the drop_mode = multi option), the drop menu accepts several
-shortcuts. The same applies to the pickup menu. In the following, if an item is
-already selected, the key will deselect it (except for ',' and '-', obviously).
+When dropping, the drop menu accepts several shortcuts. The same applies to
+the pickup menu. In the following, if an item is already selected, the key
+will deselect it (except for ',' and '-', obviously).
 
 (
   Select all missiles.
@@ -2805,16 +2749,16 @@ _
 Tab
   Cycle shops and portals.
 
-Targetting
+Targeting
 ========================================
 
-Targetting mode is similar to examining surroundings. It is activated whenever
+Targeting mode is similar to examining surroundings. It is activated whenever
 you fire projectiles, evoke a wand or cast spells which use targets. All of the
 commands described for examination of surroundings work, with the exception of
 Space (which fires).
 
 Esc or x
-  Stop targetting.
+  Stop targeting.
 
 ?
   Special help screen.
@@ -2831,24 +2775,20 @@ p
 
 f
   Smart-firing: fire at previous target, if it is still in sight; and else fire
-  at the cursor position. Together with the default_target option (which is on
-  by default) this allows to start shooting at an opponent with 'ff' and then
-  keep firing with 'ff'.
+  at the cursor position. You can start shooting at an opponent with 'ff' and
+  then keep firing with 'ff'.
 
 :
   Toggle display of the beam path.
 
 (, )
-  These two commands allow you to change ammunition while targetting. The choice
+  These two commands allow you to change ammunition while targeting. The choice
   is subject to the fire_order option. Usually, you change missiles according to
   your launcher; i.e. when wielding a bow, ( and ) will cycle through all stacks
   of arrows in your inventory.
 
 Shift-direction
-  Fire straight in that direction. You can go back to the old targetting mode
-  (allowing straight firing by pressing just the direction key) using the option
-  target_unshifted_dirs. Note that target_unshifted_dirs is mutually exclusive
-  with default_target.
+  Fire straight in that direction.
 
 ****************************************
 5. List of enchantments
@@ -2858,7 +2798,62 @@ The stats area has room for showing the enchantments which you currently enjoy
 or have to suffer. A list of these enchantments follows, as some are either
 abbreviated or may have unusual effects.
 
-General enchantments
+(Mostly) good enchantments
+========================================
+
+Full
+  You have eaten a lot.
+
+Very Full
+  You have eaten almost all you can for now.
+
+Engorged
+  You can't eat any more for now.
+
+Fast
+  All of your actions are faster (this can cause magic contamination).
+
+Invis
+  You are invisible. This can cause glowing if used too much.
+
+Tele
+  You are about to teleport, i.e. feeling "unstable". If you are about to
+  teleport, another teleport (by any source) will cancel it.
+
+cTele
+  The next translocation you make will be semi-controlled (if a blink) or
+  fully controlled (if a teleport). Beware that even a controlled teleport is
+  not totally reliable.
+
+Fly
+  You fly above the ground, and so are able to cross water and lava and avoid
+  most types of traps. Due to low ceilings in the dungeon, this is not enough
+  to get out of reach of ground-based enemies. Most types of flight will time
+  out - be sure you're not above deadly liquids when that happens.
+
+Regen
+  You regenerate hit points at an unnaturally fast rate. This is only shown for
+  temporary regeneration.
+
+RMsl
+  You repel missiles, i.e. there's a good chance to evade them.
+
+DMsl
+  You deflect missiles, i.e. there's a great chance to evade them. Still, this
+  protection is not bulletproof.
+
+Touch
+  Any monster you touch might become confused.
+
+MR
+  You are more resistant to hostile enchantments.
+
+Berserk
+  You are stronger, faster, tougher! Beware, though, that if you do not kill
+  monsters this status will wear off even faster, and when it does, you will
+  be slowed and exhausted, possibly passing out temporarily as well.
+
+(Mostly) bad enchantments
 ========================================
 
 Hungry
@@ -2871,90 +2866,78 @@ Near Starving
   You are in desperate need of food.
 
 Starving
-  You should really eat something; death is not far away.
+  You should really eat something; death is not far away. While starving, your
+  combat abilities are impaired and you are unable to cast spells or use many
+  evoked or divine abilities.
 
-Full
-  You have eaten a lot.
-
-Very Full
-  You have eaten almost all you can for now.
-
-Engorged
-  You can't eat any more for now.
-
-Nausea
-  Some of the food you ate didn't agree with you. You cannot eat anything in
-  this state, although when Starving or Near Starving you may be able to force
-  something in, at a great penalty. Wait it out or quaff a potion of curing.
+Retch
+  Something is causing you to feel rather ill. You cannot eat anything or quaff
+  any potions in this state.
 
 Pois
   You are poisoned and continually lose hit points. There are several levels of
   poisoning. Cure with potions of curing or by waiting it out.
 
+Drain
+  Your skills have been drained by negative energy, and are less effective.
+  This status will not wear off by waiting, but will expire as you gain
+  experience. This status has multiple levels, and you can see just how much you
+  have been drained by looking at the skills screen.
+
 Encumbered
   Your load is heavy enough to slow you down. You also need more food when
-  walking around encumbered. Try to avoid this!
+  walking around encumbered, and your stealth is reduced. Try to avoid this!
 
 Overloaded
-  You carry too much to do anything sensible. Drop stuff!
+  You are carrying too much to do anything sensible. In addition to the effects
+  of Encumbered being worsened, you are unable to climb stairs. Drop something!
 
 Conf
-  You are confused. Actions may not work properly. Wait it out or drink a potion
-  of curing for immediate cure.
+  You are confused. Actions may not work properly, or may be targeted in a
+  random direction. Wait it out or drink a potion of curing for immediate cure.
 
-Fast
-  All of your actions are faster (this can cause magic contamination).
-
-Swift
-  You move at a somewhat higher speed. This only means movement speed.
+Breath
+  Some abilities (like breath weapons or Zin's recite invocation) require you to
+  catch your breath in between uses. These abilities cannot be re-used until the
+  Breath status disappears.
 
 Slow
   All actions are slowed. Note: ending berserking will slow you.
 
 Exh
-  You are too exhausted to go berserk or cast Death's Door.
-
-Special enchantments
-========================================
-
-Breath
-  Some abilities (like Draconian breath weapons and Naga poison spit) require
-  you to catch your breath in between uses. These abilities cannot be re-used
-  until the Breath status disappears.
-
-Invis
-  You are invisible. This can cause glowing if used too much.
-
-Tele
-  You are about to teleport, i.e. feeling "unstable". If you are about to
-  teleport, another teleport (by any source) will cancel it.
-
-Fly
-  You fly above the ground, and so are able to cross water and lava and avoid
-  most types of traps. Due to low ceilings in the dungeon, this is not enough
-  to get out of reach of ground-based enemies, although you are safe from
-  electrical melee attacks. Most types of flight will time out - be sure you're
-  not above deadly liquids when that happens.
+  You are too exhausted to use certain tiring abilities.
 
 Held
-  You are held in a net or a spiderweb. You cannot move freely and will instead
+  You are held in a net or a spider web. You cannot move freely and will instead
   try to struggle free.
 
 Constr
   You are being constricted by an enemy and will take an increasing amount of
-  damage every turn. Also, movement away from the enemy is restricted (although
-  you can struggle to escape).
+  damage every turn. Also, movement (including blinking) away from the enemy is
+  restricted, although you can struggle to escape and will become increasingly
+  more likely to succeed when doing so multiple times.
 
 Mesm
   You are mesmerised and cannot move away from the monster(s) mesmerising you.
 
+Fear
+  You are overcome with fear and cannot move towards the monster(s) causing
+  fear in you.
+
+-cTele
+  You may not gain the cTele status if you have this status.
+
+-Tele
+  A monster is preventing you from teleporting at all.
+
+Mark
+  Due to the effects of a trap or a spell, monsters will now hunt you down more
+  precisely, and will be able to detect you even if you are not in their vision.
+
 Fire
   You are covered with sticky fire. It will hurt you for a few turns, probably
-  burning scrolls in the process. Drop the most important ones!
-
-Regen
-  You regenerate hit points at an unnaturally fast rate. This is only shown for
-  temporary regeneration.
+  burning scrolls in the process. Drop the most important ones! Taking a bath
+  should handily extinguish these flames.
 
 Contam
   You glow with mutagenic radiation. This can mutate you over time, usually with
@@ -2965,16 +2948,10 @@ Corona
   You are surrounded by light; this ruins your stealth and makes you easier to
   hit.
 
-Umbra
-  You are shrouded in unholy darkness. This helps with stealth and evading
-  attacks from everyone except for the undead and worshippers of Yredelemnul.
-
-RMsl
-  You repel missiles, i.e. there's a good chance to evade them.
-
-DMsl
-  You deflect missiles, i.e. there's a great chance to evade them. Still, this
-  protection is not bulletproof.
+Barbs
+  There are dangerous barbs embedded in your skin, and moving around will cause
+  you to take damage. They will go away after standing in place for a few turns
+  or moving around.
 
 Sick
   You have been sickened by some hostile effect. Hit points don't regenerate
@@ -2987,17 +2964,14 @@ Rot
   these, once lost. The rotting status itself is cured with potions of curing
   or by waiting it out.
 
-Touch
-  Your hands are glowing, and any monster you touch might become confused.
-
-Blade
-  You are bonded with your blade, so it strikes more accurately.
-
 \-MR
   You are more vulnerable to hostile enchantments.
 
-MR
-  You are more resistant to hostile enchantments.
+Brainless, Clumsy, Collapse
+  One of your attributes (Intelligence, Dexterity, or Strength, respectively)
+  has fallen to 0. You suffer extreme penalties to most actions related to
+  the specific attribute. Increasing the attribute above 0 will cause the status
+  to go away in a few turns.
 
 There are several more enchantment messages for various spells. The description
 of the spell causing the enchantment will explain these.
@@ -3026,7 +3000,7 @@ You can use inscriptions to define shortcuts for easy access to items,
 regardless of their actual inventory letter. For example, if an item's
 inscription contains "@w9", you can type 'w9' in order to wield it. Instead of
 the 9, any other digit works as well. And instead of 'w'ield, any other command
-used for handling items can be used: 'e'at, r'ead, 'q'uaff, 'z'ap, 'f'ire, etc.
+used for handling items can be used: 'e'at, 'r'ead, 'q'uaff, e'v'oke, 'f'ire, etc.
 Using "@*9" will make any action command followed by '9' use this item.
 
 Safety inscriptions
@@ -3090,14 +3064,6 @@ commands:
 
 =g
   Pick this item up automatically if autopickup is on.
-
-=k
-  Ignore this item in all listings on the ground (it can still be picked up if
-  all items on the ground have this inscription).
-
-=s
-  If stash tracking is explicit, then dropping this item will cause a stash to
-  automatically be marked.
 
 =f
   Exclude this item from automatic quivering.
@@ -3244,13 +3210,10 @@ Contam
   causes high magical contamination when unequipped
 
 Noisy
-  makes noises
+  makes noises on hit
 
-Hunger
+Hunger, Hunger+
   increased rate of hunger
-
-Hunger+
-  highly increased rate of hunger
 
 Curse
   chance of self-cursing when equipped
@@ -3279,8 +3242,8 @@ MP+3
 HP+3
   hit point modifier
 
-cTele
-  controlled teleport
++cTele
+  can evoke for temporary teleport control (from the 'a'bilities menu)
 
 SInv
   see invisible

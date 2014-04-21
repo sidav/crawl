@@ -18,19 +18,19 @@ function base_monster_setup(e)
            centaur / jelly / water moccasin / ice beast / crimson imp /\
            necrophage / quasit / zombie / sky beast / deep elf fighter /\
            giant frog / mummy / orc warrior band / wight band /\
-           hungry ghost / big kobold band / giant centipede /\
+           hungry ghost / big kobold band /\
            brain worm / warg / wolf / porcupine / black bear /\
-           giant mite / green rat / flying skull / iron imp / lemure /\
-           white imp / ufetubus / fire bat / rotting devil")
+           giant mite / green rat / flying skull / iron imp /\
+           white imp / ufetubus / fire bat")
   e.kmons("B = goliath beetle / steam dragon / crocodile / hippogriff /\
            killer bee band / yellow wasp / eye of draining / manticore /\
            wyvern / troll / two-headed ogre / yak band /\
            hill giant / komodo dragon / wraith / soldier ant / unseen horror /\
            trapdoor spider / basilisk / cyclops band / efreet /\
            mottled dragon / blink frog band / vampire mosquito band /\
-           griffon / ugly thing / gargoyle / molten gargoyle / metal gargoyle /\
+           griffon / ugly thing / gargoyle / molten gargoyle /\
            kobold demonologist band / giant slug / deep troll /\
-           deep elf fighter band / agate snail / boulder beetle / red wasp /\
+           deep elf fighter band / boulder beetle / red wasp /\
            orc high priest band w:5 / pulsating lump / boring beetle /\
            flayed ghost / freezing wraith / shadow wraith / shadow /\
            orc sorcerer band w:5 / orc knight band / grizzly bear /\
@@ -47,12 +47,12 @@ function base_monster_setup(e)
            catoblepas / vampire / wandering mushroom /\
            guardian serpent / rakshasa w:5 / slime creature band w:5 /\
            centaur warrior band w:5 / ugly thing band w:5 / wizard /\
-           simulacrum / rock worm / giant amoeba / ogre mage band w:5 /\
+           simulacrum / ogre mage band w:5 /\
            wolf spider / yaktaur / air elemental / fire elemental /\
            water elemental / earth elemental / deep elf knight band w:5 /\
            deep elf mage band w:3 / deep elf summoner band w:3 /\
            great orb of eyes / naga mage band w:5 / naga warrior band w:5 /\
-           necromancer band w:5 / orc knight band w:5 / spiny worm /\
+           necromancer band w:5 / orc knight band w:5 /\
            harpy band w:5 / fire crab / redback band /\
            vapour / deep elf priest band w:3 / shapeshifter / zombie /\
            skeleton / deep dwarf death knight / eidolon / elephant band w:5 /\
@@ -65,7 +65,7 @@ function base_monster_setup(e)
            hell hound band w:5 / neqoxec / simulacrum / sixfirhy /\
            chaos spawn / ice devil / sun demon / iron devil /\
            hell hog band w:5 / alligator band w:5 / minotaur")
-  e.kmons("D = dragon w:20 / yaktaur band w:5 / ice dragon w:20 /\
+  e.kmons("D = fire dragon w:20 / yaktaur band w:5 / ice dragon w:20 /\
            very ugly thing band w:5 / sphinx / iron troll /\
            orc warlord band / yaktaur captain band w:5 /\
            deep troll shaman band w:5 / fire giant w:20 / frost giant w:20 /\
@@ -73,7 +73,7 @@ function base_monster_setup(e)
            bone dragon / stone giant / deep elf annihilator /\
            deep elf death mage / deep elf high priest /\
            deep elf demonologist / deep elf sorcerer / shadow dragon /\
-           titan w:5 / deep dwarf berserker / unborn / ettin /\
+           titan w:5 / unborn / ettin /\
            greater naga / dancing weapon / dire elephant band /\
            eye of draining / giant eyeball / vault guard / ghoul band w:5 /\
            mummy priest / spriggan air mage / spriggan berserker /\
@@ -81,7 +81,7 @@ function base_monster_setup(e)
            base draconian band w:5 / lorocyproca / daeva / angel /\
            profane servitor / soul eater / hell beast / cherub / apis / ophan /\
            balrug / green death / blizzard demon / deep elf blademaster /\
-           deep elf master archer")
+           deep elf master archer / war gargoyle")
   e.kmons("E = lich / tentacled monstrosity / golden dragon /\
            iron dragon / quicksilver dragon / titan / acid blob /\
            azure jelly / golden eye / ancient lich w:5 /\
@@ -102,8 +102,8 @@ function base_monster_setup(e)
            bat / kobold / rat / giant gecko / giant mite / gnoll /\
            hobgoblin / jackal band /  adder / quokka /\
            orc / worker ant / giant eyeball / skeleton /\
-           zombie / giant centipede / brain worm / giant mite /\
-           green rat / lemure / ufetubus")
+           zombie / brain worm / giant mite /\
+           green rat / ufetubus")
   e.kmons("H = Sigmund / Jessica / Blork the orc / Crazy Yiuf / Duvessa band /\
            Edmund / Ijyb / Grinder / Pikel band / Purgy / Terence / Menkaure /\
            Prince Ribbit")
@@ -143,12 +143,12 @@ function base_monster_setup(e)
   e.kmons("T = balrug / blizzard demon / green death / reaper / cacodemon /\
            lorocyproca / brimstone fiend / ice fiend / shadow fiend /\
            hell sentinel / executioner")
-  e.kmons("U = place:Slime:6 / slime creature band / giant amoeba /\
+  e.kmons("U = place:Slime:6 / slime creature band /\
            death ooze / azure jelly / acid blob / brown ooze /\
            giant eyeball w:3 / eye of draining w:3 / eye of devastation /\
            golden eye w:3 / shining eye w:3")
   e.kmons("V = azure jelly / death ooze / acid blob")
-  e.kmons("W = mottled dragon / steam dragon / dragon / ice dragon /\
+  e.kmons("W = mottled dragon / steam dragon / fire dragon / ice dragon /\
            storm dragon / swamp drake / lindwurm / fire drake /\
            shadow dragon w:5")
   e.kmons("X = shadow dragon / iron dragon / quicksilver dragon /\
@@ -172,7 +172,7 @@ function general_item_setup(e)
           scroll of recharging ident:all w:1 /\
           scroll of fog w:1 ident:all / scroll of holy word w:1 ident:all /\
           potion of might ident:all w:2 / potion of agility w:2 ident:all /\
-          potion of speed q:2 ident:all w:2 /\
+          potion of haste q:2 ident:all w:2 /\
           scroll of acquirement w:1 ident:all /\
           scroll of enchant weapon iii ident:all q:2 w:2 /\
           scroll of enchant armour ident:all q:4 w:2 /\
@@ -183,7 +183,7 @@ function general_item_setup(e)
   e.kitem("! = potion of heal wounds ident:all q:2 w:30 /\
           potion of curing ident:all w:20 /\
           potion of might ident:all / potion of agility ident:all /\
-          potion of speed ident:all /\
+          potion of haste ident:all /\
           potion of restore abilities ident:all w:5 /\
           potion of resistance ident:all w:5 / potion of brilliance ident:all /\
           potion of berserk rage ident:all /\
@@ -236,14 +236,14 @@ function general_item_setup(e)
     demon whip plus:7 plus2:7 randart not_cursed ident:all w:3 /\
     demon whip plus:10 plus2:5 randart not_cursed ident:all w:3 /\
     demon whip plus:5 plus2:10 randart not_cursed ident:all w:3 /\
-    double sword plus:9 plus2:9 good_item not_cursed ident:all /\
-    double sword plus:7 plus2:7 randart not_cursed ident:all w:3 /\
-    double sword plus:10 plus2:5 randart not_cursed ident:all w:3 /\
-    double sword plus:5 plus2:10 randart not_cursed ident:all w:3 /\
-    triple sword plus:7 plus2:7 good_item not_cursed ident:all /\
-    triple sword plus:5 plus2:5 randart not_cursed ident:all w:3 /\
-    triple sword plus:3 plus2:9 randart not_cursed ident:all w:3 /\
-    triple sword plus:9 plus2:3 randart not_cursed ident:all w:3 /\
+    bastard sword plus:9 plus2:9 good_item not_cursed ident:all /\
+    bastard sword plus:7 plus2:7 randart not_cursed ident:all w:3 /\
+    bastard sword plus:10 plus2:5 randart not_cursed ident:all w:3 /\
+    bastard sword plus:5 plus2:10 randart not_cursed ident:all w:3 /\
+    claymore plus:7 plus2:7 good_item not_cursed ident:all /\
+    claymore plus:5 plus2:5 randart not_cursed ident:all w:3 /\
+    claymore plus:3 plus2:9 randart not_cursed ident:all w:3 /\
+    claymore plus:9 plus2:3 randart not_cursed ident:all w:3 /\
     demon blade plus:9 plus2:9 good_item not_cursed ident:all /\
     demon blade plus:9 plus2:9 randart not_cursed ident:all w:3 /\
     demon blade plus:13 plus2:7 randart not_cursed ident:all w:3 /\
@@ -281,8 +281,8 @@ function general_item_setup(e)
     helmet plus:2 good_item not_cursed ident:all /\
     cloak plus:4 not_cursed ident:all /\
     cloak plus:2 good_item not_cursed ident:all /\
-    wizard hat plus:4 not_cursed ident:all /\
-    wizard hat plus:2 good_item not_cursed ident:all /\
+    hat plus:4 not_cursed ident:all /\
+    hat plus:2 good_item not_cursed ident:all /\
     large shield plus:5 not_cursed ident:all /\
     large shield plus:3 good_item not_cursed ident:all /\
     naga barding plus:6 not_cursed ident:all w:5 /\
@@ -307,10 +307,10 @@ function general_item_setup(e)
     giant spiked club plus:3 plus2:3 good_item not_cursed ident:all /\
     demon whip plus:6 plus2:6 ego:none not_cursed ident:all /\
     demon whip plus:3 plus2:3 good_item not_cursed ident:all /\
-    double sword plus:6 plus2:6 ego:none not_cursed ident:all /\
-    double sword plus:3 plus2:3 good_item not_cursed ident:all /\
-    triple sword plus:3 plus2:3 ego:none not_cursed ident:all /\
-    triple sword plus:0 plus2:0 good_item not_cursed ident:all /\
+    bastard sword plus:6 plus2:6 ego:none not_cursed ident:all /\
+    bastard sword plus:3 plus2:3 good_item not_cursed ident:all /\
+    claymore plus:3 plus2:3 ego:none not_cursed ident:all /\
+    claymore plus:0 plus2:0 good_item not_cursed ident:all /\
     demon blade plus:6 plus2:6 ego:none not_cursed ident:all /\
     demon blade plus:3 plus2:3 good_item not_cursed ident:all /\
     great sword plus:6 plus2:6 ego:none not_cursed ident:all /\
@@ -339,8 +339,8 @@ function general_item_setup(e)
     helmet plus:0 good_item not_cursed ident:all /\
     cloak plus:2 not_cursed ident:all /\
     cloak plus:0 good_item not_cursed ident:all /\
-    wizard hat plus:2 not_cursed ident:all /\
-    wizard hat plus:0 good_item not_cursed ident:all /\
+    hat plus:2 not_cursed ident:all /\
+    hat plus:0 good_item not_cursed ident:all /\
     large shield plus:3 not_cursed ident:all /\
     large shield plus:0 good_item not_cursed ident:all /\
     naga barding plus:2 not_cursed ident:all w:5 /\
@@ -459,9 +459,9 @@ function armoury_setup(e)
           giant spiked plus:3 plus2:3 club not_cursed ident:all /\
           quick blade plus:5 plus2:5 not_cursed ident:all /\
           great sword plus:3 plus2:3 not_cursed ident:all /\
-          double sword plus:3 plus2:3 not_cursed ident:all /\
+          bastard sword plus:3 plus2:3 not_cursed ident:all /\
           demon blade plus:3 plus2:3 not_cursed ident:all w:3 /\
-          triple sword plus:1 plus2:1 not_cursed ident:all w:3 /\
+          claymore plus:1 plus2:1 not_cursed ident:all w:3 /\
           lajatang plus:3 plus2:3 not_cursed ident:all /\
           longbow plus:3 plus2:3 not_cursed ident:all /\
           crossbow plus:3 plus2:3 not_cursed ident:all /\
@@ -682,11 +682,11 @@ KITEM: d = potion of invisibility ident:all q:2, \
        potion of berserk rage ident:all q:2, \
        potion of magic q:2 ident:all
 # The 3rd equipment room
-KITEM: e = sabre plus:2 plus2:2 ego:electrocution ident:all not_cursed /\
-       sabre plus:2 plus2:2 ego:draining ident:all not_cursed /\
-       sabre plus:2 plus2:2 ego:venom ident:all not_cursed /\
-       sabre plus:2 plus2:2 ego:distortion ident:all not_cursed /\
-       sabre plus:2 plus2:2 good_item ident:all not_cursed
+KITEM: e = cutlass plus:2 plus2:2 ego:electrocution ident:all not_cursed /\
+       cutlass plus:2 plus2:2 ego:draining ident:all not_cursed /\
+       cutlass plus:2 plus2:2 ego:venom ident:all not_cursed /\
+       cutlass plus:2 plus2:2 ego:distortion ident:all not_cursed /\
+       cutlass plus:2 plus2:2 good_item ident:all not_cursed
 KITEM: f = war axe plus:2 plus2:3 ego:freezing ident:all not_cursed /\
        war axe plus:2 plus2:3 ego:vorpal ident:all not_cursed /\
        war axe plus:2 plus2:3 good_item ident:all not_cursed w:5 /\
@@ -1032,12 +1032,13 @@ KFEAT:   o = altar_beogh
 KFEAT:   p = altar_jiyva
 KFEAT:   q = altar_fedhas
 KFEAT:   r = altar_cheibriados
+KFEAT:   s = altar_dithmenos
 : general_setup(_G)
 : general_item_setup(_G)
 : base_monster_setup(_G)
 MAP
 hopnlfjida
-gqrmk..ebc
+gqrmk.sebc
 ENDMAP
 
 
@@ -2078,7 +2079,7 @@ KMONS:  d = zombie w:15 / skeleton w:15 / simulacrum w:15 /\
 KMONS:  D = lich
 KMONS:  e = hydra w:20 / swamp dragon / mottled dragon / steam dragon /\
         catoblepas / dire elephant / fire drake / lindwurm / komodo dragon /\
-        basilisk / swamp drake / wyvern / dragon w:5 / ice dragon w:5
+        basilisk / swamp drake / wyvern / fire dragon w:5 / ice dragon w:5
 KMONS:  E = golden dragon
 SUBST:  1 : a, 2 : A
 SHUFFLE: aA / bB / cC / dD / eE
@@ -2120,7 +2121,7 @@ KMONS:  b = zombie w:20 / skeleton w:20 / simulacrum w:20 /\
         greater mummy / bone dragon / ghoul / skeletal warrior /\
         guardian mummy
 KMONS:  B = ancient lich
-KMONS:  c = dragon / ice dragon / shadow dragon / iron dragon w:5 /\
+KMONS:  c = fire dragon / ice dragon / shadow dragon / iron dragon w:5 /\
         quicksilver dragon w:5 / golden dragon / swamp dragon /\
         hydra
 KMONS:  C = quicksilver dragon

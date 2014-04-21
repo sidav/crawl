@@ -10,6 +10,7 @@
 #include "externs.h"
 
 struct bolt;
+class stack_iterator;
 
 string zin_recite_text(const int seed, const int prayertype, int step);
 bool zin_check_able_to_recite(bool quiet = false);
@@ -32,6 +33,8 @@ void elyvilon_remove_divine_vigour();
 bool vehumet_supports_spell(spell_type spell);
 
 bool trog_burn_spellbooks();
+void trog_do_trogs_hand(int power);
+void trog_remove_trogs_hand();
 
 void jiyva_paralyse_jellies();
 bool jiyva_remove_bad_mutation();
@@ -43,7 +46,7 @@ bool yred_can_animate_dead();
 void yred_animate_remains_or_dead();
 void yred_make_enslaved_soul(monster* mon, bool force_hostile = false);
 
-bool kiku_receive_corpses(int pow, coord_def where);
+bool kiku_receive_corpses(int pow);
 bool kiku_take_corpse();
 
 bool fedhas_passthrough_class(const monster_type mc);
@@ -56,6 +59,7 @@ void process_sunlights(bool future = false);
 bool prioritise_adjacent(const coord_def& target, vector<coord_def>& candidates);
 bool fedhas_plant_ring_from_fruit();
 int fedhas_rain(const coord_def &target);
+int count_corpses_in_los(vector<stack_iterator> *positions);
 int fedhas_corpse_spores(beh_type attitude = BEH_FRIENDLY,
                          bool interactive = true);
 bool mons_is_evolvable(const monster* mon);
@@ -72,4 +76,11 @@ bool ashenzari_end_transfer(bool finished = false, bool force = false);
 
 bool can_convert_to_beogh();
 void spare_beogh_convert();
+
+bool dithmenos_shadow_step();
+monster* shadow_monster(bool equip = true);
+void shadow_monster_reset(monster *mon);
+void dithmenos_shadow_melee(actor* target);
+void dithmenos_shadow_throw(coord_def target);
+void dithmenos_shadow_spell(bolt* orig_beam, spell_type spell);
 #endif

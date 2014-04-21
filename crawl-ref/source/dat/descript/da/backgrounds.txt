@@ -57,7 +57,8 @@ fjender ukampdygtige og er udstyret med en dolk og nogle kastepile.
 %%%%
 Fighter
 
-Krigere er udstyret med rustning, skjold og et valgfrit våben.
+Krigere er udstyret med rustning og skjold, et valgfrit våben og en
+krafteliksir.
 %%%%
 Fire Elementalist
 

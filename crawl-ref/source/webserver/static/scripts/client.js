@@ -15,9 +15,14 @@ function (exports, $, key_conversion, chat, comm) {
     var message_inhibit = 0;
     var message_queue = [];
 
+    var watching = false;
+    var watching_username;
+    var playing = false;
     var logging_in = false;
-
     var showing_close_message = false;
+    var current_hash;
+    var exit_reason, exit_message, exit_dump;
+    var normal_exit = ["saved", "cancel", "quit", "won", "bailed out", "dead"];
 
     var send_message = comm.send_message;
 
@@ -48,12 +53,26 @@ function (exports, $, key_conversion, chat, comm) {
         if (msgtext.match(/^{/))
         {
             // JSON message
-            var msgobj = eval("(" + msgtext + ")");
+            var msgobj;
+            try
+            {
+                // Can't use JSON.parse here, because 0.11 and older send
+                // invalid JSON messages
+                msgobj = eval("(" + msgtext + ")");
+            }
+            catch (e)
+            {
+                console.error("Parsing error:", e);
+                console.error("Source message:", msgtext);
+                return;
+            }
             var msgs = msgobj.msgs;
             if (msgs == null)
                 msgs = [ msgobj ];
             for (var i in msgs)
             {
+                if (window.log_messages && window.log_messages !== 2)
+                    console.log("Message: " + msgs[i].msg, msgs[i]);
                 if (!comm.handle_message_immediately(msgs[i]))
                     message_queue.push(msgs[i]);
             }
@@ -84,7 +103,7 @@ function (exports, $, key_conversion, chat, comm) {
                 }
                 catch (err)
                 {
-                    console.error("Error in message: " + msg);
+                    console.error("Error in message:", msg);
                     console.error(err.message);
                     console.error(err.stack);
                 }
@@ -145,7 +164,8 @@ function (exports, $, key_conversion, chat, comm) {
 
     function in_game()
     {
-        return current_layer != "lobby" && current_layer != "loader";
+        return current_layer != "lobby" && current_layer != "loader"
+               && !showing_close_message;
     }
 
     function set_layer(layer)
@@ -186,14 +206,18 @@ function (exports, $, key_conversion, chat, comm) {
         if (!in_game()) return;
         if ($(document.activeElement).hasClass("text")) return;
 
+        // Fix for FF < 25:
+        // https://developer.mozilla.org/en-US/docs/Web/Reference/Events/keydown#preventDefault%28%29_of_keydown_event
+        if (e.isDefaultPrevented()) return;
+
         if (e.ctrlKey || e.altKey)
         {
             // allow AltGr keys on various non-english keyboard layouts, not
             // needed for Mozilla where neither ctrlKey or altKey is set
             if ($.browser.mozilla || !e.ctrlKey || !e.altKey)
             {
-                log("CTRL key: " + e.ctrlKey + " " + e.which
-                    + " " + String.fromCharCode(e.which));
+                //log("CTRL key: " + e.ctrlKey + " " + e.which
+                //    + " " + String.fromCharCode(e.which));
                 return;
             }
         }
@@ -336,8 +360,8 @@ function (exports, $, key_conversion, chat, comm) {
                 e.preventDefault();
                 send_keycode(key_conversion.simple[e.which]);
             }
-            else
-                log("Key: " + e.which);
+            //else
+            //    log("Key: " + e.which);
         }
     }
 
@@ -401,10 +425,8 @@ function (exports, $, key_conversion, chat, comm) {
 
         if (!watching)
         {
-            if (location.hash == "" || location.hash.match(/^#lobby$/i))
-                go_lobby();
-            else
-                hash_changed();
+            current_hash = null;
+            hash_changed();
         }
     }
 
@@ -488,6 +510,89 @@ function (exports, $, key_conversion, chat, comm) {
             send_bytes([key.charCodeAt(0)]);
         });
         show_dialog(dialog);
+    }
+
+    function possessive(name)
+    {
+        return name + "'" + (name.slice(-1) === "s" ? "" : "s");
+    }
+
+    function exit_reason_message(reason, watched_name)
+    {
+        if (watched_name)
+        {
+            switch (reason)
+            {
+            case "quit":
+            case "won":
+            case "bailed out":
+            case "dead":
+                return null;
+            case "cancel":
+                return watched_name + " quit before creating a character.";
+            case "saved":
+                return watched_name + " stopped playing (saved).";
+            case "crash":
+                return possessive(watched_name) + " game crashed.";
+            case "error":
+                return possessive(watched_name)
+                       + " game was terminated due to an error.";
+            default:
+                return possessive(watched_name) + " game ended unexpectedly."
+                       + (reason != "unknown" ? " (" + reason + ")" : "");
+            }
+        }
+        else
+        {
+            switch (reason)
+            {
+            case "quit":
+            case "won":
+            case "bailed out":
+            case "dead":
+            case "saved":
+            case "cancel":
+                return null;
+            case "crash":
+                return "Unfortunately your game crashed.";
+            case "error":
+                return "Unfortunately your game terminated due to an error.";
+            default:
+                return "Unfortunately your game ended unexpectedly."
+                       + (reason != "unknown" ? " (" + reason + ")" : "");
+            }
+        }
+    }
+
+    function show_exit_dialog(reason, message, dump, watched_name)
+    {
+        var reason_msg = exit_reason_message(reason, watched_name);
+        if (reason_msg != null)
+            $("#exit_game_reason").text(reason_msg).show();
+        else
+            $("#exit_game_reason").hide();
+
+        if (message)
+            $("#exit_game_message").text(message.replace(/\s+$/, "")).show();
+        else
+            $("#exit_game_message").hide();
+
+        if (dump)
+        {
+            var a = $("<a>").attr("target", "_blank")
+                            .attr("href", dump + ".txt");
+            if (reason === "saved")
+                a.text("Character dump");
+            else if (reason === "crash")
+                a.text("Crash log");
+            else
+                a.text("Morgue file");
+            $("#exit_game_dump").html(a).show();
+        }
+        else
+            $("#exit_game_dump").hide();
+
+        show_dialog("#exit_game");
     }
 
     function start_register()
@@ -615,10 +720,25 @@ function (exports, $, key_conversion, chat, comm) {
 
     function go_lobby()
     {
+        var was_watching = watching;
+
         cleanup();
+        current_hash = "#lobby";
         location.hash = "#lobby";
         set_layer("lobby");
         $("#username").focus();
+
+        if (exit_reason)
+        {
+            if (was_watching || normal_exit.indexOf(exit_reason) === -1)
+            {
+                show_exit_dialog(exit_reason, exit_message, exit_dump,
+                                 was_watching ? watching_username : null);
+            }
+        }
+        exit_reason = null;
+        exit_message = null;
+        exit_dump = null;
     }
 
     function login_required(data)
@@ -850,10 +970,10 @@ function (exports, $, key_conversion, chat, comm) {
         "force_terminate?": handle_force_terminate
     });
 
-    var watching = false;
-    function watching_started()
+    function watching_started(data)
     {
         watching = true;
+        watching_username = data.username;
         playing = false;
     }
     exports.is_watching = function ()
@@ -861,19 +981,26 @@ function (exports, $, key_conversion, chat, comm) {
         return watching;
     }
 
-    var playing = false;
     function crawl_started()
     {
         playing = true;
         watching = false;
     }
-    function crawl_ended()
+    function crawl_ended(data)
     {
         playing = false;
+
+        exit_reason = data.reason;
+        exit_message = data.message;
+        exit_dump = data.dump;
     }
 
     function hash_changed()
     {
+        if (location.hash === current_hash)
+            return;
+        current_hash = location.hash;
+
         var watch = location.hash.match(/^#watch-(.+)/i);
         var play = location.hash.match(/^#play-(.+)/i);
         if (watch)
@@ -919,7 +1046,8 @@ function (exports, $, key_conversion, chat, comm) {
     {
         if (game_version == null || data["version"] != game_version)
         {
-            $(document).unbind("game_preinit game_init game_cleanup");
+            $(document).off();
+            bind_document_events();
             for (var i in loaded_modules)
                 requirejs.undef(loaded_modules[i]);
             loaded_modules = [];
@@ -928,10 +1056,30 @@ function (exports, $, key_conversion, chat, comm) {
 
         inhibit_messages();
         show_loading_screen();
+        delete window.game_loading;
         $("#game").html(data.content);
-        $(document).ready(function () {
+        if (data.content.indexOf("game_loading") === -1)
+        {
+            // old version, uninhibit can happen too early
             $("#game").waitForImages(uninhibit_messages);
-        });
+        }
+        else
+        {
+            $("#game").waitForImages(function ()
+            {
+                var load_interval = setInterval(check_loading, 50);
+
+                function check_loading()
+                {
+                    if (window.game_loading)
+                    {
+                        delete window.game_loading;
+                        uninhibit_messages();
+                        clearInterval(load_interval);
+                    }
+                }
+            });
+        }
     }
 
     function do_set_layer(data)
@@ -977,9 +1125,15 @@ function (exports, $, key_conversion, chat, comm) {
             return false; // buggy Blob builder
         if (b.safari)
             return false;
-        if (b.opera) // JavaScript errors in version 12.15
-            return false;
         return true;
+    }
+
+    function bind_document_events()
+    {
+        $(document).on("keypress.client", handle_keypress);
+        $(document).on("keydown.client", handle_keydown);
+        $(document).on("game_keypress", stale_processes_keypress);
+        $(document).on("game_keypress", force_terminate_keypress);
     }
 
     // Global functions for backwards compatibility (HACK)
@@ -1026,9 +1180,7 @@ function (exports, $, key_conversion, chat, comm) {
     });
 
     $(document).ready(function () {
-        // Key handler
-        $(document).bind('keypress.client', handle_keypress);
-        $(document).bind('keydown.client', handle_keydown);
+        bind_document_events();
 
         $(window).resize(function (ev) {
             do_layout();
@@ -1041,6 +1193,8 @@ function (exports, $, key_conversion, chat, comm) {
                 return "Really save and quit the game?";
             }
         });
+
+        $(".hide_dialog").click(hide_dialog);
 
         $("#login_form").bind("submit", login);
         $("#remember_me").bind("click", remember_me_click);
@@ -1055,8 +1209,6 @@ function (exports, $, key_conversion, chat, comm) {
 
         $("#force_terminate_no").click(force_terminate_no);
         $("#force_terminate_yes").click(force_terminate_yes);
-        $(document).on("game_keypress", stale_processes_keypress);
-        $(document).on("game_keypress", force_terminate_keypress);
 
         do_layout();
 
@@ -1092,11 +1244,8 @@ function (exports, $, key_conversion, chat, comm) {
 
                 start_login();
 
-                if (location.hash == "" ||
-                    location.hash.match(/^#lobby$/i))
-                    go_lobby();
-                else
-                    hash_changed();
+                current_hash = null;
+                hash_changed();
             };
 
             socket.onmessage = function (msg)
@@ -1109,11 +1258,11 @@ function (exports, $, key_conversion, chat, comm) {
                     var decompressed = [inflater.append(data)];
                     if (decompressed[0] === -1)
                     {
-                        console.log("decompression error!");
+                        console.error("Decompression error!");
                         var x = inflater.append(data);
                     }
                     decode_utf8(decompressed, function (s) {
-                        if (window.log_messages)
+                        if (window.log_messages === 2)
                             console.log("Message: " + s);
                         if (window.log_message_size)
                             console.log("Message size: " + s.length);
@@ -1123,7 +1272,7 @@ function (exports, $, key_conversion, chat, comm) {
                     return;
                 }
 
-                if (window.log_messages)
+                if (window.log_messages === 2)
                     console.log("Message: " + msg.data);
                 if (window.log_message_size)
                     console.log("Message size: " + msg.data.length);

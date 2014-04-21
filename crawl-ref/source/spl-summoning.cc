@@ -10,15 +10,18 @@
 #include <algorithm>
 #include <cmath>
 
+#include "act-iter.h"
 #include "areas.h"
 #include "artefact.h"
 #include "cloud.h"
+#include "colour.h"
 #include "coordit.h"
 #include "database.h"
 #include "delay.h"
 #include "directn.h"
 #include "dungeon.h"
 #include "env.h"
+#include "target.h"
 #include "fprop.h"
 #include "godconduct.h"
 #include "goditem.h"
@@ -33,8 +36,9 @@
 #include "mgen_data.h"
 #include "misc.h"
 #include "mon-act.h"
+#include "mon-abil.h"
 #include "mon-behv.h"
-#include "mon-iter.h"
+#include "mon-cast.h"
 #include "mon-place.h"
 #include "mon-speak.h"
 #include "mon-stuff.h"
@@ -66,18 +70,17 @@ spret_type cast_summon_butterflies(int pow, god_type god, bool fail)
     fail_check();
     bool success = false;
 
-    const int how_many = min(15, 3 + random2(3) + random2(pow) / 10);
+    const int how_many = min(8, 3 + random2(3) + random2(pow) / 10);
 
     for (int i = 0; i < how_many; ++i)
     {
-        if (monster* mons = create_monster(
+        if (create_monster(
                 mgen_data(MONS_BUTTERFLY, BEH_FRIENDLY, &you,
                           3, SPELL_SUMMON_BUTTERFLIES,
                           you.pos(), MHITYOU,
                           0, god)))
         {
             success = true;
-            summoned_monster(mons, &you, SPELL_SUMMON_BUTTERFLIES);
         }
     }
 
@@ -96,59 +99,26 @@ spret_type cast_summon_small_mammal(int pow, god_type god, bool fail)
     if (x_chance_in_y(10, pow + 1))
         mon = coinflip() ? MONS_BAT : MONS_RAT;
     else
-        mon = coinflip() ? MONS_QUOKKA : MONS_GREY_RAT;
+        mon = MONS_QUOKKA;
 
-    if (monster* mons = create_monster(
+    if (!create_monster(
             mgen_data(mon, BEH_FRIENDLY, &you,
                       3, SPELL_SUMMON_SMALL_MAMMAL,
                       you.pos(), MHITYOU,
-                      0, god)))
+                      MG_AUTOFOE, god)))
     {
-        summoned_monster(mons, &you, SPELL_SUMMON_SMALL_MAMMAL);
-    }
-    else
         canned_msg(MSG_NOTHING_HAPPENS);
+    }
 
     return SPRET_SUCCESS;
 }
 
-static bool _snakable_missile(const item_def& item)
-{
-    return (item.base_type == OBJ_MISSILES
-            && (item.sub_type == MI_ARROW || item.sub_type == MI_JAVELIN)
-            && item.special != SPMSL_SILVER
-            && item.special != SPMSL_STEEL);
-}
-
-static bool _snakable_weapon(const item_def& item)
-{
-    if (item.base_type == OBJ_STAVES || item.base_type == OBJ_RODS)
-        return true;
-
-    return (item.base_type == OBJ_WEAPONS
-            && !is_artefact(item)
-            && (item.sub_type == WPN_CLUB
-                || item.sub_type == WPN_GIANT_CLUB
-                || item.sub_type == WPN_GIANT_SPIKED_CLUB
-                || item.sub_type == WPN_SPEAR
-                || item.sub_type == WPN_TRIDENT
-                || item.sub_type == WPN_HALBERD
-                || item.sub_type == WPN_SCYTHE
-                || item.sub_type == WPN_DEMON_TRIDENT
-                || item.sub_type == WPN_GLAIVE
-                || item.sub_type == WPN_BARDICHE
-#if TAG_MAJOR_VERSION == 34
-                || item.sub_type == WPN_STAFF
-#endif
-                || item.sub_type == WPN_QUARTERSTAFF
-                || item.sub_type == WPN_BLOWGUN
-                || item.sub_type == WPN_BOW
-                || item.sub_type == WPN_LONGBOW));
-}
-
 bool item_is_snakable(const item_def& item)
 {
-    return (_snakable_missile(item) || _snakable_weapon(item));
+    return item.base_type == OBJ_MISSILES
+           && (item.sub_type == MI_ARROW || item.sub_type == MI_JAVELIN)
+           && item.special != SPMSL_SILVER
+           && item.special != SPMSL_STEEL;
 }
 
 spret_type cast_sticks_to_snakes(int pow, god_type god, bool fail)
@@ -167,7 +137,7 @@ spret_type cast_sticks_to_snakes(int pow, god_type god, bool fail)
     // Don't enchant sticks marked with {!D}.
     if (!check_warning_inscriptions(wpn, OPER_DESTROY))
     {
-        mpr(abort_msg);
+        mprf("%s", abort_msg.c_str());
         return SPRET_ABORT;
     }
 
@@ -178,7 +148,12 @@ spret_type cast_sticks_to_snakes(int pow, god_type god, bool fail)
 
     int count = 0;
 
-    if (_snakable_missile(wpn))
+    if (!item_is_snakable(wpn))
+    {
+        mprf("%s", abort_msg.c_str());
+        return SPRET_ABORT;
+    }
+    else
     {
         fail_check();
         if (wpn.quantity < how_many_max)
@@ -188,8 +163,7 @@ spret_type cast_sticks_to_snakes(int pow, god_type god, bool fail)
         {
             monster_type mon;
 
-            if (get_ammo_brand(wpn) == SPMSL_POISONED
-                || one_chance_in(5 - min(4, div_rand_round(pow * 2, 25))))
+            if (one_chance_in(5 - min(4, div_rand_round(pow * 2, 25))))
             {
                 mon = x_chance_in_y(pow / 3, 100) ? MONS_WATER_MOCCASIN
                                                   : MONS_ADDER;
@@ -199,91 +173,22 @@ spret_type cast_sticks_to_snakes(int pow, god_type god, bool fail)
 
             if (monster *snake = create_monster(mgen_data(mon, beha, &you,
                                       0, SPELL_STICKS_TO_SNAKES, you.pos(),
-                                      MHITYOU, 0, god), false))
+                                      MHITYOU, MG_AUTOFOE, god), false))
             {
                 count++;
                 snake->add_ench(mon_enchant(ENCH_FAKE_ABJURATION, dur));
             }
         }
     }
-    else if (_snakable_weapon(wpn))
-    {
-        fail_check();
-        // Upsizing Snakes to Water Moccasins as the base class for using
-        // the really big sticks (so bonus applies really only to trolls
-        // and ogres).  Still, it's unlikely any character is strong
-        // enough to bother lugging a few of these around. - bwr
-        monster_type mon = MONS_ADDER;
-
-        if (get_weapon_brand(wpn) == SPWPN_VENOM || item_mass(wpn) >= 300)
-            mon = MONS_WATER_MOCCASIN;
-
-        if (pow > 20 && one_chance_in(3))
-            mon = MONS_WATER_MOCCASIN;
-
-        if (pow > 40 && coinflip())
-            mon = MONS_WATER_MOCCASIN;
-
-        if (pow > 70 && one_chance_in(3))
-            mon = MONS_BLACK_MAMBA;
-
-        if (pow > 90 && one_chance_in(3))
-            mon = MONS_ANACONDA;
-
-        if (monster *snake = create_monster(mgen_data(mon, beha, &you,
-                                  0, SPELL_STICKS_TO_SNAKES, you.pos(),
-                                  MHITYOU, 0, god), false))
-        {
-            count++;
-            snake->add_ench(mon_enchant(ENCH_FAKE_ABJURATION, dur));
-        }
-    }
-    else
-    {
-        mpr(abort_msg);
-        return SPRET_ABORT;
-    }
 
     if (!count)
     {
-        mpr(abort_msg);
+        mprf("%s", abort_msg.c_str());
         return SPRET_SUCCESS;
     }
 
     dec_inv_item_quantity(you.equip[EQ_WEAPON], count);
     mpr((count > 1) ? "You create some snakes!" : "You create a snake!");
-    return SPRET_SUCCESS;
-}
-
-spret_type cast_summon_scorpions(int pow, god_type god, bool fail)
-{
-    fail_check();
-    bool success = false;
-
-    const int how_many = stepdown_value(1 + random2(pow)/10 + random2(pow)/10,
-                                        2, 2, 6, 8);
-
-    for (int i = 0; i < how_many; ++i)
-    {
-        const bool friendly = (random2(pow) > 3);
-
-        if (monster* mons = create_monster(
-                mgen_data(MONS_SCORPION,
-                          friendly ? BEH_FRIENDLY : BEH_HOSTILE, &you,
-                          3, SPELL_SUMMON_SCORPIONS,
-                          you.pos(), MHITYOU,
-                          0, god)))
-        {
-            success = true;
-            // Only friendlies count towards summons cap
-            if (friendly)
-                summoned_monster(mons, &you, SPELL_SUMMON_SCORPIONS);
-        }
-    }
-
-    if (!success)
-        canned_msg(MSG_NOTHING_HAPPENS);
-
     return SPRET_SUCCESS;
 }
 
@@ -299,7 +204,8 @@ spret_type cast_summon_swarm(int pow, god_type god, bool fail)
 
     for (int i = 0; i < how_many; ++i)
     {
-        const monster_type swarmers[] = {
+        const monster_type swarmers[] =
+        {
             MONS_KILLER_BEE,     MONS_KILLER_BEE,    MONS_KILLER_BEE,
             MONS_SCORPION,       MONS_WORM,          MONS_VAMPIRE_MOSQUITO,
             MONS_GOLIATH_BEETLE, MONS_SPIDER,        MONS_BUTTERFLY,
@@ -315,14 +221,13 @@ spret_type cast_summon_swarm(int pow, god_type god, bool fail)
             mon = RANDOM_ELEMENT(swarmers);
         while (player_will_anger_monster(mon));
 
-        if (monster *mons = create_monster(
+        if (create_monster(
                 mgen_data(mon, BEH_FRIENDLY, &you,
                           dur, SPELL_SUMMON_SWARM,
                           you.pos(),
                           MHITYOU,
-                          0, god)))
+                          MG_AUTOFOE, god)))
         {
-            summoned_monster(mons, &you, SPELL_SUMMON_SWARM);
             success = true;
         }
     }
@@ -338,48 +243,26 @@ spret_type cast_call_canine_familiar(int pow, god_type god, bool fail)
     fail_check();
     monster_type mon = MONS_PROGRAM_BUG;
 
-    const int chance = random2(pow);
-    if (chance < 10)
-        mon = MONS_JACKAL;
-    else if (chance < 15)
-        mon = MONS_HOUND;
+    const int chance = pow + random_range(-10, 10);
+
+    if (chance > 59)
+        mon = MONS_WARG;
+    else if (chance > 39)
+        mon = MONS_WOLF;
     else
-    {
-        switch (chance % 7)
-        {
-        case 0:
-            mon = MONS_WARG;
-            break;
-
-        case 1:
-        case 2:
-            mon = MONS_WOLF;
-            break;
-
-        case 3:
-        case 4:
-            mon = MONS_HOUND;
-            break;
-
-        default:
-            mon = MONS_JACKAL;
-            break;
-        }
-    }
+        mon = MONS_HOUND;
 
     const int dur = min(2 + (random2(pow) / 4), 6);
 
-    if (monster* mons = create_monster(
+    if (!create_monster(
             mgen_data(mon, BEH_FRIENDLY, &you,
                       dur, SPELL_CALL_CANINE_FAMILIAR,
                       you.pos(),
                       MHITYOU,
-                      0, god)))
+                      MG_AUTOFOE, god)))
     {
-        summoned_monster(mons, &you, SPELL_CALL_CANINE_FAMILIAR);
-    }
-    else
         canned_msg(MSG_NOTHING_HAPPENS);
+    }
 
     return SPRET_SUCCESS;
 }
@@ -419,7 +302,7 @@ static monster_type _feature_to_elemental(const coord_def& where,
     if ((any_elem || strict_elem == MONS_EARTH_ELEMENTAL)
         && (grd(where) == DNGN_ROCK_WALL || grd(where) == DNGN_CLEAR_ROCK_WALL))
     {
-            return MONS_EARTH_ELEMENTAL;
+        return MONS_EARTH_ELEMENTAL;
     }
 
     if ((any_elem || strict_elem == MONS_FIRE_ELEMENTAL)
@@ -460,7 +343,7 @@ spret_type cast_summon_elemental(int pow, god_type god,
 
     const int dur = min(2 + (random2(pow) / 5), 6);
 
-    mpr("Summon from material in which direction?", MSGCH_PROMPT);
+    mprf(MSGCH_PROMPT, "Summon from material in which direction?");
 
     direction_chooser_args args;
     args.restricts = DIR_DIR;
@@ -548,18 +431,13 @@ spret_type cast_summon_elemental(int pow, god_type god,
 
                         && random2(100) >= unfriendly);
 
-    if (monster* mons = create_monster(
+    if (!create_monster(
             mgen_data(mon,
                       friendly ? BEH_FRIENDLY : BEH_HOSTILE, &you,
                       dur, SPELL_SUMMON_ELEMENTAL,
                       targ,
                       MHITYOU,
-                      0, god)))
-    {
-        if (friendly)
-            summoned_monster(mons, &you, SPELL_SUMMON_ELEMENTAL);
-    }
-    else
+                      MG_AUTOFOE, god)))
     {
         canned_msg(MSG_NOTHING_HAPPENS);
         return SPRET_SUCCESS;
@@ -576,46 +454,83 @@ spret_type cast_summon_elemental(int pow, god_type god,
 spret_type cast_summon_ice_beast(int pow, god_type god, bool fail)
 {
     fail_check();
-    const int dur = min(2 + (random2(pow) / 4), 6);
+    const int dur = min(2 + (random2(pow) / 4), 4);
 
-    if (monster* mons = create_monster(
-            mgen_data(MONS_ICE_BEAST, BEH_FRIENDLY, &you,
-                      dur, SPELL_SUMMON_ICE_BEAST,
-                      you.pos(), MHITYOU,
-                      0, god)))
-    {
+    mgen_data ice_beast = mgen_data(MONS_ICE_BEAST, BEH_FRIENDLY, &you,
+                                    dur, SPELL_SUMMON_ICE_BEAST,
+                                    you.pos(), MHITYOU,
+                                    MG_AUTOFOE, god);
+    ice_beast.hd = (3 + div_rand_round(pow, 13));
+
+    if (create_monster(ice_beast))
         mpr("A chill wind blows around you.");
-        summoned_monster(mons, &you, SPELL_SUMMON_ICE_BEAST);
-    }
     else
         canned_msg(MSG_NOTHING_HAPPENS);
 
     return SPRET_SUCCESS;
 }
 
-spret_type cast_summon_ugly_thing(int pow, god_type god, bool fail)
+spret_type cast_monstrous_menagerie(actor* caster, int pow, god_type god, bool fail)
 {
     fail_check();
-    monster_type mon = MONS_PROGRAM_BUG;
+    monster_type type = MONS_PROGRAM_BUG;
 
-    if (random2(pow) >= 46 || one_chance_in(6))
-        mon = MONS_VERY_UGLY_THING;
+    if (random2(pow) > 60 && coinflip())
+        type = MONS_SPHINX;
     else
-        mon = MONS_UGLY_THING;
+        type = random_choose(MONS_HARPY, MONS_MANTICORE, MONS_LINDWURM, -1);
 
-    const int dur = min(2 + (random2(pow) / 4), 6);
+    int num = (type == MONS_HARPY ? 1 + x_chance_in_y(pow, 80)
+                                      + x_chance_in_y(pow - 75, 100)
+                                  : 1);
+    const bool plural = (num > 1);
 
-    if (monster* mons = create_monster(
-            mgen_data(mon,
-                      BEH_FRIENDLY, &you,
-                      dur, SPELL_SUMMON_UGLY_THING,
-                      you.pos(),
-                      MHITYOU,
-                      0, god)))
+    const int hd_bonus = div_rand_round(pow - 50, 25);
+
+    mgen_data mdata = mgen_data(type, BEH_COPY, caster, 4,
+                                SPELL_MONSTROUS_MENAGERIE, caster->pos(),
+                                (caster->is_player()) ?
+                                    MHITYOU : caster->as_monster()->foe,
+                                MG_AUTOFOE | MG_DONT_CAP, god);
+
+    if (caster->is_player())
+        mdata.hd = get_monster_data(type)->hpdice[0] +  hd_bonus;
+
+    bool seen = false;
+    bool first = true;
+    int mid = -1;
+    while (num-- > 0)
     {
-        summoned_monster(mons, &you, SPELL_SUMMON_UGLY_THING);
-        mpr((mon == MONS_VERY_UGLY_THING) ? "A very ugly thing appears."
-                                          : "An ugly thing appears.");
+        if (monster* beast = create_monster(mdata))
+        {
+            if (you.can_see(beast))
+                seen = true;
+
+            // Link the harpies together as one entity as far as the summon
+            // cap is concerned.
+            if (type == MONS_HARPY)
+            {
+                if (mid == -1)
+                    mid = beast->mid;
+
+                beast->props["summon_id"].get_int() = mid;
+            }
+
+            // Handle cap only for the first of the batch being summoned
+            if (first)
+                summoned_monster(beast, &you, SPELL_MONSTROUS_MENAGERIE);
+
+            first = false;
+        }
+    }
+
+    if (seen)
+    {
+        mprf("%s %s %s %s!", caster->name(DESC_THE).c_str(),
+                             caster->conj_verb("summon").c_str(),
+                             plural ? "some" : "a",
+                             plural ? pluralise(mons_type_name(type, DESC_PLAIN)).c_str()
+                                    : mons_type_name(type, DESC_PLAIN).c_str());
     }
     else
         canned_msg(MSG_NOTHING_HAPPENS);
@@ -645,13 +560,11 @@ spret_type cast_summon_hydra(actor *caster, int pow, god_type god, bool fail)
                       1, SPELL_SUMMON_HYDRA, caster->pos(),
                       (caster->is_player()) ?
                           MHITYOU : caster->as_monster()->foe,
-                      0, (god == GOD_NO_GOD) ? caster->deity() : god,
+                      MG_AUTOFOE, (god == GOD_NO_GOD) ? caster->deity() : god,
                       MONS_HYDRA, heads)))
     {
         if (you.see_cell(hydra->pos()))
             mpr("A hydra appears.");
-        if (!player_angers_monster(hydra)) // currently no-op
-            summoned_monster(hydra, &you, SPELL_SUMMON_HYDRA);
     }
     else if (caster->is_player())
         canned_msg(MSG_NOTHING_HAPPENS);
@@ -659,22 +572,11 @@ spret_type cast_summon_hydra(actor *caster, int pow, god_type god, bool fail)
     return SPRET_SUCCESS;
 }
 
-spret_type cast_summon_dragon(actor *caster, int pow, god_type god, bool fail)
+static monster_type _choose_dragon_type(int pow, god_type god, bool player)
 {
-    // Dragons are always friendly. Dragon type depends on power and
-    // random chance, with two low-tier dragons possible at high power.
-    // Duration fixed at 6.
-
-    fail_check();
-    bool success = false;
-
-    if (god == GOD_NO_GOD)
-        god = caster->deity();
-
     monster_type mon = MONS_PROGRAM_BUG;
 
     const int chance = random2(pow);
-    int how_many = 1;
 
     if (chance >= 80 || one_chance_in(6))
         mon = (coinflip()) ? MONS_GOLDEN_DRAGON : MONS_QUICKSILVER_DRAGON;
@@ -692,11 +594,133 @@ spret_type cast_summon_dragon(actor *caster, int pow, god_type god, bool fail)
             break;
         }
     else
+        mon = (coinflip()) ? MONS_FIRE_DRAGON : MONS_ICE_DRAGON;
+
+    // For good gods, switch away from shadow dragons (and, for TSO,
+    // golden dragons, since they poison) to storm/iron dragons.
+    if (player && player_will_anger_monster(mon)
+        || (god == GOD_SHINING_ONE && mon == MONS_GOLDEN_DRAGON))
     {
-        mon = (coinflip()) ? MONS_DRAGON : MONS_ICE_DRAGON;
-        if (pow >= 100)
-            how_many = 2;
+        mon = (coinflip()) ? MONS_STORM_DRAGON : MONS_IRON_DRAGON;
     }
+
+    return mon;
+}
+
+spret_type cast_dragon_call(int pow, bool fail)
+{
+    if (you.duration[DUR_DRAGON_CALL_COOLDOWN])
+    {
+        mpr("You cannot issue another dragon's call so soon.");
+        return SPRET_ABORT;
+    }
+
+    fail_check();
+
+    mpr("You call out to the draconic realm and the roar of the horde responds!");
+    noisy(15, you.pos());
+
+    you.duration[DUR_DRAGON_CALL] = (15 + pow / 5 + random2(15)) * BASELINE_DELAY;
+
+    return SPRET_SUCCESS;
+}
+
+static bool _place_dragon()
+{
+    const int pow = calc_spell_power(SPELL_DRAGON_CALL, true);
+    monster_type mon = _choose_dragon_type(pow, you.religion, true);
+
+    vector<monster*> targets;
+
+    // Pick a random hostile in sight
+    for (monster_near_iterator mi(&you, LOS_NO_TRANS); mi; ++mi)
+    {
+        if (!mons_aligned(&you, *mi))
+            targets.push_back(*mi);
+    }
+
+    shuffle_array(targets);
+
+    // Attempt to place adjacent to the first chosen hostile. If there is no
+    // valid spot, move on to the next one.
+    for (unsigned int i = 0; i < targets.size(); ++i)
+    {
+        // Chose a random viable adjacent spot to the select target
+        vector<coord_def> spots;
+        for (adjacent_iterator ai(targets[i]->pos()); ai; ++ai)
+        {
+            if (monster_habitable_grid(MONS_FIRE_DRAGON, grd(*ai)) && !actor_at(*ai))
+                spots.push_back(*ai);
+        }
+
+        // Now try to create the actual dragon
+        if (spots.size() > 0)
+        {
+            const coord_def pos = spots[random2(spots.size())];
+
+            if (monster *dragon = create_monster(mgen_data(mon, BEH_COPY, &you,
+                                                           2, SPELL_DRAGON_CALL,
+                                                           pos, MHITYOU,
+                                                           MG_FORCE_PLACE | MG_AUTOFOE)))
+            {
+                dec_mp(random_range(2, 3));
+
+                if (you.see_cell(dragon->pos()))
+                    mpr("A dragon arrives to answer your call!");
+
+                // The dragon is allowed to act immediately here
+                dragon->flags &= ~MF_JUST_SUMMONED;
+
+                if (!enough_mp(2, true))
+                {
+                    mprf(MSGCH_DURATION, "Having expended the last of your "
+                                         "magical power, your connection to the "
+                                         "dragon horde fades.");
+                    you.duration[DUR_DRAGON_CALL] = 0;
+                    you.duration[DUR_DRAGON_CALL_COOLDOWN] = random_range(150, 250);
+                }
+
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+void do_dragon_call(int time)
+{
+    noisy(15, you.pos());
+
+    while (time > you.attribute[ATTR_NEXT_DRAGON_TIME]
+           && you.duration[DUR_DRAGON_CALL])
+    {
+        time -= you.attribute[ATTR_NEXT_DRAGON_TIME];
+        _place_dragon();
+        you.attribute[ATTR_NEXT_DRAGON_TIME] = 3 + random2(5)
+                                               + count_summons(&you, SPELL_DRAGON_CALL) * 5;
+    }
+    you.attribute[ATTR_NEXT_DRAGON_TIME] -= time;
+}
+
+spret_type cast_summon_dragon(actor *caster, int pow, god_type god, bool fail)
+{
+    // Dragons are always friendly. Dragon type depends on power and
+    // random chance, with two low-tier dragons possible at high power.
+    // Duration fixed at 6.
+
+    fail_check();
+    bool success = false;
+
+    if (god == GOD_NO_GOD)
+        god = caster->deity();
+
+    int how_many = 1;
+    monster_type mon = _choose_dragon_type(pow, god, caster->is_player());
+
+    if (pow >= 100 && (mon == MONS_FIRE_DRAGON || mon == MONS_ICE_DRAGON))
+        how_many = 2;
+
     // For good gods, switch away from shadow dragons (and, for TSO,
     // golden dragons, since they poison) to storm/iron dragons.
     if (player_will_anger_monster(mon)
@@ -713,18 +737,36 @@ spret_type cast_summon_dragon(actor *caster, int pow, god_type god, bool fail)
                           caster->pos(),
                           (caster->is_player()) ? MHITYOU
                             : caster->as_monster()->foe,
-                          0, god)))
+                          MG_AUTOFOE, god)))
         {
             if (you.see_cell(dragon->pos()))
                 mpr("A dragon appears.");
-            // Xom summoning evil dragons if you worship a good god?  Sure!
-            if (!player_angers_monster(dragon))
-                summoned_monster(dragon, &you, SPELL_SUMMON_DRAGON);
             success = true;
         }
     }
 
     if (!success && caster->is_player())
+        canned_msg(MSG_NOTHING_HAPPENS);
+
+    return SPRET_SUCCESS;
+}
+
+spret_type cast_summon_mana_viper(int pow, god_type god, bool fail)
+{
+    fail_check();
+
+    mgen_data viper = mgen_data(MONS_MANA_VIPER, BEH_FRIENDLY, &you,
+                                2, SPELL_SUMMON_MANA_VIPER,
+                                you.pos(), MHITYOU,
+                                MG_AUTOFOE, god);
+    viper.hd = (5 + div_rand_round(pow, 12));
+
+    // Don't scale hp at the same time as their antimagic power
+    viper.hp = hit_points(9, 3, 5);
+
+    if (create_monster(viper))
+        mpr("A mana viper appears with a sibilant hiss.");
+    else
         canned_msg(MSG_NOTHING_HAPPENS);
 
     return SPRET_SUCCESS;
@@ -797,7 +839,7 @@ bool summon_berserker(int pow, actor *caster, monster_type override_mons)
                  caster ? caster->pos() : you.pos(),
                  (caster && caster->is_monster())
                      ? ((monster*)caster)->foe : MHITYOU,
-                 0, GOD_TROG);
+                 MG_AUTOFOE, GOD_TROG);
 
     if (!caster)
         mg.non_actor_summoner = "the rage of " + god_name(GOD_TROG, false);
@@ -819,7 +861,7 @@ bool summon_holy_warrior(int pow, bool punish)
                  punish ? 0 : &you,
                  punish ? 0 : min(2 + (random2(pow) / 4), 6),
                  0, you.pos(), MHITYOU,
-                 MG_FORCE_BEH, GOD_SHINING_ONE);
+                 MG_FORCE_BEH | MG_AUTOFOE, GOD_SHINING_ONE);
 
     if (punish)
     {
@@ -884,7 +926,7 @@ spret_type cast_tukimas_dance(int pow, god_type god, bool force_hostile,
                  dur, SPELL_TUKIMAS_DANCE,
                  you.pos(),
                  MHITYOU,
-                 0, god);
+                 MG_AUTOFOE, god);
     mg.props[TUKIMA_WEAPON] = cp;
     mg.props[TUKIMA_POWER] = pow;
 
@@ -922,35 +964,21 @@ spret_type cast_conjure_ball_lightning(int pow, god_type god, bool fail)
     fail_check();
     bool success = false;
 
-    // Restricted so that the situation doesn't get too gross.  Each of
-    // these will explode for 3d20 damage. -- bwr
-    const int how_many = min(8, 3 + random2(2 + pow / 50));
+    const int how_many = min(5, 2 + pow / 100 + random2(pow / 50 + 1));
+
+    mgen_data cbl(MONS_BALL_LIGHTNING, BEH_FRIENDLY, &you, 0,
+                  SPELL_CONJURE_BALL_LIGHTNING, you.pos(), MHITNOT, 0, god);
+    cbl.hd = 5 + div_rand_round(pow, 20);
 
     for (int i = 0; i < how_many; ++i)
     {
-        coord_def target;
-        bool found = false;
-        for (int j = 0; j < 10; ++j)
-        {
-            if (random_near_space(you.pos(), target, true, true, false)
-                && distance2(you.pos(), target) <= 5)
-            {
-                found = true;
-                break;
-            }
-        }
-
-        // If we fail, we'll try the ol' summon next to player trick.
-        if (!found)
-            target = you.pos();
-
-        if (monster *ball = mons_place(
-                mgen_data(MONS_BALL_LIGHTNING, BEH_FRIENDLY, &you,
-                          0, SPELL_CONJURE_BALL_LIGHTNING,
-                          target, MHITNOT, 0, god)))
+        if (monster *ball = create_monster(cbl))
         {
             success = true;
             ball->add_ench(ENCH_SHORT_LIVED);
+
+            // Avoid ball lightnings without targets always moving towards (0,0)
+            set_random_target(ball);
         }
     }
 
@@ -961,6 +989,84 @@ spret_type cast_conjure_ball_lightning(int pow, god_type god, bool fail)
 
     return SPRET_SUCCESS;
 }
+
+spret_type cast_summon_lightning_spire(int pow, const coord_def& where, god_type god, bool fail)
+{
+    const int dur = 2;
+
+    if (distance2(where, you.pos()) > dist_range(spell_range(SPELL_SUMMON_LIGHTNING_SPIRE,
+                                                      pow))
+        || !in_bounds(where))
+    {
+        mpr("That's too far away.");
+        return SPRET_ABORT;
+    }
+
+    if (!monster_habitable_grid(MONS_HUMAN, grd(where)))
+    {
+        mpr("You can't construct there.");
+        return SPRET_ABORT;
+    }
+
+    monster* mons = monster_at(where);
+    if (mons)
+    {
+        if (you.can_see(mons))
+        {
+            mpr("That space is already occupied.");
+            return SPRET_ABORT;
+        }
+
+        fail_check();
+
+        // invisible monster
+        mpr("Something you can't see is blocking your construction!");
+        return SPRET_SUCCESS;
+    }
+
+    fail_check();
+
+    mgen_data spire = mgen_data(MONS_LIGHTNING_SPIRE, BEH_FRIENDLY, &you, dur,
+                                SPELL_SUMMON_LIGHTNING_SPIRE, where, MHITYOU,
+                                MG_FORCE_BEH | MG_FORCE_PLACE | MG_AUTOFOE, god);
+    spire.hd = max(1, div_rand_round(pow, 10));
+
+    if (create_monster(spire))
+    {
+        if (!silenced(where))
+            mpr("An electric hum fills the air.");
+    }
+    else
+        canned_msg(MSG_NOTHING_HAPPENS);
+
+    return SPRET_SUCCESS;
+
+}
+
+spret_type cast_summon_guardian_golem(int pow, god_type god, bool fail)
+{
+    fail_check();
+
+    mgen_data golem = mgen_data(MONS_GUARDIAN_GOLEM, BEH_FRIENDLY, &you, 3,
+                                SPELL_SUMMON_GUARDIAN_GOLEM, you.pos(), MHITYOU,
+                                MG_FORCE_BEH, god);
+    golem.hd = 4 + div_rand_round(pow, 16);
+
+    monster* mons = (create_monster(golem));
+
+    if (mons)
+    {
+        // Immediately apply injury bond
+        guardian_golem_bond(mons);
+
+        mpr("A guardian golem appears, shielding your allies.");
+    }
+    else
+        canned_msg(MSG_NOTHING_HAPPENS);
+
+    return SPRET_SUCCESS;
+}
+
 
 spret_type cast_call_imp(int pow, god_type god, bool fail)
 {
@@ -976,7 +1082,7 @@ spret_type cast_call_imp(int pow, god_type god, bool fail)
 
     if (monster *imp = create_monster(
             mgen_data(mon, BEH_FRIENDLY, &you, dur, SPELL_CALL_IMP,
-                      you.pos(), MHITYOU, MG_FORCE_BEH, god)))
+                      you.pos(), MHITYOU, MG_FORCE_BEH | MG_AUTOFOE, god)))
     {
         mpr((mon == MONS_WHITE_IMP)  ? "A beastly little devil appears in a puff of frigid air." :
             (mon == MONS_IRON_IMP)   ? "A metallic apparition takes form in the air." :
@@ -984,10 +1090,7 @@ spret_type cast_call_imp(int pow, god_type god, bool fail)
                                      : "A beastly little devil appears in a puff of flame.");
 
         if (!player_angers_monster(imp))
-        {
             _monster_greeting(imp, "_friendly_imp_greeting");
-            summoned_monster(imp, &you, SPELL_CALL_IMP);
-        }
     }
     else
         canned_msg(MSG_NOTHING_HAPPENS);
@@ -1005,7 +1108,7 @@ static bool _summon_demon_wrapper(int pow, god_type god, int spell,
             mgen_data(mon,
                       friendly ? BEH_FRIENDLY :
                           charmed ? BEH_CHARMED : BEH_HOSTILE, &you,
-                      dur, spell, you.pos(), MHITYOU, MG_FORCE_BEH, god)))
+                      dur, spell, you.pos(), MHITYOU, MG_FORCE_BEH | MG_AUTOFOE, god)))
     {
         success = true;
 
@@ -1021,27 +1124,59 @@ static bool _summon_demon_wrapper(int pow, god_type god, int spell,
             if (mon == MONS_CRIMSON_IMP || mon == MONS_WHITE_IMP
                 || mon == MONS_IRON_IMP || mon == MONS_SHADOW_IMP)
             {
-               _monster_greeting(demon, "_friendly_imp_greeting");
+                _monster_greeting(demon, "_friendly_imp_greeting");
+            }
+        }
+
+        if (charmed && !friendly)
+        {
+            int charm_dur = random_range(15 + pow / 14, 27 + pow / 11)
+                            * BASELINE_DELAY;
+
+            mon_enchant charm = demon->get_ench(ENCH_CHARM);
+            charm.duration = charm_dur;
+            demon->update_ench(charm);
+
+            // Ensure that temporarily-charmed demons will outlast their charm
+            mon_enchant abj = demon->get_ench(ENCH_ABJ);
+            if (charm.duration + 100 > abj.duration)
+            {
+                abj.duration = charm.duration + 100;
+                demon->update_ench(abj);
             }
 
-            if (spell > 0 && spell < NUM_SPELLS && god == GOD_NO_GOD)
-                summoned_monster(demon, &you, static_cast<spell_type>(spell));
+            // Affects messaging, and stuns demon a turn upon charm wearing off
+            demon->props["charmed_demon"].get_bool() = true;
         }
     }
 
     return success;
 }
 
-static bool _summon_lesser_demon(int pow, god_type god, int spell, bool quiet)
-{
-    return _summon_demon_wrapper(pow, god, spell, RANDOM_DEMON_LESSER,
-                                 min(2 + (random2(pow) / 4), 6),
-                                 random2(pow) > 3, false, quiet);
-}
-
 static bool _summon_common_demon(int pow, god_type god, int spell, bool quiet)
 {
-    return _summon_demon_wrapper(pow, god, spell, RANDOM_DEMON_COMMON,
+    const int chance = 70 - (pow / 3);
+    monster_type type = MONS_PROGRAM_BUG;
+
+    if (x_chance_in_y(chance, 100))
+    {
+        // tier 4
+        type = random_choose(MONS_BLUE_DEVIL,    MONS_IRON_DEVIL,
+                             MONS_ORANGE_DEMON,  MONS_RED_DEVIL,
+                             MONS_SIXFIRHY,      MONS_HELLWING,
+                             -1);
+    }
+    else
+    {
+        // tier 3
+        type = random_choose(MONS_SUN_DEMON,     MONS_SOUL_EATER,
+                             MONS_ICE_DEVIL,     MONS_SMOKE_DEMON,
+                             MONS_NEQOXEC,       MONS_YNOXINUL,
+                             MONS_CHAOS_SPAWN,
+                             -1);
+    }
+
+    return _summon_demon_wrapper(pow, god, spell, type,
                                  min(2 + (random2(pow) / 4), 6),
                                  random2(pow) > 3, false, quiet);
 }
@@ -1054,7 +1189,7 @@ static bool _summon_greater_demon(int pow, god_type god, int spell, bool quiet)
     const bool friendly = (charmed && mons_demon_tier(mon) == 2);
 
     return _summon_demon_wrapper(pow, god, spell, mon,
-                                 5, friendly, charmed, quiet);
+                                 4, friendly, charmed, quiet);
 }
 
 bool summon_demon_type(monster_type mon, int pow, god_type god,
@@ -1071,27 +1206,6 @@ spret_type cast_summon_demon(int pow, god_type god, bool fail)
     mpr("You open a gate to Pandemonium!");
 
     if (!_summon_common_demon(pow, god, SPELL_SUMMON_DEMON, false))
-        canned_msg(MSG_NOTHING_HAPPENS);
-
-    return SPRET_SUCCESS;
-}
-
-spret_type cast_demonic_horde(int pow, god_type god, bool fail)
-{
-    fail_check();
-    mpr("You open a gate to Pandemonium!");
-
-    bool success = false;
-
-    const int how_many = 7 + random2(5);
-
-    for (int i = 0; i < how_many; ++i)
-    {
-        if (_summon_lesser_demon(pow, god, SPELL_DEMONIC_HORDE, true))
-            success = true;
-    }
-
-    if (!success)
         canned_msg(MSG_NOTHING_HAPPENS);
 
     return SPRET_SUCCESS;
@@ -1120,9 +1234,11 @@ static monster_type _zotdef_shadow()
     return RANDOM_COMPATIBLE_MONSTER;
 }
 
-spret_type cast_shadow_creatures(bool scroll, god_type god, bool fail)
+spret_type cast_shadow_creatures(int st, god_type god, level_id place,
+                                 bool fail)
 {
     fail_check();
+    const bool scroll = (st == MON_SUMM_SCROLL);
     mpr("Wisps of shadow whirl around you...");
 
     monster_type critter = RANDOM_COMPATIBLE_MONSTER;
@@ -1137,14 +1253,21 @@ spret_type cast_shadow_creatures(bool scroll, god_type god, bool fail)
         if (monster *mons = create_monster(
             mgen_data(critter, BEH_FRIENDLY, &you,
                       (scroll ? 2 : 1), // This duration is only used for band members.
-                      SPELL_SHADOW_CREATURES, you.pos(), MHITYOU,
-                      MG_FORCE_BEH, god), false))
+                      st, you.pos(), MHITYOU, MG_FORCE_BEH | MG_AUTOFOE, god,
+                      MONS_NO_MONSTER, 0, BLACK, PROX_ANYWHERE, place), false))
         {
             // In the rare cases that a specific spell set of a monster will
             // cause anger, even if others do not, try rerolling
             int tries = 0;
             while (player_will_anger_monster(mons) && ++tries <= 20)
+            {
+                // Save the enchantments, particularly ENCH_SUMMONED etc.
+                mon_enchant_list ench = mons->enchantments;
+                FixedBitVector<NUM_ENCHANTMENTS> cache = mons->ench_cache;
                 define_monster(mons);
+                mons->enchantments = ench;
+                mons->ench_cache = cache;
+            }
 
             // If we didn't find a valid spell set yet, just give up
             if (tries > 20)
@@ -1163,11 +1286,13 @@ spret_type cast_shadow_creatures(bool scroll, god_type god, bool fail)
                 mon_enchant me = mon_enchant(ENCH_ABJ, d);
                 me.set_duration(mons, &me);
                 mons->update_ench(me);
-                if (!scroll) // Only track cap for non-scroll casting
-                    summoned_monster(mons, &you, SPELL_SHADOW_CREATURES);
+
+                // Set summon ID, to share summon cap with its band members
+                mons->props["summon_id"].get_int() = mons->mid;
             }
 
-            // Remove any band members that would turn hostile
+            // Remove any band members that would turn hostile, and link their
+            // summon IDs
             for (monster_iterator mi; mi; ++mi)
             {
                 if (testbits(mi->flags, MF_BAND_MEMBER)
@@ -1175,8 +1300,8 @@ spret_type cast_shadow_creatures(bool scroll, god_type god, bool fail)
                 {
                     if (player_will_anger_monster(*mi))
                         monster_die(*mi, KILL_RESET, NON_MONSTER);
-                    else if (!scroll) // Only track cap for non-scroll casting
-                        summoned_monster(*mi, &you, SPELL_SHADOW_CREATURES);
+
+                    mi->props["summon_id"].get_int() = mons->mid;
                 }
             }
 
@@ -1215,7 +1340,7 @@ coord_def find_gateway_location(actor* caster)
             if (!in_bounds(test) || !feat_is_malign_gateway_suitable(grd(test))
                 || actor_at(test)
                 || count_neighbours_with_func(test, &feat_is_solid) != 0
-                || !caster->see_cell(test))
+                || !caster->see_cell_no_trans(test))
             {
                 continue;
             }
@@ -1243,7 +1368,7 @@ spret_type cast_malign_gateway(actor * caster, int pow, god_type god, bool fail)
     {
         fail_check();
 
-        const int malign_gateway_duration = BASELINE_DELAY * (random2(5) + 5);
+        const int malign_gateway_duration = BASELINE_DELAY * (random2(4) + 4);
         env.markers.add(new map_malign_gateway_marker(point,
                                 malign_gateway_duration,
                                 is_player,
@@ -1256,10 +1381,11 @@ spret_type cast_malign_gateway(actor * caster, int pow, god_type god, bool fail)
                                 pow));
         env.markers.clear_need_activate();
         env.grid(point) = DNGN_MALIGN_GATEWAY;
+        set_terrain_changed(point);
 
         noisy(10, point);
-        mpr("The dungeon shakes, a horrible noise fills the air, and a portal "
-            "to some otherworldly place is opened!", MSGCH_WARN);
+        mprf(MSGCH_WARN, "The dungeon shakes, a horrible noise fills the air, "
+                         "and a portal to some otherworldly place is opened!");
 
         if (one_chance_in(5) && caster->is_player())
         {
@@ -1278,7 +1404,6 @@ spret_type cast_malign_gateway(actor * caster, int pow, god_type god, bool fail)
     return SPRET_ABORT;
 }
 
-
 spret_type cast_summon_horrible_things(int pow, god_type god, bool fail)
 {
     fail_check();
@@ -1289,49 +1414,37 @@ spret_type cast_summon_horrible_things(int pow, god_type god, bool fail)
         lose_stat(STAT_INT, 1 + random2(3), false, "summoning horrible things");
     }
 
-    int how_many_small =
-        stepdown_value(2 + (random2(pow) / 10) + (random2(pow) / 10),
-                       2, 2, 6, -1);
-    int how_many_big = 0;
+    int num_abominations = random_range(2, 4) + x_chance_in_y(pow, 200);
+    int num_tmons = random2(pow) > 120 ? 2 : random2(pow) > 50 ? 1 : 0;
 
-    // No more than 2 tentacled monstrosities.
-    while (how_many_small > 2 && how_many_big < 2 && one_chance_in(3))
-    {
-        how_many_small -= 2;
-        how_many_big++;
-    }
-
-    // No more than 8 summons.
-    how_many_small = min(8, how_many_small);
-    how_many_big   = min(8, how_many_big);
+    if (num_tmons == 0)
+        num_abominations++;
 
     int count = 0;
 
-    while (how_many_small-- > 0)
+    while (num_abominations-- > 0)
     {
         if (monster *mons = create_monster(
                mgen_data(MONS_ABOMINATION_LARGE, BEH_FRIENDLY, &you,
-                         6, SPELL_SUMMON_HORRIBLE_THINGS,
+                         3, SPELL_SUMMON_HORRIBLE_THINGS,
                          you.pos(), MHITYOU,
-                         MG_FORCE_BEH, god)))
+                         MG_FORCE_BEH | MG_AUTOFOE, god)))
         {
             count++;
-            if (!player_angers_monster(mons))
-                summoned_monster(mons, &you, SPELL_SUMMON_HORRIBLE_THINGS);
+            player_angers_monster(mons);
         }
     }
 
-    while (how_many_big-- > 0)
+    while (num_tmons-- > 0)
     {
         if (monster *mons = create_monster(
                mgen_data(MONS_TENTACLED_MONSTROSITY, BEH_FRIENDLY, &you,
-                         6, SPELL_SUMMON_HORRIBLE_THINGS,
+                         3, SPELL_SUMMON_HORRIBLE_THINGS,
                          you.pos(), MHITYOU,
-                         MG_FORCE_BEH, god)))
+                         MG_FORCE_BEH | MG_AUTOFOE, god)))
         {
             count++;
-            if (!player_angers_monster(mons))
-                summoned_monster(mons, &you, SPELL_SUMMON_HORRIBLE_THINGS);
+            player_angers_monster(mons);
         }
     }
 
@@ -1339,6 +1452,117 @@ spret_type cast_summon_horrible_things(int pow, god_type god, bool fail)
         canned_msg(MSG_NOTHING_HAPPENS);
 
     return SPRET_SUCCESS;
+}
+
+static bool _water_adjacent(coord_def p)
+{
+    for (orth_adjacent_iterator ai(p); ai; ++ai)
+    {
+        if (feat_is_water(grd(*ai)))
+            return true;
+    }
+
+    return false;
+}
+
+/**
+ * Cast summon forest.
+ *
+ * @param caster The caster.
+ * @param pow    The spell power.
+ * @param god    The god of the summoned dryad (usually the caster's).
+ * @param fail   Did this spell miscast? If true, abort the cast.
+ * @returns      SPRET_ABORT if a summoning area couldn't be found,
+ *               SPRET_FAIL if one could be found but we miscast, and
+ *               SPRET_SUCCESS if the spell was succesfully cast.
+*/
+spret_type cast_summon_forest(actor* caster, int pow, god_type god, bool fail)
+{
+    const int duration = random_range(120 + pow, 200 + pow * 3 / 2);
+
+    // Is this area open enough to summon a forest?
+    bool success = false;
+    for (adjacent_iterator ai(caster->pos(), false); ai; ++ai)
+    {
+        if (count_neighbours_with_func(*ai, &feat_is_solid) == 0)
+        {
+            success = true;
+            break;
+        }
+    }
+
+    if (success)
+    {
+        fail_check();
+        // Replace some rock walls with trees, then scatter a smaller number
+        // of trees on unoccupied floor (such that they do not break connectivity)
+        for (distance_iterator di(caster->pos(), false, true, LOS_RADIUS); di; ++di)
+        {
+           if ((grd(*di) == DNGN_ROCK_WALL && x_chance_in_y(pow, 150))
+               || ((grd(*di) == DNGN_FLOOR && x_chance_in_y(pow, 1250)
+                    && !actor_at(*di) && !plant_forbidden_at(*di, true))))
+           {
+                temp_change_terrain(*di, DNGN_TREE, duration,
+                                    TERRAIN_CHANGE_FORESTED);
+           }
+        }
+
+        // Maybe make a pond
+        if (coinflip())
+        {
+            coord_def pond = find_gateway_location(caster);
+            int num = random_range(10, 22);
+            int deep = (!one_chance_in(3) ? div_rand_round(num, 3) : 0);
+
+            for (distance_iterator di(pond, true, false, 4); di && num > 0; ++di)
+            {
+                if (grd(*di) == DNGN_FLOOR
+                    && (di.radius() == 0 || _water_adjacent(*di))
+                    && x_chance_in_y(4, di.radius() + 3))
+                {
+                    num--;
+                    deep--;
+
+                    dungeon_feature_type feat = DNGN_SHALLOW_WATER;
+                    if (deep > 0 && *di != you.pos())
+                    {
+                        monster* mon = monster_at(*di);
+                        if (!mon || mon->is_habitable_feat(DNGN_DEEP_WATER))
+                            feat = DNGN_DEEP_WATER;
+                    }
+
+                    temp_change_terrain(*di, feat, duration, TERRAIN_CHANGE_FORESTED);
+                }
+            }
+        }
+
+        mpr("A forested plane collides here with a resounding crunch!");
+        noisy(10, caster->pos());
+
+        mgen_data dryad_data = mgen_data(MONS_DRYAD, BEH_FRIENDLY, &you, 1,
+                                         SPELL_SUMMON_FOREST, caster->pos(),
+                                         MHITYOU, MG_FORCE_BEH | MG_AUTOFOE, god);
+        dryad_data.hd = 5 + div_rand_round(pow, 18);
+
+        if (monster *dryad = create_monster(dryad_data))
+        {
+            player_angers_monster(dryad);
+            mon_enchant abj = dryad->get_ench(ENCH_ABJ);
+            abj.duration = duration - 10;
+            dryad->update_ench(abj);
+
+            // Pre-awaken the forest just summoned.
+            bolt dummy;
+            mons_cast(dryad, dummy, SPELL_AWAKEN_FOREST);
+        }
+
+        you.duration[DUR_FORESTED] = duration;
+
+        return SPRET_SUCCESS;
+    }
+
+    mpr("You need more open space to cast this spell.");
+    return SPRET_ABORT;
 }
 
 static bool _animatable_remains(const item_def& item)
@@ -1516,13 +1740,17 @@ static void _display_undead_motions(int motions)
         motions_list.push_back("flying");
     if (motions & DEAD_ARE_SLITHERING)
         motions_list.push_back("slithering");
+    if (motions & DEAD_ARE_CRAWLING)
+        motions_list.push_back("crawling");
 
     // Prevents the message from getting too long and spammy.
     if (motions_list.size() > 3)
         mpr("The dead have arisen!");
     else
-        mpr("The dead are " + comma_separated_line(motions_list.begin(),
-            motions_list.end()) + "!");
+    {
+        mprf("The dead are %s!", comma_separated_line(motions_list.begin(),
+             motions_list.end()).c_str());
+    }
 }
 
 static bool _raise_remains(const coord_def &pos, int corps, beh_type beha,
@@ -1571,13 +1799,15 @@ static bool _raise_remains(const coord_def &pos, int corps, beh_type beha,
     if (mon == MONS_ZOMBIE && !mons_zombifiable(zombie_type))
     {
         ASSERT(mons_skeleton(zombie_type));
-        mpr("The flesh is too rotten for a proper zombie; only a skeleton remains.");
+        mpr("The flesh is too rotten for a proper zombie; "
+            "only a skeleton remains.");
         mon = MONS_SKELETON;
     }
 
     // Use the original monster type as the zombified type here, to get
     // the proper stats from it.
-    mgen_data mg(mon, beha, as, 0, 0, pos, hitting, MG_FORCE_BEH|MG_FORCE_PLACE,
+    mgen_data mg(mon, beha, as, 0, 0, pos, hitting,
+                 MG_FORCE_BEH|MG_FORCE_PLACE|MG_AUTOFOE,
                  god, monnum, number);
 
     // No experience for monsters animated by god wrath or the Sword of
@@ -1633,17 +1863,27 @@ static bool _raise_remains(const coord_def &pos, int corps, beh_type beha,
     }
     else if (mons_class_flies(zombie_type))
         *motions_r |= DEAD_ARE_FLYING;
-    else if (mons_genus(zombie_type)    == MONS_ADDER
+    else if (mons_genus(zombie_type)    == MONS_SNAKE
              || mons_genus(zombie_type) == MONS_NAGA
              || mons_genus(zombie_type) == MONS_GUARDIAN_SERPENT
              || mons_genus(zombie_type) == MONS_GIANT_SLUG
+             || mons_genus(zombie_type) == MONS_GIANT_LEECH
              || mons_genus(zombie_type) == MONS_WORM)
     {
         *motions_r |= DEAD_ARE_SLITHERING;
     }
     else if (mons_genus(zombie_type)    == MONS_GIANT_FROG
-             || mons_genus(zombie_type) == MONS_BLINK_FROG)
+             || mons_genus(zombie_type) == MONS_BLINK_FROG
+             || mons_genus(zombie_type) == MONS_QUOKKA)
+    {
         *motions_r |= DEAD_ARE_HOPPING;
+    }
+    else if (mons_genus(zombie_type)    == MONS_WORKER_ANT
+             || mons_genus(zombie_type) == MONS_GOLIATH_BEETLE
+             || mons_base_char(zombie_type) == 's') // many genera
+    {
+        *motions_r |= DEAD_ARE_CRAWLING;
+    }
     else
         *motions_r |= DEAD_ARE_WALKING;
 
@@ -1668,7 +1908,7 @@ int animate_remains(const coord_def &a, corpse_type class_allowed,
     int motions = 0;
 
     // Search all the items on the ground for a corpse.
-    for (stack_iterator si(a); si; ++si)
+    for (stack_iterator si(a, true); si; ++si)
     {
         if (si->base_type == OBJ_CORPSES
             && (class_allowed == CORPSE_BODY
@@ -1730,10 +1970,7 @@ int animate_dead(actor *caster, int pow, beh_type beha, unsigned short hitting,
     int number_seen   = 0;
     int motions       = 0;
 
-    radius_iterator ri(caster->pos(), LOS_RADIUS, C_ROUND,
-                       caster->get_los_no_trans());
-
-    for (; ri; ++ri)
+    for (radius_iterator ri(caster->pos(), LOS_NO_TRANS); ri; ++ri)
     {
         // There may be many corpses on the same spot.
         while (animate_remains(*ri, CORPSE_BODY, beha, hitting, as, nas, god,
@@ -1760,7 +1997,7 @@ spret_type cast_animate_skeleton(god_type god, bool fail)
 {
     bool found = false;
 
-    for (stack_iterator si(you.pos()); si; ++si)
+    for (stack_iterator si(you.pos(), true); si; ++si)
     {
         if (si->base_type == OBJ_CORPSES
             && mons_class_can_be_zombified(si->mon_type)
@@ -1870,10 +2107,14 @@ spret_type cast_simulacrum(int pow, god_type god, bool fail)
         sim_type = flesh->mon_type;
         break;
     case FOOD_BEEF_JERKY:
-        if (coinflip())
-            sim_type = MONS_YAK, name = "cow";
-        else
-            sim_type = MONS_DEATH_YAK, name = "bull";
+        sim_type = random_choose_weighted(4, MONS_YAK,
+                                          5, MONS_DEATH_YAK,
+                                          1, MONS_MINOTAUR,
+                                          0);
+        if (sim_type == MONS_YAK)
+            name = "cow";
+        else if (sim_type == MONS_DEATH_YAK)
+            name = "bull";
         break;
     case FOOD_SAUSAGE:
         sim_type = MONS_HOG;
@@ -1898,7 +2139,7 @@ spret_type cast_simulacrum(int pow, god_type god, bool fail)
     mgen_data mg(MONS_SIMULACRUM, BEH_FRIENDLY, &you,
                  0, SPELL_SIMULACRUM,
                  you.pos(), MHITYOU,
-                 MG_FORCE_BEH, god,
+                 MG_FORCE_BEH | MG_AUTOFOE, god,
                  flesh->sub_type == FOOD_CHUNK ?
                      static_cast<monster_type>(flesh->orig_monnum) :
                      sim_type);
@@ -1918,7 +2159,7 @@ spret_type cast_simulacrum(int pow, god_type god, bool fail)
             if (!name.empty())
             {
                 sim->mname = name;
-                sim->flags |= MF_NAME_REPLACE | MF_NAME_DESCRIPTOR;
+                sim->flags |= MF_NAME_REPLACE | MF_NAME_DESCRIPTOR | MF_NAME_SPECIES;
                 sim->props["dbname"].get_string() = mons_class_name(MONS_SIMULACRUM);
             }
 
@@ -2151,10 +2392,7 @@ bool twisted_resurrection(actor *caster, int pow, beh_type beha,
     int seen_lost = 0;
     int seen_lost_piles = 0;
 
-    radius_iterator ri(caster->pos(), LOS_RADIUS, C_ROUND,
-                       caster->get_los_no_trans());
-
-    for (; ri; ++ri)
+    for (radius_iterator ri(caster->pos(), LOS_NO_TRANS); ri; ++ri)
     {
         int num_corpses = 0;
         int total_mass = 0;
@@ -2222,7 +2460,8 @@ bool twisted_resurrection(actor *caster, int pow, beh_type beha,
         else
             montype = MONS_CRAWLING_CORPSE;
 
-        mgen_data mg(montype, beha, caster, 0, 0, *ri, foe, MG_FORCE_BEH, god);
+        mgen_data mg(montype, beha, caster, 0, 0, *ri, foe,
+                     MG_FORCE_BEH | MG_AUTOFOE, god);
         if (monster *mons = create_monster(mg))
         {
             // Set hit dice, AC, and HP.
@@ -2256,7 +2495,7 @@ bool twisted_resurrection(actor *caster, int pow, beh_type beha,
 
     // Monsters shouldn't bother casting Twisted Res for just a single corpse.
     if (!actual)
-        return (num_crawlies >= (caster->is_player() ? 1 : 2));
+        return num_crawlies >= (caster->is_player() ? 1 : 2);
 
     if (num_lost + num_crawlies + num_masses == 0)
         return false;
@@ -2295,7 +2534,7 @@ bool twisted_resurrection(actor *caster, int pow, beh_type beha,
 spret_type cast_twisted_resurrection(int pow, god_type god, bool fail)
 {
     if (twisted_resurrection(&you, pow, BEH_FRIENDLY, MHITYOU, god, !fail))
-        return (fail ? SPRET_FAIL : SPRET_SUCCESS);
+        return fail ? SPRET_FAIL : SPRET_SUCCESS;
     else
     {
         mpr("There are no corpses nearby!");
@@ -2388,6 +2627,36 @@ spret_type cast_haunt(int pow, const coord_def& where, god_type god, bool fail)
     return SPRET_SUCCESS;
 }
 
+spret_type cast_spellforged_servitor(int pow, god_type god, bool fail)
+{
+    fail_check();
+
+    mgen_data mdata(MONS_SPELLFORGED_SERVITOR, BEH_FRIENDLY, &you,
+                    4, SPELL_SPELLFORGED_SERVITOR, you.pos(), MHITYOU,
+                    MG_AUTOFOE, god);
+
+    if (monster* mon = create_monster(mdata))
+    {
+        mpr ("You summon a servant imbued with your destructive magic!");
+
+        int shortest_range = LOS_RADIUS + 1;
+        for (int i = 0; i < 5; ++i)
+        {
+            if (mon->spells[i] == SPELL_NO_SPELL)
+                continue;
+
+            int range = spell_range(mon->spells[i], 100, false);
+            if (range < shortest_range)
+                shortest_range = range;
+        }
+        mon->props["ideal_range"].get_int() = shortest_range;
+    }
+    else
+        canned_msg(MSG_NOTHING_HAPPENS);
+
+    return SPRET_SUCCESS;
+}
+
 static int _abjuration(int pow, monster *mon)
 {
     // Scale power into something comparable to summon lifetime.
@@ -2452,12 +2721,110 @@ spret_type cast_abjuration(int pow, const coord_def& where, bool fail)
     return SPRET_SUCCESS;
 }
 
-spret_type cast_mass_abjuration(int pow, bool fail)
+spret_type cast_aura_of_abjuration(int pow, bool fail)
 {
     fail_check();
-    mpr("Send 'em back where they came from!");
-    for (monster_iterator mi(you.get_los()); mi; ++mi)
-        _abjuration(pow, *mi);
+
+    if (!you.duration[DUR_ABJURATION_AURA])
+        mpr("You begin to abjure the creatures around you!");
+    else
+        mpr("You extend your aura of abjuration.");
+
+    you.increase_duration(DUR_ABJURATION_AURA,  6 + roll_dice(2, pow / 12), 50);
+    you.props["abj_aura_pow"].get_int() = pow;
+
+    return SPRET_SUCCESS;
+}
+
+void do_aura_of_abjuration(int delay)
+{
+    const int pow = you.props["abj_aura_pow"].get_int() * delay / 10;
+    for (monster_near_iterator mi(you.pos(), LOS_NO_TRANS); mi; ++mi)
+        _abjuration(pow / 2, *mi);
+}
+
+spret_type cast_forceful_dismissal(int pow, bool fail)
+{
+    fail_check();
+    vector<pair<coord_def, int> > explode;
+
+    // Gather the list of summons to be dismissed
+    for (monster_iterator mi; mi; ++mi)
+    {
+        if (mi->friendly() && mi->is_summoned() && mi->summoner == you.mid
+            && you.see_cell_no_trans(mi->pos()))
+        {
+            explode.push_back(make_pair(mi->pos(), mi->hit_dice));
+        }
+    }
+
+    // Abort if there are no valid summons nearby
+    if (!explode.size())
+    {
+        mpr("You have no nearby summons to unbind.");
+        return SPRET_ABORT;
+    }
+
+    // Now prompt if we would harm something (other than those creatures
+    // that are about to disappear anyway)
+    vector<coord_def> affected;
+    bool harm_player = false;
+    for (unsigned int i = 0; i < explode.size(); ++i)
+    {
+        for (adjacent_iterator ai(explode[i].first, false); ai; ++ai)
+        {
+            monster* mon = monster_at(*ai);
+            if (mon && mon->friendly()
+                 && !(mon->is_summoned() && mon->summoner == you.mid))
+            {
+                affected.push_back(*ai);
+            }
+
+            if (*ai == you.pos())
+                harm_player = true;
+        }
+    }
+    targetter_list hitfunc(affected, you.pos());
+
+    if (harm_player
+        && !yesno("Really unbind your summons while standing next to them?",
+                  false, 'n'))
+    {
+        canned_msg(MSG_OK);
+        return SPRET_ABORT;
+    }
+
+    if (stop_attack_prompt(hitfunc, "harm"))
+        return SPRET_ABORT;
+
+    // Dismiss the summons
+    for (unsigned int i = 0; i < explode.size(); ++i)
+    {
+        monster_die(monster_at(explode[i].first), KILL_DISMISSED, NON_MONSTER,
+                    true);
+    }
+
+    // Now do the explosions
+    mpr("You violently release the magic binding your summons!");
+    for (unsigned int i = 0; i < explode.size(); ++i)
+    {
+        bolt explosion;
+        explosion.thrower = KILL_YOU;
+        explosion.source = explode[i].first;
+        explosion.target = explode[i].first;
+        explosion.name = "magical backlash";
+        explosion.is_explosion = true;
+        explosion.auto_hit = true;
+        explosion.damage = dice_def(1 + div_rand_round(explode[i].second, 4),
+                                    7 + pow / 8);
+        explosion.flavour = BEAM_MMISSILE;
+        explosion.colour  = ETC_MAGIC;
+        explosion.ex_size = 1;
+        explosion.draw_delay = 1;
+        explosion.explode_delay = 20;
+
+        explosion.explode(true, false);
+    }
 
     return SPRET_SUCCESS;
 }
@@ -2541,6 +2908,8 @@ spret_type cast_battlesphere(actor* agent, int pow, god_type god, bool fail)
                 battlesphere->props["band_leader"].get_int() = agent->mid;
             }
             battlesphere->number = 4 + random2(pow + 10) / 10;
+            battlesphere->foe = agent->mindex();
+            battlesphere->target = agent->pos();
         }
         else if (agent->is_player() || you.can_see(agent))
             canned_msg(MSG_NOTHING_HAPPENS);
@@ -2565,7 +2934,7 @@ void end_battlesphere(monster* mons, bool killed)
         {
             if (you.can_see(mons))
             {
-                if ((mons->number == 0))
+                if (mons->number == 0)
                 {
                     mpr("Your battlesphere expends the last of its energy"
                         " and dissipates.");
@@ -2586,22 +2955,22 @@ void end_battlesphere(monster* mons, bool killed)
     }
 }
 
-static bool _battlesphere_can_mirror(spell_type spell)
+bool battlesphere_can_mirror(spell_type spell)
 {
-    return ((spell_typematch(spell, SPTYP_CONJURATION)
-            && spell_to_zap(spell) != NUM_ZAPS)
-            || spell == SPELL_FREEZE
-            || spell == SPELL_STICKY_FLAME
-            || spell == SPELL_SANDBLAST
-            || spell == SPELL_AIRSTRIKE
-            || spell == SPELL_DAZZLING_SPRAY
-            || spell == SPELL_SEARING_RAY);
+    return (spell_typematch(spell, SPTYP_CONJURATION)
+           && spell_to_zap(spell) != NUM_ZAPS)
+           || spell == SPELL_FREEZE
+           || spell == SPELL_STICKY_FLAME
+           || spell == SPELL_SANDBLAST
+           || spell == SPELL_AIRSTRIKE
+           || spell == SPELL_DAZZLING_SPRAY
+           || spell == SPELL_SEARING_RAY;
 }
 
 bool aim_battlesphere(actor* agent, spell_type spell, int powc, bolt& beam)
 {
     //Is this spell something that will trigger the battlesphere?
-    if (_battlesphere_can_mirror(spell))
+    if (battlesphere_can_mirror(spell))
     {
         monster* battlesphere = find_battlesphere(agent);
 
@@ -2728,7 +3097,6 @@ bool trigger_battlesphere(actor* agent, bolt& beam)
             queue_monster_for_action(battlesphere);
         }
 
-
         return true;
     }
 
@@ -2805,10 +3173,10 @@ bool fire_battlesphere(monster* mons)
         else
             beam.target = mons->props["firing_target"].get_coord();
 
-        // Sanity check: if we have somehow ended up targeting ourselves, bail
+        // Sanity check: if we have somehow ended up targetting ourselves, bail
         if (beam.target == mons->pos())
         {
-            mpr("Battlesphere targetting itself? Fixing.", MSGCH_ERROR);
+            mprf(MSGCH_ERROR, "Battlesphere targeting itself? Fixing.");
             mons->props.erase("firing");
             mons->props.erase("firing_target");
             mons->props.erase("foe");
@@ -2855,7 +3223,7 @@ bool fire_battlesphere(monster* mons)
             for (distance_iterator di(mons->pos(), true, true, 2); di; ++di)
             {
                 if (*di == beam.target || actor_at(*di)
-                    || feat_is_solid(grd(*di))
+                    || cell_is_solid(*di)
                     || !agent->see_cell(*di))
                 {
                     continue;
@@ -2921,7 +3289,7 @@ spret_type cast_fulminating_prism(int pow, const coord_def& where, bool fail)
         return SPRET_ABORT;
     }
 
-    // Note that self-targetting is handled by SPFLAG_NOT_SELF.
+    // Note that self-targeting is handled by SPFLAG_NOT_SELF.
     monster* mons = monster_at(where);
     if (mons)
     {
@@ -2994,7 +3362,8 @@ spret_type cast_spectral_weapon(actor *agent, int pow, god_type god, bool fail)
 
     item_def cp = *wpn;
 
-    // Remove any existing spectral weapons --- only one should be alive at any given time
+    // Remove any existing spectral weapons. Only one should be alive at any
+    // given time.
     monster *old_mons = find_spectral_weapon(agent);
     if (old_mons)
         end_spectral_weapon(old_mons, false);
@@ -3038,6 +3407,8 @@ spret_type cast_spectral_weapon(actor *agent, int pow, god_type god, bool fail)
             simple_monster_message(mons, " appears!");
 
         mons->props["band_leader"].get_int() = agent->mid;
+        mons->foe = agent->mindex();
+        mons->target = agent->pos();
     }
 
     mons->summoner = agent->mid;
@@ -3120,20 +3491,6 @@ void reset_spectral_weapon(monster* mons)
         mons->props.erase(SW_TARGET_MID);
 }
 
-/* Checks if the spectral weapon is targetting the given position.
- *
- * Checks that the defender is our actual target.
- */
-bool check_target_spectral_weapon(const actor* mons, const actor *defender)
-{
-    if (mons->props.exists(SW_TARGET_MID))
-    {
-        mid_t target_mid = mons->props[SW_TARGET_MID].get_int();
-        return (target_mid == defender->mid);
-    }
-    return false;
-}
-
 /* Confirms the spectral weapon can and will attack the given defender.
  *
  * Checks the target, and that we haven't attacked yet.
@@ -3144,7 +3501,9 @@ bool confirm_attack_spectral_weapon(monster* mons, const actor *defender)
     // No longer tracking towards the target.
     mons->props.erase(SW_TRACKING);
 
-    if (check_target_spectral_weapon(mons, defender)
+    // Is the defender our target?
+    if (mons->props.exists(SW_TARGET_MID)
+        && (mid_t)mons->props[SW_TARGET_MID].get_int() == defender->mid
         && mons->props.exists(SW_READIED))
     {
         // Consume our ready state and attack
@@ -3161,6 +3520,109 @@ bool confirm_attack_spectral_weapon(monster* mons, const actor *defender)
     return false;
 }
 
+void grand_avatar_reset(monster* mons)
+{
+    ASSERT(mons);
+    ASSERT(mons->type == MONS_GRAND_AVATAR);
+    actor* agent = actor_by_mid(mons->summoner);
+    if (!agent || !agent->alive())
+    {
+        monster_die(mons, KILL_TIMEOUT, NON_MONSTER);
+        return;
+    }
+    mons->props.erase(GA_TARGET_MID);
+    mons->props.erase(GA_MELEE);
+    mons->props.erase(GA_SPELL);
+    actor* foe = mons->get_foe();
+    if (foe)
+        mons->target = foe->pos();
+    else
+    {
+        mons->foe = agent->mindex();
+        mons->target = agent->pos();
+    }
+}
+
+bool grand_avatar_check_melee(monster* mons, actor* target)
+{
+    if (mons->props.exists(GA_TARGET_MID)
+        && mons->props.exists(GA_MELEE))
+    {
+        actor* desired_target =
+            actor_by_mid(mons->props[GA_TARGET_MID].get_int());
+        if (target == desired_target)
+        {
+            grand_avatar_reset(mons);
+            return true;
+        }
+    }
+    mons->lose_energy(EUT_ATTACK);
+    return false;
+}
+
+void trigger_grand_avatar(monster* mons, actor* victim, spell_type spell,
+                          const int old_hp)
+{
+    const bool melee = (spell == SPELL_MELEE);
+    ASSERT(mons->has_ench(ENCH_GRAND_AVATAR));
+
+    actor* avatar = mons->get_ench(ENCH_GRAND_AVATAR).agent();
+    if (!avatar)
+    {
+        mons->del_ench(ENCH_GRAND_AVATAR);
+        return;
+    }
+
+    ASSERT(avatar->is_monster());
+    monster* av = avatar->as_monster();
+    monster* owner = monster_by_mid(av->summoner);
+    if (!owner || !mons_aligned(mons, owner))
+    {
+        mons->del_ench(ENCH_GRAND_AVATAR);
+        return;
+    }
+
+    if (!victim
+        || !victim->alive()
+        || (!melee && !battlesphere_can_mirror(spell))
+        || old_hp - victim->stat_hp() < random2(GRAND_AVATAR_DAMAGE))
+    {
+        return;
+    }
+
+    av->props[GA_TARGET_MID].get_int() = victim->mid;
+    if (melee)
+    {
+        av->props[GA_MELEE].get_bool() = true;
+        av->props.erase(GA_SPELL);
+    }
+    else
+    {
+        av->props[GA_SPELL].get_bool() = true;
+        av->props.erase(GA_MELEE);
+    }
+}
+
+void end_grand_avatar(monster* mons, bool killed)
+{
+    if (!mons)
+        return;
+
+    actor* agent = actor_by_mid(mons->summoner);
+    if (agent)
+    {
+        monster* owner = agent->as_monster();
+        owner->del_ench(ENCH_GRAND_AVATAR);
+    }
+
+    if (!killed)
+    {
+        place_cloud(CLOUD_MAGIC_TRAIL, mons->pos(),
+                    3 + random2(3), mons);
+        monster_die(mons, KILL_RESET, NON_MONSTER);
+    }
+}
+
 spell_type summons_index::map(const summons_desc* val)
 {
     return val->which;
@@ -3171,24 +3633,48 @@ static const summons_desc summonsdata[] =
 {
     // Beasts
     { SPELL_SUMMON_BUTTERFLIES,         8, 5 },
-    { SPELL_SUMMON_SMALL_MAMMAL,        3, 2 },
-    { SPELL_CALL_CANINE_FAMILIAR,       3, 3 },
+    { SPELL_SUMMON_SMALL_MAMMAL,        4, 2 },
+    { SPELL_CALL_CANINE_FAMILIAR,       1, 2 },
     { SPELL_SUMMON_ICE_BEAST,           3, 3 },
-    { SPELL_SUMMON_SCORPIONS,           4, 3 },
     { SPELL_SUMMON_HYDRA,               3, 2 },
+    { SPELL_SUMMON_MANA_VIPER,          2, 2 },
     // Demons
     { SPELL_CALL_IMP,                   3, 3 },
     { SPELL_SUMMON_DEMON,               3, 2 },
-    { SPELL_DEMONIC_HORDE,              8, 5 },
     { SPELL_SUMMON_GREATER_DEMON,       3, 2 },
     // General monsters
     { SPELL_SUMMON_ELEMENTAL,           3, 2 },
-    { SPELL_SUMMON_UGLY_THING,          3, 2 },
-    { SPELL_SUMMON_HORRIBLE_THINGS,     8, 2 },
-    { SPELL_SHADOW_CREATURES,           5, 2 },
-    { SPELL_SUMMON_DRAGON,              2, 8 },
+    { SPELL_MONSTROUS_MENAGERIE,        4, 2 },
+    { SPELL_SUMMON_HORRIBLE_THINGS,     8, 8 },
+    { SPELL_SHADOW_CREATURES,           4, 2 },
+    { SPELL_SUMMON_LIGHTNING_SPIRE,     1, 2 },
+    { SPELL_SUMMON_GUARDIAN_GOLEM,      1, 2 },
+    { SPELL_SPELLFORGED_SERVITOR,       1, 2 },
+    // Monster spells
+    { SPELL_SUMMON_UFETUBUS,            8, 2 },
+    { SPELL_SUMMON_HELL_BEAST,          8, 2 },
+    { SPELL_SUMMON_UNDEAD,              8, 2 },
+    { SPELL_SUMMON_DRAKES,              4, 2 },
+    { SPELL_SUMMON_MUSHROOMS,           8, 2 },
+    { SPELL_SUMMON_EYEBALLS,            4, 2 },
+    { SPELL_WATER_ELEMENTALS,           3, 2 },
+    { SPELL_FIRE_ELEMENTALS,            3, 2 },
+    { SPELL_EARTH_ELEMENTALS,           3, 2 },
+    { SPELL_AIR_ELEMENTALS,             3, 2 },
+    { SPELL_IRON_ELEMENTALS,            3, 2 },
+    { SPELL_SUMMON_SPECTRAL_ORCS,       3, 2 },
+    { SPELL_FIRE_SUMMON,                4, 2 },
+    { SPELL_SUMMON_MINOR_DEMON,         3, 3 },
+    { SPELL_CALL_LOST_SOUL,             3, 2 },
+    { SPELL_SUMMON_VERMIN,              5, 2 },
+    { SPELL_FORCEFUL_INVITATION,        3, 1 },
+    { SPELL_PLANEREND,                  6, 1 },
+    { SPELL_SUMMON_DRAGON,              4, 8 },
+    { SPELL_PHANTOM_MIRROR,             4, 1 },
+    { SPELL_FAKE_MARA_SUMMON,           2, 1 },
     // Rod specials
-    { SPELL_SUMMON_SWARM,              99, 2 },
+    { SPELL_SUMMON_SWARM,              12, 2 },
+    { SPELL_WEAVE_SHADOWS,              4, 2 },
     { SPELL_NO_SPELL,                   0, 0 }
 };
 
@@ -3208,31 +3694,93 @@ int summons_limit(spell_type spell)
     return desc->type_cap;
 }
 
-// Call when a monster has been summoned to manager this summoner's caps
-bool summoned_monster(monster* mons, actor* caster, spell_type spell)
+static bool _spell_has_variable_cap(spell_type spell)
+{
+    return spell == SPELL_SHADOW_CREATURES
+           || spell == SPELL_WEAVE_SHADOWS
+           || spell == SPELL_MONSTROUS_MENAGERIE;
+}
+
+static void _expire_capped_summon(monster* mon, int delay, bool recurse)
+{
+    // Timeout the summon
+    mon_enchant abj = mon->get_ench(ENCH_ABJ);
+    abj.duration = delay;
+    mon->update_ench(abj);
+    // Mark our cap abjuration so we don't keep abjuring the same
+    // one if creating multiple summons (also, should show a status light).
+    mon->add_ench(ENCH_SUMMON_CAPPED);
+
+    if (recurse && mon->props.exists("summon_id"))
+    {
+        const int summon_id = mon->props["summon_id"].get_int();
+        for (monster_iterator mi; mi; ++mi)
+        {
+            // Summoner check should be technically unnecessary, but saves
+            // scanning props for all monsters on the level.
+            if (mi->summoner == mon->summoner
+                && mi->props.exists("summon_id")
+                && mi->props["summon_id"].get_int() == summon_id
+                && !mi->has_ench(ENCH_SUMMON_CAPPED))
+            {
+                _expire_capped_summon(*mi, delay, false);
+            }
+        }
+    }
+}
+
+// Call when a monster has been summoned, to manage this summoner's caps.
+void summoned_monster(const monster *mons, const actor *caster,
+                      spell_type spell)
 {
     if (!summons_are_capped(spell))
-        return false;
+        return;
 
     const summons_desc *desc = summonsindex[spell];
 
-    const int max_this_time = desc->type_cap;
+    int max_this_time = desc->type_cap;
+
+    // Cap large abominations and tentacled monstrosities separately
+    if (spell == SPELL_SUMMON_HORRIBLE_THINGS)
+    {
+        max_this_time = (mons->type == MONS_ABOMINATION_LARGE ? max_this_time * 3 / 4
+                                                              : max_this_time * 1 / 4);
+    }
 
     monster* oldest_summon = 0;
     int oldest_duration = 0;
 
-    int count = 0;
+    // Linked summons that have already been counted once
+    set<int> seen_ids;
+
+    int count = 1;
     for (monster_iterator mi; mi; ++mi)
     {
+        if (mons == *mi)
+            continue;
+
         int duration = 0;
         int stype    = 0;
         const bool summoned = mi->is_summoned(&duration, &stype);
-        // XXX: This friendly check only works for player summons; if we
-        // wanted the summons cap to apply to monsters we'd need a way
-        // here to check who actually summoned the monster; there's no
-        // easy way to do that right now
-        if (summoned && stype == spell && mi->friendly())
+        if (summoned && stype == spell && caster->mid == mi->summoner
+            && mons_aligned(caster, *mi))
         {
+            // Count large abominations and tentacled monstrosities separately
+            if (spell == SPELL_SUMMON_HORRIBLE_THINGS && mi->type != mons->type)
+                continue;
+
+            if (_spell_has_variable_cap(spell) && mi->props.exists("summon_id"))
+            {
+                const int id = mi->props["summon_id"].get_int();
+
+                // Skip any linked summon whose set we have seen already,
+                // otherwise add it to the list of seen summon IDs
+                if (seen_ids.find(id) == seen_ids.end())
+                    seen_ids.insert(id);
+                else
+                    continue;
+            }
+
             count++;
 
             // If this summon is the oldest (well, the closest to expiry)
@@ -3245,16 +3793,27 @@ bool summoned_monster(monster* mons, actor* caster, spell_type spell)
             }
         }
     }
-    if (oldest_summon && (count > max_this_time))
+
+    if (oldest_summon && count > max_this_time)
+        _expire_capped_summon(oldest_summon, desc->timeout * 5, true);
+}
+
+int count_summons(const actor *summoner, spell_type spell)
+{
+    int count = 0;
+    for (monster_iterator mi; mi; ++mi)
     {
-        // Timeout the oldest summon
-        mon_enchant abj = oldest_summon->get_ench(ENCH_ABJ);
-        abj.duration = desc->timeout * 5;
-        oldest_summon->update_ench(abj);
-        // Mark our cap abjuration so we don't keep abduring the same
-        // one if creating multiple summons (also, should show a status light).
-        oldest_summon->add_ench(ENCH_SUMMON_CAPPED);
-        return true;
+        if (summoner == *mi)
+            continue;
+
+        int stype    = 0;
+        const bool summoned = mi->is_summoned(NULL, &stype);
+        if (summoned && stype == spell && summoner->mid == mi->summoner
+            && mons_aligned(summoner, *mi))
+        {
+            count++;
+        }
     }
-    return false; // Nothing needed capping
+
+    return count;
 }

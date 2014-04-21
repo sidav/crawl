@@ -59,8 +59,8 @@ static bool _is_highest_skill(int skill)
 
 static bool _is_noteworthy_hp(int hp, int maxhp)
 {
-    return (hp > 0 && Options.note_hp_percent
-            && hp <= (maxhp * Options.note_hp_percent) / 100);
+    return hp > 0 && Options.note_hp_percent
+           && hp <= (maxhp * Options.note_hp_percent) / 100;
 }
 
 static int _dungeon_branch_depth(uint8_t branch)
@@ -84,10 +84,9 @@ static bool _is_noteworthy_dlevel(unsigned short place)
     if (!is_connected_branch(static_cast<branch_type>(branch)))
         return true;
 
-    return (lev == _dungeon_branch_depth(branch)
-            || branch == BRANCH_MAIN_DUNGEON && (lev % 5) == 0
-            || branch == BRANCH_MAIN_DUNGEON && lev == 14
-            || branch != BRANCH_MAIN_DUNGEON && lev == 1);
+    return lev == _dungeon_branch_depth(branch)
+           || branch == BRANCH_DUNGEON && (lev % 5) == 0
+           || branch != BRANCH_DUNGEON && lev == 1;
 }
 
 // Is a note worth taking?
@@ -434,7 +433,7 @@ void Note::check_milestone() const
                 mark_milestone(br == BRANCH_ZIGGURAT ? "zig.enter" : "br.enter",
                                "entered " + branch + ".", "parent");
             }
-            else if (dep == _dungeon_branch_depth(br) || dep == 14
+            else if (dep == _dungeon_branch_depth(br)
                      || br == BRANCH_ZIGGURAT)
             {
                 string level = place_name(packed_place, true, true);
@@ -443,8 +442,7 @@ void Note::check_milestone() const
 
                 ostringstream branch_finale;
                 branch_finale << "reached " << level << ".";
-                mark_milestone(br == BRANCH_ZIGGURAT ? "zig" :
-                               dep == 14 ? "br.mid" : "br.end",
+                mark_milestone(br == BRANCH_ZIGGURAT ? "zig" : "br.end",
                                branch_finale.str());
             }
         }

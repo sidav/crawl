@@ -59,7 +59,6 @@ protected:
     tileidx_t m_tile;
 };
 
-
 #define INFO_SIZE       200          // size of message buffers
 #define ITEMNAME_SIZE   200          // size of item names/shop names/etc
 #define HIGHSCORE_SIZE  800          // <= 10 Lines for long format scores
@@ -93,9 +92,11 @@ class monster;
 class KillMaster;
 class ghost_demon;
 
+typedef pair<coord_def, int> coord_weight;
+
 template <typename Z> static inline Z sgn(Z x)
 {
-    return (x < 0 ? -1 : (x > 0 ? 1 : 0));
+    return x < 0 ? -1 : (x > 0 ? 1 : 0);
 }
 
 static inline int dist_range(int x) { return x*x + 1; };
@@ -132,12 +133,12 @@ struct coord_def
 
     bool operator <  (const coord_def &other) const
     {
-        return (x < other.x) || (x == other.x && y < other.y);
+        return x < other.x || (x == other.x && y < other.y);
     }
 
     bool operator >  (const coord_def &other) const
     {
-        return (x > other.x) || (x == other.x && y > other.y);
+        return x > other.x || (x == other.x && y > other.y);
     }
 
     const coord_def &operator += (const coord_def &other)
@@ -185,42 +186,42 @@ struct coord_def
     coord_def operator + (const coord_def &other) const
     {
         coord_def copy = *this;
-        return (copy += other);
+        return copy += other;
     }
 
     coord_def operator + (int other) const
     {
         coord_def copy = *this;
-        return (copy += other);
+        return copy += other;
     }
 
     coord_def operator - (const coord_def &other) const
     {
         coord_def copy = *this;
-        return (copy -= other);
+        return copy -= other;
     }
 
     coord_def operator -() const
     {
-        return (coord_def(0, 0) - *this);
+        return coord_def(0, 0) - *this;
     }
 
     coord_def operator - (int other) const
     {
         coord_def copy = *this;
-        return (copy -= other);
+        return copy -= other;
     }
 
     coord_def operator / (int div) const
     {
         coord_def copy = *this;
-        return (copy /= div);
+        return copy /= div;
     }
 
     coord_def operator * (int mul) const
     {
         coord_def copy = *this;
-        return (copy *= mul);
+        return copy *= mul;
     }
 
     coord_def sgn() const
@@ -230,7 +231,7 @@ struct coord_def
 
     int abs() const
     {
-        return (x * x + y * y);
+        return x * x + y * y;
     }
 
     int rdist() const
@@ -240,7 +241,7 @@ struct coord_def
 
     bool origin() const
     {
-        return (!x && !y);
+        return !x && !y;
     }
 
     bool zero() const
@@ -250,7 +251,7 @@ struct coord_def
 
     bool equals(const int xi, const int yi) const
     {
-        return (xi == x && yi == y);
+        return xi == x && yi == y;
     }
 
     int range() const;
@@ -274,6 +275,7 @@ typedef uint32_t mid_t;
 // the numbers are meaningless, there's just plenty of space for gods, env,
 // and whatever else we want to have, while keeping all monster ids smaller.
 #define MID_ANON_FRIEND ((mid_t)0xffff0000)
+#define MID_YOU_FAULTLESS ((mid_t)0xffff0001)
 
 static inline monster_type operator++(monster_type &x)
 {
@@ -352,7 +354,6 @@ struct shop_struct
     bool defined() const { return type != SHOP_UNASSIGNED; }
 };
 
-
 struct delay_queue_item
 {
     delay_type  type;
@@ -366,7 +367,6 @@ struct delay_queue_item
 #endif
     size_t      len;
 };
-
 
 // Identifies a level. Should never include virtual methods or
 // dynamically allocated memory (see code to push level_id onto Lua
@@ -386,7 +386,7 @@ public:
     static level_id get_next_level_id(const coord_def &pos);
 
     level_id()
-        : branch(BRANCH_MAIN_DUNGEON), depth(-1)
+        : branch(BRANCH_DUNGEON), depth(-1)
     {
     }
     level_id(branch_type br, int dep = 1)
@@ -402,7 +402,7 @@ public:
 
     void clear()
     {
-        branch = BRANCH_MAIN_DUNGEON;
+        branch = BRANCH_DUNGEON;
         depth  = -1;
     }
 
@@ -413,12 +413,12 @@ public:
 
     bool is_valid() const
     {
-        return (branch < NUM_BRANCHES && depth > 0);
+        return branch < NUM_BRANCHES && depth > 0;
     }
 
     bool operator == (const level_id &id) const
     {
-        return (branch == id.branch && depth == id.depth);
+        return branch == id.branch && depth == id.depth;
     }
 
     bool operator != (const level_id &id) const
@@ -428,12 +428,12 @@ public:
 
     bool operator <(const level_id &id) const
     {
-        return (branch < id.branch) || (branch==id.branch && depth < id.depth);
+        return branch < id.branch || (branch==id.branch && depth < id.depth);
     }
 
     bool operator == (const branch_type _branch) const
     {
-        return (branch == _branch);
+        return branch == _branch;
     }
 
     bool operator != (const branch_type _branch) const
@@ -482,7 +482,7 @@ struct level_pos
 
     bool operator <  (const level_pos &lp) const
     {
-        return (id < lp.id) || (id == lp.id && pos < lp.pos);
+        return id < lp.id || (id == lp.id && pos < lp.pos);
     }
 
     bool is_valid() const
@@ -517,7 +517,9 @@ struct item_def
 {
     object_class_type base_type:8; // basic class (ie OBJ_WEAPON)
     uint8_t        sub_type;       // type within that class (ie WPN_DAGGER)
+#pragma pack(push,2)
     union { short plus; monster_type mon_type:16; }; // +to hit, charges, corpse mon id
+#pragma pack(pop)
     short          plus2;          // +to dam, sub-sub type for boots/helms
     int            special;        // special stuff
     colour_t       colour;         // item colour
@@ -713,7 +715,7 @@ struct item_comparator
     }
     int compare(const InvEntry *a, const InvEntry *b) const
     {
-        return (negated? -cmpfn(a, b) : cmpfn(a, b));
+        return negated? -cmpfn(a, b) : cmpfn(a, b);
     }
 };
 typedef vector<item_comparator> item_sort_comparators;

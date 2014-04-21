@@ -3,7 +3,6 @@
  * @brief Misc monster related functions.
 **/
 
-
 #ifndef MONSTUFF_H
 #define MONSTUFF_H
 
@@ -18,13 +17,6 @@ enum mon_dam_level_type
     MDAM_SEVERELY_DAMAGED,
     MDAM_ALMOST_DEAD,
     MDAM_DEAD,
-};
-
-enum mon_desc_type   // things that cross categorical lines {dlb}
-{
-    MDSC_LEAVES_HIDE,                  //    0
-    MDSC_REGENERATES,
-    MDSC_NOMSG_WOUNDS,
 };
 
 enum temperature_level
@@ -44,11 +36,9 @@ enum temperature_effect
     LORC_LAVA_BOOST,
     LORC_FIRE_BOOST,
     LORC_STONESKIN,
-    LORC_SLOW_MOVE,
     LORC_COLD_VULN,
     LORC_PASSIVE_HEAT,
     LORC_HEAT_AURA,
-    LORC_FAST_MOVE,
     LORC_NO_SCROLLS,
     LORC_FIRE_RES_I,
     LORC_FIRE_RES_II,
@@ -80,7 +70,6 @@ struct level_exit
                                               : BEH_HOSTILE)
 
 #define MONST_INTERESTING(x) (x->flags & MF_INTERESTING)
-
 
 const item_def *give_mimic_item(monster* mimic);
 dungeon_feature_type get_mimic_feat(const monster* mimic);
@@ -141,7 +130,7 @@ void unawaken_vines(const monster* mons, bool quiet);
 int dismiss_monsters(string pattern);
 void zap_los_monsters(bool items_also);
 
-bool curse_an_item(bool quiet = false);
+bool curse_an_item(bool ignore_holy_wrath = false);
 
 bool is_any_item(const item_def& item);
 void monster_drop_things(
@@ -162,21 +151,17 @@ monster *choose_random_nearby_monster(
     int weight,
     bool (*suitable)(const monster* mon) =
         choose_any_monster,
-    bool in_sight = true,
-    bool prefer_named = false, bool prefer_priest = false);
+    bool prefer_named_or_priest = false);
 
 monster *choose_random_monster_on_level(
     int weight,
     bool (*suitable)(const monster* mon) =
-        choose_any_monster,
-    bool in_sight = true, bool near_by = false,
-    bool prefer_named = false, bool prefer_priest = false);
+        choose_any_monster);
 
 bool swap_places(monster* mons, const coord_def &loc);
 bool swap_check(monster* mons, coord_def &loc, bool quiet = false);
 
 void print_wounds(const monster* mons);
-bool monster_descriptor(monster_type which_class, mon_desc_type which_descriptor);
 
 // Return your target, if it still exists and is visible to you.
 monster *get_current_target();
@@ -192,12 +177,10 @@ bool shift_monster(monster* mon, coord_def p = coord_def(0, 0));
 int mons_weapon_damage_rating(const item_def &launcher);
 int mons_missile_damage(monster* mons, const item_def *launch,
                         const item_def *missile);
-int mons_pick_best_missile(monster* mons, item_def **launcher,
-                           bool ignore_melee = false);
-int mons_thrown_weapon_damage(const item_def *weap,
-                              bool only_returning_weapons = false);
+int mons_usable_missile(monster* mons, item_def **launcher);
 
 int mons_natural_regen_rate(monster* mons);
+int mons_off_level_regen_rate(monster* mons);
 
 void mons_relocated(monster* mons);
 void mons_att_changed(monster* mons);

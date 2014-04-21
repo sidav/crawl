@@ -17,7 +17,6 @@
 #include "cloud.h"
 #include "travel.h"
 
-
 LUAFN(view_feature_at)
 {
     COORDSHOW(s, 1, 2)
@@ -25,8 +24,7 @@ LUAFN(view_feature_at)
     if (!map_bounds(p))
         return 1;
     dungeon_feature_type f = env.map_knowledge(p).feat();
-    if (f != DNGN_UNSEEN)
-        lua_pushstring(ls, dungeon_feature_name(f));
+    lua_pushstring(ls, dungeon_feature_name(f));
     return 1;
 }
 
@@ -88,11 +86,22 @@ LUAFN(view_can_reach)
     return 1;
 }
 
+LUAFN(view_withheld)
+{
+    COORDSHOW(s, 1, 2)
+    const coord_def p = player2grid(s);
+    if (!map_bounds(p))
+        return 1;
+    PLUARET(boolean, env.map_knowledge(p).flags & MAP_WITHHELD);
+    return 1;
+}
+
 static const struct luaL_reg view_lib[] =
 {
     { "feature_at", view_feature_at },
     { "is_safe_square", view_is_safe_square },
     { "can_reach", view_can_reach },
+    { "withheld", view_withheld },
 
     { NULL, NULL }
 };

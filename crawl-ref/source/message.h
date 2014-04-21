@@ -55,6 +55,7 @@ void msgwin_prompt(string prompt);
 void msgwin_reply(string reply);
 
 unsigned int msgwin_lines();
+unsigned int msgwin_line_length();
 
 // Tell the message window that previous messages may be considered
 // read, e.g. after reading input from the player.
@@ -64,7 +65,6 @@ int msgwin_get_line(string prompt,
                     char *buf, int len,
                     input_history *mh = NULL,
                     const string &fill = "");
-
 
 // Do not use this templated function directly.  Use the macro below instead.
 template<int> static int msgwin_get_line_autohist_temp(string prompt,

@@ -2,7 +2,6 @@
 #define ACTOR_H
 
 #include "itemprop-enum.h"
-#include "los_def.h"
 
 enum ev_ignore_type
 {
@@ -72,7 +71,7 @@ public:
                                         int killernum = -1) = 0;
 
     virtual void set_position(const coord_def &c);
-    virtual const coord_def& pos() const { return position; }
+    const coord_def& pos() const { return position; }
 
     virtual bool self_destructs() { return false; }
 
@@ -120,6 +119,8 @@ public:
                             bool calc_unid = true) const = 0;
     virtual int scan_artefacts(artefact_prop_type which_property,
                                bool calc_unid = true) const = 0;
+
+    virtual hands_reqd_type hands_reqd(const item_def &item) const;
 
             bool can_wield(const item_def* item,
                            bool ignore_curse = false,
@@ -172,6 +173,7 @@ public:
     virtual bool invisible() const = 0;
     virtual bool nightvision() const = 0;
     virtual reach_type reach_range() const = 0;
+    virtual bool can_jump() const = 0;
 
     // Would looker be able to see the actor when in LOS?
     virtual bool visible_to(const actor *looker) const = 0;
@@ -180,15 +182,12 @@ public:
     virtual bool see_cell(const coord_def &c) const;
     virtual bool see_cell_no_trans(const coord_def &c) const;
 
-    virtual const los_base* get_los();
-    virtual const los_base* get_los_no_trans();
-
     // Can the actor actually see the target?
     virtual bool can_see(const actor *target) const;
 
     // Visibility as required by messaging. In usual play:
     //   Does the player know what's happening to the actor?
-    virtual bool observable() const;
+    bool observable() const;
 
     virtual bool is_icy() const = 0;
     virtual bool is_fiery() const = 0;
@@ -212,7 +211,6 @@ public:
     virtual void banish(actor *agent, const string &who = "") = 0;
     virtual void blink(bool allow_partial_control = true) = 0;
     virtual void teleport(bool right_now = false,
-                          bool abyss_shift = false,
                           bool wizard_tele = false) = 0;
     virtual bool poison(actor *attacker, int amount = 1, bool force = false) = 0;
     virtual bool sicken(int amount, bool allow_hint = true, bool quiet = false) = 0;
@@ -309,7 +307,7 @@ public:
     virtual bool clarity(bool calc_unid = true, bool items = true) const;
     virtual bool faith(bool calc_unid = true, bool items = true) const;
     virtual bool warding(bool calc_unid = true, bool items = true) const;
-    virtual bool archmagi(bool calc_unid = true, bool items = true) const;
+    virtual int archmagi(bool calc_unid = true, bool items = true) const;
     virtual bool no_cast(bool calc_unid = true, bool items = true) const;
 
     virtual bool rmut_from_item(bool calc_unid = true) const;
@@ -318,6 +316,7 @@ public:
 
     // Return an int so we know whether an item is the sole source.
     virtual int evokable_flight(bool calc_unid = true) const;
+    virtual int evokable_jump(bool calc_unid = true) const;
     virtual int spirit_shield(bool calc_unid = true, bool items = true) const;
 
     virtual flight_type flight_mode() const = 0;
@@ -352,8 +351,6 @@ public:
     virtual bool haloed() const;
     // Within an umbra?
     virtual bool umbraed() const;
-    // Magically suppressed?
-    virtual bool suppressed() const;
     // Being heated by a heat aura?
     virtual bool heated() const;
     // Squared halo radius.
@@ -361,11 +358,9 @@ public:
     // Squared silence radius.
     virtual int silence_radius2() const = 0;
     // Squared liquefying radius
-    virtual int liquefying_radius2 () const = 0;
-    virtual int umbra_radius2 () const = 0;
-    virtual int suppression_radius2 () const = 0;
-    virtual int soul_aura_radius2 () const = 0;
-    virtual int heat_radius2 () const = 0;
+    virtual int liquefying_radius2() const = 0;
+    virtual int umbra_radius2() const = 0;
+    virtual int heat_radius2() const = 0;
 
     virtual bool glows_naturally() const = 0;
 
@@ -436,14 +431,9 @@ public:
 
     string describe_props() const;
 
-
 protected:
     void end_constriction(constricting_t::iterator i, bool intentional,
                           bool quiet);
-
-    // These are here for memory management reasons...
-    los_glob los;
-    los_glob los_no_trans;
 };
 
 bool actor_slime_wall_immune(const actor *actor);

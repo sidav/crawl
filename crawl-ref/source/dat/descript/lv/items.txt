@@ -1,14 +1,4 @@
 %%%%
-amulet of clarity
-
-Šis amulets pasargā tā nēsātāju no dažāda veida garīgajiem apjukumiem, tostarp
-arī pret paša gribu tiekot satracinātam.
-%%%%
-amulet of resist corrosion
-
-Šis amulets pasargā tā nēsātāju no skābes izraisītās korozijas ietekmes uz viņa
-apbruņojumu, lai arī tas nav vienmēr garantēts.
-%%%%
 apricot
 
 Sulīgs dzeltenīgi oranžs auglis, prunus armeniaca.
@@ -28,10 +18,6 @@ Burvestību grāmata.
 book of fixed theme
 
 Burvestību grāmata.
-%%%%
-cap
-
-Auduma vai ādas cepure.
 %%%%
 centaur barding
 
@@ -57,13 +43,21 @@ crystal plate armour
 
 Šausmīgi smags, taču ārkārtīgi iedarbīgs kristāla bruņutērps.
 %%%%
-dart
+decaying skeleton
 
-Mazs, izgrebts un noasināts šāviņš, kas paredzēts mešanai ar roku.
+Trūdošs ģindenis.
 %%%%
-dire flail
+demon blade
 
-Kaujas sprigulis ar garākiem asumiem un smagāku uzgali.
+Šaušalīgs ierocis, kas kalts Elles liesmās.
+%%%%
+demon whip
+
+Šaušalīgs ierocis, kas veidots Pekles dzīlēs.
+%%%%
+giant spiked club
+
+Milzīgs koka baļķis ar asumiem vienā galā.
 %%%%
 glaive
 
@@ -76,6 +70,10 @@ Kaudze ar mirdzošām zelta monētām.
 grape
 
 Mazs auglis.
+%%%%
+helmet
+
+Metāla galvassega.
 %%%%
 lemon
 
@@ -93,17 +91,17 @@ pair of boots
 
 Zābaku pāris.
 %%%%
-pair of gauntlets
-
-Bruņucimdu pāris.
-%%%%
 pair of gloves
 
 Cimdu pāris.
 %%%%
-pear
+potion of experience
 
-Gards sulīgs auglis.
+Patiesi brīnišķīgs un ļoti rets dzēriens.
+%%%%
+potion of invisibility
+
+Dzira, kas tevi paslēpj no pārējo skatieniem.
 %%%%
 potion of poison
 
@@ -113,23 +111,43 @@ potion of strong poison
 
 Trakoti indīga dzira.
 %%%%
+quarterstaff
+
+Izturīga koka nūja, kas paredzēta cīņai.
+%%%%
 ring of protection from cold
 
 Šis gredzens nodrošina aizsardzību pret aukstumu.
 %%%%
-decaying skeleton
+scroll of curse weapon
 
-Trūdošs ģindenis.
+Šis tīkstoklis uzliek lāstu nēsātajam ierocim.
+%%%%
+scroll of fog
+
+Šis tīstoklis ietin tā lasītāju biezā miglas mākonī.
 %%%%
 snozzcumber
 
-Riebīgs ģurķa formas dārzenis.
+Derdzīgs ģurķa formas dārzenis.
 %%%%
 strawberry
 
 Mazs, taču gards sarkans auglis.
 %%%%
-wizard hat
+wand of cold
 
-Koniskas formas ādas cepure.
+Burvju ietaise, kas sviež lielus aukstuma šāviņus.
+%%%%
+wand of fire
+
+Burvju ietaise, kas sviež lielus uguns šāviņus.
+%%%%
+wand of heal wounds
+
+Burvju ietaise, kas var sadziedēt radījuma brūces.
+%%%%
+wand of lightning
+
+Burvju ietaise, kas sviež lielus zibens šāviņus.
 %%%%

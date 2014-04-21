@@ -164,6 +164,19 @@ struct spell_desc
 },
 
 {
+    SPELL_BLINKBOLT, "Blinkbolt",
+     SPTYP_AIR | SPTYP_TRANSLOCATION,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_MONSTER | SPFLAG_INNATE | SPFLAG_NOISY,
+     5,
+     200,
+     5, 12,
+     0,
+     NULL,
+     true,
+     false
+},
+
+{
     SPELL_BOLT_OF_MAGMA, "Bolt of Magma",
      SPTYP_CONJURATION | SPTYP_FIRE | SPTYP_EARTH,
      SPFLAG_DIR_OR_TARGET,
@@ -179,7 +192,7 @@ struct spell_desc
 {
     SPELL_POLYMORPH, "Polymorph",
      SPTYP_TRANSMUTATION | SPTYP_HEXES,
-     SPFLAG_DIR_OR_TARGET | SPFLAG_CHAOTIC,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_CHAOTIC | SPFLAG_MONSTER,
      4,
      200,
      LOS_RADIUS, LOS_RADIUS,
@@ -312,7 +325,7 @@ struct spell_desc
 {
     SPELL_FREEZING_CLOUD, "Freezing Cloud",
      SPTYP_CONJURATION | SPTYP_ICE | SPTYP_AIR,
-     SPFLAG_GRID | SPFLAG_AREA,
+     SPFLAG_GRID | SPFLAG_AREA | SPFLAG_ALLOW_SELF,
      6,
      200,
      6, 6,
@@ -453,7 +466,7 @@ struct spell_desc
 },
 
 {
-    SPELL_MASS_ABJURATION, "Mass Abjuration",
+    SPELL_AURA_OF_ABJURATION, "Aura of Abjuration",
      SPTYP_SUMMONING,
      SPFLAG_AREA | SPFLAG_NEUTRAL | SPFLAG_ESCAPE,
      6,
@@ -465,6 +478,7 @@ struct spell_desc
      false
 },
 
+#if TAG_MAJOR_VERSION == 34
 {
     SPELL_SUMMON_SCORPIONS, "Summon Scorpions",
      SPTYP_SUMMONING | SPTYP_POISON,
@@ -477,12 +491,13 @@ struct spell_desc
      false,
      false
 },
+#endif
 
 {
     SPELL_BOLT_OF_DRAINING, "Bolt of Draining",
      SPTYP_CONJURATION | SPTYP_NECROMANCY,
      SPFLAG_DIR_OR_TARGET,
-     6,
+     5,
      200,
      6, 6,
      -3, //the beam is silent
@@ -770,7 +785,7 @@ struct spell_desc
     SPELL_BORGNJORS_REVIVIFICATION, "Borgnjor's Revivification",
      SPTYP_NECROMANCY,
      SPFLAG_NONE,
-     7,
+     8,
      200,
      -1, -1,
      0,
@@ -836,7 +851,7 @@ struct spell_desc
      SPTYP_ICE | SPTYP_SUMMONING,
      SPFLAG_BATTLE,
      4,
-     200,
+     100,
      -1, -1,
      0,
      NULL,
@@ -862,7 +877,7 @@ struct spell_desc
      SPTYP_SUMMONING,
      SPFLAG_UNHOLY | SPFLAG_BATTLE,
      2,
-     200,
+     100,
      -1, -1,
      0,
      NULL,
@@ -875,7 +890,7 @@ struct spell_desc
      SPTYP_CHARMS | SPTYP_AIR,
      SPFLAG_NONE,
      2,
-     200,
+     50,
      -1, -1,
      0,
      NULL,
@@ -896,7 +911,6 @@ struct spell_desc
      false
 },
 
-#if TAG_MAJOR_VERSION == 34
 {
     SPELL_FRENZY, "Frenzy",
      SPTYP_CHARMS,
@@ -909,7 +923,6 @@ struct spell_desc
      false,
      false
 },
-#endif
 
 {
     SPELL_DISPEL_UNDEAD, "Dispel Undead",
@@ -1059,6 +1072,7 @@ struct spell_desc
      false
 },
 
+#if TAG_MAJOR_VERSION == 34
 {
     SPELL_DEMONIC_HORDE, "Demonic Horde",
      SPTYP_SUMMONING,
@@ -1071,6 +1085,7 @@ struct spell_desc
      false,
      false
 },
+#endif
 
 {
     SPELL_SUMMON_GREATER_DEMON, "Summon Greater Demon",
@@ -1181,7 +1196,7 @@ struct spell_desc
      SPTYP_CHARMS | SPTYP_AIR,
      SPFLAG_HASTY,
      2,
-     200,
+     100,
      -1, -1,
      0,
      NULL,
@@ -1440,19 +1455,6 @@ struct spell_desc
 },
 
 {
-    SPELL_ICE_STORM, "Ice Storm",
-     SPTYP_CONJURATION | SPTYP_ICE,
-     SPFLAG_DIR_OR_TARGET | SPFLAG_AREA,
-     9,
-     200,
-     6, 6,
-     0,
-     NULL,
-     true,
-     false
-},
-
-{
     SPELL_AIRSTRIKE, "Airstrike",
      SPTYP_AIR,
      SPFLAG_TARGET | SPFLAG_NOT_SELF | SPFLAG_BATTLE,
@@ -1561,7 +1563,7 @@ struct spell_desc
      SPTYP_SUMMONING,
      SPFLAG_NONE,
      3,
-     200,
+     100,
      -1, -1,
      0,
      NULL,
@@ -1599,7 +1601,7 @@ struct spell_desc
     SPELL_ENGLACIATION, "Metabolic Englaciation",
      SPTYP_HEXES | SPTYP_ICE,
      SPFLAG_AREA,
-     6,
+     5,
      200,
      -1, -1,
      0,
@@ -1824,7 +1826,7 @@ struct spell_desc
     SPELL_CONJURE_BALL_LIGHTNING, "Conjure Ball Lightning",
      SPTYP_AIR | SPTYP_CONJURATION,
      SPFLAG_NONE,
-     7,
+     6,
      200,
      -1, -1,
      0,
@@ -1862,10 +1864,10 @@ struct spell_desc
 {
     SPELL_PORTAL_PROJECTILE, "Portal Projectile",
      SPTYP_TRANSLOCATION,
-     SPFLAG_TARGET | SPFLAG_BATTLE,
-     2,
+     SPFLAG_BATTLE,
+     3,
      50,
-     LOS_RADIUS, LOS_RADIUS,
+     -1, -1,
      0,
      NULL,
      false,
@@ -1873,9 +1875,9 @@ struct spell_desc
 },
 
 {
-    SPELL_SUMMON_UGLY_THING, "Summon Ugly Thing",
+    SPELL_MONSTROUS_MENAGERIE, "Monstrous Menagerie",
      SPTYP_SUMMONING,
-     SPFLAG_CHAOTIC,
+     SPFLAG_NONE,
      6,
      200,
      -1, -1,
@@ -1902,7 +1904,7 @@ struct spell_desc
     SPELL_FULMINANT_PRISM, "Fulminant Prism",
      SPTYP_CONJURATION | SPTYP_HEXES,
      SPFLAG_GRID | SPFLAG_AREA | SPFLAG_NOT_SELF,
-     5,
+     4,
      200,
      5, 5,
      0,
@@ -1992,6 +1994,7 @@ struct spell_desc
      false
 },
 
+#if TAG_MAJOR_VERSION == 34
 {
     SPELL_FAKE_RAKSHASA_SUMMON, "Rakshasa Summon",
      SPTYP_SUMMONING,
@@ -2004,6 +2007,7 @@ struct spell_desc
      false,
      false
 },
+#endif
 
 {
     SPELL_NOXIOUS_CLOUD, "Noxious Cloud",
@@ -2112,9 +2116,9 @@ struct spell_desc
 {
     SPELL_QUICKSILVER_BOLT, "Quicksilver Bolt",
      SPTYP_CONJURATION,
-     SPFLAG_DIR_OR_TARGET | SPFLAG_MONSTER,
+     SPFLAG_DIR_OR_TARGET,
      5,
-     0,
+     200,
      8, 8,
      0,
      NULL,
@@ -2461,7 +2465,6 @@ struct spell_desc
      false,
      false
 },
-#endif
 
 {
     SPELL_MISLEAD, "Mislead",
@@ -2475,6 +2478,7 @@ struct spell_desc
      false,
      false
 },
+#endif
 
 {
     SPELL_SUMMON_ILLUSION, "Summon Illusion",
@@ -2567,6 +2571,7 @@ struct spell_desc
      true
 },
 
+#if TAG_MAJOR_VERSION == 34
 {
     SPELL_SUNRAY, "Sunray",
      SPTYP_CONJURATION,
@@ -2579,6 +2584,7 @@ struct spell_desc
      true,
      false
 },
+#endif
 
 {
     SPELL_AWAKEN_FOREST, "Awaken Forest",
@@ -2896,7 +2902,7 @@ struct spell_desc
     SPELL_BATTLESPHERE, "Iskenderun's Battlesphere",
       SPTYP_CONJURATION | SPTYP_CHARMS,
       SPFLAG_NONE,
-      4,
+      5,
       100,
       -1, -1,
       0,
@@ -2931,6 +2937,7 @@ struct spell_desc
      false
 },
 
+#if TAG_MAJOR_VERSION == 34
 {
     SPELL_SUMMON_TWISTER, "Summon Twister",
      SPTYP_SUMMONING | SPTYP_AIR,
@@ -2943,6 +2950,7 @@ struct spell_desc
      false,
      false
 },
+#endif
 
 {
     SPELL_DAZZLING_SPRAY, "Dazzling Spray",
@@ -2953,7 +2961,7 @@ struct spell_desc
      6, 6,
      0,
      NULL,
-     true,
+     false,
      false
 },
 
@@ -3074,6 +3082,21 @@ struct spell_desc
      false,
      false
 },
+
+#if TAG_MAJOR_VERSION == 34
+{
+    SPELL_SHAFT_SELF, "Shaft Self",
+     SPTYP_EARTH,
+     SPFLAG_ESCAPE,
+     1,
+     0,
+     -1, -1,
+     100,
+     NULL,
+     false,
+     true
+},
+#endif
 
 {
     SPELL_AWAKEN_VINES, "Awaken Vines",
@@ -3197,7 +3220,7 @@ struct spell_desc
      SPTYP_CHARMS,
      SPFLAG_BATTLE,
      2,
-     200,
+     100,
      -1, -1,
      0,
      NULL,
@@ -3205,6 +3228,7 @@ struct spell_desc
      true
 },
 
+#if TAG_MAJOR_VERSION == 34
 {
     SPELL_SONG_OF_SHIELDING, "Song of Shielding",
      SPTYP_CHARMS,
@@ -3217,6 +3241,7 @@ struct spell_desc
      false,
      true
 },
+#endif
 
 {
     SPELL_SPECTRAL_WEAPON, "Spectral Weapon",
@@ -3234,7 +3259,7 @@ struct spell_desc
 {
     SPELL_SUMMON_VERMIN, "Summon Vermin",
      SPTYP_SUMMONING,
-     SPFLAG_MONSTER,
+     SPFLAG_MONSTER | SPFLAG_UNHOLY,
      5,
      0,
      -1, -1,
@@ -3281,6 +3306,448 @@ struct spell_desc
      NULL,
      false,
      false
+},
+
+{
+    SPELL_INVISIBILITY_OTHER, "Invisibility Other",
+     SPTYP_CHARMS | SPTYP_HEXES,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_NOT_SELF | SPFLAG_HELPFUL,
+     6,
+     200,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     true,
+     true
+},
+
+{
+    SPELL_VIRULENCE, "Virulence",
+     SPTYP_POISON | SPTYP_HEXES,
+     SPFLAG_DIR_OR_TARGET,
+     4,
+     200,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     true,
+     false
+},
+
+{
+    SPELL_IGNITE_POISON_SINGLE, "Localized Ignite Poison",
+     SPTYP_FIRE | SPTYP_TRANSMUTATION,
+     SPFLAG_MONSTER | SPFLAG_DIR_OR_TARGET | SPFLAG_NOT_SELF,
+     4,
+     200,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     true,
+     false
+},
+
+{
+    SPELL_ORB_OF_ELECTRICITY, "Orb of Electricity",
+     SPTYP_CONJURATION | SPTYP_AIR,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_MONSTER,
+     7,
+     200,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     true,
+     false
+},
+
+{
+    SPELL_EXPLOSIVE_BOLT, "Explosive Bolt",
+     SPTYP_CONJURATION | SPTYP_FIRE,
+     SPFLAG_DIR_OR_TARGET,
+     6,
+     200,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     true,
+     false
+},
+
+{
+    SPELL_FLASH_FREEZE, "Flash Freeze",
+     SPTYP_CONJURATION | SPTYP_ICE,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_MONSTER,
+     7,
+     200,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     true,
+     false
+},
+
+{
+    SPELL_LEGENDARY_DESTRUCTION, "Legendary Destruction",
+     SPTYP_CONJURATION,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_MONSTER,
+     8,
+     200,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     true,
+     false
+},
+
+{
+    SPELL_EPHEMERAL_INFUSION, "Ephemeral Infusion",
+     SPTYP_CHARMS | SPTYP_NECROMANCY,
+     SPFLAG_MONSTER,
+     8,
+     200,
+     -1, -1,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_FORCEFUL_INVITATION, "Forceful Invitation",
+     SPTYP_SUMMONING,
+     SPFLAG_BATTLE | SPFLAG_MONSTER,
+     4,
+     200,
+     -1, -1,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_PLANEREND, "Plane Rend",
+     SPTYP_SUMMONING,
+     SPFLAG_BATTLE | SPFLAG_MONSTER,
+     8,
+     200,
+     -1, -1,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_CHAIN_OF_CHAOS, "Chain of Chaos",
+     SPTYP_CONJURATION,
+     SPFLAG_AREA | SPFLAG_MONSTER | SPFLAG_CHAOTIC,
+     8,
+     200,
+     -1, -1,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_CHAOTIC_MIRROR, "Chaotic Mirror",
+     SPTYP_NONE,
+     SPFLAG_TARGET | SPFLAG_NOT_SELF | SPFLAG_CHAOTIC | SPFLAG_MONSTER,
+     4,
+     200,
+     LOS_RADIUS, LOS_RADIUS,
+     4,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_BLACK_MARK, "Black Mark",
+     SPTYP_CHARMS | SPTYP_NECROMANCY,
+     SPFLAG_MONSTER,
+     7,
+     200,
+     -1, -1,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_GRAND_AVATAR, "Grand Avatar",
+      SPTYP_CONJURATION | SPTYP_CHARMS | SPTYP_HEXES,
+      SPFLAG_MONSTER,
+      4,
+      100,
+      -1, -1,
+      0,
+      NULL,
+      false,
+      true
+},
+
+{
+    SPELL_SAP_MAGIC, "Sap Magic",
+     SPTYP_HEXES,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_MONSTER,
+     5,
+     200,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     true,
+     false
+},
+
+{
+    SPELL_CORRUPT_BODY, "Corrupt Body",
+     SPTYP_TRANSMUTATION | SPTYP_HEXES,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_NOT_SELF | SPFLAG_CHAOTIC,
+     4,
+     200,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     true,
+     false
+},
+
+{
+    SPELL_REARRANGE_PIECES, "Rearrange the Pieces",
+     SPTYP_HEXES,
+     SPFLAG_AREA | SPFLAG_MONSTER | SPFLAG_CHAOTIC,
+     8,
+     200,
+     -1, -1,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_MAJOR_DESTRUCTION, "Major Destruction",
+     SPTYP_CONJURATION,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_CHAOTIC,
+     7,
+     200,
+     7, 7,
+     0,
+     NULL,
+     true,
+     false
+},
+
+{
+    SPELL_BLINK_ALLIES_AWAY, "Blink Allies Away",
+     SPTYP_TRANSLOCATION,
+     SPFLAG_AREA,
+     6,
+     200,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_SUMMON_FOREST, "Summon Forest",
+     SPTYP_SUMMONING | SPTYP_TRANSLOCATION,
+     SPFLAG_NONE,
+     5,
+     200,
+     -1, -1,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_SUMMON_LIGHTNING_SPIRE, "Summon Lightning Spire",
+     SPTYP_SUMMONING | SPTYP_AIR,
+     SPFLAG_GRID | SPFLAG_NOT_SELF | SPFLAG_NEUTRAL,
+     4,
+     100,
+     2, 2,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_SUMMON_GUARDIAN_GOLEM, "Summon Guardian Golem",
+     SPTYP_SUMMONING | SPTYP_HEXES,
+     SPFLAG_NONE,
+     4,
+     100,
+     -1, -1,
+     0,
+     NULL,
+     false,
+     false,
+},
+
+{
+    SPELL_SHADOW_SHARD, "Shadow Shard",
+     SPTYP_CONJURATION,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_MONSTER,
+     5,
+     200,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     true,
+     false,
+},
+
+{
+    SPELL_SHADOW_BOLT, "Shadow Bolt",
+     SPTYP_CONJURATION,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_MONSTER,
+     5,
+     200,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     true,
+     false
+},
+
+{
+    SPELL_CRYSTAL_BOLT, "Crystal Bolt",
+     SPTYP_CONJURATION | SPTYP_FIRE | SPTYP_ICE,
+     SPFLAG_DIR_OR_TARGET,
+     6,
+     200,
+     7, 7,
+     0,
+     NULL,
+     true,
+     false
+},
+
+{
+    SPELL_RANDOM_BOLT, "Random Bolt",
+    SPTYP_CONJURATION,
+    SPFLAG_DIR_OR_TARGET,
+    4,
+    200,
+    6, 6,
+    0,
+    NULL,
+    true,
+    false
+},
+
+{
+    SPELL_GLACIATE, "Glaciate",
+     SPTYP_CONJURATION | SPTYP_ICE,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_AREA | SPFLAG_NOT_SELF,
+     9,
+     200,
+     7, 7,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_CLOUD_CONE, "Cloud Cone",
+     SPTYP_CONJURATION | SPTYP_AIR,
+     SPFLAG_GRID | SPFLAG_NOT_SELF,
+     6,
+     100,
+     3, LOS_RADIUS,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_WEAVE_SHADOWS, "Weave Shadows",
+     SPTYP_SUMMONING,
+     SPFLAG_NONE,
+     5,
+     0,
+     -1, -1,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_DRAGON_CALL, "Dragon's Call",
+     SPTYP_SUMMONING,
+     SPFLAG_NONE,
+     9,
+     200,
+     -1, -1,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_SPELLFORGED_SERVITOR, "Spellforged Servitor",
+     SPTYP_CONJURATION | SPTYP_SUMMONING,
+     SPFLAG_NONE,
+     7,
+     200,
+     -1, -1,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_FORCEFUL_DISMISSAL, "Forceful Dismissal",
+     SPTYP_SUMMONING,
+     SPFLAG_AREA,
+     6,
+     200,
+     -1, -1,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_SUMMON_MANA_VIPER, "Summon Mana Viper",
+     SPTYP_SUMMONING | SPTYP_HEXES,
+     SPFLAG_NONE,
+     5,
+     100,
+     -1, -1,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_PHANTOM_MIRROR, "Phantom Mirror",
+     SPTYP_CHARMS | SPTYP_HEXES,
+     SPFLAG_HELPFUL,
+     5,
+     200,
+     -1, -1,
+     0,
+     NULL,
+     false,
+     false,
 },
 
 {

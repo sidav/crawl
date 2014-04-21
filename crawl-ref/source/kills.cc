@@ -466,16 +466,16 @@ static string kill_times(int kills)
     char buf[50];
     switch (kills)
     {
-      case 1:
+    case 1:
         strcpy(buf, " (once)");
         break;
-      case 2:
+    case 2:
         strcpy(buf, " (twice)");
         break;
-      case 3:
+    case 3:
         strcpy(buf, " (thrice)");
         break;
-      default:
+    default:
         snprintf(buf, sizeof buf, " (%d times)", kills);
         break;
     }
@@ -520,26 +520,23 @@ string kill_def::base_name(const kill_monster_desc &md) const
 
     switch (md.modifier)
     {
-      case kill_monster_desc::M_ZOMBIE:
+    case kill_monster_desc::M_ZOMBIE:
         name += " zombie";
         break;
-      case kill_monster_desc::M_SKELETON:
+    case kill_monster_desc::M_SKELETON:
         name += " skeleton";
         break;
-      case kill_monster_desc::M_SIMULACRUM:
+    case kill_monster_desc::M_SIMULACRUM:
         name += " simulacrum";
         break;
-      case kill_monster_desc::M_SPECTRE:
+    case kill_monster_desc::M_SPECTRE:
         name = "spectral " + name;
         break;
-      default:
+    default:
         // Silence compiler warning about not handling M_NORMAL and
         // M_SHAPESHIFTER
         break;
     }
-
-    if (md.monnum == MONS_RAKSHASA_FAKE || md.monnum == MONS_MARA_FAKE)
-        name = "illusory " + name;
 
     return name;
 }
@@ -769,7 +766,6 @@ KILLEXP_ACCESS(desc, string, desc.c_str())
 KILLEXP_ACCESS(monnum, number, monnum)
 KILLEXP_ACCESS(isghost, boolean, monnum == MONS_PLAYER_GHOST)
 KILLEXP_ACCESS(ispandemon, boolean, monnum == MONS_PANDEMONIUM_LORD)
-
 
 static int kill_lualc_modifier(lua_State *ls)
 {

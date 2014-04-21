@@ -122,16 +122,6 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
             break;
 
         case DID_DESECRATE_HOLY_REMAINS:
-            if (you_worship(GOD_YREDELEMNUL))
-            {
-                simple_god_message(" appreciates your desecration of holy "
-                                   "remains.");
-                retval = true;
-                piety_change = 1;
-                break;
-            }
-            // deliberate fall through
-
         case DID_NECROMANCY:
         case DID_UNHOLY:
         case DID_ATTACK_HOLY:
@@ -316,21 +306,6 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
                 retval = true;
                 break;
 
-            case GOD_ZIN:
-                // Converted allies (marked as TSOites) can be martyrs.
-                if (victim && victim->god == GOD_SHINING_ONE)
-                    break;
-
-                // Zin only cares about the deaths of those with souls.
-                if (thing_done == DID_FRIEND_DIED)
-                    break;
-                // fall through
-
-            case GOD_OKAWARU:
-                piety_change = -level;
-                retval = true;
-                break;
-
             default:
                 break;
             }
@@ -361,6 +336,13 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
             case GOD_TROG:
             case GOD_BEOGH:
             case GOD_LUGONU:
+            case GOD_DITHMENOS:
+                if (you_worship(GOD_DITHMENOS)
+                    && mons_class_flag(victim->type, M_SHADOW))
+                {
+                    break;
+                }
+
                 if (god_hates_attacking_friend(you.religion, victim))
                     break;
 
@@ -388,6 +370,13 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
             case GOD_MAKHLEB:
             case GOD_BEOGH:
             case GOD_LUGONU:
+            case GOD_DITHMENOS:
+                if (you_worship(GOD_DITHMENOS)
+                    && mons_class_flag(victim->type, M_SHADOW))
+                {
+                    break;
+                }
+
                 if (god_hates_attacking_friend(you.religion, victim))
                     break;
 
@@ -416,6 +405,13 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
             case GOD_KIKUBAAQUDGHA:
             case GOD_BEOGH:
             case GOD_LUGONU:
+            case GOD_DITHMENOS:
+                if (you_worship(GOD_DITHMENOS)
+                    && mons_class_flag(victim->type, M_SHADOW))
+                {
+                    break;
+                }
+
                 if (god_hates_attacking_friend(you.religion, victim))
                     break;
 
@@ -494,7 +490,7 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
 
                 const int speed_delta =
                     cheibriados_monster_player_speed_delta(victim);
-                dprf("Che DID_KILL_FAST: %s speed delta: %d",
+                dprf("Chei DID_KILL_FAST: %s speed delta: %d",
                      victim->name(DESC_PLAIN, true).c_str(),
                      speed_delta);
                 if (speed_delta > 0 && x_chance_in_y(speed_delta, 12))
@@ -546,6 +542,13 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
             case GOD_MAKHLEB:
             case GOD_BEOGH:
             case GOD_LUGONU:
+            case GOD_DITHMENOS:
+                if (you_worship(GOD_DITHMENOS)
+                    && mons_class_flag(victim->type, M_SHADOW))
+                {
+                    break;
+                }
+
                 if (god_hates_attacking_friend(you.religion, victim))
                     break;
 
@@ -852,8 +855,8 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
             }
             break;
 
-        case DID_CAUSE_GLOWING:
         case DID_DELIBERATE_MUTATING:
+        case DID_CAUSE_GLOWING:
             if (you_worship(GOD_ZIN))
             {
                 if (!known && thing_done != DID_CAUSE_GLOWING)
@@ -980,9 +983,9 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
         case DID_EXPLORATION:
             if (you_worship(GOD_ASHENZARI))
             {
-                const int base_gain = 6; // base gain per dungeon level
-                // levels: x1, x1.5, x2, x2.5, x3
-                piety_change = base_gain + base_gain * you.bondage_level / 2;
+                const int base_gain = 8; // base gain per dungeon level
+                // levels: x1, x1.25, x1.5, x1.75, x2
+                piety_change = base_gain + base_gain * you.bondage_level / 4;
                 piety_denom = level;
                 retval = true;
             }
@@ -1001,27 +1004,94 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
             }
             break;
 
+        case DID_ILLUMINATE:
+            if (you_worship(GOD_DITHMENOS))
+            {
+                if (!known)
+                {
+                    simple_god_message(" forgives your accidental act of "
+                                       "illumination, just this once.");
+                    break;
+                }
+                simple_god_message(" does not appreciate your illumination!");
+                piety_change = -level;
+                if (level > 5)
+                    penance = level - 5;
+                retval = true;
+            }
+            break;
+
+        case DID_KILL_ILLUMINATING:
+            if (you_worship(GOD_DITHMENOS)
+                && !god_hates_attacking_friend(you.religion, victim))
+            {
+                simple_god_message(" appreciates your extinguishing a source "
+                                   "of illumination.");
+                retval = true;
+                piety_denom = level + 10;
+                piety_change = piety_denom - 6;
+            }
+            break;
+
+        case DID_FIRE:
+            if (you_worship(GOD_DITHMENOS))
+            {
+                if (!known)
+                {
+                    simple_god_message(" forgives your accidental "
+                                       "fire-starting, just this once.");
+                    break;
+                }
+                simple_god_message(" does not appreciate your starting fires!");
+                piety_change = -level;
+                if (level > 5)
+                    penance = level - 5;
+                retval = true;
+            }
+            break;
+
+        case DID_KILL_FIERY:
+            if (you_worship(GOD_DITHMENOS)
+                && !god_hates_attacking_friend(you.religion, victim))
+            {
+                simple_god_message(" appreciates your extinguishing a source "
+                                   "of fire.");
+                retval = true;
+                piety_denom = level + 10;
+                piety_change = piety_denom - 6;
+            }
+            break;
+
         case DID_NOTHING:
         case NUM_CONDUCTS:
             break;
         }
 
-        if (you_worship(GOD_OKAWARU)
-            // currently no constructs and plants
-            && (thing_done == DID_KILL_LIVING
-                || thing_done == DID_KILL_UNDEAD
-                || thing_done == DID_KILL_DEMON
-                || thing_done == DID_KILL_HOLY)
+        // currently no constructs and plants
+        if ((thing_done == DID_KILL_LIVING
+             || thing_done == DID_KILL_UNDEAD
+             || thing_done == DID_KILL_DEMON
+             || thing_done == DID_KILL_HOLY)
             && !god_hates_attacking_friend(you.religion, victim))
         {
-            piety_change = get_fuzzied_monster_difficulty(victim);
-            dprf("fuzzied monster difficulty: %4.2f", piety_change * 0.01);
-            piety_denom = 700;
-            if (piety_change > 3200)
-                simple_god_message(" appreciates your kill.");
-            else if (piety_change > 9) // might still be miniscule
-                simple_god_message(" accepts your kill.");
-            retval = true;
+            if (you_worship(GOD_OKAWARU))
+            {
+                piety_change = get_fuzzied_monster_difficulty(victim);
+                dprf("fuzzied monster difficulty: %4.2f", piety_change * 0.01);
+                piety_denom = 700;
+                if (piety_change > 3200)
+                    simple_god_message(" appreciates your kill.");
+                else if (piety_change > 9) // might still be miniscule
+                    simple_god_message(" accepts your kill.");
+                retval = true;
+            }
+            if (you_worship(GOD_DITHMENOS))
+            {
+                // Full gains at full piety down to 2/3 at 6* piety.
+                // (piety_rank starts at 1, not 0.)
+                piety_change *= 25 - piety_rank();
+                piety_denom *= 24;
+            }
         }
 
 #ifdef DEBUG_DIAGNOSTICS
@@ -1062,6 +1132,7 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
                 "Kill Artificial", "Undead Slave Kill Artificial",
                 "Servant Kill Artificial", "Destroy Spellbook",
                 "Exploration", "Desecrate Holy Remains", "Seen Monster",
+                "Illuminate", "Kill Illuminating", "Fire", "Kill Fiery",
             };
 
             COMPILE_CHECK(ARRAYSZ(conducts) == NUM_CONDUCTS);
@@ -1118,7 +1189,7 @@ void set_attack_conducts(god_conduct_trigger conduct[3], const monster* mon,
     else if (mon->neutral())
         conduct[0].set(DID_ATTACK_NEUTRAL, 5, known, mon);
 
-    if (is_unchivalric_attack(&you, mon)
+    if (find_stab_type(&you, mon) != STAB_NO_STAB
         && (!_first_attack_conduct[midx]
             || _first_attack_was_unchivalric[midx]))
     {

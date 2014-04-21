@@ -8,6 +8,7 @@
 #include "skill_menu.h"
 
 #include "cio.h"
+#include "clua.h"
 #include "command.h"
 #include "describe.h"
 #include "evoke.h"
@@ -103,7 +104,7 @@ static bool _show_skill(skill_type sk, skill_menu_state state)
     switch (state)
     {
     case SKM_SHOW_KNOWN:   return you.skills[sk];
-    case SKM_SHOW_DEFAULT: return (you.can_train[sk] || you.skills[sk]);
+    case SKM_SHOW_DEFAULT: return you.can_train[sk] || you.skills[sk];
     case SKM_SHOW_ALL:     return true;
     default:               return false;
     }
@@ -164,7 +165,6 @@ bool SkillMenuEntry::mastered() const
 {
     return (is_set(SKMF_EXPERIENCE) ? skm.get_raw_skill_level(m_sk)
                                     : you.skills[m_sk]) >= 27;
-
 }
 
 void SkillMenuEntry::refresh(bool keep_hotkey)
@@ -328,13 +328,39 @@ string SkillMenuEntry::get_prefix()
 #endif
 }
 
+static bool _crosstrain_other(skill_type sk, skill_menu_state state)
+{
+    vector<skill_type> crosstrain_skills = get_crosstrain_skills(sk);
+
+    for (unsigned int i = 0; i < crosstrain_skills.size(); ++i)
+    {
+        if (you.skill(crosstrain_skills[i], 10, true)
+            <= you.skill(sk, 10, true) - CROSSTRAIN_THRESHOLD
+           && _show_skill(crosstrain_skills[i], state))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static bool _antitrain_other(skill_type sk, skill_menu_state state)
+{
+    skill_type opposite = opposite_skill(sk);
+    if (opposite == SK_NONE)
+        return false;
+
+    return _show_skill(opposite, state) && you.skills[sk] > 0
+           && you.skills[opposite] < 27 && compare_skills(sk, opposite);
+}
+
 void SkillMenuEntry::set_aptitude()
 {
     string text = "<white>";
 
     const bool manual = skill_has_manual(m_sk);
     const int apt = species_apt(m_sk, you.species);
-    const bool show_all = skm.get_state(SKM_SHOW) == SKM_SHOW_ALL;
 
     // Crosstraining + manuals aptitude bonus.
     int ct_bonus = manual ? 4 : 0;
@@ -349,12 +375,12 @@ void SkillMenuEntry::set_aptitude()
 
     text += "</white>";
 
-    if (antitrain_other(m_sk, show_all))
+    if (_antitrain_other(m_sk, skm.get_state(SKM_SHOW)))
     {
         skm.set_flag(SKMF_ANTITRAIN);
         text += "<red>*</red>";
     }
-    else if (crosstrain_other(m_sk, show_all))
+    else if (_crosstrain_other(m_sk, skm.get_state(SKM_SHOW)))
     {
         skm.set_flag(SKMF_CROSSTRAIN);
         text += "<green>*</green>";
@@ -804,7 +830,7 @@ void SkillMenu::clear_flag(int flag)
 
 bool SkillMenu::is_set(int flag) const
 {
-    return (m_flags & flag);
+    return m_flags & flag;
 }
 
 void SkillMenu::set_flag(int flag)
@@ -860,7 +886,7 @@ bool SkillMenu::exit()
 
     if (!enabled_skill && !all_skills_maxed())
     {
-        set_help("You need to enable at least one skill.");
+        set_help("<lightred>You need to enable at least one skill.</lightred>");
         return false;
     }
 
@@ -884,7 +910,7 @@ int SkillMenu::get_line_height()
 
 int SkillMenu::get_raw_skill_level(skill_type sk)
 {
-        return m_skill_backup.skills[sk];
+    return m_skill_backup.skills[sk];
 }
 
 int SkillMenu::get_saved_skill_level(skill_type sk, bool real)
@@ -1027,9 +1053,10 @@ void SkillMenu::init_flags()
 
     for (unsigned int i = 0; i < NUM_SKILLS; ++i)
     {
-        if (you.skill(skill_type(i)) > you.skills[i])
+        skill_type type = skill_type(i);
+        if (you.skill(type, 10) > you.skill(type, 10, true))
             set_flag(SKMF_ENHANCED);
-        else if (you.skill(skill_type(i)) < you.skills[i])
+        else if (you.skill(type, 10) < you.skill(type, 10, true))
             set_flag(SKMF_REDUCED);
     }
 }
@@ -1115,7 +1142,6 @@ void SkillMenu::init_switches()
         sw->set_id(SKM_LEVEL);
         add_item(sw, sw->size(), m_pos);
     }
-
 
     sw = new SkillMenuSwitch("View", '!');
     m_switches[SKM_VIEW] = sw;
@@ -1472,6 +1498,15 @@ void skill_menu(int flag, int exp)
     clrscr();
     skm.init(flag);
     int keyn;
+
+    // Calling a user lua function here to let players automatically accept
+    // the given skill distribution for a potion or card of experience.
+    if (skm.is_set(SKMF_EXPERIENCE)
+        && clua.callbooleanfn(false, "auto_experience", NULL)
+        && skm.exit())
+    {
+        return;
+    }
 
     while (true)
     {

@@ -14,12 +14,7 @@
 #include <algorithm>
 #include <memory>
 
-#include "externs.h"
-
-#include "map_knowledge.h"
-#include "viewchar.h"
-#include "showsymb.h"
-
+#include "act-iter.h"
 #include "attitude-change.h"
 #include "cio.h"
 #include "cloud.h"
@@ -43,7 +38,6 @@
 #include "message.h"
 #include "misc.h"
 #include "mon-behv.h"
-#include "mon-iter.h"
 #include "mon-stuff.h"
 #include "mon-util.h"
 #include "options.h"
@@ -51,6 +45,8 @@
 #include "output.h"
 #include "player.h"
 #include "random.h"
+#include "religion.h"
+#include "showsymb.h"
 #include "state.h"
 #include "stuff.h"
 #include "target.h"
@@ -58,6 +54,7 @@
 #include "tilemcache.h"
 #include "traps.h"
 #include "travel.h"
+#include "viewchar.h"
 #include "viewmap.h"
 #include "xom.h"
 
@@ -121,7 +118,7 @@ void seen_monsters_react()
     if (you.duration[DUR_TIME_STEP] || crawl_state.game_is_arena())
         return;
 
-    for (monster_iterator mi(you.get_los()); mi; ++mi)
+    for (monster_near_iterator mi(you.pos()); mi; ++mi)
     {
         if ((mi->asleep() || mons_is_wandering(*mi))
             && check_awaken(*mi)
@@ -294,32 +291,28 @@ void update_monsters_in_view()
         map<monster_type, int> genera; // This is the plural for genus!
         for (unsigned int i = 0; i < size; ++i)
         {
-            monster_type type;
-            if (monsters[i]->props.exists("mislead_as") && you.misled())
-                type = monsters[i]->get_mislead_type();
-            else
-                type = monsters[i]->type;
-
+            const monster_type type = monsters[i]->type;
             types[type]++;
             genera[mons_genus(type)]++;
         }
 
         if (size == 1)
-            mpr(msgs[0], MSGCH_WARN);
+            mprf(MSGCH_WARN, "%s", msgs[0].c_str());
         else
         {
             while (types.size() > max_msgs && !genera.empty())
                 _genus_factoring(types, genera);
-            mpr(_desc_mons_type_map(types), MSGCH_WARN);
+            mprf(MSGCH_WARN, "%s", _desc_mons_type_map(types).c_str());
         }
 
         bool warning = false;
-        string warning_msg = "Ashenzari warns you:";
+        string warning_msg = you_worship(GOD_ZIN) ? "Zin warns you:"
+                                                  : "Ashenzari warns you:";
         warning_msg += " ";
         for (unsigned int i = 0; i < size; ++i)
         {
             const monster* mon = monsters[i];
-            if (!mon->props.exists("ash_id"))
+            if (!mon->props.exists("ash_id") && !mon->props.exists("zin_id"))
                 continue;
 
             monster_info mi(mon);
@@ -341,12 +334,28 @@ void update_monsters_in_view()
             warning_msg += uppercase_first(monname);
 
             warning_msg += " is";
-            warning_msg += get_monster_equipment_desc(mi, DESC_IDENTIFIED,
-                                                      DESC_NONE);
+            if (you_worship(GOD_ZIN))
+            {
+                warning_msg += " a foul ";
+                if (mon->has_ench(ENCH_GLOWING_SHAPESHIFTER))
+                    warning_msg += "glowing ";
+                warning_msg += "shapeshifter";
+            }
+            else
+            {
+                warning_msg += get_monster_equipment_desc(mi, DESC_IDENTIFIED,
+                                                          DESC_NONE);
+            }
             warning_msg += ".";
         }
         if (warning)
-            mpr(warning_msg, MSGCH_GOD);
+        {
+            mprf(MSGCH_GOD, "%s", warning_msg.c_str());
+#ifndef USE_TILE_LOCAL
+            if (you_worship(GOD_ZIN))
+                update_monster_pane();
+#endif
+        }
     }
 
     // Xom thinks it's hilarious the way the player picks up an ever
@@ -380,26 +389,27 @@ static const FixedArray<uint8_t, GXM, GYM>& _tile_difficulties(bool random)
     static FixedArray<uint8_t, GXM, GYM> cache;
     static int cache_seed = -1;
 
-    int seed = random ? -1 :
-        (static_cast<int>(you.where_are_you) << 8) + you.depth - 1731813538;
-
-    if (seed == cache_seed && !random)
-        return cache;
-
-    if (!random)
+    if (random)
     {
-        push_rng_state();
-        seed_rng(cache_seed);
+        cache_seed = -1;
+        for (int y = Y_BOUND_1; y <= Y_BOUND_2; ++y)
+            for (int x = X_BOUND_1; x <= X_BOUND_2; ++x)
+                cache[x][y] = random2(100);
+        return cache;
     }
+
+    // must not produce the magic value (-1)
+    int seed = (static_cast<int>(you.where_are_you) << 8) + you.depth
+             ^ you.game_seeds[SEED_PASSIVE_MAP] & 0x7fffffff;
+
+    if (seed == cache_seed)
+        return cache;
 
     cache_seed = seed;
 
     for (int y = Y_BOUND_1; y <= Y_BOUND_2; ++y)
         for (int x = X_BOUND_1; x <= X_BOUND_2; ++x)
-            cache[x][y] = random2(100);
-
-    if (!random)
-        pop_rng_state();
+            cache[x][y] = hash_rand(100, seed, y * GXM + x);
 
     return cache;
 }
@@ -426,8 +436,8 @@ bool magic_mapping(int map_radius, int proportion, bool suppress_msg,
         map_radius = 5;
 
     // now gradually weaker with distance:
-    const int pfar     = dist_range((map_radius * 7) / 10);
-    const int very_far = dist_range((map_radius * 9) / 10);
+    const int pfar     = dist_range(map_radius * 7 / 10);
+    const int very_far = dist_range(map_radius * 9 / 10);
 
     bool did_map = false;
     int  num_altars        = 0;
@@ -455,7 +465,10 @@ bool magic_mapping(int map_radius, int proportion, bool suppress_msg,
         }
 
         if (env.map_knowledge(*ri).changed())
+        {
             env.map_knowledge(*ri).clear();
+            env.map_seen.set(*ri, false);
+        }
 
         if (!wizard_map && (env.map_knowledge(*ri).seen() || env.map_knowledge(*ri).mapped()))
             continue;
@@ -571,7 +584,7 @@ bool mons_near(const monster* mons)
 {
     if (crawl_state.game_is_arena() || crawl_state.arena_suspended)
         return true;
-    return (you.see_cell(mons->pos()));
+    return you.see_cell(mons->pos());
 }
 
 bool mon_enemies_around(const monster* mons)
@@ -590,7 +603,7 @@ bool mon_enemies_around(const monster* mons)
     {
         // Additionally, if an ally is nearby and *you* have a foe,
         // consider it as the ally's enemy too.
-        return (mons_near(mons) && there_are_monsters_nearby(true));
+        return mons_near(mons) && there_are_monsters_nearby(true);
     }
     else
     {
@@ -745,14 +758,7 @@ void flash_view(colour_t colour, targetter *where)
 void flash_view_delay(colour_t colour, int flash_delay, targetter *where)
 {
     flash_view(colour, where);
-    // Scale delay to match change in arena_delay.
-    if (crawl_state.game_is_arena())
-    {
-        flash_delay *= Options.arena_delay;
-        flash_delay /= 600;
-    }
-
-    delay(flash_delay);
+    scaled_delay(flash_delay);
     flash_view(0);
 }
 
@@ -867,9 +873,18 @@ static int player_view_update_at(const coord_def &gc)
 
 static void player_view_update()
 {
+    if (crawl_state.game_is_arena())
+    {
+        for (rectangle_iterator ri(crawl_view.vgrdc, LOS_MAX_RANGE); ri; ++ri)
+            player_view_update_at(*ri);
+        // no need to do excludes on the arena
+        return;
+    }
+
     vector<coord_def> update_excludes;
     bool need_update = false;
-    for (radius_iterator ri(you.get_los()); ri; ++ri)
+
+    for (radius_iterator ri(you.pos(), you.xray_vision ? LOS_NONE : LOS_DEFAULT); ri; ++ri)
     {
         int flags = player_view_update_at(*ri);
         if (flags & UF_AFFECT_EXCLUDES)

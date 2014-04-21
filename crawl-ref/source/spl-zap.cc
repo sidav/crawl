@@ -72,8 +72,6 @@ zap_type spell_to_zap(spell_type spell)
         // Should only be available from Staff of Dispater and Sceptre
         // of Asmodeus.
         return ZAP_HELLFIRE;
-    case SPELL_ICE_STORM:
-        return ZAP_ICE_STORM;
     case SPELL_CORONA:
         return ZAP_CORONA;
     case SPELL_SLOW:
@@ -102,8 +100,10 @@ zap_type spell_to_zap(spell_type spell)
         return ZAP_INVISIBILITY;
     case SPELL_DIG:
         return ZAP_DIG;
-    case SPELL_HOLY_LIGHT:
-        return ZAP_HOLY_LIGHT;
+    case SPELL_EXPLOSIVE_BOLT:
+        return ZAP_EXPLOSIVE_BOLT;
+    case SPELL_CRYSTAL_BOLT:
+        return ZAP_CRYSTAL_BOLT;
     case SPELL_DEBUGGING_RAY:
         return ZAP_DEBUGGING_RAY;
     default:
@@ -116,7 +116,7 @@ int spell_zap_power(spell_type spell, int pow)
     switch (spell)
     {
     case SPELL_CORONA:
-        return (pow + 10);
+        return pow + 10;
     case SPELL_HIBERNATION:
         return stepdown_value(pow * 9 / 10, 5, 35, 45, 50);
     default:

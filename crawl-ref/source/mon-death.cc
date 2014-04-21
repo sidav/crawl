@@ -7,20 +7,21 @@
 #include "AppHdr.h"
 #include "mon-death.h"
 
+#include "act-iter.h"
 #include "areas.h"
 #include "cloud.h"
 #include "coordit.h"
 #include "database.h"
-#include "dactions.h"
 #include "env.h"
 #include "fineff.h"
+#include "fprop.h"
 #include "items.h"
 #include "libutil.h"
 #include "mapmark.h"
 #include "message.h"
 #include "mgen_data.h"
 #include "mon-behv.h"
-#include "mon-iter.h"
+#include "mon-gear.h"
 #include "mon-place.h"
 #include "mon-speak.h"
 #include "mon-stuff.h"
@@ -42,9 +43,9 @@
 **/
 bool mons_is_pikel(monster* mons)
 {
-    return (mons->type == MONS_PIKEL
-            || (mons->props.exists("original_name")
-                && mons->props["original_name"].get_string() == "Pikel"));
+    return mons->type == MONS_PIKEL
+           || (mons->props.exists("original_name")
+               && mons->props["original_name"].get_string() == "Pikel");
 }
 
 /**
@@ -68,7 +69,7 @@ void pikel_band_neutralise()
             visible_slaves++;
         }
     }
-    string final_msg;
+    const char* final_msg = nullptr;
     if (visible_slaves == 1)
         final_msg = "With Pikel's spell broken, the former slave thanks you for freedom.";
     else if (visible_slaves > 1)
@@ -88,9 +89,9 @@ void pikel_band_neutralise()
 **/
 bool mons_is_kirke(monster* mons)
 {
-    return (mons->type == MONS_KIRKE
-            || (mons->props.exists("original_name")
-                && mons->props["original_name"].get_string() == "Kirke"));
+    return mons->type == MONS_KIRKE
+           || (mons->props.exists("original_name")
+               && mons->props["original_name"].get_string() == "Kirke");
 }
 
 /**
@@ -130,7 +131,7 @@ void hogs_to_humans()
             human++;
     }
 
-    string final_msg;
+    const char* final_msg = nullptr;
 
     if (any == 1)
     {
@@ -163,9 +164,9 @@ void hogs_to_humans()
 **/
 bool mons_is_dowan(const monster* mons)
 {
-    return (mons->type == MONS_DOWAN
-            || (mons->props.exists("original_name")
-                && mons->props["original_name"].get_string() == "Dowan"));
+    return mons->type == MONS_DOWAN
+           || (mons->props.exists("original_name")
+               && mons->props["original_name"].get_string() == "Dowan");
 }
 
 /**
@@ -178,9 +179,9 @@ bool mons_is_dowan(const monster* mons)
 **/
 bool mons_is_duvessa(const monster* mons)
 {
-    return (mons->type == MONS_DUVESSA
-            || (mons->props.exists("original_name")
-                && mons->props["original_name"].get_string() == "Duvessa"));
+    return mons->type == MONS_DUVESSA
+           || (mons->props.exists("original_name")
+               && mons->props["original_name"].get_string() == "Duvessa");
 }
 
 /**
@@ -195,7 +196,7 @@ bool mons_is_duvessa(const monster* mons)
 **/
 bool mons_is_elven_twin(const monster* mons)
 {
-    return (mons_is_dowan(mons) || mons_is_duvessa(mons));
+    return mons_is_dowan(mons) || mons_is_duvessa(mons);
 }
 
 /**
@@ -325,7 +326,7 @@ void elven_twin_died(monster* twin, bool in_transit, killer_type killer, int kil
  *
  * As twins, pacifying one pacifies the other.
  *
- * @param twin    The orignial monster pacified.
+ * @param twin    The original monster pacified.
 **/
 void elven_twins_pacify(monster* twin)
 {
@@ -407,6 +408,80 @@ void elven_twins_unpacify(monster* twin)
     behaviour_event(mons, ME_WHACK, &you, you.pos(), false);
 }
 
+bool mons_is_natasha(const monster* mons)
+{
+    return mons->type == MONS_NATASHA
+           || (mons->props.exists("original_name")
+               && mons->props["original_name"].get_string() == "Natasha");
+}
+
+bool mons_felid_can_revive(const monster* mons)
+{
+    return !mons->props.exists("felid_revives")
+           || mons->props["felid_revives"].get_byte() < 2;
+}
+
+void mons_felid_revive(monster* mons)
+{
+    // Mostly adapted from bring_to_safety()
+    coord_def revive_place;
+    int tries = 10000;
+    while (tries > 0) // Don't try too hard.
+    {
+        revive_place.x = random2(GXM);
+        revive_place.y = random2(GYM);
+        if (!in_bounds(revive_place)
+            || grd(revive_place) != DNGN_FLOOR
+            || env.cgrid(revive_place) != EMPTY_CLOUD
+            || monster_at(revive_place)
+            || env.pgrid(revive_place) & FPROP_NO_TELE_INTO
+            || distance2(revive_place, mons->pos()) < dist_range(10))
+        {
+            tries--;
+            continue;
+        }
+        else
+            break;
+    }
+    if (tries == 0)
+        return;
+
+    // XXX: this will need to be extended if we get more types of enemy
+    // felids
+    monster_type type = (mons_is_natasha(mons)) ? MONS_NATASHA
+                                                : MONS_FELID;
+    monsterentry* me = get_monster_data(type);
+    ASSERT(me);
+
+    const int revives = (mons->props.exists("felid_revives"))
+                        ? mons->props["felid_revives"].get_byte() + 1
+                        : 1;
+
+    const int hd = me->hpdice[0] - revives;
+
+    monster *newmons =
+        create_monster(
+            mgen_data(type, (mons->has_ench(ENCH_CHARM) ? BEH_HOSTILE
+                             : SAME_ATTITUDE(mons)),
+                      0, 0, 0, revive_place, mons->foe, 0, GOD_NO_GOD,
+                      MONS_NO_MONSTER, 0, BLACK, PROX_ANYWHERE,
+                      level_id::current(), hd));
+
+    if (newmons)
+    {
+        for (int i = NUM_MONSTER_SLOTS - 1; i >= 0; --i)
+            if (mons->inv[i] != NON_ITEM)
+            {
+                int item = mons->inv[i];
+                give_specific_item(newmons, mitm[item]);
+                destroy_item(item);
+                mons->inv[i] = NON_ITEM;
+            }
+
+        newmons->props["felid_revives"].get_byte() = revives;
+    }
+}
+
 /**
  * Phoenix death effects
  *
@@ -426,7 +501,7 @@ void elven_twins_unpacify(monster* twin)
 **/
 bool mons_is_phoenix(const monster* mons)
 {
-    return (mons->type == MONS_PHOENIX);
+    return mons->type == MONS_PHOENIX;
 }
 
 /**
@@ -494,7 +569,7 @@ void timeout_phoenix_markers(int duration)
             coord_def place_at;
             bool from_inventory = false;
 
-            for (radius_iterator ri(mmark->corpse_pos, LOS_RADIUS, C_ROUND, NULL, false); ri; ++ri)
+            for (radius_iterator ri(mmark->corpse_pos, LOS_RADIUS, C_ROUND, false); ri; ++ri)
             {
                 for (stack_iterator si(*ri); si; ++si)
                     if (si->base_type == OBJ_CORPSES && si->sub_type == CORPSE_BODY
@@ -628,9 +703,9 @@ bool shedu_pair_alive(const monster* mons)
 **/
 bool mons_is_shedu(const monster* mons)
 {
-    return (mons->type == MONS_SHEDU
-            || (mons->props.exists("original_name")
-                && mons->props["original_name"].get_string() == "shedu"));
+    return mons->type == MONS_SHEDU
+           || (mons->props.exists("original_name")
+               && mons->props["original_name"].get_string() == "shedu");
 }
 
 /**
@@ -688,7 +763,7 @@ void shedu_do_actual_resurrection(monster* mons)
     if (mons->number == 0)
         return;
 
-    for (radius_iterator ri(mons->pos(), LOS_RADIUS, C_ROUND, mons->get_los()); ri; ++ri)
+    for (radius_iterator ri(mons->pos(), LOS_NO_TRANS); ri; ++ri)
     {
         for (stack_iterator si(*ri); si; ++si)
             if (si->base_type == OBJ_CORPSES && si->sub_type == CORPSE_BODY

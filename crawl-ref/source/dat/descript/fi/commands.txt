@@ -1,8 +1,4 @@
 %%%%
-CMD_REST
-
-Paranna ja etsi hetki
-%%%%
 CMD_REST verbose
 
 Käytä korkeintaan 100 vuoroa terveyden ja taikavoiman lataamiseen ja/tai
@@ -34,12 +30,6 @@ Käytä pyhiä tai synnynnäisiä kykyjä
 CMD_PRAY
 
 Rukoile jumalaasi
-%%%%
-CMD_PRAY verbose
-
-Jos jumalasi pitää uhrauksista, tämä uhraa ruumiin tai jonkin esineen.
-Seistessäsi alttarilla voit myös liittyä tällä vastaavaan uskoon. Joillekin
-jumalille rukoilulla on muitakin vaikutuksia.
 %%%%
 CMD_SEARCH_STASHES
 
@@ -123,16 +113,6 @@ Peliapu
 CMD_DISPLAY_COMMANDS verbose
 
 Lista komennoista, asetuksista jne.
-%%%%
-CMD_CHARACTER_DUMP
-
-Ota vedos hahmon etenemisestä
-%%%%
-CMD_CHARACTER_DUMP verbose
-
-Laittaa valtavan määrän tietoa hahmosta tiedostoon 'pelaajanimi.txt'
-morgue-kansioon, tutkimuksen vuoksi. Tämä sisältää statistiikat, varusteet,
-taiat, taidot, muistiinpanot jne.
 %%%%
 CMD_AUTOFIGHT
 

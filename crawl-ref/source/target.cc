@@ -7,12 +7,14 @@
 #include "coordit.h"
 #include "env.h"
 #include "fight.h"
-#include "godabil.h"
-#include "itemprop.h"
 #include "libutil.h"
+#include "los_def.h"
 #include "losglobal.h"
+#include "player.h"
 #include "spl-damage.h"
 #include "terrain.h"
+
+#include <math.h>
 
 #define notify_fail(x) (why_not = (x), false)
 
@@ -52,6 +54,11 @@ bool targetter::anyone_there(coord_def loc)
     return actor_at(loc);
 }
 
+bool targetter::has_additional_sites(coord_def loc)
+{
+    return false;
+}
+
 targetter_beam::targetter_beam(const actor *act, int range, zap_type zap,
                                int pow, int min_ex_rad, int max_ex_rad) :
                                min_expl_rad(min_ex_rad),
@@ -67,7 +74,7 @@ targetter_beam::targetter_beam(const actor *act, int range, zap_type zap,
     beam.attitude = ATT_FRIENDLY;
     zappy(zap, pow, beam);
     beam.is_tracer = true;
-    beam.is_targetting = true;
+    beam.is_targeting = true;
     beam.range = range;
     beam.source = origin;
     beam.target = aim;
@@ -185,11 +192,11 @@ aff_type targetter_beam::is_affected(coord_def loc)
     if (max_expl_rad > 0 && (loc - c).rdist() <= 9)
     {
         maybe_bool aff_wall = beam.affects_wall(grd(loc));
-        if (!feat_is_solid(grd(loc)) || aff_wall != MB_FALSE)
+        if (!cell_is_solid(loc) || aff_wall != MB_FALSE)
         {
             coord_def centre(9,9);
             if (exp_map_min(loc - c + centre) < INT_MAX)
-                return (!feat_is_solid(grd(loc)) || aff_wall == MB_TRUE)
+                return (!cell_is_solid(loc) || aff_wall == MB_TRUE)
                        ? AFF_YES : AFF_MAYBE;
             if (exp_map_max(loc - c + centre) < INT_MAX)
                 return AFF_MAYBE;
@@ -293,7 +300,6 @@ aff_type targetter_view::is_affected(coord_def loc)
     return AFF_NO;
 }
 
-
 targetter_smite::targetter_smite(const actor* act, int ran,
                                  int exp_min, int exp_max, bool wall_ok,
                                  bool (*affects_pos_func)(const coord_def &)):
@@ -320,7 +326,7 @@ bool targetter_smite::valid_aim(coord_def a)
     }
     if ((origin - a).abs() > range2)
         return notify_fail("Out of range.");
-    if (!affects_walls && feat_is_solid(grd(a)))
+    if (!affects_walls && cell_is_solid(a))
         return notify_fail(_wallmsg(a));
     return true;
 }
@@ -514,7 +520,7 @@ targetter_cloud::targetter_cloud(const actor* act, int range,
 static bool _cloudable(coord_def loc)
 {
     return in_bounds(loc)
-           && !feat_is_solid(grd(loc))
+           && !cell_is_solid(loc)
            && env.cgrid(loc) == EMPTY_CLOUD;
 }
 
@@ -532,7 +538,7 @@ bool targetter_cloud::valid_aim(coord_def a)
             return notify_fail("There's something in the way.");
         return notify_fail("You cannot see that place.");
     }
-    if (feat_is_solid(grd(a)))
+    if (cell_is_solid(a))
         return notify_fail(_wallmsg(a));
     if (agent)
     {
@@ -564,7 +570,7 @@ bool targetter_cloud::set_aim(coord_def a)
         {
             coord_def c = queue[d1][i];
             for (adjacent_iterator ai(c); ai; ++ai)
-                if (_cloudable(*ai) && seen.find(*ai) == seen.end())
+                if (_cloudable(*ai) && !seen.count(*ai))
                 {
                     unsigned int d2 = d1 + ((*ai - c).abs() == 1 ? 5 : 7);
                     if (d2 >= queue.size())
@@ -637,7 +643,6 @@ aff_type targetter_splash::is_affected(coord_def loc)
     return anyone_there(loc) ? AFF_YES : AFF_MAYBE;
 }
 
-
 targetter_los::targetter_los(const actor *act, los_type _los,
                              int range, int range_max)
 {
@@ -677,7 +682,6 @@ aff_type targetter_los::is_affected(coord_def loc)
 
     return (loc - origin).abs() > range_max2 ? AFF_MAYBE : AFF_YES;
 }
-
 
 targetter_thunderbolt::targetter_thunderbolt(const actor *act, int r,
                                              coord_def _prev)
@@ -777,7 +781,7 @@ bool targetter_thunderbolt::set_aim(coord_def a)
             if (left_of(a1, r) && left_of(r, a2))
             {
                 (p = r) += origin;
-                if (zapped.find(p) == zapped.end())
+                if (!zapped.count(p))
                     arc_length[r.range()]++;
                 if (zapped[p] <= 0 && cell_see_cell(origin, p, LOS_NO_TRANS))
                     zapped[p] = AFF_MAYBE;
@@ -874,4 +878,473 @@ aff_type targetter_spray::is_affected(coord_def loc)
     }
 
     return affected;
+}
+
+targetter_jump::targetter_jump(const actor* act, int r2, bool cp,
+                               bool imm) :
+    range2(r2), clear_path(cp), immobile(imm)
+{
+    ASSERT(act);
+    agent = act;
+    origin = act->pos();
+    jump_is_blocked = false;
+}
+
+bool targetter_jump::valid_aim(coord_def a)
+{
+    coord_def c, jump_pos;
+    ray_def ray;
+
+    if (origin == a)
+        return notify_fail("You cannot target yourself.");
+    else if ((origin - a).abs() > range2)
+        return notify_fail("Out of range.");
+    else if (!cell_see_cell(origin, a, LOS_NO_TRANS))
+    {
+        if (agent->see_cell(a))
+            return notify_fail("There's something in the way.");
+        else
+            return notify_fail("You cannot see that place.");
+    }
+    else if (cell_is_solid(a))
+        return notify_fail("There's something in the way.");
+    else if (!find_ray(agent->pos(), a, ray, opc_solid_see))
+        return notify_fail("There's something in the way.");
+    else if (!has_additional_sites(a))
+    {
+        switch (no_landing_reason)
+        {
+        case BLOCKED_FLYING:
+            return notify_fail("A flying creature is in the way.");
+        case BLOCKED_GIANT:
+            return notify_fail("A giant creature is in the way.");
+        case BLOCKED_MOVE:
+        case BLOCKED_OCCUPIED:
+            return notify_fail("There is no safe place near that"
+                               " location.");
+        case BLOCKED_PATH:
+            return notify_fail("There's something in the way.");
+        case BLOCKED_NO_TARGET:
+            return notify_fail("There isn't a shadow there.");
+        case BLOCKED_MOBILE:
+            return notify_fail("That shadow isn't sufficiently still.");
+        case BLOCKED_NONE:
+            die("buggy no_landing_reason");
+        }
+    }
+    return true;
+}
+
+bool targetter_jump::valid_landing(coord_def a, bool check_invis)
+{
+    actor *act;
+    ray_def ray;
+
+    if (grd(a) == DNGN_OPEN_SEA || grd(a) == DNGN_LAVA_SEA
+        || !agent->is_habitable(a))
+    {
+        blocked_landing_reason = BLOCKED_MOVE;
+        return false;
+    }
+    if (agent->is_player())
+    {
+        monster* beholder = you.get_beholder(a);
+        if (beholder)
+        {
+            blocked_landing_reason = BLOCKED_MOVE;
+            return false;
+        }
+
+        monster* fearmonger = you.get_fearmonger(a);
+        if (fearmonger)
+        {
+            blocked_landing_reason = BLOCKED_MOVE;
+            return false;
+        }
+    }
+    if (!find_ray(agent->pos(), a, ray, opc_solid_see))
+    {
+        blocked_landing_reason = BLOCKED_PATH;
+        return false;
+    }
+
+    // Check if a landing site is invalid due to a visible monster obstructing
+    // the path.
+    ray.advance();
+    while (map_bounds(ray.pos()))
+    {
+        act = actor_at(ray.pos());
+        if (ray.pos() == a)
+        {
+            if (act && (!check_invis || agent->can_see(act)))
+            {
+                blocked_landing_reason = BLOCKED_OCCUPIED;
+                return false;
+            }
+            break;
+        }
+        const dungeon_feature_type grid = grd(ray.pos());
+        if (clear_path && act && (!check_invis || agent->can_see(act)))
+        {
+            // Can't jump over airborn enemies nor giant enemies not in deep
+            // water or lava.
+            if (act->airborne())
+            {
+                blocked_landing_reason = BLOCKED_FLYING;
+                return false;
+            }
+            else if (act->body_size() == SIZE_GIANT
+                     && grid != DNGN_DEEP_WATER && grid != DNGN_LAVA)
+            {
+                blocked_landing_reason = BLOCKED_GIANT;
+                return false;
+            }
+        }
+        ray.advance();
+    }
+    return true;
+}
+
+aff_type targetter_jump::is_affected(coord_def loc)
+{
+    aff_type aff = AFF_NO;
+
+    if (loc == aim)
+        aff = AFF_YES;
+    else if (additional_sites.count(loc))
+        aff = AFF_LANDING;
+    return aff;
+}
+
+// If something unseen either occupies the aim position or blocks the jump path,
+// indicate that with jump_is_blocked, but still return true so long there is at
+// least one valid landing position from the player's perspective.
+bool targetter_jump::set_aim(coord_def a)
+{
+    set<coord_def>::const_iterator site;
+
+    if (a == origin)
+        return false;
+    if (!targetter::set_aim(a))
+        return false;
+
+    jump_is_blocked = false;
+
+    // Find our set of landing sites, choose one at random to be the destination
+    // and see if it's actually blocked.
+    set_additional_sites(aim);
+    if (additional_sites.size())
+    {
+        int site_ind = random2(additional_sites.size());
+        for (site = additional_sites.begin(); site_ind > 0; site++)
+            site_ind--;
+        landing_site = *site;
+        if (!valid_landing(landing_site, false))
+            jump_is_blocked = true;
+        return true;
+    }
+    return false;
+}
+
+// Determine the set of valid landing sites
+void targetter_jump::set_additional_sites(coord_def a)
+{
+     get_additional_sites(a);
+     additional_sites = temp_sites;
+}
+
+// Determine the set of valid landing sites for the target, putting the results
+// in the private set variable temp_sites.  This uses valid_aim(), so it looks
+// for uninhabited squares that are habitable by the player, but doesn't check
+// against e.g. harmful clouds
+void targetter_jump::get_additional_sites(coord_def a)
+{
+    bool agent_adjacent = a.distance_from(agent->pos()) == 1;
+    temp_sites.clear();
+
+    if (immobile)
+    {
+        const actor *victim = actor_at(a);
+        if (!victim || victim->invisible() || !victim->umbraed())
+        {
+            no_landing_reason = BLOCKED_NO_TARGET;
+            return;
+        }
+        if (!victim->is_stationary()
+            && !victim->cannot_move()
+            && !victim->asleep())
+        {
+            no_landing_reason = BLOCKED_MOBILE;
+            return;
+        }
+    }
+
+    no_landing_reason = BLOCKED_NONE;
+    for (adjacent_iterator ai(a, false); ai; ++ai)
+    {
+        // See if site is valid, record a putative reason for why no sites were
+        // found.  A flying or giant monster blocking the landing site gets
+        // priority as an reason, since it's very jump-specific.
+        if (!agent_adjacent || agent->pos().distance_from(*ai) > 1)
+        {
+            if (valid_landing(*ai))
+            {
+                temp_sites.insert(*ai);
+                no_landing_reason = BLOCKED_NONE;
+            }
+            else if (no_landing_reason != BLOCKED_FLYING
+                     && no_landing_reason != BLOCKED_GIANT)
+            {
+                no_landing_reason = blocked_landing_reason;
+            }
+        }
+    }
+}
+
+// See if we can find at least one valid landing position for the given monster.
+bool targetter_jump::has_additional_sites(coord_def a)
+{
+    get_additional_sites(a);
+    return temp_sites.size();
+}
+
+targetter_explosive_bolt::targetter_explosive_bolt(const actor *act, int pow, int range) :
+                          targetter_beam(act, range, ZAP_EXPLOSIVE_BOLT, pow, 0, 0)
+{
+}
+
+bool targetter_explosive_bolt::set_aim(coord_def a)
+{
+    if (!targetter_beam::set_aim(a))
+        return false;
+
+    bolt tempbeam = beam;
+    tempbeam.target = origin;
+    for (vector<coord_def>::const_iterator i = path_taken.begin();
+         i != path_taken.end(); ++i)
+    {
+        if (cell_is_solid(*i))
+            break;
+
+        tempbeam.target = *i;
+        if (anyone_there(*i))
+        {
+            tempbeam.use_target_as_pos = true;
+            exp_map.init(INT_MAX);
+            tempbeam.determine_affected_cells(exp_map, coord_def(), 0,
+                                              1, true, true);
+        }
+    }
+
+    return true;
+}
+
+aff_type targetter_explosive_bolt::is_affected(coord_def loc)
+{
+    bool on_path = false;
+    coord_def c;
+    for (vector<coord_def>::const_iterator i = path_taken.begin();
+         i != path_taken.end(); ++i)
+    {
+        if (cell_is_solid(*i))
+            break;
+
+        c = *i;
+        if (c == loc)
+            on_path = true;
+        if (anyone_there(*i)
+            && !beam.ignores_monster(monster_at(c))
+            && (loc - c).rdist() <= 9)
+        {
+            coord_def centre(9,9);
+            if (exp_map(loc - c + centre) < INT_MAX
+                && !cell_is_solid(loc))
+            {
+                return AFF_MAYBE;
+            }
+        }
+    }
+
+    return on_path ? AFF_TRACER : AFF_NO;
+}
+
+targetter_cone::targetter_cone(const actor *act, int range)
+{
+    ASSERT(act);
+    agent = act;
+    origin = act->pos();
+    aim = origin;
+    ASSERT_RANGE(range, 1 + 1, you.current_vision + 1);
+    range2 = sqr(range) + 1;
+}
+
+bool targetter_cone::valid_aim(coord_def a)
+{
+    if (a != origin && !cell_see_cell(origin, a, LOS_NO_TRANS))
+    {
+        // Scrying/glass/tree/grate.
+        if (agent->see_cell(a))
+            return notify_fail("There's something in the way.");
+        return notify_fail("You cannot see that place.");
+    }
+    if ((origin - a).abs() > range2)
+        return notify_fail("Out of range.");
+    return true;
+}
+
+// Ripped off from targetter_thunderbolt::set_aim.
+bool targetter_cone::set_aim(coord_def a)
+{
+    aim = a;
+    zapped.clear();
+    for (int i = 0; i < LOS_RADIUS + 1; i++)
+        sweep[i].clear();
+
+    if (a == origin)
+        return false;
+
+    const coord_def delta = a - origin;
+    const double arc = PI/4;
+    coord_def l, r;
+    l.x = origin.x + (cos(-arc) * delta.x - sin(-arc) * delta.y + 0.5);
+    l.y = origin.y + (sin(-arc) * delta.x + cos(-arc) * delta.y + 0.5);
+    r.x = origin.x + (cos( arc) * delta.x - sin( arc) * delta.y + 0.5);
+    r.y = origin.y + (sin( arc) * delta.x + cos( arc) * delta.y + 0.5);
+
+    coord_def p;
+
+    coord_def a1 = l - origin;
+    coord_def a2 = r - origin;
+    if (left_of(a2, a1))
+        swapv(a1, a2);
+
+    for (int x = -LOS_RADIUS; x <= LOS_RADIUS; ++x)
+        for (int y = -LOS_RADIUS; y <= LOS_RADIUS; ++y)
+        {
+            if (sqr(x) + sqr(y) > range2)
+                continue;
+            coord_def q(x, y);
+            if (left_of(a1, q) && left_of(q, a2))
+            {
+                (p = q) += origin;
+                if (zapped[p] <= 0
+                    && map_bounds(p)
+                    && opc_solid_see(p) < OPC_OPAQUE
+                    && cell_see_cell(origin, p, LOS_NO_TRANS))
+                {
+                    zapped[p] = AFF_YES;
+                    sweep[isqrt((origin - p).abs())][p] = AFF_YES;
+                }
+            }
+        }
+
+    zapped[origin] = AFF_NO;
+    sweep[0].clear();
+
+    return true;
+}
+
+aff_type targetter_cone::is_affected(coord_def loc)
+{
+    if (loc == aim)
+        return zapped[loc] ? AFF_YES : AFF_TRACER;
+
+    if ((loc - origin).abs() > range2)
+        return AFF_NO;
+
+    return zapped[loc];
+}
+
+targetter_shotgun::targetter_shotgun(const actor* act, int range)
+{
+    ASSERT(act);
+    agent = act;
+    origin = act->pos();
+    range2 = dist_range(range);
+}
+
+bool targetter_shotgun::valid_aim(coord_def a)
+{
+    if (a != origin && !cell_see_cell(origin, a, LOS_NO_TRANS))
+    {
+        if (agent->see_cell(a))
+            return notify_fail("There's something in the way.");
+        return notify_fail("You cannot see that place.");
+    }
+    if ((origin - a).abs() > range2)
+        return notify_fail("Out of range.");
+    return true;
+}
+
+bool targetter_shotgun::set_aim(coord_def a)
+{
+    zapped.clear();
+    rays.init(ray_def());
+
+    if (!targetter::set_aim(a))
+        return false;
+
+    ray_def orig_ray;
+    _make_ray(orig_ray, origin, a);
+    coord_def p;
+    bool hit = false;
+
+    const double spread_range = PI / 4.0;
+    for (int i = 0; i < SHOTGUN_BEAMS; i++)
+    {
+        hit = true;
+        double spread = -(spread_range / 2.0)
+                        + (spread_range * (double)i)
+                                        / (double)(SHOTGUN_BEAMS - 1);
+        rays[i].r.start = orig_ray.r.start;
+        rays[i].r.dir.x =
+             orig_ray.r.dir.x * cos(spread) + orig_ray.r.dir.y * sin(spread);
+        rays[i].r.dir.y =
+            -orig_ray.r.dir.x * sin(spread) + orig_ray.r.dir.y * cos(spread);
+        ray_def tempray = rays[i];
+        p = tempray.pos();
+        while ((origin - (p = tempray.pos())).abs() <= range2)
+        {
+            if (!map_bounds(p) || opc_solid_see(p) >= OPC_OPAQUE)
+                hit = false;
+            if (hit && p != origin)
+                zapped[p] = zapped[p] + 1;
+            tempray.advance();
+        }
+    }
+
+    zapped[origin] = 0;
+    return true;
+}
+
+aff_type targetter_shotgun::is_affected(coord_def loc)
+{
+    if ((loc - origin).abs() > range2)
+        return AFF_NO;
+
+    return (zapped[loc] >= SHOTGUN_BEAMS) ? AFF_YES :
+           (zapped[loc] > 0)              ? AFF_MAYBE
+                                          : AFF_NO;
+}
+
+targetter_list::targetter_list(vector<coord_def> target_list, coord_def center)
+{
+    targets = target_list;
+    origin = center;
+}
+
+aff_type targetter_list::is_affected(coord_def loc)
+{
+    for (unsigned int i = 0; i < targets.size(); ++i)
+    {
+        if (targets[i] == loc)
+            return AFF_YES;
+    }
+
+    return AFF_NO;
+}
+
+bool targetter_list::valid_aim(coord_def a)
+{
+    return true;
 }

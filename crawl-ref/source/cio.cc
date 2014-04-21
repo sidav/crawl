@@ -144,21 +144,27 @@ static void wrapcprintf(int wrapcol, const char *s, ...)
     string buf = vmake_stringf(s, args);
     va_end(args);
 
+    const GotoRegion region = get_cursor_region();
+    const int max_y = cgetsize(region).y;
     while (!buf.empty())
     {
-        const GotoRegion region = get_cursor_region();
         const coord_def pos = cgetpos(region);
 
-        int avail = wrapcol - pos.x + 1;
+        const int avail = wrapcol - pos.x + 1;
         if (avail > 0)
             cprintf("%s", wordwrap_line(buf, avail).c_str());
+
+        // No room for more lines, quit now.
+        if (pos.y >= max_y)
+            break;
         if (!buf.empty())
             cgotoxy(1, pos.y + 1, region);
     }
 }
 
 int cancellable_get_line(char *buf, int len, input_history *mh,
-                        int (*keyproc)(int &ch), const string &fill)
+                        int (*keyproc)(int &ch), const string &fill,
+                        const string &tag)
 {
     flush_prev_message();
 
@@ -166,10 +172,12 @@ int cancellable_get_line(char *buf, int len, input_history *mh,
     line_reader reader(buf, len, get_number_of_cols());
     reader.set_input_history(mh);
     reader.set_keyproc(keyproc);
+#ifdef USE_TILE_WEB
+    reader.set_tag(tag);
+#endif
 
     return reader.read_line(fill);
 }
-
 
 /////////////////////////////////////////////////////////////
 // input_history
@@ -259,6 +267,13 @@ void line_reader::set_keyproc(keyproc fn)
     keyfn = fn;
 }
 
+#ifdef USE_TILE_WEB
+void line_reader::set_tag(const string &id)
+{
+    tag = id;
+}
+#endif
+
 void line_reader::cursorto(int ncx)
 {
     int x = (start.x + ncx - 1) % wrapcol + 1;
@@ -311,6 +326,8 @@ int line_reader::read_line(bool clear_previous)
         tiles.json_write_string("msg", "get_line");
         if (!tag.empty())
             tiles.json_write_string("tag", tag);
+        if (history)
+            tiles.json_write_string("historyId", make_stringf("%p", history));
         tiles.json_write_string("prefill", buffer);
         tiles.json_write_int("maxlen", (int) bufsz - 1);
         tiles.json_write_int("size", (int) min(bufsz - 1, strlen(buffer) + 15));

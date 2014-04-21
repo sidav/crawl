@@ -10,19 +10,19 @@ be your main goal. Try to delve as deeply as possible but beware; death lurks
 around every corner.
 
 For the moment, just remember the following keys and their functions:
-  <input>$cmd[CMD_DISPLAY_COMMANDS]?</input> - shows the items and the commands
-  <input>$cmd[CMD_SAVE_GAME]</input>  - saves the game, to be resumed later
+  <input>$cmd[CMD_DISPLAY_COMMANDS]?</input> — shows the items and the commands
+  <input>$cmd[CMD_SAVE_GAME]</input>  — saves the game, to be resumed later
 (but note that death is permanent)
-  <input>$cmd[CMD_LOOK_AROUND]</input>  - examines something in your vicinity
+  <input>$cmd[CMD_LOOK_AROUND]</input>  — examines something in your vicinity
 
 The hint mode will help you play Crawl without reading any documentation. If
 you haven't yet, you might want to try out the tutorial. Also, if you feel
 intrigued, there is more information available in the following files from the
 docs/ directory (all of which can also be read in-game):
-  <lightblue>quickstart.txt</lightblue>     - A very short guide to Crawl.
-  <lightblue>crawl_manual.txt</lightblue>   - This contains all details on
+  <lightblue>quickstart.txt</lightblue>     — A very short guide to Crawl.
+  <lightblue>crawl_manual.txt</lightblue>   — This contains all details on
 species, magic, skills, etc.
-  <lightblue>options_guide.txt</lightblue>  - Crawl's interface is highly
+  <lightblue>options_guide.txt</lightblue>  — Crawl's interface is highly
 configurable. This document explains all the options.
 
 Happy Crawling!
@@ -45,10 +45,11 @@ death berserker unberserked
 Don't forget to go berserk when fighting particularly difficult foes. It's
 risky, but makes you faster and beefier.
 {{
-  if you.hunger() < 3
-    then return "Berserking is impossible while very hungry or worse, " ..
-                "so make sure to stay fed at all times, just in case " ..
-                "you need to berserk." end
+    if you.hunger() < 3 then
+        return "Berserking is impossible while very hungry or worse, so " ..
+               "make sure to stay fed at all times, just in case you need " ..
+               "to berserk."
+    end
 }}
 %%%%
 death ranger melee
@@ -71,8 +72,8 @@ death random 2
 
 Rest between encounters, if possible in an area already explored and cleared of
 monsters. Pressing <input>$cmd[CMD_REST]</input><localtiles>, or
-<input>clicking into the stat area</input></localtiles> will let you rest for a
-moment (you will stop resting after 100 turns, or when fully healed).
+<input>clicking into the stat area</input></localtiles> will let you rest for
+a moment (you will stop resting after 100 turns, or when fully healed).
 %%%%
 death random 3
 
@@ -83,7 +84,7 @@ identify through usage.
 death random 4
 
 If a particular encounter feels overwhelming don't forget to use emergency
-items early on. A scroll of teleportation or a potion of speed can really save
+items early on. A scroll of teleportation or a potion of haste can really save
 your bacon.
 %%%%
 death random 5
@@ -118,9 +119,9 @@ finished stashes
 
 You can search among all items existing in the dungeon with the
 <input>$cmd[CMD_SEARCH_STASHES]</input> command. For example,
-<input>$cmd[CMD_SEARCH_STASHES]</input> <w>"knife"</w> will list all knives.
+<input>$cmd[CMD_SEARCH_STASHES]</input> <w>“dagger”</w> will list all daggers.
 You can then travel to one of the spots. It is even possible to enter words
-like <w>"shop"</w> or <w>"altar"</w>.
+like <w>“shop”</w> or <w>“altar”</w>.
 %%%%
 finished random 0
 
@@ -155,11 +156,11 @@ You can ask other Crawl players for advice and help on the <w>##crawl</w> IRC
 dissection reminder
 
 If you don't want to eat it, consider offering this corpse up under prayer
-(<input>$cmd[CMD_PRAY]</input>) as a sacrifice to
-{{ return you.god() }}. <localtiles>You can also chop up any corpse that shows
-in the floor part of your inventory tiles by clicking on it with your
-<input>left mouse button</input>. </localtiles>Whenever you view a corpse while
-in hint mode you can reread this information.
+(<input>$cmd[CMD_PRAY]</input>) as a sacrifice to {{ return you.god() }}.
+<localtiles>You can also chop up any corpse that shows in the floor part of
+your inventory tiles by clicking on it with your <input>left mouse
+button</input>. </localtiles>Whenever you view a corpse while in hint mode you
+can reread this information.
 %%%%
 HINT_CONVERT Xom
 

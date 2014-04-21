@@ -12,7 +12,6 @@
 #include "godconduct.h"
 #include "libutil.h"
 #include "los.h"
-#include "losglobal.h"
 #include "misc.h"
 #include "mon-behv.h"
 #include "ouch.h"
@@ -366,6 +365,10 @@ void tornado_damage(actor *caster, int dur)
                 if (victim->alive() && !leda && dur > 0)
                     move_act.push_back(victim);
             }
+
+            if (cell_is_solid(*dam_i))
+                continue;
+
             if ((env.cgrid(*dam_i) == EMPTY_CLOUD
                 || env.cloud[env.cgrid(*dam_i)].type == CLOUD_TORNADO)
                 && x_chance_in_y(rpow, 20))
@@ -375,7 +378,7 @@ void tornado_damage(actor *caster, int dur)
             clouds.push_back(*dam_i);
             swap_clouds(clouds[random2(clouds.size())], *dam_i);
 
-            if (!leda && !feat_is_solid(grd(*dam_i)))
+            if (!leda)
                 move_avail.push_back(*dam_i);
         }
     }

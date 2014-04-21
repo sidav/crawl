@@ -9,10 +9,6 @@ __cap-N_suffix
     end
 }}
 %%%%
-__cap-U_suffix
-
-To sabiedējot, tas var sadusmoties!
-%%%%
 Asmodeus
 
 Viens no arhidēmoniem, kas mīt liesmu apvītajās pekles dzīlēs.
@@ -25,6 +21,12 @@ Cerebov
 
 Nežēlīgs un trakojošs dēmons, Cerebovs atgādina milzu cilvēku, kas noklāts
 mirdzošās zelta bruņās, rokās turot milzīgu ieliektu zobenu.
+%%%%
+Crazy Yiuf
+
+Izdilis, vecs gnolls ar garu, sidrabainu bārdu, plecos uzmestu mantiju un nūju
+rokā. Viņš izskatās gluži kā no grāmatas izkāpis pasaku tēls. Paga, vai viņa
+bārdu pie ausīm tur āķi?
 %%%%
 Dowan
 
@@ -76,11 +78,6 @@ pēc viena pēdējā darbiņa paveikšanas. Viņš cer kaut kur apmesties un dz�
 mierīgu dzīvi kopā ar savu ģimeni, pārtiekot no naudas, ko saņems par pēdējo
 nogalināšanas pasūtījumu: jūs.
 %%%%
-Ilsuiw
-
-Viltīga ūdenieku ragana, kura izmanto savu daili un zintis nevilšu dēkaiņu
-nonāvēšanai.
-%%%%
 Jessica
 
 Ļauna burvja mācekle. Viņa devās pazemē cerībā atrast klusu un nošķirtu vietu,
@@ -98,7 +95,7 @@ mirdzošo pieres vidū esošo aci.
 Maud
 
 Noslēpumaina karotājprincese no tāltālas karaļvalsts, kura ieradusies pēc
-leģendārā 'Entareksa' zobena. Neskaitāmi ir bijuši tās apbrīnotāju, kas
+leģendārā „Entareksa” zobena. Neskaitāmi ir bijuši tās apbrīnotāju, kas
 domādami par Maud, aizmirsa par visu pārējo.
 %%%%
 Maurice
@@ -114,10 +111,6 @@ mumificēts pēc savas pāragrās nāves. Pēc viņa nāves viņam uzticīgie pr
 tā ķermenī iedvesa varenu un spēcīgu maģiju, mēģinot viņam piešķirt mūžīgu
 dzīvi. Nu viņš ir aizmirsts un izdēdējis līdz irstošām marlēm un izkaltušam un
 trauslam ģindenim.
-%%%%
-Nessos
-
-Melns kentauru karotājs ar ļaunu spīdumu acīs.
 %%%%
 Rupert
 
@@ -137,11 +130,6 @@ Sonja
 
 Gracioza koboldu slepkava. Apbrīno tās gracizās piruetes, noelsies par tās
 pārdrošajiem lēcieni! Tomēr uzmanies no viņas nažiem!
-%%%%
-Tiamat
-
-Varens pūķis ar platiem spārniem. Uz to noraugoties, tā vien šķiet, ka tā
-zvīņas mirdzot maina krāsu.
 %%%%
 Urug
 
@@ -181,11 +169,6 @@ adder
 
 Izplatīta pazemes čūska. Troglodītiska rāpuļa suga, kas bieži sastopama pazemē.
 %%%%
-agate snail
-
-Milzīgs un pretīgs gliemezis zaļpelēkā čaulā, kurā, tiekot nobiedēts, tas
-noslēpjas.
-%%%%
 anaconda
 
 Ļoti liela čūska, kas gan pa zemi, gan ūdenī pārvietojas ar pārsteidzošu
@@ -223,10 +206,6 @@ black bear
 Mazs melns lācis. Kā jau visi lāčveidīgie, melnais lācis satrakosies, ja tiks
 smagi savainots vai nobiedēts.
 %%%%
-black draconian
-
-Zvīņām klāts cilvēkveidīgais ar rāpuļa asti un maziem spārniņiem.
-%%%%
 blizzard demon
 
 Lieldēmons, kas tīts sniegā un zibeņos.
@@ -241,30 +220,29 @@ centaur warrior
 Neskaitāmas kaujas piedzīvojis muskuļots kentaurs, kurš apbruņots ar labiem
 ieročiem, kurus prot arī prasmīgi likt lietā.
 %%%%
-clay golem
-
-Milzīga māla statuja, kas pārdabiskiem līdzekļiem tikusi atdzīvināta.
-%%%%
 deep elf knight
 
 Kaujās rūdīts dzīļu elfu karotājs.
-%%%%
-deep dwarf berserker
-
-Negants un asinskārs pazemes rūķis, kas alkst cīņas neprāta.
 %%%%
 Executioner
 
 Briesmīgi varens un spējš dēmons, ap kura tēlu šķind izkaptveidīgu asmeņu
 mākonis.
 %%%%
+hellion
+
+Šaušalīgs dēmons, kuru sedz dārdošas pekles liesmas.
+%%%%
+lava worm
+
+Negants sarkans tārps, kas slīd cauri izkusušajiem iežiem.
+%%%%
 ancient champion
 
 Neaptverami sens ģindenis. Tā kaulos iegravētas simtiem zeltītas zīmes, kuras
 pulsē ar šaušalīgu un nešķīstu spēku.
 %%%%
-Cigotuvi's Monster
+megabat
 
-Izskatās it kā šis šausminošais radījums būtu izveidots no ikkatra briesmīgāka
-iedomājamākā radījuma.
+Milzīgs melns sikspārnis.
 %%%%

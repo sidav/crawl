@@ -3,7 +3,6 @@
  * @brief Functions related to clouds.
 **/
 
-
 #ifndef CLOUD_H
 #define CLOUD_H
 
@@ -50,5 +49,4 @@ void remove_tornado_clouds(mid_t whose);
 
 void run_cloud_spreaders(int dur);
 
-void fume();
 #endif

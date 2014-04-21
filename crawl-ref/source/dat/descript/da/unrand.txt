@@ -23,29 +23,23 @@ lilla hudfarve og nogle rynker.
 %%%%
 Sword of Power
 
-Det belønner de magtfulde med magt og de svage med svaghed.
+Det belønner de stærke med styrke og de svage med svaghed.
 %%%%
 Staff of Olgreb
 
-Det var dette magiske våben, den mægtig troldmand Olgreb bar, før han mødte sit
-endeligt et sted i disse underjordiske gange. Den øger bærerens evne til at
-bruge giftmagi og bærer magiske kræfter, som kan vækkes. Sagnene vil vide, at
-Olgreb forskede i sjældne gifte, der i begrænset omfang kunne påvirke selv
-væsener, som var immune over for alle almindeligt kendte gifte.
+Det var dette magiske våben, den mægtige troldmand Olgreb bar, da han afgik ved
+døden et sted i disse underjordiske gange. Det øger sin brugers evne til at
+bruge giftmagi og bærer på magiske kræfter, som kan vækkes. Ifølge
+overleveringerne forskede Olgreb i sjældne gifte, som kunne have en begrænset
+virkning selv på væsener, som ellers er immune over for alle kendte gifte.
+Olgreb sørgede naturligvis for, at staven yder fuld beskyttelse mod selv hans
+egne gifte.
 %%%%
 Staff of Wucad Mu
 
 Den kan vækkes for at genoprette store mængder magisk energi, men risikerer
 også at beskadige brugerens sind. Dens kraft afhænger af brugerens
 vækkelsesevne.
-%%%%
-Vampire's Tooth
-
-Denne elfenbensagtige dolk kunne faktisk godt være udskåret af et eller andet
-enormt rovdyrs tand, selvom den selvfølgelig ikke kunne komme fra en blodsuger
-i menneskestørrelse.
-
-Den er dødbringende vampyrisk.
 %%%%
 Scythe of Curses
 
@@ -55,22 +49,10 @@ Sceptre of Torment
 
 Dette overordentligt forbandede våben er et af Helvedes instrumenter.
 %%%%
-Sword of Zonguldrok
-
-Dette skrækkelige våben anvendes på brugerens eget ansvar.
-%%%%
 Sword of Cerebov
 
 Sælsomme flammer dækker dets forvredne klinge. Dets dæmoniske kraft brænder
 noget af forsvarerens modstandskraft over for ild bort.
-%%%%
-Staff of Dispater
-
-Denne legendariske genstand kan slippe Helvedes vrede løs.
-%%%%
-Sceptre of Asmodeus
-
-Det bærer en del af ærkedjævelen Asmodeus' kræfter.
 %%%%
 faerie dragon armour
 
@@ -94,21 +76,9 @@ også for, at fjender bliver grundigt varskoet om din tilstedeværelse. De udød
 hader dens lys, og det kan afsløre de lumske personager, der forsøger at holde
 sig usynlige.
 %%%%
-demon blade "Leech"
-
-Den forblænder ejerens sind over for alt andet en et enkelt, snævert formål: at
-mæske sig i drænet livskraft.
-%%%%
 dagger of Chilly Death
 
 En dolk, som er lavet af et kæmpe stykke safir.
-%%%%
-dagger "Morg"
-
-En grim, rusten dolk.
-
-For mange år siden tilhørte den en magtfuld troldmand ved navn Boris. Han for
-vild i de underjordiske gange, mens han søgte Sfæren.
 %%%%
 scythe "Finisher"
 
@@ -117,13 +87,6 @@ En lang og skarp le, som er særligt modificeret til brug i kamp.
 sling "Punk"
 
 En slynge, som er lavet af noget underligt, blåt læder.
-%%%%
-bow of Krishna "Sharnga"
-
-En underfuld, gylden bue.
-
-Den har engang tilhørt en fremmed gud. Den virker bedst med særlige pile, som
-ikke er lette at opdrive.
 %%%%
 giant club "Skullcrusher"
 
@@ -137,12 +100,15 @@ legenderne for han vild et sted i de underjordiske gange.
 %%%%
 sword of Jihad
 
-Et langsværd, som er lavet af et kæmpemæssigt stykke krystal. Legenderne vil
-vide, at det var Den Strålendes gave til en tilbeder.
+Et langsværd, som er lavet af et kæmpe stykke krystal. Legenderne vil vide, at
+det var en gave fra Den Strålende til en tilbeder. Klingen er berygtet for at
+fremkalde et blodtørstigt raseri i både brugeren og alle hans eller hendes
+dødelige følgesvende.
 %%%%
 crossbow "Hellfire"
 
-En flammende armbrøst, som er smedet i helvedernes ild.
+En flammende armbrøst, som er skabt i helvedernes ild. Den præger de bolte, den
+affyrer, med sit navns kraft.
 %%%%
 sword of the Doom Knight
 
@@ -157,23 +123,9 @@ spear of the Botono
 Et mørkt og ildesindet artefakt. Hos de, der er ubesindige nok til at bære den,
 øger den effekten af de forbandelser, de kaster.
 %%%%
-trident of the Octopus King
-
-Denne trefork blev stjålet fra blækspruttekongens have for mange år siden af en
-virkeligt ubetydelig og allerede død mand. Men vogt dig for blækspruttekongens
-vrede!
-%%%%
 mithril axe "Arga"
 
 En smuk økse af mitril, som en eller anden dværghelt nok har tabt.
-%%%%
-Elemental Staff
-
-Denne magtfulde stav tilhørte engang lederen af De Fem Elementers Laug.
-%%%%
-crossbow "Sniper"
-
-En armbrøst, som er lavet af et sort materiale.
 %%%%
 longbow "Piercer"
 
@@ -189,38 +141,21 @@ En fortryllet lanse, som vokser sig mere og mere mægtig for hver gang, den
 nedlægger en stærk drage. Jo mere mægtig den bliver, jo sværere bliver det at
 finde en værdig modstander.
 %%%%
-Spriggan's Knife
-
-En yndig, lille kniv.
-
-Denne kniv er lavet af sprigger, eller til sprigger, eller måske ud af
-sprigger. Den er i hvert fald på en eller anden måde forbundet til dette
-huldrefolk.
-%%%%
 plutonium sword
 
-Et tredobbelt sværd, som er lavet af et sælsomt, glødende metal. Du undrer dig
-over, om det har udviklet de to sideklinger på grund af sin stråling, og om du
-også vil få to ekstra hoveder.
+En claymore af et underligt, glødende metal. Du spekulerer over, om strålingen
+vil få et ekstra hoved til at vokse frem på dine skuldre.
 %%%%
 great mace "Undeadhunter"
 
-Legenderne vil vide, at engang for længe siden eksperimenterede en
-dødningeherre med at skabe bevidste undersåtter i steder for tanketomme
-tjenere. For at sikre sig deres loyalitet smedede han en række våben med evnen
-til at opløse den trolddom, som binder udøde sammen, og dermed at forvolde stor
-skade på dem.
+Legenderne vil vide, at for længe siden eksperimenterede en dødningeherre med
+at skabe bevidste tjenere i stedet for tankeløse tingester. For at sikre sig
+deres loyalitet lavede han en række våben, som var præget med magi, der kunne
+modvirke den, der holdt udøde sammen, og dermed forvolde dem stor skade.
 
-Selvom dødningen gik til grunde for længe siden, siges hans våben at have været
-overordentligt populære for deres evne til at rive udøde fra hinanden. De gamle
-sagn er i hvert fald fulde af dem. Denne stridskølle kunne dog være den sidste,
-der er tilbage, muligvis takket være Den Strålendes agenter, som siger, at man
-ikke skal bekæmpe nekromantik med nekromantik.
-%%%%
-whip "Snakebite"
-
-En kløvet pisk, som er lavet af garvede huder fra Bæsternes Hules dødbringende
-sorte mambaer.
+Selvom dødningen for længst er gået til grunde, så siges hans våben at have
+været meget populære på grund af den ravage, de forvolder blandt udøde. Denne
+stridskølle er muligvis det eneste af våbnene, der findes endnu.
 %%%%
 knife of Accuracy
 
@@ -244,8 +179,8 @@ Denne bue har samme farve som mørke regnvejrsskyer og lugter af våd ozon.
 %%%%
 large shield of Ignorance
 
-"Et åbent sind er som en fæstning, hvor portene står åbne og murene er
-ubevogtede."
+»Et åbent sind er som en fæstning, hvor portene står åbne og murene er
+ubevogtede.«
 %%%%
 robe of Augmentation
 
@@ -280,7 +215,9 @@ En vibrerende kappe.
 %%%%
 boots of the Assassin
 
-Et par bløde støvler, der er lavet på særlig bestilling fra Snigmordernes Laug.
+Et par bløde støvler, som er omhyggeligt formgivet af Snigmordernes Lav. De gør
+bæreren mere opmærksom på potentielle ofre og bedre til at få øje på svagheder
+hos uopmærksomme ofre.
 %%%%
 Lear's hauberk
 
@@ -318,14 +255,6 @@ mask of the Dragon
 En sær, blå hjelm, som er lavet af hårdt, men fleksibelt læder, der får
 bærerens ansigt til at ligne en drages åsyn.
 %%%%
-robe of Night
-
-En lang, sort kåbe af et besynderligt, blankt materiale. Det lader til at
-indhylle bæreren i mørke.
-
-I følge legenderne var det en gave fra Ratri, nattens gudinde, til en af hendes
-tilbedere.
-%%%%
 armour of the Dragon King
 
 Engang for længe siden tog en mægtig gulddrage magten over alle dragerne i hans
@@ -355,21 +284,10 @@ skindet fra hundredvis af rotter, hovedsagligt de orange af slagsen. Den er
 lidt akavet at have på og ser tåbelig ud, men den yder fremragende beskyttelse
 mod alle slags rotter.
 %%%%
-shield of the gong
-
-Dette er en stor bronzegongong, som man kan bære som et skjold. I følge visse
-mystikere vil det yde dig åndelig beskyttelse at slå på den.
-
-Og det her skjold vil med garanti blive hørt!
-%%%%
 amulet of the Air
 
 Mange af denne himmelblå amulets beskyttende egenskaber må stamme fra en
 magtfuld lufttroldmand. Det eneste, han manglede, var åbenbart en rolig hånd.
-%%%%
-ring of Shadows
-
-En sort ring, som lader sin bærer smelte sammen med skyggerne.
 %%%%
 amulet of Cekugob
 
@@ -409,14 +327,6 @@ Sådan en og en pony.
 robe of Clouds
 
 En kåbe af et så skrøbeligt materiale, at det næsten kunne være skyer.
-%%%%
-hat of Pondering
-
-En slimet troldmandshat.
-
-Snegletroldmanden Gastronoks yndlingshat, som er plettet af rødligt slim og
-fortryllet til at bistå ham i hans okkulte grublen. Den er særligt fortryllet
-til at beskytte mod virkningerne af salt, men det er du nok ligeglad med.
 %%%%
 obsidian axe
 
@@ -458,10 +368,10 @@ mod alle former for elementarangreb, men er desværre ikke synderligt pålidelig
 %%%%
 ring of the Octopus King
 
-"En havfrue med sangen så kær
+»En havfrue med sangen så kær
  Vakte blækspruttekongens begær
  Hendes blævrende bejler
- Blev gejler og gejler Men med så mange ringe var opgaven svær."
+ Blev gejler og gejler Men med så mange ringe var opgaven svær.«
 %%%%
 Axe of Woe
 
@@ -476,6 +386,21 @@ uddød race af trolde. Det er umuligt at sige med sikkerhed, om denne rustning
 virkelig er en rest fra de legendariske vindrædsler, eller blot en tillempning
 for at gøre den mere mystisk. Men dens magt til hurtigt at helbrede brugeren på
 bekostning af magisk kraft er i hvert fald ikke til at komme uden om.
+%%%%
+macabre finger necklace
+
+Denne dinglende finger ville tage sig bedre ud med en ring på.
+%%%%
+boots of the spider
+
+Et opfindsomt par støvler, som en af Arachnes bejlere hittede på.
+%%%%
+hat of the High Council
+
+Et relikvie fra en fordums trolddomskrig. Flere århundreder senere knitrer det
+stadig af virkningerne af de resterende forbandelser og magiske energier, som
+det engang blev udsat for på daglig basis. Trolddomsbrugere, som formår at
+tøjle dets kræfter, vil dog opdage, at den øger deres besværgelsers kraft.
 %%%%
 milk chocolate
 

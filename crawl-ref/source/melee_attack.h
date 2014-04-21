@@ -35,7 +35,7 @@ public:
     int       attack_number;
     int       effective_attack_number;
 
-    bool      skip_chaos_message;
+    bool      fake_chaos_attack;
 
     beam_type special_damage_flavour;
 
@@ -45,6 +45,9 @@ public:
     bool         can_cleave;
     list<actor*> cleave_targets;
     bool         cleaving;        // additional attack from cleaving
+    bool jumping_attack;
+    bool jump_blocked;
+    coord_def attack_position;
 
     // Miscast to cause after special damage is done. If miscast_level == 0
     // the miscast is discarded if special_damage_message isn't empty.
@@ -57,7 +60,9 @@ public:
 public:
     melee_attack(actor *attacker, actor *defender,
                  int attack_num = -1, int effective_attack_num = -1,
-                 bool is_cleaving = false);
+                 bool is_cleaving = false, bool is_jump_attack = false,
+                 bool is_jump_blocked = false,
+                 coord_def attack_pos = coord_def(0, 0));
 
     // Applies attack damage and other effects.
     bool attack();
@@ -120,7 +125,7 @@ private:
     /* Brand / Attack Effects */
     // Returns true if the defender is banished.
     bool distortion_affects_defender();
-    void antimagic_affects_defender();
+    void antimagic_affects_defender(int pow);
     void pain_affects_defender();
     void chaos_affects_defender();
     void chaos_affects_attacker();
@@ -143,9 +148,10 @@ private:
     string mons_attack_verb();
     string mons_attack_desc();
     // TODO: Unify do_poison and poison_monster
-    void mons_do_poison();
+    bool mons_do_poison();
     void mons_do_napalm();
     void mons_do_eyeball_confusion();
+    void apply_black_mark_effects();
 
     attack_flavour random_chaos_attack_flavour();
 private:
@@ -159,7 +165,6 @@ private:
 
     int  player_stat_modify_damage(int damage);
     int  player_aux_stat_modify_damage(int damage);
-    int  player_apply_weapon_bonuses(int damage);
     int  player_apply_weapon_skill(int damage);
     int  player_apply_fighting_skill(int damage, bool aux);
     int  player_apply_misc_modifiers(int damage);

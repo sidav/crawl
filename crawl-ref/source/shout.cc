@@ -7,6 +7,7 @@
 
 #include "shout.h"
 
+#include "act-iter.h"
 #include "art-enum.h"
 #include "artefact.h"
 #include "branch.h"
@@ -19,11 +20,11 @@
 #include "ghost.h"
 #include "jobs.h"
 #include "libutil.h"
+#include "los.h"
 #include "message.h"
 #include "misc.h"
 #include "mon-behv.h"
 #include "mon-chimera.h"
-#include "mon-iter.h"
 #include "mon-place.h"
 #include "mon-pathfind.h"
 #include "mon-stuff.h"
@@ -293,15 +294,11 @@ bool check_awaken(monster* mons)
 
     // Monsters put to sleep by ensorcelled hibernation will sleep
     // at least one turn.
-    if (mons->has_ench(ENCH_SLEEPY))
+    if (mons_just_slept(mons))
         return false;
 
     // Berserkers aren't really concerned about stealth.
     if (you.berserk())
-        return true;
-
-    // Vigilant monsters are always alerted
-    if (mons_class_flag(mons->type, M_VIGILANT))
         return true;
 
     // I assume that creatures who can sense invisible are very perceptive.
@@ -421,10 +418,13 @@ void item_noise(const item_def &item, string msg, int loudness)
     msg = replace_all(msg, "@player_god@",
                       you_worship(GOD_NO_GOD) ? "atheism"
                       : god_name(you.religion, coinflip()));
+    msg = replace_all(msg, "@player_genus@", species_name(you.species, true));
     msg = replace_all(msg, "@a_player_genus@",
                           article_a(species_name(you.species, true)));
+    msg = replace_all(msg, "@player_genus_plural@",
+                      pluralise(species_name(you.species, true)));
 
-    mpr(msg.c_str(), channel);
+    mprf(channel, "%s", msg.c_str());
 
     if (channel != MSGCH_TALK_VISUAL)
         noisy(loudness, you.pos());
@@ -457,7 +457,7 @@ void noisy_equipment()
     msg = maybe_pick_random_substring(msg);
     msg = maybe_capitalise_substring(msg);
 
-    item_noise(*weapon, msg);
+    item_noise(*weapon, msg, 20);
 }
 
 void apply_noises()
@@ -531,7 +531,7 @@ bool noisy(int original_loudness, const coord_def& where,
     if (player_distance <= dist && player_can_hear(where))
     {
         if (msg && !fake_noise)
-            mpr(msg, MSGCH_SOUND);
+            mprf(MSGCH_SOUND, "%s", msg);
         return true;
     }
     return false;
@@ -549,75 +549,13 @@ bool fake_noisy(int loudness, const coord_def& where)
     return noisy(loudness, where, NULL, -1, false, false, true);
 }
 
-static const char* _player_vampire_smells_blood(int dist)
-{
-    // non-thirsty vampires get no clear indication of how close the
-    // smell is
-    if (you.hunger_state >= HS_SATIATED)
-        return "";
-
-    if (dist < 16) // 4*4
-        return " near-by";
-
-    if (you.hunger_state <= HS_NEAR_STARVING && dist > get_los_radius_sq())
-        return " in the distance";
-
-    return "";
-}
-
-static const char* _player_spider_senses_web(int dist)
-{
-    if (dist < 4)
-        return " near-by";
-
-    if (dist > LOS_RADIUS)
-        return " in the distance";
-
-    return "";
-}
-
-void check_player_sense(sense_type sense, int range, const coord_def& where)
-{
-    const int player_distance = distance2(you.pos(), where);
-
-    if (player_distance <= range)
-    {
-        switch (sense)
-        {
-        case SENSE_SMELL_BLOOD:
-            dprf("Player smells blood, pos: (%d, %d), dist = %d)",
-                 you.pos().x, you.pos().y, player_distance);
-            you.check_awaken(range - player_distance);
-            // Don't message if you can see the square.
-            if (!you.see_cell(where))
-            {
-                mprf("You smell fresh blood%s.",
-                     _player_vampire_smells_blood(player_distance));
-            }
-            break;
-
-        case SENSE_WEB_VIBRATION:
-            // Spider form
-            if (you.can_cling_to_walls())
-            {
-                you.check_awaken(range - player_distance);
-                // Don't message if you can see the square.
-                if (!you.see_cell(where))
-                {
-                    mprf("You hear a 'twang'%s.",
-                         _player_spider_senses_web(player_distance));
-                }
-            }
-            break;
-        }
-    }
-}
-
 void check_monsters_sense(sense_type sense, int range, const coord_def& where)
 {
-    circle_def c(where, range, C_CIRCLE);
-    for (monster_iterator mi(&c); mi; ++mi)
+    for (monster_iterator mi; mi; ++mi)
     {
+        if (distance2(mi->pos(), where) > range)
+            continue;
+
         switch (sense)
         {
         case SENSE_SMELL_BLOOD:
@@ -671,8 +609,8 @@ void check_monsters_sense(sense_type sense, int range, const coord_def& where)
                     else
                     {
                         mi->add_ench(mon_enchant(ENCH_BATTLE_FRENZY, 1, 0, dur));
-                        simple_monster_message(*mi, " is consumed with "
-                                                    "blood-lust!");
+                        simple_monster_message(*mi, " goes into a frenzy at the "
+                                                    "smell of blood!");
                     }
                 }
             }
@@ -709,18 +647,6 @@ void blood_smell(int strength, const coord_def& where)
     const int range = strength * strength;
     dprf("blood stain at (%d, %d), range of smell = %d",
          where.x, where.y, range);
-
-    // Of the player species, only Vampires can smell blood.
-    if (you.species == SP_VAMPIRE)
-    {
-        // Whether they actually do so, depends on their hunger state.
-        int vamp_strength = strength - 2 * (you.hunger_state - 1);
-        if (vamp_strength > 0)
-        {
-            int vamp_range = vamp_strength * vamp_strength;
-            check_player_sense(SENSE_SMELL_BLOOD, vamp_range, where);
-        }
-    }
 
     check_monsters_sense(SENSE_SMELL_BLOOD, range, where);
 }
@@ -762,7 +688,7 @@ noise_cell::noise_cell()
 
 bool noise_cell::can_apply_noise(int _noise_intensity_millis) const
 {
-    return (noise_intensity_millis < _noise_intensity_millis);
+    return noise_intensity_millis < _noise_intensity_millis;
 }
 
 bool noise_cell::apply_noise(int _noise_intensity_millis,
@@ -937,11 +863,10 @@ bool noise_grid::propagate_noise_to_neighbour(int base_attenuation,
                                   next_pos - current_pos))
             // Return true only if we hadn't already registered this
             // cell as a neighbour (presumably with a lower volume).
-            return (neighbour_old_distance != travel_distance);
+            return neighbour_old_distance != travel_distance;
     }
     return false;
 }
-
 
 void noise_grid::apply_noise_effects(const coord_def &pos,
                                      int noise_intensity_millis,
@@ -959,7 +884,7 @@ void noise_grid::apply_noise_effects(const coord_def &pos,
     if (monster *mons = monster_at(pos))
     {
         if (mons->alive()
-            && !mons->has_ench(ENCH_SLEEPY)
+            && !mons_just_slept(mons)
             && mons->mindex() != noise.noise_producer_id)
         {
             const coord_def perceived_position =
@@ -1184,8 +1109,8 @@ static void _actor_apply_noise(actor *act,
         act->check_awaken(loudness);
         if (!(noise.noise_flags & NF_MERMAID))
         {
-            you.beholders_check_noise(loudness, player_equip_unrand_effect(UNRAND_DEMON_AXE));
-            you.fearmongers_check_noise(loudness, player_equip_unrand_effect(UNRAND_DEMON_AXE));
+            you.beholders_check_noise(loudness, player_equip_unrand(UNRAND_DEMON_AXE));
+            you.fearmongers_check_noise(loudness, player_equip_unrand(UNRAND_DEMON_AXE));
         }
     }
     else

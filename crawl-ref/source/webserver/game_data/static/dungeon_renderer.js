@@ -1,6 +1,7 @@
-define(["jquery", "./cell_renderer", "./map_knowledge", "./settings", "./tileinfo-dngn"],
-function ($, cr, map_knowledge, settings, dngn) {
-    var default_size = { w: 32, h: 32 };
+define(["jquery", "./cell_renderer", "./map_knowledge", "./options", "./tileinfo-dngn"],
+function ($, cr, map_knowledge, options, dngn) {
+    "use strict";
+
     var global_anim_counter = 0;
 
     function is_torch(basetile)
@@ -14,9 +15,13 @@ function ($, cr, map_knowledge, settings, dngn) {
     {
         if (cell == null || cell.bg == null) return false;
         var base_bg = dngn.basetile(cell.bg.value);
-        return (base_bg == dngn.DNGN_PORTAL_WIZARD_LAB
-                || is_torch(base_bg)
-                || (base_bg >= dngn.DNGN_LAVA && base_bg < dngn.BLOOD));
+        if (base_bg >= dngn.DNGN_LAVA && base_bg < dngn.DNGN_ENTER_ZOT_CLOSED)
+            return options.get("tile_water_anim");
+        else if (base_bg >= dngn.DNGN_ENTER_ZOT_CLOSED && base_bg < dngn.BLOOD
+                 || is_torch(base_bg))
+            return options.get("tile_misc_anim");
+        else
+            return false;
     }
 
     function animate_cell(cell)
@@ -47,8 +52,6 @@ function ($, cr, map_knowledge, settings, dngn) {
 
         this.view = { x: 0, y: 0 };
         this.view_center = { x: 0, y: 0 };
-
-        this.tile_scaling = 1.0;
     }
 
     DungeonViewRenderer.prototype = new cr.DungeonCellRenderer();
@@ -172,11 +175,11 @@ function ($, cr, map_knowledge, settings, dngn) {
         fit_to: function(width, height, min_diameter)
         {
             var cell_size = {
-                w: default_size.w * this.tile_scaling,
-                h: default_size.h * this.tile_scaling
+                w: options.get("tile_cell_pixels"),
+                h: options.get("tile_cell_pixels")
             };
 
-            if (this.display_mode == "glyphs")
+            if (options.get("tile_display_mode") == "glyphs")
             {
                 this.ctx.font = this.glyph_mode_font_name();
                 var metrics = this.ctx.measureText("@");
@@ -288,13 +291,15 @@ function ($, cr, map_knowledge, settings, dngn) {
             clearTimeout(anim_interval);
             anim_interval = null;
         }
-        if (settings.get("animations"))
+        if (options.get("tile_realtime_anim"))
         {
             anim_interval = setInterval(function () {
                 renderer.animate();
             }, 1000 / 4);
         }
     }
+
+    options.add_listener(update_animation_interval);
 
     $(document).off("game_init.dungeon_renderer");
     $(document).on("game_init.dungeon_renderer", function () {
@@ -304,8 +309,6 @@ function ($, cr, map_knowledge, settings, dngn) {
         renderer.view_center = { x: 0, y: 0 };
 
         renderer.init($("#dungeon")[0]);
-
-        update_animation_interval();
     });
 
     $(document).off("game_cleanup.dungeon_renderer")
@@ -314,15 +317,6 @@ function ($, cr, map_knowledge, settings, dngn) {
             {
                 clearTimeout(anim_interval);
                 anim_interval = null;
-            }
-        });
-
-    settings.set_defaults({ animations: false });
-    $(document).off("settings_changed.dungeon_renderer")
-        .on("settings_changed.dungeon_renderer", function (ev, map) {
-            if ("animations" in map)
-            {
-                update_animation_interval();
             }
         });
 

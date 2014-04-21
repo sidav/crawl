@@ -17,9 +17,8 @@
 #include "coordit.h"
 #include "env.h"
 #include "fprop.h"
-#include "itemprop.h"
+#include "godconduct.h"
 #include "items.h"
-#include "libutil.h"
 #include "losglobal.h"
 #include "message.h"
 #include "misc.h"
@@ -27,9 +26,10 @@
 #include "mon-util.h"
 #include "ouch.h"
 #include "player.h"
-#include "skills.h"
+#include "random-pick.h"
 #include "spl-util.h"
 #include "stuff.h"
+#include "target.h"
 #include "terrain.h"
 #include "transform.h"
 #include "viewchar.h"
@@ -88,7 +88,7 @@ spret_type conjure_flame(int pow, const coord_def& where, bool fail)
         return SPRET_ABORT;
     }
 
-    // Note that self-targetting is handled by SPFLAG_NOT_SELF.
+    // Note that self-targeting is handled by SPFLAG_NOT_SELF.
     monster* mons = monster_at(where);
     if (mons)
     {
@@ -106,6 +106,8 @@ spret_type conjure_flame(int pow, const coord_def& where, bool fail)
     }
 
     fail_check();
+
+    did_god_conduct(DID_FIRE, min(5 + pow/2, 23));
 
     if (cloud != EMPTY_CLOUD)
     {
@@ -185,7 +187,7 @@ spret_type cast_big_c(int pow, cloud_type cty, const actor *caster, bolt &beam,
     }
 
     //XXX: there should be a better way to specify beam cloud types
-    switch(cty)
+    switch (cty)
     {
         case CLOUD_POISON:
             beam.flavour = BEAM_POISON;
@@ -206,7 +208,7 @@ spret_type cast_big_c(int pow, cloud_type cty, const actor *caster, bolt &beam,
 
     beam.thrower           = KILL_YOU;
     beam.hit               = AUTOMATIC_HIT;
-    beam.damage            = INSTANT_DEATH; // just a convenient non-zero
+    beam.damage            = dice_def(42, 1); // just a convenient non-zero
     beam.is_big_cloud      = true;
     beam.is_tracer         = true;
     beam.use_target_as_pos = true;
@@ -236,6 +238,7 @@ void big_cloud(cloud_type cl_type, const actor *agent,
                const coord_def& where, int pow, int size, int spread_rate,
                int colour, string name, string tile)
 {
+    // The starting point _may_ be a place no cloud can be placed on.
     apply_area_cloud(_make_a_normal_cloud, where, pow, size,
                      cl_type, agent, spread_rate, colour, name, tile,
                      -1);
@@ -251,6 +254,7 @@ spret_type cast_ring_of_flames(int power, bool fail)
     }
 
     fail_check();
+    did_god_conduct(DID_FIRE, min(5 + power/5, 50));
     you.increase_duration(DUR_FIRE_SHIELD,
                           5 + (power / 10) + (random2(power) / 5), 50,
                           "The air around you leaps into flame!");
@@ -277,19 +281,18 @@ void manage_fire_shield(int delay)
 
     if (!you.duration[DUR_FIRE_SHIELD])
     {
-        mpr("Your ring of flames gutters out.", MSGCH_DURATION);
+        mprf(MSGCH_DURATION, "Your ring of flames gutters out.");
         return;
     }
 
     int threshold = get_expiration_threshold(DUR_FIRE_SHIELD);
 
-
     if (old_dur > threshold && you.duration[DUR_FIRE_SHIELD] < threshold)
-        mpr("Your ring of flames is guttering out.", MSGCH_WARN);
+        mprf(MSGCH_WARN, "Your ring of flames is guttering out.");
 
     // Place fire clouds all around you
     for (adjacent_iterator ai(you.pos()); ai; ++ai)
-        if (!feat_is_solid(grd(*ai)) && env.cgrid(*ai) == EMPTY_CLOUD)
+        if (!cell_is_solid(*ai) && env.cgrid(*ai) == EMPTY_CLOUD)
             place_cloud(CLOUD_FIRE, *ai, 1 + random2(6), &you);
 }
 
@@ -317,9 +320,11 @@ spret_type cast_corpse_rot(bool fail)
 
 void corpse_rot(actor* caster)
 {
-    for (radius_iterator ri(caster->pos(), 6, C_ROUND, caster->is_player() ? you.get_los_no_trans()
-                                                                                    : caster->get_los());
-         ri; ++ri)
+    // If there is no caster (god wrath), centre the effect on the player.
+    const coord_def center = caster ? caster->pos() : you.pos();
+    bool saw_rot = caster && (caster->is_player() || you.can_see(caster));
+
+    for (radius_iterator ri(center, 6, C_ROUND, LOS_NO_TRANS); ri; ++ri)
     {
         if (!is_sanctuary(*ri) && env.cgrid(*ri) == EMPTY_CLOUD)
             for (stack_iterator si(*ri); si; ++si)
@@ -336,13 +341,16 @@ void corpse_rot(actor* caster)
 
                     place_cloud(CLOUD_MIASMA, *ri, 4+random2avg(16, 3),caster);
 
+                    if (!saw_rot && you.see_cell(*ri))
+                        saw_rot = true;
+
                     // Don't look for more corpses here.
                     break;
                 }
     }
 
-    if (you.can_smell() && you.can_see(caster))
-        mpr("You smell decay.");
+    if (saw_rot)
+        mprf("You %s decay.", you.can_smell() ? "smell" : "sense");
 
     // Should make zombies decay into skeletons?
 }
@@ -351,19 +359,20 @@ int holy_flames(monster* caster, actor* defender)
 {
     const coord_def pos = defender->pos();
     int cloud_count = 0;
+    const int dur = 8 + random2avg(caster->hit_dice * 3, 2);
 
     for (adjacent_iterator ai(pos); ai; ++ai)
     {
         if (!in_bounds(*ai)
             || env.cgrid(*ai) != EMPTY_CLOUD
-            || feat_is_solid(grd(*ai))
+            || cell_is_solid(*ai)
             || is_sanctuary(*ai)
             || monster_at(*ai))
         {
             continue;
         }
 
-        place_cloud(CLOUD_HOLY_FLAMES, *ai, caster->hit_dice * 5, caster);
+        place_cloud(CLOUD_HOLY_FLAMES, *ai, dur, caster);
 
         cloud_count++;
     }
@@ -382,7 +391,7 @@ struct dist2_sorter
 
 static bool _safe_cloud_spot(const monster* mon, coord_def p)
 {
-    if (feat_is_solid(grd(p)) || env.cgrid(p) != EMPTY_CLOUD)
+    if (cell_is_solid(p) || env.cgrid(p) != EMPTY_CLOUD)
         return false;
 
     if (actor_at(p) && mons_aligned(mon, actor_at(p)))
@@ -474,18 +483,72 @@ void apply_control_winds(const monster* mon)
     }
 
     // Now give a ranged accuracy boost to nearby allies
-    for (monster_iterator mi(mon); mi; ++mi)
+    for (monster_near_iterator mi(mon, LOS_NO_TRANS); mi; ++mi)
     {
-        if (distance2(mon->pos(), mi->pos()) < 33 && mons_aligned(mon, *mi))
+        if (distance2(mon->pos(), mi->pos()) >= 33 || !mons_aligned(mon, *mi))
+            continue;
+
+        if (!mi->has_ench(ENCH_WIND_AIDED))
+            mi->add_ench(mon_enchant(ENCH_WIND_AIDED, 1, mon, 20));
+        else
         {
-            if (!mi->has_ench(ENCH_WIND_AIDED))
-                mi->add_ench(mon_enchant(ENCH_WIND_AIDED, 1, mon, 20));
-            else
-            {
-                mon_enchant aid = mi->get_ench(ENCH_WIND_AIDED);
-                aid.duration = 20;
-                mi->update_ench(aid);
-            }
+            mon_enchant aid = mi->get_ench(ENCH_WIND_AIDED);
+            aid.duration = 20;
+            mi->update_ench(aid);
         }
     }
+}
+
+random_pick_entry<cloud_type> cloud_cone_clouds[] =
+{
+  { 0,   50,  80, DOWN, CLOUD_RAIN },
+  { 0,   50, 100, DOWN, CLOUD_MIST },
+  { 0,   50, 150, DOWN, CLOUD_MEPHITIC },
+  { 0,  100, 100, PEAK, CLOUD_FIRE },
+  { 0,  100, 100, PEAK, CLOUD_COLD },
+  { 0,  100, 100, PEAK, CLOUD_POISON },
+  { 30, 100, 125, UP,   CLOUD_NEGATIVE_ENERGY },
+  { 40, 100, 135, UP,   CLOUD_ACID },
+  { 50, 100, 175, UP,   CLOUD_STORM },
+  { 0,0,0,FLAT,CLOUD_NONE }
+};
+
+spret_type cast_cloud_cone(const actor *caster, int pow, const coord_def &pos,
+                           bool fail)
+{
+    // For monsters:
+    pow = min(100, pow);
+
+    const int range = spell_range(SPELL_CLOUD_CONE, pow);
+
+    targetter_shotgun hitfunc(caster, range);
+
+    hitfunc.set_aim(pos);
+
+    if (caster->is_player())
+    {
+        if (stop_attack_prompt(hitfunc, "cloud"))
+            return SPRET_ABORT;
+    }
+
+    fail_check();
+
+    random_picker<cloud_type, NUM_CLOUD_TYPES> cloud_picker;
+    cloud_type cloud = cloud_picker.pick(cloud_cone_clouds, pow, CLOUD_NONE);
+
+    for (map<coord_def, int>::const_iterator p = hitfunc.zapped.begin();
+         p != hitfunc.zapped.end(); ++p)
+    {
+        if (p->second <= 0)
+            continue;
+        place_cloud(cloud, p->first,
+                    5 + random2avg(12 + div_rand_round(pow * 3, 4), 3),
+                    caster);
+    }
+    mprf("%s %s a blast of %s!",
+         caster->name(DESC_THE).c_str(),
+         caster->conj_verb("create").c_str(),
+         cloud_type_name(cloud).c_str());
+
+    return SPRET_SUCCESS;
 }

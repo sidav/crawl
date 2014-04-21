@@ -3,7 +3,6 @@
  * @brief Functions used to create vaults.
 **/
 
-
 #ifndef MAPS_H
 #define MAPS_H
 
@@ -25,18 +24,27 @@ map_section_type vault_main(vault_placement &vp, const map_def *vault,
 
 bool resolve_subvault(map_def &vault);
 
+coord_def find_portal_place(const vault_placement *place, bool check_place);
+
 const map_def *map_by_index(int index);
 void strip_all_maps();
 int map_count();
 
+string vault_chance_tag(const map_def &map);
+
 const map_def *find_map_by_name(const string &name);
-const map_def *random_map_for_place(const level_id &place, bool minivault);
+const map_def *random_map_for_place(const level_id &place,
+                                    bool minivault,
+                                    maybe_bool extra = MB_MAYBE);
 const map_def *random_map_in_depth(const level_id &lid,
-                                   bool want_minivault = false);
+                                   bool want_minivault = false,
+                                   maybe_bool extra = MB_MAYBE);
 const map_def *random_map_for_tag(const string &tag,
                                   bool check_depth = false,
-                                  bool check_chance = false);
-mapref_vector random_chance_maps_in_depth(const level_id &place);
+                                  bool check_chance = false,
+                                  maybe_bool extra = MB_MAYBE);
+mapref_vector random_chance_maps_in_depth(const level_id &place,
+                                          maybe_bool extra = MB_MAYBE);
 
 void dump_map(const map_def &map);
 void add_parsed_map(const map_def &md);

@@ -615,7 +615,6 @@ struct zap_info
     7
 },
 
-
 {
     ZAP_BREATHE_FROST,
     "freezing breath",
@@ -636,8 +635,8 @@ struct zap_info
     ZAP_BREATHE_ACID,
     "acid",
     50,
-    new dicedef_calculator<3, 3, 1, 3>,
-    new tohit_calculator<5, 1, 6>,
+    new dicedef_calculator<3, 4, 1, 3>,
+    new tohit_calculator<7, 1, 6>,
     YELLOW,
     false,
     BEAM_ACID,
@@ -760,6 +759,7 @@ struct zap_info
     4
 },
 
+#if TAG_MAJOR_VERSION == 34
 {                           // ench_power controls radius
     ZAP_ICE_STORM,
     "great blast of cold",
@@ -775,6 +775,7 @@ struct zap_info
     true,
     9 // XXX: Should a storm be louder?
 },
+#endif
 
 {
     ZAP_CORONA,
@@ -810,7 +811,7 @@ struct zap_info
 
 {
     ZAP_FLAME_TONGUE,
-    "flame",
+    "flame tongue",
     25,
     new dicedef_calculator<1, 8, 1, 4>,
     new tohit_calculator<11, 1, 6>,
@@ -969,6 +970,7 @@ struct zap_info
     0
 },
 
+#if TAG_MAJOR_VERSION == 34
 {
     ZAP_HOLY_LIGHT,
     "beam of light",
@@ -984,6 +986,7 @@ struct zap_info
     false,
     6
 },
+#endif
 
 {
     ZAP_BREATHE_STICKY_FLAME,
@@ -1111,4 +1114,68 @@ struct zap_info
     true,
     false,
     2
+},
+
+{
+    ZAP_EXPLOSIVE_BOLT,
+    "explosive bolt",
+    200,
+    NULL,
+    new tohit_calculator<17, 1, 25>,
+    RED,
+    false,
+    BEAM_MISSILE,  // To avoid printing needless messages for non-damaging hits
+    DCHAR_FIRED_ZAP,
+    true,
+    true,
+    false,
+    0
+},
+
+{
+    ZAP_CRYSTAL_BOLT,
+    "crystal bolt",
+    200,
+    new calcdice_calculator<6, 18, 2, 3>,
+    new tohit_calculator<10, 1, 25>,
+    GREEN,
+    false,
+    BEAM_CRYSTAL,
+    DCHAR_FIRED_ZAP,
+    true,
+    true,
+    false,
+    6
+},
+
+{
+    ZAP_QUICKSILVER_BOLT,
+    "bolt of dispelling energy",
+    200,
+    new calcdice_calculator<6, 15, 2, 3>,
+    new tohit_calculator<10, 1, 25>,
+    BLUE,
+    false,
+    BEAM_MMISSILE,
+    DCHAR_FIRED_ZAP,
+    true,
+    true,
+    false,
+    6
+},
+
+{
+    ZAP_RANDOM_BOLT_TRACER,
+    "random bolt tracer",
+    200,
+    new dicedef_calculator<AUTOMATIC_HIT, 1, 0, 1>,
+    new tohit_calculator<AUTOMATIC_HIT>,
+    WHITE,
+    false,
+    BEAM_BOUNCY_TRACER,
+    DCHAR_FIRED_DEBUG,
+    true,
+    true,
+    false,
+    0
 },

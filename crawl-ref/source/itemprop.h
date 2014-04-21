@@ -3,7 +3,6 @@
  * @brief Misc functions.
 **/
 
-
 #ifndef ITEMPROP_H
 #define ITEMPROP_H
 
@@ -21,7 +20,6 @@ void do_uncurse_item(item_def &item, bool inscribe = true, bool no_ash = false,
 
 // stationary:
 void set_item_stationary(item_def &item);
-void remove_item_stationary(item_def &item);
 bool item_is_stationary(const item_def &item) PURE;
 
 // ident:
@@ -30,22 +28,12 @@ void set_ident_flags(item_def &item, iflags_t flags);
 void unset_ident_flags(item_def &item, iflags_t flags);
 bool fully_identified(const item_def &item) PURE;
 
-// racial item and item descriptions:
-void set_equip_race(item_def &item, iflags_t flags);
-void set_equip_desc(item_def &item, iflags_t flags);
-iflags_t get_equip_race(const item_def &item) PURE;
+// item descriptions:
+void     set_equip_desc(item_def &item, iflags_t flags);
 iflags_t get_equip_desc(const item_def &item) PURE;
-iflags_t get_species_race(species_type sp) IMMUTABLE;
-
-// helmet functions:
-void  set_helmet_random_desc(item_def &item);
-short get_helmet_desc(const item_def &item) PURE;
 
 bool  is_helmet(const item_def &item) PURE;
 bool  is_hard_helmet(const item_def &item) PURE;
-
-short get_gloves_desc(const item_def &item) PURE;
-void  set_gloves_random_desc(item_def &item);
 
 // ego items:
 bool set_item_ego_type(item_def &item, object_class_type item_type,
@@ -89,9 +77,10 @@ int weapon_rarity(int w_type) IMMUTABLE;
 int   cmp_weapon_size(const item_def &item, size_type size) PURE;
 bool  check_weapon_wieldable_size(const item_def &item, size_type size) PURE;
 
-hands_reqd_type hands_reqd(const item_def &item, size_type size) PURE;
-hands_reqd_type hands_reqd(object_class_type base_type, int sub_type,
-                           size_type size) IMMUTABLE;
+size_type weapon_size(const item_def &item) PURE;
+
+hands_reqd_type basic_hands_reqd(const item_def &item, size_type size) PURE;
+hands_reqd_type hands_reqd(const actor* ac, object_class_type base_type, int sub_type);
 
 bool is_giant_club_type(int wpn_type) IMMUTABLE;
 
@@ -140,7 +129,7 @@ bool item_is_orb(const item_def &orb) PURE;
 bool item_is_horn_of_geryon(const item_def &item) PURE;
 bool item_is_spellbook(const item_def &item) PURE;
 
-bool is_elemental_evoker(const item_def &item);
+bool is_xp_evoker(const item_def &item);
 bool evoker_is_charged(const item_def &item);
 
 // ring functions:

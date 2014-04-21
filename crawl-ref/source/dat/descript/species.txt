@@ -23,14 +23,15 @@ Demonspawn
 Demonspawn are half human, half demon. They acquire strong demonic mutations as
 they grow.
 %%%%
-Djinni
-
-The Djinn are spirits of fire, for whom magic is the very essence of life.
-%%%%
 Draconian
 
 Draconians are versatile hybrids. They mature when reaching level 7 and develop
 a colour.
+%%%%
+Formicid
+
+Formicids are humanoid ants adept at digging. Their limbs are exceptionally
+strong and they live in a state of permanent stasis.
 %%%%
 Felid
 
@@ -109,11 +110,6 @@ Ogre
 Large and strong, they're mostly seen as brutes. Ogres are very comfortable
 with the basics of magic, however.
 %%%%
-Sludge Elf
-
-A depraved type of elf, who prefers cunning to fair fighting, and dark magic to
-other wizardry.
-%%%%
 Spriggan
 
 Very small, very frail and very fast. Spriggans make highly competent stabbers
@@ -126,6 +122,11 @@ They're always hungry.
 %%%%
 Vampire
 
-Shifting between the states of life and undeath, they're accomplished stabbers
-and casters.
+Shifting between the states of life and undeath, Vampires are accomplished
+stabbers and casters.
+%%%%
+Vine Stalker
+
+Frail symbionts, Vine Stalkers cannot regain health from devices or potions.
+Their magical reserves absorb damage, and they pack a magic-restoring bite.
 %%%%

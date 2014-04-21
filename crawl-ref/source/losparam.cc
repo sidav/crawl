@@ -10,6 +10,7 @@
 #include "cloud.h"
 #include "env.h"
 #include "externs.h"
+#include "los.h"
 #include "mon-util.h"
 #include "state.h"
 #include "terrain.h"
@@ -24,9 +25,7 @@ const opacity_no_actor opc_no_actor = opacity_no_actor();
 
 opacity_type opacity_default::operator()(const coord_def& p) const
 {
-    // Secret doors in translucent walls shouldn't block LOS,
-    // hence grid_appearance.
-    dungeon_feature_type f = grid_appearance(p);
+    dungeon_feature_type f = grd(p);
     if (feat_is_opaque(f))
         return OPC_OPAQUE;
     else if (feat_is_tree(f))
@@ -48,7 +47,7 @@ opacity_type opacity_fullyopaque::operator()(const coord_def& p) const
 
 opacity_type opacity_no_trans::operator()(const coord_def& p) const
 {
-    dungeon_feature_type f = grid_appearance(p);
+    dungeon_feature_type f = grd(p);
     if (feat_is_opaque(f) || feat_is_wall(f) || feat_is_tree(f))
         return OPC_OPAQUE;
     else if (is_opaque_cloud(env.cgrid(p)))
@@ -91,7 +90,7 @@ opacity_type opacity_solid::operator()(const coord_def& p) const
 }
 
 // Make anything solid block in addition to normal LOS.
-// That's just granite statues in addition to opacity_no_trans.
+// That includes statues and grates in addition to opacity_no_trans.
 opacity_type opacity_solid_see::operator()(const coord_def& p) const
 {
     dungeon_feature_type f = env.grid(p);

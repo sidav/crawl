@@ -376,6 +376,8 @@ elseif you.race() == "Felid" then
     return "pillow-pawed"
 elseif you.race() == "Octopode" then
     return "soft-tentacled"
+elseif you.race() == "Formicid" then
+    return "massive-mandibled"
 else
     return "rosy-lipped"
 end
@@ -398,6 +400,8 @@ ruler
 ban
 
 magnate
+
+gentle{{ return you.genus() }}
 %%%%
 _hostile_imp_
 
@@ -434,9 +438,6 @@ VISUAL:@The_monster@ summons a swarm of flies.
 _hell_lord_taunt_
 
 @The_monster@ @says@ @to_foe@, "@demon_taunt@"
-
-w:1
-@The_monster@ proclaims, "For the glory of @my_God@!"
 %%%%
 _demon_taunt_
 
@@ -1408,6 +1409,14 @@ Cheibriados player ghost
 
 @The_monster@ says @to_foe@, "You can run, but you can't hide!"
 %%%%
+Dithmenos player ghost
+
+@The_monster@ says @to_foe@, "I shall send you to the shadows!"
+
+@The_monster@ says @to_foe@, "Just let the darkness consume you."
+
+@The_monster@ says @to_foe@, "I walk in shadow, and soon so shall you."
+%%%%
 Elyvilon player ghost
 
 @The_monster@ says @to_foe@, "In life, I might have healed you instead."
@@ -1722,7 +1731,7 @@ VISUAL:@The_monster@ coils and then uncoils.
 
 VISUAL:@The_monster@ winks several times @at_foe@.
 %%%%
-############ AGNES ### She is trying to get money and treasure
+############ AGNES ### She is an honourable warrior from a far-away land.
 Agnes
 
 @_Agnes_common_@
@@ -1732,29 +1741,28 @@ w:5
 %%%%
 _Agnes_common_
 
-VISUAL:@The_monster@ grins evilly.
+VISUAL:@The_monster@ bows.
 
-@The_monster@ says @to_foe@, "I need a new robe. I'll buy it with your money."
+@The_monster@ says @to_foe@, "You dishonour your ancestors."
 
-@The_monster@ says @to_foe@, "How can you wear that ugly dress?"
+@The_monster@ says @to_foe@, "I despise a dishonourable opponent."
 
-@The_monster@ screams @at_foe@, "Give me all your money!"
+@The_monster@ says @to_foe@, "It is my duty to kill you, but also my pleasure."
 
-@The_monster@ screams @at_foe@, "All treasure is mine! Mine!"
+@The_monster@ mutters, "I never trained for this."
 
-@The_monster@ screams @at_foe@, "Die, beast!"
+@The_monster@ says @to_foe@, "You will find the Path of Peace easy to follow, in death."
 %%%%
 _Agnes_rare_
 
-@The_monster@ screams @at_foe@, "You'll never get my money!"
+@The_monster@ says, "The ORB is mine by right."
 
-@The_monster@ screams @at_foe@, "Give me everything and get away!"
+#sepaktakraw reference
+@The_monster@ shouts @at_foe@, "I will kick you around like a rattan ball!"
 
-@The_monster@ screams @at_foe@, "If you give me all your money I'll let you live. Maybe."
+@The_monster@ asks, "Have you seen my kris anywhere?"
 
-@The_monster@ screams @at_foe@, "I want your rings! And amulets! And... EVERYTHING!"
-
-@The_monster@ screams, "I hate dirty adventurers like you!" @player_only@
+@The_monster@ mutters, "I could really go for a good breadfruit right now."
 ## END Agnes ##
 %%%%
 ############ ANTAEUS ### A titan demonically corrupted into a hell lord.
@@ -1777,6 +1785,54 @@ Arachne
 @The_monster@ says @to_foe@, "No one escapes my webs."
 
 @The_monster@ says @to_foe@, "You can be the slave of me, the spider queen... or food for my pets."
+%%%%
+############ ASTERION ### Minotaur of Makhleb
+Asterion
+
+@_Asterion_common_@
+
+w:5
+@_Asterion_rare_@
+%%%%
+_Asterion_common_
+
+VISUAL:@The_monster@ snorts and paws the ground.
+
+VISUAL:@The_monster@ slowly taps his weapon in his hand.
+
+@The_monster@ says, "Soon your soul will belong to Makhleb." @player_only@
+
+@The_monster@ says, "Makhleb has given me the powers of destruction."
+
+@The_monster@ says, "Your corpse will decorate my castle walls." @player_only@
+
+@The_monster@ says, "In my kingdom, weaklings like you are put to the
+sword." @player_only@
+
+@The_monster@ says, "No maze can contain me."
+
+@The_monster@ chants a prayer to Makhleb.
+
+@The_monster@ says @to_foe@, "Your valuables will do nicely in my
+coffers." @player_only@
+
+%%%%
+_Asterion_rare_
+
+@The_monster@ unleashes a bloodcurdling roar.
+
+WARN:@The_monster@ chants and is briefly shrouded in fire.
+
+WARN:@The_monster@'s eyes glow. You hear demonic laughter.
+
+@The_monster@ says, "{{
+    if you.skill("Spellcasting") >= 5 then
+      return "Ah, a wizard! I'll enjoy hearing you beg for your life."
+    else
+      return "You're no warrior. You fight like a peasant!"
+    end }}" @player_only@
+
+@The_monster@ screams @at_foe@, "What ORB?! I have an entire kingdom!" @player_only@
 %%%%
 ############ AZRAEL ### efreet
 Azrael
@@ -1829,6 +1885,8 @@ if you.race() == "Felid" then
     return "paws"
 elseif you.race() == "Octopode" then
     return "tentacles"
+elseif you.race() == "Formicid" then
+    return "limbs"
 else
     return "arms"
 end
@@ -2478,6 +2536,24 @@ w:2
 %%%%
 ############ DONALD ### An adventurer hating competition
 #################################################################### BRANCHES #
+Temple Donald
+
+w:50
+@_generic_Donald_@
+
+@The_monster@ says, "I can never find the altar I want in here."
+
+@The_monster@ says, "There are too many gods demanding my worship. I hate that."
+
+@The_monster@ says, "Why did you bring me all the way here just to see the Temple?"
+
+@The_monster@ says, "There's not enough treasure in here."
+
+@The_monster@ says, "You've already taken the rune from here, haven't you?"
+
+@The_monster@ says, "So-called 'good' gods are just as evil as the rest. I hate hypocrisy."
+
+%%%%
 Orcish Mines Donald
 
 w:50
@@ -2656,7 +2732,7 @@ w:50
 
 @The_monster@ says, "I forgot to wear corrosion-proof armour. Damn, I hate that!"
 
-@The_monster@ says, "Those eyeballs look tasty."
+@The_monster@ says, "Those amoebas look tasty."
 
 @The_monster@ says, "Where's all the loot?"
 
@@ -3245,7 +3321,7 @@ w:50
 
 @The_monster@ says, "Beogh's pretty racist."
 
-@The_monster@ says, "So, how long did it take you to find an altar to Beogh?"
+@The_monster@ says, "One of the priests looked like he was going to ask me to join... I guess he changed his mind."
 
 @The_monster@ says, "You think walking on water is cool? I can swim."
 
@@ -3412,6 +3488,25 @@ w:50
 @The_monster@ says, "I hate voyeurs."
 
 @The_monster@ says, "What does a god have to do to get cursed, anyway?"
+%%%%
+Dithmenos Donald
+
+w:50
+@_generic_Donald_@
+
+@The_monster@ says, "Sounds like you're dealing with a pretty shady god there."
+
+@The_monster@ says, "I'll bet you have a pretty dark future."
+
+@The_monster@ squints around. "I can't see a thing. I hate that."
+
+@The_monster@ says, "I hate shadows."
+
+@The_monster@ says, "Are you still afraid of the dark?"
+
+@The_monster@ says, "Careful; you might trip over your own shadow."
+
+@The_monster@ holds up a torch and says, "I bet you miss these."
 %%%%
 No God Donald
 
@@ -4078,7 +4173,7 @@ _gastronok_self_buff_
 
 @The_monster@'s eyestalks stretch out, then return to normal size.
 %%%%
-# When targetting other monsters.
+# When targeting other monsters.
 _gastronok_other_buff_
 
 @The_monster@ wobbles.
@@ -4200,17 +4295,91 @@ _Grum_common_
 
 VISUAL:@The_monster@ bares @possessive@ teeth.
 
-@The_monster@ grunts.
+@The_monster@ @_Grum_verb_@.
 
-@The_monster@ says @to_foe@, "My dogs and I will have a feast tonight..."
+@The_monster@ stares @at_foe@ intently and @_Grum_verb_@.
 
-@The_monster@ says @to_foe@, "You look like good eating."
+@The_monster@ lets out an intimidating howl.
+
+VISUAL:@The_monster@ sniffs the air and quickly glances around.
+
+## The following ones make little sense after you've killed his dogs. Maybe Grum is a little bit crazy..? ##
+@The_monster@ points @possessive@ finger @at_foe@ and @_Grum_verb_@, "Attack!"
+
+@The_monster@ points @possessive@ finger @at_foe@ and shouts, "@_Grum_dog_name_@! Sic 'em!"
+
+@The_monster@ glances around and shouts, "@_Grum_dog_name_@! Here boy!"
+
+@The_monster@ shouts, "@_Grum_dog_name_@! Good boy!"
+
 %%%%
 _Grum_rare_
 
-@The_monster@ shouts, "Attack!"
+VISUAL:@The_monster@ is momentarily distracted by a flea in @possessive@ coat.
 
-@The_monster@ says, "You're dog chow, @player_name@!"
+@The_monster@ @_Grum_verb_@ @at_foe@, "I'll hound you night and day!"
+
+@The_monster@ @_Grum_verb_@ @at_foe@, "My dogs and I will have a feast tonight..."
+
+@The_monster@ @_Grum_verb_@ @at_foe@, "You look like good eating."
+
+@The_monster@ @_Grum_verb_@ @at_foe@, "I'll squash you like a puppy."
+
+@The_monster@ looks @at_foe@ in disgust and @_Grum_verb_@, "You ain't no friend of mine."
+
+@The_monster@ cheerfully says, "No dog meat for Grum tonight!"
+
+@The_monster@ @_Grum_verb_@, "You're dog chow, @player_name@!"
+
+@The_monster@ asks, "What kind of bones do @player_genus_plural@ have? My dogs are dying to find out." @player_only@
+
+@The_monster@ says @to_foe@, "What's my secret? I feed my dogs @player_genus_plural@. It makes their fur nice and shiny." @player_only@
+
+@The_monster@ looks @at_foe@ and @_Grum_verb_@, "Time to put down the runt of the litter."
+
+@The_monster@ @_Grum_verb_@ @at_foe@, "Me and @_Grum_dog_name_@ will play fetch with your bones!"
+
+# stupid dog pun
+@The_monster@ @_Grum_verb_@ @at_foe@, "You will fight me? This will be... rough!"
+
+@The_monster@ shouts, "Release the hounds!"
+
+@The_monster@ says @to_foe@, "I'm selling these fine leather pelts."
+
+@The_monster@ shouts, "Faster, @_Grum_dog_name_@! Kill! Kill!"
+
+%%%%
+_Grum_verb_
+
+snarls
+
+growls
+
+grunts
+
+barks
+%%%%
+_Grum_dog_name_
+
+Fido
+
+Rex
+
+Rover
+
+Spot
+
+Spike
+
+Duke
+
+Junior
+
+Sparky
+
+Pluto
+
+Cujo
 ## END Grum ##
 %%%%
 ############ HAROLD ### A middle aged man, anxious to retire after killing you.
@@ -4422,6 +4591,8 @@ confused Ijyb
 @The_monster@ screams @at_foe@, "Me be nice to you! Me promise!"
 
 @The_monster@ screams @at_foe@, "Me back to killing you soon!"
+
+@The_monster@ screams @at_foe@, "No nasty magic on me!"
 
 VISUAL:@The_monster@ clutches @possessive@ head and gibbers rapidly, swaying.
 ## END Ijyb ##
@@ -4690,22 +4861,6 @@ VISUAL:@The_monster@ throws some [strange|weird|mysterious] powder @at_foe@.
 @_wizard_common_spell_@
 @_fake_spell_effect_@
 ### END Kirke ###
-%%%%
-############ LAMIA ### Naga queen
-Lamia
-
-VISUAL:@The_monster@ spits on the ground.
-
-VISUAL:@The_monster@ motions for her kin.
-
-@The_monster@ hisses viciously.
-
-@The_monster@ yells, "Slay the intruder!"
-
-@The_monster@ says @to_foe@, "Come a little closer..."
-
-@The_monster@ says @to_foe@, "I shall devour you!"
-### END Lamia
 %%%%
 ############ LOUISE ### A mercenary guarding the dungeon
 Louise
@@ -5036,7 +5191,6 @@ silenced Mennas
 
 VISUAL:@The_monster@ gestures frantically.
 
-A booming voice calls from the heavens, "You cannot keep ME silent!"
 @Mennas@
 %%%%
 ############ MURRAY ### A disembodied skull.
@@ -5093,6 +5247,69 @@ VISUAL:@The_monster@ seems to say something.
 VISUAL:@The_monster@ says something you can't hear. It was probably not a compliment. @player_only@
 ## END silenced Murray ##
 %%%%
+############ NATASHA ### An abandoned felid familiar.
+Natasha
+
+@_Natasha_common_@
+
+w:5
+@_Natasha_rare_@
+%%%%
+_Natasha_common_
+
+VISUAL SPELL:@The_monster@ stares at you.
+@_visual_fake_spell_effect_@
+
+SPELL:@The_monster@ casts a spell.
+@_warn_fake_spell_effect_@
+
+VISUAL SPELL:@The_monster@ gestures.
+@_warn_fake_spell_effect_@
+%%%%
+_Natasha_rare_
+
+@The_monster@ hisses @at_foe@.
+
+@The_monster@ growls @at_foe@.
+
+@The_monster@ mewls in sadness.
+
+VISUAL:@The_monster@ extends @possessive@ claws.
+%%%%
+friendly Natasha
+
+@The_monster@ meows.
+
+@The_monster@ purrs.
+%%%%
+Natasha killed
+
+@_Natasha_death_common_@
+
+w:1
+@_Natasha_death_rare_@
+%%%%
+_Natasha_death_common_
+
+@The_monster@ screams in fury as @subjective@ dies!
+
+@The_monster@ screams in pain as @subjective@ dies!
+
+@The_monster@ growls in agony!
+%%%%
+_Natasha_death_rare_
+Suddenly @the_monster@'s spirit rises from @possessive@ lifeless body.
+
+Moaning pathetically, @the_monster@'s spirit plunges in to the ground.
+
+You hear a faint echoing roar filled with hate and sorrow!
+
+%%%%
+Natasha permanently killed
+
+You feel @the_monster@'s spirit has finally been put to rest.
+%%%%
+############ NELLIE ### An escaped circus (h)elephant.
 Nellie
 
 @_Nellie_common_@
@@ -5648,13 +5865,13 @@ _Rupert_rare_
 Saint Roka
 
 w:7
-@Saint Roka generic@
+@_Saint Roka generic_@
 
 @The_monster@ says @to_foe@, "Down here, you're an orc or you're nobody."
 
 @The_monster@ says @to_foe@, "In the orcish mines, orcs kill the likes of YOU!"
 %%%%
-Saint Roka generic
+_Saint Roka generic_
 
 w:2
 @_generic_orc_speech_@
@@ -5673,12 +5890,12 @@ w:2
 %%%%
 related Saint Roka
 
-@Saint Roka generic@
+@_Saint Roka generic_@
 
 w:2
 @The_monster@ calls out, "Join me or die!"
 %%%%
-Saint Roka rival
+_Saint Roka rival_
 
 @The_monster@ shouts @at_foe@, "You dare challenge my right as the Messiah?"
 
@@ -5700,7 +5917,7 @@ w:5
 @_hostile_orc_beogh_believer_speech_rare_@
 
 w:5
-@Saint Roka rival@
+@_Saint Roka rival_@
 ## END Saint Roka ##
 %%%%
 ############ SIGMUND ### Mad old wizard
@@ -5887,35 +6104,128 @@ _Terence_rare_
 
 ## END Terence ###
 %%%%
-############ URUG ### An orc hired to kill you
+##################### A coarse and lanky orc. Urug lost his eye in a fight with a harpy,
+############ URUG ### and has sworn to slay every last one of them. Unfortunately, the
+##################### vision in his remaining eye is not very good, and he has mistaken you for one.
 Urug
 
-# some chance of generic orc speech
-w:20
+@_Urug_common_@
+
+w:2
+@_Urug_rare_@
+%%%%
+_Urug_common_
+
 @_generic_orc_speech_@
 
 VISUAL:@The_monster@ grins evilly.
+
+VISUAL:@The_monster@ adjusts @possessive@ eyepatch.
+
+VISUAL:@The_monster@ stares @at_foe@ with @possessive@ one eyeball.
 
 @The_monster@ roars.
 
 @The_monster@ howls with blood-lust.
 
-@The_monster@ says @to_foe@, "Maybe you aren't @foe_name@. It doesn't matter."
+@The_monster@ squints and says @to_foe@, "You're the ugliest harpy I ever saw."
 
-@The_monster@ sneers @at_foe@, "Innocent? I'll kill you anyway."
+@The_monster@ squints and says @to_foe@, "My one eye mightn't be all that good, but I can see you just fine with it, harpy."
 
-@The_monster@ screams @at_foe@, "Die!"
+@The_monster@ squints and screams @at_foe@, "A harpy? Time to die, you blasted buzzard!"
 
-@The_monster@ screams @at_foe@, "I'm going to kill you! Now!"
+@The_monster@ squints and screams @at_foe@, "I know a harpy when I see one!"
 
-@The_monster@ screams @at_foe@, "Blood and destruction!"
+@The_monster@ squints, then shrugs and mutters, "Close enough."
 
-@The_monster@ screams @at_foe@, "I'll get 30 silver pieces for your head!"
+@The_monster@ grins and says, "Time to carve some turkeys."
+
+@The_monster@ screams @at_foe@, "Bird-brain!"
+
+@The_monster@ screams @at_foe@, "Prepare for a defeathering!"
+
+@The_monster@ screams @at_foe@, "Revenge!"
+
+@The_monster@ screams @at_foe@, "Die, harpy!"
+
+@The_monster@ screams @at_foe@, "All you harpies will die!"
+
+@The_monster@ screams @at_foe@, "Payback for my eye!"
+
+@The_monster@ screams @at_foe@, "Damn your eyes!"
+
+@The_monster@ screams @at_foe@, "I'm goin' to kill you! Now!"
+%%%%
+_Urug_rare_
+
+VISUAL:@The_monster@ winks @at_foe@... or blinks.
+
+@The_monster@ screams @at_foe@, "Your bloody kin took my one good eye. Now you die, harpy!"
+
+@The_monster@ says @to_foe@, "They call me one-eyed Urug. When I'm done with you they'll have to call you no-head @player_name@." @player_only@
 
 @The_monster@ screams @at_foe@, "You are already dead."
 
-@The_monster@ screams @at_foe@, "I love blood!"
+@The_monster@ mutters, "Sometimes I wonder if they all really are harpies."
 ## END Urug ##
+%%%%
+############ VASHNIA ### An elite marksnaga
+Vashnia
+
+@_Vashnia_common_@
+
+w:5
+@_Vashnia_rare_@
+
+w:5
+@_Vashnia_nonnaga_@
+%%%%
+
+related Vashnia
+
+@_Vashnia_common_@
+
+w:5
+@_Vashnia_rare_@
+
+w:5
+@_Vashnia_naga_@
+%%%%
+_Vashnia_common_
+
+VISUAL:@The_monster@ makes some cryptic hand gestures, then points @at_foe@.
+
+VISUAL:@The_monster@ takes aim @at_foe@.
+
+VISUAL:Space seems to twist oddly around @the_monster@.
+
+VISUAL:@The_monster@ looks @foe@ over, as though planning @possessive@ next attack.
+
+VISUAL:@The_monster@ glares at @possessive@ squad, motioning for silence.
+%%%%
+_Vashnia_rare_
+@The_monster@ mutters @at_foe@, "Right between the eyes..."
+
+@The_monster@ says @to_foe@, "You'll make a fine pincushion."
+
+@The_monster@ says @to_foe@, "Hold still for a moment. You're making this shot difficult."
+%%%%
+_Vashnia_naga_
+
+@The_monster@ says @to_foe@, "You are a traitor to our kind!"
+
+@The_monster@ sneers @at_foe@, "Heretic!"
+
+@The_monster@ says @to_foe@, "Swear allegiance to our queen and you may yet be spared!"
+%%%%
+_Vashnia_nonnaga_
+
+@The_monster@ says @to_foe@, "Slay the @foe_genus@ at once!" @player_only@
+
+@The_monster@ says @to_foe@, "We do not look kindly on intruders!"
+
+@The_monster@ says to @possessive@ squad, "Do not let the @foe_genus@ escape!"
+## END Vashnia ##
 %%%%
 ############ WIGLAF ### A dwarf. Nuff said.
 Wiglaf
@@ -5980,7 +6290,7 @@ w:5
 @The_monster@ says @to_foe@, "Have ye nae fought a dwarf yet?"
 ## END Wiglaf ##
 %%%%
-############ XTAHUA ### An ancient dragon
+############ XTAHUA ### An ancient fire dragon
 Xtahua
 
 @_Xtahua_common_@
@@ -6081,8 +6391,8 @@ VISUAL:@The_monster@ wanders slowly into a prime firing position.
 w:1
 VISUAL:@The_monster@ readies @possessive@ vast lungs of living stone to calcify you where you stand. @player_only@
 %%%%
-################## Crystal golem ###########################
-crystal golem
+################## Crystal guardian ###########################
+crystal guardian
 
 VISUAL:@The_monster@ glitters, brittle, in the dim dungeon light.
 %%%%
@@ -6232,12 +6542,6 @@ VISUAL:@The_monster@ skips for a moment.
 @The_monster@ says, "Trust me, I'm a doctor."
 ## END Killer Klown ##
 %%%%
-################## Moth of suppression######################
-moth of suppression
-
-w:1
-VISUAL:@The_monster@ undresses you with its eyes!
-%%%%
 ################## Moth of wrath ###########################
 moth of wrath
 
@@ -6268,6 +6572,13 @@ VISUAL SPELL:@The_monster@ flicks @possessive@ antennae at the ground!
 VISUAL WARN:The ground rattles!
 
 VISUAL:@The_monster@ tries to bite you, but has no teeth.
+%%%%
+################## Profane servitor ########################
+# Empty, to prevent falling back to holy-specific cap-A
+# speech.
+default profane servitor
+
+__NONE
 %%%%
 ################## Statues ##################
 default orange crystal statue
@@ -6385,10 +6696,10 @@ w:1
 @The_monster@ says @to_foe@, "Thou must remain pure in the battle against evil."
 
 w:1
-@The_monster@ says @to_foe@, "May @player_god@ always shine on thee, @foe_name@!"
+@The_monster@ says @to_foe@, "May @foe_god@ always shine on thee, @foe_name@!"
 
 w:1
-@The_monster@ says @to_foe@, "@player_god@ be with thee, mortal!"
+@The_monster@ says @to_foe@, "@foe_god@ be with thee, mortal!" @player_only@
 
 # The good gods are assumed to work closely together, so a daeva praising
 # Elyvilon is actually flavour.
@@ -6432,7 +6743,7 @@ good_god_neutral_holy_being_speech
 
 @The_monster@ shouts @at_foe@, "Continue thy quest, mortal!"
 
-@The_monster@ says @to_foe@, "Forge ahead, servant of @player_god@!"
+@The_monster@ says @to_foe@, "Forge ahead, servant of @foe_god@!"
 
 @The_monster@ says @to_foe@, "Carry on, mortal."
 %%%%

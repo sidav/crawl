@@ -8,8 +8,8 @@
 # I added a chance to have some additional glass vaults. dpeg
 
 NAME:   serial_co_window_serial
-TAGS:   allow_dup extra luniq_serial decor
-DEPTH:  D, Elf, Crypt
+TAGS:   allow_dup extra luniq_serial decor nolayout_encompass
+DEPTH:  D, Depths, Elf, Crypt
 CHANCE: 1%
 {{
   local s = 5 + crawl.random2(3)*crawl.random2(3)
@@ -61,7 +61,7 @@ ENDMAP
 
 NAME:   co_window_paths_b
 WEIGHT: 3
-TAGS:   transparentallow_dup extra serial_co_window_small
+TAGS:   transparent allow_dup extra serial_co_window_small
 SUBST:  X=xm
 MAP
   x
@@ -376,7 +376,7 @@ ENDMAP
 
 NAME:   co_window_unsneaky_path_e
 WEIGHT: 1
-TAGS:   transparents allow_dup extra serial_co_window_common
+TAGS:   transparent allow_dup extra serial_co_window_common
 SUBST:  X:xm
 MAP
 xxxxxxx@@@xxxxxxx

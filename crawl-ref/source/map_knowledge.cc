@@ -4,11 +4,9 @@
 
 #include "coordit.h"
 #include "dgn-overview.h"
-#include "dgnevent.h"
 #include "directn.h"
 #include "env.h"
 #include "feature.h"
-#include "los.h"
 #include "mon-util.h"
 #include "notes.h"
 #include "options.h"
@@ -21,24 +19,8 @@
 #endif
 #include "view.h"
 
-// Used to mark dug out areas, unset when terrain is seen or mapped again.
-void set_terrain_changed(int x, int y)
+void set_terrain_mapped(const coord_def gc)
 {
-    const coord_def p = coord_def(x, y);
-    env.map_knowledge[x][y].flags |= MAP_CHANGED_FLAG;
-
-    dungeon_events.fire_position_event(DET_FEAT_CHANGE, p);
-
-    los_terrain_changed(p);
-
-    for (orth_adjacent_iterator ai(p); ai; ++ai)
-        if (actor *act = actor_at(*ai))
-            act->check_clinging(false, feat_is_door(grd(p)));
-}
-
-void set_terrain_mapped(int x, int y)
-{
-    const coord_def gc(x, y);
     map_cell* cell = &env.map_knowledge(gc);
     cell->flags &= (~MAP_CHANGED_FLAG);
     cell->flags |= MAP_MAGIC_MAPPED_FLAG;
@@ -120,19 +102,18 @@ void reautomap_level()
                 _automap_from(x, y, passive);
 }
 
-void set_terrain_seen(int x, int y)
+void set_terrain_seen(const coord_def pos)
 {
-    const dungeon_feature_type feat = grd[x][y];
-    map_cell* cell = &env.map_knowledge[x][y];
+    const dungeon_feature_type feat = grd(pos);
+    map_cell* cell = &env.map_knowledge(pos);
 
     // First time we've seen a notable feature.
     if (!(cell->flags & MAP_SEEN_FLAG))
     {
-        _automap_from(x, y, _map_quality());
+        _automap_from(pos.x, pos.y, _map_quality());
 
         if (!is_boring_terrain(feat))
         {
-            coord_def pos(x, y);
             string desc = feature_description_at(pos, false, DESC_A);
             take_note(Note(NOTE_SEEN_FEAT, 0, 0, desc.c_str()));
         }
@@ -142,12 +123,11 @@ void set_terrain_seen(int x, int y)
     cell->flags |= MAP_SEEN_FLAG;
 
 #ifdef USE_TILE
-    coord_def pos(x, y);
     tiles.update_minimap(pos);
 #endif
 }
 
-void set_terrain_visible(const coord_def &c)
+void set_terrain_visible(const coord_def c)
 {
     map_cell* cell = &env.map_knowledge(c);
     set_terrain_seen(c);
@@ -177,7 +157,8 @@ void map_cell::set_detected_item()
 
 static bool _floor_mf(map_feature mf)
 {
-    return mf == MF_FLOOR || mf == MF_WATER || mf == MF_LAVA;
+    return mf == MF_FLOOR || mf == MF_WATER || mf == MF_DEEP_WATER
+           || mf == MF_LAVA;
 }
 
 map_feature get_cell_map_feature(const map_cell& cell)

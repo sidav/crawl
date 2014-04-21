@@ -19,12 +19,10 @@
 #include "options.h"
 #include "player.h"
 #include "religion.h"
-#include "showsymb.h"
 #include "stash.h"
 #include "state.h"
 #include "areas.h"
 #include "tags.h"
-#include "tagstring.h"
 #include "travel.h"
 #include "hints.h"
 #include "unwind.h"
@@ -42,6 +40,19 @@
 #include "tileweb.h"
 #endif
 
+static void _mpr(string text, msg_channel_type channel=MSGCH_PLAIN, int param=0,
+                 bool nojoin=false, bool cap=true);
+
+void mpr(const char *text)
+{
+    _mpr(text);
+}
+
+void mpr_nojoin(msg_channel_type channel, string text)
+{
+    _mpr(text, channel, 0, true);
+}
+
 static bool _ends_in_punctuation(const string& text)
 {
     switch (text[text.size() - 1])
@@ -57,8 +68,6 @@ static bool _ends_in_punctuation(const string& text)
         return false;
     }
 }
-
-static unsigned int msgwin_line_length();
 
 struct message_item
 {
@@ -92,7 +101,7 @@ struct message_item
 
     operator bool() const
     {
-        return (repeats > 0);
+        return repeats > 0;
     }
 
     string pure_text() const
@@ -106,7 +115,15 @@ struct message_item
         string rep = "";
         if (repeats > 1)
             rep = make_stringf(" x%d", repeats);
-        return (text + rep);
+        return text + rep;
+    }
+
+    string pure_text_with_repeats() const
+    {
+        string rep = "";
+        if (repeats > 1)
+            rep = make_stringf(" x%d", repeats);
+        return pure_text() + rep;
     }
 
     // Tries to condense the argument into this message.
@@ -165,7 +182,7 @@ static int _mod(int num, int denom)
 {
     ASSERT(denom > 0);
     div_t res = div(num, denom);
-    return (res.rem >= 0 ? res.rem : res.rem + denom);
+    return res.rem >= 0 ? res.rem : res.rem + denom;
 }
 
 template <typename T, int SIZE>
@@ -339,8 +356,8 @@ class message_window
     // Whether to show msgwin-full more prompts.
     bool more_enabled() const
     {
-        return (crawl_state.show_more_prompt
-                && (Options.clear_messages || Options.show_more));
+        return crawl_state.show_more_prompt
+               && (Options.clear_messages || Options.show_more);
     }
 
     int make_space(int n)
@@ -370,7 +387,7 @@ class message_window
         if (!Options.clear_messages && !more_enabled())
         {
             scroll(n - space);
-            return (s + n - space);
+            return s + n - space;
         }
         else
         {
@@ -419,12 +436,12 @@ public:
 
     unsigned int out_width() const
     {
-        return (width() - (use_first_col() ? 1 : 0));
+        return width() - (use_first_col() ? 1 : 0);
     }
 
     unsigned int out_height() const
     {
-        return (height() - (use_last_line() ? 0 : 1));
+        return height() - (use_last_line() ? 0 : 1);
     }
 
     void clear_lines()
@@ -435,12 +452,12 @@ public:
 
     bool first_col_more() const
     {
-        return (use_first_col() && Options.small_more);
+        return use_first_col() && Options.small_more;
     }
 
     bool use_first_col() const
     {
-        return (!Options.clear_messages);
+        return !Options.clear_messages;
     }
 
     void set_starting_line()
@@ -547,7 +564,7 @@ public:
 
     bool any_messages()
     {
-        return (next_line > input_line);
+        return next_line > input_line;
     }
 
     /*
@@ -626,32 +643,25 @@ class message_store
     bool last_of_turn;
     int temp; // number of temporary messages
 
-    int unsent; // number of messages not yet sent to the webtiles client
-    bool prev_unsent;
-    int client_rollback;
 #ifdef USE_TILE_WEB
+    int unsent; // number of messages not yet sent to the webtiles client
+    int client_rollback;
     bool send_ignore_one;
 #endif
 
 public:
-    message_store() : last_of_turn(false), temp(0),
-                      unsent(0), prev_unsent(false),
-                      client_rollback(0)
+    message_store() : last_of_turn(false), temp(0)
 #ifdef USE_TILE_WEB
-                      , send_ignore_one(false)
+                      , unsent(0), client_rollback(0), send_ignore_one(false)
 #endif
     {}
 
     void add(const message_item& msg)
     {
         if (msg.channel != MSGCH_PROMPT && prev_msg.merge(msg))
-        {
-            prev_unsent = true;
             return;
-        }
         flush_prev();
         prev_msg = msg;
-        prev_unsent = true;
         if (msg.channel == MSGCH_PROMPT || _temporary)
             flush_prev();
     }
@@ -682,7 +692,9 @@ public:
 
     void roll_back()
     {
+#ifdef USE_TILE_WEB
         client_rollback = max(0, temp - unsent);
+#endif
         msgs.roll_back(temp);
         temp = 0;
     }
@@ -701,11 +713,9 @@ public:
         // writing out to the message window might
         // in turn result in a recursive flush_prev.
         prev_msg = message_item();
-        if (prev_unsent)
-        {
-            unsent++;
-            prev_unsent = false;
-        }
+#ifdef USE_TILE_WEB
+        unsent++;
+#endif
         store_msg(msg);
         if (last_of_turn)
         {
@@ -761,19 +771,8 @@ public:
                 tiles.json_write_int("repeats", msg.repeats);
             tiles.json_close_object();
         }
-        if (prev_unsent && have_prev())
-        {
-            tiles.json_open_object();
-            tiles.json_write_string("text", prev_msg.text);
-            tiles.json_write_int("turn", prev_msg.turn);
-            tiles.json_write_int("channel", prev_msg.channel);
-            if (prev_msg.repeats > 1)
-                tiles.json_write_int("repeats", prev_msg.repeats);
-            tiles.json_close_object();
-        }
         tiles.json_close_array();
         unsent = send_ignore_one ? 1 : 0;
-        prev_unsent = false;
     }
 #endif
 };
@@ -975,19 +974,19 @@ int channel_to_colour(msg_channel_type channel, int param)
 }
 
 static void do_message_print(msg_channel_type channel, int param, bool cap,
-                             const char *format, va_list argp)
+                             bool nojoin, const char *format, va_list argp)
 {
     va_list ap;
     va_copy(ap, argp);
     char buff[200];
     size_t len = vsnprintf(buff, sizeof(buff), format, argp);
     if (len < sizeof(buff))
-        mpr(buff, channel, param, false, cap);
+        _mpr(buff, channel, param, nojoin, cap);
     else
     {
         char *heapbuf = (char*)malloc(len + 1);
         vsnprintf(heapbuf, len + 1, format, ap);
-        mpr(heapbuf, channel, param, false, cap);
+        _mpr(heapbuf, channel, param, nojoin, cap);
         free(heapbuf);
     }
     va_end(ap);
@@ -997,7 +996,7 @@ void mprf_nocap(msg_channel_type channel, int param, const char *format, ...)
 {
     va_list argp;
     va_start(argp, format);
-    do_message_print(channel, param, false, format, argp);
+    do_message_print(channel, param, false, false, format, argp);
     va_end(argp);
 }
 
@@ -1006,15 +1005,15 @@ void mprf_nocap(msg_channel_type channel, const char *format, ...)
     va_list argp;
     va_start(argp, format);
     do_message_print(channel, channel == MSGCH_GOD ? you.religion : 0,
-                     false, format, argp);
+                     false, false, format, argp);
     va_end(argp);
 }
 
 void mprf_nocap(const char *format, ...)
 {
-    va_list  argp;
+    va_list argp;
     va_start(argp, format);
-    do_message_print(MSGCH_PLAIN, 0, false, format, argp);
+    do_message_print(MSGCH_PLAIN, 0, false, false, format, argp);
     va_end(argp);
 }
 
@@ -1022,7 +1021,7 @@ void mprf(msg_channel_type channel, int param, const char *format, ...)
 {
     va_list argp;
     va_start(argp, format);
-    do_message_print(channel, param, true, format, argp);
+    do_message_print(channel, param, true, false, format, argp);
     va_end(argp);
 }
 
@@ -1031,24 +1030,41 @@ void mprf(msg_channel_type channel, const char *format, ...)
     va_list argp;
     va_start(argp, format);
     do_message_print(channel, channel == MSGCH_GOD ? you.religion : 0,
-                     true, format, argp);
+                     true, false, format, argp);
     va_end(argp);
 }
 
 void mprf(const char *format, ...)
 {
-    va_list  argp;
+    va_list argp;
     va_start(argp, format);
-    do_message_print(MSGCH_PLAIN, 0, true, format, argp);
+    do_message_print(MSGCH_PLAIN, 0, true, false, format, argp);
+    va_end(argp);
+}
+
+void mprf_nojoin(msg_channel_type channel, const char *format, ...)
+{
+    va_list argp;
+    va_start(argp, format);
+    do_message_print(channel, channel == MSGCH_GOD ? you.religion : 0,
+                     true, true, format, argp);
+    va_end(argp);
+}
+
+void mprf_nojoin(const char *format, ...)
+{
+    va_list argp;
+    va_start(argp, format);
+    do_message_print(MSGCH_PLAIN, 0, true, true, format, argp);
     va_end(argp);
 }
 
 #ifdef DEBUG_DIAGNOSTICS
 void dprf(const char *format, ...)
 {
-    va_list  argp;
+    va_list argp;
     va_start(argp, format);
-    do_message_print(MSGCH_DIAGNOSTICS, 0, false, format, argp);
+    do_message_print(MSGCH_DIAGNOSTICS, 0, false, false, format, argp);
     va_end(argp);
 }
 
@@ -1057,9 +1073,9 @@ void dprf(diag_type param, const char *format, ...)
     if (Options.quiet_debug_messages[param])
         return;
 
-    va_list  argp;
+    va_list argp;
     va_start(argp, format);
-    do_message_print(MSGCH_DIAGNOSTICS, param, false, format, argp);
+    do_message_print(MSGCH_DIAGNOSTICS, param, false, false, format, argp);
     va_end(argp);
 }
 #endif
@@ -1175,7 +1191,7 @@ void msgwin_clear_temporary()
 
 static int _last_msg_turn = -1; // Turn of last message.
 
-void mpr(string text, msg_channel_type channel, int param, bool nojoin, bool cap)
+static void _mpr(string text, msg_channel_type channel, int param, bool nojoin, bool cap)
 {
     if (_msg_dump_file != NULL)
         fprintf(_msg_dump_file, "%s\n", text.c_str());
@@ -1256,7 +1272,7 @@ void mpr(string text, msg_channel_type channel, int param, bool nojoin, bool cap
 
 static string show_prompt(string prompt)
 {
-    mpr(prompt, MSGCH_PROMPT);
+    mprf(MSGCH_PROMPT, "%s", prompt.c_str());
 
     // FIXME: duplicating mpr code.
     msg_colour_type colour = prepare_message(prompt, MSGCH_PROMPT, 0);
@@ -1275,7 +1291,7 @@ void msgwin_reply(string reply)
     msgwin_clear_temporary();
     msgwin_set_temporary(false);
     reply = replace_all(reply, "<", "<<");
-    mpr(_prompt + "<lightgrey>" + reply + "</lightgrey>", MSGCH_PROMPT);
+    mprf(MSGCH_PROMPT, "%s<lightgrey>%s</lightgrey>", _prompt.c_str(), reply.c_str());
     msgwin.got_input();
 }
 
@@ -1307,7 +1323,7 @@ void msgwin_new_cmd()
     msgwin.new_cmdturn(new_turn);
 }
 
-static unsigned int msgwin_line_length()
+unsigned int msgwin_line_length()
 {
     return msgwin.out_width();
 }
@@ -1339,9 +1355,8 @@ void mpr_comma_separated_list(const string &prefix,
         else if (i == (size - 1))
             out += ".";
     }
-    mpr(out, channel, param);
+    _mpr(out, channel, param);
 }
-
 
 // Checks whether a given message contains patterns relevant for
 // notes, stop_running or sounds and handles these cases.
@@ -1368,10 +1383,6 @@ static void mpr_check_patterns(const string& message,
 
     if (channel != MSGCH_DIAGNOSTICS && channel != MSGCH_EQUIPMENT)
         interrupt_activity(AI_MESSAGE, channel_to_str(channel) + ":" + message);
-
-    // Any sound has a chance of waking the PC if the PC is asleep.
-    if (channel == MSGCH_SOUND)
-        you.check_awaken(5);
 
     if (!Options.sound_mappings.empty())
         for (unsigned i = 0; i < Options.sound_mappings.size(); i++)
@@ -1481,7 +1492,7 @@ static void readkey_more(bool user_forced)
     while (keypress != ' ' && keypress != '\r' && keypress != '\n'
            && !key_is_escape(keypress)
 #ifdef TOUCH_UI
-           && (keypress != CK_MOUSE_CLICK));
+           && keypress != CK_MOUSE_CLICK);
 #else
            && (user_forced || keypress != CK_MOUSE_CLICK));
 #endif
@@ -1507,7 +1518,7 @@ static bool _pre_more()
 
     if (crawl_state.game_is_arena())
     {
-        delay(Options.arena_delay);
+        delay(Options.view_delay);
         return true;
     }
 
@@ -1536,9 +1547,9 @@ void more(bool user_forced)
 
 static bool is_channel_dumpworthy(msg_channel_type channel)
 {
-    return (channel != MSGCH_EQUIPMENT
-            && channel != MSGCH_DIAGNOSTICS
-            && channel != MSGCH_TUTORIAL);
+    return channel != MSGCH_EQUIPMENT
+           && channel != MSGCH_DIAGNOSTICS
+           && channel != MSGCH_TUTORIAL;
 }
 
 void clear_message_store()
@@ -1561,7 +1572,7 @@ string get_last_messages(int mcount, bool full)
         if (!msg)
             break;
         if (full || is_channel_dumpworthy(msg.channel))
-            text = msg.pure_text() + "\n" + text;
+            text = msg.pure_text_with_repeats() + "\n" + text;
         mcount--;
     }
 
@@ -1664,9 +1675,8 @@ void set_msg_dump_file(FILE* file)
     _msg_dump_file = file;
 }
 
-
 void formatted_mpr(const formatted_string& fs,
                    msg_channel_type channel, int param)
 {
-    mpr(fs.to_colour_string(), channel, param);
+    _mpr(fs.to_colour_string(), channel, param);
 }

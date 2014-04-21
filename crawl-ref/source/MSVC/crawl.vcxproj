@@ -215,7 +215,7 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\abl-show.cc" />
+    <ClCompile Include="..\ability.cc" />
     <ClCompile Include="..\abyss.cc" />
     <ClCompile Include="..\acquire.cc" />
     <ClCompile Include="..\act-iter.cc" />
@@ -411,7 +411,6 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClCompile Include="..\message-stream.cc" />
     <ClCompile Include="..\message.cc" />
     <ClCompile Include="..\misc.cc" />
-    <ClCompile Include="..\mislead.cc" />
     <ClCompile Include="..\mon-abil.cc" />
     <ClCompile Include="..\mon-act.cc" />
     <ClCompile Include="..\mon-behv.cc" />
@@ -420,7 +419,6 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClCompile Include="..\mon-gear.cc" />
     <ClCompile Include="..\mon-grow.cc" />
     <ClCompile Include="..\mon-info.cc" />
-    <ClCompile Include="..\mon-iter.cc" />
     <ClCompile Include="..\mon-movetarget.cc" />
     <ClCompile Include="..\mon-pathfind.cc" />
     <ClCompile Include="..\mon-pick.cc" />
@@ -597,7 +595,7 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClCompile Include="..\zotdef.cc" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\abl-show.h" />
+    <ClInclude Include="..\ability.h" />
     <ClInclude Include="..\abyss.h" />
     <ClInclude Include="..\acquire.h" />
     <ClInclude Include="..\act-iter.h" />
@@ -757,10 +755,10 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClInclude Include="..\mgen_data.h" />
     <ClInclude Include="..\mgen_enum.h" />
     <ClInclude Include="..\misc.h" />
-    <ClInclude Include="..\mislead.h" />
     <ClInclude Include="..\mon-abil.h" />
     <ClInclude Include="..\mon-act.h" />
     <ClInclude Include="..\mon-behv.h" />
+    <ClInclude Include="..\mon-book.h" />
     <ClInclude Include="..\mon-cast.h" />
     <ClInclude Include="..\mon-clone.h" />
     <ClInclude Include="..\mon-data.h" />
@@ -768,7 +766,6 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClInclude Include="..\mon-gear.h" />
     <ClInclude Include="..\mon-grow.h" />
     <ClInclude Include="..\mon-info.h" />
-    <ClInclude Include="..\mon-iter.h" />
     <ClInclude Include="..\mon-movetarget.h" />
     <ClInclude Include="..\mon-pathfind.h" />
     <ClInclude Include="..\mon-pick.h" />

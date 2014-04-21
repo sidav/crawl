@@ -1,7 +1,7 @@
 %%%%
 CMD_REST
 
-回復と少々の検索
+休息して傷を癒す
 %%%%
 CMD_REST verbose
 
@@ -33,19 +33,13 @@ CMD_PRAY
 
 神に祈る
 %%%%
-CMD_PRAY verbose
-
-あなたの神が生贄を好む場合、死体かアイテムを捧げる。
-またあなたが祭壇の上に立っている場合、祭壇に対応する神を信仰することができる。
-いくつかの神々は祈ることでも特別な効力をもたらす。
-%%%%
 CMD_SEARCH_STASHES
 
 アイテム、施設の検索
 %%%%
 CMD_SEARCH_STASHES verbose
 
-既に発見したアイテムや施設を検索し、その後それの存在する場所まで自動移動する。
+既に発見したアイテムや施設を検索し、その後それの存在する場所まで自動で移動する。
 %%%%
 CMD_REPLAY_MESSAGES
 
@@ -57,11 +51,11 @@ CMD_RESISTS_SCREEN
 %%%%
 CMD_RESISTS_SCREEN verbose
 
-キャラクターの知っている耐性、能力、装備の能力、その他を表示する。
+キャラクターの判っている耐性、能力、装備の能力、その他を表示する。
 %%%%
 CMD_DISPLAY_OVERMAP
 
-ダンジョンの概要の表示
+ダンジョンの概観の表示
 %%%%
 CMD_DISPLAY_OVERMAP verbose
 
@@ -73,7 +67,7 @@ CMD_DISPLAY_RELIGION
 %%%%
 CMD_DISPLAY_RELIGION verbose
 
-あなたの進行する神の好き嫌い、行為、あなたの現在の信仰状況、
+あなたの進行する神の好き嫌い、振る舞い、あなたの現在の信仰状況、
 神の能力について表示する。
 %%%%
 CMD_DISPLAY_MUTATIONS
@@ -90,19 +84,19 @@ CMD_DISPLAY_CHARACTER_STATUS
 %%%%
 CMD_DISPLAY_CHARACTER_STATUS verbose
 
-あなたに働いているエンチャントとその他の物を表示する。
+あなたに作用している魔術などを表示する。
 %%%%
 CMD_DISPLAY_KNOWN_OBJECTS
 
-発見済みのアイテムのリスト
+発見済みのアイテムの表示
 %%%%
 CMD_SAVE_GAME_NOW
 
-ゲームの保存と終了
+ゲームを保存して終了
 %%%%
 CMD_SAVE_GAME_NOW verbose
 
-ゲームを保存しゲームを終了します。
+ゲームを保存した後に終了します。
 一度ゲームを再開すると保存ファイルは再び削除されます。
 %%%%
 CMD_EDIT_PLAYER_TILE
@@ -111,7 +105,7 @@ CMD_EDIT_PLAYER_TILE
 %%%%
 CMD_EDIT_PLAYER_TILE verbose
 
-プレイヤードールに表示される装備と種族のタイルを改造します。
+プレイヤードールに表示される装備と種族のタイルを変更します。
 %%%%
 CMD_DISPLAY_COMMANDS
 
@@ -121,23 +115,13 @@ CMD_DISPLAY_COMMANDS verbose
 
 コマンド、オプション、その他の一覧表を表示する。
 %%%%
-CMD_CHARACTER_DUMP
-
-ダンプの出力
-%%%%
-CMD_CHARACTER_DUMP verbose
-
-自由時間に熟読するためmorgueディレクトリー内のファイル 'playername.txt'
-にあなたのキャラクターに関する膨大な量の情報を出力します。
-これはメインステータス、装備、呪文、スキル、注意事項などが含まれます。
-%%%%
 CMD_AUTOFIGHT
 
 近くの敵モンスターとの自動戦闘
 %%%%
 CMD_AUTOFIGHT verbose
 
-最も近い敵に向かって移動し、装備した武器でそれを攻撃する
+最も近い敵に向かって移動し、装備した武器で攻撃する。
 %%%%
 CMD_AUTOFIGHT_NOMOVE
 
@@ -153,7 +137,7 @@ CMD_WAIT
 %%%%
 CMD_WAIT verbose
 
-1ターンその場で停止し休息する。
+1ターン待機し、休息する。
 %%%%
 CMD_DISPLAY_INVENTORY
 
@@ -185,7 +169,7 @@ CMD_MEMORISE_SPELL
 %%%%
 CMD_MEMORISE_SPELL verbose
 
-運んでいる本、もしくは足元にある本を読み、呪文を記憶に引き受ける。
+所持している本、もしくは足元にある本を読み、呪文を記憶に留める。
 %%%%
 CMD_DROP
 
@@ -193,15 +177,15 @@ CMD_DROP
 %%%%
 CMD_DROP verbose
 
-あなたの現在持っている一つ以上のアイテムを落とす。
+あなたの現在所持している1つまたは複数のアイテムを落とす。
 %%%%
 CMD_DISPLAY_MAP
 
-マップの表示
+地図モードに移行
 %%%%
 CMD_DISPLAY_MAP verbose
 
-以前探索したマップを案内する。
+以前探索したマップを探訪する。
 %%%%
 CMD_MAP_GOTO_TARGET
 
@@ -237,7 +221,7 @@ CMD_MAP_CLEAR_EXCLUDES verbose
 %%%%
 CMD_MAP_NEXT_LEVEL
 
-下層に下る
+下の階層に降りる
 %%%%
 CMD_MAP_NEXT_LEVEL verbose
 
@@ -245,7 +229,7 @@ CMD_MAP_NEXT_LEVEL verbose
 %%%%
 CMD_MAP_PREV_LEVEL
 
-上層に上がる
+上の階層に上る
 %%%%
 CMD_MAP_PREV_LEVEL verbose
 
@@ -325,11 +309,11 @@ CMD_MAP_FIND_WAYPOINT verbose
 %%%%
 CMD_MAP_FIND_STASH
 
-隠し場所の検索
+キャンプの検索
 %%%%
 CMD_MAP_FIND_STASH verbose
 
-現在の階層の全ての隠し場所を移動する。
+現在の階層の全てのキャンプを移動する。
 %%%%
 CMD_ZOOM_IN
 

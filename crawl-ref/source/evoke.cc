@@ -37,7 +37,6 @@
 #include "melee_attack.h"
 #include "message.h"
 #include "mon-chimera.h"
-#include "mon-iter.h"
 #include "mon-pick.h"
 #include "mon-place.h"
 #include "mgen_data.h"
@@ -50,7 +49,6 @@
 #include "spl-book.h"
 #include "spl-cast.h"
 #include "spl-clouds.h"
-#include "spl-summoning.h"
 #include "spl-util.h"
 #include "state.h"
 #include "stuff.h"
@@ -124,7 +122,7 @@ static bool _reaching_weapon_attack(const item_def& wpn)
     const int x_distance  = abs(delta.x);
     const int y_distance  = abs(delta.y);
     monster* mons = monster_at(beam.target);
-    // don't allow targetting of submerged monsters (includes trapdoor spiders)
+    // don't allow targeting of submerged monsters (includes trapdoor spiders)
     if (mons && mons->submerged())
         mons = NULL;
 
@@ -254,121 +252,58 @@ static bool _reaching_weapon_attack(const item_def& wpn)
 
 static bool _evoke_horn_of_geryon(item_def &item)
 {
-    // Note: This assumes that the Vestibule has not been changed.
-    bool rc = false;
+    bool created = false;
 
     if (silenced(you.pos()))
     {
         mpr("You can't produce a sound!");
         return false;
     }
-    else if (player_in_branch(BRANCH_VESTIBULE_OF_HELL))
+
+    mprf(MSGCH_SOUND, "You produce a hideous howling noise!");
+    did_god_conduct(DID_UNHOLY, 3);
+    int num = 1;
+    if (you.skill(SK_EVOCATIONS, 10) + random2(90) > 130)
+        ++num;
+    if (you.skill(SK_EVOCATIONS, 10) + random2(90) > 180)
+        ++num;
+    if (you.skill(SK_EVOCATIONS, 10) + random2(90) > 230)
+        ++num;
+    for (int n = 0; n < num; ++n)
     {
-        mpr("You produce a weird and mournful sound.");
+        monster* mon;
+        beh_type beh = BEH_HOSTILE;
+        bool will_anger = player_will_anger_monster(MONS_HELL_BEAST);
 
-        if (you.char_direction == GDT_ASCENDING)
+        if (!will_anger && random2(you.skill(SK_EVOCATIONS, 10)) > 7)
+            beh = BEH_FRIENDLY;
+        mgen_data mg(MONS_HELL_BEAST, beh, &you, 3, SPELL_NO_SPELL, you.pos(),
+                     MHITYOU, MG_FORCE_BEH, GOD_NO_GOD, MONS_HELL_BEAST, 0, BLACK,
+                     PROX_CLOSE_TO_PLAYER);
+        mon = create_monster(mg);
+        if (mon)
+            created = true;
+        if (mon && will_anger)
         {
-            mpr("But nothing happens...");
-            return false;
-        }
-
-        for (int count_x = 0; count_x < GXM; count_x++)
-            for (int count_y = 0; count_y < GYM; count_y++)
-            {
-                if (grd[count_x][count_y] == DNGN_STONE_ARCH)
-                {
-                    rc = true;
-
-                    map_marker *marker =
-                        env.markers.find(coord_def(count_x, count_y),
-                                         MAT_FEATURE);
-
-                    if (marker)
-                    {
-                        map_feature_marker *featm =
-                            dynamic_cast<map_feature_marker*>(marker);
-                        // [ds] Ensure we're activating the correct feature
-                        // markers. Feature markers are also used for other
-                        // things, notably to indicate the return point from
-                        // a labyrinth or portal vault.
-                        switch (featm->feat)
-                        {
-                        case DNGN_ENTER_COCYTUS:
-                        case DNGN_ENTER_DIS:
-                        case DNGN_ENTER_GEHENNA:
-                        case DNGN_ENTER_TARTARUS:
-                            grd[count_x][count_y] = featm->feat;
-                            env.markers.remove(marker);
-                            item.plus2++;
-                            break;
-                        default:
-                            break;
-                        }
-                    }
-                }
-            }
-
-        if (rc)
-            mpr("Your way has been unbarred.");
-    }
-    else
-    {
-        mpr("You produce a hideous howling noise!", MSGCH_SOUND);
-        create_monster(
-            mgen_data::hostile_at(MONS_HELL_BEAST, "the horn of Geryon",
-                true, 4, 0, you.pos()));
-    }
-    return rc;
-}
-
-static bool _efreet_flask(int slot)
-{
-    bool friendly = x_chance_in_y(300 + you.skill(SK_EVOCATIONS, 10), 600);
-
-    mpr("You open the flask...");
-
-    monster *mons =
-        create_monster(
-            mgen_data(MONS_EFREET,
-                      friendly ? BEH_FRIENDLY : BEH_HOSTILE,
-                      &you, 0, 0, you.pos(),
-                      MHITYOU, MG_FORCE_BEH));
-
-    if (mons)
-    {
-        mpr("...and a huge efreet comes out.");
-
-        if (player_angers_monster(mons))
-            friendly = false;
-
-        if (silenced(you.pos()))
-        {
-            mpr(friendly ? "It nods graciously at you."
-                         : "It snaps in your direction!", MSGCH_TALK_VISUAL);
-        }
-        else
-        {
-            mpr(friendly ? "\"Thank you for releasing me!\""
-                         : "It howls insanely!", MSGCH_TALK);
+            mprf("%s is enraged by your holy aura!",
+                 mon->name(DESC_THE).c_str());
         }
     }
-    else
-        canned_msg(MSG_NOTHING_HAPPENS);
-
-    dec_inv_item_quantity(slot, 1);
-
+    if (!created)
+        mpr("Nothing answers your call.");
     return true;
 }
 
 static bool _check_crystal_ball()
 {
+#if TAG_MAJOR_VERSION == 34
     if (you.species == SP_DJINNI)
     {
         mpr("These balls have not yet been approved for use by djinn. "
             "(OOC: they're supposed to work, but need a redesign.)");
         return false;
     }
-
+#endif
     if (you.intel() <= 1)
     {
         mpr("You lack the intelligence to focus on the shapes in the ball.");
@@ -439,18 +374,42 @@ bool disc_of_storms(bool drac_breath)
 
         if (!drac_breath)
         {
-            for (radius_iterator ri(you.pos(), LOS_RADIUS, false); ri; ++ri)
+            for (radius_iterator ri(you.pos(), LOS_NO_TRANS); ri; ++ri)
             {
-                if (!in_bounds(*ri) || grd(*ri) < DNGN_MAXWALL)
+                if (!in_bounds(*ri) || cell_is_solid(*ri))
                     continue;
 
                 if (one_chance_in(60 - you.skill(SK_EVOCATIONS)))
+                {
                     place_cloud(CLOUD_RAIN, *ri,
                                 random2(you.skill(SK_EVOCATIONS)), &you);
+                }
             }
         }
     }
     return rc;
+}
+
+static void _fiery_explosion()
+{
+    ASSERT(!crawl_state.game_is_arena());
+
+    bolt beam;
+    beam.flavour       = BEAM_FIRE;
+    beam.glyph         = dchar_glyph(DCHAR_FIRED_BURST);
+    beam.damage        = dice_def(3, 15);
+    beam.target        = you.pos();
+    beam.name          = "fiery explosion";
+    beam.colour        = RED;
+    beam.aux_source    = "an exploding Tome of Destruction";
+    beam.ex_size       = 2;
+    beam.is_explosion  = true;
+    beam.effect_known  = true;
+    beam.affects_items = true;
+    beam.thrower       = KILL_YOU;
+    beam.beam_source   = NON_MONSTER;
+
+    beam.explode();
 }
 
 void tome_of_power(int slot)
@@ -478,7 +437,7 @@ void tome_of_power(int slot)
 
     mpr("You find yourself reciting the magical words!");
     practise(EX_WILL_READ_TOME);
-    count_action(CACT_EVOKE, EVOC_MISC);
+    count_action(CACT_EVOKE, EVOC_TOME);
 
     if (x_chance_in_y(7, 50))
     {
@@ -506,8 +465,7 @@ void tome_of_power(int slot)
             dec_inv_item_quantity(slot, 1);
         }
 
-        immolation(15, IMMOLATION_TOME, false);
-
+        _fiery_explosion();
         xom_is_stimulated(200);
     }
     else if (one_chance_in(36))
@@ -630,8 +588,12 @@ string manual_skill_names(bool short_text)
     FixedVector<item_def,ENDOFPACK>::const_pointer iter = you.inv.begin();
     for (;iter!=you.inv.end(); ++iter)
     {
-        if (iter->base_type != OBJ_BOOKS || iter->sub_type != BOOK_MANUAL)
+        if (iter->base_type != OBJ_BOOKS
+            || iter->sub_type != BOOK_MANUAL
+            || is_useless_item(*iter))
+        {
             continue;
+        }
 
         skills.insert(static_cast<skill_type>(iter->plus));
     }
@@ -674,8 +636,7 @@ static const pop_entry pop_beasts[] =
   { 16, 27,  100, PEAK, MONS_ANACONDA },
   { 16, 27,   50, PEAK, MONS_RAVEN },
   { 18, 27,   50, UP,   MONS_DIRE_ELEPHANT },
-  { 20, 27,   25, UP,   MONS_DRAGON },
-  { 20, 27,   25, UP,   MONS_ANCIENT_BEAR },
+  { 20, 27,   50, UP,   MONS_FIRE_DRAGON },
   { 23, 27,   10, UP,   MONS_APIS },
   { 23, 27,   10, UP,   MONS_HELLEPHANT },
   { 23, 27,   10, UP,   MONS_GOLDEN_DRAGON },
@@ -738,7 +699,7 @@ static bool _box_of_beasts(item_def &box)
                                  BEH_FRIENDLY, &you,
                                  3 + random2(3), 0,
                                  you.pos(),
-                                 MHITYOU);
+                                 MHITYOU, MG_AUTOFOE);
         mg.define_chimera(mon, mon2, mon3);
         mons = create_monster(mg);
         if (mons)
@@ -752,6 +713,7 @@ static bool _box_of_beasts(item_def &box)
         did_god_conduct(DID_CHAOS, random_range(5,10));
         // Decrease charges
         box.plus--;
+        box.plus2++;
         // Let each part announce itself
         for (int n = 0; n < NUM_CHIMERA_HEADS; ++n)
         {
@@ -795,7 +757,7 @@ static bool _sack_of_spiders(item_def &sack)
                                      BEH_FRIENDLY, &you,
                                      3 + random2(4), 0,
                                      you.pos(),
-                                     MHITYOU);
+                                     MHITYOU, MG_AUTOFOE);
             if (create_monster(mg))
                 success = true;
         }
@@ -805,7 +767,7 @@ static bool _sack_of_spiders(item_def &sack)
     {
         // Also generate webs
         int rad = LOS_RADIUS / 2 + 2;
-        for (radius_iterator ri(you.pos(), rad, false, true, true); ri; ++ri)
+        for (radius_iterator ri(you.pos(), rad, C_ROUND, LOS_SOLID, true); ri; ++ri)
         {
             if (grd(*ri) == DNGN_FLOOR)
             {
@@ -820,6 +782,7 @@ static bool _sack_of_spiders(item_def &sack)
         xom_is_stimulated(10);
         // Decrease charges
         sack.plus--;
+        sack.plus2++;
     }
     else
         // Failed to create monster for some reason
@@ -903,7 +866,7 @@ static vector<coord_def> _get_jitter_path(coord_def source, coord_def target,
         {
             coord_def jitter = clamp_in_bounds(target + coord_def(random_range(-2, 2),
                                                                   random_range(-2, 2)));
-            if (jitter == target || jitter == source || feat_is_solid(grd(jitter)))
+            if (jitter == target || jitter == source || cell_is_solid(jitter))
                 continue;
 
             trace_beam.target = jitter;
@@ -929,7 +892,7 @@ static vector<coord_def> _get_jitter_path(coord_def source, coord_def target,
         coord_def jitter = clamp_in_bounds(mid + coord_def(random_range(-3, 3),
                                                            random_range(-3, 3)));
         if (jitter == mid || jitter.distance_from(mid) < 2 || jitter == source
-            || feat_is_solid(grd(jitter))
+            || cell_is_solid(jitter)
             || !cell_see_cell(source, jitter, LOS_NO_TRANS)
             || !cell_see_cell(target, jitter, LOS_NO_TRANS))
         {
@@ -1052,7 +1015,7 @@ static bool _fill_flame_trails(coord_def source, coord_def target,
         }
     }
 
-    return (!paths.empty());
+    return !paths.empty();
 }
 
 static bool _lamp_of_fire()
@@ -1065,6 +1028,11 @@ static bool _lamp_of_fire()
                         true, true, false, NULL,
                         "Aim the lamp in which direction?", true, NULL))
     {
+        if (you.confused())
+            target.confusion_fuzz();
+
+        did_god_conduct(DID_FIRE, 6 + random2(3));
+
         mpr("The flames dance!");
 
         vector<bolt> beams;
@@ -1155,11 +1123,10 @@ void wind_blast(actor* agent, int pow, coord_def target)
 
     int radius = min(7, 5 + div_rand_round(pow, 60));
 
-    for (actor_iterator ai(agent->get_los()); ai; ++ai)
+    for (actor_near_iterator ai(agent->pos(), LOS_SOLID); ai; ++ai)
     {
         if (ai->is_stationary()
-            || !cell_see_cell(you.pos(), ai->pos(), LOS_SOLID)
-            || ai->pos().distance_from(you.pos()) > radius
+            || ai->pos().distance_from(agent->pos()) > radius
             || ai->pos() == agent->pos() // so it's never aimed_at_feet
             || !target.origin()
                && _angle_between(agent->pos(), target, ai->pos()) > PI/4.0)
@@ -1198,7 +1165,7 @@ void wind_blast(actor* agent, int pow, coord_def target)
             if (wind_beam.path_taken[j] == act_list[i]->pos())
             {
                 coord_def newpos = wind_beam.path_taken[j+1];
-                if (!actor_at(newpos) && !feat_is_solid(grd(newpos))
+                if (!actor_at(newpos) && !cell_is_solid(newpos)
                     && act_list[i]->can_pass_through(newpos)
                     && act_list[i]->is_habitable(newpos))
                 {
@@ -1208,11 +1175,12 @@ void wind_blast(actor* agent, int pow, coord_def target)
                 }
                 else //Try to find an alternate route to push
                 {
-                    for (distance_iterator di(newpos, false, true, 1 ); di; ++di)
+                    for (adjacent_iterator di(newpos); di; ++di)
                     {
-                        if (di->distance_from(agent->pos())
+                        if (adjacent(*di, act_list[i]->pos())
+                            && di->distance_from(agent->pos())
                                 == newpos.distance_from(agent->pos())
-                            && !actor_at(*di) && !feat_is_solid(grd(*di))
+                            && !actor_at(*di) && !cell_is_solid(*di)
                             && act_list[i]->can_pass_through(*di)
                             && act_list[i]->is_habitable(*di))
                         {
@@ -1271,7 +1239,7 @@ void wind_blast(actor* agent, int pow, coord_def target)
             if (env.cgrid(wind_beam.path_taken[j]) == cloud_list[i])
             {
                 coord_def newpos = wind_beam.path_taken[j+1];
-                if (!feat_is_solid(grd(newpos))
+                if (!cell_is_solid(newpos)
                     && env.cgrid(newpos) == EMPTY_CLOUD)
                 {
                     swap_clouds(newpos, wind_beam.path_taken[j]);
@@ -1285,7 +1253,7 @@ void wind_blast(actor* agent, int pow, coord_def target)
                         if (di->distance_from(agent->pos())
                                 == newpos.distance_from(agent->pos())
                             && *di != agent->pos() // never aimed_at_feet
-                            && !feat_is_solid(grd(*di))
+                            && !cell_is_solid(*di)
                             && env.cgrid(*di) == EMPTY_CLOUD)
                         {
                             swap_clouds(*di, wind_beam.path_taken[j]);
@@ -1332,10 +1300,10 @@ static void _fan_of_gales_elementals()
     int radius = min(7, 5 + you.skill_rdiv(SK_EVOCATIONS, 1, 6));
 
     vector<coord_def> elementals;
-    for (radius_iterator ri(you.pos(), radius, C_ROUND, NULL, true); ri; ++ri)
+    for (radius_iterator ri(you.pos(), radius, C_ROUND, true); ri; ++ri)
     {
         if (ri->distance_from(you.pos()) >= 3 && !monster_at(*ri)
-            && !feat_is_solid(grd(*ri))
+            && !cell_is_solid(*ri)
             && cell_see_cell(you.pos(), *ri, LOS_NO_TRANS))
         {
             elementals.push_back(*ri);
@@ -1362,8 +1330,8 @@ static void _fan_of_gales_elementals()
 
 static bool _is_rock(dungeon_feature_type feat)
 {
-    return (feat == DNGN_ROCK_WALL || feat == DNGN_CLEAR_ROCK_WALL
-            || feat == DNGN_SLIMY_WALL);
+    return feat == DNGN_ROCK_WALL || feat == DNGN_CLEAR_ROCK_WALL
+           || feat == DNGN_SLIMY_WALL;
 }
 
 static bool _is_rubble_source(dungeon_feature_type feat)
@@ -1438,7 +1406,7 @@ static bool _stone_of_tremors()
     delay(200);
 
     // Possibly shaft some monsters.
-    for (monster_iterator mi(&you); mi; ++mi)
+    for (monster_near_iterator mi(you.pos(), LOS_NO_TRANS); mi; ++mi)
     {
         if (grd(mi->pos()) == DNGN_FLOOR
             && !mi->airborne() && is_valid_shaft_level()
@@ -1488,6 +1456,12 @@ static bool _stone_of_tremors()
     return true;
 }
 
+// Used for phials and water nymphs.
+bool can_flood_feature(dungeon_feature_type feat)
+{
+    return feat == DNGN_FLOOR || feat == DNGN_SHALLOW_WATER;
+}
+
 static bool _phial_of_floods()
 {
     dist target;
@@ -1503,6 +1477,11 @@ static bool _phial_of_floods()
                         LOS_RADIUS, true, true, false, NULL,
                         "Aim the phial where?"))
     {
+        if (you.confused())
+        {
+            target.confusion_fuzz();
+            beam.set_target(target);
+        }
         beam.fire();
 
         vector<coord_def> elementals;
@@ -1510,9 +1489,9 @@ static bool _phial_of_floods()
         coord_def center = beam.path_taken.back();
         int num = 5 + you.skill_rdiv(SK_EVOCATIONS, 3, 5) + random2(7);
         int dur = 40 + you.skill_rdiv(SK_EVOCATIONS, 8, 3);
-        for (distance_iterator di(center, true, false, 2); di && (num > 0); ++di)
+        for (distance_iterator di(center, true, false, 2); di && num > 0; ++di)
         {
-            if ((grd(*di) == DNGN_FLOOR || grd(*di) == DNGN_SHALLOW_WATER)
+            if (can_flood_feature(grd(*di))
                 && cell_see_cell(center, *di, LOS_NO_TRANS))
             {
                 num--;
@@ -1547,12 +1526,12 @@ static bool _phial_of_floods()
     return false;
 }
 
-static void _expend_elemental_evoker(item_def &item)
+static void _expend_xp_evoker(item_def &item)
 {
     item.plus2 = 10;
 }
 
-bool evoke_item(int slot)
+bool evoke_item(int slot, bool check_range)
 {
     if (you.form == TRAN_WISP)
         return mpr("You cannot handle anything in this form."), false;
@@ -1589,12 +1568,6 @@ bool evoke_item(int slot)
     if (!item_is_evokable(item, true, false, false, true))
         return false;
 
-    if (you.suppressed() && weapon_reach(item) <= 2)
-    {
-        canned_msg(MSG_EVOCATION_SUPPRESSED);
-        return false;
-    }
-
     int pract = 0; // By how much Evocations is practised.
     bool did_work   = false;  // Used for default "nothing happens" message.
     bool unevokable = false;
@@ -1606,12 +1579,14 @@ bool evoke_item(int slot)
     {
         ASSERT(item_is_equipped(item));
 
-        if (entry->evoke_func(&item, &pract, &did_work, &unevokable))
-        {
-            if (!unevokable)
-                count_action(CACT_EVOKE, EVOC_MISC);
+        bool qret = entry->evoke_func(&item, &pract, &did_work, &unevokable);
+
+        if (!unevokable)
+            count_action(CACT_EVOKE, item.special);
+
+        // what even _is_ this return value?
+        if (qret)
             return did_work;
-        }
     }
     else switch (item.base_type)
     {
@@ -1645,7 +1620,7 @@ bool evoke_item(int slot)
             return false;
         }
 
-        pract = rod_spell(slot);
+        pract = rod_spell(slot, check_range);
         // [ds] Early exit, no turns are lost.
         if (pract == -1)
             return false;
@@ -1675,7 +1650,10 @@ bool evoke_item(int slot)
             return false;
         }
         else if (you.magic_points >= you.max_magic_points
-                 && (you.species != SP_DJINNI || you.hp == you.hp_max))
+#if TAG_MAJOR_VERSION == 34
+                 && (you.species != SP_DJINNI || you.hp == you.hp_max)
+#endif
+                )
         {
             mpr("Your reserves of magic are already full.");
             return false;
@@ -1687,7 +1665,7 @@ bool evoke_item(int slot)
             make_hungry(50, false, true);
             pract = 1;
             did_work = true;
-            count_action(CACT_EVOKE, EVOC_MISC);
+            count_action(CACT_EVOKE, OBJ_STAVES << 16 | STAFF_ENERGY);
         }
         break;
 
@@ -1706,10 +1684,11 @@ bool evoke_item(int slot)
 
         switch (item.sub_type)
         {
+#if TAG_MAJOR_VERSION == 34
         case MISC_BOTTLED_EFREET:
-            if (_efreet_flask(slot))
-                pract = 2;
-            break;
+            canned_msg(MSG_NOTHING_HAPPENS);
+            return false;
+#endif
 
         case MISC_FAN_OF_GALES:
             if (!evoker_is_charged(item))
@@ -1719,7 +1698,7 @@ bool evoke_item(int slot)
             }
             wind_blast(&you, you.skill(SK_EVOCATIONS, 10), coord_def());
             _fan_of_gales_elementals();
-            _expend_elemental_evoker(item);
+            _expend_xp_evoker(item);
             break;
 
         case MISC_LAMP_OF_FIRE:
@@ -1729,7 +1708,7 @@ bool evoke_item(int slot)
                 return false;
             }
             if (_lamp_of_fire())
-                _expend_elemental_evoker(item);
+                _expend_xp_evoker(item);
             else
                 return false;
 
@@ -1742,7 +1721,7 @@ bool evoke_item(int slot)
                 return false;
             }
             if (_stone_of_tremors())
-                _expend_elemental_evoker(item);
+                _expend_xp_evoker(item);
             else
                 return false;
             break;
@@ -1754,14 +1733,21 @@ bool evoke_item(int slot)
                 return false;
             }
             if (_phial_of_floods())
-                _expend_elemental_evoker(item);
+                _expend_xp_evoker(item);
             else
                 return false;
             break;
 
         case MISC_HORN_OF_GERYON:
+            if (!evoker_is_charged(item))
+            {
+                mpr("That is presently inert.");
+                return false;
+            }
             if (_evoke_horn_of_geryon(item))
-                pract = 1;
+                _expend_xp_evoker(item);
+            else
+                return false;
             break;
 
         case MISC_BOX_OF_BEASTS:
@@ -1800,7 +1786,7 @@ bool evoke_item(int slot)
             break;
         }
         if (did_work && !unevokable)
-            count_action(CACT_EVOKE, EVOC_MISC);
+            count_action(CACT_EVOKE, OBJ_MISCELLANY << 16 | item.sub_type);
         break;
 
     default:

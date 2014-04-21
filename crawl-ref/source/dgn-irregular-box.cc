@@ -6,11 +6,9 @@
 #include "AppHdr.h"
 #include <vector>
 
-#include "coord.h"
 #include "mapdef.h"
 #include "random.h"
 #include "dgn-irregular-box.h"
-
 
 // Adds a simple hollow box to the map with the specified
 //  coordinates, glyphs, and number of doors.  This is the
@@ -417,8 +415,6 @@ static void _fill_outside(vector<vector<char> >& map,
     }
 }
 
-
-
 void make_irregular_box(map_lines& map, int x1, int y1, int x2, int y2,
                         int di_x, int di_y, int in_x, int in_y,
                         char floor_glyph, char wall_glyph,
@@ -579,7 +575,7 @@ void make_irregular_box(map_lines& map, int x1, int y1, int x2, int y2,
         for (int i = 0; i < door_count && !wall_cells.empty(); i++)
         {
             unsigned int index = random2(wall_cells.size());
-            new_glyphs[wall_cells[index].x][wall_cells[index].y] = '+';
+            new_glyphs[wall_cells[index].x][wall_cells[index].y] = door_glyph;
             wall_cells[index] = wall_cells.back();
             wall_cells.pop_back();
         }

@@ -1,4 +1,6 @@
 define(["jquery", "./enums"], function ($, enums) {
+    "use strict";
+
     var k, player_on_level, monster_table, dirty_locs, bounds, bounds_changed;
 
     function init()
@@ -37,7 +39,7 @@ define(["jquery", "./enums"], function ($, enums) {
         if (cell.t)
         {
             cell.t.bg = enums.prepare_bg_flags(cell.t.bg || 0);
-            return !cell.t.bg.UNSEEN;
+            return !cell.t.bg.UNSEEN && !cell.t.bg.MM_UNSEEN;
         }
         return false;
     }

@@ -6,6 +6,7 @@
 #include "AppHdr.h"
 
 #include <queue>
+#include <sstream>
 
 #include "areas.h"
 #include "artefact.h"
@@ -16,9 +17,9 @@
 #include "database.h"
 #include "delay.h"
 #include "dactions.h"
-#include "describe.h"
 #include "effects.h"
 #include "env.h"
+#include "fight.h"
 #include "files.h"
 #include "food.h"
 #include "fprop.h"
@@ -34,7 +35,7 @@
 #include "misc.h"
 #include "mon-act.h"
 #include "mon-behv.h"
-#include "mon-iter.h"
+#include "mon-cast.h"
 #include "mon-place.h"
 #include "mgen_data.h"
 #include "mon-stuff.h"
@@ -58,6 +59,8 @@
 #include "stuff.h"
 #include "target.h"
 #include "terrain.h"
+#include "throw.h"
+#include "traps.h"
 #include "unwind.h"
 #include "view.h"
 #include "viewgeom.h"
@@ -71,7 +74,7 @@ static void _zin_saltify(monster* mon);
 string zin_recite_text(const int seed, const int prayertype, int step)
 {
     // 'prayertype':
-    // This is in enum.h; there are currently five prayers.
+    // This is in enum.h; there are currently four prayers.
 
     // 'step':
     // -1: We're either starting or stopping, so we just want the passage name.
@@ -411,7 +414,6 @@ string zin_recite_text(const int seed, const int prayertype, int step)
                           (prayertype == RECITE_IMPURE)   ?  "Ablutions"     :
                           (prayertype == RECITE_HERETIC)  ?  "Apostates"     :
                           (prayertype == RECITE_UNHOLY)   ?  "Anathema"      :
-                          (prayertype == RECITE_ALLY)     ?  "Alliances"     :
                                                              "Bugginess";
         ostringstream numbers;
         numbers << chapter;
@@ -501,8 +503,6 @@ static int _zin_check_recite_to_single_monster(const monster *mon,
         eligibility[RECITE_IMPURE]++;
     if (mon->has_attack_flavour(AF_STEAL))
         eligibility[RECITE_IMPURE]++;
-    if (mon->has_attack_flavour(AF_STEAL_FOOD))
-        eligibility[RECITE_IMPURE]++;
     if (mon->has_attack_flavour(AF_PLAGUE))
         eligibility[RECITE_IMPURE]++;
 
@@ -511,8 +511,8 @@ static int _zin_check_recite_to_single_monster(const monster *mon,
     if ((ce == CE_ROT || ce == CE_MUTAGEN) && !mon->is_chaotic())
         eligibility[RECITE_IMPURE]++;
 
-    // Death drakes and rotting devils get a bump to uncleanliness.
-    if (mon->type == MONS_ROTTING_DEVIL || mon->type == MONS_DEATH_DRAKE)
+    // Death drakes and necrophage get a bump to uncleanliness.
+    if (mon->type == MONS_NECROPHAGE || mon->type == MONS_DEATH_DRAKE)
         eligibility[RECITE_IMPURE]++;
 
     // Sanity check: if a monster is 'really' natural, don't consider it impure.
@@ -525,6 +525,11 @@ static int _zin_check_recite_to_single_monster(const monster *mon,
         eligibility[RECITE_IMPURE] = 0;
     }
 
+    // Don't allow against enemies that are already affected by an
+    // earlier recite type.
+    if (eligibility[RECITE_CHAOTIC] > 0)
+        eligibility[RECITE_IMPURE] = 0;
+
     // Anti-unholy prayer
 
     // Hits demons and incorporeal undead.
@@ -534,8 +539,15 @@ static int _zin_check_recite_to_single_monster(const monster *mon,
         eligibility[RECITE_UNHOLY]++;
     }
 
+    // Don't allow against enemies that are already affected by an
+    // earlier recite type.
+    if (eligibility[RECITE_CHAOTIC] > 0
+        || eligibility[RECITE_IMPURE] > 0)
+    {
+        eligibility[RECITE_UNHOLY] = 0;
+    }
+
     // Anti-heretic prayer
-    // Pro-ally prayer
 
     // Sleeping or paralyzed monsters will wake up or still perceive their
     // surroundings, respectively.  So, you can still recite to them.
@@ -554,24 +566,18 @@ static int _zin_check_recite_to_single_monster(const monster *mon,
         if (mon->type == MONS_DEMIGOD)
             eligibility[RECITE_HERETIC]++;
 
-        // ...but chaotic gods are worse...
-        if (is_chaotic_god(mon->god))
-            eligibility[RECITE_HERETIC]++;
-
-        // ...as are evil gods.
+        // ...but evil gods are worse.
         if (is_evil_god(mon->god) || is_unknown_god(mon->god))
             eligibility[RECITE_HERETIC]++;
 
         // (The above mean that worshipers will be treated as
         // priests for reciting, even if they aren't actually.)
 
-        // Sanity check: monsters that you can't convert anyway don't get
-        // recited against.  Merely behaving evil doesn't get you off.
-        if ((mon->is_unclean(false)
-             || mon->is_chaotic()
-             || mon->is_evil(false)
-             || mon->is_unholy(false))
-            && eligibility[RECITE_HERETIC] <= 1)
+        // Don't allow against enemies that are already affected by an
+        // earlier recite type.
+        if (eligibility[RECITE_CHAOTIC] > 0
+            || eligibility[RECITE_IMPURE] > 0
+            || eligibility[RECITE_UNHOLY] > 0)
         {
             eligibility[RECITE_HERETIC] = 0;
         }
@@ -585,21 +591,6 @@ static int _zin_check_recite_to_single_monster(const monster *mon,
         // holy gods aren't heretics.
         if (mon->is_holy() || is_good_god(mon->god))
             eligibility[RECITE_HERETIC] = 0;
-
-        // Any friendly that meets the above requirements is counted as an ally.
-        if (mon->friendly())
-            eligibility[RECITE_ALLY]++;
-
-        // Holy friendlies get a boost.
-        if ((mon->is_holy() || is_good_god(mon->god))
-            && eligibility[RECITE_ALLY] > 0)
-        {
-            eligibility[RECITE_ALLY]++;
-        }
-
-        // Worshipers of Zin get another boost.
-        if (mon->god == GOD_ZIN && eligibility[RECITE_ALLY] > 0)
-            eligibility[RECITE_ALLY]++;
     }
 
 #ifdef DEBUG_DIAGNOSTICS
@@ -645,11 +636,7 @@ bool zin_check_able_to_recite(bool quiet)
 
 static const char* zin_book_desc[NUM_RECITE_TYPES] =
 {
-    "Abominations (harms the forces of chaos and mutation)",
-    "Ablutions (harms the unclean and corporeal undead)",
-    "Apostates (harms the faithless and heretics)",
-    "Anathema (harms demons and incorporeal undead)",
-    "Alliances (blesses intelligent allies)",
+    "Chaotic", "Impure", "Heretic", "Unholy",
 };
 
 int zin_check_recite_to_monsters(recite_type *prayertype)
@@ -658,7 +645,9 @@ int zin_check_recite_to_monsters(recite_type *prayertype)
     bool found_eligible = false;
     recite_counts count(0);
 
-    for (radius_iterator ri(you.pos(), LOS_RADIUS); ri; ++ri)
+    map<string, int> affected_by_type[NUM_RECITE_TYPES];
+
+    for (radius_iterator ri(you.pos(), LOS_DEFAULT); ri; ++ri)
     {
         const monster *mon = monster_at(*ri);
         if (!mon || !you.can_see(mon))
@@ -675,7 +664,11 @@ int zin_check_recite_to_monsters(recite_type *prayertype)
 
         for (int i = 0; i < NUM_RECITE_TYPES; i++)
             if (retval[i] > 0)
-                count[i]++, found_eligible = true;
+            {
+                count[i]++;
+                found_eligible = true;
+                ++affected_by_type[i][mon->full_name(DESC_A)];
+            }
     }
 
     if (!found_eligible && !found_ineligible)
@@ -710,16 +703,44 @@ int zin_check_recite_to_monsters(recite_type *prayertype)
     // But often, you'll have multiple options...
     mesclr();
 
-    mpr("Recite a passage from which book of the Axioms of Law?", MSGCH_PROMPT);
+    mprf(MSGCH_PROMPT, "Recite against which type of sinner?");
 
     int menu_cnt = 0;
     recite_type letters[NUM_RECITE_TYPES];
 
     for (int i = 0; i < NUM_RECITE_TYPES; i++)
     {
-        if (count[i] > 0 && i != RECITE_ALLY) // no ally recite yet
+        if (count[i] > 0)
         {
-            mprf("    [%c] - %s", 'a' + menu_cnt, zin_book_desc[i]);
+            string affected_str = make_stringf("%s (%d: ",
+                                               zin_book_desc[i], count[i]);
+
+            // TODO: merge with _desc_mons_type_map from view.cc?  But we
+            //       probably don't want genus factoring here.
+            // TODO: sort these by something other than name-with-article.
+            for (map<string, int>::iterator it = affected_by_type[i].begin();
+                 it != affected_by_type[i].end(); it++)
+            {
+                if (it != affected_by_type[i].begin())
+                    affected_str += ", ";
+
+                affected_str += it->first;
+                if (it->second > 1)
+                    affected_str += make_stringf(" x%d", it->second);
+            }
+            affected_str += ")";
+
+            int linect = 0;
+            while (!affected_str.empty())
+            {
+                // -8 for "  [a] - "
+                const string line = wordwrap_line(affected_str,
+                                                  msgwin_line_length() - 8);
+                if (linect++ == 0)
+                    mprf_nojoin("  [%c] - %s", 'a' + menu_cnt, line.c_str());
+                else
+                    mprf("%8s%s", "", line.c_str());
+            }
             letters[menu_cnt++] = (recite_type)i;
         }
     }
@@ -744,10 +765,8 @@ int zin_check_recite_to_monsters(recite_type *prayertype)
 enum zin_eff
 {
     ZIN_NOTHING,
-    ZIN_SLEEP,
     ZIN_DAZE,
     ZIN_CONFUSE,
-    ZIN_FEAR,
     ZIN_PARALYSE,
     ZIN_BLEED,
     ZIN_SMITE,
@@ -820,10 +839,6 @@ bool zin_recite_to_single_monster(const coord_def& where,
 
     switch (prayertype)
     {
-    case RECITE_ALLY:
-        // Stub. Not implemented yet.
-        break;
-
     case RECITE_HERETIC:
         if (degree == 1)
         {
@@ -837,16 +852,7 @@ bool zin_recite_to_single_monster(const coord_def& where,
             // This branch can't hit sleeping monsters - until they wake up.
 
             if (check < 5)
-            {
-#if 0
-                // Sleep doesn't really work well. This should be more
-                // 'forceful'. But how?
-                if (one_chance_in(4))
-                    effect = ZIN_SLEEP;
-                else
-#endif
-                    effect = ZIN_DAZE;
-            }
+                effect = ZIN_DAZE;
             else if (check < 10)
             {
                 if (coinflip())
@@ -855,18 +861,13 @@ bool zin_recite_to_single_monster(const coord_def& where,
                     effect = ZIN_DAZE;
             }
             else if (check < 15)
-            {
-                if (one_chance_in(3))
-                    effect = ZIN_FEAR;
-                else
-                    effect = ZIN_CONFUSE;
-            }
+                effect = ZIN_CONFUSE;
             else
             {
                 if (one_chance_in(3))
                     effect = ZIN_PARALYSE;
                 else
-                    effect = ZIN_FEAR;
+                    effect = ZIN_CONFUSE;
             }
         }
         else
@@ -885,10 +886,10 @@ bool zin_recite_to_single_monster(const coord_def& where,
             {
                 if (one_chance_in(3))
                     effect = ZIN_BLIND;
-                else if (coinflip())
-                    effect = ZIN_SILVER_CORONA;
-                else
+                else if (mons_antimagic_affected(mon))
                     effect = ZIN_ANTIMAGIC;
+                else
+                    effect = ZIN_SILVER_CORONA;
             }
             else if (check < 15)
             {
@@ -976,7 +977,7 @@ bool zin_recite_to_single_monster(const coord_def& where,
         else if (check < 10)
         {
             if (coinflip())
-                effect = ZIN_FEAR;
+                effect = ZIN_CONFUSE;
             else
                 effect = ZIN_SILVER_CORONA;
         }
@@ -1003,15 +1004,6 @@ bool zin_recite_to_single_monster(const coord_def& where,
     case ZIN_NOTHING:
         break;
 
-    case ZIN_SLEEP:
-        if (mon->can_sleep())
-        {
-            mon->put_to_sleep(&you, 0);
-            simple_monster_message(mon, " nods off for a moment.");
-            affected = true;
-        }
-        break;
-
     case ZIN_DAZE:
         if (mon->add_ench(mon_enchant(ENCH_DAZED, degree, &you,
                           (degree + random2(spellpower)) * BASELINE_DELAY)))
@@ -1031,21 +1023,6 @@ bool zin_recite_to_single_monster(const coord_def& where,
                 simple_monster_message(mon, " is confused by your recitation.");
             else
                 simple_monster_message(mon, " stumbles about in disarray.");
-            affected = true;
-        }
-        break;
-
-    case ZIN_FEAR:
-        if (mon->add_ench(mon_enchant(ENCH_FEAR, degree, &you,
-                          (degree + random2(spellpower)) * BASELINE_DELAY)))
-        {
-            if (prayertype == RECITE_HERETIC)
-                simple_monster_message(mon, " is terrified by your recitation.");
-            else if (minor)
-                simple_monster_message(mon, " tries to escape the wrath of Zin.");
-            else
-                simple_monster_message(mon, " flees in terror at the wrath of Zin!");
-            behaviour_event(mon, ME_SCARE, 0, you.pos());
             affected = true;
         }
         break;
@@ -1278,7 +1255,7 @@ void zin_recite_interrupt()
 {
     if (!you.duration[DUR_RECITE])
         return;
-    mpr("Your recitation is interrupted.", MSGCH_DURATION);
+    mprf(MSGCH_DURATION, "Your recitation is interrupted.");
     mpr("You feel short of breath.");
     you.duration[DUR_RECITE] = 0;
 
@@ -1307,7 +1284,7 @@ bool zin_vitalisation()
 
 void zin_remove_divine_stamina()
 {
-    mpr("Your divine stamina fades away.", MSGCH_DURATION);
+    mprf(MSGCH_DURATION, "Your divine stamina fades away.");
     notify_stat_change(STAT_STR, -you.attribute[ATTR_DIVINE_STAMINA],
                 true, "Zin's divine stamina running out");
     notify_stat_change(STAT_INT, -you.attribute[ATTR_DIVINE_STAMINA],
@@ -1338,13 +1315,13 @@ bool zin_remove_all_mutations()
 bool zin_sanctuary()
 {
     // Casting is disallowed while previous sanctuary in effect.
-    // (Checked in abl-show.cc.)
+    // (Checked in ability.cc.)
     if (env.sanctuary_time)
         return false;
 
     // Yes, shamelessly stolen from NetHack...
     if (!silenced(you.pos())) // How did you manage that?
-        mpr("You hear a choir sing!", MSGCH_SOUND);
+        mprf(MSGCH_SOUND, "You hear a choir sing!");
     else
         mpr("You are suddenly bathed in radiance!");
 
@@ -1354,7 +1331,7 @@ bool zin_sanctuary()
 
 #ifndef USE_TILE_LOCAL
     // Allow extra time for the flash to linger.
-    delay(1000);
+    scaled_delay(1000);
 #endif
 
     // Pets stop attacking and converge on you.
@@ -1399,7 +1376,7 @@ void tso_divine_shield()
 
 void tso_remove_divine_shield()
 {
-    mpr("Your divine shield disappears!", MSGCH_DURATION);
+    mprf(MSGCH_DURATION, "Your divine shield disappears!");
     you.duration[DUR_DIVINE_SHIELD] = 0;
     you.attribute[ATTR_DIVINE_SHIELD] = 0;
     you.redraw_armour_class = true;
@@ -1457,7 +1434,7 @@ bool elyvilon_divine_vigour()
 
 void elyvilon_remove_divine_vigour()
 {
-    mpr("Your divine vigour fades away.", MSGCH_DURATION);
+    mprf(MSGCH_DURATION, "Your divine vigour fades away.");
     you.duration[DUR_DIVINE_VIGOUR] = 0;
     you.attribute[ATTR_DIVINE_VIGOUR] = 0;
     calc_hp();
@@ -1516,7 +1493,7 @@ bool trog_burn_spellbooks()
     int totalblocked = 0;
     vector<coord_def> mimics;
 
-    for (radius_iterator ri(you.pos(), LOS_RADIUS, true, true, false); ri; ++ri)
+    for (radius_iterator ri(you.pos(), LOS_DEFAULT); ri; ++ri)
     {
         const unsigned short cloud = env.cgrid(*ri);
         int count = 0;
@@ -1528,7 +1505,7 @@ bool trog_burn_spellbooks()
 
             // If a grid is blocked, books lying there will be ignored.
             // Allow bombing of monsters.
-            if (feat_is_solid(grd(*ri))
+            if (cell_is_solid(*ri)
                 || cloud != EMPTY_CLOUD && env.cloud[cloud].type != CLOUD_FIRE)
             {
                 totalblocked++;
@@ -1608,10 +1585,26 @@ bool trog_burn_spellbooks()
     return true;
 }
 
+void trog_do_trogs_hand(int pow)
+{
+    you.increase_duration(DUR_TROGS_HAND,
+                          5 + roll_dice(2, pow / 3 + 1), 100,
+                          "Your skin crawls.");
+    mprf(MSGCH_DURATION, "You feel resistant to hostile enchantments.");
+}
+
+void trog_remove_trogs_hand()
+{
+    if (you.duration[DUR_REGENERATION] == 0)
+        mprf(MSGCH_DURATION, "Your skin stops crawling.");
+    mprf(MSGCH_DURATION, "You feel less resistant to hostile enchantments.");
+    you.duration[DUR_TROGS_HAND] = 0;
+}
+
 bool beogh_water_walk()
 {
-    return (you_worship(GOD_BEOGH) && !player_under_penance()
-            && you.piety >= piety_breakpoint(4));
+    return you_worship(GOD_BEOGH) && !player_under_penance()
+           && you.piety >= piety_breakpoint(4);
 }
 
 void jiyva_paralyse_jellies()
@@ -1623,7 +1616,7 @@ void jiyva_paralyse_jellies()
     you.duration[DUR_JELLY_PRAYER] = 200;
 
     int jelly_count = 0;
-    for (radius_iterator ri(you.pos(), LOS_RADIUS); ri; ++ri)
+    for (radius_iterator ri(you.pos(), LOS_DEFAULT); ri; ++ri)
     {
         monster* mon = monster_at(*ri);
 
@@ -1638,11 +1631,11 @@ void jiyva_paralyse_jellies()
     if (jelly_count > 0)
     {
         if (jelly_count > 1)
-            mpr("The nearby slimes join your prayer.", MSGCH_PRAY);
+            mprf(MSGCH_PRAY, "The nearby slimes join your prayer.");
         else
-            mpr("A nearby slime joins your prayer.", MSGCH_PRAY);
+            mprf(MSGCH_PRAY, "A nearby slime joins your prayer.");
 
-        lose_piety(5);
+        lose_piety(max(5, min(jelly_count, 20)));
     }
 }
 
@@ -1667,15 +1660,15 @@ bool jiyva_remove_bad_mutation()
 
 bool yred_injury_mirror()
 {
-    return (you_worship(GOD_YREDELEMNUL) && !player_under_penance()
-            && you.piety >= piety_breakpoint(1)
-            && you.duration[DUR_MIRROR_DAMAGE]);
+    return you_worship(GOD_YREDELEMNUL) && !player_under_penance()
+           && you.piety >= piety_breakpoint(1)
+           && you.duration[DUR_MIRROR_DAMAGE];
 }
 
 bool yred_can_animate_dead()
 {
-    return (you_worship(GOD_YREDELEMNUL) && !player_under_penance()
-            && you.piety >= piety_breakpoint(2));
+    return you_worship(GOD_YREDELEMNUL) && !player_under_penance()
+           && you.piety >= piety_breakpoint(2);
 }
 
 void yred_animate_remains_or_dead()
@@ -1721,8 +1714,10 @@ void yred_make_enslaved_soul(monster* mon, bool force_hostile)
     // If the monster's held in a net, get it out.
     mons_clear_trapping_net(mon);
 
-    // Drop the monster's holy equipment, and keep wielding the rest.
+    // Drop the monster's holy equipment, and keep wielding the rest.  Also
+    // remove any of its active avatars.
     monster_drop_things(mon, false, is_holy_item);
+    mon->remove_avatars();
 
     const monster orig = *mon;
 
@@ -1764,7 +1759,7 @@ void yred_make_enslaved_soul(monster* mon, bool force_hostile)
          !force_hostile ? "is now yours" : "fights you");
 }
 
-bool kiku_receive_corpses(int pow, coord_def where)
+bool kiku_receive_corpses(int pow)
 {
     // pow = necromancy * 4, ranges from 0 to 108
     dprf("kiku_receive_corpses() power: %d", pow);
@@ -1777,8 +1772,8 @@ bool kiku_receive_corpses(int pow, coord_def where)
     // We should get the same number of corpses
     // in a hallway as in an open room.
     int spaces_for_corpses = 0;
-    for (radius_iterator ri(where, corpse_delivery_radius, C_ROUND,
-                            you.get_los(), true); ri; ++ri)
+    for (radius_iterator ri(you.pos(), corpse_delivery_radius, C_ROUND,
+                            LOS_NO_TRANS, true); ri; ++ri)
     {
         if (mons_class_can_pass(MONS_HUMAN, grd(*ri)))
             spaces_for_corpses++;
@@ -1792,14 +1787,14 @@ bool kiku_receive_corpses(int pow, coord_def where)
 
     int corpses_created = 0;
 
-    for (radius_iterator ri(where, corpse_delivery_radius, C_ROUND,
-                            you.get_los()); ri; ++ri)
+    for (radius_iterator ri(you.pos(), corpse_delivery_radius, C_ROUND,
+                            LOS_NO_TRANS); ri; ++ri)
     {
         bool square_is_walkable = mons_class_can_pass(MONS_HUMAN, grd(*ri));
-        bool square_is_player_square = (*ri == where);
+        bool square_is_player_square = (*ri == you.pos());
         bool square_gets_corpse =
-            (random2(100) < percent_chance_a_square_receives_extra_corpse)
-            || (square_is_player_square && random2(100) < 97);
+            random2(100) < percent_chance_a_square_receives_extra_corpse
+            || square_is_player_square && random2(100) < 97;
 
         if (!square_is_walkable || !square_gets_corpse)
             continue;
@@ -1895,29 +1890,29 @@ bool kiku_take_corpse()
 
 bool fedhas_passthrough_class(const monster_type mc)
 {
-    return (you_worship(GOD_FEDHAS)
-            && mons_class_is_plant(mc)
-            && mons_class_is_stationary(mc)
-            && mc != MONS_SNAPLASHER_VINE
-            && mc != MONS_SNAPLASHER_VINE_SEGMENT);
+    return you_worship(GOD_FEDHAS)
+           && mons_class_is_plant(mc)
+           && mons_class_is_stationary(mc)
+           && mc != MONS_SNAPLASHER_VINE
+           && mc != MONS_SNAPLASHER_VINE_SEGMENT;
 }
 
 // Fedhas allows worshipers to walk on top of stationary plants and
 // fungi.
 bool fedhas_passthrough(const monster* target)
 {
-    return (target
-            && fedhas_passthrough_class(target->type)
-            && (mons_species(target->type) != MONS_OKLOB_PLANT
-                || target->attitude != ATT_HOSTILE));
+    return target
+           && fedhas_passthrough_class(target->type)
+           && (mons_species(target->type) != MONS_OKLOB_PLANT
+               || target->attitude != ATT_HOSTILE);
 }
 
 bool fedhas_passthrough(const monster_info* target)
 {
-    return (target
-            && fedhas_passthrough_class(target->type)
-            && (mons_species(target->type) != MONS_OKLOB_PLANT
-                || target->attitude != ATT_HOSTILE));
+    return target
+           && fedhas_passthrough_class(target->type)
+           && (mons_species(target->type) != MONS_OKLOB_PLANT
+               || target->attitude != ATT_HOSTILE);
 }
 
 // Fedhas worshipers can shoot through non-hostile plants, can a
@@ -1944,13 +1939,13 @@ bool fedhas_shoot_through(const bolt& beam, const monster* victim)
         origin_attitude = temp->attitude;
     }
 
-    return (origin_worships_fedhas
-            && fedhas_protects(victim)
-            && !beam.is_enchantment()
-            && !(beam.is_explosion && beam.in_explosion_phase)
-            && beam.name != "lightning arc"
-            && (mons_atts_aligned(victim->attitude, origin_attitude)
-                || victim->neutral()));
+    return origin_worships_fedhas
+           && fedhas_protects(victim)
+           && !beam.is_enchantment()
+           && !(beam.is_explosion && beam.in_explosion_phase)
+           && beam.name != "lightning arc"
+           && (mons_atts_aligned(victim->attitude, origin_attitude)
+               || victim->neutral());
 }
 
 // Turns corpses in LOS into skeletons and grows toadstools on them.
@@ -1963,7 +1958,7 @@ int fedhas_fungal_bloom()
     int processed_count = 0;
     bool kills = false;
 
-    for (radius_iterator i(you.pos(), LOS_RADIUS); i; ++i)
+    for (radius_iterator i(you.pos(), LOS_NO_TRANS); i; ++i)
     {
         monster* target = monster_at(*i);
         if (!can_spawn_mushrooms(*i))
@@ -2165,7 +2160,7 @@ bool fedhas_sunlight()
 
     for (adjacent_iterator ai(base, false); ai; ++ai)
     {
-        if (!in_bounds(*ai) || feat_is_solid(grd(*ai)))
+        if (!in_bounds(*ai) || cell_is_solid(*ai))
             continue;
 
         for (size_t i = 0; i < env.sunlight.size(); ++i)
@@ -2202,7 +2197,7 @@ bool fedhas_sunlight()
     coord_def temp = grid2view(base);
     cgotoxy(temp.x, temp.y, GOTO_DNGN);
 #endif
-    delay(200);
+    scaled_delay(200);
 
     if (revealed_count)
     {
@@ -2295,7 +2290,7 @@ void process_sunlights(bool future)
 template<typename T>
 static bool less_second(const T & left, const T & right)
 {
-    return (left.second < right.second);
+    return left.second < right.second;
 }
 
 typedef pair<coord_def, int> point_distance;
@@ -2347,7 +2342,6 @@ static void _path_distance(const coord_def& origin,
     }
 }
 
-
 // Find the minimum distance from each point of origin to one of the targets
 // The distance is stored in 'distances', which is the same size as origins.
 static void _point_point_distance(const vector<coord_def>& origins,
@@ -2389,7 +2383,7 @@ static void _point_point_distance(const vector<coord_def>& origins,
 // the distances in question.
 bool prioritise_adjacent(const coord_def &target, vector<coord_def>& candidates)
 {
-    radius_iterator los_it(target, LOS_RADIUS, true, true, true);
+    radius_iterator los_it(target, LOS_NO_TRANS, true);
 
     vector<coord_def> mons_positions;
     // collect hostile monster positions in LOS
@@ -2510,7 +2504,7 @@ bool fedhas_plant_ring_from_fruit()
     vector<coord_def> adjacent;
     for (adjacent_iterator adj_it(you.pos()); adj_it; ++adj_it)
     {
-        if (mons_class_can_pass(MONS_PLANT, env.grid(*adj_it))
+        if (monster_habitable_grid(MONS_PLANT, env.grid(*adj_it))
             && !actor_at(*adj_it))
         {
             adjacent.push_back(*adj_it);
@@ -2590,10 +2584,13 @@ bool fedhas_plant_ring_from_fruit()
             tiles.add_overlay(adjacent[j], TILE_INDICATOR + j);
         viewwindow(false);
 #endif
-        delay(200);
+        scaled_delay(200);
     }
 
-    _decrease_amount(collected_fruit, created_count);
+    if (created_count)
+        _decrease_amount(collected_fruit, created_count);
+    else
+        canned_msg(MSG_NOTHING_HAPPENS);
 
     return created_count;
 }
@@ -2609,7 +2606,7 @@ int fedhas_rain(const coord_def &target)
     int spawned_count = 0;
     int processed_count = 0;
 
-    for (radius_iterator rad(target, LOS_RADIUS, true, true, true); rad; ++rad)
+    for (radius_iterator rad(target, LOS_NO_TRANS, true); rad; ++rad)
     {
         // Adjust the shape of the rainfall slightly to make it look
         // nicer.  I want a threshold of 2.5 on the euclidean distance,
@@ -2701,16 +2698,11 @@ int fedhas_rain(const coord_def &target)
     return processed_count;
 }
 
-// Destroy corpses in the player's LOS (first corpse on a stack only)
-// and make 1 giant spore per corpse.  Spores are given the input as
-// their starting behavior; the function returns the number of corpses
-// processed.
-int fedhas_corpse_spores(beh_type attitude, bool interactive)
+int count_corpses_in_los(vector<stack_iterator> *positions)
 {
     int count = 0;
-    vector<stack_iterator> positions;
 
-    for (radius_iterator rad(you.pos(), LOS_RADIUS, true, true, true); rad;
+    for (radius_iterator rad(you.pos(), LOS_NO_TRANS, true); rad;
          ++rad)
     {
         if (actor_at(*rad))
@@ -2721,12 +2713,25 @@ int fedhas_corpse_spores(beh_type attitude, bool interactive)
             if (stack_it->base_type == OBJ_CORPSES
                 && stack_it->sub_type == CORPSE_BODY)
             {
-                positions.push_back(stack_it);
+                if (positions)
+                    positions->push_back(stack_it);
                 count++;
                 break;
             }
         }
     }
+
+    return count;
+}
+
+// Destroy corpses in the player's LOS (first corpse on a stack only)
+// and make 1 giant spore per corpse.  Spores are given the input as
+// their starting behavior; the function returns the number of corpses
+// processed.
+int fedhas_corpse_spores(beh_type attitude, bool interactive)
+{
+    vector<stack_iterator> positions;
+    int count = count_corpses_in_los(&positions);
 
     if (count == 0)
         return count;
@@ -2812,7 +2817,6 @@ struct monster_conversion
     monster_type new_type;
 };
 
-
 // Given a monster (which should be a plant/fungus), see if
 // fedhas_evolve_flora() can upgrade it, and set up a monster_conversion
 // structure for it.  Return true (and fill in possible_monster) if the
@@ -2896,7 +2900,7 @@ bool fedhas_evolve_flora()
     // This is a little sloppy, but cancel early if nothing useful is in
     // range.
     bool in_range = false;
-    for (radius_iterator rad(you.get_los(), true); rad; ++rad)
+    for (radius_iterator rad(you.pos(), LOS_NO_TRANS, true); rad; ++rad)
     {
         const monster* temp = monster_at(*rad);
         if (is_moldy(*rad) && mons_class_can_pass(MONS_BALLISTOMYCETE,
@@ -3013,8 +3017,7 @@ bool fedhas_evolve_flora()
 
     case MONS_FUNGUS:
     case MONS_TOADSTOOL:
-        simple_monster_message(plant,
-                               " can now pick up its mycelia and move.");
+        simple_monster_message(plant, " can now pick up its mycelia and move.");
         break;
 
     case MONS_BALLISTOMYCETE:
@@ -3127,7 +3130,7 @@ void cheibriados_time_bend(int pow)
             {
                 mprf("%s%s",
                      mon->name(DESC_THE).c_str(),
-                     mons_resist_string(mon, res_margin));
+                     resist_margin_phrase(res_margin));
                 continue;
             }
 
@@ -3251,7 +3254,7 @@ void cheibriados_time_step(int pow) // pow is the number of turns to skip
     update_level(pow * 10);
 
 #ifndef USE_TILE_LOCAL
-    delay(1000);
+    scaled_delay(1000);
 #endif
 
     monster* mon;
@@ -3340,7 +3343,7 @@ bool can_convert_to_beogh()
     if (silenced(you.pos()))
         return false;
 
-    for (radius_iterator ri(you.pos(), LOS_RADIUS); ri; ++ri)
+    for (radius_iterator ri(you.pos(), LOS_NO_TRANS); ri; ++ri)
     {
         const monster * const mon = monster_at(*ri);
         if (mons_allows_beogh_now(mon))
@@ -3362,7 +3365,7 @@ void spare_beogh_convert()
     set<mid_t> witnesses;
 
     you.religion = GOD_NO_GOD;
-    for (radius_iterator ri(you.pos(), LOS_RADIUS); ri; ++ri)
+    for (radius_iterator ri(you.pos(), LOS_DEFAULT); ri; ++ri)
     {
         const monster *mon = monster_at(*ri);
         // An invis player converting is ok, for simplicity.
@@ -3378,7 +3381,7 @@ void spare_beogh_convert()
         // as well.
         if (mons_allows_beogh(mon))
         {
-            for (radius_iterator pi(you.pos(), LOS_RADIUS); pi; ++pi)
+            for (radius_iterator pi(you.pos(), LOS_DEFAULT); pi; ++pi)
             {
                 const monster *orc = monster_at(*pi);
                 if (!orc || !cell_see_cell(*ri, *pi, LOS_DEFAULT))
@@ -3412,7 +3415,300 @@ void spare_beogh_convert()
         mpr("The priest welcomes you and lets you live.");
     else
     {
-        mprf("With a roar of approval, the orcs welcome you as one of their own, "
-             "and spare your life.");
+        mpr("With a roar of approval, the orcs welcome you as one of their own,"
+            " and spare your life.");
     }
+}
+
+bool dithmenos_shadow_step()
+{
+    // You can shadow-step anywhere within your umbra.
+    ASSERT(you.umbra_radius2() > -1);
+    const int range = isqrt_ceil(you.umbra_radius2());
+
+    targetter_jump tgt(&you, you.umbra_radius2(), false, true);
+    direction_chooser_args args;
+    args.hitfunc = &tgt;
+    args.restricts = DIR_JUMP;
+    args.mode = TARG_HOSTILE;
+    args.range = range;
+    args.just_looking = false;
+    args.needs_path = false;
+    args.top_prompt = "Aiming: <white>Shadow Step</white>";
+    dist sdirect;
+    direction(sdirect, args);
+    if (!sdirect.isValid || tgt.landing_site.origin())
+        return false;
+
+    // Check for hazards.
+    bool zot_trap_prompted = false,
+         trap_prompted = false,
+         exclusion_prompted = false,
+         cloud_prompted = false,
+         terrain_prompted = false;
+
+    for (set<coord_def>::const_iterator site = tgt.additional_sites.begin();
+         site != tgt.additional_sites.end(); site++)
+    {
+        if (!cloud_prompted
+            && !check_moveto_cloud(*site, "shadow step", &cloud_prompted))
+        {
+            return false;
+        }
+
+        if (!zot_trap_prompted)
+        {
+            trap_def* trap = find_trap(*site);
+            if (trap && env.grid(*site) != DNGN_UNDISCOVERED_TRAP
+                && trap->type == TRAP_ZOT)
+            {
+                if (!check_moveto_trap(*site, "shadow step",
+                                       &trap_prompted))
+                {
+                    you.turn_is_over = false;
+                    return false;
+                }
+                zot_trap_prompted = true;
+            }
+            else if (!trap_prompted
+                     && !check_moveto_trap(*site, "shadow step",
+                                           &trap_prompted))
+            {
+                you.turn_is_over = false;
+                return false;
+            }
+        }
+
+        if (!exclusion_prompted
+            && !check_moveto_exclusion(*site, "shadow step",
+                                       &exclusion_prompted))
+        {
+            return false;
+        }
+
+        if (!terrain_prompted
+            && !check_moveto_terrain(*site, "shadow step", "",
+                                     &terrain_prompted))
+        {
+            return false;
+        }
+    }
+
+    // XXX: This only ever fails if something's on the landing site;
+    // perhaps this should be handled more gracefully.
+    if (!you.move_to_pos(tgt.landing_site))
+    {
+        mpr("Something blocks your shadow step.");
+        return true;
+    }
+
+    const actor *victim = actor_at(sdirect.target);
+    mprf("You step into %s shadow.",
+         apostrophise(victim->name(DESC_THE)).c_str());
+
+    return true;
+}
+
+static bool _dithmenos_shadow_acts()
+{
+    if (!you_worship(GOD_DITHMENOS)
+        || you.piety < piety_breakpoint(3)
+        || player_under_penance())
+    {
+        return false;
+    }
+
+    // 10% chance at 4* piety; 50% chance at 200 piety.
+    const int range = MAX_PIETY - piety_breakpoint(3);
+    const int min   = range / 5;
+    return x_chance_in_y(min + ((range - min)
+                                * (you.piety - piety_breakpoint(3))
+                                / (MAX_PIETY - piety_breakpoint(3))),
+                         2 * range);
+}
+
+monster* shadow_monster(bool equip)
+{
+    if (monster_at(you.pos()))
+        return NULL;
+
+    int wpn_index  = NON_ITEM;
+    int ammo_index = NON_ITEM;
+
+    // Do a basic clone of the weapon.
+    item_def* wpn = you.weapon();
+    if (equip
+        && wpn
+        && (wpn->base_type == OBJ_WEAPONS
+            || wpn->base_type == OBJ_STAVES
+            || wpn->base_type == OBJ_RODS))
+    {
+        wpn_index = get_mitm_slot(10);
+        if (wpn_index == NON_ITEM)
+            return NULL;
+        item_def& new_item = mitm[wpn_index];
+        if (wpn->base_type == OBJ_STAVES)
+        {
+            new_item.base_type = OBJ_WEAPONS;
+            new_item.sub_type  = WPN_STAFF;
+        }
+        else if (wpn->base_type == OBJ_RODS)
+        {
+            new_item.base_type = OBJ_WEAPONS;
+            new_item.sub_type  = WPN_ROD;
+        }
+        else
+        {
+            new_item.base_type = wpn->base_type;
+            new_item.sub_type  = wpn->sub_type;
+        }
+        new_item.colour   = wpn->colour;
+        new_item.quantity = 1;
+        new_item.flags   |= ISFLAG_SUMMONED;
+    }
+    const int missile = you.m_quiver->get_fire_item();
+    if (equip && missile != -1)
+    {
+        ammo_index = get_mitm_slot(10);
+        if (ammo_index == NON_ITEM)
+        {
+            if (wpn_index != NON_ITEM)
+                destroy_item(wpn_index);
+            return NULL;
+        }
+        item_def& new_item = mitm[ammo_index];
+        item_def *ammo     = &you.inv[missile];
+        new_item.base_type = ammo->base_type;
+        new_item.sub_type  = ammo->sub_type;
+        new_item.colour    = ammo->colour;
+        new_item.quantity  = 1;
+        new_item.flags    |= ISFLAG_SUMMONED;
+    }
+
+    monster* mon = get_free_monster();
+    if (!mon)
+    {
+        if (wpn_index)
+            destroy_item(wpn_index);
+        return NULL;
+    }
+
+    mon->type       = MONS_PLAYER_SHADOW;
+    mon->behaviour  = BEH_SEEK;
+    mon->attitude   = ATT_FRIENDLY;
+    mon->flags      = MF_NO_REWARD | MF_JUST_SUMMONED | MF_SEEN
+                    | MF_WAS_IN_VIEW | MF_HARD_RESET
+                    | MF_ACTUAL_SPELLS;
+    mon->hit_points = you.hp;
+    mon->hit_dice   = min(27, max(1,
+                                  you.skill_rdiv(wpn_index != NON_ITEM
+                                                 ? weapon_skill(mitm[wpn_index])
+                                                 : SK_UNARMED_COMBAT, 10, 20)
+                                  + you.skill_rdiv(SK_FIGHTING, 10, 20)));
+    mon->set_position(you.pos());
+    mon->mid        = MID_PLAYER;
+    mon->inv[MSLOT_WEAPON]  = wpn_index;
+    mon->inv[MSLOT_MISSILE] = ammo_index;
+
+    mgrd(you.pos()) = mon->mindex();
+
+    return mon;
+}
+
+void shadow_monster_reset(monster *mon)
+{
+    if (mon->inv[MSLOT_WEAPON] != NON_ITEM)
+        destroy_item(mon->inv[MSLOT_WEAPON]);
+    if (mon->inv[MSLOT_MISSILE] != NON_ITEM)
+        destroy_item(mon->inv[MSLOT_MISSILE]);
+
+    mon->reset();
+}
+
+void dithmenos_shadow_melee(actor* target)
+{
+    if (!target
+        || !target->alive()
+        || !_dithmenos_shadow_acts())
+    {
+        return;
+    }
+
+    monster* mon = shadow_monster();
+    if (!mon)
+        return;
+
+    mon->target     = target->pos();
+    mon->foe        = target->mindex();
+
+    fight_melee(mon, target);
+
+    shadow_monster_reset(mon);
+}
+
+void dithmenos_shadow_throw(coord_def target)
+{
+    if (target.origin()
+        || !_dithmenos_shadow_acts())
+    {
+        return;
+    }
+
+    monster* mon = shadow_monster();
+    if (!mon)
+        return;
+
+    if (mon->inv[MSLOT_MISSILE] != NON_ITEM)
+    {
+        mon->target = target;
+
+        bolt beem;
+        beem.target = target;
+        setup_monster_throw_beam(mon, beem);
+        beem.item = &mitm[mon->inv[MSLOT_MISSILE]];
+        mons_throw(mon, beem, mon->inv[MSLOT_MISSILE]);
+    }
+
+    shadow_monster_reset(mon);
+}
+
+void dithmenos_shadow_spell(bolt* orig_beam, spell_type spell)
+{
+    if (!orig_beam
+        || orig_beam->target.origin()
+        || (orig_beam->is_enchantment() && !is_valid_mon_spell(spell))
+        || !_dithmenos_shadow_acts())
+    {
+        return;
+    }
+
+    const coord_def target = orig_beam->target;
+
+    monster* mon = shadow_monster();
+    if (!mon)
+        return;
+
+    // Don't let shadow spells get too powerful.
+    mon->hit_dice = max(1,
+                        min(3 * spell_difficulty(spell),
+                            you.experience_level) / 2);
+
+    mon->target = target;
+    if (actor_at(target))
+        mon->foe = actor_at(target)->mindex();
+
+    spell_type shadow_spell = spell;
+    if (!orig_beam->is_enchantment())
+    {
+        shadow_spell = (orig_beam->is_beam) ? SPELL_SHADOW_BOLT
+                                            : SPELL_SHADOW_SHARD;
+    }
+
+    bolt beem;
+    beem.target = target;
+    mprf(MSGCH_FRIEND_SPELL, "%s mimicks your spell!",
+         mon->name(DESC_THE).c_str());
+    mons_cast(mon, beem, shadow_spell, false, false);
+
+    shadow_monster_reset(mon);
 }

@@ -151,11 +151,13 @@ statue_angel
 statue_elephant
 %syn DNGN_STATUE_ELEPHANT
 statue_wraith
+%syn DNGN_STATUE_WRAITH
 statue_imp
 %syn DNGN_STATUE_IMP
 statue_orb
 statue_cerebov
 statue_demonic_bust
+%syn DNGN_STATUE_DEMONIC_BUST
 statue_twins
 statue_orb_guardian
 statue_sword
@@ -289,6 +291,7 @@ shop_scrolls SHOP_SCROLLS
 shop_wands SHOP_WANDS
 shop_jewellery SHOP_JEWELLERY
 shop_potions SHOP_POTIONS
+shop_gadgets SHOP_GADGETS
 %back none
 %shrink 1
 abandoned_shop DNGN_ABANDONED_SHOP
@@ -458,31 +461,33 @@ liquefaction1 LIQUEFACTION
 liquefaction2
 
 %sdir dngn/gateways
-%rim 1
+%rim 0
 enter_zot_closed DNGN_ENTER_ZOT_CLOSED
 enter_zot_open DNGN_ENTER_ZOT_OPEN
-%rim 0
 return_zot DNGN_RETURN_ZOT
 enter_temple DNGN_ENTER_TEMPLE
 exit_temple DNGN_EXIT_TEMPLE
-enter_orc DNGN_ENTER_ORCISH_MINES
-exit_orc DNGN_EXIT_ORCISH_MINES
-enter_elf DNGN_ENTER_ELVEN_HALLS
-exit_elf DNGN_EXIT_ELVEN_HALLS
+enter_orc DNGN_ENTER_ORC
+exit_orc DNGN_EXIT_ORC
+enter_elf DNGN_ENTER_ELF
+exit_elf DNGN_EXIT_ELF
 enter_lair DNGN_ENTER_LAIR
 exit_lair DNGN_EXIT_LAIR
-enter_snake DNGN_ENTER_SNAKE_PIT
-exit_snake DNGN_EXIT_SNAKE_PIT
+enter_snake DNGN_ENTER_SNAKE
+exit_snake DNGN_EXIT_SNAKE
 enter_swamp DNGN_ENTER_SWAMP
 exit_swamp DNGN_EXIT_SWAMP
-enter_spider DNGN_ENTER_SPIDER_NEST
-exit_spider DNGN_EXIT_SPIDER_NEST
+enter_spider DNGN_ENTER_SPIDER
+exit_spider DNGN_EXIT_SPIDER
 enter_shoals DNGN_ENTER_SHOALS
 exit_shoals DNGN_EXIT_SHOALS
-enter_slime DNGN_ENTER_SLIME_PITS
-exit_slime DNGN_EXIT_SLIME_PITS
-enter_vaults DNGN_ENTER_VAULTS
+enter_slime DNGN_ENTER_SLIME
+exit_slime DNGN_EXIT_SLIME
+enter_vaults_closed DNGN_ENTER_VAULTS_CLOSED
+enter_vaults_open DNGN_ENTER_VAULTS_OPEN
 exit_vaults DNGN_EXIT_VAULTS
+enter_depths DNGN_ENTER_DEPTHS
+return_depths DNGN_RETURN_DEPTHS
 enter_crypt DNGN_ENTER_CRYPT
 exit_crypt DNGN_EXIT_CRYPT
 enter_tomb DNGN_ENTER_TOMB
@@ -607,6 +612,9 @@ jiyva11
 fedhas DNGN_ALTAR_FEDHAS
 cheibriados DNGN_ALTAR_CHEIBRIADOS
 ashenzari DNGN_ALTAR_ASHENZARI
+dithmenos DNGN_ALTAR_DITHMENOS
+dithmenos2
+dithmenos3
 unknown DNGN_UNKNOWN_ALTAR
 
 %sdir dngn
@@ -758,6 +766,7 @@ effect/disjunct0 DISJUNCT
 effect/disjunct1
 effect/disjunct2
 effect/disjunct3
+landing LANDING
 effect/heataura0 HEAT_AURA
 effect/heataura1
 effect/heataura2
@@ -776,7 +785,6 @@ mold_glowing2
 mold_glowing3
 mold_glowing4
 effect/silenced SILENCED
-effect/suppressed SUPPRESSED
 %shrink 0
 %sdir mon/tentacles/kraken_corners
 kraken_corner_NW KRAKEN_OVERLAY_NW
@@ -793,3 +801,8 @@ starspawn_corner_NW STARSPAWN_OVERLAY_NW
 starspawn_corner_NE STARSPAWN_OVERLAY_NE
 starspawn_corner_SE STARSPAWN_OVERLAY_SE
 starspawn_corner_SW STARSPAWN_OVERLAY_SW
+%sdir mon/tentacles/vine_corners
+vine_corner_NW VINE_OVERLAY_NW
+vine_corner_NE VINE_OVERLAY_NE
+vine_corner_SE VINE_OVERLAY_SE
+vine_corner_SW VINE_OVERLAY_SW

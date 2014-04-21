@@ -1,4 +1,9 @@
 %%%%
+Fighting
+
+Umiejętność Walki zwiększa celność i zadawane obrażenia w walce wręcz oraz
+zwiększa maksymalną ilość punktów życia.
+%%%%
 Throwing
 
 Rozwijając Rzucanie sprawisz ,że broń rzucana ( np. Włócznie ) oraz wybuchowa
@@ -11,23 +16,22 @@ Umiejętność Uniki wpłynie na twoja szansę omijania ataków takich jak ataki
 bezpośrednie , dystansowe i magiczne . Nie wszystkie ataki są do ominięcia,
 ataki typu  klątwy czy eksplozje  muszą być odparte przez odporność.
 %%%%
-Stealth
+Stabbing
 
-Rozwijając Niewidzialność , możesz sprawić ,że rzadziej będziesz zauważany
-przez potworki gdy te śpią bądź jeszcze cię nie dostrzegły, umiejętność ta
-pozwoli Ci także prędzej zatrzeć swój ślad gdy już znikniesz z pola widzenia
-wroga. Przyuważ ,że potworki staja się bardziej uważne i podejrzliwe gdy tylko
-im umkniesz.
+Dźganie to umiejętność zwiększająca szanse na zadanie ogromnych obrażeń na
+nieświadomych lub zdezorientowanych celach (przeważnie używając krótkiego
+ostrza).
 %%%%
-Air Magic
+Shields
 
-Rozwijając umiejętności magiczne danej "szkoły" łatwiej będzie Ci uczyć się i
-rzucać czary z tejże szkoły . Wiele zaklęć zależy od kombinacji kilku szkół, w
-tym przypadku szansa na udane zaklęcie i jego moc zależeć będą od uśrednionej
-wartości wyszkolenia w tych szkołach.⏎ ⏎ Magia Powietrza zapewnia obrania
-prosto z wiatru, podobnie jak głośna ale potężna błyskawica. Wiatr zapewnia
-także kilka umiejętności użytkowych takich jak przyzwanie wiatru by
-przyspieszył Cię lub chronił od ataków bronią dystansową ⏎ ⏎ Wyszkolenie w
-Magii Wiatru powoduje trudności w uczeniu się Magii Ziemi i tak samo w drugą
-stronę .
+Wysoki poziom posługiwania się Tarczami pozwala na blokowanie ciosów oraz
+pocisków (magicznych oraz niemagicznych) używając Tarczy (fizycznej lub
+magicznej). Niektóre ataki, takie jak przebijające strzały, nie mogą zostać
+zablokowane.
+%%%%
+Unarmed Combat
+
+Bycie wyszkolonym w Nieuzbrojonej Walce zwiększa twoją celność, zadawane
+obrażenia oraz szybkość atak w walce wręcz. Pozwala także na okazjonalne
+zaatakowanie drugą ręką jako dodatkowy atak.
 %%%%

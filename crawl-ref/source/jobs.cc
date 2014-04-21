@@ -4,8 +4,11 @@
 
 #include "libutil.h"
 
-static const char * Job_Abbrev_List[ NUM_JOBS ] =
-    { "Fi", "Wz", "Pr",
+static const char * Job_Abbrev_List[] =
+    { "Fi", "Wz",
+#if TAG_MAJOR_VERSION == 34
+      "Pr",
+#endif
       "Gl", "Ne",
       "As", "Be", "Hu",
       "Cj", "En", "FE", "IE", "Su", "AE", "EE", "Sk",
@@ -21,8 +24,11 @@ static const char * Job_Abbrev_List[ NUM_JOBS ] =
 #endif
 };
 
-static const char * Job_Name_List[ NUM_JOBS ] =
-    { "Fighter", "Wizard", "Priest",
+static const char * Job_Name_List[] =
+    { "Fighter", "Wizard",
+#if TAG_MAJOR_VERSION == 34
+      "Priest",
+#endif
       "Gladiator", "Necromancer",
       "Assassin", "Berserker", "Hunter", "Conjurer", "Enchanter",
       "Fire Elementalist", "Ice Elementalist", "Summoner", "Air Elementalist",
@@ -63,7 +69,7 @@ job_type get_job_by_abbrev(const char *abbrev)
         }
     }
 
-    return ((i < NUM_JOBS) ? static_cast<job_type>(i) : JOB_UNKNOWN);
+    return (i < NUM_JOBS) ? static_cast<job_type>(i) : JOB_UNKNOWN;
 }
 
 const char *get_job_name(int which_job)
@@ -102,7 +108,7 @@ job_type get_job_by_name(const char *name)
 // Determines if a job is valid in a saved game. This is a pure bounds check.
 bool is_valid_job(job_type job)
 {
-    return (job >= 0 && job < NUM_JOBS);
+    return job >= 0 && job < NUM_JOBS;
 }
 
 // Determines if a job is valid for a new game.

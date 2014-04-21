@@ -9,8 +9,6 @@
 #ifndef MON_ENUM_H
 #define MON_ENUM_H
 
-// #include "tag-version.h"
-
 #define HERD_COMFORT_RANGE 6
 
 enum corpse_effect_type
@@ -59,10 +57,10 @@ enum attack_type
     AT_POUNCE,
     AT_REACH_STING,
     AT_CHERUB,
-
-    AT_SHOOT,       // Attack representing missile damage for M_ARCHER.
-    AT_WEAP_ONLY,   // Ranged weap: shoot point-blank like AT_SHOOT, melee weap
-                    //   use it, no weapon: stand there doing nothing.
+#if TAG_MAJOR_VERSION == 34
+    AT_SHOOT,
+#endif
+    AT_WEAP_ONLY,   // AT_HIT if wielding a melee weapon, AT_NONE otherwise
     AT_RANDOM,      // Anything but AT_SHOOT and AT_WEAP_ONLY.
 };
 
@@ -85,13 +83,17 @@ enum attack_flavour
     AF_MUTATE,
     AF_PARALYSE,
     AF_POISON,
+#if TAG_MAJOR_VERSION == 34
     AF_POISON_NASTY,
     AF_POISON_MEDIUM,
+#endif
     AF_POISON_STRONG,
+#if TAG_MAJOR_VERSION == 34
     AF_POISON_STR,
     AF_POISON_INT,
     AF_POISON_DEX,
     AF_POISON_STAT,
+#endif
     AF_ROT,
     AF_VAMPIRIC,
     AF_KLOWN,
@@ -100,21 +102,24 @@ enum attack_flavour
     AF_NAPALM,
     AF_CHAOS,
     AF_STEAL,
+#if TAG_MAJOR_VERSION == 34
     AF_STEAL_FOOD,
+#endif
     AF_CRUSH,
     AF_REACH,
     AF_HOLY,
     AF_ANTIMAGIC,
     AF_PAIN,
     AF_ENSNARE,
-    AF_DROWN,
+    AF_ENGULF,
     AF_PURE_FIRE,
     AF_DRAIN_SPEED,
     AF_VULN,
     AF_PLAGUE,
     AF_WEAKNESS_POISON,
     AF_SHADOWSTAB,
-    AF_WATERPORT,
+    AF_DROWN,
+    AF_FIREBRAND,
 };
 
 // Non-spell "summoning" types to give to monster::mark_summoned(), or
@@ -130,6 +135,7 @@ enum mon_summon_type
     MON_SUMM_ZOT,     // Zot trap
     MON_SUMM_WRATH,   // Divine wrath
     MON_SUMM_AID,     // Divine aid
+    MON_SUMM_SCROLL,  // Scroll of summoning
 };
 
 #include "mon-flags.h"
@@ -151,9 +157,7 @@ enum habitat_type
     HT_AMPHIBIOUS,       // Amphibious creatures
     HT_WATER,            // Water critters
     HT_LAVA,             // Lava critters
-    HT_ROCK,             // Rock critters
-    HT_INCORPOREAL,      // Incorporeal things
-    HT_FOREST,           // Forest critters
+    HT_AMPHIBIOUS_LAVA,  // Amphibious w/ lava (salamanders)
 
     NUM_HABITATS
 };
@@ -174,7 +178,9 @@ enum mon_itemeat_type
     MONEAT_NOTHING,
     MONEAT_ITEMS,
     MONEAT_CORPSES,
+#if TAG_MAJOR_VERSION == 34
     MONEAT_FOOD,
+#endif
 
     NUM_MONEAT
 };

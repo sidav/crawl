@@ -3,7 +3,6 @@
  * @brief Functions for handling player mutations.
 **/
 
-
 #ifndef MUTATION_H
 #define MUTATION_H
 
@@ -63,7 +62,6 @@ struct mutation_def
 
 void init_mut_index();
 
-bool is_valid_mutation(mutation_type mut);
 bool is_body_facet(mutation_type mut);
 const mutation_def& get_mutation_def(mutation_type mut);
 bool undead_mutation_rot(bool is_beneficial_mutation);
@@ -97,8 +95,8 @@ bool temp_mutate(mutation_type which_mut, const string &reason);
 int how_mutated(bool all = false, bool levels = false);
 
 void check_demonic_guardian();
-void check_antennae_detect();
-int handle_pbd_corpses(bool do_rot);
+void check_monster_detect();
+int handle_pbd_corpses();
 equipment_type beastly_slot(int mut);
 bool physiology_mutation_conflict(mutation_type mutat);
 int augmentation_amount();

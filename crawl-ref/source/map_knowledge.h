@@ -36,6 +36,7 @@ struct cloud_info
 #define MAP_SILENCED           0x800
 #define MAP_BLOODY            0x1000
 #define MAP_CORRODING         0x2000
+#define MAP_INVISIBLE_UPDATE  0x4000 // Used for invis redraws by show_init()
 
 /* these flags require more space to serialize: put infrequently used ones there */
 #define MAP_EXCLUDED_STAIRS  0x10000
@@ -47,7 +48,6 @@ struct cloud_info
 #define MAP_LIQUEFIED       0x400000
 #define MAP_ORB_HALOED      0x800000
 #define MAP_UMBRAED        0x1000000
-#define MAP_SUPPRESSED     0X2000000
 #define MAP_QUAD_HALOED    0X4000000
 #define MAP_DISJUNCT       0X8000000
 #define MAP_HOT           0x10000000
@@ -59,8 +59,7 @@ struct cloud_info
 struct map_cell
 {
     map_cell() : flags(0), _feat(DNGN_UNSEEN), _feat_colour(0),
-                 _cloud(0), _item(0), _mons(0),
-                 _trap(TRAP_UNASSIGNED)
+                 _trap(TRAP_UNASSIGNED), _cloud(0), _item(0), _mons(0)
     {
     }
 
@@ -113,14 +112,17 @@ struct map_cell
     // Clear prior to show update. Need to retain at least "seen" flag.
     void clear_data()
     {
-        const uint8_t f = flags & MAP_SEEN_FLAG;
+        const uint32_t f = flags & (MAP_SEEN_FLAG | MAP_INVISIBLE_UPDATE);
         clear();
         flags = f;
     }
 
     dungeon_feature_type feat() const
     {
-        return _feat;
+        // Ugh; MSVC makes the bit field signed even though that means it can't
+        // actually hold all the enum values. That seems to be in contradiction
+        // of the standard (§9.6 [class.bit] paragraph 4) but what can you do?
+        return dungeon_feature_type(uint8_t(_feat));
     }
 
     unsigned feat_colour() const
@@ -289,31 +291,16 @@ public:
 private:
     dungeon_feature_type _feat:8;
     colour_t _feat_colour;
+    trap_type _trap:8;
     cloud_info* _cloud;
     item_info* _item;
     monster_info* _mons;
-    trap_type _trap:8;
 };
 
-void set_terrain_mapped(int x, int y);
-static inline void set_terrain_mapped(const coord_def& c)
-{
-    set_terrain_mapped(c.x,c.y);
-}
+void set_terrain_mapped(const coord_def c);
+void set_terrain_seen(const coord_def c);
 
-void set_terrain_seen(int x, int y);
-static inline void set_terrain_seen(const coord_def& c)
-{
-    set_terrain_seen(c.x, c.y);
-}
-
-void set_terrain_changed(int x, int y);
-static inline void set_terrain_changed(const coord_def &c)
-{
-    set_terrain_changed(c.x, c.y);
-}
-
-void set_terrain_visible(const coord_def &c);
+void set_terrain_visible(const coord_def c);
 void clear_terrain_visibility();
 
 int count_detected_mons(void);

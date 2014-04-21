@@ -34,7 +34,7 @@ const int STATZERO_TURN_CAP = 200;
 int player::stat(stat_type s, bool nonneg) const
 {
     const int val = max_stat(s) - stat_loss[s];
-    return (nonneg ? max(val, 0) : val);
+    return nonneg ? max(val, 0) : val;
 }
 
 int player::strength(bool nonneg) const
@@ -98,23 +98,34 @@ bool attribute_increase()
     me->add_tile(tile_def(TILEG_DODGING_ON, TEX_GUI));
     pop->push_entry(me);
 #else
-    mpr("Your experience leads to an increase in your attributes!",
-        MSGCH_INTRINSIC_GAIN);
+    mprf(MSGCH_INTRINSIC_GAIN, "Your experience leads to an increase in your attributes!");
     learned_something_new(HINT_CHOOSE_STAT);
-    mpr("Increase (S)trength, (I)ntelligence, or (D)exterity? ", MSGCH_PROMPT);
+    mprf(MSGCH_PROMPT, "Increase (S)trength, (I)ntelligence, or (D)exterity? ");
 #endif
     mouse_control mc(MOUSE_MODE_PROMPT);
-    // Calling a user-defined lua function here to let players reply to the
-    // prompt automatically.
-    clua.callfn("choose_stat_gain", 0, 0);
 
+    bool tried_lua = false;
+    int keyin;
     while (true)
     {
+        // Calling a user-defined lua function here to let players reply to
+        // the prompt automatically. Either returning a string or using
+        // crawl.sendkeys will work.
+        if (!tried_lua && clua.callfn("choose_stat_gain", 0, 1))
+        {
+            string result;
+            clua.fnreturns(">s", &result);
+            keyin = result[0];
+        }
+        else
+        {
 #ifdef TOUCH_UI
-        const int keyin = pop->pop();
+            keyin = pop->pop();
 #else
-        const int keyin = getchm();
+            keyin = getchm();
 #endif
+        }
+        tried_lua = true;
 
         switch (keyin)
         {
@@ -179,23 +190,30 @@ void jiyva_stat_action()
 
             int weight = you.skills[sk];
 
-            // Anyone can get Spellcasting 1. Doesn't prove anything.
-            if (sk == SK_SPELLCASTING && weight >= 1)
-                weight--;
-
             if (sk >= SK_SPELLCASTING && sk < SK_INVOCATIONS)
                 magic_weights += weight;
             else
                 other_weights += weight;
         }
+
+        // Heavy armour weights towards strength, Dodging skill towards
+        // dexterity.  EVP 15 (chain) is enough to weight towards pure
+        // Str in the absence of dodging skill, but 15 dodging will
+        // will push that back to pure Dex.
+        int str_weight = (10*evp - you.skill(SK_DODGING, 10))/15;
+        // Clip weight between 0 (pure dex) and 10 (pure strength).
+        str_weight = min(10, max(0, str_weight));
+
         // If you are in really heavy armour, then you already are getting a
         // lot of Str and more won't help much, so weight magic more.
         other_weights = max(other_weights - (evp >= 15 ? 4 : 1) * magic_weights/2, 0);
         magic_weights = div_rand_round(remaining * magic_weights, magic_weights + other_weights);
         other_weights = remaining - magic_weights;
         target_stat[1] += magic_weights;
-        // Choose Str or Dex based on how heavy your armour is.
-        target_stat[(evp >= 15) ? 0 : 2] += other_weights;
+
+        const int str_adj = div_rand_round(other_weights * str_weight, 10);
+        target_stat[0] += str_adj;
+        target_stat[2] += (other_weights - str_adj);
     }
     // Add a little fuzz to the target.
     for (int x = 0; x < 3; ++x)
@@ -209,7 +227,8 @@ void jiyva_stat_action()
         for (int y = 0; y < 3; ++y)
         {
             if (x != y && cur_stat[y] > 1
-                && target_stat[x] - cur_stat[x] > target_stat[y] - cur_stat[y])
+                && target_stat[x] - cur_stat[x] > target_stat[y] - cur_stat[y]
+                && cur_stat[x] < 72)
             {
                 choices++;
                 if (one_chance_in(choices))
@@ -243,7 +262,8 @@ static kill_method_type _statloss_killtype(stat_type stat)
     }
 }
 
-static const char* descs[NUM_STATS][NUM_STAT_DESCS] = {
+static const char* descs[NUM_STATS][NUM_STAT_DESCS] =
+{
     { "strength", "weakened", "weaker", "stronger" },
     { "intelligence", "dopey", "stupid", "clever" },
     { "dexterity", "clumsy", "clumsy", "agile" }
@@ -251,7 +271,7 @@ static const char* descs[NUM_STATS][NUM_STAT_DESCS] = {
 
 const char* stat_desc(stat_type stat, stat_desc_type desc)
 {
-    return (descs[stat][desc]);
+    return descs[stat][desc];
 }
 
 void modify_stat(stat_type which_stat, int amount, bool suppress_msg,
@@ -362,17 +382,14 @@ static int _strength_modifier()
 
     result += chei_stat_boost();
 
-    if (!you.suppressed())
-    {
-        // ego items of strength
-        result += 3 * count_worn_ego(SPARM_STRENGTH);
+    // ego items of strength
+    result += 3 * count_worn_ego(SPARM_STRENGTH);
 
-        // rings of strength
-        result += you.wearing(EQ_RINGS_PLUS, RING_STRENGTH);
+    // rings of strength
+    result += you.wearing(EQ_RINGS_PLUS, RING_STRENGTH);
 
-        // randarts of strength
-        result += you.scan_artefacts(ARTP_STRENGTH);
-    }
+    // randarts of strength
+    result += you.scan_artefacts(ARTP_STRENGTH);
 
     // mutations
     result += 2 * (player_mutation_level(MUT_STRONG)
@@ -381,8 +398,6 @@ static int _strength_modifier()
     result += player_mutation_level(MUT_STRONG_STIFF)
               - player_mutation_level(MUT_FLEXIBLE_WEAK);
 #endif
-    result -= player_mutation_level(MUT_THIN_SKELETAL_STRUCTURE)
-              ? player_mutation_level(MUT_THIN_SKELETAL_STRUCTURE) - 1 : 0;
 
     // transformations
     switch (you.form)
@@ -408,17 +423,14 @@ static int _int_modifier()
 
     result += chei_stat_boost();
 
-    if (!you.suppressed())
-    {
-        // ego items of intelligence
-        result += 3 * count_worn_ego(SPARM_INTELLIGENCE);
+    // ego items of intelligence
+    result += 3 * count_worn_ego(SPARM_INTELLIGENCE);
 
-        // rings of intelligence
-        result += you.wearing(EQ_RINGS_PLUS, RING_INTELLIGENCE);
+    // rings of intelligence
+    result += you.wearing(EQ_RINGS_PLUS, RING_INTELLIGENCE);
 
-        // randarts of intelligence
-        result += you.scan_artefacts(ARTP_INTELLIGENCE);
-    }
+    // randarts of intelligence
+    result += you.scan_artefacts(ARTP_INTELLIGENCE);
 
     // mutations
     result += 2 * (player_mutation_level(MUT_CLEVER)
@@ -439,17 +451,14 @@ static int _dex_modifier()
 
     result += chei_stat_boost();
 
-    if (!you.suppressed())
-    {
-        // ego items of dexterity
-        result += 3 * count_worn_ego(SPARM_DEXTERITY);
+    // ego items of dexterity
+    result += 3 * count_worn_ego(SPARM_DEXTERITY);
 
-        // rings of dexterity
-        result += you.wearing(EQ_RINGS_PLUS, RING_DEXTERITY);
+    // rings of dexterity
+    result += you.wearing(EQ_RINGS_PLUS, RING_DEXTERITY);
 
-        // randarts of dexterity
-        result += you.scan_artefacts(ARTP_DEXTERITY);
-    }
+    // randarts of dexterity
+    result += you.scan_artefacts(ARTP_DEXTERITY);
 
     // mutations
     result += 2 * (player_mutation_level(MUT_AGILE)
@@ -521,7 +530,7 @@ bool lose_stat(stat_type which_stat, int stat_loss, bool force,
         int sust = player_sust_abil();
         stat_loss >>= sust;
 
-        if (sust && !stat_loss && !player_sust_abil(false))
+        if (sust && !player_sust_abil(false))
         {
             item_def *ring = get_only_unided_ring();
             if (ring && !is_artefact(*ring)
@@ -533,7 +542,8 @@ bool lose_stat(stat_type which_stat, int stat_loss, bool force,
     }
 
     mprf(stat_loss > 0 ? MSGCH_WARN : MSGCH_PLAIN,
-         "You feel %s%s.",
+         "You feel %s%s%s.",
+         stat_loss > 0 && player_sust_abil(false) ? "somewhat " : "",
          stat_desc(which_stat, SD_LOSS),
          stat_loss > 0 ? "" : " for a moment");
 

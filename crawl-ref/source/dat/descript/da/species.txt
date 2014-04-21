@@ -23,18 +23,15 @@ Demonspawn
 Dæmonyngel er halvt menneske, halvt dæmon. De pådrager sig stærke, dæmoniske
 mutationer, når de vokser.
 %%%%
-Djinni
-
-Djinn er ildånder, og for dem er magi selve livets essens.
-%%%%
 Draconian
 
 Drakonere er alsidige hybrider. De modnes og får en farve, når de når niveau 7.
 %%%%
 Felid
 
-Disse katte besidder en bevidsthed, men de er ude af stand til at håndtere
-komplicerede genstande eller at bruge rustning eller våben.
+Disse katte besidder ikke bare flere liv, men også en bevidsthed. Til gengæld
+er de ude af stand til at håndtere komplicerede genstande eller at bruge
+rustning eller våben.
 %%%%
 Ghoul
 
@@ -109,11 +106,6 @@ Ogre
 De er store og stærke og ses mest som bøller. Ogrer har det dog udmærket med
 grundlæggende magi.
 %%%%
-Sludge Elf
-
-En depraveret slags elver, som foretrækker list frem for ærlig kamp, og sort
-magi frem for andre besværgelser.
-%%%%
 Spriggan
 
 Meget små, meget skrøbelige og meget hurtige. Sprigger er særdeles dygtige
@@ -123,9 +115,4 @@ Troll
 
 Store, brutale og klar til at lemlæste hvad som helst med deres kløer uden at
 tøve. De er altid sultne.
-%%%%
-Vampire
-
-De skifter mellem at være levende og udøde, og de er dygtige dolkere og
-troldmænd.
 %%%%

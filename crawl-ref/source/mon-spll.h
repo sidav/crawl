@@ -1,7 +1,6 @@
 #ifndef MON_SPLL_H
 #define MON_SPLL_H
 
-
 /* *********************************************************************
 
     This file determines which spells are contained in monster spellbooks.
@@ -22,7 +21,6 @@
     }
 
 ********************************************************************* */
-
 
     {  MST_ORC_WIZARD_I,
       {
@@ -57,19 +55,6 @@
       }
     },
 
-#if TAG_MAJOR_VERSION == 34
-    {  MST_DEEP_DWARF_NECROMANCER,
-      {
-       SPELL_PAIN,
-       SPELL_DISPEL_UNDEAD,
-       SPELL_SIMULACRUM,
-       SPELL_VAMPIRIC_DRAINING,
-       SPELL_AGONY,
-       SPELL_VAMPIRIC_DRAINING
-      }
-    },
-#endif
-
     {  MST_UNBORN,
       {
        SPELL_AGONY,
@@ -80,7 +65,6 @@
        SPELL_INJURY_MIRROR
       }
     },
-
 
     {  MST_BK_TROG,
       {
@@ -106,12 +90,12 @@
 
     {  MST_GUARDIAN_SERPENT,
       {
-       SPELL_TELEPORT_OTHER,
-       SPELL_TELEPORT_OTHER,
-       SPELL_MINOR_HEALING,
        SPELL_VENOM_BOLT,
        SPELL_SLOW,
-       SPELL_MINOR_HEALING
+       SPELL_NO_SPELL,
+       SPELL_NO_SPELL,
+       SPELL_BLINK_ALLIES_ENCIRCLE,
+       SPELL_NO_SPELL
       }
     },
 
@@ -230,7 +214,7 @@
        SPELL_BRAIN_FEED,
        SPELL_CAUSE_FEAR,
        SPELL_SHADOW_CREATURES,
-       SPELL_CONFUSE,
+       SPELL_MASS_CONFUSION,
        SPELL_BLINK,
        SPELL_TELEPORT_SELF
       }
@@ -238,12 +222,12 @@
 
     {  MST_RAKSHASA,
       {
-       SPELL_FAKE_RAKSHASA_SUMMON,
+       SPELL_ISKENDERUNS_MYSTIC_BLAST,
+       SPELL_ISKENDERUNS_MYSTIC_BLAST,
+       SPELL_PHANTOM_MIRROR,
+       SPELL_PHANTOM_MIRROR,
        SPELL_BLINK,
-       SPELL_INVISIBILITY,
-       SPELL_FAKE_RAKSHASA_SUMMON,
-       SPELL_BLINK,
-       SPELL_TELEPORT_SELF
+       SPELL_NO_SPELL
       }
     },
 
@@ -276,7 +260,7 @@
        SPELL_SUMMON_DEMON,
        SPELL_PARALYSE,
        SPELL_ANIMATE_DEAD,
-       SPELL_NO_SPELL
+       SPELL_NO_SPELL,
       }
     },
 
@@ -359,7 +343,7 @@
 
     {  MST_WIZARD_III,
       {
-       SPELL_PETRIFY,
+       SPELL_NO_SPELL,
        SPELL_LEHUDIBS_CRYSTAL_SPEAR,
        SPELL_BLINK,
        SPELL_BOLT_OF_FIRE,
@@ -614,7 +598,7 @@
       {
        SPELL_BLINK,
        SPELL_SUMMON_VERMIN,
-       SPELL_NO_SPELL,
+       SPELL_SUMMON_VERMIN,
        SPELL_SUMMON_VERMIN,
        SPELL_NO_SPELL,
        SPELL_NO_SPELL
@@ -660,7 +644,7 @@
        SPELL_BANISHMENT,
        SPELL_SUMMON_DEMON,
        SPELL_SUMMON_GREATER_DEMON,
-       SPELL_SUMMON_MINOR_DEMON,
+       SPELL_SUMMON_GREATER_DEMON,
        SPELL_NO_SPELL
       }
     },
@@ -931,12 +915,12 @@
 
     {  MST_BOGGART,
       {
-       SPELL_CONFUSE,
-       SPELL_SLOW,
-       SPELL_INVISIBILITY,
-       SPELL_BLINK,
        SPELL_SHADOW_CREATURES,
-       SPELL_SHADOW_CREATURES
+       SPELL_SHADOW_CREATURES,
+       SPELL_INVISIBILITY,
+       SPELL_BLINK_AWAY,
+       SPELL_SHADOW_CREATURES,
+       SPELL_NO_SPELL
       }
     },
 
@@ -1196,7 +1180,7 @@
       {
        SPELL_PORKALATOR,
        SPELL_SLOW,
-       SPELL_SUMMON_UGLY_THING,
+       SPELL_MONSTROUS_MENAGERIE,
        SPELL_PORKALATOR,
        SPELL_CORONA,
        SPELL_INVISIBILITY
@@ -1294,9 +1278,9 @@
 
     {  MST_ANTAEUS,
       {
-       SPELL_BOLT_OF_COLD,
+       SPELL_FLASH_FREEZE,
        SPELL_LIGHTNING_BOLT,
-       SPELL_NO_SPELL,
+       SPELL_FLASH_FREEZE,
        SPELL_NO_SPELL,
        SPELL_NO_SPELL,
        SPELL_NO_SPELL
@@ -1316,12 +1300,12 @@
 
     {  MST_LOM_LOBON,
       {
-       SPELL_ICE_STORM,
+       SPELL_GLACIATE,
        SPELL_CONJURE_BALL_LIGHTNING,
        SPELL_MAJOR_HEALING,
+       SPELL_TORNADO,
        SPELL_BLINK_RANGE,
-       SPELL_BLINK_RANGE,
-       SPELL_ICE_STORM
+       SPELL_TORNADO
       }
     },
 
@@ -1426,21 +1410,10 @@
 
     {  MST_MARA,
       {
-       SPELL_MISLEAD,
+       SPELL_NO_SPELL,
        SPELL_BOLT_OF_FIRE,
        SPELL_FAKE_MARA_SUMMON,
        SPELL_SUMMON_ILLUSION,
-       SPELL_PAIN,
-       SPELL_TELEPORT_SELF
-      }
-    },
-
-    {  MST_MARA_FAKE,
-      {
-       SPELL_MISLEAD,
-       SPELL_BOLT_OF_FIRE,
-       SPELL_NO_SPELL,
-       SPELL_NO_SPELL,
        SPELL_PAIN,
        SPELL_TELEPORT_SELF
       }
@@ -1481,11 +1454,11 @@
 
     {  MST_SPRIGGAN_DRUID,
       {
-       SPELL_SUNRAY,
+       SPELL_STONE_ARROW,
        SPELL_AWAKEN_FOREST,
-       SPELL_HASTE_PLANTS,
+       SPELL_NO_SPELL,
        SPELL_DRUIDS_CALL,
-       SPELL_HASTE_PLANTS,
+       SPELL_NO_SPELL,
        SPELL_MINOR_HEALING
       }
     },
@@ -1495,8 +1468,8 @@
        SPELL_AIRSTRIKE,
        SPELL_LIGHTNING_BOLT,
        SPELL_CONTROL_WINDS,
-       SPELL_SHOCK,
-       SPELL_NO_SPELL,
+       SPELL_AIRSTRIKE,
+       SPELL_HASTE,
        SPELL_NO_SPELL
       }
     },
@@ -1572,7 +1545,7 @@
        SPELL_BOLT_OF_DRAINING,
        SPELL_SUMMON_SPECTRAL_ORCS,
        SPELL_SUMMON_SPECTRAL_ORCS,
-       SPELL_DISPEL_UNDEAD,
+       SPELL_NO_SPELL,
        SPELL_HASTE_OTHER,
        SPELL_DEATHS_DOOR
       }
@@ -1713,7 +1686,7 @@
     {  MST_GNOLL_SHAMAN,
       {
        SPELL_CORONA,
-       SPELL_PETRIFY,
+       SPELL_NO_SPELL,
        SPELL_HEAL_OTHER,
        SPELL_HASTE_OTHER,
        SPELL_HEAL_OTHER,
@@ -1798,6 +1771,17 @@
       }
     },
 
+    {  MST_NATASHA,
+      {
+       SPELL_MAGIC_DART,
+       SPELL_SLOW,
+       SPELL_NO_SPELL,
+       SPELL_CALL_IMP,
+       SPELL_NO_SPELL,
+       SPELL_MEPHITIC_CLOUD
+      }
+    },
+
     {  MST_THRASHING_HORROR,
       {
        SPELL_NO_SPELL,
@@ -1817,17 +1801,6 @@
        SPELL_SHATTER,
        SPELL_DIG,
        SPELL_NO_SPELL
-      }
-    },
-
-    {  MST_LAMIA,
-      {
-       SPELL_IOOD,
-       SPELL_MESMERISE,
-       SPELL_HASTE,
-       SPELL_POISON_ARROW,
-       SPELL_NO_SPELL,
-       SPELL_TELEPORT_SELF
       }
     },
 
@@ -1963,12 +1936,34 @@
       }
     },
 
-    {  MST_FAUN,
+    {  MST_FAUN_I,
       {
        SPELL_CORONA,
        SPELL_NO_SPELL,
-       SPELL_CORONA,
        SPELL_SLOW,
+       SPELL_SLOW,
+       SPELL_MELEE,
+       SPELL_NO_SPELL
+      }
+    },
+
+    {  MST_FAUN_II,
+      {
+       SPELL_CORONA,
+       SPELL_NO_SPELL,
+       SPELL_SLOW,
+       SPELL_MELEE,
+       SPELL_MELEE,
+       SPELL_NO_SPELL
+      }
+    },
+
+    {  MST_FAUN_III,
+      {
+       SPELL_CORONA,
+       SPELL_NO_SPELL,
+       SPELL_MELEE,
+       SPELL_MELEE,
        SPELL_CONFUSE,
        SPELL_NO_SPELL
       }
@@ -1976,23 +1971,12 @@
 
     {  MST_SATYR,
       {
-       SPELL_NO_SPELL,
+       SPELL_MELEE,
        SPELL_NO_SPELL,
        SPELL_CAUSE_FEAR,
        SPELL_CAUSE_FEAR,
        SPELL_SLEEP,
        SPELL_NO_SPELL
-      }
-    },
-
-    {  MST_PAN,
-      {
-       SPELL_NO_SPELL,
-       SPELL_MASS_CONFUSION,
-       SPELL_NO_SPELL,
-       SPELL_ENGLACIATION,
-       SPELL_SLEEP,
-       SPELL_BLINK
       }
     },
 
@@ -2078,7 +2062,7 @@
        SPELL_SLEEP,
        SPELL_SLEEP,
        SPELL_INVISIBILITY,
-       SPELL_NO_SPELL,
+       SPELL_HASTE,
        SPELL_STRIP_RESISTANCE,
        SPELL_NO_SPELL
       }
@@ -2150,17 +2134,6 @@
       }
     },
 
-    {  MST_ELEMENTAL_WELLSPRING,
-      {
-       SPELL_PRIMAL_WAVE,
-       SPELL_PRIMAL_WAVE,
-       SPELL_NO_SPELL,
-       SPELL_PRIMAL_WAVE,
-       SPELL_PRIMAL_WAVE,
-       SPELL_NO_SPELL
-      }
-    },
-
     {  MST_DRACONIAN_ZEALOT,
       {
        SPELL_SUMMON_DEMON,
@@ -2188,7 +2161,7 @@
        SPELL_BOLT_OF_MAGMA,
        SPELL_STONE_ARROW,
        SPELL_NO_SPELL,
-       SPELL_PETRIFY,
+       SPELL_NO_SPELL,
        SPELL_STONE_ARROW,
        SPELL_NO_SPELL
       }
@@ -2226,5 +2199,289 @@
        SPELL_NO_SPELL
       }
     },
+    {  MST_ASTERION,
+      {
+       SPELL_MAJOR_DESTRUCTION,
+       SPELL_SPECTRAL_WEAPON,
+       SPELL_HASTE,
+       SPELL_SPECTRAL_WEAPON,
+       SPELL_SPECTRAL_WEAPON,
+       SPELL_HASTE,
+      }
+    },
 
+    {  MST_RAIJU,
+      {
+       SPELL_BLINKBOLT,
+       SPELL_NO_SPELL,
+       SPELL_NO_SPELL,
+       SPELL_NO_SPELL,
+       SPELL_NO_SPELL,
+       SPELL_NO_SPELL
+      }
+    },
+
+    {  MST_OGRE_MAGE_I,
+      {
+       SPELL_HASTE_OTHER,
+       SPELL_PARALYSE,
+       SPELL_HASTE,
+       SPELL_LIGHTNING_BOLT,
+       SPELL_CONFUSE,
+       SPELL_TELEPORT_SELF
+      }
+    },
+
+    {  MST_OGRE_MAGE_II,
+      {
+       SPELL_HASTE_OTHER,
+       SPELL_ISKENDERUNS_MYSTIC_BLAST,
+       SPELL_INVISIBILITY,
+       SPELL_CONFUSE,
+       SPELL_SLOW,
+       SPELL_TELEPORT_SELF
+      }
+    },
+
+    {  MST_OGRE_MAGE_III,
+      {
+       SPELL_HASTE_OTHER,
+       SPELL_LEHUDIBS_CRYSTAL_SPEAR,
+       SPELL_BLINK,
+       SPELL_BOLT_OF_FIRE,
+       SPELL_BOLT_OF_COLD,
+       SPELL_MINOR_HEALING
+      }
+    },
+
+    {  MST_OGRE_MAGE_IV,
+      {
+       SPELL_HASTE_OTHER,
+       SPELL_STING,
+       SPELL_BLINK,
+       SPELL_LIGHTNING_BOLT,
+       SPELL_BANISHMENT,
+       SPELL_MINOR_HEALING
+      }
+    },
+
+    {  MST_OGRE_MAGE_V,
+      {
+       SPELL_HASTE_OTHER,
+       SPELL_THROW_FLAME,
+       SPELL_INVISIBILITY,
+       SPELL_TELEPORT_OTHER,
+       SPELL_FIREBALL,
+       SPELL_TELEPORT_OTHER
+      }
+    },
+
+    {  MST_NAGA_ENCHANTER,
+      {
+       SPELL_NO_SPELL,
+       SPELL_CONFUSE,
+       SPELL_HASTE,
+       SPELL_INVISIBILITY_OTHER,
+       SPELL_HASTE_OTHER,
+       SPELL_NO_SPELL
+      }
+    },
+
+    {  MST_NAGA_SNIPER,
+      {
+       SPELL_PORTAL_PROJECTILE,
+       SPELL_PORTAL_PROJECTILE,
+       SPELL_NO_SPELL,
+       SPELL_NO_SPELL,
+       SPELL_NO_SPELL,
+       SPELL_NO_SPELL
+      }
+    },
+
+    {  MST_NAGA_RITUALIST,
+      {
+       SPELL_FORCE_LANCE,
+       SPELL_OLGREBS_TOXIC_RADIANCE,
+       SPELL_OLGREBS_TOXIC_RADIANCE,
+       SPELL_VIRULENCE,
+       SPELL_VIRULENCE,
+       SPELL_NO_SPELL
+      }
+    },
+
+    {  MST_SALAMANDER_MYSTIC,
+      {
+       SPELL_ISKENDERUNS_MYSTIC_BLAST,
+       SPELL_BOLT_OF_MAGMA,
+       SPELL_HASTE_OTHER,
+       SPELL_HASTE_OTHER,
+       SPELL_IGNITE_POISON_SINGLE,
+       SPELL_NO_SPELL
+      }
+    },
+
+    {  MST_WORLDBINDER,
+      {
+       SPELL_FORCEFUL_INVITATION,
+       SPELL_FORCEFUL_INVITATION,
+       SPELL_NO_SPELL,
+       SPELL_FORCEFUL_INVITATION,
+       SPELL_FORCEFUL_INVITATION,
+       SPELL_NO_SPELL
+      }
+    },
+
+    {  MST_DEMONSPAWN_BLOOD_SAINT,
+      {
+       SPELL_LEGENDARY_DESTRUCTION,
+       SPELL_NO_SPELL,
+       SPELL_EPHEMERAL_INFUSION,
+       SPELL_LEGENDARY_DESTRUCTION,
+       SPELL_NO_SPELL,
+       SPELL_EPHEMERAL_INFUSION
+      }
+    },
+
+    {  MST_DEMONSPAWN_CORRUPTER,
+      {
+       SPELL_PLANEREND,
+       SPELL_CORRUPT_BODY,
+       SPELL_NO_SPELL,
+       SPELL_PLANEREND,
+       SPELL_CORRUPT_BODY,
+       SPELL_NO_SPELL
+      }
+    },
+
+    {  MST_DEMONSPAWN_CHAOS_CHAMPION,
+      {
+       SPELL_RANDOM_BOLT,
+       SPELL_CHAOTIC_MIRROR,
+       SPELL_MELEE,
+       SPELL_MELEE,
+       SPELL_NO_SPELL,
+       SPELL_NO_SPELL
+      }
+    },
+
+    {  MST_DEMONSPAWN_BLACK_SUN,
+      {
+       SPELL_BOLT_OF_DRAINING,
+       SPELL_MALIGN_OFFERING,
+       SPELL_BLACK_MARK,
+       SPELL_BLACK_MARK,
+       SPELL_DISPEL_UNDEAD,
+       SPELL_NO_SPELL
+      }
+    },
+
+    {  MST_DEMONSPAWN_WARMONGER,
+      {
+       SPELL_MELEE, // heh
+       SPELL_SAP_MAGIC,
+       SPELL_GRAND_AVATAR,
+       SPELL_GRAND_AVATAR,
+       SPELL_NO_SPELL,
+       SPELL_NO_SPELL
+      }
+    },
+
+    {  MST_DRACONIAN_KNIGHT_I,
+      {
+       SPELL_BOLT_OF_COLD,
+       SPELL_BOLT_OF_DRAINING,
+       SPELL_INVISIBILITY,
+       SPELL_ANIMATE_DEAD,
+       SPELL_THROW_ICICLE,
+       SPELL_NO_SPELL
+      }
+    },
+
+    {  MST_DRACONIAN_KNIGHT_II,
+      {
+       SPELL_BOLT_OF_COLD,
+       SPELL_LIGHTNING_BOLT,
+       SPELL_VAMPIRIC_DRAINING,
+       SPELL_AGONY,
+       SPELL_THROW_ICICLE,
+       SPELL_NO_SPELL
+      }
+    },
+
+    {  MST_DRACONIAN_KNIGHT_III,
+      {
+       SPELL_BOLT_OF_COLD,
+       SPELL_THROW_ICICLE,
+       SPELL_HASTE,
+       SPELL_SIMULACRUM,
+       SPELL_OZOCUBUS_ARMOUR,
+       SPELL_NO_SPELL
+      }
+    },
+
+    {  MST_VASHNIA,
+      {
+       SPELL_PORTAL_PROJECTILE,
+       SPELL_BLINK_ALLIES_AWAY,
+       SPELL_BLINK_AWAY,
+       SPELL_PORTAL_PROJECTILE,
+       SPELL_BLINK_ALLIES_AWAY,
+       SPELL_BLINK_OTHER
+      }
+    },
+
+    {  MST_CRYSTAL_GUARDIAN,
+      {
+       SPELL_CRYSTAL_BOLT,
+       SPELL_CRYSTAL_BOLT,
+       SPELL_NO_SPELL,
+       SPELL_NO_SPELL,
+       SPELL_NO_SPELL,
+       SPELL_CRYSTAL_BOLT
+      }
+    },
+
+    {  MST_GARGOYLE,
+      {
+       SPELL_STONE_ARROW,
+       SPELL_STONE_ARROW,
+       SPELL_NO_SPELL,
+       SPELL_STONE_ARROW,
+       SPELL_STONE_ARROW,
+       SPELL_NO_SPELL
+      }
+    },
+
+    {  MST_MOLTEN_GARGOYLE,
+      {
+       SPELL_BOLT_OF_MAGMA,
+       SPELL_BOLT_OF_MAGMA,
+       SPELL_NO_SPELL,
+       SPELL_BOLT_OF_MAGMA,
+       SPELL_BOLT_OF_MAGMA,
+       SPELL_NO_SPELL
+      }
+    },
+
+    {  MST_OCTOPODE_CRUSHER,
+      {
+       SPELL_THROW_ICICLE,
+       SPELL_THROW_ICICLE,
+       SPELL_NO_SPELL,
+       SPELL_MELEE,
+       SPELL_MELEE,
+       SPELL_NO_SPELL,
+      }
+    },
+
+    {  MST_JOSEPHINE,
+      {
+       SPELL_GHOSTLY_FIREBALL,
+       SPELL_GHOSTLY_FIREBALL,
+       SPELL_VAMPIRIC_DRAINING,
+       SPELL_ANIMATE_DEAD,
+       SPELL_DISPEL_UNDEAD,
+       SPELL_NO_SPELL
+      }
+    },
 #endif

@@ -30,7 +30,7 @@
 // db, loading, and destroying the DB.
 class TextDB
 {
- public:
+public:
     // db_name is the savedir-relative name of the db file,
     // minus the "db" extension.
     TextDB(const char* db_name, const char* dir, ...);
@@ -265,7 +265,7 @@ bool TextDB::_needs_update() const
         return false;
     }
 
-    return (ts != timestamp);
+    return ts != timestamp;
 }
 
 void TextDB::_regenerate_db()
@@ -316,7 +316,7 @@ void TextDB::_regenerate_db()
 // DB system
 // ----------------------------------------------------------------------
 
-#ifndef DGAMELAUNCH
+#if !defined(DGAMELAUNCH) && !defined(TARGET_OS_WINDOWS)
 static void* init_db(void *arg)
 {
     AllDBs[(intptr_t)arg].init();
@@ -335,7 +335,10 @@ void databaseSystemInit()
 
     thread_t th[NUM_DB];
     for (unsigned int i = 0; i < NUM_DB; i++)
-#ifndef DGAMELAUNCH
+// Using threads for loading on Windows at the moment seems to cause
+// random failures to find files (#5854); thus disabling it here until
+// we can identify what's going on.
+#if !defined(DGAMELAUNCH) && !defined(TARGET_OS_WINDOWS)
         if (thread_create_joinable(&th[i], init_db, (void*)(intptr_t)i))
 #endif
         {
@@ -356,7 +359,6 @@ void databaseSystemShutdown()
 
 ////////////////////////////////////////////////////////////////////////////
 // Main DB functions
-
 
 static datum _database_fetch(DBM *database, const string &key)
 {
@@ -445,7 +447,7 @@ static void _execute_embedded_lua(string &str)
         string::size_type end = str.find("}}", pos + 2);
         if (end == string::npos)
         {
-            mpr("Unbalanced {{, bailing.", MSGCH_DIAGNOSTICS);
+            mprf(MSGCH_DIAGNOSTICS, "Unbalanced {{, bailing.");
             break;
         }
 
@@ -652,7 +654,7 @@ static string _getRandomisedStr(TextDB &db, const string &key,
     recursion_depth++;
     if (recursion_depth > MAX_RECURSION_DEPTH)
     {
-        mpr("Too many nested replacements, bailing.", MSGCH_DIAGNOSTICS);
+        mprf(MSGCH_DIAGNOSTICS, "Too many nested replacements, bailing.");
 
         return "TOO MUCH RECURSION";
     }
@@ -678,14 +680,14 @@ static void _call_recursive_replacement(string &str, TextDB &db,
         num_replacements++;
         if (num_replacements > MAX_REPLACEMENTS)
         {
-            mpr("Too many string replacements, bailing.", MSGCH_DIAGNOSTICS);
+            mprf(MSGCH_DIAGNOSTICS, "Too many string replacements, bailing.");
             return;
         }
 
         string::size_type end = str.find("@", pos + 1);
         if (end == string::npos)
         {
-            mpr("Unbalanced @, bailing.", MSGCH_DIAGNOSTICS);
+            mprf(MSGCH_DIAGNOSTICS, "Unbalanced @, bailing.");
             break;
         }
 
@@ -805,7 +807,6 @@ string getGameStartDescription(const string &key)
 {
     return _query_database(GameStartDB, key, true, true);
 }
-
 
 /////////////////////////////////////////////////////////////////////////////
 // Shout DB specific functions.

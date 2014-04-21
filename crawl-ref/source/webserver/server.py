@@ -24,6 +24,12 @@ class MainHandler(tornado.web.RequestHandler):
         self.render("client.html", socket_server = protocol + host + "/socket",
                     username = None, config = config)
 
+class NoCacheHandler(tornado.web.StaticFileHandler):
+    def set_extra_headers(self, path):
+        self.set_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        self.set_header("Pragma", "no-cache")
+        self.set_header("Expires", "0")
+
 def err_exit(errmsg):
     logging.error(errmsg)
     sys.exit(errmsg)
@@ -107,6 +113,9 @@ def bind_server():
         "template_loader": DynamicTemplateLoader.get(template_path)
         }
 
+    if hasattr(config, "no_cache") and config.no_cache:
+        settings["static_handler_class"] = NoCacheHandler
+
     application = tornado.web.Application([
             (r"/", MainHandler),
             (r"/socket", CrawlWebSocket),
@@ -121,12 +130,23 @@ def bind_server():
 
     if bind_nonsecure:
         server = tornado.httpserver.HTTPServer(application, **kwargs)
-        server.listen(bind_port, bind_address)
+        try:
+            listens = bind_pairs
+        except NameError:
+            listens = ( (bind_address, bind_port), )
+        for (addr, port) in listens:
+            server.listen(port, addr)
         servers.append(server)
     if ssl_options:
+        # TODO: allow different ssl_options per bind pair
         server = tornado.httpserver.HTTPServer(application,
                                                ssl_options = ssl_options, **kwargs)
-        server.listen(ssl_port, ssl_address)
+        try:
+            listens = ssl_bind_pairs
+        except NameError:
+            listens = ( (ssl_address, ssl_port), )
+        for (addr, port) in listens:
+            server.listen(port, addr)
         servers.append(server)
 
     return servers

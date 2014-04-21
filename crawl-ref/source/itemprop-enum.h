@@ -12,8 +12,10 @@ enum armour_type
 
     ARM_CLOAK,
 
+#if TAG_MAJOR_VERSION == 34
     ARM_CAP,
-    ARM_WIZARD_HAT,
+#endif
+    ARM_HAT,
     ARM_HELMET,
 
     ARM_GLOVES,
@@ -23,7 +25,6 @@ enum armour_type
     ARM_BUCKLER, // order of shields matters
     ARM_SHIELD,
     ARM_LARGE_SHIELD,
-    ARM_MAX_RACIAL = ARM_LARGE_SHIELD,
 
     ARM_CRYSTAL_PLATE_ARMOUR,
     ARM_MIN_UNBRANDED = ARM_CRYSTAL_PLATE_ARMOUR,
@@ -75,6 +76,7 @@ const int SP_FORBID_EGO   = -1;
 const int SP_FORBID_BRAND = -1;
 const int SP_UNKNOWN_BRAND = 31; // seen_weapon/armour is a 32-bit bitfield
 
+// Be sure to update _debug_acquirement_stats and _str_to_ego to match.
 enum brand_type // item_def.special
 {
     SPWPN_FORBID_BRAND = -1,
@@ -98,8 +100,10 @@ enum brand_type // item_def.special
     SPWPN_PAIN,
     SPWPN_ANTIMAGIC,
     SPWPN_DISTORTION,
+#if TAG_MAJOR_VERSION == 34
     SPWPN_REACHING,
     SPWPN_RETURNING,
+#endif
     SPWPN_CHAOS,
     SPWPN_EVASION,
 
@@ -111,6 +115,7 @@ enum brand_type // item_def.special
     SPWPN_PENETRATION,
     SPWPN_REAPING,
 
+// From this point on save compat is irrelevant.
     NUM_REAL_SPECIAL_WEAPONS,
 
     SPWPN_ACID,    // acid bite only for the moment
@@ -147,13 +152,6 @@ enum helmet_desc_type
     THELM_NUM_DESCS
 };
 
-enum gloves_desc_type
-{
-    TGLOV_DESC_GLOVES,
-    TGLOV_DESC_GAUNTLETS,
-    TGLOV_DESC_BRACERS,
-};
-
 enum jewellery_type
 {
     RING_REGENERATION,
@@ -181,7 +179,6 @@ enum jewellery_type
     RING_FIRE,
     RING_ICE,
     RING_TELEPORT_CONTROL,
-
     NUM_RINGS,                         //   keep as last ring; should not overlap
                                        //   with amulets!
     // RINGS after num_rings are for unique types for artefacts
@@ -216,7 +213,9 @@ enum launch_retval
 
 enum misc_item_type
 {
+#if TAG_MAJOR_VERSION == 34
     MISC_BOTTLED_EFREET,
+#endif
     MISC_FAN_OF_GALES,
     MISC_LAMP_OF_FIRE,
     MISC_STONE_OF_TREMORS,
@@ -266,9 +265,7 @@ enum missile_type
     MI_LARGE_ROCK,
     MI_SLING_BULLET,
     MI_THROWING_NET,
-#if TAG_MAJOR_VERSION == 34
-    MI_PIE,
-#endif
+    MI_TOMAHAWK,
 
     NUM_MISSILES,
     MI_NONE             // was MI_EGGPLANT... used for launch type detection
@@ -277,10 +274,10 @@ enum missile_type
 enum rune_type
 {
     RUNE_SWAMP,
-    RUNE_SNAKE_PIT,
+    RUNE_SNAKE,
     RUNE_SHOALS,
-    RUNE_SLIME_PITS,
-    RUNE_ELVEN_HALLS, // unused
+    RUNE_SLIME,
+    RUNE_ELF, // unused
     RUNE_VAULTS,
     RUNE_TOMB,
 
@@ -299,7 +296,7 @@ enum rune_type
     RUNE_CEREBOV,
     RUNE_GLOORX_VLOQ,
 
-    RUNE_SPIDER_NEST,
+    RUNE_SPIDER,
     RUNE_FOREST,
     NUM_RUNE_TYPES
 };
@@ -335,6 +332,7 @@ enum scroll_type
     NUM_SCROLLS
 };
 
+// Be sure to update _debug_acquirement_stats and _str_to_ego to match.
 enum special_armour_type
 {
     SPARM_FORBID_EGO = -1,
@@ -360,10 +358,12 @@ enum special_armour_type
     SPARM_REFLECTION,
     SPARM_SPIRIT_SHIELD,
     SPARM_ARCHERY,
+    SPARM_JUMPING,
     NUM_REAL_SPECIAL_ARMOURS,
     NUM_SPECIAL_ARMOURS,
 };
 
+// Be sure to update _str_to_ego to match.
 enum special_missile_type // to separate from weapons in general {dlb}
 {
     SPMSL_FORBID_BRAND = -1,
@@ -424,14 +424,18 @@ enum rod_type
 {
     ROD_LIGHTNING,
     ROD_SWARM,
-    ROD_FIERY_DESTRUCTION,
-    ROD_FRIGID_DESTRUCTION,
+    ROD_IGNITION,
+    ROD_CLOUDS,
     ROD_DESTRUCTION,
     ROD_INACCURACY,
+#if TAG_MAJOR_VERSION == 34
     ROD_WARDING,
-    ROD_DEMONOLOGY,
+#endif
+    ROD_SHADOWS,
     ROD_STRIKING,
+#if TAG_MAJOR_VERSION == 34
     ROD_VENOM,
+#endif
     NUM_RODS,
 };
 
@@ -451,7 +455,7 @@ enum weapon_type
     WPN_DAGGER,
     WPN_QUICK_BLADE,
     WPN_SHORT_SWORD,
-    WPN_SABRE,
+    WPN_CUTLASS,
 
     WPN_FALCHION,
     WPN_LONG_SWORD,
@@ -474,15 +478,14 @@ enum weapon_type
     WPN_CROSSBOW,
     WPN_BOW,
     WPN_LONGBOW,
-    WPN_MAX_RACIAL = WPN_LONGBOW,
 
     WPN_DEMON_WHIP,
     WPN_GIANT_CLUB,
     WPN_GIANT_SPIKED_CLUB,
 
     WPN_DEMON_BLADE,
-    WPN_DOUBLE_SWORD,
-    WPN_TRIPLE_SWORD,
+    WPN_BASTARD_SWORD,
+    WPN_CLAYMORE,
 
     WPN_DEMON_TRIDENT,
     WPN_SCYTHE,
@@ -498,8 +501,8 @@ enum weapon_type
     WPN_BLESSED_SCIMITAR,
     WPN_BLESSED_GREAT_SWORD,
     WPN_EUDEMON_BLADE,
-    WPN_BLESSED_DOUBLE_SWORD,
-    WPN_BLESSED_TRIPLE_SWORD,
+    WPN_BLESSED_BASTARD_SWORD,
+    WPN_BLESSED_CLAYMORE,
     WPN_SACRED_SCOURGE,
     WPN_TRISHULA,
 
@@ -511,11 +514,8 @@ enum weapon_type
     WPN_RANDOM,
     WPN_VIABLE,
 
-// thrown weapons (for hunter weapon selection)
+// thrown weapons (for hunter weapon selection) - rocks, javelins, tomahawks
     WPN_THROWN,
-    WPN_ROCKS,
-    WPN_JAVELINS,
-    WPN_DARTS,
 };
 
 enum weapon_property_type

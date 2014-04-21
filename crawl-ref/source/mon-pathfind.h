@@ -35,7 +35,6 @@ protected:
     void update_pos(coord_def pos, int total);
     bool get_best_position(void);
 
-
     // The monster trying to find a path.
     const monster* mons;
 
@@ -49,6 +48,10 @@ protected:
     // monster involved.
     // (Used for player estimates of whether a monster can travel somewhere.)
     bool traverse_unmapped;
+
+    // Only follow paths that do not leave the player's sight (used for
+    // friendly summoned monster which are not already out of sight)
+    bool traverse_in_sight;
 
     // Maximum range to search between start and target. None, if zero.
     int range;

@@ -3,7 +3,6 @@
  * @brief Misc religion related functions.
 **/
 
-
 #ifndef RELIGION_H
 #define RELIGION_H
 
@@ -17,6 +16,8 @@
 #define HALF_MAX_PIETY (MAX_PIETY / 2)
 
 #define MAX_PENANCE    200
+
+#define NUM_VEHUMET_GIFTS 13
 
 bool is_evil_god(god_type god);
 bool is_good_god(god_type god);
@@ -39,6 +40,7 @@ string get_god_powers(god_type which_god);
 string get_god_likes(god_type which_god, bool verbose = false);
 string get_god_dislikes(god_type which_god, bool verbose = false);
 
+bool active_penance(god_type god);
 void dec_penance(int val);
 void dec_penance(god_type god, int val);
 
@@ -49,7 +51,7 @@ void gain_piety(int pgn, int denominator = 1,
 void dock_piety(int pietyloss, int penance);
 void god_speaks(god_type god, const char *mesg);
 void lose_piety(int pgn);
-void handle_god_time(void);
+void handle_god_time(int time_delta);
 int god_colour(god_type god);
 colour_t god_message_altar_colour(god_type god);
 bool player_can_join_god(god_type which_god);
@@ -73,10 +75,12 @@ bool god_likes_spell(spell_type spell, god_type god);
 bool god_hates_spell(spell_type spell, god_type god,
                      bool rod_spell = false);
 bool god_loathes_spell(spell_type spell, god_type god);
+bool god_hates_ability(ability_type ability, god_type god);
 bool god_can_protect_from_harm(god_type god);
 int elyvilon_lifesaving();
 bool god_protects_from_harm();
 bool jiyva_is_dead();
+void set_penance_xp_timeout();
 bool fedhas_protects(const monster* target);
 bool fedhas_neutralises(const monster* target);
 void print_sacrifice_message(god_type, const item_def &,
@@ -105,8 +109,6 @@ void vehumet_accept_gift(spell_type spell);
 bool god_hates_attacking_friend(god_type god, const actor *fr);
 bool god_likes_item(god_type god, const item_def& item);
 bool god_likes_items(god_type god, bool greedy_explore = false);
-
-void get_pure_deck_weights(int weights[]);
 
 void religion_turn_start();
 void religion_turn_end();

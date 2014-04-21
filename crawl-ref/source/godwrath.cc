@@ -9,6 +9,7 @@
 
 #include "externs.h"
 
+#include "act-iter.h"
 #include "artefact.h"
 #include "attitude-change.h"
 #include "database.h"
@@ -23,8 +24,9 @@
 #include "libutil.h"
 #include "message.h"
 #include "misc.h"
-#include "mon-iter.h"
+#include "mon-cast.h"
 #include "mon-util.h"
+#include "mon-pick.h"
 #include "mon-place.h"
 #include "terrain.h"
 #include "mgen_data.h"
@@ -63,7 +65,13 @@ static bool _yred_random_zombified_hostile()
     monster_type z_base;
 
     do
-        z_base = pick_random_zombie();
+    {
+        // XXX: better zombie selection?
+        level_id place(BRANCH_DUNGEON,
+                       min(27, you.experience_level + 5));
+        z_base = pick_local_zombifiable_monster(place, RANDOM_MONSTER,
+                                                you.pos());
+    }
     while (skel && !mons_skeleton(z_base));
 
     mgen_data temp = mgen_data::hostile_at(skel ? MONS_SKELETON : MONS_ZOMBIE,
@@ -76,24 +84,66 @@ static bool _yred_random_zombified_hostile()
     return create_monster(temp, false);
 }
 
+static const pop_entry _okawaru_servants[] =
+{ // warriors
+  {  1,  3,   3, DOWN, MONS_ORC },
+  {  1,  3,   3, DOWN, MONS_GNOLL },
+  {  2,  6,   3, PEAK, MONS_OGRE },
+  {  2,  6,   2, PEAK, MONS_GNOLL_SERGEANT },
+  {  3,  7,   1, FLAT, MONS_TWO_HEADED_OGRE },
+  {  3, 13,   3, PEAK, MONS_ORC_WARRIOR },
+  {  5, 15,   3, PEAK, MONS_ORC_KNIGHT },
+  {  5, 15,   1, PEAK, MONS_HILL_GIANT },
+  {  5, 15,   2, PEAK, MONS_CYCLOPS },
+  {  7, 21,   2, PEAK, MONS_CENTAUR_WARRIOR },
+  {  7, 21,   2, PEAK, MONS_NAGA_WARRIOR },
+  {  7, 21,   2, PEAK, MONS_TENGU_WARRIOR },
+  {  7, 21,   1, FLAT, MONS_MERFOLK_IMPALER },
+  {  7, 21,   1, FLAT, MONS_MERFOLK_JAVELINEER },
+  {  7, 21,   1, FLAT, MONS_MINOTAUR },
+  {  9, 27,   2, FLAT, MONS_STONE_GIANT },
+  {  9, 27,   1, FLAT, MONS_DEEP_ELF_KNIGHT },
+  { 11, 21,   1, FLAT, MONS_ORC_WARLORD },
+  { 11, 27,   2, FLAT, MONS_FIRE_GIANT },
+  { 11, 27,   2, FLAT, MONS_FROST_GIANT },
+  { 13, 27,   1, FLAT, MONS_DEEP_ELF_BLADEMASTER },
+  { 13, 27,   1, FLAT, MONS_DEEP_ELF_MASTER_ARCHER },
+  { 13, 27,   1, FLAT, RANDOM_BASE_DRACONIAN },
+  { 15, 27,   2, FLAT, MONS_TITAN },
+  { 0,0,0,FLAT,MONS_0 }
+};
+
 static bool _okawaru_random_servant()
 {
-    // warriors
-    monster_type mon_type = random_choose_weighted(3, MONS_ORC_WARRIOR,
-                                                   3, MONS_ORC_KNIGHT,
-                                                   2, MONS_NAGA_WARRIOR,
-                                                   2, MONS_CENTAUR_WARRIOR,
-                                                   2, MONS_STONE_GIANT,
-                                                   2, MONS_FIRE_GIANT,
-                                                   2, MONS_FROST_GIANT,
-                                                   2, MONS_CYCLOPS,
-                                                   1, MONS_HILL_GIANT,
-                                                   1, MONS_TITAN,
-                                                   0);
+    monster_type mon_type = pick_monster_from(_okawaru_servants,
+                                              you.experience_level);
 
     mgen_data temp = mgen_data::hostile_at(mon_type, "the fury of Okawaru",
                                            true, 0, 0, you.pos(), 0,
                                            GOD_OKAWARU);
+
+    // Don't send sheep into battle, but otherwise let bands in.
+    // This makes sure you get multiple orcs/gnolls early on.
+    if (mon_type != MONS_CYCLOPS)
+        temp.flags |= MG_PERMIT_BANDS;
+
+    temp.extra_flags |= (MF_NO_REWARD | MF_HARD_RESET);
+
+    return create_monster(temp, false);
+}
+
+static bool _dithmenos_random_shadow(const int count, const int tier)
+{
+    monster_type mon_type = MONS_SHADOW;
+    if (tier >= 2 && count == 0 && coinflip())
+        mon_type = MONS_SHADOW_FIEND;
+    else if (tier >= 1 && count < 3 && coinflip())
+        mon_type = MONS_SHADOW_DEMON;
+
+    mgen_data temp = mgen_data::hostile_at(mon_type,
+                                           "the darkness of Dithmenos",
+                                           true, 0, 0, you.pos(), 0,
+                                           GOD_DITHMENOS);
 
     temp.extra_flags |= (MF_NO_REWARD | MF_HARD_RESET);
 
@@ -200,7 +250,7 @@ static bool _zin_retribution()
         switch (random2(3))
         {
         case 0:
-            confuse_player(3 + random2(10), false);
+            confuse_player(3 + random2(10));
             break;
         case 1:
             you.put_to_sleep(NULL, 30 + random2(20));
@@ -296,7 +346,7 @@ static bool _elyvilon_retribution()
     {
     case 0:
     case 1:
-        confuse_player(3 + random2(10), false);
+        confuse_player(3 + random2(10));
         break;
 
     case 2: // mostly flavour messages
@@ -361,7 +411,7 @@ static bool _cheibriados_retribution()
     case 2:
         if (you.duration[DUR_SLOW] < 180 * BASELINE_DELAY)
         {
-            mpr("You feel the world leave you behind!", MSGCH_WARN);
+            mprf(MSGCH_WARN, "You feel the world leave you behind!");
             you.set_duration(DUR_EXHAUSTED, 200);
             slow_player(100);
         }
@@ -390,51 +440,124 @@ static bool _cheibriados_retribution()
     return glammer;
 }
 
+static void _spell_retribution(monster* avatar, spell_type spell, god_type god)
+{
+    simple_god_message(" rains destruction down upon you!", god);
+    bolt beam;
+    beam.source = you.pos();
+    beam.target = you.pos();
+    beam.aimed_at_feet = true;
+    beam.source_name = avatar->mname;
+    mons_cast(avatar, beam, spell, false, false);
+}
+
 static bool _makhleb_retribution()
 {
     // demonic servant theme
     const god_type god = GOD_MAKHLEB;
 
-    if (random2(you.experience_level) > 7 && !one_chance_in(5))
+    if (coinflip())
     {
+        // Half the time, fling destruction at the player instead.
+        monster* avatar = shadow_monster(false);
+        if (!avatar)
+        {
+            simple_god_message("has no time to deal with you just now.", god);
+            return false;
+        }
+        avatar->mname = "the fury of Makhleb";
+        avatar->flags |= MF_NAME_REPLACE;
+        avatar->attitude = ATT_HOSTILE;
+        avatar->hit_dice = you.experience_level;
+
+        spell_type spell = SPELL_NO_SPELL;
+        const int severity = min(random_range(you.experience_level / 14,
+                                              you.experience_level / 9),
+                                 2);
+        switch (severity)
+        {
+            case 0:
+            default:
+                // minor destruction
+                spell = random_choose(SPELL_THROW_FLAME,
+                                      SPELL_PAIN,
+                                      SPELL_STONE_ARROW,
+                                      SPELL_SHOCK,
+                                      SPELL_SPIT_ACID,
+                                      -1);
+                break;
+            case 1:
+                // major destruction
+                spell = random_choose(SPELL_BOLT_OF_FIRE,
+                                      SPELL_FIREBALL,
+                                      SPELL_LIGHTNING_BOLT,
+                                      SPELL_STICKY_FLAME,
+                                      SPELL_IRON_SHOT,
+                                      SPELL_BOLT_OF_DRAINING,
+                                      SPELL_ORB_OF_ELECTRICITY,
+                                      -1);
+                break;
+            case 2:
+                // legendary destruction (no IOOD because it doesn't really
+                // work here)
+                spell = random_choose(SPELL_FIREBALL,
+                                      SPELL_LEHUDIBS_CRYSTAL_SPEAR,
+                                      SPELL_ORB_OF_ELECTRICITY,
+                                      SPELL_FLASH_FREEZE,
+                                      SPELL_GHOSTLY_FIREBALL,
+                                      -1);
+
+                break;
+        }
+        _spell_retribution(avatar, spell, god);
+        shadow_monster_reset(avatar);
+        return true;
+    }
+
+    const int severity = 1 + you.experience_level / 2
+                           + random2(you.experience_level / 2);
+    int greater = 0;
+    if (severity > 13)
+        greater = 2 + random2(you.experience_level / 5 - 2); // up to 6 at XL27
+    else if (severity > 7 && !one_chance_in(5))
+        greater = 1;
+
+    // up to 6 at XL25+
+    int how_many =
+        max(greater,
+            1 + (random2(you.experience_level)
+                 + random2(you.experience_level)) / 10);
+    int count = 0;
+
+    for (; how_many > 0; --how_many)
+    {
+        monster_type servant = MONS_NO_MONSTER;
+        if (greater)
+        {
+            greater--;
+            servant = random_choose(MONS_EXECUTIONER,    MONS_GREEN_DEATH,
+                                    MONS_BLIZZARD_DEMON, MONS_BALRUG,
+                                    MONS_CACODEMON,      -1);
+        }
+        else
+        {
+            servant = random_choose(MONS_HELLWING,     MONS_NEQOXEC,
+                                    MONS_ORANGE_DEMON, MONS_SMOKE_DEMON,
+                                    MONS_YNOXINUL,     -1);
+        }
         mgen_data temp =
-            mgen_data::hostile_at(random_choose(MONS_EXECUTIONER, MONS_GREEN_DEATH,
-                                  MONS_BLIZZARD_DEMON, MONS_BALRUG, MONS_CACODEMON, -1),
-                                  "the fury of Makhleb",
+            mgen_data::hostile_at(servant, "the fury of Makhleb",
                                   true, 0, 0, you.pos(), 0, god);
 
         temp.extra_flags |= (MF_NO_REWARD | MF_HARD_RESET);
 
-        bool success = create_monster(temp, false);
-
-        simple_god_message(success ? " sends a greater servant after you!"
-                                   : "'s greater servant is unavoidably "
-                                     "detained.", god);
+        if (create_monster(temp, false))
+            count++;
     }
-    else
-    {
-        int how_many = 1 + (you.experience_level / 7);
-        int count = 0;
 
-        for (; how_many > 0; --how_many)
-        {
-            mgen_data temp =
-                mgen_data::hostile_at(random_choose(MONS_HELLWING, MONS_NEQOXEC,
-                                      MONS_ORANGE_DEMON, MONS_SMOKE_DEMON,
-                                      MONS_YNOXINUL, -1),
-                                      "the fury of Makhleb",
-                                      true, 0, 0, you.pos(), 0, god);
-
-            temp.extra_flags |= (MF_NO_REWARD | MF_HARD_RESET);
-
-            if (create_monster(temp, false))
-                count++;
-        }
-
-        simple_god_message(count > 1 ? " sends minions to punish you." :
-                           count > 0 ? " sends a minion to punish you."
-                                     : "'s minions fail to arrive.", god);
-    }
+    simple_god_message(count > 1 ? " sends minions to punish you." :
+                       count > 0 ? " sends a minion to punish you."
+                                 : "'s minions fail to arrive.", god);
 
     return true;
 }
@@ -447,27 +570,16 @@ static bool _kikubaaqudgha_retribution()
     god_speaks(god, coinflip() ? "You hear Kikubaaqudgha cackling."
                                : "Kikubaaqudgha's malice focuses upon you.");
 
-    if (random2(you.experience_level) > 4)
+    if (!count_corpses_in_los(NULL) || random2(you.experience_level) > 4)
     {
         // Either zombies, or corpse rot + skeletons.
-        kiku_receive_corpses(you.experience_level * 4, you.pos());
+        kiku_receive_corpses(you.experience_level * 4);
 
         if (coinflip())
-            corpse_rot(&you);
+            corpse_rot(nullptr);
     }
 
-    if (coinflip())
-    {
-        // necromancy miscast, 20% chance of additional miscast
-        do
-        {
-            MiscastEffect(&you, -god, SPTYP_NECROMANCY,
-                          5 + you.experience_level,
-                          random2avg(88, 3), "the malice of Kikubaaqudgha");
-        }
-        while (one_chance_in(5));
-    }
-    else if (one_chance_in(10))
+    if (x_chance_in_y(you.experience_level, 27))
     {
         // torment, or 3 necromancy miscasts
         if (!player_res_torment(false))
@@ -477,10 +589,21 @@ static bool _kikubaaqudgha_retribution()
             for (int i = 0; i < 3; ++i)
             {
                 MiscastEffect(&you, -god, SPTYP_NECROMANCY,
-                              5 + you.experience_level,
+                              2 + div_rand_round(you.experience_level, 9),
                               random2avg(88, 3), "the malice of Kikubaaqudgha");
             }
         }
+    }
+    else if (random2(you.experience_level) >= 4)
+    {
+        // necromancy miscast, 20% chance of additional miscast
+        do
+        {
+            MiscastEffect(&you, -god, SPTYP_NECROMANCY,
+                          2 + div_rand_round(you.experience_level, 9),
+                          random2avg(88, 3), "the malice of Kikubaaqudgha");
+        }
+        while (one_chance_in(5));
     }
 
     // Every act of retribution causes corpses in view to rise against
@@ -496,26 +619,30 @@ static bool _yredelemnul_retribution()
     // undead theme
     const god_type god = GOD_YREDELEMNUL;
 
-    if (random2(you.experience_level) > 4)
+    if (coinflip())
     {
         if (you_worship(god) && coinflip() && yred_slaves_abandon_you())
             ;
         else
         {
-            const bool zombified = one_chance_in(4);
-
-            int how_many = 1 + random2(1 + (you.experience_level / 5));
+            int how_many = 1 + random2avg(1 + (you.experience_level / 5), 2);
             int count = 0;
 
             for (; how_many > 0; --how_many)
             {
-                if (zombified)
+                if (one_chance_in(you.experience_level))
                 {
                     if (_yred_random_zombified_hostile())
                         count++;
                 }
                 else
-                    count += yred_random_servants(0, true);
+                {
+                    const int num = yred_random_servants(0, true);
+                    if (num >= 0)
+                        count += num;
+                    else
+                        ++how_many;
+                }
             }
 
             simple_god_message(count > 1 ? " sends servants to punish you." :
@@ -526,7 +653,8 @@ static bool _yredelemnul_retribution()
     else
     {
         simple_god_message("'s anger turns toward you for a moment.", god);
-        MiscastEffect(&you, -god, SPTYP_NECROMANCY, 5 + you.experience_level,
+        MiscastEffect(&you, -god, SPTYP_NECROMANCY,
+                      2 + div_rand_round(you.experience_level, 9),
                       random2avg(88, 3), "the anger of Yredelemnul");
     }
 
@@ -548,13 +676,16 @@ static bool _trog_retribution()
 
             while (points > 0)
             {
-                int cost = min(random2(8) + 3, points);
+                int cost =
+                    min(min(random2avg((1 + you.experience_level / 3), 2) + 3,
+                            10),
+                        points);
 
                 // quick reduction for large values
                 if (points > 20 && coinflip())
                 {
                     points -= 10;
-                    cost = 10;
+                    cost = min(1 + div_rand_round(you.experience_level, 2), 10);
                 }
 
                 points -= cost;
@@ -585,7 +716,7 @@ static bool _trog_retribution()
 
         case 1:
         case 2:
-            lose_stat(STAT_STR, 1 + random2(you.strength() / 5), true,
+            lose_stat(STAT_STR, 1 + random2(you.strength() / 5), false,
                       "divine retribution from Trog");
             break;
 
@@ -593,7 +724,7 @@ static bool _trog_retribution()
             if (!you.duration[DUR_PARALYSIS])
             {
                 dec_penance(god, 3);
-                mpr("You suddenly pass out!", MSGCH_WARN);
+                mprf(MSGCH_WARN, "You suddenly pass out!");
                 you.duration[DUR_PARALYSIS] = 2 + random2(6);
             }
             break;
@@ -603,7 +734,7 @@ static bool _trog_retribution()
             if (you.duration[DUR_SLOW] < 180 * BASELINE_DELAY)
             {
                 dec_penance(god, 1);
-                mpr("You suddenly feel exhausted!", MSGCH_WARN);
+                mprf(MSGCH_WARN, "You suddenly feel exhausted!");
                 you.set_duration(DUR_EXHAUSTED, 200);
                 slow_player(100);
             }
@@ -617,7 +748,7 @@ static bool _trog_retribution()
         //    we'll leave this effect in, but we'll remove the wild
         //    fire magic. -- bwr
         dec_penance(god, 2);
-        mpr("You feel Trog's fiery rage upon you!", MSGCH_WARN);
+        mprf(MSGCH_WARN, "You feel Trog's fiery rage upon you!");
         MiscastEffect(&you, -god, SPTYP_FIRE, 8 + you.experience_level,
                       random2avg(98, 3), "the fiery rage of Trog");
     }
@@ -661,7 +792,6 @@ static bool _beogh_retribution()
                 ASSERT(mon->weapon() != NULL);
                 item_def& wpn(*mon->weapon());
 
-                set_equip_race(wpn, ISFLAG_ORCISH);
                 set_item_ego_type(wpn, OBJ_WEAPONS, SPWPN_ELECTROCUTION);
 
                 wpn.plus  = random2(3);
@@ -768,14 +898,14 @@ static bool _sif_muna_retribution()
     {
     case 0:
     case 1:
-        lose_stat(STAT_INT, 1 + random2(you.intel() / 5), true,
+        lose_stat(STAT_INT, 1 + random2(you.intel() / 5), false,
                   "divine retribution from Sif Muna");
         break;
 
     case 2:
     case 3:
     case 4:
-        confuse_player(3 + random2(10), false);
+        confuse_player(3 + random2(10));
         break;
 
     case 5:
@@ -790,10 +920,14 @@ static bool _sif_muna_retribution()
         break;
 
     case 8:
-        if (you.magic_points > 0 || you.species == SP_DJINNI)
+        if (you.magic_points > 0
+#if TAG_MAJOR_VERSION == 34
+                 || you.species == SP_DJINNI
+#endif
+                )
         {
             drain_mp(100);  // This should zero it.
-            mpr("You suddenly feel drained of magical energy!", MSGCH_WARN);
+            mprf(MSGCH_WARN, "You suddenly feel drained of magical energy!");
         }
         break;
 
@@ -884,10 +1018,90 @@ static bool _vehumet_retribution()
     // conjuration theme
     const god_type god = GOD_VEHUMET;
 
-    simple_god_message("'s vengeance finds you.", god);
-    MiscastEffect(&you, -god, SPTYP_CONJURATION,
-                   8 + you.experience_level, random2avg(98, 3),
-                   "the wrath of Vehumet");
+    monster* avatar = shadow_monster(false);
+    if (!avatar)
+    {
+        simple_god_message("has no time to deal with you just now.", god);
+        return false;
+    }
+    avatar->mname = "the wrath of Vehumet";
+    avatar->flags |= MF_NAME_REPLACE;
+    avatar->attitude = ATT_HOSTILE;
+    avatar->hit_dice = you.experience_level;
+
+    spell_type spell = SPELL_NO_SPELL;
+    const int severity = min(random_range(1 + you.experience_level / 5,
+                                          1 + you.experience_level / 3),
+                             9);
+    // Mostly player-castable conjurations with a couple of additions.
+    switch (severity)
+    {
+        case 1:
+            spell = random_choose(SPELL_MAGIC_DART,
+                                  SPELL_STING,
+                                  SPELL_SHOCK,
+                                  SPELL_FLAME_TONGUE,
+                                  -1);
+            break;
+        case 2:
+            spell = random_choose(SPELL_THROW_FLAME,
+                                  SPELL_THROW_FROST,
+                                  -1);
+            break;
+        case 3:
+            spell = random_choose(SPELL_MEPHITIC_CLOUD,
+                                  SPELL_STONE_ARROW,
+                                  -1);
+            break;
+        case 4:
+            spell = random_choose(SPELL_ISKENDERUNS_MYSTIC_BLAST,
+                                  SPELL_STICKY_FLAME,
+                                  SPELL_THROW_ICICLE,
+                                  SPELL_ENERGY_BOLT,
+                                  -1);
+            break;
+        case 5:
+            spell = random_choose(SPELL_FIREBALL,
+                                  SPELL_LIGHTNING_BOLT,
+                                  SPELL_BOLT_OF_MAGMA,
+                                  SPELL_VENOM_BOLT,
+                                  SPELL_BOLT_OF_DRAINING,
+                                  SPELL_QUICKSILVER_BOLT,
+                                  SPELL_METAL_SPLINTERS,
+                                  -1);
+            break;
+        case 6:
+            spell = random_choose(SPELL_BOLT_OF_FIRE,
+                                  SPELL_BOLT_OF_COLD,
+                                  SPELL_FREEZING_CLOUD,
+                                  SPELL_POISONOUS_CLOUD,
+                                  SPELL_POISON_ARROW,
+                                  SPELL_IRON_SHOT,
+                                  SPELL_CONJURE_BALL_LIGHTNING,
+                                  -1);
+            break;
+        case 7:
+            spell = random_choose(SPELL_ORB_OF_ELECTRICITY,
+                                  SPELL_FLASH_FREEZE,
+                                  -1);
+            break;
+        case 8:
+            spell = random_choose(SPELL_LEHUDIBS_CRYSTAL_SPEAR,
+                                  -1);
+            break;
+        case 9:
+            spell = random_choose(SPELL_FIRE_STORM,
+                                  SPELL_HELLFIRE, // let it end...
+                                  -1);
+            break;
+        default:
+            simple_god_message("has no time to deal with you just now.", god);
+            shadow_monster_reset(avatar);
+            return false;
+    }
+
+    _spell_retribution(avatar, spell, god);
+    shadow_monster_reset(avatar);
     return true;
 }
 
@@ -915,7 +1129,10 @@ static bool _jiyva_retribution()
         for (int i = 0; i < mutat; ++i)
             mutate(RANDOM_BAD_MUTATION, "Jiyva's wrath", true, false, true);
     }
-    else if (there_are_monsters_nearby() && coinflip())
+    // Don't create hostile slimes while under penance.
+    else if (!you_worship(GOD_JIYVA)
+             && there_are_monsters_nearby()
+             && coinflip())
     {
         int tries = 0;
         bool found_one = false;
@@ -946,41 +1163,49 @@ static bool _jiyva_retribution()
             slimify_monster(mon, true);
         }
     }
-    else if (!one_chance_in(3))
+    else if (!one_chance_in(3) || you_worship(GOD_JIYVA))
     {
-            god_speaks(god, "Mutagenic energy floods into your body!");
-            contaminate_player(random2(you.penance[GOD_JIYVA] * 500));
+        god_speaks(god, "Mutagenic energy floods into your body!");
+        contaminate_player(random2(you.penance[GOD_JIYVA] * 500));
 
-            if (coinflip())
+        if (coinflip())
+        {
+            transformation_type form = TRAN_NONE;
+
+            switch (random2(3))
             {
-                transformation_type form = TRAN_NONE;
-
-                switch (random2(3))
-                {
-                    case 0:
-                        form = TRAN_BAT;
-                        break;
-                    case 1:
-                        form = TRAN_STATUE;
-                        break;
-                    case 2:
-                        form = TRAN_SPIDER;
-                        break;
-                }
-
-                if (transform(random2(you.penance[GOD_JIYVA]) * 2, form, true))
-                    you.transform_uncancellable = true;
+                case 0:
+                    form = TRAN_BAT;
+                    break;
+                case 1:
+                    form = TRAN_STATUE;
+                    break;
+                case 2:
+                    form = TRAN_SPIDER;
+                    break;
             }
+
+            if (transform(random2(you.penance[GOD_JIYVA]) * 2, form, true))
+                you.transform_uncancellable = true;
+        }
     }
     else
     {
-        const monster_type slimes[] = {
-                MONS_GIANT_EYEBALL, MONS_EYE_OF_DRAINING,
-                MONS_EYE_OF_DEVASTATION, MONS_GREAT_ORB_OF_EYES,
-                MONS_SHINING_EYE, MONS_GIANT_ORANGE_BRAIN,
-                MONS_JELLY, MONS_BROWN_OOZE, MONS_ACID_BLOB, MONS_AZURE_JELLY,
-                MONS_DEATH_OOZE, MONS_SLIME_CREATURE
-            };
+        const monster_type slimes[] =
+        {
+            MONS_GIANT_EYEBALL,
+            MONS_EYE_OF_DRAINING,
+            MONS_EYE_OF_DEVASTATION,
+            MONS_GREAT_ORB_OF_EYES,
+            MONS_SHINING_EYE,
+            MONS_GIANT_ORANGE_BRAIN,
+            MONS_JELLY,
+            MONS_BROWN_OOZE,
+            MONS_ACID_BLOB,
+            MONS_AZURE_JELLY,
+            MONS_DEATH_OOZE,
+            MONS_SLIME_CREATURE,
+        };
 
         int how_many = 1 + (you.experience_level / 10) + random2(3);
         bool success = false;
@@ -1059,8 +1284,7 @@ static bool _fedhas_retribution()
         // We are going to spawn some oklobs but first we need to find
         // out a little about the situation.
         vector<vector<coord_def> > radius_points;
-        collect_radius_points(radius_points, you.pos(),
-                              you.get_los_no_trans());
+        collect_radius_points(radius_points, you.pos(), LOS_NO_TRANS);
 
         unsigned free_thresh = 24;
 
@@ -1131,8 +1355,8 @@ static bool _fedhas_retribution()
             for (; i < radius_points[0].size(); ++i)
             {
                 temp.pos = radius_points[0].at(i);
-                temp.cls = coinflip() ?
-                           MONS_WANDERING_MUSHROOM : MONS_OKLOB_PLANT;
+                temp.cls = coinflip() ? MONS_WANDERING_MUSHROOM
+                                      : MONS_OKLOB_PLANT;
 
                 if (create_monster(temp, false))
                     success = true;
@@ -1149,6 +1373,68 @@ static bool _fedhas_retribution()
     }
     }
 
+    return true;
+}
+
+static bool _dithmenos_retribution()
+{
+    // shadow theme
+    const god_type god = GOD_DITHMENOS;
+
+    switch(random2(4))
+    {
+    case 0:
+    {
+        int count = 0;
+        int how_many = 3 + random2avg(div_rand_round(you.experience_level, 3),
+                                      2);
+        const int tier = div_rand_round(you.experience_level, 9);
+        while (how_many-- > 0)
+        {
+            if (_dithmenos_random_shadow(count, tier))
+                count++;
+        }
+        simple_god_message(count ? " calls forth shadows to punish you."
+                                 : " fails to incite the shadows against you.",
+                           god);
+        break;
+    }
+    case 1:
+    {
+        int count = 0;
+        int how_many = 2 + random2avg(div_rand_round(you.experience_level, 4),
+                                      4);
+        for (int i = 0; i < how_many; ++i)
+        {
+            if (create_monster(
+                    mgen_data(
+                        RANDOM_MOBILE_MONSTER, BEH_HOSTILE, 0,
+                        4, MON_SUMM_WRATH, you.pos(), MHITYOU, 0, god,
+                        MONS_NO_MONSTER, 0, BLACK, PROX_ANYWHERE,
+                        level_id(BRANCH_DUNGEON,
+                                 min(27, you.experience_level + 5)),
+                        0, 0, 0, "", "the darkness of Dithmenos")))
+            {
+                count++;
+            }
+        }
+        simple_god_message(count ? " weaves monsters from the shadows."
+                                 : " fails to weave monsters from the shadows.",
+                           god);
+        break;
+    }
+    case 2:
+    {
+        // This is possibly kind of underwhelming?
+        god_speaks(god, "You feel overwhelmed by the shadows around you.");
+        you.put_to_sleep(NULL, 30 + random2(20));
+        break;
+    }
+    case 3:
+        simple_god_message(" tears the shadows away from you.", god);
+        you.sentinel_mark();
+        break;
+    }
     return true;
 }
 
@@ -1193,6 +1479,7 @@ bool divine_retribution(god_type god, bool no_bonus, bool force)
     case GOD_JIYVA:         do_more = _jiyva_retribution(); break;
     case GOD_FEDHAS:        do_more = _fedhas_retribution(); break;
     case GOD_CHEIBRIADOS:   do_more = _cheibriados_retribution(); break;
+    case GOD_DITHMENOS:     do_more = _dithmenos_retribution(); break;
 
     case GOD_ASHENZARI:
         // No reduction with time.
@@ -1214,15 +1501,14 @@ bool divine_retribution(god_type god, bool no_bonus, bool force)
     {
         if (coinflip())
         {
-            mpr("The divine experience confuses you!", MSGCH_WARN);
+            mprf(MSGCH_WARN, "The divine experience confuses you!");
             confuse_player(3 + random2(10));
         }
         else
         {
             if (you.duration[DUR_SLOW] < 180 * BASELINE_DELAY)
             {
-                mpr("The divine experience leaves you feeling exhausted!",
-                     MSGCH_WARN);
+                mprf(MSGCH_WARN, "The divine experience leaves you feeling exhausted!");
 
                 slow_player(random2(20));
             }
@@ -1369,28 +1655,35 @@ static bool _ely_holy_revenge(const monster *victim)
 {
     god_acting gdact(GOD_ELYVILON, true);
 
-    string msg = getSpeakString("Elyvilon holy");
-    if (msg.empty())
-        msg = "Elyvilon is displeased.";
-    mpr(msg.c_str(), MSGCH_GOD, GOD_ELYVILON);
-
-    vector<monster*> targets;
-    for (monster_iterator mi(you.get_los()); mi; ++mi)
+    if (!is_good_god(you.religion)
+        && ((is_evil_god(you.religion) && one_chance_in(4))
+            || one_chance_in(6)))
     {
-        if (mi->friendly())
-            targets.push_back(*mi);
+        string msg = getSpeakString("Elyvilon holy");
+        if (msg.empty())
+            msg = "Elyvilon is displeased.";
+        mprf(MSGCH_GOD, GOD_ELYVILON, "%s", msg.c_str());
+
+        vector<monster*> targets;
+        for (monster_near_iterator mi(you.pos(), LOS_NO_TRANS); mi; ++mi)
+        {
+            if (mi->friendly())
+                targets.push_back(*mi);
+        }
+
+        mprf("You %sare rebuked by divine will.", targets.size() ? "and your allies "
+                                                                 : "");
+        for (vector<monster*>::const_iterator mi = targets.begin();
+             mi != targets.end(); ++mi)
+        {
+            (*mi)->weaken(NULL, 25);
+        }
+        you.weaken(NULL, 25);
+
+        return true;
     }
 
-    mprf("You %sare rebuked by divine will.", targets.size() ? "and your allies "
-                                                             : "");
-    for (vector<monster*>::const_iterator mi = targets.begin();
-         mi != targets.end(); ++mi)
-    {
-        (*mi)->weaken(NULL, 25);
-    }
-    you.weaken(NULL, 25);
-
-    return true;
+    return false;
 }
 
 static void _god_smites_you(god_type god, const char *message,

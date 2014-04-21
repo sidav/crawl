@@ -3,11 +3,6 @@ Blink ability
 
 Teleportar aleatoriamente para uma distância curta
 %%%%
-Breathe Fire ability
-
-Esbafora uma rajada de fogo em um monstro alvo, possivelmente deixando nuvens
-de fogo na sua vista.
-%%%%
 Breathe Frost ability
 
 Esbafora uma rajada de gelo em um monstro alvo.
@@ -47,8 +42,7 @@ muito baixa.
 Bottle Blood ability
 
 No nível 6 ou mais, Vampiros podem engarrafar o sangue de um corpo não podre, e
-que contenha sangue, estando sobre ele. Para fazer isso, é necessário ter a
-capacidade de empunhar sua faca, como fazem açougueiros.
+que contenha sangue, estando sobre ele.
 %%%%
 Cleansing Flame ability
 
@@ -75,20 +69,9 @@ Channel Energy ability
 Reabasteça um pouco de sua reserva mágica, dependendo de sua habilidade de
 Invocações.
 %%%%
-Burn Spellbooks ability
-
-Incendeia todos livros de magias no seu campo de visão. O fogo é alimentado
-pelo ódio de Trog, e Trog gosta disso principalmente quando você não se importa
-qualquer livros de loucuras são queimados.
-%%%%
 Brothers in Arms ability
 
 Conjura aliados grandes e nervosos para causar estragos.
-%%%%
-Bend Space ability
-
-Dobra o espaço a sua volta, teleportando você a uma distância curta e,
-possivelmente, também teleportando e causando dano a monstros a sua volta.
 %%%%
 Banish ability
 

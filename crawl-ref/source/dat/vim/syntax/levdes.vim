@@ -56,8 +56,10 @@ syn region desColourline start=/^\(COLOUR\|L[A-Z]*COL\):/ end=/$/ contains=desDe
 syn region desNameline start=/^NAME:/ end=/$/ contains=desDec,desVaultname keepend
 syn match desVaultname /\w*/ contained
 
-syn match desGod contained /ashenzari\|beogh\|cheibriados\|elyvilon\|fedhas\|jiyva\|kikubaaqudgha\|lugonu\|makhleb/
-syn match desGod contained /nemelex_xobeh\|okawaru\|sif_muna\|trog\|vehumet\|xom\|yredelemnul\|zin\|the_shining_one/
+syn match desGod contained /ashenzari\|beogh\|cheibriados\|dithmenos\|elyvilon/
+syn match desGod contained /fedhas\|jiyva\|kikubaaqudgha\|lugonu\|makhleb/
+syn match desGod contained /nemelex_xobeh\|okawaru\|sif_muna\|trog\|vehumet/
+syn match desGod contained /xom\|yredelemnul\|zin\|the_shining_one/
 
 syn keyword desDeclarator ORIENT: DEPTH: PLACE: MONS: FLAGS: default-depth: TAGS: CHANCE: WEIGHT:
 syn keyword desDeclarator ITEM: KFEAT: KMONS: KITEM: KMASK: KPROP: MARKER: WELCOME: LFLAGS: BFLAGS:
@@ -68,7 +70,7 @@ syn keyword desDeclarator LFLOORTILE: LROCKTILE: FTILE: RTILE: TILE: SUBVAULT: F
 syn keyword desOrientation north south east west northwest northeast southwest southeast encompass float centre
 
 " DEPTH | PLACE
-syn keyword desOrientation Temple Orc Elf Lair Swamp Shoals Snake Spider Slime Vaults Blade Crypt Tomb
+syn keyword desOrientation Depths Temple Orc Elf Lair Swamp Shoals Snake Spider Slime Vaults Blade Crypt Tomb
 "Note: `Zot` totally highlights in e.g. the items `rune of Zot` and `Orb of Zot`. Not worth fixing.
 syn keyword desOrientation Hell Dis Geh Coc Tar Zot Forest Abyss Pan Zig Lab Bazaar Trove Sewer Ossuary
 syn keyword desOrientation Bailey IceCv Volcano WizLab
@@ -78,24 +80,30 @@ syn match desBranch contained /d\|temple\|orc\|elf\|lair\|swamp\|shoals\|snake\|
 syn match desBranch contained /hell\|dis\|geh\|coc\|tar\|zot\|forest\|abyss\|pan\|zig\|lab\|bazaar\|trove\|sewer\|ossuary/
 syn match desBranch contained /bailey\|icecv\|volcano\|wizlab/
 
-syn match desBranchname contained /dungeon\|temple\|orcish_mines\|elven_halls\|lair\|swamp\|shoals/
+syn match desBranchname contained /dungeon\|depths\|temple\|orcish_mines\|elven_halls\|lair\|swamp\|shoals/
 syn match desBranchname contained /snake_pit\|spider_nest\|slime_pits\|vaults\|hall_of_blades\|crypt\|tomb/
 syn match desBranchname contained /hell\|dis\|gehenna\|cocytus\|tartarus\|zot\|forest\|abyss\|pandemonium/
-"Note: zig and bazaar--wizlab all use the generic `portal_vault` name - lab does not!
-syn match desBranchname contained /labyrinth\|portal_vault/
+syn match desBranchname contained /ziggurat\|labyrinth\|bazaar\|trove\|sewer\|ossuary/
+syn match desBranchname contained /bailey\|ice_cave\|volcano\|wizlab/
 
 " TAGS
+" in abyss.cc
+syn keyword desOrientation abyss_exit
 " in decks.cc and dgn-labyrinth.cc (without `minotaur` because monster)
 syn keyword desOrientation trowel_portal lab generate_loot
+" from dlua.ziggurat
+syn keyword desOrientation ziggurat_pillar centered
 " map building in dungeon.cc (`transparent` is handled later)
 "Note: `dummy` mis-catches `training dummy` about half as often as actually used as tag
-syn keyword desOrientation dummy entry mini_float extra ruin layout pan decor
+syn keyword desOrientation dummy arrival mini_float extra ruin layout pan decor
 syn keyword desOrientation allow_dup uniq luniq
 syn keyword desOrientation no_hmirror no_vmirror no_rotate
 syn keyword desOrientation no_dump
 " vault placement in maps.cc
 syn keyword desOrientation unrand place_unique special_room tutorial
 syn keyword desOrientation water_ok can_overwrite replace_portal
+" V vault building (mostly dlua/v_layouts and v_rooms)
+syn keyword desOrientation vaults_room vaults_empty vaults_hard no_windows preserve_wall
 
 " LFLAGS (in l_dgn.cc)
 syn keyword desOrientation no_tele_control not_mappable no_magic_map
@@ -111,8 +119,8 @@ syn keyword desOrientation corpse chunk skeleton never_decay
 syn keyword desOrientation fix_slot priest_spells actual_spells god_gift
 syn keyword desOrientation generate_awake patrolling band
 syn keyword desOrientation hostile friendly good_neutral fellow_slime strict_neutral neutral
-"Note: `spectre` mis-catches `silent spectre` about as often as actually used as monster modifier
-syn keyword desOrientation zombie skeleton simulacrum spectre chimera
+"Note: `spectre` removed: mis-catches `silent spectre` but was unused as modifier (`spectral` exists)
+syn keyword desOrientation zombie skeleton simulacrum spectral chimera
 syn keyword desOrientation seen always_corpse never_corpse
 syn keyword desOrientation base nonbase
 syn keyword desOrientation n_suf        n_adj           n_rpl         n_the
@@ -125,10 +133,11 @@ syn keyword desOrientation name_descriptor  name_species  name_zombie  name_noco
 syn keyword desColour contained blue      green      cyan      red      magenta      brown  darkgrey
 syn keyword desColour contained lightblue lightgreen lightcyan lightred lightmagenta yellow lightgrey white
 " Elemental
-syn keyword desColour contained fire ice earth electricity air poison water magic mutagenic warp enchant heal
-syn keyword desColour contained holy dark death necro unholy vehumet beogh crystal blood smoke slime jewel
-syn keyword desColour contained elven dwarven orcish gila kraken floor rock stone mist shimmer_blue decay
-syn keyword desColour contained silver gold iron bone elven_brick waves tree random
+syn keyword desColour contained fire ice earth electricity air poison water magic mutagenic warp enchant
+syn keyword desColour contained heal holy dark death unholy vehumet beogh crystal blood smoke slime jewel
+syn keyword desColour contained elven dwarven orcish flash kraken floor rock mist shimmer_blue decay
+syn keyword desColour contained silver gold iron bone elven_brick waves tree mangrove tornado liquefied
+syn keyword desColour contained orb_glow disjunction random
 
 " TILE
 syn keyword desOrientation no_random
@@ -148,16 +157,21 @@ syn keyword desOrientation bloody highlight mold no_cloud_gen no_rtele_into no_c
 syn match desComment "^\s*#.*$"
 
 "Note: `;` and `|` are necessary due to monster/randbook `spells:`,
-" `-` and `$` are used in depth definitions (but `,` should not match there).
-syn match desProperty /\w*:[[:alnum:]-_;|\$]\+/ contains=desAttribute
+" `.` can be an empty spell slot and `'` is contained in certain spell names,
+" `$` and `-` are used in depth definitions (but `,` should not match there).
+syn match desProperty /\w*:[[:alnum:]_\.';|\$-]\+/ contains=desAttribute
 " Without `oneline` this wraps around and matches e.g. some SUBST: on the next line
 syn region desAttribute start=/\</ end=/:/ contained oneline
 
 syn match desEntry "\<\w*_entry\>" contains=desBranch
 syn match desEntry "\<serial_\w*\>"
-syn match desEntry "\<layout_\w*\>"
+syn match desEntry "\<no_species_\w\w\>"
+syn match desEntry "\<\(no\)\=layout_\w*\>"
 syn match desEntry "\<l\=uniq_\w*\>"
 syn match desEntry "\<chance_\w*\>"
+syn match desEntry "\<fallback_\w*\>"
+syn match desEntry "\<vaults_entry_\w*\>" contains=desBranch
+syn match desEntry "\<vaults_orient_\w\>"
 syn match desEntry "\<altar_\w*\>"           contains=desGod
 syn match desEntry "\<uniq_altar_\w*\>"      contains=desGod
 syn match desEntry "\<temple_overflow_\w*\>" contains=desGod

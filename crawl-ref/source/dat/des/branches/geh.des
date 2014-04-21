@@ -149,7 +149,7 @@ KMONS:   L = patrolling efreet w:12 / patrolling fire elemental w:8
 KFEAT:   L = l
 KPROP:   l = no_cloud_gen
 SHUFFLE: 13, 24, 12 / 12 / 12 / 11 / 11 / 22, ()~- / ()~- / -~(), () / {( / }) / '' / ''
-SUBST:   4 = 3, ' = .:99 >:1, ( = ( <:2, ) = ) >:2
+SUBST:   4 = 3, ' = .:99 >:1, ( = ( <:2, ) = ) >:2, ~- = .
 : if you.branch() == "Geh" then
 SUBST:   d$ = .
 : end
@@ -226,8 +226,8 @@ ENDMAP
 ##############################################################################
 
 NAME:    hangedman_elemental_corridor
-TAGS:    no_monster_gen no_pool_fixup allow_dup abyss
-DEPTH:   Geh, Coc, Zot, !Geh:$, !Coc:$, !Zot:$
+TAGS:    no_monster_gen no_pool_fixup allow_dup
+DEPTH:   Geh, Coc, Zot, !Geh:$, !Coc:$, !Zot:$, Abyss
 SHUFFLE: 123456, }] / }] / {[ / **
 :  if you.branch() == "Geh" then
 MONS:    brimstone fiend / balrug / hellion, sun demon / smoke demon / \
@@ -248,7 +248,7 @@ MONS:    flaming corpse w:8 / red draconian / fire elemental w:5 / \
          red very ugly thing w:15 / efreet w:12
 SUBST:   * = *||, {}[] = ***|, xc = xxxccb, 5 = 2, 6 = 4
 :  else
-KMONS:   123 = dragon
+KMONS:   123 = fire dragon
 KMONS:   456 = ice dragon
 KMONS:   789 = red draconian ; cloak . long sword ego:freezing ident:type
 KMONS:   ABC = white draconian ; cloak . long sword ego:flaming ident:type
@@ -263,10 +263,10 @@ SUBST:   % = $:2 %:5 *:2, ] = ] >:5, [ = [ <:5, G : G:6 c:2 b:1 .:1
 # Clearly, they commissioned the deep dwarves.
 MARKER:  f = lua:fog_machine {cloud_type = "freezing vapour", \
              pow_min = 3, pow_max = 3, delay = 75, size_min = 2, size_max = 2, \
-             walk_dist = 1, start_clouds = 1, excl_rad = -1 }
+             walk_dist = 1, start_clouds = 1, excl_rad = 0 }
 MARKER:  F = lua:fog_machine {cloud_type = "flame", \
              pow_min = 3, pow_max = 3, delay = 100, size_min = 2, size_max = 2, \
-             walk_dist = 1, start_clouds = 1, excl_rad = -1 }
+             walk_dist = 1, start_clouds = 1, excl_rad = 0 }
 MAP
   xx+++xxx
   xc...ccxx
@@ -738,4 +738,67 @@ Llllllllllll----------__________________________----------lllllllllllL
 Llllllllllllllllllllll--------------------------lllllllllllllllllllllL
 LllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllL
 LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL
+ENDMAP
+
+##############################################################################
+# Asmodeus (Gehenna) by Lightli
+# XXX: Disabled pending rebalancing.
+##############################################################################
+
+NAME: lightli_geh_unto_the_cruel
+WEIGHT: 0
+TAGS: no_vmirror
+ORIENT: encompass
+MONS: patrolling Asmodeus
+MONS: smoke demon w:9 / sun demon w:9 / hellion w:1 / balrug w:1
+MONS: hell knight / fire giant w:2, Brimstone Fiend, fire giant / balrug w:2
+MONS: red devil / sun demon w:1 / smoke demon w:1, hellion
+NSUBST: 2  = 10:2 / *:.
+NSUBST: 4  = 2:4 / *:.
+KFEAT:  g  = iron_grate
+NSUBST: l  = 3:L / *:l
+KMONS:  G  = cacodemon
+KMONS:  L  = flying skull
+KFEAT:  GL = lava
+KITEM:  A  = any weapon good_item / any armour good_item
+: serpent_of_hell_setup(_G)
+: geh_setup(_G)
+MAP
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+ccc..6........6......cccccccccccccccccccccccccccccc|*%...2...2...2...ccccccccccc
+cc7.c.....6....6......ccccccccccccccccccccccccccccc|*%.....2...2...2....cccccccc
+cc..cccccccccccccccc..cccccccccccccccccccccccccccccccccccggggcggggg..2....cccccc
+cc...ccccccccccccc.5..5.cccccccccccccccccccccccccccccccclllllcllllggg..2...ccccc
+cc....ccccccccccc........cccccccccccccccccccccccccccccclllllllGlllllggg..2..cccc
+ccc.....cccccccc...cccc...ccccccccccccccccccccccccccccllllllllllllllllggg..2.ccc
+cccc.....cccccc...cccccc...cccccccccccccccccccccccccclllllllllllllllllllgg...ccc
+ccccc..2..ccccc..cccccccc..ccccccccccccccccccccccccclllllllllllllllllllllgg.2.cc
+cccccc.....6c....cccccccc.................ccccccccclllllllllllllllllllllllg...cc
+ccccccc..6..c.....cccccc...................ccccccccllGlllllllll...6...lllGgg.2cc
+cccccccc....+.................6......ccc....ccccccclllllllllll.........llllg..cc
+ccccccccc.6.+........................c3c....cccccccllllllllll...cc+cc...lllg..cc
+cccccccccc..c.....4...5..............c+c....cccccccllllllcll..6ccc$ccc6..llc..cc
+ccccccccccc.c.................xxx...........ccccccclllllccc...ccc$3$ccc...ccc2cc
+ccccccccccccc................xx.xx..........ccccccc......c...ccccccccccc...c..cc
+ccccccccccccc...............xx*|*xx.........+..c..+..5.......cc*ccccc(cc.....2cc
+ccccccccO|||+...4...1...5...g.|A|.x...D.....+..+..+..5.....6.+*3ccccc{.+.6....cc
+ccccccccccccc...............xx*|*xx.........+..c..+..5.......cc*ccccc[cc.....2cc
+ccccccccccccc................xx.xx..........ccccccc......c...ccccccccccc...c..cc
+ccccccccccc.c.................xxx...........ccccccclllllccc...ccc$3$ccc...ccc2cc
+cccccccccc..c.....4...5..............c+c....cccccccllllllcll...ccc$ccc6..llc..cc
+ccccccccc.6.+........................c3c....cccccccllllllllll...cc+cc...lllg.2cc
+cccccccc....+.................6......ccc....ccccccclllllllllll.........llllg..cc
+ccccccc..6..c.....cccccc...................ccccccccllGlllllllll...6...lllGgg.2cc
+cccccc.....6c....cccccccc.................ccccccccclllllllllllllllllllllllg...cc
+ccccc..2..ccccc..cccccccc..ccccccccccccccccccccccccclllllllllllllllllllllgg.2.cc
+cccc.....cccccc...cccccc...cccccccccccccccccccccccccclllllllllllllllllllgg...ccc
+ccc.....cccccccc...cccc...ccccccccccccccccccccccccccccllllllllllllllllggg..2.ccc
+cc....ccccccccccc........cccccccccccccccccccccccccccccclllllllGlllllggg..2..cccc
+cc...ccccccccccccc.5..5.cccccccccccccccccccccccccccccccclllllcllllggg..2...ccccc
+cc..cccccccccccccccc..cccccccccccccccccccccccccccccccccccggggcggggg..2....cccccc
+cc7.c.....6....6......cccccccccccccccccccccccccccccccccc...2...2...2....cccccccc
+ccc..6.......6.......cccccccccccccccccccccccccccccccccA+.2...2...2...ccccccccccc
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 ENDMAP

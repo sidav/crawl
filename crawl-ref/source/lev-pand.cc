@@ -11,11 +11,9 @@
 
 #include "externs.h"
 #include "colour.h"
-#include "dungeon.h"
 #include "env.h"
 #include "mon-place.h"
 #include "mgen_data.h"
-#include "mon-pick.h"
 #include "random.h"
 
 static colour_t _pan_floor_colour()
@@ -44,22 +42,26 @@ static colour_t _pan_rock_colour()
 
 void init_pandemonium(void)
 {
-    for (int pc = 0; pc < 10; ++pc)
+    for (int pc = 0; pc < PAN_MONS_ALLOC; ++pc)
     {
-        env.mons_alloc[pc] = random_choose(
-                                MONS_NEQOXEC,
-                                MONS_ORANGE_DEMON,
-                                MONS_HELLWING,
-                                MONS_SMOKE_DEMON,
-                                MONS_YNOXINUL,
-                                MONS_ABOMINATION_LARGE,
-                                -1);
+        env.mons_alloc[pc] = random_choose_weighted(
+                               2, MONS_NEQOXEC,
+                               4, MONS_ORANGE_DEMON,
+                               4, MONS_HELLWING,
+                               4, MONS_SMOKE_DEMON,
+                               4, MONS_YNOXINUL,
+                               4, MONS_ABOMINATION_LARGE,
+                               2, MONS_MONSTROUS_DEMONSPAWN,
+                               2, MONS_GELID_DEMONSPAWN,
+                               2, MONS_INFERNAL_DEMONSPAWN,
+                               2, MONS_PUTRID_DEMONSPAWN,
+                               2, MONS_TORTUROUS_DEMONSPAWN,
+                               0);
 
         if (one_chance_in(10))
         {
             env.mons_alloc[pc] = random_choose(
                                     MONS_HELLION,
-                                    MONS_ROTTING_DEVIL,
                                     MONS_TORMENTOR,
                                     MONS_REAPER,
                                     MONS_SOUL_EATER,
@@ -73,7 +75,7 @@ void init_pandemonium(void)
         if (one_chance_in(30))
             env.mons_alloc[pc] = MONS_RED_DEVIL;
 
-        if (one_chance_in(30))
+        if (one_chance_in(20))
             env.mons_alloc[pc] = MONS_SIXFIRHY;
 
         if (one_chance_in(20))
@@ -91,13 +93,17 @@ void init_pandemonium(void)
          || pc == 8 && one_chance_in(5)
          || pc == 9 && one_chance_in(3))
         {
-            env.mons_alloc[pc] = random_choose(
-                    MONS_EXECUTIONER,
-                    MONS_GREEN_DEATH,
-                    MONS_BLIZZARD_DEMON,
-                    MONS_BALRUG,
-                    MONS_CACODEMON,
-                    -1);
+            env.mons_alloc[pc] = random_choose_weighted(
+                  4, MONS_EXECUTIONER,
+                  4, MONS_GREEN_DEATH,
+                  4, MONS_BLIZZARD_DEMON,
+                  4, MONS_BALRUG,
+                  4, MONS_CACODEMON,
+                  2, MONS_BLOOD_SAINT,
+                  2, MONS_WARMONGER,
+                  2, MONS_CORRUPTER,
+                  2, MONS_BLACK_SUN,
+                  0);
         }
     }
 
@@ -113,21 +119,9 @@ void init_pandemonium(void)
     if (one_chance_in(10))
         env.mons_alloc[7 + random2(3)] = MONS_HELL_SENTINEL;
 
+    if (one_chance_in(10))
+        env.mons_alloc[7 + random2(3)] = MONS_CHAOS_CHAMPION;
+
     env.floor_colour = _pan_floor_colour();
     env.rock_colour  = _pan_rock_colour();
-}
-
-void pandemonium_mons(void)
-{
-    // must leave allowance for monsters rare on pandemonium (wizards, etc.)
-    monster_type pan_mons = env.mons_alloc[random2(10)];
-
-    if (one_chance_in(40))
-        pan_mons = pick_monster_no_rarity(BRANCH_PANDEMONIUM);
-
-    mgen_data mg(pan_mons);
-    mg.place = level_id(BRANCH_PANDEMONIUM);
-    mg.flags |= MG_PERMIT_BANDS;
-
-    mons_place(mg);
 }

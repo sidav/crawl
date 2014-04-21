@@ -9,13 +9,19 @@
 #define TAG_CHR_FORMAT 0
 
 // Let CDO updaters know if the syntax changes.
+// Really, really, REALLY _never_ ever bump this and clean up old #ifdefs
+// in a single commit, please.  Making clean-up and actual code changes,
+// especially of this size, separated is vital for sanity.
+#ifndef TAG_MAJOR_VERSION
 #define TAG_MAJOR_VERSION 34
+#endif
 
 // Minor version will be reset to zero when major version changes.
 enum tag_minor_version
 {
     TAG_MINOR_INVALID         = -1,
     TAG_MINOR_RESET           = 0, // Minor tags were reset
+#if TAG_MAJOR_VERSION == 34
     TAG_MINOR_BRANCHES_LEFT,       // Note the first time branches are left
     TAG_MINOR_VAULT_LIST,          // Don't try to store you.vault_list as prop
     TAG_MINOR_TRAPS_DETERM,        // Searching for traps is deterministic.
@@ -61,6 +67,26 @@ enum tag_minor_version
     TAG_MINOR_STAT_MUT,            // Flag for converting stat mutations
     TAG_MINOR_MAP_ORDER,           // map_def::order added to des cache
     TAG_MINOR_FIXED_CONSTRICTION,  // Corrected a constricting marshalling bug.
+    TAG_MINOR_SEEDS,               // Per-game seeds for deterministic stuff.
+    TAG_MINOR_ABYSS_BRANCHES,      // Spawn abyss monsters from other branches.
+    TAG_MINOR_BRANCH_ENTRY,        // Store branch entry point (rather than just depth).
+    TAG_MINOR_16_BIT_TABLE,        // Increase the limit for CrawlVector/HashTable to 65535.
+    TAG_MINOR_ABIL_1000,           // Start god ability enums at 1000.
+    TAG_MINOR_CLASS_HP_0,          // Base class maxhp at 0.
+    TAG_MINOR_NOISES,              // Save incompat recovery wrt ATTR_NOISES.
+    TAG_MINOR_ABIL_GOD_FIXUP,      // Movement of some non-god-specific abils.
+    TAG_MINOR_NEMELEX_DUNGEONS,    // Make nemelex not give/track decks of dungeons.
+    TAG_MINOR_DEMONSPAWN,          // Save compat wrt demonspawn enemies.
+    TAG_MINOR_EVENT_TIMERS,        // "Every 20 turn" effects are less determinstic.
+    TAG_MINOR_EVENT_TIMER_FIX,     // Correct event timers in transferred games
+    TAG_MINOR_MONINFO_ENERGY,      // Energy usage in monster_info
+    TAG_MINOR_BOOK_ID,             // Track spellbooks you've identified
+    TAG_MINOR_MISC_SHOP_CHANGE,    // Wand and gadget shops merged
+    TAG_MINOR_HORN_GERYON_CHANGE,  // Horn of geryon changed to an xp-evoker
+    TAG_MINOR_NEMELEX_WEIGHTS,     // Nemelex deck weighting removed
+    TAG_MINOR_UNSEEN_MONSTER,      // Invis indicators for monsters going from seen to unseen
+    TAG_MINOR_MR_ITEM_RESCALE,     // Rescaled MR property on items.
+#endif
     NUM_TAG_MINORS,
     TAG_MINOR_VERSION = NUM_TAG_MINORS - 1
 };

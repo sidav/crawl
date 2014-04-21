@@ -25,11 +25,6 @@ Demonspawn
 I demoniaci sono mezzi uomini e mezzi demoni. Acquisendo potere subiscono
 potenti mutazioni che derivano dalla loro discendenza.
 %%%%
-Djinni
-
-I Djinn sono gli spiriti del fuoco, per loro la magia è la stessa essenza
-vitale.
-%%%%
 Draconian
 
 I draconici sono ibridi versatili. Al raggiungimento del livello sette maturano
@@ -120,12 +115,6 @@ Ogre
 Gli ogre, grandi e forti, sono spesso visti come esseri brutali, ma conoscono
 comunque le basi della magia.
 %%%%
-Sludge Elf
-
-Gli elfi della melma sono depravati e preferiscono il sotterfugio a un
-combattimento leale, così come la magia nera rispetto ad altri tipi di
-incantesimi.
-%%%%
 Spriggan
 
 Gli spriggan sono molto piccoli, molto fragili ed estremamente veloci. Questo
@@ -135,9 +124,4 @@ Troll
 
 I troll sono grandi energumeni pronti a lacerare qualsiasi cosa con i loro
 temibili artigli, senza pensarci due volte. Hanno sempre fame.
-%%%%
-Vampire
-
-I vampiri sono perennemente in bilico tra la vita e la non morte, sono
-assassini e maghi competenti.
 %%%%

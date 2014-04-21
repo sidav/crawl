@@ -24,15 +24,16 @@ Demonspawn
 Les tieffelins sont moitié humain, moitié démon. Ils développent de puissantes
 mutations démoniaques à mesure qu'ils grandissent.
 %%%%
-Djinni
-
-Les Djinn sont des esprits du feu, pour qui la magie est l'essence même de la
-vie.
-%%%%
 Draconian
 
 Les Draconiens sont des hybrides polyvalents. Ils arrivent à maturité au niveau
-7 et prennent une couleur.
+7 et révèlent leur couleur.
+%%%%
+Formicid
+
+Les Formicids sont des fourmis humanoïdes adepte de l'excavation. Leurs membres
+sont exceptionnellement fort et ils vivent dans un environnement où l’évolution
+naturel a cessé.
 %%%%
 Felid
 
@@ -87,7 +88,8 @@ deçà du Donjon. Leurs capacités changent avec leur température corporelle.
 Merfolk
 
 Moitié poisson, moitié humain, les ondins habitent à la fois sur terre et dans
-l'eau. Ce sont de bons combatant et expert en utilisation de magie de support.
+l'eau. Ce sont de bons combattants et expert en utilisation de magie de
+support.
 %%%%
 Minotaur
 
@@ -101,8 +103,9 @@ condamnés à la non-vie par une ancienne malédiction.
 %%%%
 Naga
 
-Un hybride; humain jusqu'à la poitrine, le torse se prolonge par une longue
-queue écailleuse et musclée, comme celle d'un serpent.
+Un hybride ; humain jusqu'à la poitrine, le torse se prolonge par une longue
+queue écailleuse et musclée, comme celle d'un serpent. Ils se déplacent
+lentement mais sont naturellement résistants.
 %%%%
 Octopode
 
@@ -113,11 +116,6 @@ Ogre
 
 Grand et fort, ils sont vu la plupart du temps comme des brutes. Néanmoins, les
 Ogres sont très à l'aise avec les bases de la magie.
-%%%%
-Sludge Elf
-
-Un elfe de type dépravé, qui préfère la ruse au combat loyal, et la magie noire
-à toute autre forme de sorcellerie.
 %%%%
 Spriggan
 
@@ -133,4 +131,10 @@ Vampire
 
 Naviguant entre la vie et la non-vie, les vampires sont des mages accomplis, et
 maîtres dans l'art d'attaquer leurs ennemis par surprise.
+%%%%
+Vine Stalker
+
+Fragiles symbiotes, les Vine Stalkers ne peuvent pas regagner leur santé à
+partir d'objets ou de potions. Leurs réserves magiques absorbent les dégâts, et
+ils possèdent une morsure restaurant leur magie.
 %%%%

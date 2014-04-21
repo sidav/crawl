@@ -10,16 +10,13 @@
 #include "externs.h"
 
 #include "areas.h"
-#include "coord.h"
 #include "env.h"
 #include "message.h"
 #include "mon-stuff.h"
 #include "random.h"
-#include "shout.h"
 #include "spl-util.h"
 #include "stuff.h"
 #include "terrain.h"
-#include "viewmap.h"
 
 int englaciate(coord_def where, int pow, int, actor *agent)
 {
@@ -80,8 +77,8 @@ bool backlight_monsters(coord_def where, int pow, int garbage)
     if (mons == NULL)
         return false;
 
-    // Already glowing.
-    if (mons->glows_naturally())
+    // Already glowing, or shadowy.
+    if (mons->glows_naturally() || mons_class_flag(mons->type, M_SHADOW))
         return false;
 
     mon_enchant bklt = mons->get_ench(ENCH_CORONA);
@@ -105,8 +102,7 @@ bool do_slow_monster(monster* mon, const actor* agent, int dur)
     if (mon->check_stasis(false))
         return true;
 
-    if (!mon->has_ench(ENCH_SLOW)
-        && !mon->is_stationary()
+    if (!mon->is_stationary()
         && mon->add_ench(mon_enchant(ENCH_SLOW, 0, agent, dur)))
     {
         if (!mon->paralysed() && !mon->petrified()
