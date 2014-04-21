@@ -770,10 +770,6 @@ manual
 A valuable book which allows one to practise a certain skill more efficiently
 when carried.
 %%%%
-manual:quote
-
-<book:quote>
-%%%%
 meat ration
 
 A filling ration of dried and preserved meats.
@@ -1210,18 +1206,10 @@ choosing the type of item to be created. Items produced are heavily biased
 towards something fitting the reader's skills, and also towards gear that
 hasn't been seen yet, but, alas, nothing is guaranteed.
 %%%%
-scroll of acquirement:quote
-
-<scroll:quote>
-%%%%
 scroll of amnesia
 
 This scroll allows its reader to selectively erase one spell from memory to
 recapture the magical energy bound up with it.
-%%%%
-scroll of amnesia:quote
-
-<scroll:quote>
 %%%%
 scroll of blinking
 
@@ -1244,25 +1232,13 @@ scroll of curse armour
 
 This scroll places a curse on a worn piece of armour.
 %%%%
-scroll of curse armour:quote
-
-<scroll:quote>
-%%%%
 scroll of curse jewellery
 
 This scroll places a curse on an equipped amulet or a ring.
 %%%%
-scroll of curse jewellery:quote
-
-<scroll:quote>
-%%%%
 scroll of curse weapon
 
 This scroll places a curse on a wielded weapon.
-%%%%
-scroll of curse weapon:quote
-
-<scroll:quote>
 %%%%
 scroll of enchant armour
 
@@ -1273,20 +1249,12 @@ AC. Magical artefacts cannot be enchanted at all.
 
 It can also be used to enchant the hides of certain exotic creatures.
 %%%%
-scroll of enchant armour:quote
-
-<scroll:quote>
-%%%%
 scroll of enchant weapon i
 
 This scroll places an enchantment on a weapon chosen by the reader, making it
 more accurate in combat. It becomes increasingly less likely to succeed when
 used on highly enchanted weapons, and can only ever enchant them up to +9.
 Magical artefacts cannot be enchanted at all.
-%%%%
-scroll of enchant weapon i:quote
-
-<scroll:quote>
 %%%%
 scroll of enchant weapon ii
 
@@ -1295,10 +1263,6 @@ inflict greater damage in combat. It becomes increasingly less likely to
 succeed when used on highly enchanted weapons, and can only ever enchant them
 up to +9. Magical artefacts cannot be enchanted at all.
 %%%%
-scroll of enchant weapon ii:quote
-
-<scroll:quote>
-%%%%
 scroll of enchant weapon iii
 
 This scroll enchants a chosen weapon to be far more effective in combat,
@@ -1306,35 +1270,19 @@ increasing both accuracy and damage. It becomes increasingly less likely to
 succeed when used on highly enchanted weapons, and can only ever enchant them
 up to +9. Magical artefacts cannot be enchanted at all.
 %%%%
-scroll of enchant weapon iii:quote
-
-<scroll:quote>
-%%%%
 scroll of fear
 
 This scroll causes great fear in those who see the one who reads it.
 %%%%
-scroll of fear:quote
-
-<scroll:quote>
-%%%%
 scroll of fog
 
 This scroll surrounds the reader with a dense cloud of fog.
-%%%%
-scroll of fog:quote
-
-<scroll:quote>
 %%%%
 scroll of holy word
 
 This scroll calls on the good gods to cause great damage to any nearby undead
 or demonic creature — possibly including you! It will briefly stun monsters
 that are affected.
-%%%%
-scroll of holy word:quote
-
-<scroll:quote>
 %%%%
 scroll of identify
 
@@ -1343,54 +1291,30 @@ and will occasionally allow multiple identifications.
 
 If used on a deck of cards, this scroll will also give away the top card.
 %%%%
-scroll of identify:quote
-
-<scroll:quote>
-%%%%
 scroll of immolation
 
 This scroll fills the creatures around the reader with an unstable and powerful
 inner flame.
 %%%%
-scroll of immolation:quote
-
-<scroll:quote>
-%%%%
 scroll of magic mapping
 
 This scroll reveals the surroundings of the one who reads it.
-%%%%
-scroll of magic mapping:quote
-
-<scroll:quote>
 %%%%
 scroll of noise
 
 This prank scroll, often slipped into a wizard's backpack by a devious
 apprentice, causes a loud noise.
 %%%%
-scroll of noise:quote
-
-<scroll:quote>
-%%%%
 scroll of random uselessness
 
 It is easy to be blinded to the essential uselessness of this scroll by the
 sense of achievement you get from getting it to work at all.
-%%%%
-scroll of random uselessness:quote
-
-<scroll:quote>
 %%%%
 scroll of recharging
 
 This scroll restores the charges of any magical wand or rod chosen by its
 reader. When used on a rod, it increases the rod's maximum charges and
 increases the rate at which it regenerates power.
-%%%%
-scroll of recharging:quote
-
-<scroll:quote>
 %%%%
 scroll of remove curse
 
@@ -1414,28 +1338,16 @@ scroll of summoning
 This scroll calls forth several creatures woven from shadow into the shapes of
 those beings found within the reader's immediate vicinity.
 %%%%
-scroll of summoning:quote
-
-<scroll:quote>
-%%%%
 scroll of teleportation
 
 Reading the words on this scroll translocates you to a random position after a
 short delay.
-%%%%
-scroll of teleportation:quote
-
-<scroll:quote>
 %%%%
 scroll of torment
 
 This scroll calls on the powers of darkness to inflict great pain on any nearby
 creature — including you! This halves the resilience of all living creatures,
 although it is never directly fatal.
-%%%%
-scroll of vorpalise weapon:quote
-
-<scroll:quote>
 %%%%
 scroll of vulnerability
 
@@ -1622,10 +1534,6 @@ tome of destruction
 An extremely powerful but unpredictable book of wild magic. It is more
 effective for those skilled at evocation, but reading it may have undesirable
 effects regardless.
-%%%%
-tome of destruction:quote
-
-<book:quote>
 %%%%
 trident
 

@@ -2813,8 +2813,7 @@ maybe_bool bolt::affects_wall(dungeon_feature_type wall) const
             || wall == DNGN_GRANITE_STATUE
             || wall == DNGN_ORCISH_IDOL
             || wall == DNGN_CLOSED_DOOR
-            || wall == DNGN_RUNED_DOOR
-            || wall == DNGN_SEALED_DOOR)
+            || wall == DNGN_RUNED_DOOR)
         {
             return MB_TRUE;
         }
@@ -6282,10 +6281,6 @@ bool bolt::nasty_to(const monster* mon) const
     // enslave soul
     if (flavour == BEAM_ENSLAVE_SOUL)
         return mon->holiness() == MH_NATURAL;
-
-    // sleep
-    if (flavour == BEAM_HIBERNATION)
-        return mon->can_hibernate(true);
 
     // sleep
     if (flavour == BEAM_HIBERNATION)
