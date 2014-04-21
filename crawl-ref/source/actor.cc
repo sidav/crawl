@@ -1,11 +1,12 @@
 #include "AppHdr.h"
+#include <sstream>
 
 #include "actor.h"
 #include "areas.h"
 #include "artefact.h"
+#include "art-enum.h"
 #include "attack.h"
 #include "coord.h"
-#include "describe.h"
 #include "env.h"
 #include "fprop.h"
 #include "itemprop.h"
@@ -30,10 +31,10 @@ actor::~actor()
 
 bool actor::will_trigger_shaft() const
 {
-    return (ground_level() && total_weight() > 0 && is_valid_shaft_level()
-            // let's pretend that they always make their saving roll
-            && !(is_monster()
-                 && mons_is_elven_twin(static_cast<const monster* >(this))));
+    return ground_level() && total_weight() > 0 && is_valid_shaft_level()
+           // let's pretend that they always make their saving roll
+           && !(is_monster()
+                && mons_is_elven_twin(static_cast<const monster* >(this)));
 }
 
 level_id actor::shaft_dest(bool known = false) const
@@ -44,7 +45,7 @@ level_id actor::shaft_dest(bool known = false) const
 bool actor::airborne() const
 {
     flight_type fly = flight_mode();
-    return (fly == FL_LEVITATE || fly == FL_WINGED && !cannot_move());
+    return fly == FL_LEVITATE || fly == FL_WINGED && !(cannot_move() || caught());
 }
 
 /**
@@ -52,13 +53,23 @@ bool actor::airborne() const
  */
 bool actor::ground_level() const
 {
-    return !airborne() && !is_wall_clinging() && mons_species() != MONS_DJINNI;
+    return !airborne() && !is_wall_clinging()
+#if TAG_MAJOR_VERSION == 34
+        && mons_species() != MONS_DJINNI
+#endif
+        ;
 }
 
 bool actor::stand_on_solid_ground() const
 {
     return ground_level() && feat_has_solid_floor(grd(pos()))
            && !feat_is_water(grd(pos()));
+}
+
+// Give hands required to wield weapon.
+hands_reqd_type actor::hands_reqd(const item_def &item) const
+{
+    return basic_hands_reqd(item, body_size());
 }
 
 /**
@@ -103,7 +114,7 @@ bool actor::handle_trap()
     trap_def* trap = find_trap(pos());
     if (trap)
         trap->trigger(*this);
-    return (trap != NULL);
+    return trap != NULL;
 }
 
 int actor::skill_rdiv(skill_type sk, int mult, int div) const
@@ -148,7 +159,7 @@ int actor::check_res_magic(int power)
     dprf("Power: %d, MR: %d, target: %d, roll: %d",
          power, mrs, mrchance, mrch2);
 
-    return (mrchance - mrch2);
+    return mrchance - mrch2;
 }
 
 void actor::set_position(const coord_def &c)
@@ -210,9 +221,9 @@ void actor::shield_block_succeeded(actor *foe)
         && is_artefact(*sh)
         && is_unrandom_artefact(*sh)
         && (unrand_entry = get_unrand_entry(sh->special))
-        && unrand_entry->fight_func.melee_effects)
+        && unrand_entry->melee_effects)
     {
-       unrand_entry->fight_func.melee_effects(sh, this, foe, false, 0);
+        unrand_entry->melee_effects(sh, this, foe, false, 0);
     }
 }
 
@@ -243,31 +254,23 @@ int actor::body_weight(bool base) const
 
 bool actor::inaccuracy() const
 {
-    return !suppressed() && wearing(EQ_AMULET, AMU_INACCURACY);
+    return wearing(EQ_AMULET, AMU_INACCURACY);
 }
 
 bool actor::gourmand(bool calc_unid, bool items) const
 {
-    if (suppressed())
-        items = false;
-
     return items && wearing(EQ_AMULET, AMU_THE_GOURMAND, calc_unid);
 }
 
 bool actor::conservation(bool calc_unid, bool items) const
 {
-    if (suppressed() || !items)
-        return false;
-
-    return wearing(EQ_AMULET, AMU_CONSERVATION, calc_unid)
-           || wearing_ego(EQ_ALL_ARMOUR, SPARM_PRESERVATION, calc_unid);
+    return items && (wearing(EQ_AMULET, AMU_CONSERVATION, calc_unid)
+                     || wearing_ego(EQ_ALL_ARMOUR, SPARM_PRESERVATION,
+                                    calc_unid));
 }
 
 bool actor::res_corr(bool calc_unid, bool items) const
 {
-    if (suppressed())
-        items = false;
-
     return items && (wearing(EQ_AMULET, AMU_RESIST_CORROSION, calc_unid)
                      || wearing_ego(EQ_ALL_ARMOUR, SPARM_PRESERVATION,
                                     calc_unid));
@@ -279,98 +282,74 @@ bool actor::res_corr(bool calc_unid, bool items) const
 // item_use.cc for a superset of this function.
 bool actor::has_notele_item(bool calc_unid) const
 {
-    if (suppressed())
-        return false;
-
     return scan_artefacts(ARTP_PREVENT_TELEPORTATION, calc_unid);
 }
 
 bool actor::stasis(bool calc_unid, bool items) const
 {
-    if (suppressed())
-        items = false;
-
     return items && wearing(EQ_AMULET, AMU_STASIS, calc_unid);
 }
 
 // permaswift effects like boots of running and lightning scales
 bool actor::run(bool calc_unid, bool items) const
 {
-    if (suppressed())
-        items = false;
-
     return items && wearing_ego(EQ_BOOTS, SPARM_RUNNING, calc_unid);
 }
 
 bool actor::angry(bool calc_unid, bool items) const
 {
-    if (suppressed())
-        items = false;
-
     return items && scan_artefacts(ARTP_ANGRY, calc_unid);
 }
 
 bool actor::clarity(bool calc_unid, bool items) const
 {
-    if (suppressed())
-        items = false;
-
     return items && (wearing(EQ_AMULET, AMU_CLARITY, calc_unid)
                      || scan_artefacts(ARTP_CLARITY, calc_unid));
 }
 
 bool actor::faith(bool calc_unid, bool items) const
 {
-    if (suppressed())
-        items = false;
-
     return items && wearing(EQ_AMULET, AMU_FAITH, calc_unid);
 }
 
 bool actor::warding(bool calc_unid, bool items) const
 {
-    if (suppressed())
-        items = false;
-
     // Note: when adding a new source of warding, please add it to
     // melee_attack::attack_warded_off() as well.
     return items && (wearing(EQ_AMULET, AMU_WARDING, calc_unid)
                      || wearing(EQ_STAFF, STAFF_SUMMONING, calc_unid));
 }
 
-bool actor::archmagi(bool calc_unid, bool items) const
+int actor::archmagi(bool calc_unid, bool items) const
 {
-    if (suppressed())
-        items = false;
+    if (!items)
+        return 0;
 
-    return items && wearing_ego(EQ_BODY_ARMOUR, SPARM_ARCHMAGI, calc_unid);
+    return wearing_ego(EQ_ALL_ARMOUR, SPARM_ARCHMAGI, calc_unid);
 }
 
 bool actor::no_cast(bool calc_unid, bool items) const
 {
-    if (suppressed())
-        items = false;
-
     return items && scan_artefacts(ARTP_PREVENT_SPELLCASTING, calc_unid);
 }
 
 bool actor::rmut_from_item(bool calc_unid) const
 {
-    return !suppressed() && wearing(EQ_AMULET, AMU_RESIST_MUTATION, calc_unid);
+    return wearing(EQ_AMULET, AMU_RESIST_MUTATION, calc_unid)
+           || is_player() && player_equip_unrand(UNRAND_ORDER);
 }
 
 bool actor::evokable_berserk(bool calc_unid) const
 {
-    return !suppressed() && (wearing(EQ_AMULET, AMU_RAGE, calc_unid)
-                             || scan_artefacts(ARTP_BERSERK, calc_unid));
+    return wearing(EQ_AMULET, AMU_RAGE, calc_unid)
+           || scan_artefacts(ARTP_BERSERK, calc_unid);
 }
 
 bool actor::evokable_invis(bool calc_unid) const
 {
-    return !suppressed()
-           && (wearing(EQ_RINGS, RING_INVISIBILITY, calc_unid)
-               || wearing_ego(EQ_CLOAK, SPARM_DARKNESS, calc_unid)
-               || scan_artefacts(ARTP_INVISIBLE, calc_unid));
+    return wearing(EQ_RINGS, RING_INVISIBILITY, calc_unid)
+           || wearing_ego(EQ_CLOAK, SPARM_DARKNESS, calc_unid)
+           || scan_artefacts(ARTP_INVISIBLE, calc_unid);
 }
 
 // Return an int so we know whether an item is the sole source.
@@ -379,19 +358,21 @@ int actor::evokable_flight(bool calc_unid) const
     if (is_player() && you.form == TRAN_TREE)
         return 0;
 
-    if (suppressed())
-        return 0;
-
     return wearing(EQ_RINGS, RING_FLIGHT, calc_unid)
            + wearing_ego(EQ_ALL_ARMOUR, SPARM_FLYING, calc_unid)
            + scan_artefacts(ARTP_FLY, calc_unid);
+}
+
+int actor::evokable_jump(bool calc_unid) const
+{
+    return wearing_ego(EQ_ALL_ARMOUR, SPARM_JUMPING, calc_unid);
 }
 
 int actor::spirit_shield(bool calc_unid, bool items) const
 {
     int ss = 0;
 
-    if (items && !suppressed())
+    if (items)
     {
         ss += wearing_ego(EQ_ALL_ARMOUR, SPARM_SPIRIT_SHIELD, calc_unid);
         ss += wearing(EQ_AMULET, AMU_GUARDIAN_SPIRIT, calc_unid);
