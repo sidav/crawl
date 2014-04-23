@@ -42,10 +42,10 @@
     #include <sys/resource.h>
 #endif
 
-#ifdef __ANDROID__
-    #include <SDL_mixer.h>
-    Mix_Chunk* android_sound_to_play = NULL;
-#endif
+//#ifdef __ANDROID__
+    //#include <SDL_mixer.h>
+    //Mix_Chunk* android_sound_to_play = NULL;
+//#endif
 
 unsigned int isqrt(unsigned int a)
 {
@@ -144,13 +144,13 @@ void play_sound(const char *file)
         snprintf(command, sizeof command, SOUND_PLAY_COMMAND, file);
         system(OUTS(command));
     }
-#elif defined(__ANDROID__)
-    if (Mix_Playing(0))
-        Mix_HaltChannel(0);
-    if (android_sound_to_play != NULL)
-        Mix_FreeChunk(android_sound_to_play);
-    android_sound_to_play = Mix_LoadWAV(OUTS(file));
-    Mix_PlayChannel(0, android_sound_to_play, 0);
+//#elif defined(__ANDROID__)
+    //if (Mix_Playing(0))
+        //Mix_HaltChannel(0);
+    //if (android_sound_to_play != NULL)
+        //Mix_FreeChunk(android_sound_to_play);
+    //android_sound_to_play = Mix_LoadWAV(OUTS(file));
+    //Mix_PlayChannel(0, android_sound_to_play, 0);
 #endif
 }
 
