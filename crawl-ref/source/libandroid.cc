@@ -18,6 +18,9 @@
  *  code until this gets fixed (http://www.crystax.net/trac/ndk/ticket/126).
  *
  */
+// COMMENTING THIS OUT COS I DON'T THINK WE NEED THIS 
+// IF WE'RE USING version r8 of CrystaX's toolchain
+/*
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -26,6 +29,7 @@ void __exidx_end() {}
 #ifdef __cplusplus
 }
 #endif
+*/
 // WORKAROUND CODE ENDS HERE
 
 #include "AppHdr.h"
