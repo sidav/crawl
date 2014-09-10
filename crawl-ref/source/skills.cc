@@ -24,6 +24,7 @@
 #include "message.h"
 #include "misc.h"
 #include "notes.h"
+#include "output.h"
 #include "player.h"
 #include "random.h"
 #include "random-weight.h"
@@ -31,7 +32,7 @@
 #include "spl-cast.h"
 #include "sprint.h"
 #include "state.h"
-#include "stuff.h"
+
 
 // MAX_COST_LIMIT is the maximum XP amount it will cost to raise a skill
 //                by 10 skill points (ie one standard practice).
@@ -144,18 +145,7 @@ static void _change_skill_level(skill_type exsk, int n)
         take_note(Note(NOTE_LOSE_SKILL, exsk, you.skills[exsk]));
 
     if (you.skills[exsk] == 27)
-    {
         mprf(MSGCH_INTRINSIC_GAIN, "You have mastered %s!", skill_name(exsk));
-        for (int i = you.sage_skills.size() - 1; i >= 0; i--)
-        {
-            if (you.sage_skills[i] == exsk)
-            {
-                erase_any(you.sage_skills, i);
-                erase_any(you.sage_xp,     i);
-                erase_any(you.sage_bonus,  i);
-            }
-        }
-    }
     else if (abs(n) == 1 && you.num_turns)
     {
         mprf(MSGCH_INTRINSIC_GAIN, "Your %s skill %s to level %d!",
@@ -310,13 +300,6 @@ static void _check_inventory_skills()
     }
 }
 
-static void _check_equipment_skills()
-{
-    skill_set_iter it = you.stop_train.find(SK_SHIELDS);
-    if (it != you.stop_train.end() && you.slot_item(EQ_SHIELD, true))
-        you.stop_train.erase(it);
-}
-
 static void _check_spell_skills()
 {
     for (int i = 0; i < MAX_KNOWN_SPELLS; i++)
@@ -407,7 +390,6 @@ static void _check_start_train()
 static void _check_stop_train()
 {
     _check_inventory_skills();
-    _check_equipment_skills();
     _check_spell_skills();
     _check_abil_skills();
 
@@ -510,7 +492,7 @@ static bool _cmp_rest(const pair<skill_type, int64_t>& a,
     return a.second < b.second;
 }
 
-/*
+/**
  * Scale an array.
  *
  * @param array The array to be scaled.
@@ -907,17 +889,6 @@ bool skill_trained(int i)
     return you.can_train[i] && you.train[i];
 }
 
-void train_skill(skill_type skill, int exp)
-{
-    const int cost = calc_skill_cost(you.skill_cost_level);
-    int gain = 0;
-
-    while (exp >= cost)
-        gain += _train(skill, exp);
-
-    dprf("Trained %s by %d.", skill_name(skill), gain);
-}
-
 void check_skill_cost_change()
 {
     while (you.skill_cost_level < 27
@@ -950,13 +921,6 @@ static int _train(skill_type exsk, int &max_exp, bool simu)
     // This will be deducted from you.exp_available.
     int cost = calc_skill_cost(you.skill_cost_level);
 
-    // Being good at some weapons makes others easier to learn.
-    if (exsk < SK_ARMOUR)
-        skill_inc *= crosstrain_bonus(exsk);
-
-    if (is_antitrained(exsk))
-        cost *= ANTITRAIN_PENALTY;
-
     // Scale cost and skill_inc to available experience.
     const int spending_limit = min(MAX_SPENDING_LIMIT, max_exp);
     if (cost > spending_limit)
@@ -985,8 +949,6 @@ static int _train(skill_type exsk, int &max_exp, bool simu)
 
     const skill_type old_best_skill = best_skill(SK_FIRST_SKILL, SK_LAST_SKILL);
     you.skill_points[exsk] += skill_inc;
-    you.ct_skill_points[exsk] += (1 - 1 / crosstrain_bonus(exsk))
-                                 * skill_inc;
     you.exp_available -= cost;
     you.total_experience += cost;
     max_exp -= cost;

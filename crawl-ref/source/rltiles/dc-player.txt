@@ -360,7 +360,6 @@ shirt_check SHIRT_CHECK
 jessica JESSICA
 
 slit_black SLIT_BLACK
-leather_armour LEATHER_ARMOUR
 leather_green LEATHER_GREEN
 shirt_black SHIRT_BLACK
 shirt_black_and_cloth SHIRT_BLACK_AND_CLOTH
@@ -369,8 +368,9 @@ leather2 LEATHER2
 coat_red COAT_RED
 coat_black COAT_BLACK
 
-leather_armour2 LEATHER_ARMOUR2
-leather_armour3 LEATHER_ARMOUR3
+leather_armour LEATHER_ARMOUR
+leather_armour2
+leather_armour3
 shirt_vest SHIRT_VEST
 karate KARATE
 karate2 KARATE2
@@ -445,6 +445,7 @@ maxwell MAXWELL
 lears_hauberk LEARS_HAUBERK
 faerie_dragon_armour FAERIE_DRAGON_ARMOUR
 moon_troll_leather_armour MOON_TROLL_LEATHER_ARMOUR
+orange_crystal ORANGE_CRYSTAL
 %end_ctg
 
 ### Arms
@@ -508,6 +509,7 @@ shillelagh SHILLELAGH
 dark_maul DARK_MAUL
 spellbinder SPELLBINDER
 firestarter FIRESTARTER
+majin MAJIN
 ## polearms
 trident_octopus_king TRIDENT_OCTOPUS_KING
 glaive_of_prune GLAIVE_OF_PRUNE
@@ -715,16 +717,19 @@ axe_blood AXE_BLOOD
 axe_short AXE_SHORT
 
 ## launchers
-sling SLING
+sling HUNTING_SLING
+greatsling GREATSLING
 bow BOW
 bow_two BOW2
 bow_three BOW3
 great_bow GREAT_BOW
-bow_blue BOW_BLUE
-crossbow CROSSBOW
-crossbow_two CROSSBOW2
-crossbow_three CROSSBOW3
-crossbow_four CROSSBOW4
+storm_bow STORM_BOW
+hand_crossbow HAND_CROSSBOW
+arbalest ARBALEST
+arbalest_two ARBALEST2
+arbalest_three ARBALEST3
+arbalest_four ARBALEST4
+triple_crossbow TRIPLE_CROSSBOW
 blowgun BLOWGUN
 
 ##missiles

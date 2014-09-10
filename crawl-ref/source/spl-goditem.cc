@@ -13,6 +13,7 @@
 #include "cloud.h"
 #include "coord.h"
 #include "coordit.h"
+#include "database.h"
 #include "decks.h"
 #include "env.h"
 #include "godconduct.h"
@@ -28,14 +29,14 @@
 #include "misc.h"
 #include "mon-abil.h"
 #include "mon-behv.h"
-#include "mon-stuff.h"
+#include "mon-death.h"
 #include "mon-util.h"
 #include "options.h"
 #include "random.h"
 #include "religion.h"
 #include "spl-util.h"
 #include "state.h"
-#include "stuff.h"
+
 #include "terrain.h"
 #include "tiledef-dngn.h"
 #include "tilepick.h"
@@ -43,107 +44,21 @@
 #include "traps.h"
 #include "view.h"
 
-int identify(int power, int item_slot, bool alreadyknown, string *pre_msg)
+static void _print_holy_pacification_speech(const string key,
+                                            monster* mon,
+                                            msg_channel_type channel)
 {
-    int id_used = 1;
-    int identified = 0;
+    string full_key = "holy_being_";
+    full_key += key;
 
-    // Scrolls of identify *may* produce "extra" identifications.
-    if (power == -1 && one_chance_in(5))
-        id_used += (coinflip()? 1 : 2);
+    string msg = getSpeakString(full_key);
 
-    do
+    if (!msg.empty())
     {
-        if (item_slot == -1)
-        {
-            item_slot = prompt_invent_item(
-                "Identify which item? (\\ to view known items)",
-                MT_INVLIST, OSEL_UNIDENT, true, true, false, 0,
-                -1, NULL, OPER_ANY, true);
-        }
-
-        if (item_slot == PROMPT_NOTHING)
-        {
-            return identified > 0 ? identified :
-                   alreadyknown   ? 0 : -1;
-        }
-
-        if (item_slot == PROMPT_ABORT)
-        {
-            if (alreadyknown
-                || crawl_state.seen_hups
-                || yesno("Really abort (and waste the scroll)?", false, 0))
-            {
-                canned_msg(MSG_OK);
-                return identified > 0 ? identified :
-                       alreadyknown   ? 0
-                                      : -1;
-            }
-            else
-            {
-                item_slot = -1;
-                continue;
-            }
-        }
-
-        item_def& item(you.inv[item_slot]);
-
-        if (fully_identified(item)
-            && (!is_deck(item) || top_card_is_known(item)))
-        {
-            mpr("Choose an unidentified item, or Esc to abort.");
-            more();
-            item_slot = -1;
-            continue;
-        }
-
-        if (alreadyknown && pre_msg && identified == 0)
-            mpr(pre_msg->c_str());
-
-        set_ident_type(item, ID_KNOWN_TYPE);
-        set_ident_flags(item, ISFLAG_IDENT_MASK);
-
-        if (is_deck(item) && !top_card_is_known(item))
-            deck_identify_first(item_slot);
-
-        // For scrolls, now id the scroll, unless already known.
-        if (power == -1
-            && get_ident_type(OBJ_SCROLLS, SCR_IDENTIFY) != ID_KNOWN_TYPE)
-        {
-            set_ident_type(OBJ_SCROLLS, SCR_IDENTIFY, ID_KNOWN_TYPE);
-
-            const int wpn = you.equip[EQ_WEAPON];
-            if (wpn != -1
-                && you.inv[wpn].base_type == OBJ_SCROLLS
-                && you.inv[wpn].sub_type == SCR_IDENTIFY)
-            {
-                you.wield_change = true;
-            }
-        }
-
-        // Output identified item.
-        mprf_nocap("%s", item.name(DESC_INVENTORY_EQUIP).c_str());
-        if (item_slot == you.equip[EQ_WEAPON])
-            you.wield_change = true;
-
-        identified++;
-
-        if (item.base_type == OBJ_JEWELLERY
-            && item.sub_type == AMU_INACCURACY
-            && item_slot == you.equip[EQ_AMULET]
-            && !item_known_cursed(item))
-        {
-            learned_something_new(HINT_INACCURACY);
-        }
-
-        if (id_used > identified)
-            more();
-
-        // In case we get to try again.
-        item_slot = -1;
+        msg = do_mon_str_replacements(msg, mon);
+        strip_channel_prefix(msg, channel);
+        mprf(channel, "%s", msg.c_str());
     }
-    while (id_used > identified);
-    return identified;
 }
 
 static bool _mons_hostile(const monster* mon)
@@ -248,10 +163,9 @@ static vector<string> _desc_mindless(const monster_info& mi)
     return descs;
 }
 
-// Returns: 1 -- success, 0 -- failure, -1 -- cancel
-static int _healing_spell(int healed, int max_healed, bool divine_ability,
-                          const coord_def& where, bool not_self,
-                          targ_mode_type mode)
+static spret_type _healing_spell(int healed, int max_healed,
+                                 bool divine_ability, const coord_def& where,
+                                 bool not_self, targ_mode_type mode)
 {
     ASSERT(healed >= 1);
 
@@ -274,19 +188,19 @@ static int _healing_spell(int healed, int max_healed, bool divine_ability,
     }
 
     if (!spd.isValid)
-        return -1;
+        return SPRET_ABORT;
 
     if (spd.target == you.pos())
     {
         if (not_self)
         {
             mpr("You can only heal others!");
-            return -1;
+            return SPRET_ABORT;
         }
 
         mpr("You are healed.");
         inc_hp(healed);
-        return 1;
+        return SPRET_SUCCESS;
     }
 
     monster* mons = monster_at(spd.target);
@@ -295,7 +209,7 @@ static int _healing_spell(int healed, int max_healed, bool divine_ability,
         canned_msg(MSG_NOTHING_THERE);
         // This isn't a cancel, to avoid leaking invisible monster
         // locations.
-        return 0;
+        return SPRET_FAIL;
     }
 
     const int can_pacify  = _can_pacify_monster(mons, healed, max_healed);
@@ -310,19 +224,19 @@ static int _healing_spell(int healed, int max_healed, bool divine_ability,
         {
             mprf("The light of Elyvilon fails to reach %s.",
                  mons->name(DESC_THE).c_str());
-            return 0;
+            return SPRET_FAIL;
         }
         else if (can_pacify == -3)
         {
             mprf("The light of Elyvilon almost touches upon %s.",
                  mons->name(DESC_THE).c_str());
-            return 0;
+            return SPRET_FAIL;
         }
         else if (can_pacify == -4)
         {
             mprf("%s is completely unfazed by your meager offer of peace.",
                  mons->name(DESC_THE).c_str());
-            return 0;
+            return SPRET_FAIL;
         }
         else
         {
@@ -333,7 +247,7 @@ static int _healing_spell(int healed, int max_healed, bool divine_ability,
             }
             else
                 mpr("You cannot pacify this monster!");
-            return -1;
+            return SPRET_ABORT;
         }
     }
 
@@ -364,16 +278,31 @@ static int _healing_spell(int healed, int max_healed, bool divine_ability,
             mpr("Elyvilon supports your offer of peace.");
 
         if (is_holy)
-            good_god_holy_attitude_change(mons);
-        else
         {
-            simple_monster_message(mons, " turns neutral.");
-            record_monster_defeat(mons, KILL_PACIFIED);
-            mons_pacify(mons, ATT_NEUTRAL);
+            string key = "pacification";
 
-            // Give a small piety return.
-            gain_piety(pgain);
+            // Quadrupeds can't salute, etc.
+            mon_body_shape shape = get_mon_shape(mons);
+            if (shape >= MON_SHAPE_HUMANOID && shape <= MON_SHAPE_NAGA)
+                key += "_humanoid";
+
+            _print_holy_pacification_speech(key, mons, MSGCH_FRIEND_ENCHANT);
+
+            if (!one_chance_in(3)
+                && mons->can_speak()
+                && mons->type != MONS_MENNAS) // Mennas is mute and only has visual speech
+            {
+                _print_holy_pacification_speech("speech", mons, MSGCH_TALK);
+            }
         }
+        else
+            simple_monster_message(mons, " turns neutral.");
+
+        record_monster_defeat(mons, KILL_PACIFIED);
+        mons_pacify(mons, ATT_NEUTRAL);
+
+        // Give a small piety return.
+        gain_piety(pgain);
     }
 
     if (mons->heal(healed))
@@ -390,38 +319,36 @@ static int _healing_spell(int healed, int max_healed, bool divine_ability,
     if (!did_something)
     {
         canned_msg(MSG_NOTHING_HAPPENS);
-        return 0;
+        return SPRET_FAIL;
     }
 
-    return 1;
+    return SPRET_SUCCESS;
 }
 
-// Returns: 1 -- success, 0 -- failure, -1 -- cancel
-int cast_healing(int pow, int max_pow, bool divine_ability,
-                 const coord_def& where, bool not_self, targ_mode_type mode)
+spret_type cast_healing(int pow, int max_pow, bool divine_ability,
+                        const coord_def& where, bool not_self,
+                        targ_mode_type mode)
 {
     pow = min(50, pow);
     max_pow = min(50, max_pow);
-    if (!not_self && !divine_ability && you.mutation[MUT_NO_DEVICE_HEAL])
-        return 0;
     return _healing_spell(pow + roll_dice(2, pow) - 2, (3 * max_pow) - 2,
                           divine_ability, where, not_self, mode);
 }
 
-// Antimagic is sort of an anti-extension... it sets a lot of magical
-// durations to 1 so it's very nasty at times (and potentially lethal,
-// that's why we reduce flight to 2, so that the player has a chance
-// to stop insta-death... sure the others could lead to death, but that's
-// not as direct as falling into deep water) -- bwr
-void antimagic()
+/**
+ * Remove magical effects from the player.
+ *
+ * Forms, buffs, debuffs, contamination, probably a few other things.
+ * Flight gets an extra 11 aut before going away to minimize instadeaths.
+ */
+void debuff_player()
 {
     duration_type dur_list[] =
     {
-        DUR_INVIS, DUR_CONF, DUR_PARALYSIS, DUR_HASTE, DUR_MIGHT, DUR_AGILITY,
-        DUR_BRILLIANCE, DUR_CONFUSING_TOUCH, DUR_SURE_BLADE, DUR_CORONA,
-        DUR_FIRE_SHIELD, DUR_ICY_ARMOUR,
-        DUR_SWIFTNESS, DUR_CONTROL_TELEPORT,
-        DUR_TRANSFORMATION, DUR_DEATH_CHANNEL,
+        DUR_INVIS, DUR_CONF, DUR_PARALYSIS, DUR_HASTE, DUR_SLOW,
+        DUR_MIGHT, DUR_AGILITY, DUR_BRILLIANCE, DUR_CONFUSING_TOUCH,
+        DUR_SURE_BLADE, DUR_CORONA, DUR_FIRE_SHIELD, DUR_ICY_ARMOUR,
+        DUR_SWIFTNESS, DUR_CONTROL_TELEPORT, DUR_DEATH_CHANNEL,
         DUR_PHASE_SHIFT, DUR_WEAPON_BRAND, DUR_SILENCE,
         DUR_CONDENSATION_SHIELD, DUR_STONESKIN, DUR_RESISTANCE,
         DUR_STEALTH, DUR_MAGIC_SHIELD, DUR_PETRIFIED, DUR_LIQUEFYING,
@@ -434,11 +361,21 @@ void antimagic()
 
     bool need_msg = false;
 
-    if (!you.permanent_flight()
-        && you.duration[DUR_FLIGHT] > 11)
+    // don't instakill the player by removing flight
+    if (!you.permanent_flight())
     {
-        you.duration[DUR_FLIGHT] = 11;
-        need_msg = true;
+        if (you.duration[DUR_FLIGHT] > 11)
+        {
+            you.duration[DUR_FLIGHT] = 11;
+            need_msg = true;
+        }
+
+        // too many forms; confusing to players & devs both to special case.
+        if (you.duration[DUR_TRANSFORMATION] > 11)
+        {
+            you.duration[DUR_TRANSFORMATION] = 11;
+            need_msg = true;
+        }
     }
 
     if (you.duration[DUR_TELEPORT] > 0)
@@ -468,10 +405,6 @@ void antimagic()
     if (you.attribute[ATTR_SWIFTNESS] > 0)
         you.attribute[ATTR_SWIFTNESS] = 0;
 
-    // Post-berserk slowing isn't magic, so don't remove that.
-    if (you.duration[DUR_SLOW] > you.duration[DUR_EXHAUSTED])
-        you.duration[DUR_SLOW] = max(you.duration[DUR_EXHAUSTED], 1);
-
     for (unsigned int i = 0; i < ARRAYSZ(dur_list); ++i)
     {
         if (you.duration[dur_list[i]] > 1)
@@ -491,6 +424,62 @@ void antimagic()
     }
 
     contaminate_player(-1 * (1000 + random2(4000)));
+}
+
+void debuff_monster(monster* mon)
+{
+    // List of magical enchantments which will be dispelled.
+    const enchant_type lost_enchantments[] =
+    {
+        ENCH_SLOW,
+        ENCH_HASTE,
+        ENCH_SWIFT,
+        ENCH_MIGHT,
+        ENCH_AGILE,
+        ENCH_FEAR,
+        ENCH_CONFUSION,
+        ENCH_INVIS,
+        ENCH_CORONA,
+        ENCH_CHARM,
+        ENCH_PARALYSIS,
+        ENCH_PETRIFYING,
+        ENCH_PETRIFIED,
+        ENCH_REGENERATION,
+        ENCH_STICKY_FLAME,
+        ENCH_TP,
+        ENCH_INNER_FLAME,
+        ENCH_OZOCUBUS_ARMOUR
+    };
+
+    bool dispelled = false;
+
+    // Dispel all magical enchantments...
+    for (unsigned int i = 0; i < ARRAYSZ(lost_enchantments); ++i)
+    {
+        if (lost_enchantments[i] == ENCH_INVIS)
+        {
+            // ...except for natural invisibility.
+            if (mons_class_flag(mon->type, M_INVIS))
+                continue;
+        }
+        if (lost_enchantments[i] == ENCH_CONFUSION)
+        {
+            // Don't dispel permaconfusion.
+            if (mons_class_flag(mon->type, M_CONFUSED))
+                continue;
+        }
+        if (lost_enchantments[i] == ENCH_REGENERATION)
+        {
+            // Don't dispel regen if it's from Trog.
+            if (mon->has_ench(ENCH_RAISED_MR))
+                continue;
+        }
+
+        if (mon->del_ench(lost_enchantments[i], true, true))
+            dispelled = true;
+    }
+    if (dispelled)
+        simple_monster_message(mon, "'s magical effects unravel!");
 }
 
 int detect_traps(int pow)
@@ -690,11 +679,12 @@ bool remove_curse(bool alreadyknown, string *pre_msg)
     bool success = false;
 
     // Only cursed *weapons* in hand count as cursed. - bwr
-    if (you.weapon() && is_weapon(*you.weapon())
-        && you.weapon()->cursed())
+    // Not you.weapon() because we want to handle melded weapons too.
+    item_def * const weapon = you.slot_item(EQ_WEAPON, true);
+    if (weapon && is_weapon(*weapon) && weapon->cursed())
     {
         // Also sets wield_change.
-        do_uncurse_item(*you.weapon());
+        do_uncurse_item(*weapon);
         success = true;
     }
 
@@ -1002,8 +992,7 @@ bool cast_smiting(int pow, monster* mons)
     if (mons == NULL || mons->submerged())
     {
         canned_msg(MSG_NOTHING_THERE);
-        // Counts as a real cast, due to victory-dancing and
-        // invisible/submerged monsters.
+        // Counts as a real cast, due to invisible/submerged monsters.
         return true;
     }
 

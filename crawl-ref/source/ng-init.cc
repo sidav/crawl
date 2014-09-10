@@ -13,6 +13,7 @@
 #include "branch.h"
 #include "describe.h"
 #include "dungeon.h"
+#include "end.h"
 #include "itemname.h"
 #include "libutil.h"
 #include "maps.h"
@@ -23,8 +24,9 @@
 #include "spl-util.h"
 #include "state.h"
 #include "store.h"
-#include "stuff.h"
+#include "stringutil.h"
 #include "version.h"
+#include "unicode.h"
 
 #ifdef DEBUG_DIAGNOSTICS
 #define DEBUG_TEMPLES
@@ -55,8 +57,11 @@ void initialise_branch_depths()
 {
     root_branch = BRANCH_DUNGEON;
 
-    for (int br = 0; br < NUM_BRANCHES; ++br)
-        brentry[br].clear();
+    // XXX: Should this go elsewhere?
+    branch_bribe.init(0);
+
+    for (branch_iterator it; it; ++it)
+        brentry[it->id].clear();
 
     if (crawl_state.game_is_sprint())
     {
@@ -78,10 +83,15 @@ void initialise_branch_depths()
     {
         const Branch *b = &branches[branch];
         ASSERT(b->id == branch);
-        if (!branch_is_unfinished(b->id) && b->parent_branch != NUM_BRANCHES)
+    }
+
+    for (branch_iterator it; it; ++it)
+    {
+        if (!branch_is_unfinished(it->id) && it->parent_branch != NUM_BRANCHES)
         {
-            brentry[branch] = level_id(b->parent_branch,
-                                       random_range(b->mindepth, b->maxdepth));
+            brentry[it->id] = level_id(it->parent_branch,
+                                       random_range(it->mindepth,
+                                                    it->maxdepth));
         }
     }
 
@@ -99,8 +109,8 @@ void initialise_branch_depths()
         brentry[disabled_branch[i]].clear();
     }
 
-    for (int i = 0; i < NUM_BRANCHES; i++)
-        brdepth[i] = branches[i].numlevels;
+    for (branch_iterator it; it; ++it)
+        brdepth[it->id] = it->numlevels;
 }
 
 #define MAX_OVERFLOW_LEVEL 9
@@ -136,11 +146,42 @@ void initialise_temples()
     map_def *main_temple = NULL;
     for (int i = 0; i < 10; i++)
     {
+        int altar_count = 0;
+
         main_temple
             = const_cast<map_def*>(random_map_for_place(ecumenical, false));
 
         if (main_temple == NULL)
             end(1, false, "No temples?!");
+
+        if (main_temple->has_tag("temple_variable"))
+        {
+            vector<int> sizes;
+            vector<string> tag_list = main_temple->get_tags();
+            for (unsigned int j = 0; j < tag_list.size(); j++)
+            {
+                if (starts_with(tag_list[j], "temple_altars_"))
+                {
+                    sizes.push_back(
+                        atoi(
+                            strip_tag_prefix(
+                                tag_list[j], "temple_altars_").c_str()));
+                }
+            }
+            if (sizes.empty())
+            {
+                mprf(MSGCH_ERROR,
+                     "Temple %s set as variable but has no sizes.",
+                     main_temple->name.c_str());
+                main_temple = NULL;
+                continue;
+            }
+            altar_count =
+                you.props[TEMPLE_SIZE_KEY].get_int() =
+                    sizes[random2(sizes.size())];
+        }
+
+        dgn_map_parameters mp(make_stringf("temple_altars_%d", altar_count));
 
         // Without all this find_glyph() returns 0.
         string err;
@@ -153,6 +194,7 @@ void initialise_temples()
             mprf(MSGCH_ERROR, "Temple %s: %s", main_temple->name.c_str(),
                  err.c_str());
             main_temple = NULL;
+            you.props.erase(TEMPLE_SIZE_KEY);
             continue;
         }
 
@@ -164,6 +206,7 @@ void initialise_temples()
             mprf(MSGCH_ERROR, "Temple %s: %s", main_temple->name.c_str(),
                  err.c_str());
             main_temple = NULL;
+            you.props.erase(TEMPLE_SIZE_KEY);
             continue;
         }
         break;

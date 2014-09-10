@@ -28,7 +28,7 @@ void place_cloud(cloud_type cl_type, const coord_def& ctarget,
                  int spread_rate = -1, int colour = -1, string name = "",
                  string tile = "", int excl_rad = -1);
 
-void manage_clouds(void);
+void manage_clouds();
 
 bool is_opaque_cloud(int cloud_idx);
 
@@ -41,9 +41,13 @@ string cloud_type_name(cloud_type type, bool terse = true);
 int get_cloud_colour(int cloudno);
 coord_def get_cloud_originator(const coord_def& pos);
 
+bool actor_cloud_immune(const actor *act, const cloud_struct &cloud);
 bool is_damaging_cloud(cloud_type type, bool temp = false);
 bool is_harmless_cloud(cloud_type type);
 bool in_what_cloud(cloud_type type);
+
+bool mons_avoids_cloud(const monster* mons, int cloud_num,
+                       bool placement = false);
 
 void remove_tornado_clouds(mid_t whose);
 

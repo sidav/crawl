@@ -243,6 +243,7 @@
 		7B09F5F11133D6AB004F149D /* player.cc in Sources */ = {isa = PBXBuildFile; fileRef = E5D6406210BD494500A99626 /* player.cc */; };
 		7B09F5F21133D6AB004F149D /* quiver.cc in Sources */ = {isa = PBXBuildFile; fileRef = E5D6406410BD494500A99626 /* quiver.cc */; };
 		7B09F5F31133D6AB004F149D /* random.cc in Sources */ = {isa = PBXBuildFile; fileRef = E5D6406710BD494500A99626 /* random.cc */; };
+		7BDE8459116D24E600974D63 /* ranged_attack.cc in Sources */ = {isa = PBXBuildFile; fileRef = 7BDE8457116D24E600974D63 /* ranged_attack.cc */; };
 		7B09F5F41133D6AB004F149D /* ray.cc in Sources */ = {isa = PBXBuildFile; fileRef = E5D6406910BD494500A99626 /* ray.cc */; };
 		7B09F5F51133D6AB004F149D /* religion.cc in Sources */ = {isa = PBXBuildFile; fileRef = E5D6406B10BD494500A99626 /* religion.cc */; };
 		7B09F5F61133D6AB004F149D /* rng.cc in Sources */ = {isa = PBXBuildFile; fileRef = E5D6406D10BD494500A99626 /* rng.cc */; };
@@ -376,11 +377,13 @@
 		7B5165AE11859D5A005B23ED /* ng-wanderer.cc in Sources */ = {isa = PBXBuildFile; fileRef = 7B5165A611859D5A005B23ED /* ng-wanderer.cc */; };
 		7B5165AF11859D5A005B23ED /* place-info.cc in Sources */ = {isa = PBXBuildFile; fileRef = 7B5165A811859D5A005B23ED /* place-info.cc */; };
 		7B5165B011859D5A005B23ED /* player-act.cc in Sources */ = {isa = PBXBuildFile; fileRef = 7B5165AA11859D5A005B23ED /* player-act.cc */; };
+		7B5165BA11859D5A005B23ED /* player-reacts.cc in Sources */ = {isa = PBXBuildFile; fileRef = 7B5165B711859D5A005B23ED /* player-reacts.cc */; };
 		7B5165B111859D5A005B23ED /* player-stats.cc in Sources */ = {isa = PBXBuildFile; fileRef = 7B5165AB11859D5A005B23ED /* player-stats.cc */; };
 		7B5165B211859D5A005B23ED /* ng-setup.cc in Sources */ = {isa = PBXBuildFile; fileRef = 7B5165A411859D5A005B23ED /* ng-setup.cc */; };
 		7B5165B311859D5A005B23ED /* ng-wanderer.cc in Sources */ = {isa = PBXBuildFile; fileRef = 7B5165A611859D5A005B23ED /* ng-wanderer.cc */; };
 		7B5165B411859D5A005B23ED /* place-info.cc in Sources */ = {isa = PBXBuildFile; fileRef = 7B5165A811859D5A005B23ED /* place-info.cc */; };
 		7B5165B511859D5A005B23ED /* player-act.cc in Sources */ = {isa = PBXBuildFile; fileRef = 7B5165AA11859D5A005B23ED /* player-act.cc */; };
+		7B5165B911859D5A005B23ED /* player-reacts.cc in Sources */ = {isa = PBXBuildFile; fileRef = 7B5165B711859D5A005B23ED /* player-reacts.cc */; };
 		7B5165B611859D5A005B23ED /* player-stats.cc in Sources */ = {isa = PBXBuildFile; fileRef = 7B5165AB11859D5A005B23ED /* player-stats.cc */; };
 		7B5165C611859D82005B23ED /* random-var.cc in Sources */ = {isa = PBXBuildFile; fileRef = 7B5165B711859D82005B23ED /* random-var.cc */; };
 		7B5165C711859D82005B23ED /* spl-zap.cc in Sources */ = {isa = PBXBuildFile; fileRef = 7B5165BA11859D82005B23ED /* spl-zap.cc */; };
@@ -595,6 +598,8 @@
 		E5D6414410BD494500A99626 /* player.cc in Sources */ = {isa = PBXBuildFile; fileRef = E5D6406210BD494500A99626 /* player.cc */; };
 		E5D6414510BD494500A99626 /* quiver.cc in Sources */ = {isa = PBXBuildFile; fileRef = E5D6406410BD494500A99626 /* quiver.cc */; };
 		E5D6414610BD494500A99626 /* random.cc in Sources */ = {isa = PBXBuildFile; fileRef = E5D6406710BD494500A99626 /* random.cc */; };
+		7BDE845A116D24E600974D63 /* ranged_attack.cc in Sources */ = {isa = PBXBuildFile; fileRef = 7BDE8457116D24E600974D63 /* ranged_attack.cc */; };
+		E5D6414710BD494500A99626 /* ray.cc in Sources */ = {isa = PBXBuildFile; fileRef = E5D6406910BD494500A99626 /* ray.cc */; };
 		E5D6414710BD494500A99626 /* ray.cc in Sources */ = {isa = PBXBuildFile; fileRef = E5D6406910BD494500A99626 /* ray.cc */; };
 		E5D6414810BD494500A99626 /* religion.cc in Sources */ = {isa = PBXBuildFile; fileRef = E5D6406B10BD494500A99626 /* religion.cc */; };
 		E5D6414910BD494500A99626 /* rng.cc in Sources */ = {isa = PBXBuildFile; fileRef = E5D6406D10BD494500A99626 /* rng.cc */; };
@@ -1167,6 +1172,8 @@
 		7B5165A811859D5A005B23ED /* place-info.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "place-info.cc"; sourceTree = "<group>"; };
 		7B5165A911859D5A005B23ED /* place-info.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "place-info.h"; sourceTree = "<group>"; };
 		7B5165AA11859D5A005B23ED /* player-act.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "player-act.cc"; sourceTree = "<group>"; };
+		7B5165B711859D5A005B23ED /* player-reacts.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "player-reacts.cc"; sourceTree = "<group>"; };
+		7B5165B811859D5A005B23ED /* player-reacts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "player-reacts.h"; sourceTree = "<group>"; };
 		7B5165AB11859D5A005B23ED /* player-stats.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "player-stats.cc"; sourceTree = "<group>"; };
 		7B5165AC11859D5A005B23ED /* player-stats.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "player-stats.h"; sourceTree = "<group>"; };
 		7B5165B711859D82005B23ED /* random-var.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "random-var.cc"; sourceTree = "<group>"; };
@@ -1502,6 +1509,8 @@
 		E5D6406610BD494500A99626 /* random-weight.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "random-weight.h"; sourceTree = "<group>"; };
 		E5D6406710BD494500A99626 /* random.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = random.cc; sourceTree = "<group>"; };
 		E5D6406810BD494500A99626 /* random.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = random.h; sourceTree = "<group>"; };
+		7BDE8457116D24E600974D63 /* ranged_attack.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ranged_attack.cc; sourceTree = "<group>"; };
+		7BDE8458116D24E600974D63 /* ranged_attack.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ranged_attack.h; sourceTree = "<group>"; };
 		E5D6406910BD494500A99626 /* ray.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ray.cc; sourceTree = "<group>"; };
 		E5D6406A10BD494500A99626 /* ray.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ray.h; sourceTree = "<group>"; };
 		E5D6406B10BD494500A99626 /* religion.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = religion.cc; sourceTree = "<group>"; };
@@ -2099,6 +2108,8 @@
 				7B5165AA11859D5A005B23ED /* player-act.cc */,
 				7BDE8442116D247D00974D63 /* player-equip.cc */,
 				7BDE8443116D247D00974D63 /* player-equip.h */,
+				7B5165B711859D5A005B23ED /* player-reacts.cc */,
+				7B5165B811859D5A005B23ED /* player-reacts.h */,
 				7B5165AB11859D5A005B23ED /* player-stats.cc */,
 				7B5165AC11859D5A005B23ED /* player-stats.h */,
 				E5D6406210BD494500A99626 /* player.cc */,
@@ -2113,6 +2124,8 @@
 				E5D6406610BD494500A99626 /* random-weight.h */,
 				E5D6406710BD494500A99626 /* random.cc */,
 				E5D6406810BD494500A99626 /* random.h */,
+				7BDE8457116D24E600974D63 /* ranged_attack.cc */
+				7BDE8458116D24E600974D63 /* ranged_attack.h */
 				E5D6406910BD494500A99626 /* ray.cc */,
 				E5D6406A10BD494500A99626 /* ray.h */,
 				7B5165B911859D82005B23ED /* religion-enum.h */,
@@ -3088,12 +3101,14 @@
 				7B09F5F01133D6AB004F149D /* place.cc in Sources */,
 				7B5165B511859D5A005B23ED /* player-act.cc in Sources */,
 				7BDE8444116D247D00974D63 /* player-equip.cc in Sources */,
+				7B5165B911859D5A005B23ED /* player-reacts.cc in Sources */,
 				7B5165B611859D5A005B23ED /* player-stats.cc in Sources */,
 				7B09F5F11133D6AB004F149D /* player.cc in Sources */,
 				1F909C4D148B47AA00084E83 /* potion.cc in Sources */,
 				7B09F5F21133D6AB004F149D /* quiver.cc in Sources */,
 				7B5165CC11859D82005B23ED /* random-var.cc in Sources */,
 				7B09F5F31133D6AB004F149D /* random.cc in Sources */,
+				7BDE8459116D24E600974D63 /* ranged_attack.cc in Sources */,
 				7B09F5F41133D6AB004F149D /* ray.cc in Sources */,
 				7B09F5F51133D6AB004F149D /* religion.cc in Sources */,
 				7B09F5F61133D6AB004F149D /* rng.cc in Sources */,
@@ -3340,6 +3355,7 @@
 				E5D6414510BD494500A99626 /* quiver.cc in Sources */,
 				7B5165C611859D82005B23ED /* random-var.cc in Sources */,
 				E5D6414610BD494500A99626 /* random.cc in Sources */,
+				7BDE845A116D24E600974D63 /* ranged_attack.cc in Sources */,
 				E5D6414710BD494500A99626 /* ray.cc in Sources */,
 				E5D6414810BD494500A99626 /* religion.cc in Sources */,
 				E5D6414910BD494500A99626 /* rng.cc in Sources */,

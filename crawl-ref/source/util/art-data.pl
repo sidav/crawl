@@ -16,7 +16,6 @@ my %found_funcs   = ();
 
 my %field_type = (
     AC       => "num",
-    ACC      => "num",
     ANGRY    => "num",
     APPEAR   => "str",
     BASE_ACC => "num",
@@ -31,7 +30,6 @@ my %field_type = (
     COLOUR   => "enum",
     CORPSE_VIOLATING => "bool",
     CURSED   => "num",
-    DAM      => "num",
     DEX      => "num",
     ELEC     => "bool",
     EV       => "num",
@@ -45,7 +43,6 @@ my %field_type = (
     FLY      => "bool",
     LIFE     => "bool",
     MAGIC    => "num",
-    METAB    => "num",
     HP       => "num",
     MP       => "num",
     MUTATE   => "bool",
@@ -61,9 +58,11 @@ my %field_type = (
     RMSL     => "bool",
     RND_TELE => "bool",
     SEEINV   => "bool",
+    SLAY     => "num",
     SPECIAL  => "bool",
     STEALTH  => "num",
     STR      => "num",
+    SUSTAB   => "bool",
     TYPE     => "str",
     UNHOLY   => "bool",
     UNIDED   => "bool",
@@ -86,6 +85,8 @@ my %field_type = (
     plus2     => "num",
     base_type => "enum",
     sub_type  => "enum",
+
+    unused    => "unused",
 );
 
 my @field_list = keys(%field_type);
@@ -483,10 +484,10 @@ my @art_order = (
     "{", "BRAND", "AC", "EV", "STR", "INT", "DEX", "\n",
     "FIRE", "COLD", "ELEC", "POISON", "LIFE", "MAGIC", "\n",
     "SEEINV", "INV", "FLY", "BLINK", "BERSERK",  "NOISES", "\n",
-    "NOSPELL", "RND_TELE", "NOTELEP", "ANGRY", "METAB", "\n",
-    "MUTATE", "ACC", "DAM", "CURSED", "STEALTH", "MP", "\n",
+    "NOSPELL", "RND_TELE", "NOTELEP", "ANGRY", "unused", "\n",
+    "MUTATE", "unused", "SLAY", "CURSED", "STEALTH", "MP", "\n",
     "BASE_DELAY", "HP", "CLARITY", "BASE_ACC", "BASE_DAM", "\n",
-    "RMSL", "FOG", "REGEN", "NO_UPGRADE", "\n",
+    "RMSL", "FOG", "REGEN", "SUSTAB", "NO_UPGRADE", "\n",
     "}",
 
     "equip_func", "unequip_func", "world_reacts_func", "melee_effects_func",

@@ -159,9 +159,6 @@ const int LABYRINTH_BORDER = 4;
 // This value is used to make test_hit checks always succeed
 #define AUTOMATIC_HIT           1500
 
-// Yes, I know we have 32-bit ints now.
-const int DEBUG_COOKIE = 32767;
-
 const int MAX_SKILL_LEVEL = 27;
 const int MAX_EXP_TOTAL = 8999999;
 const int HIGH_EXP_POOL = 20000;
@@ -195,7 +192,6 @@ const int MAG_IMMUNE = 5000;
 const int INSTANT_DEATH = -9999;
 
 // Maximum enchantment on weapons/armour/secondary armours
-// This is the same as for ammunition.
 const int MAX_WPN_ENCHANT = 9;
 
 // Note: use armour_max_enchant(item) to get the correct limit for item
@@ -219,8 +215,6 @@ const int INVALID_ABSDEPTH = -1000;
   #define FEATURE_MIMIC_CHANCE 100
   #define ITEM_MIMIC_CHANCE    1000
 #endif
-
-const int ANTITRAIN_PENALTY = 2;
 
 const int AGILITY_BONUS = 5;
 
@@ -329,6 +323,29 @@ const char * const MONSTER_HIT_DICE = "monster-hit-dice";
 const char * const MONSTER_NUMBER = "monster-number";
 const char * const CORPSE_NEVER_DECAYS = "corpse-no-decay";
 const char * const MONSTER_MID = "monster-mid";
+
+const char * const GOZAG_SHOP_KEY = "gozag_shop_%s";
+const char * const GOZAG_ANNOUNCE_SHOP_KEY = "gozag_announce_shop";
+
+const char * const GOZAG_POTIONS_KEY = "gozag_potions%d";
+const char * const GOZAG_PRICE_KEY = "gozag_price%d";
+
+const char * const GOZAG_SHOPKEEPER_NAME_KEY = "gozag_shopkeeper_%d";
+const char * const GOZAG_SHOP_TYPE_KEY       = "gozag_shop_type_%d";
+const char * const GOZAG_SHOP_SUFFIX_KEY     = "gozag_shop_suffix_%d";
+const char * const GOZAG_SHOP_COST_KEY       = "gozag_shop_cost_%d";
+
+const char * const GOZAG_BRIBE_KEY           = "gozag_bribed";
+const char * const GOZAG_PERMABRIBE_KEY      = "gozag_permabribed";
+const char * const GOZAG_BRIBE_BROKEN_KEY    = "gozag_bribe_broken";
+
+#define GOZAG_POTION_BASE_MULTIPLIER 25
+#define GOZAG_SHOP_BASE_MULTIPLIER 100
+#define GOZAG_SHOP_MOD_MULTIPLIER 20
+#define GOZAG_BRIBE_AMOUNT 3000
+#define GOZAG_MAX_BRIBABILITY 8
+#define GOZAG_MAX_POTIONS 4
+#define GOZAG_MAX_SHOPS 3
 
 // Synthetic keys:
 #define KEY_MACRO_MORE_PROTECT -10

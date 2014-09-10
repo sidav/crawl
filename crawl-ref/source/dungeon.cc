@@ -17,8 +17,11 @@
 
 #include "abyss.h"
 #include "acquire.h"
+#include "act-iter.h"
 #include "artefact.h"
+#include "attitude-change.h"
 #include "branch.h"
+#include "butcher.h"
 #include "chardump.h"
 #include "cloud.h"
 #include "coordit.h"
@@ -27,7 +30,9 @@
 #include "dgn-height.h"
 #include "dgn-shoals.h"
 #include "dgn-labyrinth.h"
+#include "dgn-overview.h"
 #include "effects.h"
+#include "end.h"
 #include "env.h"
 #include "enum.h"
 #include "map_knowledge.h"
@@ -52,8 +57,10 @@
 #include "message.h"
 #include "misc.h"
 #include "mon-chimera.h"
+#include "mon-death.h"
 #include "mon-util.h"
 #include "mon-pick.h"
+#include "mon-poly.h"
 #include "mon-place.h"
 #include "mgen_data.h"
 #include "mon-pathfind.h"
@@ -61,13 +68,15 @@
 #include "place.h"
 #include "player.h"
 #include "random.h"
+#include "random-weight.h"
 #include "religion.h"
+#include "show.h"
 #include "spl-book.h"
 #include "spl-transloc.h"
 #include "spl-util.h"
 #include "stairs.h"
 #include "state.h"
-#include "stuff.h"
+#include "stringutil.h"
 #include "tags.h"
 #include "terrain.h"
 #include "tiledef-dngn.h"
@@ -97,15 +106,14 @@ static bool _builder_normal();
 static void _builder_items();
 static void _builder_monsters();
 static coord_def _place_specific_feature(dungeon_feature_type feat);
-static void _place_spec_shop(const coord_def& where,
-                             shop_spec* spec, bool representative = false);
 static bool _place_specific_trap(const coord_def& where, trap_spec* spec,
                                  int charges = 0);
 static void _place_branch_entrances(bool use_vaults);
 static void _place_extra_vaults();
 static void _place_chance_vaults();
-static void _place_minivaults(void);
+static void _place_minivaults();
 static int _place_uniques();
+static void _place_gozag_shop(dungeon_feature_type stair);
 static void _place_traps();
 static void _prepare_water();
 static void _check_doors();
@@ -119,9 +127,6 @@ static bool _feat_is_wall_floor_liquid(dungeon_feature_type);
 static bool _connect_spotty(const coord_def& from,
                             bool (*overwriteable)(dungeon_feature_type) = NULL);
 static bool _connect_vault_exit(const coord_def& exit);
-
-// ITEM & SHOP FUNCTIONS
-static object_class_type _item_in_shop(shop_type shop_type);
 
 // VAULT FUNCTIONS
 static const vault_placement *
@@ -210,19 +215,6 @@ static int  dgn_zones = 0;
 
 static vector<string> _you_vault_list;
 
-class dgn_veto_exception : public exception
-{
-public:
-    dgn_veto_exception(const string& _msg) : msg(_msg) { }
-    ~dgn_veto_exception() throw () { }
-    const char *what() const throw ()
-    {
-        return msg.c_str();
-    }
-private:
-    string msg;
-};
-
 struct coloured_feature
 {
     dungeon_feature_type feature;
@@ -252,6 +244,63 @@ typedef FixedArray< coloured_feature, GXM, GYM > dungeon_colour_grid;
 static unique_ptr<dungeon_colour_grid> dgn_colour_grid;
 
 static string branch_epilogues[NUM_BRANCHES];
+
+static void _count_gold()
+{
+    vector<item_def *> gold_piles;
+    vector<coord_def> gold_places;
+    int gold = 0;
+    for (rectangle_iterator ri(0); ri; ++ri)
+    {
+        for (stack_iterator j(*ri); j; ++j)
+        {
+            if (j->base_type == OBJ_GOLD)
+            {
+                gold += j->quantity;
+                gold_piles.push_back(&(*j));
+                gold_places.push_back(*ri);
+            }
+        }
+    }
+
+    you.attribute[ATTR_GOLD_GENERATED] += gold;
+
+    if (player_under_penance(GOD_GOZAG) && x_chance_in_y(gold - 500, 500))
+    {
+        for (unsigned int i = 0; i < gold_piles.size(); i++)
+        {
+            gold_piles[i]->clear();
+            gold_piles[i]->base_type = OBJ_MISSILES;
+            gold_piles[i]->sub_type  = MI_STONE;
+            gold_piles[i]->quantity  = 1;
+            item_colour(*gold_piles[i]);
+        }
+        mprf(MSGCH_GOD, GOD_GOZAG, "You feel a great sense of loss.");
+        dec_penance(GOD_GOZAG, gold / 200);
+    }
+    else if (you_worship(GOD_GOZAG))
+    {
+        for (unsigned int i = 0; i < gold_places.size(); i++)
+        {
+            bool detected = false;
+            int dummy = gold_piles[i]->index();
+            coord_def &pos = gold_places[i];
+            unlink_item(dummy);
+            move_item_to_grid(&dummy, pos, true);
+            if (!env.map_knowledge(pos).item()
+                || env.map_knowledge(pos).item()->base_type != OBJ_GOLD)
+            {
+                detected = true;
+            }
+            update_item_at(pos, true);
+            if (detected)
+            {
+                ASSERT(env.map_knowledge(pos).item());
+                env.map_knowledge(pos).flags |= MAP_DETECTED_ITEM;
+            }
+        }
+    }
+}
 
 /**********************************************************************
  * builder() - kickoff for the dungeon generator.
@@ -285,7 +334,15 @@ bool builder(bool enable_random_maps, dungeon_feature_type dest_stairs_type)
         try
         {
             if (_build_level_vetoable(enable_random_maps, dest_stairs_type))
+            {
+                for (monster_iterator mi; mi; ++mi)
+                    gozag_set_bribe(*mi);
+
+                if (you.props.exists(GOZAG_ANNOUNCE_SHOP_KEY))
+                    unmark_offlevel_shop(level_id::current());
+
                 return true;
+            }
         }
         catch (map_load_exception &mload)
         {
@@ -298,7 +355,7 @@ bool builder(bool enable_random_maps, dungeon_feature_type dest_stairs_type)
         you.uniq_map_names = uniq_names;
     }
 
-    if (!crawl_state.map_stat_gen)
+    if (!crawl_state.map_stat_gen && !crawl_state.obj_stat_gen)
     {
         // Failed to build level, bail out.
         if (crawl_state.need_save)
@@ -322,7 +379,7 @@ static bool _build_level_vetoable(bool enable_random_maps,
                                   dungeon_feature_type dest_stairs_type)
 {
 #ifdef DEBUG_DIAGNOSTICS
-    mapgen_report_map_build_start();
+    mapstat_report_map_build_start();
 #endif
 
     dgn_reset_level(enable_random_maps);
@@ -338,7 +395,7 @@ static bool _build_level_vetoable(bool enable_random_maps,
     {
         dprf("<white>VETO</white>: %s: %s", level_id::current().describe().c_str(), e.what());
 #ifdef DEBUG_DIAGNOSTICS
-        mapgen_report_map_veto();
+        mapstat_report_map_veto(e.what());
 #endif
         return false;
     }
@@ -394,6 +451,7 @@ static bool _build_level_vetoable(bool enable_random_maps,
     strip_all_maps();
 
     check_map_validity();
+    _count_gold();
 
     if (!_you_vault_list.empty())
     {
@@ -781,6 +839,7 @@ static bool _is_upwards_exit_stair(const coord_def &c)
     case DNGN_EXIT_HELL:
 #if TAG_MAJOR_VERSION == 34
     case DNGN_RETURN_FROM_DWARF:
+    case DNGN_RETURN_FROM_BLADE:
     case DNGN_RETURN_FROM_FOREST:
 #endif
     case DNGN_RETURN_FROM_ORC:
@@ -788,7 +847,6 @@ static bool _is_upwards_exit_stair(const coord_def &c)
     case DNGN_RETURN_FROM_SLIME:
     case DNGN_RETURN_FROM_VAULTS:
     case DNGN_RETURN_FROM_CRYPT:
-    case DNGN_RETURN_FROM_BLADE:
     case DNGN_RETURN_FROM_ZOT:
     case DNGN_RETURN_FROM_TEMPLE:
     case DNGN_RETURN_FROM_SNAKE:
@@ -827,6 +885,7 @@ static bool _is_exit_stair(const coord_def &c)
     case DNGN_EXIT_HELL:
 #if TAG_MAJOR_VERSION == 34
     case DNGN_RETURN_FROM_DWARF:
+    case DNGN_RETURN_FROM_BLADE:
     case DNGN_RETURN_FROM_FOREST:
 #endif
     case DNGN_RETURN_FROM_ORC:
@@ -834,7 +893,6 @@ static bool _is_exit_stair(const coord_def &c)
     case DNGN_RETURN_FROM_SLIME:
     case DNGN_RETURN_FROM_VAULTS:
     case DNGN_RETURN_FROM_CRYPT:
-    case DNGN_RETURN_FROM_BLADE:
     case DNGN_RETURN_FROM_ZOT:
     case DNGN_RETURN_FROM_TEMPLE:
     case DNGN_RETURN_FROM_SNAKE:
@@ -2018,8 +2076,10 @@ static void _build_overflow_temples()
                 vault = random_map_for_tag(vault_tag, true);
 #ifdef DEBUG_TEMPLES
                 if (vault == NULL)
+                {
                     mprf(MSGCH_DIAGNOSTICS, "Couldn't find overflow temple "
                          "for combination of tags %s", vault_tag.c_str());
+                }
 #endif
             }
 
@@ -2454,6 +2514,9 @@ static void _build_dungeon_level(dungeon_feature_type dest_stairs_type)
     _fixup_branch_stairs();
     fixup_misplaced_items();
 
+    if (crawl_state.game_standard_levelgen())
+        _place_gozag_shop(dest_stairs_type);
+
     link_items();
     if (_mimic_at_level())
         _place_item_mimics();
@@ -2564,8 +2627,12 @@ static void _prepare_water()
 
 static bool _vault_can_use_layout(const map_def *vault, const map_def *layout)
 {
-    if (!vault->has_tag_prefix("layout_"))
+    bool permissive = false;
+    if (!vault->has_tag_prefix("layout_")
+        && !(permissive = vault->has_tag_prefix("nolayout_")))
+    {
         return true;
+    }
 
     ASSERT(layout->has_tag_prefix("layout_type_"));
 
@@ -2578,10 +2645,12 @@ static bool _vault_can_use_layout(const map_def *vault, const map_def *layout)
             string type = strip_tag_prefix(tags[i], "layout_type_");
             if (vault->has_tag("layout_" + type))
                 return true;
+            else if (vault->has_tag("nolayout_" + type))
+                return false;
         }
     }
 
-    return false;
+    return permissive;
 }
 
 static const map_def *_pick_layout(const map_def *vault)
@@ -2654,45 +2723,20 @@ static bool _pan_level()
                                        + pandemon_level_names[which_demon]));
     }
 
+    const map_def *vault = NULL;
+
     if (which_demon >= 0)
     {
-        const map_def *vault =
-            random_map_for_tag(pandemon_level_names[which_demon], false,
-                               false, MB_FALSE);
-
-        ASSERT(vault);
-
-        _dgn_ensure_vault_placed(_build_primary_vault(vault), false);
-        return vault->orient != MAP_ENCOMPASS;
+        vault = random_map_for_tag(pandemon_level_names[which_demon], false,
+                                   false, MB_FALSE);
     }
     else
-    {
-        const map_def *vault = random_map_in_depth(level_id::current(),
-                                                   false, MB_FALSE);
-        // vault can be NULL if a dummy vault is selected.
-        if (vault && vault->orient == MAP_ENCOMPASS)
-        {
-            _dgn_ensure_vault_placed(_build_primary_vault(vault), true);
-            return false;
-        }
-        else
-        {
-            const map_def *layout = vault ? _pick_layout(vault)
-                                          : random_map_for_tag("layout", true,
-                                                               true);
+        vault = random_map_in_depth(level_id::current(), false, MB_FALSE);
 
-            {
-                dgn_map_parameters mp(vault && vault->orient == MAP_CENTRE
-                                      ? "central" : "layout");
-                _dgn_ensure_vault_placed(_build_primary_vault(layout), false);
-            }
-
-            dgn_check_connectivity = true;
-            if (vault)
-                _build_secondary_vault(vault);
-            return true;
-        }
-    }
+    // Every Pan level should have a primary vault.
+    ASSERT(vault);
+    _dgn_ensure_vault_placed(_build_primary_vault(vault), false);
+    return vault->orient != MAP_ENCOMPASS;
 }
 
 // Returns true if we want the dungeon builder
@@ -3088,6 +3132,8 @@ static void _slime_connectivity_fixup()
 
             // Did the search, now remove any walls adjacent to squares in
             // the path.
+            if (!path.size())
+                continue;
             const position_node * current = &(*path[0]);
 
             while (current)
@@ -3155,10 +3201,16 @@ static void _place_chance_vaults()
     }
 }
 
-static void _place_minivaults(void)
+static void _place_minivaults()
 {
-    // Always try to place PLACE:X minivaults.
     const map_def *vault = NULL;
+    // First place the vault requested with &P
+    if (you.props.exists("force_minivault")
+        && (vault = find_map_by_name(you.props["force_minivault"])))
+    {
+        _dgn_ensure_vault_placed(_build_secondary_vault(vault), false);
+    }
+    // Always try to place PLACE:X minivaults.
     if ((vault = random_map_for_place(level_id::current(), true)))
         _build_secondary_vault(vault);
 
@@ -3181,6 +3233,12 @@ static bool _builder_normal()
 
     if (vault)
     {
+        // TODO: figure out a good way to do this only in Temple
+        dgn_map_parameters mp(
+            you.props.exists(TEMPLE_SIZE_KEY)
+            ? make_stringf("temple_altars_%d",
+                           you.props[TEMPLE_SIZE_KEY].get_int())
+            : "");
         env.level_build_method += " random_map_for_place";
         _ensure_vault_placed_ex(_build_primary_vault(vault), vault);
         // Only place subsequent random vaults on non-encompass maps
@@ -3191,12 +3249,7 @@ static bool _builder_normal()
     if (use_random_maps)
         vault = random_map_in_depth(level_id::current(), false, MB_FALSE);
 
-    // We'll accept any kind of primary vault in the main dungeon, but only
-    // ORIENT: encompass primary vaults in other branches. Other kinds of vaults
-    // can still be placed in other branches as secondary vaults.
-    if (vault && (player_in_branch(BRANCH_DUNGEON)
-                  || player_in_branch(BRANCH_DEPTHS)
-                  || vault->orient == MAP_ENCOMPASS))
+    if (vault)
     {
         env.level_build_method += " random_map_in_depth";
         _ensure_vault_placed_ex(_build_primary_vault(vault), vault);
@@ -3226,6 +3279,88 @@ static bool _shaft_is_in_corridor(const coord_def& c)
             return true;
     }
     return false;
+}
+
+static void _place_gozag_shop(dungeon_feature_type stair)
+{
+    string key = make_stringf(GOZAG_SHOP_KEY,
+                              level_id::current().describe().c_str());
+
+    if (!you.props.exists(key))
+        return;
+
+    bool encompass = false;
+    for (string_set::const_iterator i = env.level_layout_types.begin();
+         i != env.level_layout_types.end(); ++i)
+    {
+        if (*i == "encompass")
+        {
+            encompass = true;
+            break;
+        }
+    }
+
+    vector<coord_weight> places;
+    const int dist_max = distance2(coord_def(0, 0), coord_def(20, 20));
+    const coord_def start_pos = dgn_find_nearby_stair(stair, you.pos(), true);
+    for (rectangle_iterator ri(0); ri; ++ri)
+    {
+        if (grd(*ri) != DNGN_FLOOR
+            || !(encompass || !map_masked(*ri, MMT_VAULT)))
+        {
+            continue;
+        }
+        const int dist2 = distance2(start_pos, *ri);
+        if (dist2 > dist_max)
+            continue;
+        places.push_back(coord_weight(*ri, dist_max - dist2));
+    }
+    coord_def *shop_place = random_choose_weighted(places);
+    if (!shop_place)
+        throw dgn_veto_exception("Cannot find place Gozag shop.");
+
+
+    // Player may have abandoned Gozag before arriving here; only generate
+    // the shop if they're still a follower.
+    if (you_worship(GOD_GOZAG))
+    {
+        string spec = you.props[key].get_string();
+        keyed_mapspec kmspec;
+        kmspec.set_feat(you.props[key].get_string(), false);
+        if (!kmspec.get_feat().shop.get())
+            die("Invalid shop spec?");
+        place_spec_shop(*shop_place, kmspec.get_feat().shop.get());
+
+        shop_struct *shop = get_shop(*shop_place);
+        ASSERT(shop);
+
+        env.map_knowledge(*shop_place).set_feature(grd(*shop_place));
+        env.map_knowledge(*shop_place).flags |= MAP_MAGIC_MAPPED_FLAG;
+        env.pgrid(*shop_place) |= FPROP_SEEN_OR_NOEXP;
+        seen_notable_thing(grd(*shop_place), *shop_place);
+
+        string announce = make_stringf(
+            "%s invites you to visit their %s%s%s.",
+            shop->shop_name.c_str(),
+            shop_type_name(shop->type).c_str(),
+            !shop->shop_suffix_name.empty() ? " " : "",
+            shop->shop_suffix_name.c_str());
+
+        you.props[GOZAG_ANNOUNCE_SHOP_KEY] = announce;
+
+        env.markers.add(new map_feature_marker(*shop_place,
+                                               DNGN_ABANDONED_SHOP));
+    }
+    else
+        grd(*shop_place) = DNGN_ABANDONED_SHOP;
+}
+
+// Shafts can be generated visible.
+//
+// Starts about 50% of the time and approaches 0%
+static bool _shaft_known(int depth)
+{
+    return coinflip() && x_chance_in_y(3, depth);
 }
 
 static void _place_traps()
@@ -3282,7 +3417,7 @@ static void _place_traps()
 
         grd(ts.pos) = DNGN_UNDISCOVERED_TRAP;
         env.tgrid(ts.pos) = i;
-        if (ts.type == TRAP_SHAFT && shaft_known(level_number, true))
+        if (ts.type == TRAP_SHAFT && _shaft_known(level_number))
             ts.reveal();
         ts.prepare_ammo();
     }
@@ -3446,7 +3581,9 @@ static coord_def _dgn_random_point_in_bounds(dungeon_feature_type searchfeat,
             const coord_def c = random_in_bounds();
             if (_point_matches_feat(c, searchfeat, mapmask, adjacent_feat,
                                     monster_free))
+            {
                 return c;
+            }
         }
         return coord_def(0, 0);
     }
@@ -3481,15 +3618,15 @@ static void _place_branch_entrances(bool use_vaults)
     // entrances (or mimics thereof) could be placed here.
     bool branch_entrance_placed[NUM_BRANCHES];
     bool could_be_placed = false;
-    for (int i = 0; i < NUM_BRANCHES; ++i)
+    for (branch_iterator it; it; ++it)
     {
-        branch_entrance_placed[i] = false;
+        branch_entrance_placed[it->id] = false;
         if (!could_be_placed
-            && !branch_is_unfinished(branches[i].id)
-            && !is_hell_subbranch(branches[i].id)
-            && ((you.depth >= branches[i].mindepth
-                 && you.depth <= branches[i].maxdepth)
-                || level_id::current() == brentry[i]))
+            && !branch_is_unfinished(it->id)
+            && !is_hell_subbranch(it->id)
+            && ((you.depth >= it->mindepth
+                 && you.depth <= it->maxdepth)
+                || level_id::current() == brentry[it->id]))
         {
             could_be_placed = true;
         }
@@ -3504,45 +3641,43 @@ static void _place_branch_entrances(bool use_vaults)
         if (!feat_is_branch_stairs(grd(*ri)))
             continue;
 
-        for (int i = 0; i < NUM_BRANCHES; ++i)
-            if (branches[i].entry_stairs == grd(*ri)
+        for (branch_iterator it; it; ++it)
+            if (it->entry_stairs == grd(*ri)
                 && !feature_mimic_at(*ri))
             {
-                branch_entrance_placed[i] = true;
+                branch_entrance_placed[it->id] = true;
                 break;
             }
     }
 
     // Place actual branch entrances.
-    for (int i = 0; i < NUM_BRANCHES; ++i)
+    for (branch_iterator it; it; ++it)
     {
         // Vestibule and hells are placed by other means.
         // Likewise, if we already have an entrance, keep going.
-        if (i >= BRANCH_VESTIBULE && i <= BRANCH_LAST_HELL
-            || branch_entrance_placed[i])
+        if (it->id >= BRANCH_VESTIBULE && it->id <= BRANCH_LAST_HELL
+            || branch_entrance_placed[it->id])
         {
             continue;
         }
 
-        const Branch *b = &branches[i];
-
-        const bool mimic = !branch_is_unfinished(b->id)
-                           && !is_hell_subbranch(b->id)
-                           && you.depth >= b->mindepth
-                           && you.depth <= b->maxdepth
+        const bool mimic = !branch_is_unfinished(it->id)
+                           && !is_hell_subbranch(it->id)
+                           && you.depth >= it->mindepth
+                           && you.depth <= it->maxdepth
                            && one_chance_in(FEATURE_MIMIC_CHANCE);
 
-        if (b->entry_stairs != NUM_FEATURES
-            && player_in_branch(parent_branch((branch_type)i))
-            && (level_id::current() == brentry[i] || mimic))
+        if (it->entry_stairs != NUM_FEATURES
+            && player_in_branch(parent_branch(it->id))
+            && (level_id::current() == brentry[it->id] || mimic))
         {
             // Placing a stair.
-            dprf("Placing stair to %s", b->shortname);
+            dprf("Placing stair to %s", it->shortname);
 
             // Attempt to place an entry vault if allowed
             if (use_vaults)
             {
-                string entry_tag = string(b->abbrevname);
+                string entry_tag = string(it->abbrevname);
                 entry_tag += "_entry";
                 lowercase(entry_tag);
 
@@ -3556,12 +3691,12 @@ static void _place_branch_entrances(bool use_vaults)
             const coord_def portal_pos = find_portal_place(NULL, false);
             if (!portal_pos.origin())
             {
-                env.grid(portal_pos) = b->entry_stairs;
+                env.grid(portal_pos) = it->entry_stairs;
                 env.level_map_mask(portal_pos) |= MMT_VAULT;
                 continue;
             }
 
-            const coord_def stair_pos = _place_specific_feature(b->entry_stairs);
+            const coord_def stair_pos = _place_specific_feature(it->entry_stairs);
             // Don't allow subsequent vaults to overwrite the branch stair
             env.level_map_mask(stair_pos) |= MMT_VAULT;
         }
@@ -3625,7 +3760,7 @@ static int _place_uniques()
         const mapref_vector uniques_available =
             find_maps_for_tag("place_unique", true, true);
 
-        if (random2(B) >= (int)uniques_available.size())
+        if (!x_chance_in_y((int)uniques_available.size(), B))
             break;
 
         const map_def *uniq_map = random_map_for_tag("place_unique", true);
@@ -3760,7 +3895,8 @@ static void _place_assorted_zombies()
         monster_type z_base;
         do
             z_base = pick_random_zombie();
-        while (skel && !mons_skeleton(z_base));
+        while (mons_class_flag(z_base, M_NO_GEN_DERIVED)
+               || !(skel ? mons_skeleton(z_base) : mons_zombifiable(z_base)));
 
         mgen_data mg;
         mg.cls = (skel ? MONS_SKELETON : MONS_ZOMBIE);
@@ -3847,10 +3983,7 @@ static void _builder_items()
         specif_type = OBJ_GOLD;  // Lots of gold in the orcish mines.
 
     for (i = 0; i < items_wanted; i++)
-    {
-        items(1, specif_type, OBJ_RANDOM, false, items_levels, 250,
-              MMT_NO_ITEM);
-    }
+        items(1, specif_type, OBJ_RANDOM, false, items_levels, MMT_NO_ITEM);
 }
 
 static bool _connect_vault_exit(const coord_def& exit)
@@ -4173,7 +4306,7 @@ static const vault_placement *_build_vault_impl(const map_def *vault,
         _ruin_vault(place);
 
     if (place.exits.empty() && placed_vault_orientation != MAP_ENCOMPASS
-        && (!place.map.is_minivault() || place.map.has_tag("mini_float")))
+        && (!place.map.is_minivault() || !place.map.has_tag("no_exits")))
     {
         _pick_float_exits(place, place.exits);
     }
@@ -4187,7 +4320,7 @@ static const vault_placement *_build_vault_impl(const map_def *vault,
 
 #ifdef DEBUG_DIAGNOSTICS
     if (crawl_state.map_stat_gen)
-        mapgen_report_map_use(place.map);
+        mapstat_report_map_use(place.map);
 #endif
 
     if (is_layout && place.map.has_tag_prefix("layout_type_"))
@@ -4216,7 +4349,7 @@ static const vault_placement *_build_vault_impl(const map_def *vault,
     if (!build_only && (placed_vault_orientation != MAP_ENCOMPASS || is_layout)
         && player_in_branch(BRANCH_SWAMP))
     {
-        _process_disconnected_zones(0, 0, GXM-1, GYM-1, true, DNGN_MANGROVE);
+        _process_disconnected_zones(0, 0, GXM-1, GYM-1, true, DNGN_TREE);
     }
 
     if (!make_no_exits)
@@ -4225,8 +4358,14 @@ static const vault_placement *_build_vault_impl(const map_def *vault,
 #if TAG_MAJOR_VERSION == 34
                             || player_in_branch(BRANCH_FOREST)
 #endif
+                            || player_in_branch(BRANCH_SWAMP)
                             || player_in_branch(BRANCH_SLIME);
-        place.connect(spotty);
+        if (place.connect(spotty) == 0 && place.exits.size() > 0
+            && !player_in_branch(BRANCH_ABYSS))
+        {
+            throw dgn_veto_exception("Failed to connect exits for: "
+                                     + place.map.name);
+        }
     }
 
     // Fire any post-place hooks defined for this map; any failure
@@ -4364,11 +4503,7 @@ static bool _apply_item_props(item_def &item, const item_spec &spec,
     if (!spec.corpselike())
         origin_reset(item);
     if (is_stackable_item(item) && spec.qty > 0)
-    {
         item.quantity = spec.qty;
-        if (is_blood_potion(item))
-            init_stack_blood_potions(item);
-    }
 
     if (spec.item_special)
         item.special = spec.item_special;
@@ -4406,11 +4541,6 @@ static bool _apply_item_props(item_def &item, const item_spec &spec,
         && props.exists("plus") && !is_unrandom_artefact(item))
     {
         item.plus = props["plus"].get_int();
-    }
-    if ((item.base_type == OBJ_WEAPONS || item.base_type == OBJ_JEWELLERY)
-        && props.exists("plus2") && !is_unrandom_artefact(item))
-    {
-        item.plus2 = props["plus2"].get_int();
     }
     if (props.exists("ident"))
         item.flags |= props["ident"].get_int();
@@ -4505,38 +4635,42 @@ int dgn_place_item(const item_spec &spec,
     }
 
     int useless_tries = 0;
-retry:
 
-    const int item_made =
-        (acquire ?
-         acquirement_create_item(base_type, spec.acquirement_source,
-                                 true, where)
-         : spec.corpselike() ? _dgn_item_corpse(spec, where)
-         : items(spec.allow_uniques, base_type,
-                 spec.sub_type, true, level, 0, 0, spec.ego, -1,
-                 spec.level == ISPEC_MUNDANE));
-
-    if (item_made != NON_ITEM && item_made != -1)
+    while (true)
     {
-        item_def &item(mitm[item_made]);
-        item.pos = where;
+        const int item_made =
+            (acquire ?
+             acquirement_create_item(base_type, spec.acquirement_source,
+                                     true, where)
+             : spec.corpselike() ? _dgn_item_corpse(spec, where)
+             : items(spec.allow_uniques, base_type,
+                     spec.sub_type, true, level, 0, spec.ego, -1,
+                     spec.level == ISPEC_MUNDANE));
 
-        if (!_apply_item_props(item, spec, (useless_tries >= 10), false))
+        if (item_made == NON_ITEM || item_made == -1)
+            return NON_ITEM;
+        else
         {
-            if (base_type == OBJ_MISCELLANY
-                && spec.sub_type == MISC_RUNE_OF_ZOT)
+            item_def &item(mitm[item_made]);
+            item.pos = where;
+
+            if (_apply_item_props(item, spec, (useless_tries >= 10), false))
+                return item_made;
+            else
             {
-                return NON_ITEM;
+                if (base_type == OBJ_MISCELLANY
+                    && spec.sub_type == MISC_RUNE_OF_ZOT)
+                {
+                    return NON_ITEM;
+                }
+
+                useless_tries++;
             }
 
-            useless_tries++;
-            goto retry;
         }
 
-        return item_made;
     }
 
-    return NON_ITEM;
 }
 
 void dgn_place_multiple_items(item_list &list, const coord_def& where)
@@ -4586,8 +4720,11 @@ static void _dgn_give_mon_spec_items(mons_spec &mspec,
     {
         item_spec spec = list.get_item(i);
 
-        if (spec.base_type == OBJ_UNASSIGNED)
+        if (spec.base_type == OBJ_UNASSIGNED
+            || (spec.base_type == OBJ_MISCELLANY && spec.sub_type == MISC_RUNE_OF_ZOT))
+        {
             continue;
+        }
 
         // Don't give monster a randart, and don't randomly give
         // monster an ego item.
@@ -4605,6 +4742,8 @@ static void _dgn_give_mon_spec_items(mons_spec &mspec,
             item_level = spec.level;
         else
         {
+            // TODO: merge this with the equivalent switch in dgn_place_item,
+            // and maybe even handle ISPEC_ACQUIREMENT.
             switch (spec.level)
             {
             case ISPEC_GOOD:
@@ -4613,44 +4752,42 @@ static void _dgn_give_mon_spec_items(mons_spec &mspec,
             case ISPEC_SUPERB:
                 item_level = MAKE_GOOD_ITEM;
                 break;
+            case ISPEC_DAMAGED:
+            case ISPEC_BAD:
             case ISPEC_RANDART:
-                item_level = ISPEC_RANDART;
+                item_level = spec.level;
                 break;
             }
         }
 
-        int useless_tries = 0;
-    retry:
-
-        const int item_made = (spec.corpselike() ?
-                               _dgn_item_corpse(spec, mon->pos())
-                               : items(spec.allow_uniques, spec.base_type,
-                                       spec.sub_type, true, item_level,
-                                       0, 0, spec.ego, -1,
-                                       spec.level == ISPEC_MUNDANE));
-
-        if (item_made != NON_ITEM && item_made != -1)
+        for (int useless_tries = 0; true; useless_tries++)
         {
-            item_def &item(mitm[item_made]);
+            int item_made;
 
-            if (!_apply_item_props(item, spec, (useless_tries >= 10), true))
+            if (spec.corpselike())
+                item_made = _dgn_item_corpse(spec, mon->pos());
+            else
             {
-                if (spec.base_type == OBJ_MISCELLANY
-                    && spec.sub_type == MISC_RUNE_OF_ZOT)
-                {
-                    continue;
-                }
-
-                useless_tries++;
-                goto retry;
+                item_made = items(spec.allow_uniques, spec.base_type,
+                                  spec.sub_type, true, item_level, 0, spec.ego,
+                                  -1, spec.level == ISPEC_MUNDANE);
             }
 
-            // Mark items on summoned monsters as such.
-            if (mspec.abjuration_duration != 0)
-                item.flags |= ISFLAG_SUMMONED;
+            if (!(item_made == NON_ITEM || item_made == -1))
+            {
+                item_def &item(mitm[item_made]);
 
-            if (!mon->pickup_item(item, 0, true))
-                destroy_item(item_made, true);
+                if (_apply_item_props(item, spec, (useless_tries >= 10), true))
+                {
+                    // Mark items on summoned monsters as such.
+                    if (mspec.abjuration_duration != 0)
+                        item.flags |= ISFLAG_SUMMONED;
+
+                    if (!mon->pickup_item(item, 0, true))
+                        destroy_item(item_made, true);
+                    break;
+                }
+            }
         }
     }
 
@@ -4986,7 +5123,7 @@ static void _vault_grid_mapspec(vault_placement &place, const coord_def &where,
     else if (f.glyph >= 0)
         _vault_grid_glyph(place, where, f.glyph);
     else if (f.shop.get())
-        _place_spec_shop(where, f.shop.get());
+        place_spec_shop(where, f.shop.get());
     else
         grd(where) = DNGN_FLOOR;
 
@@ -5042,7 +5179,6 @@ static void _vault_grid_glyph(vault_placement &place, const coord_def& where,
         object_class_type which_class = OBJ_RANDOM;
         uint8_t which_type = OBJ_RANDOM;
         int which_depth = env.absdepth0;
-        int spec = 250;
 
         if (vgrid == '$')
             which_class = OBJ_GOLD;
@@ -5054,9 +5190,7 @@ static void _vault_grid_glyph(vault_placement &place, const coord_def& where,
         else if (vgrid == '*')
             which_depth = 5 + which_depth * 2;
 
-        item_made = items(1, which_class, which_type, true,
-                           which_depth, spec);
-
+        item_made = items(1, which_class, which_type, true, which_depth);
         if (item_made != NON_ITEM)
             mitm[item_made].pos = where;
     }
@@ -5212,7 +5346,7 @@ struct coord_comparator
     static int dist(const coord_def &a, const coord_def &b)
     {
         const coord_def del = a - b;
-        return abs(del.x) * GYM + abs(del.y);
+        return abs(del.x) + abs(del.y);
     }
 
     bool operator () (const coord_def &a, const coord_def &b) const
@@ -5226,6 +5360,7 @@ typedef set<coord_def, coord_comparator> coord_set;
 static void _jtd_init_surrounds(coord_set &coords, uint32_t mapmask,
                                 const coord_def &c)
 {
+    vector<coord_def> cur;
     for (orth_adjacent_iterator ai(c); ai; ++ai)
     {
         if (!in_bounds(*ai) || travel_point_distance[ai->x][ai->y]
@@ -5233,10 +5368,15 @@ static void _jtd_init_surrounds(coord_set &coords, uint32_t mapmask,
         {
             continue;
         }
-        coords.insert(*ai);
+        cur.insert(cur.begin() + random2(cur.size()), *ai);
+    }
+    for (vector<coord_def>::const_iterator ci = cur.begin();
+         ci != cur.end(); ci++)
+    {
+        coords.insert(*ci);
 
-        const coord_def dp = *ai - c;
-        travel_point_distance[ai->x][ai->y] = (-dp.x + 2) * 4 + (-dp.y + 2);
+        const coord_def dp = *ci - c;
+        travel_point_distance[ci->x][ci->y] = (-dp.x + 2) * 4 + (-dp.y + 2);
     }
 }
 
@@ -5318,7 +5458,7 @@ static dungeon_feature_type _pick_temple_altar(vault_placement &place)
         {
             // Altar god doesn't matter, setting up the whole machinery would
             // be too much work.
-            if (crawl_state.map_stat_gen)
+            if (crawl_state.map_stat_gen || crawl_state.obj_stat_gen)
                 return DNGN_ALTAR_XOM;
 
             mprf(MSGCH_ERROR, "Ran out of altars for temple!");
@@ -5373,10 +5513,6 @@ static dungeon_feature_type _pick_an_altar()
                                          0);
             break;
 
-        case BRANCH_BLADE:
-            god = GOD_OKAWARU;
-            break;
-
         case BRANCH_ELF: // magic gods
             god = random_choose(GOD_VEHUMET, GOD_SIF_MUNA, GOD_XOM,
                                 GOD_MAKHLEB, -1);
@@ -5424,11 +5560,24 @@ void place_spec_shop(const coord_def& where,
                      int force_s_type, bool representative)
 {
     shop_spec spec(static_cast<shop_type>(force_s_type));
-    _place_spec_shop(where, &spec, representative);
+    place_spec_shop(where, &spec, representative);
 }
 
-static void _place_spec_shop(const coord_def& where,
-                             shop_spec* spec, bool representative)
+int greed_for_shop_type(shop_type shop, int level_number)
+{
+    if (shop == SHOP_FOOD)
+        return 10 + random2(5);
+    if (shop == SHOP_WEAPON_ANTIQUE
+        || shop == SHOP_ARMOUR_ANTIQUE
+        || shop == SHOP_GENERAL_ANTIQUE)
+    {
+        return 15 + random2avg(19, 2) + random2(level_number);
+    }
+    return 10 + random2(5) + random2(level_number / 2);
+}
+
+void place_spec_shop(const coord_def& where,
+                     shop_spec* spec, bool representative)
 {
     int level_number = env.absdepth0;
     int force_s_type = static_cast<int>(spec->sh_type);
@@ -5460,16 +5609,7 @@ static void _place_spec_shop(const coord_def& where,
         (force_s_type != SHOP_RANDOM) ? force_s_type
                                       : random2(NUM_SHOPS));
 
-    if (env.shop[i].type == SHOP_FOOD)
-        env.shop[i].greed = 10 + random2(5);
-    else if (env.shop[i].type != SHOP_WEAPON_ANTIQUE
-             && env.shop[i].type != SHOP_ARMOUR_ANTIQUE
-             && env.shop[i].type != SHOP_GENERAL_ANTIQUE)
-    {
-        env.shop[i].greed = 10 + random2(5) + random2(level_number / 2);
-    }
-    else
-        env.shop[i].greed = 15 + random2avg(19, 2) + random2(level_number);
+    env.shop[i].greed = greed_for_shop_type(env.shop[i].type, level_number);
 
     // Allow bargains in bazaars, prices randomly between 60% and 95%.
     if (player_in_branch(BRANCH_BAZAAR))
@@ -5548,7 +5688,7 @@ static void _place_spec_shop(const coord_def& where,
             const object_class_type basetype =
                 (representative && env.shop[i].type == SHOP_EVOKABLES)
                 ? OBJ_WANDS
-                : _item_in_shop(env.shop[i].type);
+                : item_in_shop(env.shop[i].type);
             const int subtype = representative? j : OBJ_RANDOM;
 
             if (!spec->items.empty() && !spec->use_all)
@@ -5622,7 +5762,7 @@ static void _place_spec_shop(const coord_def& where,
     activate_notes(note_status);
 }
 
-static object_class_type _item_in_shop(shop_type shop_type)
+object_class_type item_in_shop(shop_type shop_type)
 {
     switch (shop_type)
     {
@@ -5683,6 +5823,7 @@ static bool _feat_is_wall_floor_liquid(dungeon_feature_type feat)
 #if TAG_MAJOR_VERSION == 34
            || player_in_branch(BRANCH_FOREST) && feat == DNGN_TREE
 #endif
+           || player_in_branch(BRANCH_SWAMP) && feat == DNGN_TREE
            || feat_is_lava(feat)
            || feat_is_wall(feat)
            || feat == DNGN_FLOOR;
@@ -5759,7 +5900,10 @@ static bool _connect_spotty(const coord_def& from,
         for (set<coord_def>::const_iterator it = spotty_path.begin();
              it != spotty_path.end(); ++it)
         {
-            grd(*it) = DNGN_FLOOR;
+            grd(*it) =
+                (player_in_branch(BRANCH_SWAMP) && one_chance_in(3))
+                ? DNGN_SHALLOW_WATER
+                : DNGN_FLOOR;
             dgn_height_set_at(*it);
         }
     }
@@ -5782,6 +5926,9 @@ static bool _place_specific_trap(const coord_def& where, trap_spec* spec, int ch
     bool no_shaft = no_tele || !is_valid_shaft_level();
 
     while (spec_type >= NUM_TRAPS
+#if TAG_MAJOR_VERSION == 34
+           || spec_type == TRAP_DART || spec_type == TRAP_GAS
+#endif
            || no_tele && spec_type == TRAP_TELEPORT
            || no_shaft && spec_type == TRAP_SHAFT)
     {
@@ -6280,10 +6427,10 @@ FixedVector<vector<StairConnectivity>, NUM_BRANCHES> connectivity;
 
 void init_level_connectivity()
 {
-    for (int i = 0; i < NUM_BRANCHES; i++)
+    for (branch_iterator it; it; ++it)
     {
-        int depth = brdepth[i] > 0 ? brdepth[i] : 0;
-        connectivity[i].resize(depth);
+        int depth = brdepth[it->id] > 0 ? brdepth[it->id] : 0;
+        connectivity[it->id].resize(depth);
     }
 }
 
@@ -6632,7 +6779,7 @@ void vault_placement::apply_grid()
 {
     if (!size.zero())
     {
-        bool clear = !map.has_tag("can_overwrite");
+        bool clear = !map.has_tag("overwrite_floor_cell");
 
         // NOTE: assumes *no* previous item (I think) or monster (definitely)
         // placement.
@@ -6690,7 +6837,7 @@ void vault_placement::apply_grid()
             _vault_grid_mons(*this, feat, *ri, mapsp);
         }
 
-        map.map.apply_overlays(pos);
+        map.map.apply_overlays(pos, map.is_overwritable_layout());
     }
 }
 
@@ -6700,23 +6847,25 @@ void vault_placement::draw_at(const coord_def &c)
     apply_grid();
 }
 
-void vault_placement::connect(bool spotty) const
+int vault_placement::connect(bool spotty) const
 {
+    int exits_placed = 0;
+
     for (vector<coord_def>::const_iterator i = exits.begin();
          i != exits.end(); ++i)
     {
-        if (spotty && _connect_spotty(*i, _feat_is_wall_floor_liquid))
-            continue;
-
-        if (player_in_branch(BRANCH_SHOALS) &&
-            dgn_shoals_connect_point(*i, _feat_is_wall_floor_liquid))
+        if (spotty && _connect_spotty(*i, _feat_is_wall_floor_liquid)
+            || player_in_branch(BRANCH_SHOALS)
+               && dgn_shoals_connect_point(*i, _feat_is_wall_floor_liquid)
+            || _connect_vault_exit(*i))
         {
-            continue;
+            exits_placed++;
         }
-
-        if (!_connect_vault_exit(*i))
+        else
             dprf("Warning: failed to connect vault exit (%d;%d).", i->x, i->y);
     }
+
+    return exits_placed;
 }
 
 // Checks the resultant feature type of the map glyph, after applying KFEAT

@@ -123,7 +123,7 @@
 
     {  MST_LICH_III,
       {
-       SPELL_BOLT_OF_DRAINING,
+       SPELL_CORROSIVE_BOLT,
        SPELL_SLOW,
        SPELL_INVISIBILITY,
        SPELL_THROW_ICICLE,
@@ -512,7 +512,7 @@
        SPELL_NO_SPELL,
        SPELL_NO_SPELL,
        SPELL_TELEPORT_OTHER,
-       SPELL_ANIMATE_DEAD,
+       SPELL_NO_SPELL,
        SPELL_TELEPORT_SELF
       }
     },
@@ -662,7 +662,7 @@
 
     {  MST_DEEP_ELF_SORCERER,
       {
-       SPELL_BOLT_OF_DRAINING,
+       SPELL_CORROSIVE_BOLT,
        SPELL_BANISHMENT,
        SPELL_HASTE,
        SPELL_SUMMON_DEMON,
@@ -918,7 +918,7 @@
        SPELL_SHADOW_CREATURES,
        SPELL_SHADOW_CREATURES,
        SPELL_INVISIBILITY,
-       SPELL_BLINK_AWAY,
+       SPELL_BLINK,
        SPELL_SHADOW_CREATURES,
        SPELL_NO_SPELL
       }
@@ -1469,7 +1469,7 @@
        SPELL_LIGHTNING_BOLT,
        SPELL_CONTROL_WINDS,
        SPELL_AIRSTRIKE,
-       SPELL_HASTE,
+       SPELL_NO_SPELL,
        SPELL_NO_SPELL
       }
     },
@@ -1617,17 +1617,6 @@
       }
     },
 
-    {  MST_SHEDU,
-      {
-       SPELL_HEAL_OTHER,
-       SPELL_NO_SPELL,
-       SPELL_HEAL_OTHER,
-       SPELL_NO_SPELL,
-       SPELL_NO_SPELL,
-       SPELL_NO_SPELL,
-      }
-    },
-
     {  MST_EIDOLON,
       {
        SPELL_MELEE,
@@ -1672,6 +1661,7 @@
       }
     },
 
+#if TAG_MAJOR_VERSION == 34
     {  MST_SILVER_STAR,
       {
        SPELL_HOLY_LIGHT,
@@ -1682,6 +1672,7 @@
        SPELL_SILVER_BLAST
       }
     },
+#endif
 
     {  MST_GNOLL_SHAMAN,
       {
@@ -2049,21 +2040,10 @@
     {  MST_TENGU_REAVER_III,
       {
        SPELL_VENOM_BOLT,
-       SPELL_VENOM_BOLT,
+       SPELL_CORROSIVE_BOLT,
        SPELL_BATTLESPHERE,
        SPELL_POISONOUS_CLOUD,
        SPELL_BATTLESPHERE,
-       SPELL_NO_SPELL
-      }
-    },
-
-    {  MST_SPRIGGAN_ENCHANTER,
-      {
-       SPELL_SLEEP,
-       SPELL_SLEEP,
-       SPELL_INVISIBILITY,
-       SPELL_HASTE,
-       SPELL_STRIP_RESISTANCE,
        SPELL_NO_SPELL
       }
     },
@@ -2112,28 +2092,6 @@
       }
     },
 
-    {  MST_THORN_LOTUS,
-      {
-       SPELL_THORN_VOLLEY,
-       SPELL_THORN_VOLLEY,
-       SPELL_NO_SPELL,
-       SPELL_THORN_VOLLEY,
-       SPELL_THORN_VOLLEY,
-       SPELL_NO_SPELL
-      }
-    },
-
-    {  MST_VAPOUR,
-      {
-       SPELL_LIGHTNING_BOLT,
-       SPELL_LIGHTNING_BOLT,
-       SPELL_MELEE,
-       SPELL_LIGHTNING_BOLT,
-       SPELL_NO_SPELL,
-       SPELL_NO_SPELL
-      }
-    },
-
     {  MST_DRACONIAN_ZEALOT,
       {
        SPELL_SUMMON_DEMON,
@@ -2145,6 +2103,7 @@
       }
     },
 
+    // deep elf ie
     {  MST_DEEP_ELF_MAGE_I,
       {
        SPELL_FREEZE,
@@ -2156,6 +2115,7 @@
       }
     },
 
+    // deep elf ee
     {  MST_DEEP_ELF_MAGE_II,
       {
        SPELL_BOLT_OF_MAGMA,
@@ -2167,6 +2127,7 @@
       }
     },
 
+    // deep elf wz
     {  MST_DEEP_ELF_MAGE_III,
       {
        SPELL_ISKENDERUNS_MYSTIC_BLAST,
@@ -2178,6 +2139,7 @@
       }
     },
 
+    // deep elf --fe
     {  MST_DEEP_ELF_MAGE_IV,
       {
        SPELL_FLAME_TONGUE,
@@ -2189,6 +2151,7 @@
       }
     },
 
+    // deep elf cj
     {  MST_DEEP_ELF_MAGE_V,
       {
        SPELL_MAGIC_DART,
@@ -2465,9 +2428,9 @@
 
     {  MST_OCTOPODE_CRUSHER,
       {
-       SPELL_THROW_ICICLE,
-       SPELL_THROW_ICICLE,
-       SPELL_NO_SPELL,
+       SPELL_IRON_SHOT,
+       SPELL_IRON_SHOT,
+       SPELL_MELEE,
        SPELL_MELEE,
        SPELL_MELEE,
        SPELL_NO_SPELL,
@@ -2482,6 +2445,28 @@
        SPELL_ANIMATE_DEAD,
        SPELL_DISPEL_UNDEAD,
        SPELL_NO_SPELL
+      }
+    },
+
+    {  MST_SILVER_STATUE,
+      {
+       SPELL_SUMMON_MINOR_DEMON,
+       SPELL_SUMMON_DEMON,
+       SPELL_NO_SPELL,
+       SPELL_SUMMON_MINOR_DEMON,
+       SPELL_SUMMON_DEMON,
+       SPELL_NO_SPELL
+      }
+    },
+
+    {  MST_ORANGE_CRYSTAL_STATUE,
+      {
+       SPELL_BRAIN_FEED,
+       SPELL_DRAIN_MAGIC,
+       SPELL_MASS_CONFUSION,
+       SPELL_BRAIN_FEED,
+       SPELL_DRAIN_MAGIC,
+       SPELL_MASS_CONFUSION
       }
     },
 #endif

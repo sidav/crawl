@@ -12,6 +12,7 @@
 #include "colour.h"
 #include "command.h"
 #include "dungeon.h"
+#include "end.h"
 #include "env.h"
 #include "externs.h"
 #include "food.h"
@@ -23,21 +24,23 @@
 #include "maps.h"
 #include "message.h"
 #include "mon-behv.h"
+#include "mon-death.h"
 #include "mon-pick.h"
 #include "mon-util.h"
 #include "mon-place.h"
 #include "mgen_data.h"
-#include "mon-stuff.h"
 #include "ng-init.h"
 #include "options.h"
 #include "spl-miscast.h"
 #include "spl-util.h"
 #include "state.h"
-#include "stuff.h"
+#include "stringutil.h"
+#include "teleport.h"
 #include "terrain.h"
 #ifdef USE_TILE
  #include "tileview.h"
 #endif
+#include "unicode.h"
 #include "version.h"
 #include "view.h"
 #include "viewgeom.h"
@@ -493,8 +496,6 @@ namespace arena
         for (int i = 0; i < NUM_STATS; ++i)
             you.base_stats[i] = 20;
 
-        Options.show_gold_turns = false;
-
         show_fight_banner();
     }
 
@@ -788,7 +789,7 @@ namespace arena
     static void do_fight()
     {
         viewwindow();
-        mesclr(true);
+        clear_messages(true);
         {
             cursor_control coff(false);
             while (fight_is_on())
@@ -822,14 +823,14 @@ namespace arena
                 do_respawn(faction_b);
                 balance_spawners();
                 delay(Options.view_delay);
-                mesclr();
+                clear_messages();
                 dump_messages();
                 ASSERT(you.pet_target == MHITNOT);
             }
             viewwindow();
         }
 
-        mesclr();
+        clear_messages();
 
         trials_done++;
 

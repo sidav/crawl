@@ -82,7 +82,10 @@ void dgn_smooth_height_at(coord_def c, int radius, int max_height)
             total += nheight * weight;
         }
     }
-    dgn_height_at(c) = total / divisor;
+    // Can't actually be zero currently unless someone passes a negative
+    // or overflowing radius, but this avoids a static analysis warning.
+    if (divisor)
+        dgn_height_at(c) = total / divisor;
 }
 
 void dgn_smooth_heights(int radius, int npasses)
@@ -158,12 +161,14 @@ void dgn_island_plan::build_island()
         const coord_def offsetC =
             dgn_random_point_from(c, addition_offset, level_border_depth);
         if (!offsetC.origin())
+        {
             dgn_island_centred_at(
                 offsetC, resolve_range(n_island_aux_delta_points),
                 resolve_range(island_aux_radius_range),
                 island_aux_point_height_increment,
                 level_border_depth,
                 x_chance_in_y(atoll_roll, 100));
+        }
     }
 }
 

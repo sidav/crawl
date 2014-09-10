@@ -15,10 +15,8 @@
 
 lua {{
 
-function place_bazaar_portal(e, perm, trowel)
-  if not trowel then
-    e.tags("bzr_entry")
-  end
+function place_bazaar_portal(e, perm)
+  e.tags("bzr_entry")
   e.kfeat("O = enter_bazaar")
   if perm then
      e.lua_marker('O', bazaar_portal(false))
@@ -103,15 +101,6 @@ NAME:   bzr_entry_dummy
 TAGS:   transparent zotdef_bazaar allow_dup
 veto {{ return you.is_level_on_stack("Bazaar") }}
 : place_bazaar_portal(_G)
-MAP
-O
-ENDMAP
-
-NAME:   bzr_entry_trowel
-TAGS:   transparent trowel_portal unrand can_overwrite
-DEPTH:  *, !Bazaar
-veto {{ return you.is_level_on_stack("Bazaar") }}
-: place_bazaar_portal(_G, false, true)
 MAP
 O
 ENDMAP
@@ -280,11 +269,11 @@ RTILE:   b = dngn_crystal_lightmagenta
 : place_bazaar_portal(_G)
 : set_feature_name("green_crystal_wall", "wall of crystal")
 MAP
-bb.bb
+bb@bb
 b...b
-..O..
+@.O.@
 b...b
-bb.bb
+bb@bb
 ENDMAP
 
 ###############################################################################
@@ -312,13 +301,12 @@ default-depth: Bazaar
 ##########################################################################
 
 ##########################################
-# bazaar lakeside with goldfish (jpeg)
+# bazaar lakeside (jpeg)
 # 5 shops
 NAME:    bazaar_lake
 TAGS:    no_rotate
 ORIENT:  encompass
 WEIGHT:  20
-MONS:    giant goldfish
 SUBST:   a = W.
 SHUFFLE: ABCDEF
 SUBST:   A = Y
@@ -356,7 +344,7 @@ xxxxxxxx..............aaaaa..............xxxxxxxxx
 xxxxxxxx.....E.......awwwwwaa......A.....xxxxxxxxx
 xxxxxxx............aawwwwwwwww............xxxxxxxx
 xxxxxxx...........awwwwwWwwwwa............xxxxxxxx
-xxxxxxx..........awwwww1WWwwwa............xxxxxxxx
+xxxxxxx..........awwwwwWWWwwwa............xxxxxxxx
 xxxxxxxY.T........awwwwwwWWwwwa........T.Yxxxxxxxx
 xxxxxxx............awwwwwwwwaX............xxxxxxxx
 xxxxxxx.............aawwwwwwwwa...........xxxxxxxx

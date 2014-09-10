@@ -93,11 +93,6 @@ A granite statue
 Trotz der Härte des verwendeten Steins ist diese Statue schon ziemlich
 verwittert.
 %%%%
-A mangrove
-
-Dieser Baum ist speziell für das Wachsen unter sumpfigen Bedingungen angepasst.
-Seine Reben(?) sind zu dick, um hindurchzusehen.
-%%%%
 A mechanical trap
 
 Eine mechanische Vorrichtung, hergestellt, um Vorbeikommende zu verletzen. Ein

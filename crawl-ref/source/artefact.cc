@@ -33,7 +33,8 @@
 #include "species.h"
 #include "spl-book.h"
 #include "state.h"
-#include "stuff.h"
+#include "stringutil.h"
+#include "unicode.h"
 
 static bool _god_fits_artefact(const god_type which_god, const item_def &item,
                                bool name_check_only = false)
@@ -59,15 +60,15 @@ static bool _god_fits_artefact(const god_type which_god, const item_def &item,
             type_bad = true;
         break;
 
-    case GOD_OKAWARU:
-        // Precision fighter god: no inaccuracy.
-        if (item.base_type == OBJ_JEWELLERY && item.sub_type == AMU_INACCURACY)
+    case GOD_SHINING_ONE:
+        // Crusader god: holiness, honourable combat.
+        if (item.base_type == OBJ_JEWELLERY && item.sub_type == RING_STEALTH)
             type_bad = true;
         break;
 
-    case GOD_ZIN:
-        // Lawful god: no increased hunger.
-        if (item.base_type == OBJ_JEWELLERY && item.sub_type == RING_HUNGER)
+    case GOD_OKAWARU:
+        // Precision fighter god: no inaccuracy.
+        if (item.base_type == OBJ_JEWELLERY && item.sub_type == AMU_INACCURACY)
             type_bad = true;
         break;
 
@@ -102,6 +103,12 @@ static bool _god_fits_artefact(const god_type which_god, const item_def &item,
             type_bad = true;
         break;
 
+    case GOD_DITHMENOS:
+        // Shadow god: no reducing stealth.
+        if (item.base_type == OBJ_JEWELLERY && item.sub_type == RING_LOUDNESS)
+            type_bad = true;
+        break;
+
     default:
         break;
     }
@@ -123,7 +130,7 @@ static bool _god_fits_artefact(const god_type which_god, const item_def &item,
     else if (is_good_god(which_god)
              && (brand == SPWPN_DRAINING
                  || brand == SPWPN_PAIN
-                 || brand == SPWPN_VAMPIRICISM
+                 || brand == SPWPN_VAMPIRISM
                  || brand == SPWPN_REAPING
                  || brand == SPWPN_CHAOS
                  || is_demonic(item)
@@ -218,10 +225,13 @@ static bool _god_fits_artefact(const god_type which_god, const item_def &item,
     case GOD_DITHMENOS:
         // No fiery weapons.
         if (item.base_type == OBJ_WEAPONS
-            && (brand == SPWPN_FLAME || brand == SPWPN_FLAMING))
+            && brand == SPWPN_FLAMING)
         {
             return false;
         }
+        // No reducing stealth.
+        if (artefact_wpn_property(item, ARTP_STEALTH) < 0)
+            return false;
         break;
 
     default:
@@ -442,12 +452,6 @@ void artefact_desc_properties(const item_def &item,
     artefact_prop_type fake_rap  = ARTP_NUM_PROPERTIES;
     int               fake_plus = 1;
 
-    // The base jewellery type is one whose property is revealed by
-    // wearing it, but whose property isn't revealed by having
-    // ISFLAG_KNOW_PLUSES set.  For a randart with a base type of, for
-    // example, a ring of strength, wearing it sets
-    // ISFLAG_KNOW_PLUSES, which reveals the ring's strength plus.
-
     // XXX has to match player-equip.cc:_equip_jewelry_effect(), sort-of (SamB)
     switch (item.sub_type)
     {
@@ -494,6 +498,10 @@ void artefact_desc_properties(const item_def &item,
 
     switch (item.sub_type)
     {
+    case AMU_WARDING:
+        fake_rap = ARTP_NEGATIVE_ENERGY;
+        break;
+
     case RING_PROTECTION:
         fake_rap  = ARTP_AC;
         fake_plus = item.plus;
@@ -512,18 +520,25 @@ void artefact_desc_properties(const item_def &item,
         break;
 
     case RING_SLAYING:
-        fake_rap   = ARTP_ACCURACY;
-        fake_plus  = item.plus;
-        fake_rap2  = ARTP_DAMAGE;
-        fake_plus2 = item.plus2;
+        fake_rap  = ARTP_SLAYING;
+        fake_plus = item.plus;
         break;
 
     case RING_SEE_INVISIBLE:
         fake_rap = ARTP_EYESIGHT;
         break;
 
-    case RING_HUNGER:
-        fake_rap = ARTP_METABOLISM;
+    case RING_LOUDNESS:
+        fake_rap = ARTP_STEALTH;
+        fake_plus = -1;
+        break;
+
+    case RING_STEALTH:
+        fake_rap = ARTP_STEALTH;
+        break;
+
+    case RING_REGENERATION:
+        fake_rap = ARTP_REGENERATION;
         break;
 
     case RING_EVASION:
@@ -649,12 +664,11 @@ static int _randart_add_one_property(const item_def &item,
 }
 
 // An artefact will pass this check if it has any non-stat properties, and
-// also if it has enough stat (Str, Dex, Int, Acc, Dam) properties.
+// also if it has enough stat properties (AC, EV, Str, Dex, Int).
 // Returns how many (more) stat properties we need to add.
 static int _need_bonus_stat_props(const artefact_properties_t &proprt)
 {
     int num_stats   = 0;
-    int num_acc_dam = 0;
 
     for (int i = 0; i < ARTP_NUM_PROPERTIES; i++)
     {
@@ -666,13 +680,9 @@ static int _need_bonus_stat_props(const artefact_properties_t &proprt)
 
         if (i >= ARTP_AC && i <= ARTP_DEXTERITY)
             num_stats++;
-        else if (i >= ARTP_ACCURACY && i <= ARTP_DAMAGE)
-            num_acc_dam++;
         else
             return 0;
     }
-
-    num_stats += num_acc_dam;
 
     // If an artefact has no properties at all, something is wrong.
     if (num_stats == 0)
@@ -683,10 +693,7 @@ static int _need_bonus_stat_props(const artefact_properties_t &proprt)
         return 0;
 
     // If an artefact has exactly one stat property, we might want to add
-    // some more. (66% chance if it's Acc/Dam, else always.)
-    if (num_acc_dam > 0)
-        return random2(3);
-
+    // some more.
     return 1 + random2(2);
 }
 
@@ -702,7 +709,7 @@ static void _get_randart_properties(const item_def &item,
     else if (aclass == OBJ_JEWELLERY)
         power_level = 1 + random2(3) + random2(2);
     else // OBJ_WEAPON
-        power_level = item.plus / 3 + item.plus2 / 3;
+        power_level = item.plus / 3;
 
     if (power_level < 0)
         power_level = 0;
@@ -719,13 +726,13 @@ static void _get_randart_properties(const item_def &item,
                 2, SPWPN_SPEED,
                 4, SPWPN_VENOM,
                 4, SPWPN_VORPAL,
-                4, SPWPN_FLAME,
-                4, SPWPN_FROST,
+                4, SPWPN_FLAMING,
+                4, SPWPN_FREEZING,
                 0);
 
             if (atype == WPN_BLOWGUN)
                 proprt[ARTP_BRAND] = coinflip() ? SPWPN_SPEED : SPWPN_EVASION;
-            else if (atype == WPN_CROSSBOW)
+            else if (range_skill(item) == SK_CROSSBOWS)
             {
                 // Penetration and electrocution are only allowed on
                 // crossbows.  This may change in future.
@@ -742,7 +749,7 @@ static void _get_randart_properties(const item_def &item,
                 SPWPN_FLAMING,
                 SPWPN_FREEZING,
                 SPWPN_ELECTROCUTION,
-                SPWPN_VAMPIRICISM,
+                SPWPN_VAMPIRISM,
                 SPWPN_PAIN,
                 SPWPN_VENOM,
                 -1);
@@ -755,13 +762,12 @@ static void _get_randart_properties(const item_def &item,
                 73, SPWPN_VORPAL,
                 34, SPWPN_FLAMING,
                 34, SPWPN_FREEZING,
-                26, SPWPN_DRAGON_SLAYING,
                 26, SPWPN_VENOM,
                 26, SPWPN_DRAINING,
                 13, SPWPN_HOLY_WRATH,
                 13, SPWPN_ELECTROCUTION,
                 13, SPWPN_SPEED,
-                13, SPWPN_VAMPIRICISM,
+                13, SPWPN_VAMPIRISM,
                 13, SPWPN_PAIN,
                 13, SPWPN_ANTIMAGIC,
                  3, SPWPN_DISTORTION,
@@ -824,25 +830,13 @@ static void _get_randart_properties(const item_def &item,
         && (aclass != OBJ_JEWELLERY || atype != RING_SLAYING))
     {
         // Weapons and rings of slaying can't get these.
-        if (one_chance_in(4 + power_level))  // to-hit
-        {
-            proprt[ARTP_ACCURACY] = 2 + random2(3) + random2(3);
-            power_level++;
-            if (one_chance_in(4))
-            {
-                proprt[ARTP_ACCURACY] -= 2 + random2(4) + random2(4)
-                                           + random2(3);
-                power_level--;
-            }
-        }
-
         if (one_chance_in(4 + power_level))  // to-dam
         {
-            proprt[ARTP_DAMAGE] = 2 + random2(3) + random2(3);
+            proprt[ARTP_SLAYING] = 2 + random2(3) + random2(3);
             power_level++;
             if (one_chance_in(4))
             {
-                proprt[ARTP_DAMAGE] -= 2 + random2(4) + random2(4)
+                proprt[ARTP_SLAYING] -= 2 + random2(4) + random2(4)
                                          + random2(3);
                 power_level--;
             }
@@ -1002,7 +996,7 @@ static void _get_randart_properties(const item_def &item,
         switch (random2(9))
         {
         case 0:                     // makes noise
-            if (aclass != OBJ_WEAPONS)
+            if (!is_melee_weapon(item))
                 break;
             proprt[ARTP_NOISES] = 1 + random2(4);
             break;
@@ -1060,12 +1054,13 @@ static void _get_randart_properties(const item_def &item,
             }
             proprt[ARTP_COLD] = -1;
             break;
-        case 7:                     // speed metabolism
-            if (aclass == OBJ_JEWELLERY && atype == RING_HUNGER)
-                break;              // already is a ring of hunger
-            if (aclass == OBJ_JEWELLERY && atype == RING_SUSTENANCE)
-                break;              // already is a ring of sustenance
-            proprt[ARTP_METABOLISM] = 1 + random2(3);
+        case 7:                     // less stealthy
+            if (aclass == OBJ_JEWELLERY
+                && (atype == RING_LOUDNESS || atype == RING_STEALTH))
+            {
+                break;
+            }
+            proprt[ARTP_STEALTH] = -1 - random2(2);
             break;
         case 8:
             // emits mutagenic radiation - causes
@@ -1079,11 +1074,11 @@ static void _get_randart_properties(const item_def &item,
         && get_armour_ego_type(item) != SPARM_STEALTH)
     {
         power_level++;
-        proprt[ARTP_STEALTH] = 10 + random2(70);
+        proprt[ARTP_STEALTH] = one_chance_in(4) ? 2 : 1;
 
         if (one_chance_in(4))
         {
-            proprt[ARTP_STEALTH] = -proprt[ARTP_STEALTH] - random2(20);
+            proprt[ARTP_STEALTH] = -proprt[ARTP_STEALTH] - random2(2);
             power_level--;
         }
     }
@@ -1183,7 +1178,6 @@ void setup_unrandart(item_def &item)
     item.base_type = unrand->base_type;
     item.sub_type  = unrand->sub_type;
     item.plus      = unrand->plus;
-    item.plus2     = unrand->plus2;
     item.colour    = unrand->colour;
 }
 
@@ -1584,8 +1578,8 @@ int find_okay_unrandart(uint8_t aclass, uint8_t atype, bool in_abyss)
             || atype != OBJ_RANDOM && entry->sub_type != atype
                // Acquirement.
                && (aclass != OBJ_WEAPONS
-                   || weapon_skill(entry->base_type, atype) !=
-                      weapon_skill(entry->base_type, entry->sub_type)
+                   || item_attack_skill(entry->base_type, atype) !=
+                      item_attack_skill(entry->base_type, entry->sub_type)
                    || hands_reqd(&you, entry->base_type,
                                  atype) !=
                       hands_reqd(&you, entry->base_type,
@@ -1629,7 +1623,6 @@ static bool _randart_is_redundant(const item_def &item,
         return false;
 
     artefact_prop_type provides  = ARTP_NUM_PROPERTIES;
-    artefact_prop_type provides2 = ARTP_NUM_PROPERTIES;
 
     switch (item.sub_type)
     {
@@ -1656,8 +1649,7 @@ static bool _randart_is_redundant(const item_def &item,
         break;
 
     case RING_SLAYING:
-        provides  = ARTP_DAMAGE;
-        provides2 = ARTP_ACCURACY;
+        provides  = ARTP_SLAYING;
         break;
 
     case RING_SEE_INVISIBLE:
@@ -1668,8 +1660,8 @@ static bool _randart_is_redundant(const item_def &item,
         provides = ARTP_INVISIBLE;
         break;
 
-    case RING_HUNGER:
-        provides = ARTP_METABOLISM;
+    case RING_STEALTH:
+        provides = ARTP_STEALTH;
         break;
 
     case RING_TELEPORTATION:
@@ -1709,7 +1701,7 @@ static bool _randart_is_redundant(const item_def &item,
         break;
 
     case AMU_INACCURACY:
-        provides = ARTP_ACCURACY;
+        provides = ARTP_SLAYING;
         break;
 
     case AMU_STASIS:
@@ -1721,12 +1713,6 @@ static bool _randart_is_redundant(const item_def &item,
         return false;
 
     if (proprt[provides] != 0)
-        return true;
-
-    if (provides2 == ARTP_NUM_PROPERTIES)
-        return false;
-
-    if (proprt[provides2] != 0)
         return true;
 
     return false;
@@ -1762,8 +1748,8 @@ static bool _randart_is_conflicting(const item_def &item,
 
     switch (item.sub_type)
     {
-    case RING_SUSTENANCE:
-        conflicts = ARTP_METABOLISM;
+    case RING_LOUDNESS:
+        conflicts = ARTP_STEALTH;
         break;
 
     case RING_FIRE:
@@ -1963,7 +1949,7 @@ static void _make_faerie_armour(item_def &item)
 static jewellery_type octoring_types[8] =
 {
     RING_REGENERATION, RING_PROTECTION_FROM_FIRE, RING_PROTECTION_FROM_COLD,
-    RING_SUSTAIN_ABILITIES, RING_SUSTENANCE, RING_WIZARDRY, RING_MAGICAL_POWER,
+    RING_SUSTAIN_ABILITIES, RING_STEALTH, RING_WIZARDRY, RING_MAGICAL_POWER,
     RING_LIFE_PROTECTION
 };
 
@@ -2021,10 +2007,7 @@ bool make_item_unrandart(item_def &item, int unrand_index)
     _set_unique_item_status(unrand_index, UNIQ_EXISTS);
 
     if (unrand_index == UNRAND_VARIABILITY)
-    {
-        item.plus  = random_range(-4, 16);
-        item.plus2 = random_range(-4, 16);
-    }
+        item.plus = random_range(-4, 16);
     else if (unrand_index == UNRAND_FAERIE)
         _make_faerie_armour(item);
     else if (unrand_index == UNRAND_OCTOPUS_KING_RING)
@@ -2049,12 +2032,11 @@ bool make_item_unrandart(item_def &item, int unrand_index)
 void unrand_reacts()
 {
     item_def*  weapon     = you.weapon();
-    const int  old_plus   = weapon ? weapon->plus   : 0;
-    const int  old_plus2  = weapon ? weapon->plus2  : 0;
+    const int  old_plus   = weapon ? weapon->plus : 0;
 
     for (int i = 0; i < NUM_EQUIP; i++)
     {
-        if (you.unrand_reacts & (1 << i))
+        if (you.unrand_reacts[i])
         {
             item_def&        item  = you.inv[you.equip[i]];
             const unrandart_entry* entry = get_unrand_entry(item.special);
@@ -2063,7 +2045,7 @@ void unrand_reacts()
         }
     }
 
-    if (weapon && (old_plus != weapon->plus || old_plus2 != weapon->plus2))
+    if (weapon && (old_plus != weapon->plus))
         you.wield_change = true;
 }
 

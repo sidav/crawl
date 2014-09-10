@@ -330,11 +330,23 @@ Xom touches your surroundings.
 
 @Xom good monster polymorph@
 %%%%
-Xom inner flame
+Xom destruction
 
 "Burn, baby, burn!"
 
-Xom turns up the heat.
+"Ka-boom!"
+
+Xom calls forth mighty explosions.
+
+Xom rains down devastation!
+
+@Xom fake destruction@
+%%%%
+Xom fake destruction
+
+"Feel my power!"
+
+Xom gives a demonstration of destructive might.
 
 w:1
 "Let it end in hellfire!"
@@ -378,6 +390,12 @@ Xom good enchant monster
 Xom bad enchant monster
 
 @Xom good enchant monster@
+%%%%
+Xom stealth player
+
+Xom shushes you conspicuously.
+
+Xom whispers "Shhh!"
 %%%%
 Xom life saving general
 
@@ -623,6 +641,69 @@ insane
 
 naughty
 %%%%
+############################
+# Gozag's response to prayer
+############################
+Gozag prayer
+
+Gozag says: Don't bother me unless you have something to purchase.
+
+Gozag says: Bring me some gold!
+
+Gozag says: Wasting time is wasting money!
+
+Gozag says: I'm waiting for your next payment.
+
+Gozag says: All you need is greed!
+
+Gozag says: A full purse beats having friends.
+
+Gozag says: The world belongs to the rich.
+
+w:4
+Gozag says: Eat the poor!
+
+w:3
+Gozag says: Kill the poor!
+
+w:3
+Gozag says: Defeat the poor!
+
+Gozag says: No better sound than the ting-a-ling of coins.
+
+Gozag says: Be generous to yourself!
+
+Gozag says: The golden calf was only the first half.
+
+Gozag says: Gold is the grease of nations.
+
+Gozag says: Pecunia non olet.
+
+Gozag says: Take care of the pence!
+
+Gozag says: I promise an afterlife to those who can afford it!
+
+Gozag says: The indulgence fee is not free!
+
+Gozag says: Money talks!
+
+Gozag says: Cash is king!
+
+w:5
+Gozag says: Gold! Gold! Gold!
+
+w:1
+Gozag says: Your prayer is important. Please continue to hold.
+
+w:1
+Gozag says: Please join the back of the queue.
+
+w:1
+Gozag says: This prayer may be monitored for quality assurance.
+
+w:1
+Gozag says: For potions, speak 1 now.
+%%%%
 ######################################
 # Welcome messages on game restoration
 ######################################
@@ -632,7 +713,7 @@ Ashenzari says: Partake of my vision. Partake of my curse.
 %%%%
 Beogh penance
 
-Beogh says: Show any more mercy to foul non-orcs and I'll have you killed.
+Beogh says: Do not betray your orcish brethren!
 %%%%
 Beogh welcome
 
@@ -640,7 +721,7 @@ Beogh says: Drown the unbelievers in a sea of blood!
 %%%%
 Cheibriados penance
 
-Cheibriados says: Don't be so hasty! Slow down!
+Cheibriados says: Don't be so hasty!
 %%%%
 Cheibriados welcome
 
@@ -656,7 +737,7 @@ Dithmenos says: Spread the eternal night.
 %%%%
 Elyvilon penance
 
-Elyvilon says: I plead of you, be more careful when helping others!
+Elyvilon says: Be more diligent in your ministrations.
 %%%%
 Elyvilon welcome
 
@@ -669,6 +750,10 @@ Fedhas protests your encroaching upon nature.
 Fedhas welcome
 
 Fedhas says: Spread life and death.
+%%%%
+Gozag welcome
+
+Gozag says: Greed is good.
 %%%%
 Jiyva welcome
 
@@ -684,7 +769,8 @@ Lugonu says: Spread carnage and corruption!
 %%%%
 Lugonu newgame
 
-Lugonu says: Take this gate or call upon me to unleash you onto the world, my servant!
+Lugonu says: Depart the Abyss and spread corruption, my servant!
+<lightgrey>(use the <w>a</w>bility menu to exit the Abyss)</lightgrey>
 %%%%
 Makhleb welcome
 
@@ -696,15 +782,23 @@ Nemelex Xobeh says: It's all in the cards!
 %%%%
 Okawaru penance
 
-Okawaru says: Don't be a dastardly coward this time!
+Okawaru says: Regain your honour in battle!
 %%%%
 Okawaru welcome
 
 Okawaru says: Bring me glory in combat!
 %%%%
+Qazlal penance
+
+Qazlal thunders: Do not interfere with the natural order!
+%%%%
+Qazlal welcome
+
+Qazlal says: Let the forces of nature tear it all down!
+%%%%
 Sif Muna penance
 
-Sif Muna rages: Pay more attention this time!
+Sif Muna says: Seek out more knowledge and wisdom.
 %%%%
 Sif Muna welcome
 
@@ -720,7 +814,7 @@ The Shining One says: Lead the forces of light to victory!
 %%%%
 Trog penance
 
-Trog mutters: Ah, it's this puny scribbler again...
+Trog rages: Kill them all!
 %%%%
 Trog welcome
 

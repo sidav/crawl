@@ -61,10 +61,6 @@ A crawl-hole back to the Lair
 Un passage qui mène vers des endroits moins exiguës et avec moins de toiles
 d'araignée.
 %%%%
-A dart trap
-
-Ce piège peut tirer des piques de métal relativement faibles.
-%%%%
 A deep blue altar of Sif Muna
 
 Un autel du bleu le plus pur, couvert de motifs complexes et d'écrits d'une
@@ -190,14 +186,6 @@ Ce passage conduit au Nid des Serpents.
 A labyrinth entrance
 
 Ce portail conduit dans un labyrinthe.
-%%%%
-A mangrove
-
-Cet arbre est spécialement adapté pour pousser dans des conditions
-marécageuses. Ses branches sont trop entrelacées pour voir au travers.
-
-Bien trop grand pour être abattus à la hache, il est sensible à la foudre et à
-des sources de feux suffisamment intenses.
 %%%%
 A mechanical trap
 

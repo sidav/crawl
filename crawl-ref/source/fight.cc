@@ -24,6 +24,7 @@
 #include "invent.h"
 #include "itemprop.h"
 #include "melee_attack.h"
+#include "message.h"
 #include "mgen_data.h"
 #include "misc.h"
 #include "mon-behv.h"
@@ -32,24 +33,34 @@
 #include "mon-util.h"
 #include "ouch.h"
 #include "player.h"
+#include "prompt.h"
 #include "random-var.h"
 #include "religion.h"
 #include "shopping.h"
 #include "spl-miscast.h"
 #include "spl-summoning.h"
 #include "state.h"
-#include "stuff.h"
 #include "target.h"
 #include "terrain.h"
 #include "travel.h"
 #include "traps.h"
 
-/* Handles melee combat between attacker and defender
+/**
+ * Handle melee combat between attacker and defender.
  *
  * Works using the new fight rewrite. For a monster attacking, this method
  * loops through all their available attacks, instantiating a new melee_attack
  * for each attack. Combat effects should not go here, if at all possible. This
  * is merely a wrapper function which is used to start combat.
+ *
+ * @param[in] attacker,defender The (non-null) participants in the attack.
+ *                              Either may be killed as a result of the attack.
+ * @param[out] did_hit If non-null, receives true if the attack hit the
+ *                     defender, and false otherwise.
+ * @param simu Is this a simulated attack?  Disables a few problematic
+ *             effects such as blood spatter and distortion teleports.
+ *
+ * @return Whether the attack took time (i.e. wasn't cancelled).
  */
 bool fight_melee(actor *attacker, actor *defender, bool *did_hit, bool simu)
 {
@@ -110,7 +121,7 @@ bool fight_melee(actor *attacker, actor *defender, bool *did_hit, bool simu)
             // Attack was cancelled or unsuccessful...
             if (attk.cancel_attack)
                 you.turn_is_over = false;
-            return false;
+            return !attk.cancel_attack;
         }
 
         if (did_hit)
@@ -475,9 +486,11 @@ static bool is_boolean_resist(beam_type flavour)
     {
     case BEAM_ELECTRICITY:
     case BEAM_MIASMA: // rotting
-    case BEAM_NAPALM:
+    case BEAM_STICKY_FLAME:
     case BEAM_WATER:  // water asphyxiation damage,
                       // bypassed by being water inhabitant.
+    case BEAM_POISON:
+    case BEAM_POISON_ARROW:
         return true;
     default:
         return false;
@@ -511,21 +524,29 @@ static inline int get_resistible_fraction(beam_type flavour)
     }
 }
 
-// Adjusts damage for elemental resists, electricity and poison.
-//
-// FIXME: Does not (yet) handle life draining, player acid damage
-// (does handle monster acid damage), miasma, and other exotic
-// attacks.
-//
-// beam_type is just used to determine the damage flavour, it does not
-// necessarily imply that the attack is a beam attack.
-int resist_adjust_damage(actor *defender, beam_type flavour,
-                         int res, int rawdamage, bool ranged)
+/**
+ * Adjusts damage for elemental resists, electricity and poison.
+ *
+ * FIXME: Does not (yet) handle draining (?), miasma, and other exotic attacks.
+ * XXX: which other attacks?
+ *
+ * @param defender      The victim of the attack.
+ * @param flavour       The type of attack having its damage adjusted.
+ *                      (Does not necessarily imply the attack is a beam.)
+ * @param res           The level of resistance that the defender possesses.
+ * @param rawdamage     The base damage, to be adjusted by resistance.
+ * @param ranged        Whether the attack is ranged, and therefore has a
+ *                      smaller damage multiplier against victims with negative
+ *                      resistances. (????)
+ * @return              The amount of damage done, after resists are applied.
+ */
+int resist_adjust_damage(const actor* defender, beam_type flavour, int res,
+                         int rawdamage, bool ranged)
 {
     if (!res)
         return rawdamage;
 
-    const bool mons = (defender->is_monster());
+    const bool is_mon = defender->is_monster();
 
     const int resistible_fraction = get_resistible_fraction(flavour);
 
@@ -534,7 +555,9 @@ int resist_adjust_damage(actor *defender, beam_type flavour,
 
     if (res > 0)
     {
-        if (((mons || flavour == BEAM_NEG) && res >= 3) || res > 3)
+        const bool immune_at_3_res = is_mon || flavour == BEAM_NEG
+                                            || flavour == BEAM_ACID;
+        if (immune_at_3_res && res >= 3 || res > 3)
             resistible = 0;
         else
         {
@@ -546,7 +569,7 @@ int resist_adjust_damage(actor *defender, beam_type flavour,
 
             // Use a new formula for players, but keep the old, more
             // effective one for monsters.
-            if (mons)
+            if (is_mon)
                 resistible /= 1 + bonus_res + res * res;
             else if (flavour == BEAM_NEG)
                 resistible /= res * 2;
@@ -581,7 +604,7 @@ bool wielded_weapon_check(item_def *weapon, bool no_message)
         const int weap = you.attribute[ATTR_WEAPON_SWAP_INTERRUPTED] - 1;
         const item_def &wpn = you.inv[weap];
         if (is_melee_weapon(wpn)
-            && you.skill(weapon_skill(wpn)) > you.skill(SK_UNARMED_COMBAT))
+            && you.skill(melee_skill(wpn)) > you.skill(SK_UNARMED_COMBAT))
         {
             unarmed_warning = true;
         }
@@ -621,10 +644,10 @@ static bool _dont_harm(const actor* attacker, const actor* defender)
            || attacker == &you && defender->wont_attack()
            || defender == &you && attacker->wont_attack();
 }
-// Put the potential cleave targets into a list. Up to 3, taken in order by
+// Put the potential cleave targets into a list. Up to 4, taken in order by
 // rotating from the def position and stopping at the first solid feature.
 void get_cleave_targets(const actor* attacker, const coord_def& def, int dir,
-                        list<actor*> &targets)
+                        list<actor*> &targets, bool behind)
 {
     // Prevent scanning invalid coordinates if the attacker dies partway through
     // a cleave (due to hitting explosive creatures, or perhaps other things)
@@ -633,8 +656,19 @@ void get_cleave_targets(const actor* attacker, const coord_def& def, int dir,
 
     const coord_def atk = attacker->pos();
     coord_def atk_vector = def - atk;
+    int num = behind ? 4 : 3;
+    // Let the cleave try to go farther around if we are sure that this
+    // won't overlap with going in the other direction.
+    for (adjacent_iterator ai(atk); ai; ++ai)
+    {
+        if (cell_is_solid(*ai))
+        {
+            num = 7;
+            break;
+        }
+    }
 
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < num; ++i)
     {
         atk_vector = rotate_adjacent(atk_vector, dir);
         if (cell_is_solid(atk + atk_vector))
@@ -653,11 +687,12 @@ void get_all_cleave_targets(const actor* attacker, const coord_def& def,
         return;
 
     int dir = coinflip() ? -1 : 1;
-    get_cleave_targets(attacker, def, dir, targets);
+    bool behind = coinflip();
+    get_cleave_targets(attacker, def, dir, targets, behind);
     targets.reverse();
     if (actor_at(def))
         targets.push_back(actor_at(def));
-    get_cleave_targets(attacker, def, -dir, targets);
+    get_cleave_targets(attacker, def, -dir, targets, !behind);
 }
 
 void attack_cleave_targets(actor* attacker, list<actor*> &targets,
@@ -679,21 +714,22 @@ void attack_cleave_targets(actor* attacker, list<actor*> &targets,
 
 int weapon_min_delay(const item_def &weapon)
 {
-    if (is_range_weapon(weapon))
-        return range_skill(weapon) == SK_BOWS ? 6 : 7;
-
     const int base = property(weapon, PWPN_SPEED);
     int min_delay = base/2;
 
     // Short blades can get up to at least unarmed speed.
-    if (weapon_skill(weapon) == SK_SHORT_BLADES && min_delay > 5)
+    if (melee_skill(weapon) == SK_SHORT_BLADES && min_delay > 5)
         min_delay = 5;
 
     // All weapons have min delay 7 or better
     if (min_delay > 7)
         min_delay = 7;
 
-    // ... unless it would take more than skill 27 to get there (dark maul).
+    // ...except crossbows...
+    if (range_skill(weapon) == SK_CROSSBOWS && min_delay < 10)
+        min_delay = 10;
+
+    // ... and unless it would take more than skill 27 to get there.
     // Round up the reduction from skill, so that min delay is rounded down.
     min_delay = max(min_delay, base - (MAX_SKILL_LEVEL + 1)/2);
 
@@ -715,4 +751,49 @@ int finesse_adjust_delay(int delay)
         delay = div_rand_round(delay, 2);
     }
     return delay;
+}
+
+int mons_weapon_damage_rating(const item_def &launcher)
+{
+    return property(launcher, PWPN_DAMAGE) + launcher.plus;
+}
+
+// Returns a rough estimate of damage from firing/throwing missile.
+int mons_missile_damage(monster* mons, const item_def *launch,
+                        const item_def *missile)
+{
+    if (!missile || (!launch && !is_throwable(mons, *missile)))
+        return 0;
+
+    const int missile_damage = property(*missile, PWPN_DAMAGE) / 2 + 1;
+    const int launch_damage  = launch? property(*launch, PWPN_DAMAGE) : 0;
+    return max(0, launch_damage + missile_damage);
+}
+
+int mons_usable_missile(monster* mons, item_def **launcher)
+{
+    *launcher = NULL;
+    item_def *launch = NULL;
+    for (int i = MSLOT_WEAPON; i <= MSLOT_ALT_WEAPON; ++i)
+    {
+        if (item_def *item = mons->mslot_item(static_cast<mon_inv_type>(i)))
+        {
+            if (is_range_weapon(*item))
+                launch = item;
+        }
+    }
+
+    const item_def *missiles = mons->missiles();
+    if (launch && missiles && !missiles->launched_by(*launch))
+        launch = NULL;
+
+    const int fdam = mons_missile_damage(mons, launch, missiles);
+
+    if (!fdam)
+        return NON_ITEM;
+    else
+    {
+        *launcher = launch;
+        return missiles->index();
+    }
 }

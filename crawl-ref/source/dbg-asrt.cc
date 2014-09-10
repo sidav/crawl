@@ -19,6 +19,7 @@
 #include "directn.h"
 #include "dlua.h"
 #include "env.h"
+#include "files.h"
 #include "initfile.h"
 #include "itemname.h"
 #include "jobs.h"
@@ -34,7 +35,7 @@
 #include "spl-cast.h"
 #include "spl-util.h"
 #include "state.h"
-#include "stuff.h"
+#include "stringutil.h"
 #include "travel.h"
 #include "hiscores.h"
 #include "version.h"
@@ -112,11 +113,11 @@ static void _dump_level_info(FILE* file)
                       "    seed = 0x%" PRIx32 "\n"
                       "    depth = %" PRIu32 "\n"
                       "    phase = %g\n"
-                      "    nuke_all = %d\n"
+                      "    destroy_all_terrain = %d\n"
                       "    level = (%d : %d)\n",
                 abyssal_state.major_coord.x, abyssal_state.major_coord.y,
                 abyssal_state.seed, abyssal_state.depth, abyssal_state.phase,
-                abyssal_state.nuke_all,
+                abyssal_state.destroy_all_terrain,
                 abyssal_state.level.branch, abyssal_state.level.depth);
     }
 
@@ -151,10 +152,10 @@ static void _dump_player(FILE *file)
     fprintf(file, "class_name: %s\n\n", you.class_name.c_str());
 
     fprintf(file, "HP: %d/%d; mods: %d/%d\n", you.hp, you.hp_max,
-            you.hp_max_temp, you.hp_max_perm);
-    fprintf(file, "MP: %d/%d; mods: %d/%d\n",
+            you.hp_max_adj_temp, you.hp_max_adj_perm);
+    fprintf(file, "MP: %d/%d; mod: %d\n",
             you.magic_points, you.max_magic_points,
-            you.hp_max_temp, you.mp_max_perm);
+            you.mp_max_adj);
     fprintf(file, "Stats: %d (%d) %d (%d) %d (%d)\n",
             you.strength(false), you.max_strength(),
             you.intel(false), you.max_intel(),
@@ -248,8 +249,10 @@ static void _dump_player(FILE *file)
         const unsigned int flags = get_spell_flags(spell);
 
         if (flags & SPFLAG_MONSTER)
+        {
             fprintf(file, "    spell slot #%d: monster only spell %s\n",
                     (int)i, spell_title(spell));
+        }
         else if (flags & SPFLAG_TESTING)
             fprintf(file, "    spell slot #%d: testing spell %s\n",
                     (int)i, spell_title(spell));
@@ -278,8 +281,8 @@ static void _dump_player(FILE *file)
     {
         mutation_type mut = static_cast<mutation_type>(i);
         int normal = you.mutation[i];
-        int innate = you.innate_mutations[i];
-        int temp   = you.temp_mutations[i];
+        int innate = you.innate_mutation[i];
+        int temp   = you.temp_mutation[i];
 
         // Normally innate and temp imply normal, but a crash handler should
         // expect the spanish^Wunexpected.
@@ -456,8 +459,10 @@ static void _debug_marker_scan()
             }
         }
         if (!found)
+        {
             mprf(MSGCH_ERROR, "Marker #%d, type %d at (%d, %d) unlinked",
                  i, (int) type, marker->pos.x, marker->pos.y);
+        }
     }
 
     const coord_def start(MAPGEN_BORDER, MAPGEN_BORDER);
@@ -643,7 +648,12 @@ void do_crash_dump()
 
     if (!crawl_state.test && !_assert_msg.empty())
         fprintf(stderr, "\n%s", _assert_msg.c_str());
-    fprintf(stderr, "\nWriting crash info to %s\n", name);
+    fprintf(stderr,
+            "\n\nWe crashed! This is likely due to a bug in Crawl. "
+            "Please submit a bug report at https://crawl.develz.org/mantis/ "
+            "and include the crash report (%s), your save file (%s), and a "
+            "description of what you were doing when this crash occurred.\n\n",
+            name, get_savedir_filename(you.your_name).c_str());
     errno = 0;
     FILE* file = crawl_state.test ? stderr : freopen(name, "a+", stderr);
 

@@ -7,6 +7,7 @@
 #include "abyss.h"
 #include "act-iter.h"
 #include "areas.h"
+#include "bloodspatter.h"
 #include "branch.h"
 #include "chardump.h"
 #include "colour.h"
@@ -31,6 +32,7 @@
 #include "ouch.h"
 #include "output.h"
 #include "place.h"
+#include "prompt.h"
 #include "random.h"
 #include "religion.h"
 #include "spl-clouds.h"
@@ -39,7 +41,7 @@
 #include "spl-transloc.h"
 #include "stash.h"
 #include "state.h"
-#include "stuff.h"
+#include "stringutil.h"
 #include "terrain.h"
 #ifdef USE_TILE_LOCAL
  #include "tilepick.h"
@@ -166,7 +168,7 @@ static bool _stair_moves_pre(dungeon_feature_type stair)
     return true;
 }
 
-static void _exit_stair_message(dungeon_feature_type stair, bool /* going_up */)
+static void _exit_stair_message(dungeon_feature_type stair)
 {
     if (feat_is_escape_hatch(stair))
         mpr("The hatch slams shut behind you.");
@@ -433,7 +435,7 @@ void up_stairs(dungeon_feature_type force_stair)
     else
         _climb_message(stair_find, true, old_level.branch);
 
-    _exit_stair_message(stair_find, true);
+    _exit_stair_message(stair_find);
 
     if (old_level.branch != you.where_are_you)
     {
@@ -615,10 +617,10 @@ level_id stair_destination(dungeon_feature_type feat, const string &dst,
     }
 
     // Try to find a branch stair.
-    for (int i = 0; i < NUM_BRANCHES; ++i)
+    for (branch_iterator it; it; ++it)
     {
-        if (branches[i].entry_stairs == feat)
-            return level_id(branches[i].id);
+        if (it->entry_stairs == feat)
+            return level_id(it->id);
     }
 
     return level_id();
@@ -806,11 +808,7 @@ void down_stairs(dungeon_feature_type force_stair, bool force_known_shaft)
     if (stair_find == DNGN_ENTER_ZIGGURAT)
     {
         #define ZIG_RUNES 3
-        int nrune = 0;
-        for (int i = 0; i < NUM_RUNE_TYPES; i++)
-            if (you.runes[i])
-                nrune++;
-        if (nrune < ZIG_RUNES)
+        if (runes_in_pack() < ZIG_RUNES)
         {
             mprf("You need at least %d runes to enter this place.", ZIG_RUNES);
             return;
@@ -986,7 +984,7 @@ void down_stairs(dungeon_feature_type force_stair, bool force_known_shaft)
     }
 
     if (!shaft)
-        _exit_stair_message(stair_find, false);
+        _exit_stair_message(stair_find);
 
     if (entered_branch)
     {
@@ -1012,9 +1010,6 @@ void down_stairs(dungeon_feature_type force_stair, bool force_known_shaft)
 
     if (newlevel)
     {
-        // When entering a new level, reset friendly_pickup to default.
-        you.friendly_pickup = Options.default_friendly_pickup;
-
         switch (you.where_are_you)
         {
         default:

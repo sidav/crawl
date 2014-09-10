@@ -21,6 +21,7 @@
 #include "describe.h"
 #include "directn.h"
 #include "effects.h"
+#include "end.h"
 #include "externs.h"
 #include "food.h"
 #include "format.h"
@@ -35,18 +36,21 @@
 #include "macro.h"
 #include "message.h"
 #include "options.h"
+#include "output.h"
 #include "player.h"
+#include "prompt.h"
 #include "religion.h"
 #include "species.h"
 #include "spl-cast.h"
 #include "spl-util.h"
 #include "state.h"
-#include "stuff.h"
+#include "stringutil.h"
 #include "target.h"
 #ifdef USE_TILE
  #include "tilepick.h"
 #endif
 #include "transform.h"
+#include "unicode.h"
 
 #define SPELL_LIST_KEY "spell_list"
 
@@ -57,10 +61,7 @@
 #define RANDART_BOOK_TYPE_THEME "theme"
 
 // The list of spells in spellbooks:
-static spell_type spellbook_template_array[][SPELLBOOK_SIZE] =
-{
-#   include "book-data.h"
-};
+#include "book-data.h"
 
 spell_type which_spell_in_book(const item_def &book, int spl)
 {
@@ -242,7 +243,6 @@ int book_rarity(uint8_t which_book)
         return 4;
 
     case BOOK_YOUNG_POISONERS:
-    case BOOK_WAR_CHANTS:
     case BOOK_BATTLE:
     case BOOK_DEBILITATION:
         return 5;
@@ -294,6 +294,7 @@ int book_rarity(uint8_t which_book)
 
 #if TAG_MAJOR_VERSION == 34
     case BOOK_STALKING:
+    case BOOK_WAR_CHANTS:
         return 100;
 #endif
 
@@ -504,7 +505,7 @@ bool you_cannot_memorise(spell_type spell)
     return you_cannot_memorise(spell, temp);
 }
 
-// form is set to true if a form (lich or wisp) prevents us from
+// form is set to true if a form (lich) prevents us from
 // memorising the spell.
 bool you_cannot_memorise(spell_type spell, bool &form)
 {
@@ -558,15 +559,10 @@ bool you_cannot_memorise(spell_type spell, bool &form)
     if (you.species == SP_FELID
         && (spell == SPELL_PORTAL_PROJECTILE
          // weapon branding is useless
-         || spell == SPELL_FIRE_BRAND
-         || spell == SPELL_FREEZING_AURA
-         || spell == SPELL_LETHAL_INFUSION
          || spell == SPELL_WARP_BRAND
          || spell == SPELL_EXCRUCIATING_WOUNDS
-         || spell == SPELL_POISON_WEAPON
          || spell == SPELL_SURE_BLADE
          // could be useful if it didn't require wielding
-         || spell == SPELL_TUKIMAS_DANCE
          || spell == SPELL_SPECTRAL_WEAPON))
     {
         rc = true, form = false;
@@ -580,7 +576,6 @@ bool you_cannot_memorise(spell_type spell, bool &form)
     {
         rc = true, form = false;
     }
-#endif
 
     if (you.species == SP_LAVA_ORC
         && (spell == SPELL_STONESKIN
@@ -588,14 +583,7 @@ bool you_cannot_memorise(spell_type spell, bool &form)
     {
         rc = true, form = false;
     }
-
-    if (you.form == TRAN_WISP)
-    {
-        // If we were otherwise allowed to memorise the spell.
-        if (!rc)
-            form = true;
-        return true;
-    }
+#endif
 
     if (you.species == SP_FORMICID
         && (spell == SPELL_BLINK
@@ -603,6 +591,24 @@ bool you_cannot_memorise(spell_type spell, bool &form)
          || spell == SPELL_CONTROLLED_BLINK))
     {
         rc = true, form = false;
+    }
+
+    if (spell == SPELL_SUBLIMATION_OF_BLOOD)
+    {
+        // XXX: Using player::cannot_bleed will incorrectly
+        // catch statue- or lich-formed players.
+        if (you.species == SP_GARGOYLE
+            || you.species == SP_GHOUL
+            || you.species == SP_MUMMY)
+        {
+            rc = true;
+            form = false;
+        }
+        else if (!form_can_bleed(you.form))
+        {
+            rc = true;
+            form = true;
+        }
     }
 
     return rc;
@@ -685,13 +691,6 @@ static bool _get_mem_list(spell_list &mem_spells,
                           bool just_check = false,
                           spell_type current_spell = SPELL_NO_SPELL)
 {
-    if (you.form == TRAN_WISP)
-    {
-        if (!just_check)
-            mprf(MSGCH_PROMPT, "You can't handle any books in this form.");
-        return false;
-    }
-
     bool          book_errors    = false;
     unsigned int  num_on_ground  = 0;
     unsigned int  num_books      = 0;
@@ -778,6 +777,7 @@ static bool _get_mem_list(spell_list &mem_spells,
     unsigned int num_low_xl     = 0;
     unsigned int num_low_levels = 0;
     unsigned int num_memable    = 0;
+    bool         form           = false;
 
     for (spells_to_books::iterator i = book_hash.begin();
          i != book_hash.end(); ++i)
@@ -786,7 +786,7 @@ static bool _get_mem_list(spell_list &mem_spells,
 
         if (spell == current_spell || you.has_spell(spell))
             num_known++;
-        else if (you_cannot_memorise(spell))
+        else if (you_cannot_memorise(spell, form))
             num_race++;
         else
         {
@@ -805,13 +805,6 @@ static bool _get_mem_list(spell_list &mem_spells,
         }
     }
 
-    if (num_memable > 0 && you.spell_no >= MAX_KNOWN_SPELLS)
-    {
-        if (!just_check)
-            mpr("Your head is already too full of spells!");
-        return false;
-    }
-
     if (num_memable)
         return true;
 
@@ -825,12 +818,18 @@ static bool _get_mem_list(spell_list &mem_spells,
         mprf(MSGCH_PROMPT, "You already know all available spells.");
     else if (num_race == total || (num_known + num_race) == total)
     {
-        const bool lichform = (you.form == TRAN_LICH);
-        const string species = "a " + species_name(you.species);
-        mprf(MSGCH_PROMPT,
-             "You cannot memorise any of the available spells because you "
-             "are %s.", lichform ? "in Lich form"
-                                 : lowercase_string(species).c_str());
+        if (form)
+        {
+            mprf(MSGCH_PROMPT, "You cannot currently memorise any of the "
+                 "available spells because you are in %s form.",
+                 uppercase_first(transform_name()).c_str());
+        }
+        else
+        {
+            mprf(MSGCH_PROMPT, "You cannot memorise any of the available "
+                 "spells because you are %s.",
+                 article_a(species_name(you.species)).c_str());
+        }
     }
     else if (num_low_levels > 0 || num_low_xl > 0)
     {
@@ -978,26 +977,31 @@ static spell_type _choose_mem_spell(spell_list &spells,
     spell_menu.action_cycle = Menu::CYCLE_TOGGLE;
     spell_menu.menu_action  = Menu::ACT_EXECUTE;
 
-    string more_str = make_stringf("<lightgreen>%d spell level%s left"
+    const bool shortmsg = num_unreadable > 0 && num_race > 0;
+    string more_str = make_stringf("<lightgreen>%d %slevel%s left"
                                    "<lightgreen>",
                                    player_spell_levels(),
+                                   shortmsg ? "" : "spell ",
                                    (player_spell_levels() > 1
                                     || player_spell_levels() == 0) ? "s" : "");
 
     if (num_unreadable > 0)
     {
-        more_str += make_stringf(", <lightmagenta>%u overly difficult "
-                                 "spellbook%s</lightmagenta>",
+        more_str += make_stringf(", <lightmagenta>%u %sbook%s</lightmagenta>",
                                  num_unreadable,
+                                 shortmsg ? "difficult "
+                                          : "overly difficult spell",
                                  num_unreadable > 1 ? "s" : "");
     }
 
     if (num_race > 0)
     {
-        more_str += make_stringf(", <lightred>%u spell%s unmemorisable"
+        more_str += make_stringf(", <lightred>%u%s%s unmemorisable"
                                  "</lightred>",
                                  num_race,
-                                 num_race > 1 ? "s" : "");
+                                 shortmsg ? "" : " spell",
+                                 // shorter message if we have both annotations
+                                 !shortmsg && num_race > 1 ? "s" : "");
     }
 
 #ifndef USE_TILE_LOCAL
@@ -1152,7 +1156,7 @@ string desc_cannot_memorise_reason(bool form)
     if (form)
         desc += "in " + uppercase_first(transform_name()) + " form";
     else
-        desc += "a " + lowercase_string(species_name(you.species));
+        desc += article_a(species_name(you.species));
 
     desc += ".";
 
@@ -1163,7 +1167,7 @@ string desc_cannot_memorise_reason(bool form)
  * Can the player learn the given spell?
  *
  * @param   specspell  The spell to be learned.
- * @returns            false if the player can't learn the spell for any
+ * @return             false if the player can't learn the spell for any
  *                     reason, true otherwise.
 */
 static bool _learn_spell_checks(spell_type specspell)
@@ -1212,7 +1216,7 @@ static bool _learn_spell_checks(spell_type specspell)
  * Attempt to make the player learn the given spell.
  *
  * @param   specspell  The spell to be learned.
- * @returns            true if the player learned the spell, false
+ * @return             true if the player learned the spell, false
  *                     otherwise.
 */
 bool learn_spell(spell_type specspell)
@@ -1403,7 +1407,7 @@ int rod_spell(int rod, bool check_range)
         return -1;
     }
 
-    if (check_range && spell_no_hostile_in_range(spell))
+    if (check_range && spell_no_hostile_in_range(spell, true))
     {
         // Abort if there are no hostiles within range, but flash the range
         // markers for a short while.
@@ -1412,7 +1416,7 @@ int rod_spell(int rod, bool check_range)
 
         if (Options.darken_beyond_range)
         {
-            targetter_smite range(&you, calc_spell_range(spell), 0, 0, true);
+            targetter_smite range(&you, calc_spell_range(spell, 0, true), 0, 0, true);
             range_view_annotator show_range(&range);
             delay(50);
         }
@@ -1423,7 +1427,7 @@ int rod_spell(int rod, bool check_range)
     // All checks passed, we can cast the spell.
     if (you.confused())
         random_uselessness();
-    else if (your_spells(spell, power, false, false)
+    else if (your_spells(spell, power, false)
                 == SPRET_ABORT)
     {
         crawl_state.zero_turns_taken();
@@ -1636,7 +1640,8 @@ bool make_book_level_randart(item_def &book, int level, int num_spells,
 
     if (num_spells == -1)
     {
-        //555666421
+        // Book level:       1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+        // Number of spells: 5 | 5 | 5 | 6 | 6 | 6 | 4 | 2 | 1
         num_spells = min(5 + (level - 1)/3, 18 - 2*level);
         num_spells = max(1, num_spells);
     }
@@ -2306,6 +2311,9 @@ bool make_book_theme_randart(item_def &book,
             owner = god_name(god, false);
         else if (god_gift && one_chance_in(3) || one_chance_in(5))
         {
+            bool highlevel = (highest_level >= 7 + random2(3)
+                              && (lowest_level > 1 || coinflip()));
+
             if (disc1 != disc2)
             {
                 string schools[2];
@@ -2314,7 +2322,11 @@ bool make_book_theme_randart(item_def &book,
                 sort(schools, schools + 2);
                 string lookup = schools[0] + " " + schools[1];
 
-                owner = getRandNameString(lookup + " owner");
+                if (highlevel)
+                    owner = getRandNameString("highlevel " + lookup + " owner");
+
+                if (owner.empty() || owner == "__NONE")
+                    owner = getRandNameString(lookup + " owner");
 
                 if (owner == "__NONE")
                     owner = "";
@@ -2323,8 +2335,11 @@ bool make_book_theme_randart(item_def &book,
             if (owner.empty() && all_spells_disc1)
             {
                 string lookup = spelltype_long_name(disc1);
+                if (highlevel && disc1 == disc2)
+                    owner = getRandNameString("highlevel " + lookup + " owner");
 
-                owner = getRandNameString(lookup + " owner");
+                if (owner.empty() || owner == "__NONE")
+                    owner = getRandNameString(lookup + " owner");
 
                 if (owner == "__NONE")
                     owner = "";
@@ -2467,22 +2482,22 @@ void make_book_Kiku_gift(item_def &book, bool first)
 
     if (first)
     {
-        chosen_spells[0] = coinflip() ? SPELL_PAIN : SPELL_ANIMATE_SKELETON;
-        if (you.species == SP_FELID || one_chance_in(3))
-        {
-            chosen_spells[1] = SPELL_CORPSE_ROT;
-            chosen_spells[2] = SPELL_SUBLIMATION_OF_BLOOD;
-        }
-        else
-        {
-            chosen_spells[1] = coinflip() ? SPELL_CORPSE_ROT : SPELL_SUBLIMATION_OF_BLOOD;
-            chosen_spells[2] = SPELL_LETHAL_INFUSION;
-        }
-        chosen_spells[3] = (you.species == SP_DEEP_DWARF
-                            || you.species == SP_MUMMY
-                            || coinflip())
+        bool can_bleed = you.species != SP_GARGOYLE
+                         && you.species != SP_GHOUL
+                         && you.species != SP_MUMMY;
+        bool can_regen = you.species != SP_DEEP_DWARF
+                         && you.species != SP_MUMMY;
+        bool pain = coinflip();
+
+        chosen_spells[0] = pain ? SPELL_PAIN : SPELL_ANIMATE_SKELETON;
+        chosen_spells[1] = SPELL_CORPSE_ROT;
+        chosen_spells[2] = (can_bleed ? SPELL_SUBLIMATION_OF_BLOOD
+                                      : pain ? SPELL_ANIMATE_SKELETON
+                                             : SPELL_PAIN);
+        chosen_spells[3] = (!can_regen || coinflip())
                            ? SPELL_VAMPIRIC_DRAINING : SPELL_REGENERATION;
         chosen_spells[4] = SPELL_CONTROL_UNDEAD;
+
     }
     else
     {

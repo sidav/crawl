@@ -4,9 +4,9 @@
 
 #include "tilereg-doll.h"
 
-#include "libutil.h"
 #include "macro.h"
 #include "player.h"
+#include "stringutil.h"
 #include "tiledef-player.h"
 #include "tilefont.h"
 #include "tilepick-p.h"

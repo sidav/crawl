@@ -26,6 +26,7 @@
 #include "dlua.h"
 #include "delay.h"
 #include "directn.h"
+#include "end.h"
 #include "errors.h"
 #include "kills.h"
 #include "files.h"
@@ -34,6 +35,7 @@
  #include "tileweb.h"
 #endif
 #include "invent.h"
+#include "itemprop.h"
 #include "libutil.h"
 #include "macro.h"
 #include "mapdef.h"
@@ -41,11 +43,12 @@
 #include "mon-util.h"
 #include "jobs.h"
 #include "player.h"
+#include "prompt.h"
 #include "species.h"
 #include "spl-util.h"
 #include "stash.h"
 #include "state.h"
-#include "stuff.h"
+#include "stringutil.h"
 #include "syscalls.h"
 #include "tags.h"
 #include "throw.h"
@@ -165,7 +168,7 @@ static const string message_channel_names[] =
     "friend_spell", "friend_enchant", "monster_damage", "monster_target",
     "banishment", "rotten_meat", "equipment", "floor", "multiturn", "examine",
     "examine_filter", "diagnostic", "error", "tutorial", "orb", "timed_portal",
-    "hell_effect",
+    "hell_effect", "monster_warning", "dgl_message",
 };
 
 // returns -1 if unmatched else returns 0--(NUM_MESSAGE_CHANNELS-1)
@@ -196,87 +199,73 @@ string channel_to_str(int channel)
     return message_channel_names[channel];
 }
 
-weapon_type str_to_weapon(const string &str)
+/**
+ * Populate the map used to interpret a crawlrc entry as a starting weapon
+ * type.  For most entries, we can just look up which weapon has the entry as
+ * its name; this map contains the exceptions.
+ *
+ * @return  The special starting weapon type map.
+ */
+static map<string, weapon_type> _create_special_weapon_map()
 {
-    if (str == "shortsword" || str == "short sword")
-        return WPN_SHORT_SWORD;
-    else if (str == "cutlass")
-        return WPN_CUTLASS;
-    else if (str == "falchion")
-        return WPN_FALCHION;
-    else if (str == "longsword" || str == "long sword")
-        return WPN_LONG_SWORD;
-    else if (str == "quarterstaff" || str == "staff")
-        return WPN_QUARTERSTAFF;
-    else if (str == "mace")
-        return WPN_MACE;
-    else if (str == "flail")
-        return WPN_FLAIL;
-    else if (str == "spear")
-        return WPN_SPEAR;
-    else if (str == "trident")
-        return WPN_TRIDENT;
-    else if (str == "hand axe" || str == "handaxe")
-        return WPN_HAND_AXE;
-    else if (str == "war axe" || str == "waraxe")
-        return WPN_WAR_AXE;
-    else if (str == "unarmed" || str == "claws")
-        return WPN_UNARMED;
-    else if (str == "sling")
-        return WPN_SLING;
-    else if (str == "bow")
-        return WPN_BOW;
-    else if (str == "crossbow")
-        return WPN_CROSSBOW;
-    else if (str == "thrown"
-             || str == "rocks"
-             || str == "javelins"
-             || str == "tomahawks")
-    {
-        return WPN_THROWN;
-    }
-    else if (str == "random")
-        return WPN_RANDOM;
-    else if (str == "viable")
-        return WPN_VIABLE;
+    map<string, weapon_type> weapon_map;
 
-    return WPN_UNKNOWN;
+    // "staff" normally refers to a magical staff, but here we want to
+    // interpret it as a quarterstaff.
+    weapon_map["staff"]        = WPN_QUARTERSTAFF;
+
+    // These weapons' base names have changed; we want to interpret the old
+    // names correctly.
+    weapon_map["sling"]        = WPN_HUNTING_SLING;
+    weapon_map["crossbow"]     = WPN_HAND_CROSSBOW;
+
+    // Pseudo-weapons.
+    weapon_map["unarmed"]      = WPN_UNARMED;
+    weapon_map["claws"]        = WPN_UNARMED;
+
+    weapon_map["thrown"]       = WPN_THROWN;
+    weapon_map["rocks"]        = WPN_THROWN;
+    weapon_map["javelins"]     = WPN_THROWN;
+    weapon_map["tomahawks"]    = WPN_THROWN;
+
+    weapon_map["random"]       = WPN_RANDOM;
+
+    weapon_map["viable"]       = WPN_VIABLE;
+
+    return weapon_map;
 }
 
-static string _weapon_to_str(int weapon)
+// This should be const, but operator[] on maps isn't const.
+static map<string, weapon_type> _special_weapon_map = _create_special_weapon_map();
+
+/**
+ * Interpret a crawlrc entry as a starting weapon type.
+ *
+ * @param str   The value of the crawlrc entry.
+ * @return      The weapon the string refers to, or WPN_UNKNOWN if invalid
+ */
+weapon_type str_to_weapon(const string &str)
 {
-    switch (weapon)
+    string str_nospace = str;
+    remove_whitespace(str_nospace);
+
+    // Synonyms and pseudo-weapons.
+    if (_special_weapon_map.count(str_nospace))
+        return _special_weapon_map[str_nospace];
+
+    // Real weapons referred to by their standard names.
+    return name_nospace_to_weapon(str_nospace);
+}
+
+static string _weapon_to_str(weapon_type wpn_type)
+{
+    if (wpn_type >= 0 && wpn_type < NUM_WEAPONS)
+        return weapon_base_name(wpn_type);
+
+    switch (wpn_type)
     {
-    case WPN_SHORT_SWORD:
-        return "short sword";
-    case WPN_CUTLASS:
-        return "cutlass";
-    case WPN_FALCHION:
-        return "falchion";
-    case WPN_LONG_SWORD:
-        return "long sword";
-    case WPN_QUARTERSTAFF:
-        return "quarterstaff";
-    case WPN_MACE:
-        return "mace";
-    case WPN_FLAIL:
-        return "flail";
-    case WPN_SPEAR:
-        return "spear";
-    case WPN_TRIDENT:
-        return "trident";
-    case WPN_HAND_AXE:
-        return "hand axe";
-    case WPN_WAR_AXE:
-        return "war axe";
     case WPN_UNARMED:
         return "claws";
-    case WPN_SLING:
-        return "sling";
-    case WPN_BOW:
-        return "bow";
-    case WPN_CROSSBOW:
-        return "crossbow";
     case WPN_THROWN:
         return "thrown";
     case WPN_VIABLE:
@@ -313,8 +302,6 @@ static fire_type _str_to_fire_types(const string &str)
 {
     if (str == "launcher")
         return FIRE_LAUNCHER;
-    else if (str == "dart")
-        return FIRE_DART;
     else if (str == "stone")
         return FIRE_STONE;
     else if (str == "rock")
@@ -575,8 +562,8 @@ void game_options::set_default_activity_interrupts()
         "interrupt_vampire_feed = interrupt_butcher",
         "interrupt_multidrop = hp_loss, monster_attack, teleport, stat",
         "interrupt_macro = interrupt_multidrop",
-        "interrupt_travel = interrupt_butcher, statue, hungry, "
-                            "burden, hit_monster, sense_monster",
+        "interrupt_travel = interrupt_butcher, statue, hungry, hit_monster, "
+                            "sense_monster",
         "interrupt_run = interrupt_travel, message",
         "interrupt_rest = interrupt_run, full_hp, full_mp",
 
@@ -774,11 +761,9 @@ void game_options::reset_options()
 
     autopickup_on    = 1;
     autopickup_starting_ammo = true;
-    default_friendly_pickup = FRIENDLY_PICKUP_FRIEND;
     default_manual_training = false;
 
     show_newturn_mark = true;
-    show_gold_turns = true;
     show_game_turns = true;
 
     game = newgame_def();
@@ -800,12 +785,11 @@ void game_options::reset_options()
     auto_switch             = false;
     suppress_startup_errors = false;
 
-    show_inventory_weights = MB_MAYBE;
-    clean_map              = false;
     show_uncursed          = true;
-    easy_open              = true;
+    travel_open_doors      = true;
     easy_unequip           = true;
     equip_unequip          = false;
+    jewellery_prompt       = false;
     confirm_butcher        = CONFIRM_AUTO;
     chunks_autopickup      = true;
     prompt_for_swap        = true;
@@ -817,8 +801,6 @@ void game_options::reset_options()
     allow_self_target      = CONFIRM_PROMPT;
     hp_warning             = 30;
     magic_point_warning    = 0;
-    default_target         = true;
-    autopickup_no_burden   = true;
     skill_focus            = SKM_FOCUS_ON;
 
     user_note_prefix       = "";
@@ -881,8 +863,6 @@ void game_options::reset_options()
     easy_exit_menu         = false;
     dos_use_background_intensity = true;
 
-    level_map_title        = true;
-
     assign_item_slot       = SS_FORWARD;
     show_god_gift          = MB_MAYBE;
 
@@ -916,7 +896,6 @@ void game_options::reset_options()
     travel_key_stop        = true;
     auto_sacrifice         = AS_NO;
 
-    target_unshifted_dirs  = false;
     darken_beyond_range    = true;
 
     dump_on_save           = true;
@@ -926,8 +905,7 @@ void game_options::reset_options()
     dump_item_origin_price = -1;
     dump_book_spells       = true;
 
-    pickup_menu            = true;
-    pickup_menu_limit      = 4;
+    pickup_menu_limit      = 1;
 
     flush_input[ FLUSH_ON_FAILURE ]     = true;
     flush_input[ FLUSH_BEFORE_COMMAND ] = false;
@@ -938,11 +916,11 @@ void game_options::reset_options()
 
     // Clear fire_order and set up the defaults.
     set_fire_order("launcher, return, "
-                   "javelin / tomahawk / dart / stone / rock / net, "
+                   "javelin / tomahawk / stone / rock / net, "
                    "inscribed",
                    false, false);
 
-    item_stack_summary_minimum = 5;
+    item_stack_summary_minimum = 4;
 
 #ifdef WIZARD
     fsim_rounds = 4000L;
@@ -974,9 +952,9 @@ void game_options::reset_options()
 #else
     wiz_mode             = WIZ_NO;
 #endif
+#endif
     terp_files.clear();
     no_save              = false;
-#endif
 
 #ifdef USE_TILE
     tile_show_items      = "!?/%=([)x}:|\\";
@@ -1080,6 +1058,7 @@ void game_options::reset_options()
     tile_water_anim          = true;
 #endif
     tile_misc_anim           = true;
+    tile_show_player_species = false;
 #endif
 
 #ifdef USE_TILE_WEB
@@ -1344,6 +1323,7 @@ void game_options::add_feature_override(const string &text)
         if (feats[i] >= NUM_FEATURES)
             continue; // TODO: handle other object types.
         feature_def &fov(feature_overrides[feats[i]]);
+        init_fd(fov);
 #define SYM(n, field) if (ucs_t s = read_symbol(iprops[n])) \
                           fov.field = s;
 #define COL(n, field) if (unsigned short c = str_to_colour(iprops[n], BLACK)) \
@@ -1786,8 +1766,10 @@ void game_options::read_options(LineInput &il, bool runscript,
             if (runscript)
             {
                 if (luacode.run(clua))
+                {
                     mprf(MSGCH_ERROR, "Lua error: %s",
                          luacode.orig_error().c_str());
+                }
             }
 #endif
             luacode.clear();
@@ -1975,7 +1957,7 @@ string game_options::expand_vars(const string &field) const
             continue;
 
         string::size_type end_pos;
-        for (end_pos = start_pos; end_pos < field_out.size(); end_pos++)
+        for (end_pos = start_pos; end_pos + 1 < field_out.size(); end_pos++)
         {
             if (!IS_VAR_CHAR(field_out[end_pos + 1]))
                 break;
@@ -2417,17 +2399,6 @@ void game_options::read_option_line(const string &str, bool runscript)
             autopickup_on = 0;
     }
     else BOOL_OPTION(autopickup_starting_ammo);
-    else if (key == "default_friendly_pickup")
-    {
-        if (field == "none")
-            default_friendly_pickup = FRIENDLY_PICKUP_NONE;
-        else if (field == "friend")
-            default_friendly_pickup = FRIENDLY_PICKUP_FRIEND;
-        else if (field == "player")
-            default_friendly_pickup = FRIENDLY_PICKUP_PLAYER;
-        else if (field == "all")
-            default_friendly_pickup = FRIENDLY_PICKUP_ALL;
-    }
     else if (key == "default_manual_training")
     {
         if (_read_bool(field, true))
@@ -2440,7 +2411,6 @@ void game_options::read_option_line(const string &str, bool runscript)
 #endif
     else BOOL_OPTION(auto_switch);
     else BOOL_OPTION(suppress_startup_errors);
-    else BOOL_OPTION(clean_map);
     else if (key == "easy_confirm")
     {
         // decide when to allow both 'Y'/'N' and 'y'/'n' on yesno() prompts
@@ -2462,9 +2432,10 @@ void game_options::read_option_line(const string &str, bool runscript)
     }
     else BOOL_OPTION(easy_quit_item_prompts);
     else BOOL_OPTION_NAMED("easy_quit_item_lists", easy_quit_item_prompts);
-    else BOOL_OPTION(easy_open);
+    else BOOL_OPTION(travel_open_doors);
     else BOOL_OPTION(easy_unequip);
     else BOOL_OPTION(equip_unequip);
+    else BOOL_OPTION(jewellery_prompt);
     else BOOL_OPTION_NAMED("easy_armour", easy_unequip);
     else BOOL_OPTION_NAMED("easy_armor", easy_unequip);
     else if (key == "confirm_butcher")
@@ -2500,11 +2471,7 @@ void game_options::read_option_line(const string &str, bool runscript)
 #endif
     }
     else if (key == "terp_file" && runscript)
-    {
-#ifdef WIZARD
         terp_files.push_back(field);
-#endif
-    }
     else if (key == "colour" || key == "color")
     {
         const int orig_col   = str_to_colour(subkey);
@@ -2629,15 +2596,6 @@ void game_options::read_option_line(const string &str, bool runscript)
         else
             report_error("Unknown show_god_gift value: %s\n", field.c_str());
     }
-    else if (key == "show_inventory_weights")
-    {
-        if (field == "yes" || field == "true")
-            show_inventory_weights = MB_TRUE;
-        else if (field == "no" || field == "false")
-            show_inventory_weights = MB_FALSE;
-        else
-            show_inventory_weights = MB_MAYBE;
-    }
     else if (key == "fire_order")
         set_fire_order(field, plus_equal, caret_equal);
 #if !defined(DGAMELAUNCH) || defined(DGL_REMEMBER_NAME)
@@ -2650,7 +2608,6 @@ void game_options::read_option_line(const string &str, bool runscript)
         morgue_dir = field;
 #endif
     else BOOL_OPTION(show_newturn_mark);
-    else BOOL_OPTION(show_gold_turns);
     else BOOL_OPTION(show_game_turns);
     else INT_OPTION(hp_warning, 0, 100);
     else INT_OPTION_NAMED("mp_warning", magic_point_warning, 0, 100);
@@ -2670,13 +2627,6 @@ void game_options::read_option_line(const string &str, bool runscript)
         macro_dir = field;
 #endif
 #endif
-    else if (key == "default_target")
-    {
-        default_target = _read_bool(field, default_target);
-        if (default_target)
-            target_unshifted_dirs = false;
-    }
-    else BOOL_OPTION(autopickup_no_burden);
 #ifdef DGL_SIMPLE_MESSAGING
     else BOOL_OPTION(messaging);
 #endif
@@ -3441,16 +3391,8 @@ void game_options::read_option_line(const string &str, bool runscript)
             dump_item_origin_price = -1;
     }
     else BOOL_OPTION(dump_book_spells);
-    else BOOL_OPTION(level_map_title);
-    else if (key == "target_unshifted_dirs")
-    {
-        target_unshifted_dirs = _read_bool(field, target_unshifted_dirs);
-        if (target_unshifted_dirs)
-            default_target = false;
-    }
     else if (key == "darken_beyond_range")
         darken_beyond_range = _read_bool(field, darken_beyond_range);
-    else BOOL_OPTION(pickup_menu);
     else INT_OPTION(pickup_menu_limit, INT_MIN, INT_MAX);
     else if (key == "additional_macro_file")
     {
@@ -3576,6 +3518,7 @@ void game_options::read_option_line(const string &str, bool runscript)
     else BOOL_OPTION(tile_show_demon_tier);
     else BOOL_OPTION(tile_water_anim);
     else BOOL_OPTION(tile_misc_anim);
+    else BOOL_OPTION(tile_show_player_species);
     else LIST_OPTION(tile_layout_priority);
     else if (key == "tile_tag_pref")
         tile_tag_pref = _str_to_tag_pref(field.c_str());
@@ -3681,6 +3624,8 @@ bool game_options::set_lang(const char *lc)
         lang = LANG_PT, lang_name = "pt";
     else if (l == "ru" || l == "russian" || l == "русский" || l == "русскии")
         lang = LANG_RU, lang_name = "ru";
+    else if (l == "sv" || l == "swedish" || l == "svenska")
+        lang = LANG_SV, lang_name = "sv";
     else if (l == "zh" || l == "chinese" || l == "中国的" || l == "中國的")
         lang = LANG_ZH, lang_name = "zh";
     // Fake languages do not reset lang_name, allowing a translated
@@ -3705,6 +3650,8 @@ bool game_options::set_lang(const char *lc)
 */
     else if (l == "wide" || l == "doublewidth" || l == "fullwidth")
         lang = LANG_WIDE;
+    else if (l == "grunt" || l == "sgrunt" || l == "!!!")
+        lang = LANG_GRUNT;
     else
         return false;
     return true;
@@ -3838,7 +3785,7 @@ static string check_string(const char *s)
     return s? s : "";
 }
 
-void get_system_environment(void)
+void get_system_environment()
 {
     // The player's name
     SysEnv.crawl_name = check_string(getenv("CRAWL_NAME"));
@@ -3899,6 +3846,8 @@ enum commandline_option_type
     CLO_MORGUE,
     CLO_MACRO,
     CLO_MAPSTAT,
+    CLO_OBJSTAT,
+    CLO_ITERATIONS,
     CLO_ARENA,
     CLO_DUMP_MAPS,
     CLO_TEST,
@@ -3933,8 +3882,8 @@ static const char *cmd_ops[] =
 {
     "scores", "name", "species", "background", "plain", "dir", "rc",
     "rcdir", "tscores", "vscores", "scorefile", "morgue", "macro",
-    "mapstat", "arena", "dump-maps", "test", "script", "builddb",
-    "help", "version", "seed", "save-version", "sprint",
+    "mapstat", "objstat", "iters", "arena", "dump-maps", "test", "script",
+    "builddb", "help", "version", "seed", "save-version", "sprint",
     "extra-opt-first", "extra-opt-last", "sprint-map", "edit-save",
     "print-charset", "zotdef", "tutorial", "wizard", "no-save",
     "gdb", "no-gdb", "nogdb",
@@ -4370,6 +4319,7 @@ bool parse_args(int argc, char **argv, bool rc_only)
     SysEnv.crawl_exe = get_base_filename(argv[0]);
 
     SysEnv.rcdirs.clear();
+    SysEnv.map_gen_iters = 0;
 
     if (argc < 2)           // no args!
         return true;
@@ -4483,12 +4433,36 @@ bool parse_args(int argc, char **argv, bool rc_only)
             break;
 
         case CLO_MAPSTAT:
+        case CLO_OBJSTAT:
 #ifdef DEBUG_DIAGNOSTICS
-            crawl_state.map_stat_gen = true;
-            SysEnv.map_gen_iters = 100;
-            if (!next_is_param)
-                ;
-            else if (isadigit(*next_arg))
+            if (o == CLO_MAPSTAT)
+                crawl_state.map_stat_gen = true;
+            else
+                crawl_state.obj_stat_gen = true;
+
+            if (!SysEnv.map_gen_iters)
+                SysEnv.map_gen_iters = 100;
+            if (next_is_param)
+            {
+                SysEnv.map_gen_range.reset(new depth_ranges);
+                *SysEnv.map_gen_range =
+                    depth_ranges::parse_depth_ranges(next_arg);
+                nextUsed = true;
+            }
+            break;
+#else
+            fprintf(stderr, "mapstat and objstat are available only in "
+                    "DEBUG_DIAGNOSTICS builds.\n");
+            end(1);
+#endif
+        case CLO_ITERATIONS:
+#ifdef DEBUG_DIAGNOSTICS
+            if (!next_is_param || !isadigit(*next_arg))
+            {
+                fprintf(stderr, "Integer argument required for -%s\n", arg);
+                end(1);
+            }
+            else
             {
                 SysEnv.map_gen_iters = atoi(next_arg);
                 if (SysEnv.map_gen_iters < 1)
@@ -4497,18 +4471,12 @@ bool parse_args(int argc, char **argv, bool rc_only)
                     SysEnv.map_gen_iters = 10000;
                 nextUsed = true;
             }
-            else
-            {
-                SysEnv.map_gen_range.reset(new depth_ranges);
-                *SysEnv.map_gen_range = depth_ranges::parse_depth_ranges(next_arg);
-                nextUsed = true;
-            }
-
-            break;
 #else
-            fprintf(stderr, "mapstat is available only in DEBUG_DIAGNOSTICS builds.\n");
+            fprintf(stderr, "mapstat and objstat are available only in "
+                    "DEBUG_DIAGNOSTICS builds.\n");
             end(1);
 #endif
+            break;
 
         case CLO_ARENA:
             if (!rc_only)
@@ -4715,10 +4683,8 @@ bool parse_args(int argc, char **argv, bool rc_only)
             break;
 
         case CLO_NO_SAVE:
-#ifdef WIZARD
             if (!rc_only)
                 Options.no_save = true;
-#endif
             break;
 
 #ifdef USE_TILE_WEB

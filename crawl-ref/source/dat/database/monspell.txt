@@ -139,10 +139,6 @@ unseen Holy Flames cast
 
 Blessed flames are called forth!
 %%%%
-Silver Blast cast
-
-@The_monster@ shoots forth a bolt of silver!
-%%%%
 Word of Recall cast
 
 @The_monster@ begins to recite a word of recall!
@@ -229,10 +225,6 @@ You hear a spitting sound.
 Petrifying Cloud cast
 
 @The_monster@ breathes a plume of calcifying dust @at@ @target@.
-%%%%
-Chaos Breath cast
-
-@The_monster@ breathes @beam@ @at@ @target@.
 %%%%
 Frenzy cast
 
@@ -339,6 +331,14 @@ giant orange brain cast
 
 @The_monster@ pulsates.
 %%%%
+orange crystal statue cast
+
+@The_monster@ glitters.
+%%%%
+orange crystal statue cast targeted
+
+@The_monster@ fixes its piercing gaze on @target@.
+%%%%
 orb of fire cast
 
 @The_monster@ glows yellow.
@@ -351,9 +351,9 @@ orb of fire cast
 
 @The_monster@ emits a lurid red light.
 %%%%
-silver star cast
+silver statue cast
 
-@The_monster@ shines brightly.
+@The_monster@'s eyes glow briefly.
 %%%%
 # Sphinxes can't gesture or point.
 sphinx cast
@@ -425,6 +425,10 @@ angel cast targeted
 
 @The_monster@ calls down the wrath of @possessive_God@ upon @target@.
 %%%%
+crab cast targeted
+
+@The_monster@ breathes @beam@ @at@ @target@.
+%%%%
 dragon cast targeted
 
 @The_monster@ breathes @beam@ @at@ @target@.
@@ -484,15 +488,6 @@ Bolt of Fire ophan cast
 unseen Bolt of Fire ophan cast
 
 Something harnesses the cleansing power of fire!
-%%%%
-shedu cast
-
-@The_monster@ performs a healing ritual in @possessive_God@ name.
-%%%%
-# Should only be casting spells at each other.
-shedu cast targeted
-
-@The_monster@ beseeches @possessive_God@ to heal @possessive@ mate!
 %%%%
 Shock shock serpent cast
 

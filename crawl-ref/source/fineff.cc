@@ -5,6 +5,7 @@
 **/
 
 #include "AppHdr.h"
+#include "bloodspatter.h"
 #include "coord.h"
 #include "dactions.h"
 #include "effects.h"
@@ -12,8 +13,8 @@
 #include "fineff.h"
 #include "libutil.h"
 #include "mgen_data.h"
-#include "misc.h"
 #include "mon-abil.h"
+#include "mon-behv.h"
 #include "mon-cast.h"
 #include "mon-place.h"
 #include "ouch.h"
@@ -156,6 +157,8 @@ void mirror_damage_fineff::fire()
         return;
     // defender being dead is ok, if we killed them we still suffer
 
+    god_acting gdact(GOD_YREDELEMNUL);
+
     if (att == MID_PLAYER)
     {
         mpr("Your damage is reflected back at you!");
@@ -190,7 +193,9 @@ void trample_follow_fineff::fire()
         && adjacent(attack->pos(), posn)
         && attack->is_habitable(posn))
     {
+        const coord_def old_pos = attack->pos();
         attack->move_to_pos(posn);
+        attack->apply_location_effects(old_pos);
     }
 }
 

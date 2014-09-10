@@ -9,7 +9,7 @@
 #include "describe.h"
 #include "itemname.h"
 #include "itemprop.h"
-#include "mon-stuff.h"
+#include "options.h"
 #include "player.h"
 #include "tiledef-player.h"
 #include "tiledef-unrand.h"
@@ -64,7 +64,9 @@ tileidx_t tilep_equ_weapon(const item_def &item)
 
         case MISC_DECK_OF_ESCAPE:
         case MISC_DECK_OF_DESTRUCTION:
+#if TAG_MAJOR_VERSION == 34
         case MISC_DECK_OF_DUNGEONS:
+#endif
         case MISC_DECK_OF_SUMMONING:
         case MISC_DECK_OF_WONDERS:
         case MISC_DECK_OF_PUNISHMENT:
@@ -243,14 +245,23 @@ tileidx_t tilep_equ_weapon(const item_def &item)
         break;
 
     // Ranged
-    case WPN_SLING:
-        tile = TILEP_HAND1_SLING;
+    case WPN_HUNTING_SLING:
+        tile = TILEP_HAND1_HUNTING_SLING;
         break;
-    case WPN_BOW:
+    case WPN_GREATSLING:
+        tile = TILEP_HAND1_GREATSLING;
+        break;
+    case WPN_SHORTBOW:
         tile = TILEP_HAND1_BOW2;
         break;
-    case WPN_CROSSBOW:
-        tile = TILEP_HAND1_CROSSBOW;
+    case WPN_HAND_CROSSBOW:
+        tile = TILEP_HAND1_HAND_CROSSBOW;
+        break;
+    case WPN_ARBALEST:
+        tile = TILEP_HAND1_ARBALEST;
+        break;
+    case WPN_TRIPLE_CROSSBOW:
+        tile = TILEP_HAND1_TRIPLE_CROSSBOW;
         break;
     case WPN_BLOWGUN:
         tile = TILEP_HAND1_BLOWGUN;
@@ -316,7 +327,8 @@ tileidx_t tilep_equ_armour(const item_def &item)
         return _modrng(item.rnd, TILEP_BODY_ROBE_FIRST_NORM,
                        TILEP_BODY_ROBE_LAST_NORM);
 
-    case ARM_LEATHER_ARMOUR:     return TILEP_BODY_LEATHER_ARMOUR3;
+    case ARM_LEATHER_ARMOUR:
+        return tileidx_enchant_equ(item, TILEP_BODY_LEATHER_ARMOUR, true);
     case ARM_RING_MAIL:          return TILEP_BODY_RINGMAIL;
     case ARM_CHAIN_MAIL:         return TILEP_BODY_CHAINMAIL;
     case ARM_SCALE_MAIL:         return TILEP_BODY_SCALEMAIL;
@@ -470,7 +482,9 @@ tileidx_t tileidx_player()
         // non-animals
         case TRAN_ICE_BEAST: ch = TILEP_TRAN_ICE_BEAST; break;
         case TRAN_WISP:      ch = TILEP_MONS_INSUBSTANTIAL_WISP; break;
+#if TAG_MAJOR_VERSION == 34
         case TRAN_JELLY:     ch = TILEP_MONS_JELLY;     break;
+#endif
         case TRAN_FUNGUS:    ch = TILEP_TRAN_MUSHROOM;  break;
         case TRAN_SHADOW:    ch = TILEP_TRAN_SHADOW;    break;
         case TRAN_DRAGON:
@@ -491,11 +505,15 @@ tileidx_t tileidx_player()
             break;
         }
         // no special tile
-        case TRAN_BLADE_HANDS: break;
+        case TRAN_BLADE_HANDS:
         case TRAN_APPENDAGE:
         case TRAN_NONE:
         default:
-            break;
+            {
+                if (Options.tile_show_player_species)
+                    ch = tileidx_player_mons();
+                break;
+            }
     }
 
     // Currently, the flying flag is only used for not drawing the tile in the
@@ -574,8 +592,10 @@ tileidx_t tilep_species_to_base_tile(int sp, int level)
         return TILEP_BASE_HALFLING;
     case SP_HILL_ORC:
         return TILEP_BASE_ORC;
+#if TAG_MAJOR_VERSION == 34
     case SP_LAVA_ORC:
         return TILEP_BASE_LAVA_ORC;
+#endif
     case SP_KOBOLD:
         return TILEP_BASE_KOBOLD;
     case SP_MUMMY:
@@ -684,6 +704,7 @@ void tilep_race_default(int sp, int level, dolls_data *doll)
         case SP_HILL_ORC:
             hair = 0;
             break;
+#if TAG_MAJOR_VERSION == 34
         case SP_LAVA_ORC:
             // This should respect the player's choice of base tile, if possible.
             switch (temperature_colour(you.temperature))
@@ -712,6 +733,7 @@ void tilep_race_default(int sp, int level, dolls_data *doll)
             }
             hair = 0;
             break;
+#endif
         case SP_KOBOLD:
             hair = 0;
             break;
@@ -752,6 +774,7 @@ void tilep_race_default(int sp, int level, dolls_data *doll)
             break;
         case SP_NAGA:
             hair = TILEP_HAIR_PART2_RED;
+            break;
         case SP_VAMPIRE:
             hair = TILEP_HAIR_ARWEN;
             break;
@@ -1009,7 +1032,7 @@ void tilep_job_default(int job, dolls_data *doll)
 
         case JOB_ARTIFICER:
             parts[TILEP_PART_HAND1] = TILEP_HAND1_SCEPTRE;
-            parts[TILEP_PART_BODY]  = TILEP_BODY_LEATHER_ARMOUR3;
+            parts[TILEP_PART_BODY]  = TILEP_BODY_LEATHER_ARMOUR;
             parts[TILEP_PART_LEG]   = TILEP_LEG_PANTS_BLACK;
             break;
     }

@@ -20,19 +20,18 @@ enum object_selector
     OSEL_EQUIP                   =  -4,
     OSEL_RECHARGE                =  -5,
     OSEL_ENCH_ARM                =  -6,
-    OSEL_VAMP_EAT                =  -7,
+//  OSEL_VAMP_EAT                =  -7,
     OSEL_DRAW_DECK               =  -8,
     OSEL_THROWABLE               =  -9,
-    OSEL_BUTCHERY                = -10,
-    OSEL_EVOKABLE                = -11,
-    OSEL_WORN_ARMOUR             = -12,
-    OSEL_FRUIT                   = -13,
-    OSEL_CURSED_WORN             = -14,
-    OSEL_UNCURSED_WORN_ARMOUR    = -15,
-    OSEL_UNCURSED_WORN_JEWELLERY = -16,
-    OSEL_SCROLL_TARGET           = -17,
-    OSEL_BRANDABLE_WEAPON        = -18,
-    OSEL_ENCHANTABLE_WEAPON      = -19,
+    OSEL_EVOKABLE                = -10,
+    OSEL_WORN_ARMOUR             = -11,
+    OSEL_FRUIT                   = -12,
+    OSEL_CURSED_WORN             = -13,
+    OSEL_UNCURSED_WORN_ARMOUR    = -14,
+    OSEL_UNCURSED_WORN_JEWELLERY = -15,
+    OSEL_BRANDABLE_WEAPON        = -16,
+    OSEL_ENCHANTABLE_WEAPON      = -17,
+    OSEL_BLESSABLE_WEAPON        = -18,
 };
 
 #define SLOT_BARE_HANDS      -2
@@ -77,6 +76,7 @@ private:
 
     mutable string basename;
     mutable string qualname;
+    mutable string dbname;
 
 protected:
     static bool show_cursor;
@@ -94,6 +94,7 @@ public:
     const string &get_basename() const;
     const string &get_qualname() const;
     const string &get_fullname() const;
+    const string &get_dbname() const;
     bool         is_item_cursed() const;
     bool         is_item_glowing() const;
     bool         is_item_ego() const;
@@ -113,8 +114,6 @@ public:
 #ifdef USE_TILE
     virtual bool get_tiles(vector<tile_def>& tiles) const;
 #endif
-
-    bool show_weight;
 
 private:
     void add_class_hotkeys(const item_def &i);
@@ -230,5 +229,6 @@ bool item_is_wieldable(const item_def &item);
 bool item_is_evokable(const item_def &item, bool reach = true,
                       bool known = false, bool all_wands = false,
                       bool msg = false, bool equip = true);
+bool nasty_stasis(const item_def &item, operation_types oper);
 bool needs_handle_warning(const item_def &item, operation_types oper);
 #endif

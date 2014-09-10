@@ -9,7 +9,7 @@
 
 #include "dlua.h"
 #include "l_libs.h"
-#include "libutil.h"
+#include "stringutil.h"
 #include "tags.h"
 
 static int dlua_compiled_chunk_writer(lua_State *ls, const void *p,
@@ -149,9 +149,11 @@ int dlua_chunk::check_op(CLua &interp, int err)
 int dlua_chunk::load(CLua &interp)
 {
     if (!compiled.empty())
+    {
         return check_op(interp,
                          interp.loadbuffer(compiled.c_str(), compiled.length(),
                                            context.c_str()));
+    }
 
     if (empty())
     {

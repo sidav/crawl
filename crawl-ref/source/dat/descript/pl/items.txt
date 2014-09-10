@@ -293,11 +293,6 @@ helmet
 
 Metalowe nakrycie głowy.
 %%%%
-honeycomb
-
-Jakkolwiek pszczoły spotykane w tych lochach osiągają ogromne rozmiary, miód
-przez nie produkowany w niczym nie ustępuje temu z powierzchni.
-%%%%
 ice dragon hide
 
 Łuskowata skóra lodowego smoka, w surowej postaci. Można z niej zrobić dobrą
@@ -405,13 +400,6 @@ Zaklęty flakon pełen po brzegi żywiołu wody. Odkorkowanie flakonu wyzwala
 zamknięte w środku przyjazne duchy wody, powodując małą powódź oraz pozwalając
 im na zaatakowanie twych wrogów.
 %%%%
-piece of ambrosia
-
-Zadziwiająca substancja, według legend stanowiąca pokarm bogów, jednak tak
-naprawdę będąca wydzieliną mrocznych ciem. Ma spore wartości odżywcze, a także
-daje przypływ magicznych energii, niestety kosztem krótkotrwałego zamroczenia
-umysłu.
-%%%%
 potion of agility
 
 Eliksir który wielce zwiększa zręczność i zwinność pijącego, na krótki czas.
@@ -488,10 +476,6 @@ potion of slowing
 
 Eliksir który spowalnia szybkość ruchów.
 %%%%
-potion of strong poison
-
-Wyjątkowo groźna trucizna.
-%%%%
 quad damage
 
 Zadziwiający magiczny przedmiot w kształcie runy, jednorazowego użytku. Użyty,
@@ -555,10 +539,6 @@ mocy i kierunku czaru nań rzuconego.
 ring of sustain abilities
 
 Ten pierścień chroni przed tymczasową utratą siły, inteligencji i zręczności.
-%%%%
-ring of sustenance
-
-Ten pierścień znacznie spowalnia zużycie pokarmu przez swego właściciela.
 %%%%
 ring of teleportation
 

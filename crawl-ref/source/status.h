@@ -10,7 +10,6 @@ enum status_type
 {
     STATUS_AIRBORNE = NUM_DURATIONS + 1,
     STATUS_BEHELD,
-    STATUS_BURDEN,
     STATUS_CONTAMINATION,
     STATUS_NET,
     STATUS_HUNGER,
@@ -19,8 +18,6 @@ enum status_type
     STATUS_DIG,
     STATUS_SICK,
     STATUS_SPEED,
-    STATUS_CLINGING,
-    STATUS_SAGE,
     STATUS_STR_ZERO,
     STATUS_INT_ZERO,
     STATUS_DEX_ZERO,
@@ -42,7 +39,11 @@ enum status_type
     STATUS_ELIXIR,
     STATUS_INVISIBLE,
     STATUS_MAGIC_SAPPED,
-    STATUS_LAST_STATUS = STATUS_MAGIC_SAPPED
+#if TAG_MAJOR_VERSION == 34
+    STATUS_GOLDEN,
+#endif
+    STATUS_BRIBE,
+    STATUS_LAST_STATUS = STATUS_BRIBE
 };
 
 struct status_info
@@ -59,6 +60,7 @@ struct status_info
 // returns true if the status has a description
 bool fill_status_info(int status, status_info* info);
 
+const char *duration_name(duration_type dur);
 void init_duration_index();
 
 #endif

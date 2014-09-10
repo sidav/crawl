@@ -25,6 +25,7 @@
 #include "monster.h"
 #include "options.h"
 #include "random.h"
+#include "stash.h"
 #include "state.h"
 #include "areas.h"
 #include "terrain.h"
@@ -103,10 +104,9 @@ bool show_type::operator < (const show_type &other) const
     }
 }
 
-// Returns true if this is a monster that can be hidden for clean_map
-// purposes. All non-immobile monsters are hidden when out of LOS with
-// Options.clean_map, or removed from the map when the clear-map
-// command (^C) is used.
+// Returns true if this is a monster that can be hidden for ^C
+// purposes. All non-immobile monsters are removed from the map
+// when the clear-map command (^C) is used.
 bool show_type::is_cleanable_monster() const
 {
     return cls == SH_MONSTER && !mons_class_is_stationary(mons);
@@ -148,8 +148,13 @@ static void _update_feat_at(const coord_def &gp)
     if (disjunction_haloed(gp))
         env.map_knowledge(gp).flags |= MAP_DISJUNCT;
 
+#if TAG_MAJOR_VERSION == 34
     if (heated(gp))
         env.map_knowledge(gp).flags |= MAP_HOT;
+#endif
+
+    if (golden(gp))
+        env.map_knowledge(gp).flags |= MAP_GOLDEN;
 
     if (is_sanctuary(gp))
     {
@@ -229,7 +234,7 @@ static show_item_type _item_to_show_code(const item_def &item)
     }
 }
 
-static void _update_item_at(const coord_def &gp)
+void update_item_at(const coord_def &gp, bool detected)
 {
     if (!in_bounds(gp))
         return;
@@ -252,12 +257,15 @@ static void _update_item_at(const coord_def &gp)
     }
     else
     {
+        if (detected)
+            StashTrack.add_stash(gp.x, gp.y);
+
         const vector<item_def> stash = item_list_in_stash(gp);
         if (stash.empty())
             return;
 
         eitem = stash[0];
-        if (stash.size() > 1)
+        if (!detected && stash.size() > 1)
             more_items = true;
     }
     env.map_knowledge(gp).set_item(get_item_info(eitem), more_items);
@@ -291,7 +299,8 @@ static void _update_cloud(int cloudno)
     else if (dur > 3)
         dur = 3;
 
-    cloud_info ci(cloud.type, get_cloud_colour(cloudno), dur, ch, gp);
+    cloud_info ci(cloud.type, get_cloud_colour(cloudno), dur, ch, gp,
+                  cloud.killer);
     env.map_knowledge(gp).set_cloud(ci);
 }
 
@@ -322,13 +331,15 @@ static void _check_monster_pos(const monster* mons)
  *
  * @param where    The location being queried.
  * @param mons     The moster being mimicked.
- * @returns        True if valid, otherwise False.
+ * @return         True if valid, otherwise False.
 */
 static bool _valid_invisible_spot(const coord_def &where, const monster* mons)
 {
     if (!you.see_cell(where) || where == you.pos()
         || env.map_knowledge(where).flags & MAP_INVISIBLE_UPDATE)
+    {
         return false;
+    }
 
     monster *mons_at = monster_at(where);
     if (mons_at && mons_at != mons)
@@ -390,7 +401,7 @@ static void _mark_invisible_at(const coord_def &where,
 static void _handle_unseen_mons(monster* mons, uint32_t hash_ind)
 {
     // Monster didn't go unseen last turn.
-    if(mons->unseen_pos.origin())
+    if (mons->unseen_pos.origin())
         return;
 
 
@@ -533,7 +544,7 @@ void show_update_at(const coord_def &gp, bool terrain_only)
             _update_cloud(cloud);
         }
 
-        _update_item_at(gp);
+        update_item_at(gp);
     }
 
 #ifdef USE_TILE

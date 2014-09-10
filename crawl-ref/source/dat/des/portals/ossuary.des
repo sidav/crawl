@@ -13,7 +13,7 @@
 
 {{
 function ossuary_portal(e)
-  local timeout_turns = crawl.random_range(800, 1000)
+  local timeout_turns = crawl.random_range(600, 800)
 
   local messager =
     timed_msg {
@@ -26,9 +26,9 @@ function ossuary_portal(e)
       -- This is always preceded by an article, so...
       noisemaker = 'avalanche of sand',
       ranges = {
-        { 5000, 'rapid ' },  { 4000, '' },
-        { 2500, 'slow ' }, { 1500, 'irregular ' },
-        { 0, 'erratic ' }
+        { 5000, 'slow ' },  { 4000, '' },
+        { 2500, 'brisk ' }, { 1500, 'quick ' },
+        { 0, 'rapid ' }
       }
     }
 
@@ -69,6 +69,7 @@ end
 default-depth: D:4-8
 
 NAME:   enter_ossuary_1
+TAGS:   transparent
 SUBST:  . = . ':7
 : ossuary_portal(_G)
 MAP
@@ -80,6 +81,7 @@ MAP
 ENDMAP
 
 NAME:    enter_ossuary_2
+TAGS:    transparent
 SHUFFLE: C+
 SUBST:   C = c
 : ossuary_portal(_G)
@@ -94,6 +96,7 @@ MAP
 ENDMAP
 
 NAME:   enter_ossuary_3
+TAGS:   transparent
 SUBST:  . = ' .
 MONS:   rat zombie / jackal zombie / worm zombie
 MONS:   kobold zombie / goblin zombie / hobgoblin zombie
@@ -107,6 +110,7 @@ MAP
 ENDMAP
 
 NAME:   enter_ossuary_4
+TAGS:   transparent
 COLOUR: 1 = yellow, x = white
 MONS:   rat zombie / quokka zombie / goblin zombie
 FTILE:  1 = floor_sandstone, x = floor_sandstone, O = floor_sandstone
@@ -123,6 +127,7 @@ MAP
 ENDMAP
 
 NAME:   enter_ossuary_5
+TAGS:   transparent
 COLOUR: c = white, + = white, ' = yellow
 : ossuary_portal(_G)
 MAP
@@ -138,7 +143,7 @@ MAP
 ENDMAP
 
 NAME:   gup_ossuary_entry_pyramid
-TAGS:   mini_float
+TAGS:   transparent
 KMONS:  O = mummy
 NSUBST: ' = 3:~ / *:'
 : ossuary_portal(_G)
@@ -193,6 +198,7 @@ xc'O'A'O'cx
 ENDMAP
 
 NAME: nicolae_ossuary_entry_giza
+TAGS: transparent
 NSUBST: M = 1:O / *:z
 KMONS: O = mummy
 KMONS: z = goblin zombie / hobgoblin zombie / kobold zombie / orc zombie
@@ -334,8 +340,8 @@ NAME:    ossuary_tomb_2
 WEIGHT:  40
 ORIENT:  encompass
 TAGS:    no_item_gen no_monster_gen no_rotate
-KFEAT:   ~ = dart trap w:1 / arrow trap w:1 / needle trap
-KFEAT:   ^ = dart trap / arrow trap
+KFEAT:   ~ = arrow trap w:2 / needle trap
+KFEAT:   ^ = arrow trap / floor w:5
 # Number of 1's is 53, number of ~'s is 57.
 : if crawl.one_chance_in(10) then
 SUBST:   ~ = 1
@@ -381,7 +387,7 @@ cKKKc            cBBBc
 c~~~c            c^^^c
 c~~~cccccccccccccc^^^c
 c~~~c...cddddc...c.z^c
-c~~~+3<3=d**dn.A.+.^^c
+c~~~+3<3+d**dn.A.+.^^c
 c~~~c...cddddc...c.z<c
 cccccccccccccccccccccc
 ENDMAP
@@ -395,13 +401,12 @@ MONS:    generate_awake orc zombie / generate_awake kobold zombie / \
          generate_awake hobgoblin zombie / generate_awake gnoll zombie
 MONS:    mummy
 MONS:    orc zombie / kobold zombie / big kobold zombie / hobgoblin zombie
-# loot: 24 items
 ITEM:    nothing / any scroll w:5 / any potion
 KFEAT:   ^ = alarm trap
 : ossuary_setup_features(_G)
 MAP
 cccccccccccccccccccccc
-cccc.....2222.....cccc
+cccc.....2..2.....cccc
 ccc..2...cccc...2..ccc
 cc......cc..cc......cc
 cc.....cc....cc.....cc
@@ -410,15 +415,15 @@ ccc..3....22....3..ccc
 cccc..............cccc
 cccc+cc........cc+cccc
 cccc^^cc111111cc^^cccc
-cccd...cc....cc...dccc
-ccdd....c....c....ddcc
-c$ddd...c....c...ddd$c
-c$ddd...c....c...ddd$c
-c$$dd...c....c...dd$$c
-cc$ddd..c....c..ddd$cc
-cc$$dd.cc....cc.dd$$cc
-ccc$dd.cc....cc.dd$ccc
-ccc$ddccc.<A.cccdd$ccc
+ccc....cc....cc....ccc
+ccd.....c....c.....dcc
+c$dd....c....c....dd$c
+c$dd....c....c....dd$c
+c$$d....c....c....d$$c
+cc$dd...c....c...dd$cc
+cc$$d..cc....cc..d$$cc
+ccc$d..cc....cc..d$ccc
+ccc$d.ccc.<A.ccc.d$ccc
 cccccccccccccccccccccc
 ENDMAP
 
@@ -479,18 +484,17 @@ MONS:    mummy
 MONS:    gnoll zombie / hobgoblin zombie / orc zombie / \
          human zombie / kobold zombie / goblin zombie / \
          big kobold zombie / centaur zombie
-# mix of strictly good items with strictly useless ones
-ITEM:    scroll of random uselessness w:20 / \
-         scroll of enchant armour w:5 / scroll of remove curse / \
-         potion of mutation w:5 / potion of cure mutation w:5  / \
-         potion of confusion    / potion of curing w:15        / \
-         potion of degeneration / potion of restore abilities  / \
-         scroll of immolation   / scroll of identify
-# and sometimes strictly useless ones
+# mix of good items with useless ones
+ITEM:    scroll of random uselessness w:20 / scroll of immolation / \
+         scroll of identify / scroll of remove curse / \
+         potion of mutation w:5 / potion of confusion w:5 / \
+         potion of degeneration / potion of lignification / \
+         potion of restore abilities / potion of curing w:15
+# and sometimes mostly useless ones
 ITEM:    scroll of noise / scroll of random uselessness w:20 / \
-         potion of mutation w:5 / potion of confusion / \
-         potion of degeneration / scroll of immolation / \
-         potion of confusion / potion of paralysis
+         scroll of immolation / potion of mutation w:5 / \
+         potion of poison / potion of degeneration / \
+         potion of confusion w:20
 # occasionally just use this
 ITEM:    any potion / any scroll w:5 / nothing
 SHUFFLE: hjkl
@@ -537,7 +541,7 @@ MONS:   gnoll zombie / hobgoblin zombie / orc zombie / \
         human zombie / kobold zombie / goblin zombie / \
         big kobold zombie / centaur zombie / scorpion zombie w:20
 ITEM:   any scroll / any potion / any jewellery w:1 / nothing
-KFEAT:  ~ = needle trap / arrow trap / spear trap w:5 / dart trap w:2 / floor w:50
+KFEAT:  ~ = needle trap / arrow trap / spear trap w:5 / floor w:50
 SUBST:  1 = 1.
 SUBST:  3 = 3.
 : ossuary_setup_features(_G)
@@ -615,8 +619,7 @@ c**E~..........<..........~Deec
 ccccccccccccccccccccccccccccccc
 ENDMAP
 
-# Bog mummies might be a bit too hard, but with HD of 3 they seem to be fine.
-# Loot might need tweaking.
+# Bog bodies might be a bit too hard, but with HD of 3 they seem to be fine.
 NAME:    ossuary_zaba_flooded
 WEIGHT:  20
 ORIENT:  encompass
@@ -755,7 +758,6 @@ ITEM:    potion of curing / potion of heal wounds / potion of haste / \
 # 10% - part of the loot in the closets, bit more loot
 # 45% - traps are nasty, monsters asleep
 # 45% - traps are softer, monsters are awake
-# TODO: rebalance after secret door removal.
 : if crawl.one_chance_in(10) then
 SUBST:   3 = d
 NSUBST:  d = 6:3 / *:d
@@ -771,11 +773,11 @@ MONS:    mummy
 MONS:    generate_awake centaur zombie / generate_awake hobgoblin zombie / \
          generate_awake big kobold zombie / nothing w:20
 MONS:    centaur zombie / hobgoblin zombie / big kobold zombie / nothing w:20
-KFEAT:   ~ = dart trap w:20 / net trap / needle trap / alarm trap / floor w:40
+KFEAT:   ~ = net trap / needle trap / alarm trap w:5 / floor w:40
 KFEAT:   T = alarm trap w:20 / net trap / floor w:70
 KFEAT:   ^ = net trap w:15 / needle trap w:4 / spear trap w:1 / floor w:20
 COLOUR:  ^ = red
-KFEAT:   W = dart trap / floor w:20
+KFEAT:   W = arrow trap / floor w:20
 : ossuary_setup_features(_G)
 MAP
            cccccccccccccccccccc
@@ -791,20 +793,17 @@ cc1.....WW~~~~~~~~~~~~~~~~^.....cc
            cccccccccccccccccccc
 ENDMAP
 
-# Guardian mummies are a clue, and actually quite a scary threat.
 NAME:    ossuary_due_mausoleum
 WEIGHT:  10
 ORIENT:  encompass
 TAGS:    no_item_gen no_monster_gen no_rotate no_vmirror
 MONS:    orc skeleton / kobold skeleton / gnoll skeleton / orc skeleton
 MONS:    mummy
-MONS:    patrolling guardian mummy
+MONS:    wraith
 NSUBST:  = = 1:+ / *:c
-# Loot: 22-30 items, with early loot!
-ITEM:    any scroll / any potion / nothing
 ITEM:    any scroll / any potion / nothing
 KITEM:   x = any scroll / any potion
-KMONS:   x = guardian mummy
+KMONS:   x = wraith
 : ossuary_setup_features(_G)
 : crawl.mpr("You feel the presence of a powerful and evil guardian...", "warning")
 MAP
@@ -815,11 +814,11 @@ cc.<.....................<.cc
 cc1.1....ccccc+ccccc....1.1cc
 cc......cc.........cc......cc
 cc.....cc...cc=cc...cc.....cc
-cc....cc...cmdddmc...cc....cc
-cc....c...cmdddddmc...c....cc
-cc....+...=dddxddd=...+....cc
-cc....c...cmdddddmc...c....cc
-cc....cc...cmdddmc...cc....cc
+cc....cc...cm...mc...cc....cc
+cc....c...cm.ddd.mc...c....cc
+cc....+...=.ddxdd.=...+....cc
+cc....c...cm.ddd.mc...c....cc
+cc....cc...cm...mc...cc....cc
 cc.....cc...cc=cc...cc.....cc
 cc......cc.........cc......cc
 cc1.1....ccccc+ccccc....1.1cc
@@ -827,8 +826,8 @@ cc.<.....................<.cc
 cc1.1...................1.1cc
 ccccccccccccc+++ccccccccccccc
 ccccccccccccc...ccccccccccccc
-ccccccccccee+.2.+eecccccccccc
-cccccccccceec111ceecccccccccc
+ccccccccccdd+.2.+ddcccccccccc
+ccccccccccddc111cddcccccccccc
 ccccccccccccc111ccccccccccccc
 ccccccccccccc111ccccccccccccc
 ccccccccccccc...ccccccccccccc
@@ -870,7 +869,7 @@ SUBST:   X = x2
 KITEM:   x = any scroll / any potion
 KMONS:   x = mummy
 NSUBST:  ' = 10:^ / *:.
-KFEAT:   ^ = dart trap / arrow trap
+KFEAT:   ^ = arrow trap
 KITEM:   y = any scroll w:5 / any potion w:5 / nothing w:10
 KMONS:   y = rat skeleton
 : ossuary_setup_features(_G)
@@ -897,7 +896,7 @@ ccc cc+cc   cc''+cccccc''+''''+.x.+Xc
            ccc              ccccccc
 ENDMAP
 
-# Menkaures' pyramid
+# Menkaure's pyramid
 NAME:    ossuary_due_pyramid
 WEIGHT:  10
 ORIENT:  encompass
@@ -910,7 +909,7 @@ MONS:    mummy
 KMONS:   4 = Menkaure, mummy
 # Loot: 1-16 items
 ITEM:    any scroll / any potion / w:5 nothing
-KFEAT:   ^ = arrow trap / dart trap / alarm trap
+KFEAT:   ^ = arrow trap w:20 / alarm trap
 KFEAT:   m = spear trap
 KFEAT:   ~ = alarm trap
 NSUBST:  ' = 2:m / 25:1 / 25:2 / 30:^ / .
@@ -974,8 +973,8 @@ KMONS:  S = spectral rat / spectral goblin / spectral kobold /\
 ITEM:   any potion / any scroll / nothing w:1
 #
 # There are not always traps in corridors but they are guaranteed near the loot:
-KFEAT:  ' = arrow trap w:3 / dart trap w:5 / alarm trap w:7 / floor w:85
-KFEAT:  " = spear trap w:1 / net trap w:3 / arrow trap w:5 / dart trap w:10
+KFEAT:  ' = arrow trap w:8 / alarm trap w:7 / floor w:85
+KFEAT:  " = spear trap w:1 / net trap w:3 / arrow trap w:15
 #
 : ossuary_setup_features(_G)
 MAP
@@ -1007,21 +1006,12 @@ ENDMAP
 # A larger ossuary than usual: there is a corridor with some monsters (and
 # chances of wights) to get past, and then a little treasure room at the end.
 #
-# A hidden door in the treasure room leads to another corridor this one flanked
-# with a guardian mummy (a hint of what's to come) on one side, and a flying
-# skull on the other: the flying skull is basically an intelligent alarm trap,
-# both behind glass.
+# A door in the treasure room leads to another corridor flanked with a wraith
+# (a hint of what's to come) on one side, and a flying skull on the other:
+# the flying skull is basically an intelligent alarm trap, both behind glass.
 #
 # At the end of the corridor is a second treasure room, this one also
-# containing more flying skeleton alarm traps, plus guardian mummies inside
-# 3x3 rooms.
-#
-# The intent is that someone with a relatively high stealth skill (at least
-# for early) will be able to sneak past all of the flying skulls and grab the
-# loot, and escape out before waking anyone up. Whereas someone with 0 stealth
-# skill will wake up the mummies immediately.
-#
-# XXX: Should be looked at with messy runed door use, stealth changes.
+# containing more flying skeleton alarm traps, plus wraiths inside 3x3 rooms.
 #
 NAME:    ossuary_due_cavern
 WEIGHT:  10
@@ -1032,16 +1022,17 @@ MONS:    centaur zombie w:1 / orc zombie / hobgoblin zombie /\
          ball python skeleton / nothing w:5
 MONS:    wight
 MONS:    flying skull
-MONS:    guardian mummy / mummy w:2
+MONS:    wraith
 ITEM:    any scroll / any potion
 ITEM:    any scroll / any potion / any wand w:4
-KMONS:   V = guardian mummy
+KMONS:   V = wraith
 KMONS:   X = flying skull
 SHUFFLE: VX
 SUBST:   x = c:20 n:8
 SUBST:   z = c:20 n:4
 SUBST:   y = c:20 n:1
 SUBST:   $ = 1:10 2:1
+NSUBST:  4 = 2:4 / *:2
 KFEAT:   L = closed_door
 MARKER:  L = lua:message_at_spot ( \
                  "Something ancient and evil stirs ahead...", \

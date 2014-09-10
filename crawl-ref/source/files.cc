@@ -47,10 +47,12 @@
 #include "directn.h"
 #include "dungeon.h"
 #include "effects.h"
+#include "end.h"
 #include "env.h"
 #include "errors.h"
 #include "fineff.h"
 #include "ghost.h"
+#include "godabil.h"
 #include "godcompanions.h"
 #include "godpassive.h"
 #include "initfile.h"
@@ -65,7 +67,6 @@
 #include "mon-behv.h"
 #include "mon-death.h"
 #include "mon-place.h"
-#include "mon-stuff.h"
 #include "mon-util.h"
 #include "mon-transit.h"
 #include "notes.h"
@@ -73,13 +74,14 @@
 #include "output.h"
 #include "place.h"
 #include "player.h"
+#include "prompt.h"
 #include "random.h"
 #include "show.h"
 #include "shopping.h"
 #include "spl-summoning.h"
 #include "stash.h"
 #include "state.h"
-#include "stuff.h"
+#include "stringutil.h"
 #include "syscalls.h"
 #include "tags.h"
 #ifdef USE_TILE
@@ -88,6 +90,7 @@
  #include "tilepick-p.h"
 #endif
 #include "tileview.h"
+#include "teleport.h"
 #include "terrain.h"
 #include "travel.h"
 #include "hints.h"
@@ -95,9 +98,14 @@
 #include "version.h"
 #include "view.h"
 #include "viewgeom.h"
+#include "xom.h"
 
 #ifdef __ANDROID__
 #include <android/log.h>
+#endif
+
+#ifndef F_OK // MSVC for example
+#define F_OK 0
 #endif
 
 static void _save_level(const level_id& lid);
@@ -110,7 +118,9 @@ static bool _read_char_chunk(package *save);
 
 const short GHOST_SIGNATURE = short(0xDC55);
 
-static void _redraw_all(void)
+const int GHOST_LIMIT = 27; // max number of ghost files per level
+
+static void _redraw_all()
 {
     you.redraw_hit_points   = true;
     you.redraw_magic_points = true;
@@ -363,8 +373,7 @@ void assert_read_safe_path(const string &path) throw (string)
 
 #ifdef UNIX
     if (!shell_safe(path.c_str()))
-        throw make_stringf("\"%s\" contains bad characters.",
-                           path.c_str());
+        throw make_stringf("\"%s\" contains bad characters.", path.c_str());
 #endif
 
 #ifdef DATA_DIR_PATH
@@ -372,10 +381,7 @@ void assert_read_safe_path(const string &path) throw (string)
         throw make_stringf("\"%s\" is an absolute path.", path.c_str());
 
     if (path.find("..") != string::npos)
-    {
-        throw make_stringf("\"%s\" contains \"..\" sequences.",
-                           path.c_str());
-    }
+        throw make_stringf("\"%s\" contains \"..\" sequences.", path.c_str());
 #endif
 
     // Path is okay.
@@ -528,9 +534,30 @@ static string _get_savefile_directory()
     return dir;
 }
 
+
+/**
+ * Location of legacy ghost files. (The save directory.)
+ *
+ * @return The path to the directory for old ghost files.
+ */
+static string _get_old_bonefile_directory()
+{
+    string dir = catpath(Options.shared_dir, crawl_state.game_savedir_path());
+    check_mkdir("Bones directory", &dir, false);
+    if (dir.empty())
+        dir = ".";
+    return dir;
+}
+
+/**
+ * Location of ghost files.
+ *
+ * @return The path to the directory for ghost files.
+ */
 static string _get_bonefile_directory()
 {
     string dir = catpath(Options.shared_dir, crawl_state.game_savedir_path());
+    dir = catpath(dir, "bones");
     check_mkdir("Bones directory", &dir, false);
     if (dir.empty())
         dir = ".";
@@ -746,65 +773,6 @@ static void _write_ghost_version(writer &outf)
     for (int i = 0; i < 3; ++i)
         marshallInt(outf, 0);
 }
-
-class safe_file_writer
-{
-public:
-    safe_file_writer(const string &filename,
-                     const char *mode = "wb",
-                     bool _lock = false)
-        : target_filename(filename), tmp_filename(target_filename),
-          filemode(mode), lock(_lock), filep(NULL)
-    {
-        tmp_filename = target_filename + ".tmp";
-    }
-
-    ~safe_file_writer()
-    {
-        close();
-        if (tmp_filename != target_filename)
-        {
-            if (rename_u(tmp_filename.c_str(), target_filename.c_str()))
-                end(1, true, "failed to rename %s -> %s",
-                    tmp_filename.c_str(), target_filename.c_str());
-        }
-    }
-
-    FILE *open()
-    {
-        if (!filep)
-        {
-            filep = (lock? lk_open(filemode, tmp_filename)
-                     : fopen_u(tmp_filename.c_str(), filemode));
-            if (!filep)
-                end(-1, true,
-                    "Failed to open \"%s\" (%s; locking:%s)",
-                    tmp_filename.c_str(),
-                    filemode,
-                    lock? "YES" : "no");
-        }
-        return filep;
-    }
-
-    void close()
-    {
-        if (filep)
-        {
-            if (lock)
-                lk_close(filep, filemode, tmp_filename);
-            else
-                fclose(filep);
-            filep = NULL;
-        }
-    }
-
-private:
-    string target_filename, tmp_filename;
-    const char *filemode;
-    bool lock;
-
-    FILE *filep;
-};
 
 static void _write_tagged_chunk(const string &chunkname, tag_type tag)
 {
@@ -1118,60 +1086,190 @@ static void _do_lost_items()
     }
 }
 
-bool load_level(dungeon_feature_type stair_taken, load_mode_type load_mode,
-                const level_id& old_level)
+/**
+ * Perform cleanup when leaving a level.
+ *
+ * If returning to the previous level on the level stack (e.g. when leaving the
+ * abyss), pop it off the stack. Delete non-permanent levels. Also check to be
+ * sure no loops have formed in the level stack.
+ *
+ * @param stair_taken   The means used to leave the last level.
+ * @param old_level     The ID of the previous level.
+ * @param return_pos    Set to the level entrance, if popping a stack level.
+ * @return Whether the level was popped onto the stack.
+ */
+static bool _leave_level(dungeon_feature_type stair_taken,
+                         const level_id& old_level, coord_def *return_pos)
 {
-    // Did we get here by popping the level stack?
     bool popped = false;
 
-    coord_def return_pos;
-    if (load_mode != LOAD_VISITOR)
+    if (!you.level_stack.empty()
+        && you.level_stack.back().id == level_id::current())
     {
-        if (!you.level_stack.empty()
-            && you.level_stack.back().id == level_id::current())
-        {
-            return_pos = you.level_stack.back().pos;
-            you.level_stack.pop_back();
-            env.level_state |= LSTATE_DELETED;
-            popped = true;
-        }
-        else if (stair_taken == DNGN_TRANSIT_PANDEMONIUM
-              || stair_taken == DNGN_EXIT_THROUGH_ABYSS
-              || stair_taken == DNGN_STONE_STAIRS_DOWN_I
-                 && old_level.branch == BRANCH_ZIGGURAT
-              || old_level.branch == BRANCH_ABYSS)
-        {
-            env.level_state |= LSTATE_DELETED;
-        }
+        *return_pos = you.level_stack.back().pos;
+        you.level_stack.pop_back();
+        env.level_state |= LSTATE_DELETED;
+        popped = true;
+    }
+    else if (stair_taken == DNGN_TRANSIT_PANDEMONIUM
+             || stair_taken == DNGN_EXIT_THROUGH_ABYSS
+             || stair_taken == DNGN_STONE_STAIRS_DOWN_I
+             && old_level.branch == BRANCH_ZIGGURAT
+             || old_level.branch == BRANCH_ABYSS)
+    {
+        env.level_state |= LSTATE_DELETED;
+    }
 
-        if (is_level_on_stack(level_id::current()) && !player_in_branch(BRANCH_ABYSS))
+    if (is_level_on_stack(level_id::current())
+        && !player_in_branch(BRANCH_ABYSS))
+    {
+        vector<string> stack;
+        for (unsigned int i = 0; i < you.level_stack.size(); i++)
+            stack.push_back(you.level_stack[i].id.describe());
+        if (you.wizard)
         {
-            vector<string> stack;
-            for (unsigned int i = 0; i < you.level_stack.size(); i++)
-                stack.push_back(you.level_stack[i].id.describe());
-            if (you.wizard)
-            {
-                // warn about breakage so testers know it's an abnormal situation.
-                mprf(MSGCH_ERROR, "Error: you smelly wizard, how dare you enter "
-                        "the same level (%s) twice! It will be trampled upon return.\n"
-                        "The stack has: %s.",
-                        level_id::current().describe().c_str(),
-                        comma_separated_line(stack.begin(), stack.end(),
-                            ", ", ", ").c_str());
-            }
-            else
-            {
-                die("Attempt to enter a portal (%s) twice; stack: %s",
-                        level_id::current().describe().c_str(),
-                        comma_separated_line(stack.begin(), stack.end(),
-                            ", ", ", ").c_str());
-            }
+            // warn about breakage so testers know it's an abnormal situation.
+            mprf(MSGCH_ERROR, "Error: you smelly wizard, how dare you enter "
+                 "the same level (%s) twice! It will be trampled upon return.\n"
+                 "The stack has: %s.",
+                 level_id::current().describe().c_str(),
+                 comma_separated_line(stack.begin(), stack.end(),
+                                      ", ", ", ").c_str());
+        }
+        else
+        {
+            die("Attempt to enter a portal (%s) twice; stack: %s",
+                level_id::current().describe().c_str(),
+                comma_separated_line(stack.begin(), stack.end(),
+                                     ", ", ", ").c_str());
         }
     }
 
+    return popped;
+}
+
+
+/**
+ * Generate a new level.
+ *
+ * Cleanup the environment, build the level, and possibly place a ghost or
+ * handle initial AK entrance.
+ *
+ * @param stair_taken   The means used to leave the last level.
+ * @param old_level     The ID of the previous level.
+ */
+static void _make_level(dungeon_feature_type stair_taken,
+                        const level_id& old_level)
+{
+
+    env.turns_on_level = -1;
+
+    if (you.char_direction == GDT_GAME_START
+        && player_in_branch(BRANCH_DUNGEON))
+    {
+        // If we're leaving the Abyss for the first time as a Chaos
+        // Knight of Lugonu (who start out there), enable normal monster
+        // generation.
+        you.char_direction = GDT_DESCENDING;
+    }
+
+    tile_init_default_flavour();
+    tile_clear_flavour();
+    env.tile_names.clear();
+
+    // XXX: This is ugly.
+    bool dummy;
+    dungeon_feature_type stair_type = static_cast<dungeon_feature_type>(
+        _get_dest_stair_type(old_level.branch,
+                             static_cast<dungeon_feature_type>(stair_taken),
+                             dummy));
+
+    _clear_env_map();
+    builder(true, stair_type);
+
+    if (!crawl_state.game_is_tutorial()
+        && !crawl_state.game_is_zotdef()
+        && !Options.seed
+        && !player_in_branch(BRANCH_ABYSS)
+        && (!player_in_branch(BRANCH_DUNGEON) || you.depth > 2)
+        && one_chance_in(3))
+    {
+        load_ghost(true);
+    }
+    env.turns_on_level = 0;
+    // sanctuary
+    env.sanctuary_pos  = coord_def(-1, -1);
+    env.sanctuary_time = 0;
+}
+
+/**
+ * Move the player to the appropriate entrance location in a level.
+ *
+ * @param stair_taken   The means used to leave the last level.
+ * @param old_branch    The previous level's branch.
+ * @param return_pos    The location of the entrance portal, if applicable.
+ * @param dest_pos      The player's location on the last level.
+ */
+static void _place_player(dungeon_feature_type stair_taken,
+                          branch_type old_branch, const coord_def &return_pos,
+                          const coord_def &dest_pos)
+{
+    if (player_in_branch(BRANCH_ABYSS))
+        you.moveto(ABYSS_CENTRE);
+    else if (!return_pos.origin())
+        you.moveto(return_pos);
+    else
+        _place_player_on_stair(old_branch, stair_taken, dest_pos);
+
+    // Don't return the player into walls, deep water, or a trap.
+    for (distance_iterator di(you.pos(), true, false); di; ++di)
+        if (you.is_habitable_feat(grd(*di))
+            && !is_feat_dangerous(grd(*di), true)
+            && !feat_is_trap(grd(*di), true))
+        {
+            if (you.pos() != *di)
+                you.moveto(*di);
+            break;
+        }
+
+    // This should fix the "monster occurring under the player" bug.
+    monster *mon = monster_at(you.pos());
+    if (mon && !fedhas_passthrough(mon))
+    {
+        for (distance_iterator di(you.pos()); di; ++di)
+            if (!monster_at(*di) && mon->is_habitable(*di))
+            {
+                mon->move_to_pos(*di);
+                break;
+            }
+    }
+}
+
+
+/**
+ * Load the current level.
+ *
+ * @param stair_taken   The means used to enter the level.
+ * @param load_mode     Whether the level is being entered, examined, etc.
+ * @return Whether a new level was created.
+ */
+bool load_level(dungeon_feature_type stair_taken, load_mode_type load_mode,
+                const level_id& old_level)
+{
+
+    string level_name = level_id::current().describe();
+    const bool make_changes =
+    (load_mode == LOAD_START_GAME || load_mode == LOAD_ENTER_LEVEL);
+
+    // Did we get here by popping the level stack?
+    bool popped = false;
+
+    coord_def return_pos; //TODO: initialize to null
+    if (load_mode != LOAD_VISITOR)
+        popped = _leave_level(stair_taken, old_level, &return_pos);
+
     unwind_var<dungeon_feature_type> stair(
         you.transit_stair, stair_taken, DNGN_UNSEEN);
-
     unwind_bool ylev(you.entering_level, load_mode != LOAD_VISITOR, false);
 
 #ifdef DEBUG_LEVEL_LOAD
@@ -1185,13 +1283,6 @@ bool load_level(dungeon_feature_type stair_taken, load_mode_type load_mode,
     // Going up/down stairs, going through a portal, or being banished
     // means the previous x/y movement direction is no longer valid.
     you.reset_prev_move();
-
-    const bool make_changes =
-        (load_mode == LOAD_START_GAME || load_mode == LOAD_ENTER_LEVEL);
-
-    bool just_created_level = false;
-
-    string level_name = level_id::current().describe();
 
     you.prev_targ     = MHITNOT;
     you.prev_grd_targ.reset();
@@ -1237,50 +1328,15 @@ bool load_level(dungeon_feature_type stair_taken, load_mode_type load_mode,
     }
 #endif
 
+    bool just_created_level = false;
+
     // GENERATE new level when the file can't be opened:
     if (!you.save->has_chunk(level_name))
     {
-        dprf("Generating new level for '%s'.", level_name.c_str());
         ASSERT(load_mode != LOAD_VISITOR);
-        env.turns_on_level = -1;
-
-        if (you.char_direction == GDT_GAME_START
-            && player_in_branch(BRANCH_DUNGEON))
-        {
-            // If we're leaving the Abyss for the first time as a Chaos
-            // Knight of Lugonu (who start out there), enable normal monster
-            // generation.
-            you.char_direction = GDT_DESCENDING;
-        }
-
-        tile_init_default_flavour();
-        tile_clear_flavour();
-        env.tile_names.clear();
-
-        // XXX: This is ugly.
-        bool dummy;
-        dungeon_feature_type stair_type = static_cast<dungeon_feature_type>(
-            _get_dest_stair_type(old_level.branch,
-                                 static_cast<dungeon_feature_type>(stair_taken),
-                                 dummy));
-
-        _clear_env_map();
-        builder(true, stair_type);
+        dprf("Generating new level for '%s'.", level_name.c_str());
+        _make_level(stair_taken, old_level);
         just_created_level = true;
-
-        if (!crawl_state.game_is_tutorial()
-            && !crawl_state.game_is_zotdef()
-            && !Options.seed
-            && !player_in_branch(BRANCH_ABYSS)
-            && (!player_in_branch(BRANCH_DUNGEON) || you.depth > 2)
-            && one_chance_in(3))
-        {
-            load_ghost(true);
-        }
-        env.turns_on_level = 0;
-        // sanctuary
-        env.sanctuary_pos  = coord_def(-1, -1);
-        env.sanctuary_time = 0;
     }
     else
     {
@@ -1323,32 +1379,7 @@ bool load_level(dungeon_feature_type stair_taken, load_mode_type load_mode,
     {
         _clear_clouds();
 
-        if (player_in_branch(BRANCH_ABYSS))
-            you.moveto(ABYSS_CENTRE);
-        else if (!return_pos.origin())
-            you.moveto(return_pos);
-        else
-            _place_player_on_stair(old_level.branch, stair_taken, dest_pos);
-
-        // Don't return the player into walls, deep water, or a trap.
-        for (distance_iterator di(you.pos(), true, false); di; ++di)
-            if (you.is_habitable_feat(grd(*di))
-                && !is_feat_dangerous(grd(*di), true)
-                && !feat_is_trap(grd(*di), true))
-            {
-                if (you.pos() != *di)
-                    you.moveto(*di);
-                break;
-            }
-
-        // This should fix the "monster occurring under the player" bug.
-        if (monster* mon = monster_at(you.pos()))
-            for (distance_iterator di(you.pos()); di; ++di)
-                if (!monster_at(*di) && mon->is_habitable(*di))
-                {
-                    mon->move_to_pos(*di);
-                    break;
-                }
+        _place_player(stair_taken, old_level.branch, return_pos, dest_pos);
     }
 
     crawl_view.set_player_at(you.pos(), load_mode != LOAD_VISITOR);
@@ -1492,6 +1523,9 @@ bool load_level(dungeon_feature_type stair_taken, load_mode_type load_mode,
         }
 
         ash_detect_portals(is_map_persistent());
+
+        if (just_created_level)
+            xom_new_level_noise_or_stealth();
     }
     // Initialize halos, etc.
     invalidate_agrid(true);
@@ -1648,12 +1682,63 @@ void save_game_state()
 
 static string _make_ghost_filename()
 {
-    return _get_bonefile_directory() + "bones."
+    return "bones."
            + replace_all(level_id::current().describe(), ":", "-");
 }
 
 #define BONES_DIAGNOSTICS (defined(WIZARD) || defined(DEBUG_BONES) | defined(DEBUG_DIAGNOSTICS))
 
+/**
+ * Lists all bonefiles for the current level.
+ *
+ * @return A vector containing absolute paths to 0+ bonefiles.
+ */
+static vector<string> _list_bones()
+{
+    string bonefile_dir = _get_bonefile_directory();
+    string base_filename = _make_ghost_filename();
+    string underscored_filename = base_filename + "_";
+
+    vector<string> filenames = get_dir_files(bonefile_dir);
+    vector<string> bonefiles;
+    for (std::vector<string>::iterator it = filenames.begin();
+         it != filenames.end(); ++it)
+    {
+        const string &filename = *it;
+
+        if (starts_with(filename, underscored_filename))
+            bonefiles.push_back(bonefile_dir + filename);
+    }
+
+    string old_bonefile = _get_old_bonefile_directory() + base_filename;
+    if (access(old_bonefile.c_str(), F_OK) == 0)
+    {
+        dprf("Found old bonefile %s", old_bonefile.c_str());
+        bonefiles.push_back(old_bonefile);
+    }
+
+    return bonefiles;
+}
+
+/**
+ * Attempts to find a file containing ghost(s) appropriate for the player.
+ *
+ * @return The filename of an appropriate bones file; may be "".
+ */
+static string _find_ghost_file()
+{
+    vector<string> bonefiles = _list_bones();
+    if (bonefiles.empty())
+        return "";
+    return bonefiles[ui_random(bonefiles.size())];
+}
+
+/**
+ * Attempt to load one or more ghosts into the level.
+ *
+ * @param creating_level    Whether a level is currently being generated.
+ * @return                  Whether ghosts were actually generated.
+ */
 bool load_ghost(bool creating_level)
 {
     const bool wiz_cmd = (crawl_state.prev_cmd == CMD_WIZARD);
@@ -1671,26 +1756,34 @@ bool load_ghost(bool creating_level)
 #endif
 
 #ifdef BONES_DIAGNOSTICS
-
-    bool do_diagnostics = false;
-#ifdef WIZARD
-    do_diagnostics = !creating_level;
-#endif
-#if defined(DEBUG_BONES) || defined(DEBUG_DIAGNOSTICS)
-    do_diagnostics = true;
-#endif
-
+    const bool do_diagnostics =
+#  if defined(DEBUG_BONES) || defined(DEBUG_DIAGNOSTICS)
+        true
+#  elif defined(WIZARD)
+        !creating_level
+#  else // Can't happen currently
+        false
+#  endif
+        ;
 #endif // BONES_DIAGNOSTICS
 
-    const string ghost_filename = _make_ghost_filename();
+    const string ghost_filename = _find_ghost_file();
+    if (ghost_filename.empty())
+    {
+        if (wiz_cmd && !creating_level)
+            mprf(MSGCH_PROMPT, "No ghost files for this level.");
+        return false; // no such ghost.
+    }
+
     reader inf(ghost_filename);
     if (!inf.valid())
     {
         if (wiz_cmd && !creating_level)
-            mprf(MSGCH_PROMPT, "No ghost files for this level.");
-        return false;                 // no such ghost.
+            mprf(MSGCH_PROMPT, "Ghost file invalidated before read.");
+        return false;
     }
 
+    inf.set_safe_read(true); // don't die on 0-byte bones
     if (_ghost_version_compatible(inf))
     {
         try
@@ -1744,6 +1837,8 @@ bool load_ghost(bool creating_level)
             mons->bind_spell_flags();
         if (mons->ghost->species == SP_DEEP_DWARF)
             mons->flags |= MF_NO_REGEN;
+        mark_interesting_monst(mons,
+                               attitude_creation_behavior(mons->attitude));
 
         ghosts.erase(ghosts.begin());
 #ifdef BONES_DIAGNOSTICS
@@ -1971,8 +2066,8 @@ level_excursion::~level_excursion()
         // markers will still not be activated.
         go_to(original);
 
-        // Reactivate markers.
-        env.markers.activate_all();
+        // Quietly reactivate markers.
+        env.markers.activate_all(false);
     }
 }
 
@@ -2160,40 +2255,61 @@ static bool _ghost_version_compatible(reader &inf)
     return true;
 }
 
+/**
+ * Attempt to open a new bones file for saving ghosts.
+ *
+ * @param[out] return_gfilename     The name of the file created, if any.
+ * @return                          A FILE object, or NULL.
+ **/
+static FILE* _make_bones_file(string * return_gfilename)
+{
+
+    const string bone_dir = _get_bonefile_directory();
+    const string base_filename = _make_ghost_filename();
+    for (int i = 0; i < GHOST_LIMIT; i++)
+    {
+        const string g_file_name = make_stringf("%s%s_%d", bone_dir.c_str(),
+                                                base_filename.c_str(), i);
+        FILE *gfil = lk_open_exclusive(g_file_name);
+        // need to check file size, so can't open 'wb' - would truncate!
+
+        if (!gfil)
+        {
+            dprf("Could not open %s", g_file_name.c_str());
+            continue;
+        }
+
+        dprf("found %s", g_file_name.c_str());
+
+        *return_gfilename = g_file_name;
+        return gfil;
+    }
+
+    return NULL;
+}
+
+/**
+ * Attempt to save all ghosts from the current level.
+ *
+ * Including the player, if they're not undead. Doesn't save ghosts from D:1-2
+ * or Temple.
+ *
+ * @param force   Forces ghost generation even in otherwise-disallowed levels.
+ **/
+
 void save_ghost(bool force)
 {
 #ifdef BONES_DIAGNOSTICS
-
-    bool do_diagnostics = false;
-#ifdef WIZARD
-    do_diagnostics = you.wizard;
-#endif
-#if defined(DEBUG_BONES) || defined(DEBUG_DIAGNOSTICS)
-    do_diagnostics = true;
-#endif
-
+    const bool do_diagnostics =
+#  if defined(DEBUG_BONES) || defined(DEBUG_DIAGNOSTICS)
+        true
+#  elif defined(WIZARD)
+        you.wizard
+#  else // Can't happen currently
+        false
+#  endif
+        ;
 #endif // BONES_DIAGNOSTICS
-
-    // No ghosts on D:1, D:2, or the Temple.
-    if (!force && (you.depth < 3 && player_in_branch(BRANCH_DUNGEON)
-                   || player_in_branch(BRANCH_TEMPLE)))
-    {
-        return;
-    }
-
-    const string cha_fil = _make_ghost_filename();
-    FILE *gfile = fopen_u(cha_fil.c_str(), "rb");
-
-    // Don't overwrite existing bones!
-    if (gfile != NULL)
-    {
-#ifdef BONES_DIAGNOSTICS
-        if (do_diagnostics)
-            mprf(MSGCH_DIAGNOSTICS, "Ghost file for this level already exists.");
-#endif
-        fclose(gfile);
-        return;
-    }
 
     ghosts = ghost_demon::find_ghosts();
 
@@ -2206,15 +2322,44 @@ void save_ghost(bool force)
         return;
     }
 
-    safe_file_writer sw(cha_fil, "wb", true);
-    writer outw(cha_fil, sw.open());
+    // No ghosts on D:1, D:2, or the Temple.
+    if (!force && (you.depth < 3 && player_in_branch(BRANCH_DUNGEON)
+                   || player_in_branch(BRANCH_TEMPLE)))
+    {
+        return;
+    }
+
+    if (_list_bones().size() >= static_cast<size_t>(GHOST_LIMIT))
+    {
+#ifdef BONES_DIAGNOSTICS
+        if (do_diagnostics)
+            mprf(MSGCH_DIAGNOSTICS, "Too many ghosts for this level already!");
+#endif
+        return;
+    }
+
+    string g_file_name = "";
+    FILE* ghost_file = _make_bones_file(&g_file_name);
+
+    if (!ghost_file)
+    {
+#ifdef BONES_DIAGNOSTICS
+        if (do_diagnostics)
+            mprf(MSGCH_DIAGNOSTICS, "Could not open file to save ghosts.");
+#endif
+        return;
+    }
+
+    writer outw(g_file_name, ghost_file);
 
     _write_ghost_version(outw);
     tag_write(TAG_GHOST, outw);
 
+    lk_close(ghost_file, g_file_name);
+
 #ifdef BONES_DIAGNOSTICS
     if (do_diagnostics)
-        mprf(MSGCH_DIAGNOSTICS, "Saved ghost (%s).", cha_fil.c_str());
+        mprf(MSGCH_DIAGNOSTICS, "Saved ghosts (%s).", g_file_name.c_str());
 #endif
 }
 
@@ -2231,17 +2376,23 @@ bool unlock_file_handle(FILE *handle)
     return unlock_file(fileno(handle));
 }
 
+/**
+ * Attempts to open & lock a file.
+ *
+ * @param mode      The file access mode. ('r', 'ab+', etc)
+ * @param file      The path to the file to be opened.
+ * @return          A handle for the specified file, if successful; else NULL.
+ */
 FILE *lk_open(const char *mode, const string &file)
 {
+    ASSERT(mode);
+
     FILE *handle = fopen_u(file.c_str(), mode);
     if (!handle)
         return NULL;
 
-    bool locktype = false;
-    if (mode && mode[0] != 'r')
-        locktype = true;
-
-    if (handle && !lock_file_handle(handle, locktype))
+    const bool write_lock = mode[0] != 'r' || strchr(mode, '+');
+    if (!lock_file_handle(handle, write_lock))
     {
         mprf(MSGCH_ERROR, "ERROR: Could not lock file %s", file.c_str());
         fclose(handle);
@@ -2251,10 +2402,32 @@ FILE *lk_open(const char *mode, const string &file)
     return handle;
 }
 
-void lk_close(FILE *handle, const char *mode, const string &file)
+/**
+ * Attempts to open and lock a file for exclusive write access; fails if
+ * the file already exists.
+ *
+ * @param file The path to the file to be opened.
+ * @return     A locked file handle for the specified file, if
+ *             successful; else NULL.
+ */
+FILE *lk_open_exclusive(const string &file)
 {
-    UNUSED(mode);
+    int fd = open_u(file.c_str(), O_WRONLY|O_BINARY|O_EXCL|O_CREAT, 0666);
+    if (fd < 0)
+        return NULL;
 
+    if (!lock_file(fd, true))
+    {
+        mprf(MSGCH_ERROR, "ERROR: Could not lock file %s", file.c_str());
+        close(fd);
+        return NULL;
+    }
+
+    return fdopen(fd, "wb");
+}
+
+void lk_close(FILE *handle, const string &file)
+{
     if (handle == NULL || handle == stdin)
         return;
 
@@ -2279,7 +2452,7 @@ file_lock::file_lock(const string &s, const char *_mode, bool die_on_fail)
 file_lock::~file_lock()
 {
     if (handle)
-        lk_close(handle, mode, filename);
+        lk_close(handle, filename);
 }
 
 /////////////////////////////////////////////////////////////////////////////

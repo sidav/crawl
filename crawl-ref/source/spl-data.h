@@ -20,6 +20,9 @@ struct spell_desc
 }
 */
 
+static const struct spell_desc spelldata[] =
+{
+
 {
     SPELL_TELEPORT_SELF, "Teleport Self",
      SPTYP_TRANSLOCATION,
@@ -807,6 +810,7 @@ struct spell_desc
      false
 },
 
+#if TAG_MAJOR_VERSION == 34
 {
     SPELL_SUMMON_ELEMENTAL, "Summon Elemental",
      SPTYP_SUMMONING,
@@ -819,6 +823,7 @@ struct spell_desc
      false,
      false
 },
+#endif
 
 {
     SPELL_OZOCUBUS_REFRIGERATION, "Ozocubu's Refrigeration",
@@ -864,7 +869,7 @@ struct spell_desc
      SPTYP_CHARMS | SPTYP_ICE,
      SPFLAG_NONE,
      3,
-     200,
+     100,
      -1, -1,
      0,
      NULL,
@@ -1049,13 +1054,13 @@ struct spell_desc
 {
     SPELL_TUKIMAS_DANCE, "Tukima's Dance",
      SPTYP_HEXES,
-     SPFLAG_NONE,
-     5,
+     SPFLAG_DIR_OR_TARGET,
+     3,
      100,
-     -1, -1,
+     LOS_RADIUS, LOS_RADIUS,
      0,
      NULL,
-     false,
+     true,
      false
 },
 
@@ -1113,6 +1118,7 @@ struct spell_desc
      false
 },
 
+#if TAG_MAJOR_VERSION == 34
 {
     SPELL_FIRE_BRAND, "Fire Brand",
      SPTYP_CHARMS | SPTYP_FIRE,
@@ -1152,6 +1158,7 @@ struct spell_desc
      true
 },
 
+#endif
 {
     SPELL_IRON_SHOT, "Iron Shot",
      SPTYP_CONJURATION | SPTYP_EARTH,
@@ -1258,6 +1265,7 @@ struct spell_desc
      true
 },
 
+#if TAG_MAJOR_VERSION == 34
 {
     SPELL_POISON_WEAPON, "Poison Weapon",
      SPTYP_CHARMS | SPTYP_POISON,
@@ -1271,6 +1279,7 @@ struct spell_desc
      true
 },
 
+#endif
 {
     SPELL_DEBUGGING_RAY, "Debugging Ray",
      SPTYP_CONJURATION,
@@ -1354,7 +1363,7 @@ struct spell_desc
      SPTYP_TRANSMUTATION | SPTYP_EARTH,
      SPFLAG_HELPFUL | SPFLAG_CHAOTIC,
      6,
-     200,
+     150,
      -1, -1,
      0,
      NULL,
@@ -1367,7 +1376,7 @@ struct spell_desc
      SPTYP_ICE | SPTYP_TRANSMUTATION,
      SPFLAG_HELPFUL | SPFLAG_CHAOTIC,
      4,
-     200,
+     100,
      -1, -1,
      0,
      NULL,
@@ -1484,8 +1493,8 @@ struct spell_desc
     SPELL_CONFUSING_TOUCH, "Confusing Touch",
      SPTYP_HEXES,
      SPFLAG_NONE,
-     1,
-     200,
+     2,
+     50,
      -1, -1,
      0,
      NULL,
@@ -1801,7 +1810,7 @@ struct spell_desc
      SPTYP_EARTH | SPTYP_TRANSMUTATION, // was ench -- bwr
      SPFLAG_HELPFUL,
      2,
-     200,
+     100,
      -1, -1,
      0,
      NULL,
@@ -2651,6 +2660,7 @@ struct spell_desc
      false,
 },
 
+#if TAG_MAJOR_VERSION == 34
 {
     SPELL_HOLY_LIGHT, "Holy Light",
      SPTYP_CONJURATION,
@@ -2663,6 +2673,7 @@ struct spell_desc
      true,
      false
 },
+#endif
 
 {
     SPELL_HEAL_OTHER, "Heal Other",
@@ -2836,7 +2847,7 @@ struct spell_desc
 {
     SPELL_INNER_FLAME, "Inner Flame",
      SPTYP_HEXES | SPTYP_FIRE,
-     SPFLAG_DIR_OR_TARGET | SPFLAG_NOT_SELF,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_NOT_SELF | SPFLAG_NEUTRAL,
      3,
      200,
      LOS_RADIUS, LOS_RADIUS,
@@ -2859,6 +2870,7 @@ struct spell_desc
      true
 },
 
+#if TAG_MAJOR_VERSION == 34
 {
     SPELL_SILVER_BLAST, "Silver Blast",
      SPTYP_CONJURATION,
@@ -2871,6 +2883,7 @@ struct spell_desc
      true,
      false
 },
+#endif
 
 {
     SPELL_ENSNARE, "Ensnare",
@@ -3516,6 +3529,7 @@ struct spell_desc
      false
 },
 
+#if TAG_MAJOR_VERSION == 34
 {
     SPELL_REARRANGE_PIECES, "Rearrange the Pieces",
      SPTYP_HEXES,
@@ -3528,6 +3542,7 @@ struct spell_desc
      false,
      false
 },
+#endif
 
 {
     SPELL_MAJOR_DESTRUCTION, "Major Destruction",
@@ -3751,6 +3766,32 @@ struct spell_desc
 },
 
 {
+    SPELL_DRAIN_MAGIC, "Drain Magic",
+     SPTYP_HEXES,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_MONSTER,
+     5,
+     200,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     true,
+     false,
+},
+
+{
+    SPELL_CORROSIVE_BOLT, "Corrosive Bolt",
+    SPTYP_CONJURATION,
+    SPFLAG_DIR_OR_TARGET,
+    6,
+    200,
+    6, 6,
+    0,
+    NULL,
+    true,
+    false
+},
+
+{
     SPELL_NO_SPELL, "nonexistent spell",
      0,
      SPFLAG_TESTING,
@@ -3762,3 +3803,5 @@ struct spell_desc
      false,
      false
 },
+
+};

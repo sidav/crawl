@@ -24,7 +24,9 @@
 #include "skills2.h"
 #include "spl-util.h"
 #include "state.h"
+#include "stringutil.h"
 #include "tags.h"
+#include "unicode.h"
 
 #define NOTES_VERSION_NUMBER 1002
 
@@ -79,6 +81,10 @@ static bool _is_noteworthy_dlevel(unsigned short place)
     // the cause.
     if (branch == BRANCH_ABYSS)
         return lev == _dungeon_branch_depth(branch);
+
+    // These get their note in the .des files.
+    if (branch == BRANCH_WIZLAB)
+        return false;
 
     // Other portal levels are always interesting.
     if (!is_connected_branch(static_cast<branch_type>(branch)))
@@ -241,7 +247,7 @@ string Note::describe(bool when, bool where, bool what) const
             result << "Magic: " << first << "/" << second;
             break;
         case NOTE_MAXHP_CHANGE:
-            result << "Reached " << first << " max hit points";
+            result << "Reached " << first << " max health";
             break;
         case NOTE_MAXMP_CHANGE:
             result << "Reached " << first << " max magic points";
@@ -280,6 +286,8 @@ string Note::describe(bool when, bool where, bool what) const
         case NOTE_GOD_GIFT:
             result << "Received a gift from "
                    << god_name(static_cast<god_type>(first));
+            if (!name.empty())
+                result << " (" << name << ")";
             break;
         case NOTE_ID_ITEM:
             result << "Identified " << name;
@@ -336,6 +344,13 @@ string Note::describe(bool when, bool where, bool what) const
             result << "Lost mutation: "
                    << mutation_desc(static_cast<mutation_type>(first),
                                     second == 3 ? 3 : second+1);
+            if (!name.empty())
+                result << " [" << name << "]";
+            break;
+        case NOTE_PERM_MUTATION:
+            result << "Mutation became permanent: "
+                   << mutation_desc(static_cast<mutation_type>(first),
+                                    second == 0 ? 1 : second);
             if (!name.empty())
                 result << " [" << name << "]";
             break;

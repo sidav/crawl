@@ -2,8 +2,9 @@
 tutorial intro
 
 You can reread all messages at any time with
-<input>$cmd[CMD_REPLAY_MESSAGES]</input>. Also, press <input>Space</input> to
-clear the <cyan>--more--</cyan> prompts.
+<input>$cmd[CMD_REPLAY_MESSAGES]</input>. Also, press <input>Space</input>
+<localtiles> or <input>left click</input> with mouse</localtiles> to clear the
+<cyan>--more--</cyan> prompts.
 %%%%
 ##############################################
 # Tutorial map 1: Movement and exploration   #
@@ -41,7 +42,7 @@ tutorial1 downstairs
 
 When standing on a staircase leading downwards, you can enter the next level
 with <input>$cmd[CMD_GO_DOWNSTAIRS]</input><localtiles> or with
-<input>Shift-Click</input> on your character</localtiles>.
+a <input>left click</input> on your character</localtiles>.
 %%%%
 tutorial1 levelmap
 
@@ -81,7 +82,7 @@ Congratulations! You've completed the first lesson!
 
 To exit the tutorial, simply go up these stairs with
 <input>$cmd[CMD_GO_UPSTAIRS]</input><localtiles> or by
-<input>Shift-clicking</input> on your character</localtiles>. Confirm the
+<input>left clicking</input> on your character</localtiles>. Confirm the
 resulting prompt with an uppercase <input>Y</input>.
 %%%%
 tutorial1 newlevel
@@ -107,7 +108,7 @@ tutorial1 upstairs
 
 When standing on a staircase leading upwards, you can enter the previous level
 with <input>$cmd[CMD_GO_UPSTAIRS]</input><localtiles> or by
-<input>Shift-clicking</input> on your character</localtiles>.
+<input>left clicking</input> on your character</localtiles>.
 %%%%
 tutorial1 exit
 
@@ -160,7 +161,7 @@ it.
 %%%%
 tutorial2 resting
 
-Very good! You can regain any lost hit points by resting with
+Very good! You can regain any lost health by resting with
 <input>$cmd[CMD_REST]</input>. This will make you rest for up to 100 turns, but
 will get interrupted by a number of important events.
 %%%%
@@ -182,7 +183,8 @@ Don't forget about chopping corpses for food (with
 tutorial2 wait
 
 Rather than storm the room and get swarmed by monsters, you can also step back
-and wait (with <input>$cmd[CMD_MOVE_NOWHERE]</input>) for them to come to you.
+and wait (with <input>$cmd[CMD_MOVE_NOWHERE]</input><localtiles> or by
+<input>clicking</input> on your character</localtiles>) for them to come to you.
 %%%%
 tutorial2 resting_reminder
 
@@ -205,35 +207,36 @@ Examine these monsters (<localtiles>via <input>mouseover</input></localtiles><no
 tutorial2 downstairs
 
 Well done! After resting to full health continue to the next level with
-<input>$cmd[CMD_GO_DOWNSTAIRS]</input>.
+<input>$cmd[CMD_GO_DOWNSTAIRS]</input><localtiles> or by <input>clicking</input>
+on your character</localtiles>.
 %%%%
 tutorial2 newlevel
 
 Remember: You can reread old messages with
 <input>$cmd[CMD_REPLAY_MESSAGES]</input>.
 %%%%
-tutorial2 darts
+tutorial2 tomahawks
 
-Now, for ranged combat! Pick up these darts with
+Now, for ranged combat! Pick up these tomahawks with
 <input>$cmd[CMD_PICKUP]</input><localtiles> or by
 <input>mouseclick</input>,</localtiles> and continue.
 %%%%
 tutorial2 throwing
 
-You can fire your darts at a monster with <input>$cmd[CMD_FIRE]</input>
+You can fire your tomahawks at a monster with <input>$cmd[CMD_FIRE]</input>
 <localtiles> or by <input>clicking</input> on them in the inventory
 panel</localtiles>. To confirm the auto-targeted monster, press
 <input>$cmd[CMD_TARGET_SELECT]</input> or <input>Enter</input>.
 %%%%
 tutorial2 wield_bow
 
-Pick up this bow and wield it with <input>$cmd[CMD_WIELD_WEAPON]</input>
+Pick up this shortbow and wield it with <input>$cmd[CMD_WIELD_WEAPON]</input>
 <localtiles> or by <input>mouseclick</input></localtiles>.
 %%%%
 tutorial2 firing
 
 # FIXME: Lengthy because of the hint for choosing target.
-Firing arrows from your wielded bow works exactly the same as throwing darts:
+Firing arrows from your wielded shortbow works exactly the same as throwing tomahawks:
 via <input>$cmd[CMD_FIRE]</input><localtiles> or <input>mouseclick</input>
 </localtiles>. You can change the targeted monster by pressing
 <input>$cmd[CMD_TARGET_CYCLE_FORWARD]</input> while in target mode. The worm is
@@ -344,7 +347,7 @@ tutorial3 downstairs
 
 Well fought! If necessary, rest up with <input>$cmd[CMD_REST]</input>, the
 continue downwards with <input>$cmd[CMD_GO_DOWNSTAIRS]</input><localtiles> or
-with <input>Shift-Click</input> on your character</localtiles>.
+with a <input>click</input> on your character</localtiles>.
 %%%%
 tutorial3 command_help
 
@@ -386,17 +389,14 @@ types.
 tutorial3 amulet
 
 Jewellery is put on with <input>$cmd[CMD_WEAR_JEWELLERY]</input><localtiles>
-or with <input>mouseclick</input> in the inventory panel</localtiles>. Some
-types of jewellery are identified when you put them on. For others, you'll need
-another way of identifying them.
+or with <input>mouseclick</input> in the inventory panel</localtiles>.
 %%%%
-tutorial3 scroll_id
+tutorial3 scroll_remove_curse
 
-An important way to identify unknown items is by reading scrolls of identify.
-Try this scroll on your amulet by reading it with <input>$cmd[CMD_READ]</input>
-<localtiles> or by <input>clicking</input> it in the inventory
-panel</localtiles>, and then choosing the amulet from the item list with its
-assigned letter<localtiles> or by <input>mouseclick</input></localtiles>.
+The amulet is cursed and will not come off on its own. This scroll will remove
+all curses that are placed upon you. Try reading it with
+<input>$cmd[CMD_READ]</input><localtiles> or by <input>clicking</input> it in
+the inventory panel</localtiles>.
 %%%%
 tutorial3 drop
 
@@ -417,7 +417,7 @@ tutorial3 enter_shop
 # TODO: Everything else except how to enter the shop should be told in the
 #       shopping screen.
 To enter this shop, press <input>$cmd[CMD_GO_UPSTAIRS]</input><localtiles> or
-<input>Shift-leftclick</input> on your character</localtiles>. To buy items,
+<input>click</input> on your character</localtiles>. To buy items,
 select them with their hotkey, hit <input>Enter</input> and confirm with
 <input>y</input>es. You can switch to description mode with <input>!</input>.
 %%%%
@@ -644,7 +644,7 @@ found so far.
 tutorial5 altar
 
 You can pray on an altar with <input>$cmd[CMD_PRAY]</input><localtiles> (or by
-<input>clicking in the command panel</input> or <input>Shift-clicking</input>
+<input>clicking in the command panel</input> or <input>left clicking</input>
 on your character)</localtiles> to get an idea what a god offers you, and to
 join the faith. If you press <input>!</input><localtiles> or
 <input>rightclick</input></localtiles> on the religion screen, you can see a

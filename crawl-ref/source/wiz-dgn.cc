@@ -30,10 +30,11 @@
 #include "options.h"
 #include "place.h"
 #include "player.h"
+#include "prompt.h"
 #include "religion.h"
 #include "stairs.h"
 #include "state.h"
-#include "stuff.h"
+#include "stringutil.h"
 #include "terrain.h"
 #include "tileview.h"
 #include "travel.h"
@@ -291,19 +292,19 @@ bool wizard_create_feature(const coord_def& pos)
 
 void wizard_list_branches()
 {
-    for (int i = 0; i < NUM_BRANCHES; ++i)
+    for (branch_iterator it; it; ++it)
     {
-        if (parent_branch((branch_type)i) == NUM_BRANCHES)
+        if (parent_branch(it->id) == NUM_BRANCHES)
             continue;
-        else if (brentry[i].is_valid())
+        else if (brentry[it->id].is_valid())
         {
             mprf(MSGCH_DIAGNOSTICS, "Branch %d (%s) is on %s",
-                 i, branches[i].longname, brentry[i].describe().c_str());
+                 it->id, it->longname, brentry[it->id].describe().c_str());
         }
-        else if (is_random_subbranch((branch_type)i))
+        else if (is_random_subbranch(it->id))
         {
             mprf(MSGCH_DIAGNOSTICS, "Branch %d (%s) was not generated "
-                 "this game", i, branches[i].longname);
+                 "this game", it->id, it->longname);
         }
     }
 
@@ -419,7 +420,13 @@ bool debug_make_trap(const coord_def& pos)
     if (spec == "random" || spec == "any")
         trap = TRAP_RANDOM;
 
-    for (int t = TRAP_DART; t < NUM_TRAPS; ++t)
+    for (int t =
+#if TAG_MAJOR_VERSION == 34
+            TRAP_DART
+#else
+            TRAP_ARROW
+#endif
+            ; t < NUM_TRAPS; ++t)
     {
         const trap_type tr = static_cast<trap_type>(t);
         string tname       = lowercase_string(trap_name(tr));
@@ -458,9 +465,9 @@ bool debug_make_trap(const coord_def& pos)
     bool success = place_specific_trap(you.pos(), trap);
     if (success)
     {
-        mprf("Created a %s trap, marked it undiscovered.",
-             (trap == TRAP_RANDOM) ? "random"
-                                   : trap_name(trap).c_str());
+        mprf("Created a %s, marked it undiscovered.",
+             (trap == TRAP_RANDOM) ? "random trap"
+                                   : full_trap_name(trap).c_str());
     }
     else
         mpr("Could not create trap - too many traps on level.");
@@ -607,16 +614,12 @@ static void debug_load_map_by_name(string name, bool primary)
 
     if (primary)
     {
-        // FIXME: somehow minivaults get MAP_FLOAT here -- WTF?
-        dprf("map's orient = %d", toplace->orient);
-        if (toplace->orient == MAP_NONE)
-        {
-            mpr("This is a mini-vault, can't base a layout on it.");
-            return;
-        }
-
-        you.props["force_map"] = toplace->name;
+        if (toplace->is_minivault())
+            you.props["force_minivault"] = toplace->name;
+        else
+            you.props["force_map"] = toplace->name;
         wizard_recreate_level();
+        you.props.erase("force_minivault");
         you.props.erase("force_map");
 
         // We just saved with you.props["force_map"] set; save again in
@@ -647,7 +650,7 @@ static input_history mini_hist(10), primary_hist(10);
 void debug_place_map(bool primary)
 {
     char what_to_make[100];
-    mesclr();
+    clear_messages();
     mprf(MSGCH_PROMPT, primary ? "Enter map name: " :
          "Enter map name (prefix it with * for local placement): ");
     if (cancellable_get_line(what_to_make, sizeof what_to_make,

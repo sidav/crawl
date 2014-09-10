@@ -6,6 +6,7 @@
 #include "art-enum.h"
 #include "artefact.h"
 #include "branch.h"
+#include "cloud.h"
 #include "coord.h"
 #include "coordit.h"
 #include "defines.h"
@@ -18,12 +19,15 @@
 #include "items.h"
 #include "itemname.h"
 #include "itemprop.h"
-#include "libutil.h"
-#include "mon-stuff.h"
+#include "libutil.h"    // testbits
 #include "player.h"
 #include "religion.h"
+#include "shout.h"
 #include "skills2.h"
 #include "state.h"
+#include "stringutil.h"
+#include "terrain.h"
+#include "travel.h"
 
 int chei_stat_boost(int piety)
 {
@@ -183,9 +187,14 @@ void ash_check_bondage(bool msg)
         // Octopodes don't count these slots:
         else if (you.species == SP_OCTOPODE &&
                  (i == EQ_LEFT_RING || i == EQ_RIGHT_RING))
+        {
             continue;
+        }
         // *Only* octopodes count these slots:
         else if (you.species != SP_OCTOPODE && i > EQ_AMULET)
+            continue;
+        // Never count the macabre finger necklace's extra ring slot.
+        else if (i == EQ_RING_AMULET)
             continue;
         else
             s = ET_JEWELS;
@@ -239,9 +248,13 @@ void ash_check_bondage(bool msg)
     // kittehs don't obey hoomie rules!
     if (you.species == SP_FELID)
     {
-        for (int i = EQ_LEFT_RING; i < NUM_EQUIP; ++i)
+        for (int i = EQ_LEFT_RING; i <= EQ_AMULET; ++i)
             if (you.equip[i] != -1 && you.inv[you.equip[i]].cursed())
                 ++you.bondage_level;
+
+        // Allow full bondage when all available slots are cursed.
+        if (you.bondage_level == 3)
+            ++you.bondage_level;
     }
     else
         for (int i = ET_WEAPON; i < NUM_ET; ++i)
@@ -325,16 +338,20 @@ string ash_describe_bondage(int flags, bool level)
     else
     {
         if (flags & ETF_ARMOUR && you.bondage[ET_ARMOUR] != -1)
+        {
             desc += make_stringf("You are %s bound in armour.\n",
                                  you.bondage[ET_ARMOUR] == 0 ? "not" :
                                  you.bondage[ET_ARMOUR] == 1 ? "partially"
                                                              : "fully");
+        }
 
         if (flags & ETF_JEWELS && you.bondage[ET_JEWELS] != -1)
+        {
             desc += make_stringf("You are %s bound in magic.\n",
                                  you.bondage[ET_JEWELS] == 0 ? "not" :
                                  you.bondage[ET_JEWELS] == 1 ? "partially"
                                                              : "fully");
+        }
     }
 
     if (level)
@@ -362,44 +379,6 @@ static bool _is_slot_cursed(equipment_type eq)
     return true;
 }
 
-static bool _jewel_auto_id(const item_def& item)
-{
-    if (item.base_type != OBJ_JEWELLERY)
-        return false;
-
-    // Yay, such lists tend to get out of sync very fast...
-    // Fortunately, this one doesn't have to be too accurate.
-    switch (item.sub_type)
-    {
-    case RING_REGENERATION:
-        return player_mutation_level(MUT_SLOW_HEALING) < 3;
-    case RING_PROTECTION:
-    case RING_EVASION:
-    case RING_STRENGTH:
-    case RING_DEXTERITY:
-    case RING_INTELLIGENCE:
-        return !!item.plus;
-    case AMU_FAITH:
-        return !you_worship(GOD_NO_GOD);
-    case AMU_THE_GOURMAND:
-        return you.species != SP_MUMMY
-               && player_mutation_level(MUT_HERBIVOROUS) < 3;
-    case RING_INVISIBILITY:
-    case RING_TELEPORTATION:
-    case RING_TELEPORT_CONTROL:
-    case RING_MAGICAL_POWER:
-    case RING_FLIGHT:
-    case RING_ICE:
-    case RING_FIRE:
-    case RING_WIZARDRY:
-    case AMU_RAGE:
-    case AMU_GUARDIAN_SPIRIT:
-        return true;
-    default:
-        return false;
-    }
-}
-
 bool god_id_item(item_def& item, bool silent)
 {
     iflags_t old_ided = item.flags & ISFLAG_IDENT_MASK;
@@ -423,44 +402,19 @@ bool god_id_item(item_def& item, bool silent)
         if (is_weapon(item) || item.base_type == OBJ_ARMOUR)
             ided |= ISFLAG_KNOW_PROPERTIES | ISFLAG_KNOW_TYPE;
 
-        if (_jewel_auto_id(item))
+        if (item.base_type == OBJ_JEWELLERY)
             ided |= ISFLAG_IDENT_MASK;
 
         if (item.base_type == OBJ_ARMOUR
-            && you.piety >= piety_breakpoint(0)
             && _is_slot_cursed(get_armour_slot(item)))
         {
-            // Armour would id the pluses when worn, unlike weapons.
             ided |= ISFLAG_KNOW_PLUSES;
         }
 
         if (is_weapon(item)
-            && you.piety >= piety_breakpoint(1)
             && _is_slot_cursed(EQ_WEAPON))
         {
             ided |= ISFLAG_KNOW_PLUSES;
-        }
-
-        if (you.species != SP_OCTOPODE && item.base_type == OBJ_JEWELLERY
-            && you.piety >= piety_breakpoint(1)
-            && (jewellery_is_amulet(item) ?
-                 _is_slot_cursed(EQ_AMULET) :
-                 (_is_slot_cursed(EQ_LEFT_RING) && _is_slot_cursed(EQ_RIGHT_RING))
-             ))
-        {
-            ided |= ISFLAG_IDENT_MASK;
-        }
-        else if (you.species == SP_OCTOPODE && item.base_type == OBJ_JEWELLERY
-            && you.piety >= piety_breakpoint(1)
-            && (jewellery_is_amulet(item) ?
-                 _is_slot_cursed(EQ_AMULET) :
-                 (_is_slot_cursed(EQ_RING_ONE) && _is_slot_cursed(EQ_RING_TWO) &&
-                  _is_slot_cursed(EQ_RING_THREE) && _is_slot_cursed(EQ_RING_FOUR) &&
-                  _is_slot_cursed(EQ_RING_FIVE) && _is_slot_cursed(EQ_RING_SIX) &&
-                  _is_slot_cursed(EQ_RING_SEVEN) && _is_slot_cursed(EQ_RING_EIGHT))
-             ))
-        {
-            ided |= ISFLAG_IDENT_MASK;
         }
     }
     else if (you_worship(GOD_ELYVILON))
@@ -478,7 +432,7 @@ bool god_id_item(item_def& item, bool silent)
         // gives more information than absolutely needed.
         brand_type brand = get_weapon_brand(item);
         if (brand == SPWPN_DRAINING || brand == SPWPN_PAIN
-            || brand == SPWPN_VAMPIRICISM || brand == SPWPN_REAPING)
+            || brand == SPWPN_VAMPIRISM || brand == SPWPN_REAPING)
         {
             ided |= ISFLAG_KNOW_TYPE;
         }
@@ -638,10 +592,7 @@ map<skill_type, int8_t> ash_get_boosted_skills(eq_type type)
 
         // Boost weapon skill.
         if (wpn->base_type == OBJ_WEAPONS)
-        {
-            boost[is_range_weapon(*wpn) ? range_skill(*wpn)
-                                        : weapon_skill(*wpn)] = bondage;
-        }
+            boost[item_attack_skill(*wpn)] = bondage;
 
         // Those staves don't benefit from evocation.
         // Boost spellcasting instead.
@@ -709,6 +660,9 @@ int ash_skill_boost(skill_type sk, int scale)
     // high bonus   -> factor = 7
 
     unsigned int skill_points = you.skill_points[sk];
+    vector<skill_type> cross_skills = get_crosstrain_skills(sk);
+    for (size_t i = 0; i < cross_skills.size(); ++i)
+        skill_points += you.skill_points[cross_skills[i]] * 2 / 5;
     skill_points += (you.skill_boost[sk] * 2 + 1) * piety_rank()
                     * max(you.skill(sk, 10, true), 1) * species_apt_factor(sk);
 
@@ -719,4 +673,175 @@ int ash_skill_boost(skill_type sk, int scale)
     level = level * scale + get_skill_progress(sk, level, skill_points, scale);
 
     return min(level, 27 * scale);
+}
+
+int gozag_gold_in_los(actor *who)
+{
+    if (!you_worship(GOD_GOZAG) || player_under_penance())
+        return 0;
+
+    int gold_count = 0;
+
+    for (radius_iterator ri(who->pos(), LOS_RADIUS, C_ROUND, LOS_DEFAULT);
+         ri; ++ri)
+    {
+        for (stack_iterator j(*ri); j; ++j)
+        {
+            if (j->base_type == OBJ_GOLD && j->special > 0)
+                ++gold_count;
+        }
+    }
+
+    return gold_count;
+}
+
+int qazlal_sh_boost(int piety)
+{
+    if (!you_worship(GOD_QAZLAL)
+        || player_under_penance(GOD_QAZLAL)
+        || piety < piety_breakpoint(0))
+    {
+        return 0;
+    }
+
+    return min(piety, piety_breakpoint(5)) / 10;
+}
+
+void qazlal_storm_clouds()
+{
+    if (!you_worship(GOD_QAZLAL)
+        || player_under_penance(GOD_QAZLAL)
+        || you.piety < piety_breakpoint(0))
+    {
+        return;
+    }
+
+    // You are a *storm*. You are pretty loud!
+    noisy(min((int)you.piety, piety_breakpoint(5)) / 10, you.pos());
+
+    const int radius = you.piety >= piety_breakpoint(3) ? 2 : 1;
+
+    vector<coord_def> candidates;
+    for (radius_iterator ri(you.pos(), radius, C_ROUND, LOS_SOLID, true);
+         ri; ++ri)
+    {
+        int count = 0;
+        if (cell_is_solid(*ri) || env.cgrid(*ri) != EMPTY_CLOUD)
+            continue;
+
+        // No clouds in corridors.
+        for (adjacent_iterator ai(*ri); ai; ++ai)
+            if (!cell_is_solid(*ai))
+                count++;
+
+        if (count >= 5)
+            candidates.push_back(*ri);
+    }
+    const int count =
+        div_rand_round(min((int)you.piety, piety_breakpoint(5))
+                       * candidates.size() * you.time_taken,
+                       piety_breakpoint(5) * 7 * BASELINE_DELAY);
+    if (count < 0)
+        return;
+    shuffle_array(candidates);
+    int placed = 0;
+    for (unsigned int i = 0; placed < count && i < candidates.size(); i++)
+    {
+        bool water = false;
+        for (adjacent_iterator ai(candidates[i]); ai; ++ai)
+        {
+            if (feat_is_watery(grd(*ai)))
+                water = true;
+        }
+
+        // No flame clouds over water to avoid steam generation.
+        cloud_type ctype;
+        do
+        {
+            ctype = random_choose(CLOUD_FIRE, CLOUD_COLD, CLOUD_STORM,
+                                       CLOUD_DUST_TRAIL, -1);
+        } while (water && ctype == CLOUD_FIRE);
+
+        place_cloud(ctype, candidates[i], random_range(3, 5), &you);
+        placed++;
+    }
+}
+
+void qazlal_element_adapt(beam_type flavour, int strength)
+{
+    if (strength <= 0
+        || !you_worship(GOD_QAZLAL)
+        || player_under_penance(GOD_QAZLAL)
+        || you.piety < piety_breakpoint(4)
+        || !x_chance_in_y(strength, 12 - piety_rank()))
+    {
+        return;
+    }
+
+    beam_type what = BEAM_NONE;
+    duration_type dur = NUM_DURATIONS;
+    string descript = "";
+    switch (flavour)
+    {
+        case BEAM_FIRE:
+        case BEAM_LAVA:
+        case BEAM_STICKY_FLAME:
+        case BEAM_STEAM:
+            what = BEAM_FIRE;
+            dur = DUR_QAZLAL_FIRE_RES;
+            descript = "fire";
+            break;
+        case BEAM_COLD:
+        case BEAM_ICE:
+            what = BEAM_COLD;
+            dur = DUR_QAZLAL_COLD_RES;
+            descript = "cold";
+            break;
+        case BEAM_ELECTRICITY:
+            what = BEAM_ELECTRICITY;
+            dur = DUR_QAZLAL_ELEC_RES;
+            descript = "electricity";
+            break;
+        case BEAM_MISSILE:
+        case BEAM_FRAG:
+            what = BEAM_MISSILE;
+            dur = DUR_QAZLAL_AC;
+            descript = "physical attacks";
+            break;
+        default:
+            return;
+    }
+
+    if (what != BEAM_FIRE && you.duration[DUR_QAZLAL_FIRE_RES])
+    {
+        mprf(MSGCH_DURATION, "Your resistance to fire fades away.");
+        you.duration[DUR_QAZLAL_FIRE_RES] = 0;
+    }
+
+    if (what != BEAM_COLD && you.duration[DUR_QAZLAL_COLD_RES])
+    {
+        mprf(MSGCH_DURATION, "Your resistance to cold fades away.");
+        you.duration[DUR_QAZLAL_COLD_RES] = 0;
+    }
+
+    if (what != BEAM_ELECTRICITY && you.duration[DUR_QAZLAL_ELEC_RES])
+    {
+        mprf(MSGCH_DURATION, "Your resistance to electricity fades away.");
+        you.duration[DUR_QAZLAL_ELEC_RES] = 0;
+    }
+
+    if (what != BEAM_MISSILE && you.duration[DUR_QAZLAL_AC])
+    {
+        mprf(MSGCH_DURATION, "Your resistance to physical damage fades away.");
+        you.duration[DUR_QAZLAL_AC] = 0;
+        you.redraw_armour_class = true;
+    }
+
+    mprf(MSGCH_GOD, "You feel %sprotected from %s.",
+         you.duration[dur] > 0 ? "more " : "", descript.c_str());
+
+    you.increase_duration(dur, 10 * strength, 80);
+
+    if (what == BEAM_MISSILE)
+        you.redraw_armour_class = true;
 }

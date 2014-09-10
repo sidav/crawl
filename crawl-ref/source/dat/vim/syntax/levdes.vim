@@ -57,9 +57,10 @@ syn region desNameline start=/^NAME:/ end=/$/ contains=desDec,desVaultname keepe
 syn match desVaultname /\w*/ contained
 
 syn match desGod contained /ashenzari\|beogh\|cheibriados\|dithmenos\|elyvilon/
-syn match desGod contained /fedhas\|jiyva\|kikubaaqudgha\|lugonu\|makhleb/
-syn match desGod contained /nemelex_xobeh\|okawaru\|sif_muna\|trog\|vehumet/
-syn match desGod contained /xom\|yredelemnul\|zin\|the_shining_one/
+syn match desGod contained /fedhas\|gozag\|jiyva\|kikubaaqudgha\|lugonu/
+syn match desGod contained /makhleb\|nemelex_xobeh\|okawaru\|qazlal\|sif_muna/
+syn match desGod contained /trog\|vehumet\|xom\|yredelemnul\|zin/
+syn match desGod contained /the_shining_one/
 
 syn keyword desDeclarator ORIENT: DEPTH: PLACE: MONS: FLAGS: default-depth: TAGS: CHANCE: WEIGHT:
 syn keyword desDeclarator ITEM: KFEAT: KMONS: KITEM: KMASK: KPROP: MARKER: WELCOME: LFLAGS: BFLAGS:
@@ -90,18 +91,18 @@ syn match desBranchname contained /bailey\|ice_cave\|volcano\|wizlab/
 " in abyss.cc
 syn keyword desOrientation abyss_exit
 " in decks.cc and dgn-labyrinth.cc (without `minotaur` because monster)
-syn keyword desOrientation trowel_portal lab generate_loot
+syn keyword desOrientation lab generate_loot
 " from dlua.ziggurat
 syn keyword desOrientation ziggurat_pillar centered
 " map building in dungeon.cc (`transparent` is handled later)
 "Note: `dummy` mis-catches `training dummy` about half as often as actually used as tag
-syn keyword desOrientation dummy arrival mini_float extra ruin layout pan decor
+syn keyword desOrientation dummy arrival no_exits extra ruin layout pan decor
 syn keyword desOrientation allow_dup uniq luniq
 syn keyword desOrientation no_hmirror no_vmirror no_rotate
 syn keyword desOrientation no_dump
 " vault placement in maps.cc
 syn keyword desOrientation unrand place_unique special_room tutorial
-syn keyword desOrientation water_ok can_overwrite replace_portal
+syn keyword desOrientation water_ok overwrite_floor_cell replace_portal
 " V vault building (mostly dlua/v_layouts and v_rooms)
 syn keyword desOrientation vaults_room vaults_empty vaults_hard no_windows preserve_wall
 

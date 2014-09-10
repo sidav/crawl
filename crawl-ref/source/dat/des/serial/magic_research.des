@@ -97,7 +97,7 @@ ENDMAP
 
 NAME:   hangedman_research_electronics
 MONS:   air elemental / raiju / shock serpent
-MONS:   sky beast, ball lightning / vapour
+MONS:   sky beast, ball lightning / lightning spire
 COLOUR: .v0123D = cyan
 FTILE:  .+v0123D = floor_rough_cyan
 TILE:   v = dngn_metal_wall_cyan
@@ -139,9 +139,8 @@ MONS:    sea snake / redback, red wasp / yellow wasp
 MONS:    mana viper / tarantella
 KMONS:   D = death drake
 KITEM:   E = potion of poison ident:type / \
-             potion of strong poison ident:type / \
              potion of confusion ident:type / \
-             potion of paralysis ident:type
+             potion of decay ident:type
 COLOUR:  .012345DE = lightgreen
 FTILE:   .+n012345DE = floor_moss
 SHUFFLE: 12, 34

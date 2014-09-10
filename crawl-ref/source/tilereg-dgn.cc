@@ -21,11 +21,13 @@
 #include "misc.h"
 #include "mon-util.h"
 #include "options.h"
+#include "output.h"
+#include "prompt.h"
 #include "religion.h"
 #include "spl-cast.h"
 #include "spl-util.h"
 #include "stash.h"
-#include "stuff.h"
+
 #include "terrain.h"
 #include "tiledef-icons.h"
 #include "tiledef-main.h"
@@ -875,9 +877,10 @@ int DungeonRegion::handle_mouse(MouseEvent &event)
                 }
                 else
                 {
+
                     // pick up menu
                     // More than a single item -> open menu right away.
-                    if (o != NON_ITEM && mitm[o].link != NON_ITEM)
+                    if (count_movable_items(o) > 1)
                     {
                         pickup_menu(o);
                         flush_prev_message();
@@ -1197,8 +1200,12 @@ bool tile_dungeon_tip(const coord_def &gc, string &tip)
     {
         if (you.see_cell(gc) && env.map_knowledge(gc).item())
         {
-            _add_tip(tip, "[L-Click] Pick up items (%)");
-            cmd.push_back(CMD_PICKUP);
+            const item_info * const item = env.map_knowledge(gc).item();
+            if (item && !item_is_stationary(*item))
+            {
+                _add_tip(tip, "[L-Click] Pick up items (%)");
+                cmd.push_back(CMD_PICKUP);
+            }
         }
 
         const dungeon_feature_type feat = env.map_knowledge(gc).feat();

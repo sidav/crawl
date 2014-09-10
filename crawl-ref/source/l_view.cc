@@ -9,20 +9,26 @@
 #include "l_defs.h"
 
 #include "cluautil.h"
+#include "cloud.h"
 #include "coord.h"
 #include "env.h"
-#include "libutil.h"
+#include "mon-death.h"
 #include "player.h"
+#include "religion.h"
 #include "terrain.h"
-#include "cloud.h"
 #include "travel.h"
+#include "stringutil.h"
+#include "view.h"
 
 LUAFN(view_feature_at)
 {
     COORDSHOW(s, 1, 2)
     const coord_def p = player2grid(s);
     if (!map_bounds(p))
+    {
+        lua_pushnil(ls);
         return 1;
+    }
     dungeon_feature_type f = env.map_knowledge(p).feat();
     lua_pushstring(ls, dungeon_feature_name(f));
     return 1;
@@ -33,9 +39,16 @@ LUAFN(view_is_safe_square)
     COORDSHOW(s, 1, 2)
     const coord_def p = player2grid(s);
     if (!map_bounds(p))
+    {
+        PLUARET(boolean, false);
         return 1;
+    }
     cloud_type c = env.map_knowledge(p).cloud();
-    if (c != CLOUD_NONE && is_damaging_cloud(c, true))
+    if (c != CLOUD_NONE
+        && is_damaging_cloud(c, true)
+        && (!you_worship(GOD_QAZLAL)
+            || player_under_penance()
+            || !YOU_KILL(env.map_knowledge(p).cloudinfo()->killer)))
     {
         PLUARET(boolean, false);
         return 1;
@@ -50,7 +63,8 @@ LUAFN(view_is_safe_square)
         return 1;
     }
     dungeon_feature_type f = env.map_knowledge(p).feat();
-    if (f != DNGN_UNSEEN && !feat_is_traversable_now(f))
+    if (f != DNGN_UNSEEN && !feat_is_traversable_now(f)
+        || f == DNGN_RUNED_DOOR)
     {
         PLUARET(boolean, false);
         return 1;
@@ -91,9 +105,18 @@ LUAFN(view_withheld)
     COORDSHOW(s, 1, 2)
     const coord_def p = player2grid(s);
     if (!map_bounds(p))
+    {
+        PLUARET(boolean, false);
         return 1;
+    }
     PLUARET(boolean, env.map_knowledge(p).flags & MAP_WITHHELD);
     return 1;
+}
+
+LUAFN(view_update_monsters)
+{
+    update_monsters_in_view();
+    return 0;
 }
 
 static const struct luaL_reg view_lib[] =
@@ -102,6 +125,8 @@ static const struct luaL_reg view_lib[] =
     { "is_safe_square", view_is_safe_square },
     { "can_reach", view_can_reach },
     { "withheld", view_withheld },
+
+    { "update_monsters", view_update_monsters },
 
     { NULL, NULL }
 };

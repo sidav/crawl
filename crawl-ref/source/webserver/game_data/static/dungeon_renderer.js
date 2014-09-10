@@ -225,13 +225,22 @@ function ($, cr, map_knowledge, options, dngn) {
 
                 this.render_cell(cx, cy, x, y, map_cell, cell);
 
-                // Need to redraw cell below if it overlapped
                 // Redraw the cell below if it overlapped
                 if (this.in_view(cx, cy + 1))
                 {
                     var cell_below = map_knowledge.get(cx, cy + 1);
                     if (cell_below.t && cell_below.t.sy && (cell_below.t.sy < 0))
                         this.render_loc(cx, cy + 1);
+                }
+                // Redraw the cell to the right if it overlapped
+                if (this.in_view(cx + 1, cy))
+                {
+                    var cell_right = map_knowledge.get(cx + 1, cy);
+                    if (cell_right.t && cell_right.t.left_overlap
+                        && (cell_right.t.left_overlap < 0))
+                    {
+                        this.render_loc(cx + 1, cy);
+                    }
                 }
             }
         },
@@ -246,7 +255,7 @@ function ($, cr, map_knowledge, options, dngn) {
             {
                 var map_cell = map_knowledge.get(cx, cy);
                 var cell = map_cell.t;
-                if (map_knowledge.visible(cx, cy) && cell_is_animated(cell))
+                if (map_knowledge.visible(map_cell) && cell_is_animated(cell))
                 {
                     animate_cell(cell);
                     var x = (cx - this.view.x) * this.cell_width;

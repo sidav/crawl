@@ -2,10 +2,11 @@
 
 #include "viewgeom.h"
 
+#include "end.h"
 #include "options.h"
 #include "player.h"
 #include "state.h"
-#include "stuff.h"
+
 
 // ----------------------------------------------------------------------
 // Layout helper classes
@@ -17,7 +18,7 @@
 // define VIEW_MIN_WIDTH defined elsewhere
 // define VIEW_MAX_WIDTH use Options.view_max_width
 #define HUD_WIDTH  42
-#define HUD_HEIGHT 12
+#define HUD_HEIGHT 13
 #define MSG_MAX_HEIGHT Options.msg_max_height
 #define MLIST_MIN_HEIGHT Options.mlist_min_height
 #define MLIST_MIN_WIDTH 25  // non-inline layout only
@@ -26,10 +27,24 @@
 #define HUD_MIN_GUTTER 2
 #define HUD_MAX_GUTTER 4
 
+// HACK: hardcoded message window height for webtiles
+// needs to fit into 24 lines!
+#define WEBTILES_MSG_MIN_HEIGHT 6
+
 // Helper for layouts.  Tries to increment lvalue without overflowing it.
 static void _increment(int& lvalue, int delta, int max_value)
 {
     lvalue = min(lvalue+delta, max_value);
+}
+
+static int _msg_min_height()
+{
+#ifdef USE_TILE_WEB
+    if (tiles.is_controlled_from_web())
+        return WEBTILES_MSG_MIN_HEIGHT;
+    else
+#endif
+        return Options.msg_min_height;
 }
 
 class _layout
@@ -39,7 +54,7 @@ public:
         termp(1,1),    termsz(termsz_),
         viewp(-1,-1),  viewsz(VIEW_MIN_WIDTH, VIEW_MIN_HEIGHT),
         hudp(-1,-1),   hudsz(hudsz_),
-        msgp(-1,-1),   msgsz(0, Options.msg_min_height),
+        msgp(-1,-1),   msgsz(0, _msg_min_height()),
         mlistp(-1,-1), mlistsz(MLIST_MIN_WIDTH, 0),
         hud_gutter(HUD_MIN_GUTTER),
         valid(false) {}
@@ -362,9 +377,11 @@ void crawl_view_geometry::init_geometry()
 {
     termsz = coord_def(get_number_of_cols(), get_number_of_lines());
     hudsz  = coord_def(HUD_WIDTH,
-                       HUD_HEIGHT + (Options.show_gold_turns ? 1 : 0)
-                                  + crawl_state.game_is_zotdef()
-                                  + ((you.species == SP_LAVA_ORC) ? 1 : 0));
+                       HUD_HEIGHT + crawl_state.game_is_zotdef()
+#if TAG_MAJOR_VERSION == 34
+                                  + ((you.species == SP_LAVA_ORC) ? 1 : 0)
+#endif
+                                  );
 
     const _inline_layout lay_inline(termsz, hudsz);
     const _mlist_col_layout lay_mlist(termsz, hudsz);

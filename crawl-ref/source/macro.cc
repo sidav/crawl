@@ -38,9 +38,10 @@
 #include "files.h"
 #include "libutil.h"
 #include "options.h"
+#include "output.h"
 #include "message.h"
 #include "state.h"
-#include "stuff.h"
+#include "stringutil.h"
 #include "syscalls.h"
 #include "unicode.h"
 #include "version.h"
@@ -166,7 +167,7 @@ static bool userfunc_referenced(int index)
 }
 
 // Expensive function to discard unused function names
-static void userfunc_collectgarbage(void)
+static void userfunc_collectgarbage()
 {
     for (int i = userfunctions.size() - 1; i >= 0; --i)
     {
@@ -755,6 +756,20 @@ int getchm(KeymapContext mc, int (*rgetch)())
     return macro_buf_get();
 }
 
+/**
+ * Get a character?
+ */
+int get_ch()
+{
+    mouse_control mc(MOUSE_MODE_PROMPT);
+    int gotched = getchm();
+
+    if (gotched == 0)
+        gotched = getchm();
+
+    return gotched;
+}
+
 /*
  * Replacement for getch(). Returns keys from the key buffer if available.
  * If not, adds some content to the buffer, and returns some of it.
@@ -883,14 +898,14 @@ static string _macro_type_name(bool keymap, KeymapContext keymc)
                         (keymap ? "keymap" : "macro"));
 }
 
-void macro_add_query(void)
+void macro_add_query()
 {
     int input;
     bool keymap = false;
     bool raw = false;
     KeymapContext keymc = KMC_DEFAULT;
 
-    mesclr();
+    clear_messages();
     mprf(MSGCH_PROMPT, "(m)acro, (M)acro raw, keymap "
                        "[(k) default, (x) level-map, (t)argeting, "
                        "(c)onfirm, m(e)nu], (s)ave? ");
@@ -989,9 +1004,11 @@ void macro_add_query(void)
     {
         const bool deleted_macro = macro_del(mapref, key);
         if (deleted_macro)
+        {
             mprf("Deleted %s for '%s'.",
                  macro_type.c_str(),
                  vtostr(key).c_str());
+        }
         else
             canned_msg(MSG_OK);
     }
@@ -1036,11 +1053,12 @@ static void _read_macros_from(const char* filename)
         }
         else if (s.length() >= 3 && s[0] == 'K' && s[2] == ':')
         {
-            keymc  = KeymapContext(KMC_DEFAULT + s[1] - '0');
-            if (keymc >= KMC_DEFAULT && keymc < KMC_CONTEXT_COUNT)
+            const KeymapContext ctx = KeymapContext(KMC_DEFAULT + s[1] - '0');
+            if (ctx >= KMC_DEFAULT && ctx < KMC_CONTEXT_COUNT)
             {
                 key    = parse_keyseq(s.substr(3));
                 keymap = true;
+                keymc  = ctx;
             }
         }
         else if (s.substr(0, 2) == "M:")

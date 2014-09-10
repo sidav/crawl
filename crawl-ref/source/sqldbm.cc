@@ -5,8 +5,8 @@
 
 #include "AppHdr.h"
 
+#include "end.h"
 #include "sqldbm.h"
-#include "stuff.h"
 #include "syscalls.h"
 #include <fcntl.h>
 #include <unistd.h>
@@ -270,8 +270,10 @@ unique_ptr<string> SQL_DBM::nextkey()
     if (s_iterator)
     {
         if (ec(sqlite3_step(s_iterator)) == SQLITE_ROW)
+        {
             result.reset(
                 new string((const char *) sqlite3_column_text(s_iterator, 0)));
+        }
         else
             sqlite3_reset(s_iterator);
     }

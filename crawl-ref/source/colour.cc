@@ -8,13 +8,13 @@
 #include "dgn-height.h"
 #include "env.h"
 #include "libutil.h"
-#include "mon-stuff.h"
 #include "mon-info.h"
 #include "mon-info.h"
 #include "mon-util.h"
 #include "options.h"
 #include "player.h"
 #include "random.h"
+#include "stringutil.h"
 
 #include <utility>
 #include <math.h>
@@ -66,7 +66,7 @@ int random_element_colour_calc::get(const coord_def& loc, bool non_random)
     return (*real_calc)(rand(non_random), loc, rand_vals);
 }
 
-colour_t random_colour(void)
+colour_t random_colour()
 {
     return 1 + random2(15);
 }
@@ -171,6 +171,27 @@ static int _etc_waves(int, const coord_def& loc)
         return CYAN;
 }
 
+static int _etc_elemental(int, const coord_def& loc)
+{
+    int cycle = (you.elapsed_time / 200) % 4;
+    switch (cycle)
+    {
+        default:
+        case 0:
+            return element_colour(ETC_EARTH, false, loc);
+        case 1:
+            return element_colour(coinflip() ? ETC_AIR : ETC_ELECTRICITY,
+                                  false, loc);
+        case 2:
+            // Not ETC_FIRE, which is Makhleb; instead do magma-y colours.
+            if (coinflip())
+                return RED;
+            return coinflip() ? BROWN : LIGHTRED;
+        case 3:
+            return element_colour(ETC_ICE, false, loc);
+    }
+}
+
 int get_disjunct_phase(const coord_def& loc)
 {
     static int turns = you.num_turns;
@@ -241,17 +262,8 @@ static int _etc_tree(int, const coord_def& loc)
     h += loc.y;
     h+=h<<10; h^=h>>6;
     h+=h<<3; h^=h>>11; h+=h<<15;
-    return (h>>30) ? GREEN : LIGHTGREEN;
-}
-
-static int _etc_mangrove(int, const coord_def& loc)
-{
-    uint32_t h = loc.x;
-    h+=h<<10; h^=h>>6;
-    h += loc.y;
-    h+=h<<10; h^=h>>6;
-    h+=h<<3; h^=h>>11; h+=h<<15;
-    return (h>>30) ? GREEN : BROWN;
+    return (h>>30) ? GREEN :
+        you.where_are_you == BRANCH_SWAMP ? BROWN : LIGHTGREEN; // Swamp trees are mangroves.
 }
 
 bool get_tornado_phase(const coord_def& loc)
@@ -615,9 +627,6 @@ void init_element_colours()
                             ETC_TREE, "tree", _etc_tree
                        ));
     add_element_colour(new element_colour_calc(
-                            ETC_MANGROVE, "mangrove", _etc_mangrove
-                       ));
-    add_element_colour(new element_colour_calc(
                             ETC_TORNADO, "tornado", _etc_tornado
                        ));
     add_element_colour(new element_colour_calc(
@@ -638,6 +647,9 @@ void init_element_colours()
                             40,  MAGENTA,
                             40,  BLUE,
                         0));
+    add_element_colour(new element_colour_calc(
+                            ETC_ELEMENTAL, "elemental", _etc_elemental
+                       ));
     // redefined by Lua later
     add_element_colour(new element_colour_calc(
                             ETC_DISCO, "disco", _etc_random

@@ -26,6 +26,7 @@
 #include "jobs.h"
 #include "ouch.h"
 #include "place.h"
+#include "prompt.h"
 #include "religion.h"
 #include "shopping.h"
 #include "species.h"
@@ -33,8 +34,9 @@
 #include "skills2.h"
 #include "spl-transloc.h"
 #include "spl-util.h"
-#include "stuff.h"
+#include "stringutil.h"
 #include "transform.h"
+#include "traps.h"
 #include "travel.h"
 
 /*
@@ -96,6 +98,7 @@ LUARET1(you_god_likes_fresh_corpses, boolean,
 LUARET2(you_hp, number, you.hp, you.hp_max)
 LUARET2(you_mp, number, you.magic_points, you.max_magic_points)
 LUARET1(you_poison_survival, number, poison_survival())
+LUARET1(you_corrosion, number, you.props["corrosion_amount"].get_int())
 LUARET1(you_hunger, number, you.hunger_state)
 LUARET1(you_hunger_name, string, hunger_level())
 LUARET2(you_strength, number, you.strength(false), you.max_strength())
@@ -115,13 +118,12 @@ LUARET1(you_res_fire, number, player_res_fire(false))
 LUARET1(you_res_cold, number, player_res_cold(false))
 LUARET1(you_res_draining, number, player_prot_life(false))
 LUARET1(you_res_shock, number, player_res_electricity(false))
-LUARET1(you_res_statdrain, number, player_sust_abil(false))
+LUARET1(you_res_statdrain, boolean, player_sust_abil(false))
 LUARET1(you_res_mutation, number, you.rmut_from_item(false) ? 1 : 0)
 LUARET1(you_see_invisible, boolean, you.can_see_invisible(false))
 // Returning a number so as not to break existing scripts.
 LUARET1(you_spirit_shield, number, you.spirit_shield(false) ? 1 : 0)
 LUARET1(you_gourmand, boolean, you.gourmand(false))
-LUARET1(you_conservation, boolean, you.conservation(false))
 LUARET1(you_res_corr, boolean, you.res_corr(false))
 LUARET1(you_like_chunks, number, player_likes_chunks(true))
 LUARET1(you_saprovorous, number, player_mutation_level(MUT_SAPROVOROUS))
@@ -166,7 +168,8 @@ LUARET1(you_where, string, level_id::current().describe().c_str())
 LUARET1(you_branch, string, level_id::current().describe(false, false).c_str())
 LUARET1(you_depth, number, you.depth)
 LUARET1(you_depth_fraction, number,
-        (float)you.depth / brdepth[you.where_are_you])
+        (brdepth[you.where_are_you] <= 1) ? 1
+        : ((float)(you.depth - 1) / (brdepth[you.where_are_you] - 1)))
 // [ds] Absolute depth is 1-based for Lua to match things like DEPTH:
 // which are also 1-based. Yes, this is confusing. FIXME: eventually
 // change you.absdepth0 to be 1-based as well.
@@ -186,8 +189,6 @@ LUARET1(you_see_cell_rel, boolean,
 LUARET1(you_see_cell_no_trans_rel, boolean,
         you.see_cell_no_trans(coord_def(luaL_checkint(ls, 1), luaL_checkint(ls, 2)) + you.pos()))
 LUARET1(you_piety_rank, number, piety_rank(you.piety) - 1)
-LUARET1(you_max_burden, number, carrying_capacity(BS_UNENCUMBERED))
-LUARET1(you_burden, number, you.burden)
 LUARET1(you_constricted, boolean, you.is_constricted())
 LUARET1(you_constricting, boolean, you.is_constricting())
 
@@ -410,6 +411,13 @@ LUAFN(you_skill)
     PLUARET(number, you.skill(sk, 10) * 0.1);
 }
 
+LUAFN(you_base_skill)
+{
+    skill_type sk = str_to_skill(luaL_checkstring(ls, 1));
+
+    PLUARET(number, you.skill(sk, 10, true) * 0.1);
+}
+
 LUAFN(you_train_skill)
 {
     skill_type sk = str_to_skill(luaL_checkstring(ls, 1));
@@ -450,6 +458,7 @@ static const struct luaL_reg you_clib[] =
     { "intelligence", you_intelligence },
     { "dexterity"   , you_dexterity },
     { "skill"       , you_skill },
+    { "base_skill"  , you_base_skill },
     { "skill_progress", you_skill_progress },
     { "can_train_skill", you_can_train_skill },
     { "train_skill", you_train_skill },
@@ -467,7 +476,6 @@ static const struct luaL_reg you_clib[] =
     { "saprovorous",  you_saprovorous },
     { "like_chunks",  you_like_chunks },
     { "gourmand",     you_gourmand },
-    { "conservation", you_conservation },
     { "res_corr",     you_res_corr },
     { "flying",       you_flying },
     { "transform",    you_transform },
@@ -487,6 +495,7 @@ static const struct luaL_reg you_clib[] =
     { "rooted",       you_rooted },
     { "poisoned",     you_poisoned },
     { "poison_survival", you_poison_survival },
+    { "corrosion",    you_corrosion },
     { "invisible",    you_invisible },
     { "mesmerised",   you_mesmerised },
     { "on_fire",      you_on_fire },
@@ -506,8 +515,6 @@ static const struct luaL_reg you_clib[] =
     { "deaths",       you_deaths },
     { "lives",        you_lives },
     { "piety_rank",   you_piety_rank },
-    { "max_burden",   you_max_burden },
-    { "burden",       you_burden },
     { "constricted",  you_constricted },
     { "constricting", you_constricting },
     { "antimagic",    you_antimagic },
@@ -618,9 +625,7 @@ static int _you_piety(lua_State *ls)
     if (lua_gettop(ls) >= 1)
     {
         const int new_piety = min(max(luaL_checkint(ls, 1), 0), MAX_PIETY);
-        while (new_piety > you.piety)
-            gain_piety(new_piety - you.piety, 1, true, false);
-        lose_piety(you.piety - new_piety);
+        set_piety(new_piety);
     }
     PLUARET(number, you.piety);
 }
@@ -631,21 +636,21 @@ LUAFN(you_in_branch)
 
     int br = NUM_BRANCHES;
 
-    for (int i = 0; i < NUM_BRANCHES; i++)
+    for (branch_iterator it; it; ++it)
     {
-        if (strcasecmp(name, branches[i].shortname) == 0
-            || strcasecmp(name, branches[i].longname) == 0
-            || strcasecmp(name, branches[i].abbrevname) == 0)
+        if (strcasecmp(name, it->shortname) == 0
+            || strcasecmp(name, it->longname) == 0
+            || strcasecmp(name, it->abbrevname) == 0)
         {
             if (br != NUM_BRANCHES)
             {
                 string err = make_stringf(
                     "'%s' matches both branch '%s' and '%s'",
                     name, branches[br].abbrevname,
-                    branches[i].abbrevname);
+                    it->abbrevname);
                 return luaL_argerror(ls, 1, err.c_str());
             }
-            br = i;
+            br = it->id;
         }
     }
 
@@ -716,7 +721,7 @@ LUAFN(you_init)
     setup_game(ng);
     you.save->unlink();
     you.save = NULL;
-    PLUARET(string, skill_name(weapon_skill(OBJ_WEAPONS, ng.weapon)));
+    PLUARET(string, skill_name(item_attack_skill(OBJ_WEAPONS, ng.weapon)));
 }
 
 LUARET1(you_exp_needed, number, exp_needed(luaL_checkint(ls, 1)));

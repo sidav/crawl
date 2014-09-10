@@ -18,6 +18,7 @@
 #include "externs.h"
 #include "options.h"
 
+#include "attitude-change.h"
 #include "cio.h"
 #include "cloud.h"
 #include "colour.h"
@@ -41,9 +42,10 @@
 #include "mapmark.h"
 #include "message.h"
 #include "misc.h"
-#include "mon-stuff.h"
+#include "mon-death.h"
 #include "mon-info.h"
 #include "output.h"
+#include "prompt.h"
 #include "shopping.h"
 #include "show.h"
 #include "showsymb.h"
@@ -51,7 +53,7 @@
 #include "env.h"
 #include "areas.h"
 #include "stash.h"
-#include "stuff.h"
+#include "stringutil.h"
 #include "target.h"
 #ifdef USE_TILE
  #include "tileview.h"
@@ -88,6 +90,12 @@ enum LOSSelect
     LS_FLIPHV   = 0x40,
 
     LS_NONE     = 0xFFFF,
+};
+
+enum target_obj_mode
+{
+    TARGOBJ_ANY,
+    TARGOBJ_MOVABLE,
 };
 
 #ifdef WIZARD
@@ -323,6 +331,19 @@ monster* direction_chooser::targeted_monster() const
         return NULL;
 }
 
+// Return your target, if it still exists and is visible to you.
+static monster* _get_current_target()
+{
+    if (invalid_monster_index(you.prev_targ))
+        return NULL;
+
+    monster* mon = &menv[you.prev_targ];
+    if (mon->alive() && you.can_see(mon))
+        return mon;
+    else
+        return NULL;
+}
+
 string direction_chooser::build_targeting_hint_string() const
 {
     string hint_string;
@@ -330,7 +351,7 @@ string direction_chooser::build_targeting_hint_string() const
     // Hint for 'p' - previous target, and for 'f' - current cell, if
     // applicable.
     const actor*   f_target = targeted_actor();
-    const monster* p_target = get_current_target();
+    const monster* p_target = _get_current_target();
 
     if (f_target && f_target == p_target)
         hint_string = ", f/p - " + f_target->name(DESC_PLAIN);
@@ -369,8 +390,7 @@ void direction_chooser::print_key_hints() const
         switch (restricts)
         {
         case DIR_NONE:
-            if (!target_unshifted)
-                prompt += ", Shift-Dir - straight line";
+            prompt += ", Shift-Dir - straight line";
             prompt += hint_string;
             break;
         case DIR_TARGET:
@@ -380,12 +400,18 @@ void direction_chooser::print_key_hints() const
             break;
         case DIR_DIR:
         case DIR_TARGET_OBJECT:
+        case DIR_MOVABLE_OBJECT:
             break;
         }
     }
 
     // Display the prompt.
     mprf(MSGCH_PROMPT, "%s", prompt.c_str());
+}
+
+bool direction_chooser::targets_objects() const
+{
+    return restricts == DIR_TARGET_OBJECT || restricts == DIR_MOVABLE_OBJECT;
 }
 
 void direction_chooser::describe_cell() const
@@ -403,7 +429,7 @@ void direction_chooser::describe_cell() const
         print_key_hints();
         bool did_cloud = false;
         print_target_description(did_cloud);
-        if (just_looking || (show_items_once && restricts != DIR_TARGET_OBJECT))
+        if (just_looking || (show_items_once && !targets_objects()))
             print_items_description();
         if (just_looking || show_floor_desc)
         {
@@ -514,7 +540,6 @@ direction_chooser::direction_chooser(dist& moves_,
     need_all_redraw = false;
 
     show_items_once = false;
-    target_unshifted = Options.target_unshifted_dirs;
 }
 
 class view_desc_proc
@@ -759,7 +784,7 @@ void full_describe_view()
                 // View database entry.
                 describe_monsters(*m);
                 redraw_screen();
-                mesclr();
+                clear_messages();
             }
             else // ACT_EXECUTE -> view/travel
             {
@@ -960,7 +985,7 @@ bool direction_chooser::move_is_ok() const
             // cancel_at_self == not allowed to target yourself
             // (SPFLAG_NOT_SELF)
 
-            if (restricts != DIR_TARGET_OBJECT
+            if (!targets_objects()
                 && (mode == TARG_ENEMY || mode == TARG_HOSTILE
                     || mode == TARG_HOSTILE_SUBMERGED
                     || mode == TARG_HOSTILE_UNDEAD))
@@ -1022,7 +1047,7 @@ bool direction_chooser::find_default_monster_target(coord_def& result) const
     bool (*find_targ)(const coord_def&, int, bool, int, targetter*);
 
     // First try to pick our previous target.
-    const monster* mons_target = get_current_target();
+    const monster* mons_target = _get_current_target();
     if (mons_target != NULL
         && (mode != TARG_EVOLVABLE_PLANTS
             && mons_attitude(mons_target) == ATT_HOSTILE
@@ -1031,6 +1056,8 @@ bool direction_chooser::find_default_monster_target(coord_def& result) const
             && mons_is_evolvable(mons_target)
             || mode == TARG_HOSTILE_UNDEAD && !mons_target->friendly()
             && mons_target->holiness() == MH_UNDEAD
+            || mode == TARG_BEOGH_GIFTABLE
+            && !beogh_can_gift_items_to(mons_target)
             || mode == TARG_INJURED_FRIEND
             && (mons_target->friendly() && mons_get_damage_level(mons_target) > MDAM_OKAY
                 || (!mons_target->wont_attack()
@@ -1092,18 +1119,22 @@ coord_def direction_chooser::find_default_target() const
     coord_def result = you.pos();
     bool success = false;
 
-    if (restricts == DIR_TARGET_OBJECT)
+    if (targets_objects())
     {
         // Try to find an object.
-        success = _find_square_wrapper(result, 1, _find_object,
-                                       needs_path, TARG_ANY, range, hitfunc,
-                                       true, LS_FLIPVH);
+        success = _find_square_wrapper(result, 1, _find_object, needs_path,
+                                       restricts == DIR_MOVABLE_OBJECT
+                                           ? TARGOBJ_MOVABLE
+                                           : TARGOBJ_ANY,
+                                       range, hitfunc, true, LS_FLIPVH);
     }
     else if (mode == TARG_ENEMY || mode == TARG_HOSTILE
              || mode == TARG_HOSTILE_SUBMERGED
              || mode == TARG_EVOLVABLE_PLANTS
+             || mode == TARG_BEOGH_GIFTABLE
              || mode == TARG_HOSTILE_UNDEAD
-             || mode == TARG_INJURED_FRIEND)
+             || mode == TARG_INJURED_FRIEND
+             || (mode == TARG_ANY || mode == TARG_FRIEND) && cancel_at_self)
     {
         success = find_default_monster_target(result);
     }
@@ -1246,13 +1277,14 @@ bool direction_chooser::in_range(const coord_def& p) const
 // and update output accordingly if successful.
 void direction_chooser::object_cycle(int dir)
 {
-    if (_find_square_wrapper(objfind_pos, dir, _find_object,
-                             needs_path, TARG_ANY, range, hitfunc, true,
+    if (_find_square_wrapper(objfind_pos, dir, _find_object, needs_path,
+                             restricts == DIR_MOVABLE_OBJECT ? TARGOBJ_MOVABLE
+                                                             : TARGOBJ_ANY,
+                             range, hitfunc, true,
                              (dir > 0 ? LS_FLIPVH : LS_FLIPHV)))
     {
         set_target(objfind_pos);
         show_items_once = true;
-        target_unshifted = false;
     }
     else
         flush_input_buffer(FLUSH_ON_FAILURE);
@@ -1264,7 +1296,6 @@ void direction_chooser::monster_cycle(int dir)
                              needs_path, mode, range, hitfunc, true))
     {
         set_target(monsfind_pos);
-        target_unshifted = false;
     }
     else
         flush_input_buffer(FLUSH_ON_FAILURE);
@@ -1389,7 +1420,7 @@ void direction_chooser::show_initial_prompt()
 
 void direction_chooser::print_target_description(bool &did_cloud) const
 {
-    if (restricts == DIR_TARGET_OBJECT)
+    if (targets_objects())
         print_target_object_description();
     else
         print_target_monster_description(did_cloud);
@@ -1619,7 +1650,7 @@ void direction_chooser::toggle_beam()
 
 bool direction_chooser::select_previous_target()
 {
-    if (const monster* mon_target = get_current_target())
+    if (const monster* mon_target = _get_current_target())
     {
         // We have all the information we need.
         moves.isValid  = true;
@@ -1822,14 +1853,6 @@ bool direction_chooser::tiles_update_target()
     return false;
 }
 
-command_type direction_chooser::massage_command(command_type key_command) const
-{
-    if (target_unshifted && looking_at_you() && restricts != DIR_TARGET)
-        key_command = shift_direction(key_command);
-
-    return key_command;
-}
-
 void direction_chooser::handle_mlist_cycle_command(command_type key_command)
 {
 #ifndef USE_TILE_LOCAL
@@ -1871,7 +1894,7 @@ void direction_chooser::show_help()
 {
     show_targeting_help();
     redraw_screen();
-    mesclr(true);
+    clear_messages(true);
     need_all_redraw = true;
 }
 
@@ -1885,7 +1908,7 @@ bool direction_chooser::do_main_loop()
     reinitialize_move_flags();
 
     const coord_def old_target = target();
-    const command_type key_command = massage_command(behaviour->get_command());
+    const command_type key_command = behaviour->get_command();
     behaviour->update_top_prompt(&top_prompt);
     bool loop_done = false;
 
@@ -1963,7 +1986,7 @@ bool direction_chooser::do_main_loop()
     case CMD_TARGET_GET:             loop_done = pickup_item(); break;
 
     case CMD_TARGET_CYCLE_BACK:
-        if (restricts != DIR_TARGET_OBJECT)
+        if (!targets_objects())
         {
             monster_cycle(-1);
             break;
@@ -1971,7 +1994,7 @@ bool direction_chooser::do_main_loop()
     case CMD_TARGET_OBJ_CYCLE_BACK:    object_cycle(-1);  break;
 
     case CMD_TARGET_CYCLE_FORWARD:
-        if (restricts != DIR_TARGET_OBJECT)
+        if (!targets_objects())
         {
             monster_cycle(1);
             break;
@@ -2062,8 +2085,8 @@ bool direction_chooser::choose_direction()
     moves.delta.reset();
 
     // Find a default target.
-    set_target(!default_place.origin()  ? default_place
-               : Options.default_target ? find_default_target() : you.pos());
+    set_target(!default_place.origin() ? default_place
+                                       : find_default_target());
 
     objfind_pos = monsfind_pos = target();
 
@@ -2077,7 +2100,7 @@ bool direction_chooser::choose_direction()
     if (hitfunc)
         need_beam_redraw = true;
 
-    mesclr();
+    clear_messages();
     msgwin_set_temporary(true);
     show_initial_prompt();
     need_text_redraw = false;
@@ -2200,7 +2223,7 @@ void full_describe_square(const coord_def &c)
     }
 
     redraw_screen();
-    mesclr();
+    clear_messages();
 }
 
 static void _extend_move_to_edge(dist &moves)
@@ -2380,8 +2403,10 @@ static bool _want_target_monster(const monster *mon, int mode)
         return mon->friendly();
 
     if (mode == TARG_INJURED_FRIEND)
+    {
         return mon->friendly() && mons_get_damage_level(mon) > MDAM_OKAY
                || !mon->wont_attack() && !mon->neutral() && is_pacifiable(mon) >= 0;
+    }
 
     if (mode == TARG_EVOLVABLE_PLANTS)
         return mons_is_evolvable(mon);
@@ -2389,12 +2414,21 @@ static bool _want_target_monster(const monster *mon, int mode)
     if (mode == TARG_HOSTILE_UNDEAD)
         return !mon->friendly() && mon->holiness() == MH_UNDEAD;
 
+    if (mode == TARG_BEOGH_GIFTABLE)
+        return beogh_can_gift_items_to(mon);
+
     ASSERT(mode == TARG_ENEMY);
     if (mon->friendly())
         return false;
 
     // Don't target zero xp monsters.
     return !mons_class_flag(mon->type, M_NO_EXP_GAIN);
+}
+
+static bool _tobool(maybe_bool mb)
+{
+    ASSERT(mb != MB_MAYBE);
+    return mb == MB_TRUE;
 }
 
 static bool _find_monster(const coord_def& where, int mode, bool need_path,
@@ -2407,7 +2441,7 @@ static bool _find_monster(const coord_def& where, int mode, bool need_path,
         maybe_bool x = clua.callmbooleanfn("ch_target_monster", "dd",
                                            dp.x, dp.y);
         if (x != MB_MAYBE)
-            return tobool(x);
+            return _tobool(x);
     }
 #endif
 
@@ -2448,7 +2482,7 @@ static bool _find_jump_attack_mons(const coord_def& where, int mode, bool need_p
         maybe_bool x = clua.callmbooleanfn("ch_target_jump", "dd",
                                            dp.x, dp.y);
         if (x != MB_MAYBE)
-            return tobool(x);
+            return _tobool(x);
     }
 #endif
 
@@ -2477,7 +2511,7 @@ static bool _find_monster_expl(const coord_def& where, int mode, bool need_path,
         maybe_bool x = clua.callmbooleanfn("ch_target_monster_expl", "dd",
                                            dp.x, dp.y);
         if (x != MB_MAYBE)
-            return tobool(x);
+            return _tobool(x);
     }
 #endif
 
@@ -2535,8 +2569,10 @@ static bool _find_object(const coord_def& where, int mode,
     if (need_path && (!you.see_cell(where) || _blocked_ray(where)))
         return false;
 
-    return env.map_knowledge(where).item()
-           || (you.see_cell(where) && top_item_at(where));
+    const item_def * const item = you.see_cell(where)
+                                      ? top_item_at(where)
+                                      : env.map_knowledge(where).item();
+    return item && !(mode == TARGOBJ_MOVABLE && item_is_stationary(*item));
 }
 
 static int _next_los(int dir, int los, bool wrap)
@@ -2910,17 +2946,7 @@ string thing_do_grammar(description_level_type dtype, bool add_stop,
     }
 
     if (dtype == DESC_PLAIN || (!force_article && isupper(desc[0])))
-    {
-        /* Since we're removing caps, this shouldn't be needed,
-           but we'll keep it in case, for now.
-        if (dtype == DESC_PLAIN
-            || dtype == DESC_THE
-            || dtype == DESC_A)
-        {
-            desc[0] = tolower(desc[0]);
-        }*/
         return desc;
-    }
 
     switch (dtype)
     {
@@ -2938,341 +2964,17 @@ string thing_do_grammar(description_level_type dtype, bool add_stop,
 static string _base_feature_desc(dungeon_feature_type grid, trap_type trap)
 {
     if (feat_is_trap(grid) && trap != NUM_TRAPS)
-    {
-        switch (trap)
-        {
-        case TRAP_DART:
-            return "dart trap";
-        case TRAP_ARROW:
-            return "arrow trap";
-        case TRAP_NEEDLE:
-            return "needle trap";
-        case TRAP_BOLT:
-            return "bolt trap";
-        case TRAP_SPEAR:
-            return "spear trap";
-        case TRAP_BLADE:
-            return "blade trap";
-        case TRAP_NET:
-            return "net trap";
-#if TAG_MAJOR_VERSION == 34
-        case TRAP_GAS:
-            return "gas trap";
-#endif
-        case TRAP_ALARM:
-            return "alarm trap";
-        case TRAP_SHAFT:
-            return "shaft";
-        case TRAP_TELEPORT:
-            return "teleport trap";
-        case TRAP_ZOT:
-            return "Zot trap";
-        case TRAP_GOLUBRIA:
-            return "passage of Golubria";
-        case TRAP_PLATE:
-            return "pressure plate";
-        case TRAP_WEB:
-            return "web";
-        default:
-            die("Error: invalid trap type %d", trap);
-            return "undefined trap";
-        }
-    }
+        return full_trap_name(trap);
 
-    switch (grid)
-    {
-    case DNGN_STONE_WALL:
-        return "stone wall";
-    case DNGN_ROCK_WALL:
-        if (player_in_branch(BRANCH_PANDEMONIUM))
-            return "wall of the weird stuff which makes up Pandemonium";
-        else
-            return "rock wall";
-    case DNGN_SLIMY_WALL:
-        return "slime covered rock wall";
-    case DNGN_PERMAROCK_WALL:
-        return "unnaturally hard rock wall";
-    case DNGN_OPEN_SEA:
-        return "the open sea";
-    case DNGN_LAVA_SEA:
-        return "the endless lava";
-    case DNGN_CLOSED_DOOR:
-        return "closed door";
-    case DNGN_RUNED_DOOR:
-        return "runed door";
-    case DNGN_SEALED_DOOR:
-        return "sealed door";
-    case DNGN_METAL_WALL:
-        return "metal wall";
-    case DNGN_GREEN_CRYSTAL_WALL:
-        return "wall of green crystal";
-    case DNGN_CLEAR_ROCK_WALL:
-        return "translucent rock wall";
-    case DNGN_CLEAR_STONE_WALL:
-        return "translucent stone wall";
-    case DNGN_CLEAR_PERMAROCK_WALL:
-        return "translucent unnaturally hard rock wall";
-    case DNGN_GRATE:
-        return "iron grate";
-    case DNGN_TREE:
-        return "tree";
-    case DNGN_MANGROVE:
-        return "mangrove";
-    case DNGN_ORCISH_IDOL:
-        if (player_genus(GENPC_ORCISH))
-            return "idol of Beogh";
-        else
-            return "orcish idol";
-    case DNGN_GRANITE_STATUE:
-        return "granite statue";
-    case DNGN_LAVA:
-        return "some lava";
-    case DNGN_DEEP_WATER:
-        return "some deep water";
-    case DNGN_SHALLOW_WATER:
-        return "some shallow water";
-    case DNGN_UNDISCOVERED_TRAP:
-    case DNGN_FLOOR:
-        return "floor";
-    case DNGN_OPEN_DOOR:
-        return "open door";
-    case DNGN_ESCAPE_HATCH_DOWN:
-        return "escape hatch in the floor";
-    case DNGN_ESCAPE_HATCH_UP:
-    case DNGN_EXIT_LABYRINTH:
-        return "escape hatch in the ceiling";
-    case DNGN_STONE_STAIRS_DOWN_I:
-    case DNGN_STONE_STAIRS_DOWN_II:
-    case DNGN_STONE_STAIRS_DOWN_III:
-        return "stone staircase leading down";
-    case DNGN_STONE_STAIRS_UP_I:
-    case DNGN_STONE_STAIRS_UP_II:
-    case DNGN_STONE_STAIRS_UP_III:
-        return "stone staircase leading up";
-    case DNGN_SEALED_STAIRS_DOWN:
-        return "sealed passage leading down";
-    case DNGN_SEALED_STAIRS_UP:
-        return "sealed passage leading up";
-    case DNGN_EXIT_DUNGEON:
-        return "staircase leading out of the dungeon";
-    case DNGN_ENTER_HELL:
-        return "gateway to Hell";
-    case DNGN_EXIT_HELL:
-        return "gateway back into the Dungeon";
-    case DNGN_TELEPORTER:
-        return "short-range portal";
-    case DNGN_TRAP_MECHANICAL:
-        return "mechanical trap";
-    case DNGN_TRAP_TELEPORT:
-        return "teleport trap";
-    case DNGN_TRAP_ALARM:
-        return "alarm trap";
-    case DNGN_TRAP_ZOT:
-        return "Zot trap";
-    case DNGN_TRAP_SHAFT:
-        return "shaft";
-    case DNGN_TRAP_WEB:
-        return "web";
-    case DNGN_ENTER_SHOP:
-        return "shop";
-    case DNGN_ABANDONED_SHOP:
-        return "abandoned shop";
-    case DNGN_ENTER_LABYRINTH:
-        return "labyrinth entrance";
-    case DNGN_ENTER_DIS:
-        return "gateway to the Iron City of Dis";
-    case DNGN_ENTER_GEHENNA:
-        return "gateway to the ashen valley of Gehenna";
-    case DNGN_ENTER_COCYTUS:
-        return "gateway to the freezing wastes of Cocytus";
-    case DNGN_ENTER_TARTARUS:
-        return "gateway to the decaying netherworld of Tartarus";
-    case DNGN_ENTER_ABYSS:
-        return "one-way gate to the infinite horrors of the Abyss";
-    case DNGN_EXIT_ABYSS:
-        return "gateway leading out of the Abyss";
-    case DNGN_ABYSSAL_STAIR:
-        return "gateway leading deeper into the Abyss";
-    case DNGN_EXIT_THROUGH_ABYSS:
-        return "exit through the horrors of the Abyss";
-    case DNGN_STONE_ARCH:
-        return "empty arch of ancient stone";
-    case DNGN_ENTER_PANDEMONIUM:
-        return "one-way gate leading to the halls of Pandemonium";
-    case DNGN_EXIT_PANDEMONIUM:
-        return "gate leading out of Pandemonium";
-    case DNGN_TRANSIT_PANDEMONIUM:
-        return "gate leading to another region of Pandemonium";
-#if TAG_MAJOR_VERSION == 34
-    case DNGN_ENTER_DWARF:
-        return "staircase to the Dwarven Hall";
-#endif
-    case DNGN_ENTER_ORC:
-        return "staircase to the Orcish Mines";
-    case DNGN_ENTER_LAIR:
-        return "staircase to the Lair";
-    case DNGN_ENTER_SLIME:
-        return "staircase to the Slime Pits";
-    case DNGN_ENTER_VAULTS:
-        return "gate to the Vaults";
-    case DNGN_ENTER_CRYPT:
-        return "staircase to the Crypt";
-    case DNGN_ENTER_BLADE:
-        return "staircase to the Hall of Blades";
-    case DNGN_ENTER_ZOT:
-        return "gate to the Realm of Zot";
-    case DNGN_ENTER_TEMPLE:
-        return "staircase to the Ecumenical Temple";
-    case DNGN_ENTER_SNAKE:
-        return "staircase to the Snake Pit";
-    case DNGN_ENTER_ELF:
-        return "staircase to the Elven Halls";
-    case DNGN_ENTER_TOMB:
-        return "staircase to the Tomb";
-    case DNGN_ENTER_SWAMP:
-        return "staircase to the Swamp";
-    case DNGN_ENTER_SHOALS:
-        return "staircase to the Shoals";
-    case DNGN_ENTER_SPIDER:
-        return "hole to the Spider Nest";
-#if TAG_MAJOR_VERSION == 34
-    case DNGN_ENTER_FOREST:
-        return "staircase to the Enchanted Forest";
-#endif
-    case DNGN_ENTER_DEPTHS:
-        return "staircase to the Depths";
-    case DNGN_ENTER_ZIGGURAT:
-        return "gateway to a ziggurat";
-    case DNGN_ENTER_BAZAAR:
-        return "gateway to a bazaar"; // "flickering $_" if timed
-    case DNGN_ENTER_TROVE:
-        return "portal to a secret trove of treasure";
-    case DNGN_ENTER_SEWER:
-        return "glowing drain";
-    case DNGN_ENTER_OSSUARY:
-        return "sand-covered staircase";
-    case DNGN_ENTER_BAILEY:
-        return "flagged portal";
-    case DNGN_ENTER_ICE_CAVE:
-        return "frozen archway";
-    case DNGN_ENTER_VOLCANO:
-        return "dark tunnel";
-    case DNGN_ENTER_WIZLAB:
-        return "magical portal";
-#if TAG_MAJOR_VERSION == 34
-    case DNGN_ENTER_PORTAL_VAULT:
-        return "gate leading to a distant place";
-#endif
-    case DNGN_MALIGN_GATEWAY:
-        return "portal to somewhere";
-    case DNGN_EXPIRED_PORTAL:
-        // should be set whenever used
-        return "collapsed entrance";
-#if TAG_MAJOR_VERSION == 34
-    case DNGN_RETURN_FROM_DWARF:
-#endif
-    case DNGN_RETURN_FROM_ORC:
-    case DNGN_RETURN_FROM_LAIR:
-    case DNGN_RETURN_FROM_VAULTS:
-    case DNGN_RETURN_FROM_TEMPLE:
-    case DNGN_RETURN_FROM_DEPTHS:
-        return "staircase back to the Dungeon";
-    case DNGN_RETURN_FROM_SLIME:
-    case DNGN_RETURN_FROM_SNAKE:
-    case DNGN_RETURN_FROM_SWAMP:
-    case DNGN_RETURN_FROM_SHOALS:
-        return "staircase back to the Lair";
-    case DNGN_RETURN_FROM_SPIDER:
-        return "crawl-hole back to the Lair";
-    case DNGN_RETURN_FROM_CRYPT:
-    case DNGN_RETURN_FROM_BLADE:
-#if TAG_MAJOR_VERSION == 34
-    case DNGN_RETURN_FROM_FOREST:
-#endif
-        return "staircase back to the Vaults";
-    case DNGN_RETURN_FROM_ELF:
-        return "staircase back to the Mines";
-    case DNGN_RETURN_FROM_TOMB:
-        return "staircase back to the Crypt";
-    case DNGN_RETURN_FROM_ZOT:
-        return "gate leading back out of this place";
-    case DNGN_EXIT_ICE_CAVE:
-        return "ice covered gate leading back out of here";
-    case DNGN_EXIT_VOLCANO:
-        return "rocky tunnel leading out of this place";
-    case DNGN_EXIT_WIZLAB:
-        return "portal leading out of here";
-    case DNGN_EXIT_ZIGGURAT:
-    case DNGN_EXIT_BAZAAR:
-    case DNGN_EXIT_TROVE:
-    case DNGN_EXIT_SEWER:
-    case DNGN_EXIT_OSSUARY:
-    case DNGN_EXIT_BAILEY:
-#if TAG_MAJOR_VERSION == 34
-    case DNGN_EXIT_PORTAL_VAULT:
-#endif
-        return "gate leading back out of here";
-
-    // altars
-    case DNGN_ALTAR_ZIN:
-        return "glowing silver altar of Zin";
-    case DNGN_ALTAR_SHINING_ONE:
-        return "glowing golden altar of the Shining One";
-    case DNGN_ALTAR_KIKUBAAQUDGHA:
-        return "ancient bone altar of Kikubaaqudgha";
-    case DNGN_ALTAR_YREDELEMNUL:
-        return "basalt altar of Yredelemnul";
-    case DNGN_ALTAR_XOM:
-        return "shimmering altar of Xom";
-    case DNGN_ALTAR_VEHUMET:
-        return "radiant altar of Vehumet";
-    case DNGN_ALTAR_OKAWARU:
-        return "iron altar of Okawaru";
-    case DNGN_ALTAR_MAKHLEB:
-        return "burning altar of Makhleb";
-    case DNGN_ALTAR_SIF_MUNA:
-        return "deep blue altar of Sif Muna";
-    case DNGN_ALTAR_TROG:
-        return "bloodstained altar of Trog";
-    case DNGN_ALTAR_NEMELEX_XOBEH:
-        return "sparkling altar of Nemelex Xobeh";
-    case DNGN_ALTAR_ELYVILON:
-        return "white marble altar of Elyvilon";
-    case DNGN_ALTAR_LUGONU:
-        return "corrupted altar of Lugonu";
-    case DNGN_ALTAR_BEOGH:
-        return "roughly hewn altar of Beogh";
-    case DNGN_ALTAR_JIYVA:
-        return "viscous altar of Jiyva";
-    case DNGN_ALTAR_FEDHAS:
-        return "blossoming altar of Fedhas";
-    case DNGN_ALTAR_CHEIBRIADOS:
-        return "snail-covered altar of Cheibriados";
-    case DNGN_ALTAR_ASHENZARI:
-        return "shattered altar of Ashenzari";
-    case DNGN_ALTAR_DITHMENOS:
-        return "shadowy altar of Dithmenos";
-
-    case DNGN_FOUNTAIN_BLUE:
-        return "fountain of clear blue water";
-    case DNGN_FOUNTAIN_SPARKLING:
-        return "fountain of sparkling water";
-    case DNGN_FOUNTAIN_BLOOD:
-        return "fountain of blood";
-    case DNGN_DRY_FOUNTAIN:
-        return "dry fountain";
-    case DNGN_PASSAGE_OF_GOLUBRIA:
-        return "passage of Golubria";
-
-    case DNGN_EXPLORE_HORIZON:
-        return "explore horizon";
-    case DNGN_UNKNOWN_ALTAR:
-        return "detected altar";
-    case DNGN_UNKNOWN_PORTAL:
-        return "detected shop or portal";
-    default:
+    if (grid == DNGN_ROCK_WALL && player_in_branch(BRANCH_PANDEMONIUM))
+        return "wall of the weird stuff which makes up Pandemonium";
+    else if (grid == DNGN_ORCISH_IDOL && player_genus(GENPC_ORCISH))
+        return "idol of Beogh";
+    else if (!is_valid_feature_type(grid))
         return "";
-    }
+    else
+        return get_feature_def(grid).name;
+
 }
 
 string feature_description(dungeon_feature_type grid, trap_type trap,
@@ -3321,6 +3023,7 @@ string feature_description_at(const coord_def& where, bool covering,
                               bool base_desc)
 {
     dungeon_feature_type grid = env.map_knowledge(where).feat();
+    trap_type trap = env.map_knowledge(where).trap();
 
     string marker_desc = env.markers.property_at(where, MAT_ANY,
                                                  "feature_description");
@@ -3404,7 +3107,7 @@ string feature_description_at(const coord_def& where, bool covering,
     switch (grid)
     {
     case DNGN_TRAP_MECHANICAL:
-        return feature_description(grid, get_trap_type(where),
+        return feature_description(grid, trap,
                                    covering_description, dtype,
                                    add_stop, base_desc);
     case DNGN_ABANDONED_SHOP:
@@ -3428,7 +3131,7 @@ string feature_description_at(const coord_def& where, bool covering,
     default:
         const string featdesc = grid == grd(where)
                               ? raw_feature_description(where)
-                              : _base_feature_desc(grid, get_trap_type(where));
+                              : _base_feature_desc(grid, trap);
         return thing_do_grammar(dtype, add_stop, feat_is_trap(grid),
                                 featdesc + covering_description);
     }

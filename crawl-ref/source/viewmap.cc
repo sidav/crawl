@@ -28,15 +28,16 @@
 #include "macro.h"
 #include "mon-util.h"
 #include "options.h"
+#include "output.h"
 #include "place.h"
 #include "player.h"
 #include "showsymb.h"
 #include "stash.h"
 #include "state.h"
-#include "stuff.h"
 #include "terrain.h"
 #include "tileview.h"
 #include "travel.h"
+#include "unicode.h"
 #include "viewchar.h"
 #include "viewgeom.h"
 
@@ -77,10 +78,8 @@ static bool _travel_colour_override(const coord_def& p)
         return true;
 #endif
 
-    // [ds] Elaborate dance to get map colouring right if
-    // Options.clean_map is set.
     const map_cell& cell = env.map_knowledge(p);
-    show_class cls = get_cell_show_class(cell, Options.clean_map);
+    show_class cls = get_cell_show_class(cell);
     if (cls == SH_FEATURE)
     {
         switch (cell.feat())
@@ -165,6 +164,8 @@ bool is_feature(ucs_t feature, const coord_def& where)
     case '<':
         switch (grid)
         {
+        case DNGN_ENTER_HELL:
+            return player_in_hell();
         case DNGN_ESCAPE_HATCH_UP:
         case DNGN_STONE_STAIRS_UP_I:
         case DNGN_STONE_STAIRS_UP_II:
@@ -173,13 +174,13 @@ bool is_feature(ucs_t feature, const coord_def& where)
 #if TAG_MAJOR_VERSION == 34
         case DNGN_RETURN_FROM_DWARF:
         case DNGN_RETURN_FROM_FOREST:
+        case DNGN_RETURN_FROM_BLADE:
 #endif
         case DNGN_RETURN_FROM_ORC:
         case DNGN_RETURN_FROM_LAIR:
         case DNGN_RETURN_FROM_SLIME:
         case DNGN_RETURN_FROM_VAULTS:
         case DNGN_RETURN_FROM_CRYPT:
-        case DNGN_RETURN_FROM_BLADE:
         case DNGN_RETURN_FROM_TEMPLE:
         case DNGN_RETURN_FROM_SNAKE:
         case DNGN_RETURN_FROM_ELF:
@@ -205,13 +206,13 @@ bool is_feature(ucs_t feature, const coord_def& where)
 #if TAG_MAJOR_VERSION == 34
         case DNGN_ENTER_DWARF:
         case DNGN_ENTER_FOREST:
+        case DNGN_ENTER_BLADE:
 #endif
         case DNGN_ENTER_ORC:
         case DNGN_ENTER_LAIR:
         case DNGN_ENTER_SLIME:
         case DNGN_ENTER_VAULTS:
         case DNGN_ENTER_CRYPT:
-        case DNGN_ENTER_BLADE:
         case DNGN_ENTER_TEMPLE:
         case DNGN_ENTER_SNAKE:
         case DNGN_ENTER_ELF:
@@ -396,7 +397,7 @@ static int _find_feature(const vector<coord_def>& features,
 
 static int _get_number_of_lines_levelmap()
 {
-    return get_number_of_lines() - (Options.level_map_title ? 1 : 0);
+    return get_number_of_lines() - 1;
 }
 
 #ifndef USE_TILE_LOCAL
@@ -412,7 +413,7 @@ static void _draw_level_map(int start_x, int start_y, bool travel_mode,
 
     cursor_control cs(false);
 
-    int top = 1 + Options.level_map_title;
+    int top = 2;
     cgotoxy(1, top);
     for (int screen_y = 0; screen_y < num_lines; screen_y++)
         for (int screen_x = 0; screen_x < num_cols; screen_x++)
@@ -426,12 +427,11 @@ static void _draw_level_map(int start_x, int start_y, bool travel_mode,
             }
             else
             {
-                cglyph_t g = get_cell_glyph(c, Options.clean_map, -1);
+                cglyph_t g = get_cell_glyph(c, false, -1);
                 cell->glyph = g.ch;
                 cell->colour = g.col;
 
-                const show_class show = get_cell_show_class(
-                        env.map_knowledge(c), Options.clean_map);
+                const show_class show = get_cell_show_class(env.map_knowledge(c));
 
                 if (show == SH_NOTHING && _is_explore_horizon(c))
                 {
@@ -577,9 +577,6 @@ public:
 #ifndef USE_TILE_LOCAL
 static void _draw_title(const coord_def& cpos, const feature_list& feats)
 {
-    if (!Options.level_map_title)
-        return;
-
     const int columns = get_number_of_cols();
     const formatted_string help =
         formatted_string::parse_string("(Press <w>?</w> for help)");
@@ -762,7 +759,7 @@ bool show_map(level_pos &lpos,
         bool redraw_map = true;
 
 #ifndef USE_TILE_LOCAL
-        const int top = 1 + Options.level_map_title;
+        const int top = 2;
         clrscr();
 #endif
         textcolor(DARKGREY);
@@ -1261,6 +1258,24 @@ bool show_map(level_pos &lpos,
                     do_annotate(lpos.id);
 
                 redraw_map = true;
+                break;
+
+            case CMD_MAP_EXPLORE:
+                if (on_level && !player_in_branch(BRANCH_LABYRINTH))
+                {
+                    travel_pathfind tp;
+                    tp.set_floodseed(you.pos(), true);
+
+                    coord_def whereto = tp.pathfind(Options.explore_greedy
+                                                    ? RMODE_EXPLORE_GREEDY
+                                                    : RMODE_EXPLORE);
+                    _reset_travel_colours(features, on_level);
+
+                    if (!whereto.zero()) {
+                        move_x = whereto.x - lpos.pos.x;
+                        move_y = whereto.y - lpos.pos.y;
+                    }
+                }
                 break;
 
 #ifdef WIZARD

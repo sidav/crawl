@@ -32,10 +32,6 @@ spret_type cast_sticks_to_snakes(int pow, god_type god, bool fail);
 
 spret_type cast_summon_swarm(int pow, god_type god, bool fail);
 spret_type cast_call_canine_familiar(int pow, god_type god, bool fail);
-spret_type cast_summon_elemental(int pow, god_type god = GOD_NO_GOD,
-                                 monster_type restricted_type = MONS_NO_MONSTER,
-                                 int unfriendly = 2, int horde_penalty = 0,
-                                 bool fail = false);
 spret_type cast_summon_ice_beast(int pow, god_type god, bool fail);
 spret_type cast_monstrous_menagerie(actor* caster, int pow, god_type god,
                                  bool fail = false);
@@ -48,8 +44,8 @@ bool summon_berserker(int pow, actor *caster,
                       monster_type override_mons = MONS_PROGRAM_BUG);
 bool summon_holy_warrior(int pow, bool punish);
 
-spret_type cast_tukimas_dance(int pow, god_type god = GOD_NO_GOD,
-                              bool force_hostile = false, bool fail = false);
+bool tukima_affects(const monster *mon);
+void cast_tukimas_dance(int pow, actor *target, bool force_friendly = false);
 spret_type cast_conjure_ball_lightning(int pow, god_type god, bool fail);
 spret_type cast_summon_lightning_spire(int pow, const coord_def& where, god_type god, bool fail);
 

@@ -6,7 +6,7 @@ function ($, comm, enums, map_knowledge, messages, options) {
     var player = {}, last_time;
 
     var stat_boosters = {
-        "str": "vitalised|mighty|berserk",
+        "str": "vitalised|mighty|berserk|immense fortitude",
         "int": "vitalised|brilliant",
         "dex": "vitalised|agile",
         "hp": "divinely vigorous|berserk",
@@ -14,7 +14,7 @@ function ($, comm, enums, map_knowledge, messages, options) {
     };
 
     var defense_boosters = {
-        "ac": "icy armour|stone skin",
+        "ac": "icy armour|stone skin|protected from physical damage",
         "ev": "phasing|agile",
         "sh": "shielded",
     }
@@ -115,18 +115,27 @@ function ($, comm, enums, map_knowledge, messages, options) {
         var item = player.inv[index];
         var elem = $("<span>");
         elem.text(index_to_letter(index) + ") " + item.name);
-        if (item.col != -1)
+        if (item.col != -1 && item.col != null)
             elem.addClass("fg" + item.col);
         return elem;
     }
 
     function wielded_weapon()
     {
+        var elem;
         var wielded = player.equip[enums.equip.WEAPON];
         if (wielded == -1)
-            return "-) " + player.unarmed_attack;
+        {
+            elem = $("<span>");
+            elem.text("-) " + player.unarmed_attack);
+        }
         else
-            return inventory_item_desc(wielded);
+            elem = inventory_item_desc(wielded);
+
+        if (player.has_status("corroded equipment"))
+            elem.addClass("corroded_weapon");
+
+        return elem;
     }
 
     function quiver()
@@ -177,8 +186,11 @@ function ($, comm, enums, map_knowledge, messages, options) {
             elem.addClass("degenerated_defense");
         else if (player.has_status(defense_boosters[type]))
             elem.addClass("boosted_defense");
-        else if (type == "ac" && player.has_status("icemail depleted"))
+        else if (type == "ac" && player.has_status("corroded equipment"))
             elem.addClass("degenerated_defense");
+        else if (type == "sh" && player.god == "Qazlal"
+                 && player.piety_rank > 0)
+            elem.addClass("boosted_defense");
     }
 
     function stat_class(stat)
@@ -304,7 +316,8 @@ function ($, comm, enums, map_knowledge, messages, options) {
             else
                 $("#stats_piety").text("");
         }
-        else if (player.piety_rank > 0 || player.god != "")
+        else if ((player.piety_rank > 0 || player.god != "")
+                 && player.god != "Gozag")
         {
             $("#stats_piety").text(repeat_string("*", player.piety_rank)
                                    + repeat_string(".", 6-player.piety_rank));
@@ -429,9 +442,11 @@ function ($, comm, enums, map_knowledge, messages, options) {
         }
 
         var family = options.get("tile_font_stat_family");
-        if (family !== "")
-            family += ", ";
-        $("#stats").css("font-family", family + "monospace");
+        if (family !== "" && family !== "monospace")
+        {
+            family += ", monospace";
+            $("#stats").css("font-family", family);
+        }
     });
 
     comm.register_handlers({

@@ -3,7 +3,7 @@
 #include "spl-zap.h"
 
 #include "beam.h"
-#include "stuff.h"
+#include "stepdown.h"
 
 zap_type spell_to_zap(spell_type spell)
 {
@@ -104,6 +104,10 @@ zap_type spell_to_zap(spell_type spell)
         return ZAP_EXPLOSIVE_BOLT;
     case SPELL_CRYSTAL_BOLT:
         return ZAP_CRYSTAL_BOLT;
+    case SPELL_TUKIMAS_DANCE:
+        return ZAP_TUKIMAS_DANCE;
+    case SPELL_CORROSIVE_BOLT:
+        return ZAP_CORROSIVE_BOLT;
     case SPELL_DEBUGGING_RAY:
         return ZAP_DEBUGGING_RAY;
     default:

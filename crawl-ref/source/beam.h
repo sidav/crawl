@@ -11,6 +11,9 @@
 #include "ray.h"
 #include "spl-cast.h"
 
+#define BEAM_STOP       1000        // all beams stopped by subtracting this
+                                    // from remaining range
+
 class monster;
 
 enum mon_resist_type
@@ -264,10 +267,9 @@ public:
     bool god_cares() const; // Will the god be unforgiving about this beam?
 
     // Stuff when a monster or player is hit.
-    void affect_player_enchantment();
+    void affect_player_enchantment(bool resistible = true);
     void tracer_affect_player();
     void tracer_affect_monster(monster* mon);
-    bool handle_statue_disintegration(monster* mon);
     void apply_bolt_paralysis(monster* mons);
     void apply_bolt_petrify(monster* mons);
     void enchantment_affect_monster(monster* mon);
@@ -292,7 +294,7 @@ public:
     void digging_wall_effect();
     void fire_wall_effect();
     void elec_wall_effect();
-    void nuke_wall_effect();
+    void destroy_wall_effect();
     void drop_object();
     int range_used(bool leg_only = false) const;
     void finish_beam();
@@ -302,19 +304,20 @@ public:
 
     // Various explosion-related stuff.
     void refine_for_explosion();
-    void explosion_draw_cell(const coord_def& p);
+    bool explosion_draw_cell(const coord_def& p);
     void explosion_affect_cell(const coord_def& p);
     void determine_affected_cells(explosion_map& m, const coord_def& delta,
                                   int count, int r,
                                   bool stop_at_statues, bool stop_at_walls);
+    bool can_knockback(const actor *act = NULL, int dam = -1) const;
 };
 
 int mons_adjust_flavoured(monster* mons, bolt &pbolt, int hurted,
                           bool doFlavouredEffects = true);
 
 // Return whether the effect was visible.
-bool enchant_monster_with_flavour(monster* mon, actor *atk,
-                                  beam_type flavour, int powc = 0);
+bool enchant_actor_with_flavour(actor* victim, actor *atk,
+                                beam_type flavour, int powc = 0);
 
 bool enchant_monster_invisible(monster* mon, const string &how);
 
@@ -328,8 +331,9 @@ bool poison_monster(monster* mons, const actor* who, int levels = 1,
 bool miasma_monster(monster* mons, const actor* who);
 bool napalm_monster(monster* mons, const actor* who, int levels = 1,
                     bool verbose = true);
-bool curare_actor(actor* source, actor* target, string name,
+bool curare_actor(actor* source, actor* target, int levels, string name,
                   string source_name);
+int silver_damages_victim(actor* victim, int damage, string &dmg_msg);
 void fire_tracer(const monster* mons, bolt &pbolt,
                   bool explode_only = false);
 bool imb_can_splash(coord_def origin, coord_def center,

@@ -20,6 +20,7 @@ module "crawl"
 #include "command.h"
 #include "delay.h"
 #include "directn.h"
+#include "end.h"
 #include "format.h"
 #include "hiscores.h"
 #include "hints.h"
@@ -35,10 +36,11 @@ module "crawl"
 #include "output.h"
 #include "perlin.h"
 #include "player.h"
+#include "prompt.h"
 #include "random.h"
 #include "religion.h"
 #include "state.h"
-#include "stuff.h"
+#include "stringutil.h"
 #include "tutorial.h"
 #include "view.h"
 #include "worley.h"
@@ -152,8 +154,9 @@ function flush_prev_message() */
 LUAWRAP(crawl_flush_prev_message, flush_prev_message())
 /*
 ---
-function mesclr(force) */
-LUAWRAP(crawl_mesclr, mesclr(lua_isboolean(ls, 1) ? lua_toboolean(ls, 1) : false))
+function clear_messages(force) */
+LUAWRAP(crawl_clear_messages,
+clear_messages(lua_isboolean(ls, 1) ? lua_toboolean(ls, 1) : false))
 /*
 ---
 function redraw_screen() */
@@ -657,6 +660,7 @@ static int crawl_article_a(lua_State *ls)
 
 LUARET1(crawl_game_started, boolean, crawl_state.need_save
                                      || crawl_state.map_stat_gen
+                                     || crawl_state.obj_stat_gen
                                      || crawl_state.test)
 LUARET1(crawl_stat_gain_prompt, boolean, crawl_state.stat_gain_prompt)
 LUARET1(crawl_random2, number, random2(luaL_checkint(ls, 1)))
@@ -986,69 +990,69 @@ static int crawl_call_dlua(lua_State *ls)
 
 static const struct luaL_reg crawl_clib[] =
 {
-    { "mpr",            crawl_mpr },
-    { "formatted_mpr",  crawl_formatted_mpr },
-    { "dpr",            crawl_dpr },
-    { "stderr",         crawl_stderr },
-    { "more",           crawl_more },
-    { "more_autoclear", crawl_set_more_autoclear },
-    { "enable_more",    crawl_enable_more },
+    { "mpr",                crawl_mpr },
+    { "formatted_mpr",      crawl_formatted_mpr },
+    { "dpr",                crawl_dpr },
+    { "stderr",             crawl_stderr },
+    { "more",               crawl_more },
+    { "more_autoclear",     crawl_set_more_autoclear },
+    { "enable_more",        crawl_enable_more },
     { "flush_prev_message", crawl_flush_prev_message },
-    { "mesclr",         crawl_mesclr },
-    { "delay",          crawl_delay },
-    { "random2",        crawl_random2 },
-    { "one_chance_in",  crawl_one_chance_in },
-    { "random2avg",     crawl_random2avg },
-    { "coinflip",       crawl_coinflip },
-    { "roll_dice",      crawl_roll_dice },
-    { "x_chance_in_y",  crawl_x_chance_in_y },
-    { "random_range",   crawl_random_range },
-    { "random_element", crawl_random_element },
-    { "div_rand_round", crawl_div_rand_round },
-    { "random_real",    crawl_random_real },
-    { "worley",         crawl_worley },
-    { "worley_diff",    crawl_worley_diff },
-    { "split_bytes",    crawl_split_bytes },
-    { "simplex",        crawl_simplex },
+    { "clear_messages",     crawl_clear_messages },
+    { "delay",              crawl_delay },
+    { "random2",            crawl_random2 },
+    { "one_chance_in",      crawl_one_chance_in },
+    { "random2avg",         crawl_random2avg },
+    { "coinflip",           crawl_coinflip },
+    { "roll_dice",          crawl_roll_dice },
+    { "x_chance_in_y",      crawl_x_chance_in_y },
+    { "random_range",       crawl_random_range },
+    { "random_element",     crawl_random_element },
+    { "div_rand_round",     crawl_div_rand_round },
+    { "random_real",        crawl_random_real },
+    { "worley",             crawl_worley },
+    { "worley_diff",        crawl_worley_diff },
+    { "split_bytes",        crawl_split_bytes },
+    { "simplex",            crawl_simplex },
 
-    { "redraw_screen",  crawl_redraw_screen },
-    { "c_input_line",   crawl_c_input_line},
-    { "getch",          crawl_getch },
-    { "yesno",          crawl_yesno },
-    { "yesnoquit",      crawl_yesnoquit },
-    { "kbhit",          crawl_kbhit },
-    { "flush_input",    crawl_flush_input },
-    { "sendkeys",       crawl_sendkeys },
-    { "process_command", crawl_process_command },
-    { "process_keys",   crawl_process_keys },
-    { "playsound",      crawl_playsound },
-    { "runmacro",       crawl_runmacro },
-    { "bindkey",        crawl_bindkey },
-    { "setopt",         crawl_setopt },
-    { "read_options",   crawl_read_options },
-    { "msgch_num",      crawl_msgch_num },
-    { "msgch_name",     crawl_msgch_name },
-    { "take_note",      crawl_take_note },
-    { "messages",       crawl_messages },
+    { "redraw_screen",      crawl_redraw_screen },
+    { "c_input_line",       crawl_c_input_line},
+    { "getch",              crawl_getch },
+    { "yesno",              crawl_yesno },
+    { "yesnoquit",          crawl_yesnoquit },
+    { "kbhit",              crawl_kbhit },
+    { "flush_input",        crawl_flush_input },
+    { "sendkeys",           crawl_sendkeys },
+    { "process_command",    crawl_process_command },
+    { "process_keys",       crawl_process_keys },
+    { "playsound",          crawl_playsound },
+    { "runmacro",           crawl_runmacro },
+    { "bindkey",            crawl_bindkey },
+    { "setopt",             crawl_setopt },
+    { "read_options",       crawl_read_options },
+    { "msgch_num",          crawl_msgch_num },
+    { "msgch_name",         crawl_msgch_name },
+    { "take_note",          crawl_take_note },
+    { "messages",           crawl_messages },
 
-    { "regex",          crawl_regex },
-    { "message_filter", crawl_message_filter },
-    { "trim",           crawl_trim },
-    { "split",          crawl_split },
-    { "grammar",        _crawl_grammar },
-    { "article_a",      crawl_article_a },
-    { "game_started",   crawl_game_started },
-    { "stat_gain_prompt", crawl_stat_gain_prompt },
-    { "is_tiles",       crawl_is_tiles },
-    { "is_webtiles",    crawl_is_webtiles },
-    { "is_touch_ui",    crawl_is_touch_ui },
-    { "err_trace",      crawl_err_trace },
-    { "get_command",    crawl_get_command },
-    { "endgame",        crawl_endgame },
-    { "tutorial_msg",   crawl_tutorial_msg },
-    { "dump_char",      crawl_dump_char },
+    { "regex",              crawl_regex },
+    { "message_filter",     crawl_message_filter },
+    { "trim",               crawl_trim },
+    { "split",              crawl_split },
+    { "grammar",            _crawl_grammar },
+    { "article_a",          crawl_article_a },
+    { "game_started",       crawl_game_started },
+    { "stat_gain_prompt",   crawl_stat_gain_prompt },
+    { "is_tiles",           crawl_is_tiles },
+    { "is_webtiles",        crawl_is_webtiles },
+    { "is_touch_ui",        crawl_is_touch_ui },
+    { "err_trace",          crawl_err_trace },
+    { "get_command",        crawl_get_command },
+    { "endgame",            crawl_endgame },
+    { "tutorial_msg",       crawl_tutorial_msg },
+    { "dump_char",          crawl_dump_char },
 #ifdef WIZARD
-    { "call_dlua",      crawl_call_dlua },
+    { "call_dlua",          crawl_call_dlua },
 #endif
 
     { NULL, NULL },
@@ -1147,6 +1151,25 @@ static string _crawl_make_name(lua_State *ls)
 
 LUARET1(crawl_make_name, string, _crawl_make_name(ls).c_str())
 
+// FIXME: factor out the duplicated code in the next two functions.
+LUAFN(_crawl_unavailable_god)
+{
+    const char *god_name = luaL_checkstring(ls, 1);
+    if (!god_name)
+    {
+        string err = "unavailable_god requires a god!";
+        return luaL_argerror(ls, 1, err.c_str());
+    }
+    god_type god = str_to_god(god_name);
+    if (god == GOD_NO_GOD)
+    {
+        string err = make_stringf("'%s' matches no god.", god_name);
+        return luaL_argerror(ls, 1, err.c_str());
+    }
+    lua_pushboolean(ls, is_unavailable_god(god));
+    return 1;
+}
+
 static int _crawl_god_speaks(lua_State *ls)
 {
     if (!crawl_state.io_inited)
@@ -1226,6 +1249,7 @@ static const struct luaL_reg crawl_dlib[] =
 { "print_hint", crawl_print_hint },
 { "mark_game_won", _crawl_mark_game_won },
 { "hints_type", crawl_hints_type },
+{ "unavailable_god", _crawl_unavailable_god },
 
 { NULL, NULL }
 };

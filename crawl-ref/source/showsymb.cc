@@ -12,7 +12,6 @@
 #include "colour.h"
 #include "env.h"
 #include "itemname.h"
-#include "libutil.h"
 #include "map_knowledge.h"
 #include "mon-util.h"
 #include "monster.h"
@@ -21,6 +20,7 @@
 #include "show.h"
 #include "stash.h"
 #include "state.h"
+#include "stringutil.h"
 #include "terrain.h"
 #include "travel.h"
 #include "viewchar.h"
@@ -33,12 +33,13 @@ static unsigned short _cell_feat_show_colour(const map_cell& cell,
     unsigned short colour = BLACK;
     const feature_def &fdef = get_feature_def(feat);
 
-    // These aren't shown mossy/bloody/slimy in console, nor do they
-    // obey vault recolouring.
-    const bool norecolour = feat > DNGN_OPEN_DOOR
-                            || feat_is_door(feat)
-                            // unknown traps won't get here
-                            || feat == DNGN_MALIGN_GATEWAY;
+    // These do not obey vault recolouring.
+    const bool no_vault_recolour = feat > DNGN_OPEN_DOOR
+                                 // unknown traps won't get here
+                                 || feat == DNGN_MALIGN_GATEWAY;
+
+    // These aren't shown mossy/bloody/slimy in console.
+    const bool norecolour = feat_is_door(feat) || no_vault_recolour;
 
     if (is_stair_exclusion(loc))
         colour = Options.tc_excluded;
@@ -88,7 +89,7 @@ static unsigned short _cell_feat_show_colour(const map_cell& cell,
     {
         colour = LIGHTGREEN;
     }
-    else if (cell.feat_colour() && !norecolour)
+    else if (cell.feat_colour() && !no_vault_recolour)
         colour = cell.feat_colour();
     else
     {
@@ -104,15 +105,13 @@ static unsigned short _cell_feat_show_colour(const map_cell& cell,
     if (feat == DNGN_SHALLOW_WATER && player_in_branch(BRANCH_SHOALS))
         colour = ETC_WAVES;
 
-    if (feat_has_solid_floor(feat) && !feat_is_water(feat)
-        && cell.flags & MAP_LIQUEFIED)
-    {
-        colour = ETC_LIQUEFIED;
-    }
-
     if (feat == DNGN_FLOOR)
     {
-        if (cell.flags & MAP_HALOED)
+        if (cell.flags & MAP_LIQUEFIED)
+            colour = ETC_LIQUEFIED;
+        else if (cell.flags & MAP_DISJUNCT)
+            colour = ETC_DISJUNCTION;
+        else if (cell.flags & MAP_HALOED)
         {
             if (cell.flags & MAP_SILENCED && cell.flags & MAP_UMBRAED)
                 colour = CYAN; // Default for silence.
@@ -136,10 +135,12 @@ static unsigned short _cell_feat_show_colour(const map_cell& cell,
             colour = ETC_ORB_GLOW;
         else if (cell.flags & MAP_QUAD_HALOED)
             colour = BLUE;
-        else if (cell.flags & MAP_DISJUNCT)
-            colour = ETC_DISJUNCTION;
+#if TAG_MAJOR_VERSION == 34
         else if (cell.flags & MAP_HOT)
             colour = ETC_FIRE;
+#endif
+        else if (cell.flags & MAP_GOLDEN)
+            colour = ETC_GOLD;
     }
 
     if (Options.show_travel_trail && travel_trail_index(loc) >= 0)
@@ -191,6 +192,9 @@ static int _get_mons_colour(const monster_info& mi)
     monster_type stype = _show_mons_type(mi);
     if (stype != mi.type && mi.type != MONS_SENSED)
         col = mons_class_colour(stype);
+
+    if (mi.is(MB_ROLLING))
+        col = ETC_BONE;
 
     if (mi.is(MB_BERSERK))
         col = RED;
@@ -399,6 +403,16 @@ static cglyph_t _get_cell_glyph_with_class(const map_cell& cell,
 
         if (mi->props.exists("glyph") && override)
             g.col = mons_class_colour(stype);
+
+        // If we want to show weapons, overwrite all of that.
+        item_def* weapon = mi->inv[MSLOT_WEAPON].get();
+        if (crawl_state.viewport_weapons && weapon)
+        {
+            show = *weapon;
+            g = _get_item_override(*weapon);
+            if (!g.col)
+                g.col = weapon->colour;
+        }
 
         break;
     }

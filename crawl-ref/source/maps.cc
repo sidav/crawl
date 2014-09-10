@@ -22,10 +22,10 @@
 #include "dbg-maps.h"
 #include "dungeon.h"
 #include "endianness.h"
+#include "end.h"
 #include "env.h"
 #include "enum.h"
 #include "files.h"
-#include "libutil.h"
 #include "message.h"
 #include "mapdef.h"
 #include "mapmark.h"
@@ -34,7 +34,7 @@
 #include "coord.h"
 #include "random.h"
 #include "state.h"
-#include "stuff.h"
+#include "stringutil.h"
 #include "syscalls.h"
 #include "tags.h"
 #include "terrain.h"
@@ -104,7 +104,7 @@ map_section_type vault_main(vault_placement &place, const map_def *vault,
 {
 #ifdef DEBUG_DIAGNOSTICS
     if (crawl_state.map_stat_gen)
-        mapgen_report_map_try(*vault);
+        mapstat_report_map_try(*vault);
 #endif
 
     // Return value of MAP_NONE forces dungeon.cc to regenerate the
@@ -174,7 +174,7 @@ static bool _resolve_map_lua(map_def &map)
     {
 #ifdef DEBUG_DIAGNOSTICS
         if (crawl_state.map_stat_gen)
-            mapgen_report_error(map, err);
+            mapstat_report_error(map, err);
 #endif
         mprf(MSGCH_ERROR, "Lua error: %s", err.c_str());
         return false;
@@ -420,7 +420,7 @@ static bool _map_safe_vault_place(const map_def &map,
         map.has_tag("water_ok") || player_in_branch(BRANCH_SWAMP);
 
     const bool vault_can_overwrite_other_vaults =
-        map.has_tag("can_overwrite");
+        map.has_tag("overwrite_floor_cell");
 
     const bool vault_can_replace_portals =
         map.has_tag("replace_portal");
@@ -434,6 +434,10 @@ static bool _map_safe_vault_place(const map_def &map,
         if (lines[dp.y][dp.x] == ' ')
             continue;
 
+        // Unconditionally allow portal placements to work.
+        if (vault_can_replace_portals && _is_portal_place(cp))
+            continue;
+
         if (!vault_can_overwrite_other_vaults)
         {
             // Also check adjacent squares for collisions, because being next
@@ -444,15 +448,19 @@ static bool _map_safe_vault_place(const map_def &map,
                     return false;
             }
         }
+        else if (grd(cp) != DNGN_FLOOR || env.pgrid(cp) & FPROP_NO_TELE_INTO)
+        {
+            // Don't place overwrite_floor_cell vaults on anything but floor or
+            // on squares that can't be teleported into, because
+            // overwrite_floor_cell is used for things that are expected to be
+            // connected.
+            return false;
+        }
 
         // Don't overwrite features other than floor, rock wall, doors,
         // nor water, if !water_ok.
-        if (!_may_overwrite_feature(cp, water_ok)
-            && (!vault_can_replace_portals
-                || !_is_portal_place(cp)))
-        {
+        if (!_may_overwrite_feature(cp, water_ok))
             return false;
-        }
 
         // Don't overwrite monsters or items, either!
         if (monster_at(cp) || igrd(cp) != NON_ITEM)
@@ -492,7 +500,9 @@ static bool _connected_minivault_place(const coord_def &c,
         if (_may_overwrite_feature(ci, false, false)
             || (place.map.has_tag("replace_portal")
                 && _is_portal_place(ci)))
+        {
             return true;
+        }
     }
 
     return false;
@@ -1447,7 +1457,7 @@ static void _parse_maps(const string &s)
     time_t mtime = file_modtime(dat);
     _reset_map_parser();
 
-    extern int yyparse(void);
+    extern int yyparse();
     extern FILE *yyin;
     yyin = dat;
 
@@ -1478,8 +1488,8 @@ void read_maps()
     {
         unwind_var<FixedVector<int, NUM_BRANCHES> > depths(brdepth);
         // let the sanity check place maps
-        for (int i = 0; i < NUM_BRANCHES; i++)
-            brdepth[i] = branches[i].numlevels;
+        for (branch_iterator it; it; ++it)
+            brdepth[it->id] = it->numlevels;
         dlua.execfile("dlua/sanity.lua", true, true);
     }
 }
@@ -1503,8 +1513,10 @@ void reread_maps()
 void dump_map(const map_def &map)
 {
     if (crawl_state.dump_maps)
+    {
         fprintf(stderr, "\n----------------------------------------\n%s\n",
                 map.describe().c_str());
+    }
 }
 
 void add_parsed_map(const map_def &md)
@@ -1536,8 +1548,10 @@ void run_map_local_preludes()
         {
             string err = vdefs[i].run_lua(true);
             if (!err.empty())
+            {
                 mprf(MSGCH_ERROR, "Lua error (map %s): %s",
                      vdefs[i].name.c_str(), err.c_str());
+            }
         }
     }
 }
@@ -1547,15 +1561,13 @@ const map_def *map_by_index(int index)
     return &vdefs[index];
 }
 
-///////////////////////////////////////////////////////////////////////////
-// Debugging code
-
+// Supporting map code for mapstat
 #ifdef DEBUG_DIAGNOSTICS
 
 typedef pair<string, int> weighted_map_name;
 typedef vector<weighted_map_name> weighted_map_names;
 
-static weighted_map_names mg_find_random_vaults(
+static weighted_map_names _find_random_vaults(
     const level_id &place, bool wantmini)
 {
     weighted_map_names wms;
@@ -1598,10 +1610,10 @@ static bool _weighted_map_more_likely(
     return a.second > b.second;
 }
 
-static void _mg_report_random_vaults(
+static void _report_random_vaults(
     FILE *outf, const level_id &place, bool wantmini)
 {
-    weighted_map_names wms = mg_find_random_vaults(place, wantmini);
+    weighted_map_names wms = _find_random_vaults(place, wantmini);
     sort(wms.begin(), wms.end(), _weighted_map_more_likely);
     int weightsum = 0;
     for (int i = 0, size = wms.size(); i < size; ++i)
@@ -1626,12 +1638,12 @@ static void _mg_report_random_vaults(
         fprintf(outf, "%s\n", line.c_str());
 }
 
-void mg_report_random_maps(FILE *outf, const level_id &place)
+void mapstat_report_random_maps(FILE *outf, const level_id &place)
 {
     fprintf(outf, "---------------- Mini\n");
-    _mg_report_random_vaults(outf, place, true);
+    _report_random_vaults(outf, place, true);
     fprintf(outf, "------------- Regular\n");
-    _mg_report_random_vaults(outf, place, false);
+    _report_random_vaults(outf, place, false);
 }
 
-#endif
+#endif //DEBUG_DIAGNOSTICS

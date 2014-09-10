@@ -28,14 +28,16 @@
 #include "libutil.h"
 #include "macro.h"
 #include "menu.h"
-#include "misc.h"
 #include "notes.h"
+#include "output.h"
 #include "place.h"
 #include "player.h"
+#include "prompt.h"
 #include "spl-book.h"
 #include "stash.h"
 #include "state.h"
-#include "stuff.h"
+#include "stepdown.h"
+#include "stringutil.h"
 #include "travel.h"
 #include "unwind.h"
 #include "env.h"
@@ -576,6 +578,7 @@ static bool _in_a_shop(int shopidx, int &num_in_list)
             {
                 _shop_print("I'm sorry, you don't seem to have enough money.",
                             1);
+                _shop_more();
             }
             else if (!total_purchase) // Nothing selected.
                 continue;
@@ -635,7 +638,7 @@ static bool _in_a_shop(int shopidx, int &num_in_list)
                         mprf("I'll put %s outside for you.",
                               num_items == 1             ? "it" :
                               num_items == outside_items ? "them"
-                                                         : "part of them");
+                                                         : "some of them");
                     }
                     bought_something = true;
                 }
@@ -818,15 +821,8 @@ static bool _purchase(int shop, int item_got, int cost, bool id)
         set_ident_flags(item, ISFLAG_IDENT_MASK);
     }
 
-    if (is_blood_potion(item))
-        init_stack_blood_potions(item, -1);
-
-    const int quant = item.quantity;
-    // Note that item will be invalidated if num == item.quantity.
-    const int num = move_item_to_player(item_got, item.quantity, false);
-
     // Shopkeepers will now place goods you can't carry outside the shop.
-    if (num < quant)
+    if (!move_item_to_inv(item_got, item.quantity, false))
     {
         move_item_to_grid(&item_got, env.shop[shop].pos);
         return false;
@@ -852,7 +848,7 @@ int artefact_value(const item_def &item)
 
     // This should probably be more complex... but this isn't so bad:
     ret += 6 * prop[ ARTP_AC ] + 6 * prop[ ARTP_EVASION ]
-            + 3 * prop[ ARTP_ACCURACY ] + 6 * prop[ ARTP_DAMAGE ]
+            + 6 * prop[ ARTP_SLAYING ]
             + 3 * prop[ ARTP_STRENGTH ] + 3 * prop[ ARTP_INTELLIGENCE ]
             + 3 * prop[ ARTP_DEXTERITY ];
 
@@ -874,6 +870,12 @@ int artefact_value(const item_def &item)
 
     if (prop[ ARTP_NEGATIVE_ENERGY ] > 0)
         ret += 3 + 3 * (prop[ARTP_NEGATIVE_ENERGY] * prop[ARTP_NEGATIVE_ENERGY]);
+
+    // Discount Stlth-, charge for Stlth+
+    ret += 2 * prop[ARTP_STEALTH];
+    // Stlth+ costs more than Stlth- cheapens
+    if (prop[ARTP_STEALTH] > 0)
+        ret += 2 * prop[ARTP_STEALTH];
 
     // only one meaningful level:
     if (prop[ ARTP_POISON ])
@@ -917,10 +919,6 @@ int artefact_value(const item_def &item)
     if (prop[ ARTP_MUTAGENIC ])
         ret -= 8;
 
-    // ranges from 1-3
-    if (prop[ ARTP_METABOLISM ])
-        ret -= (2 * prop[ ARTP_METABOLISM ]);
-
     // extremely good
     if (prop[ ARTP_FOG ])
         ret += 50;
@@ -957,7 +955,7 @@ unsigned int item_value(item_def item, bool ident)
             valued += 10;
             break;
 
-        case WPN_SLING:
+        case WPN_HUNTING_SLING:
         case WPN_STAFF:
             valued += 15;
             break;
@@ -980,7 +978,7 @@ unsigned int item_value(item_def item, bool ident)
             valued += 25;
             break;
 
-        case WPN_BOW:
+        case WPN_SHORTBOW:
         case WPN_HAND_AXE:
         case WPN_FALCHION:
         case WPN_MACE:
@@ -995,6 +993,7 @@ unsigned int item_value(item_def item, bool ident)
         case WPN_FLAIL:
         case WPN_LONG_SWORD:
         case WPN_TRIDENT:
+        case WPN_HAND_CROSSBOW:
             valued += 35;
             break;
 
@@ -1009,11 +1008,8 @@ unsigned int item_value(item_def item, bool ident)
             valued += 40;
             break;
 
-        case WPN_CROSSBOW:
-            valued += 41;
-            break;
-
         case WPN_LONGBOW:
+        case WPN_ARBALEST:
             valued += 45;
             break;
 
@@ -1028,6 +1024,7 @@ unsigned int item_value(item_def item, bool ident)
             valued += 90;
             break;
 
+        case WPN_TRIPLE_CROSSBOW:
         case WPN_CLAYMORE:
         case WPN_EXECUTIONERS_AXE:
             valued += 100;
@@ -1042,6 +1039,7 @@ unsigned int item_value(item_def item, bool ident)
         case WPN_EVENINGSTAR:
         case WPN_LAJATANG:
         case WPN_QUICK_BLADE:
+        case WPN_GREATSLING:
             valued += 150;
             break;
 
@@ -1064,7 +1062,7 @@ unsigned int item_value(item_def item, bool ident)
                 break;
 
             case SPWPN_SPEED:
-            case SPWPN_VAMPIRICISM:
+            case SPWPN_VAMPIRISM:
                 valued *= 30;
                 break;
 
@@ -1076,10 +1074,8 @@ unsigned int item_value(item_def item, bool ident)
 
             case SPWPN_CHAOS:
             case SPWPN_DRAINING:
-            case SPWPN_FLAME:
             case SPWPN_FLAMING:
             case SPWPN_FREEZING:
-            case SPWPN_FROST:
             case SPWPN_HOLY_WRATH:
                 valued *= 18;
                 break;
@@ -1088,7 +1084,6 @@ unsigned int item_value(item_def item, bool ident)
                 valued *= 15;
                 break;
 
-            case SPWPN_DRAGON_SLAYING:
             case SPWPN_EVASION:
             case SPWPN_PROTECTION:
             case SPWPN_VENOM:
@@ -1100,7 +1095,7 @@ unsigned int item_value(item_def item, bool ident)
         }
 
         if (item_ident(item, ISFLAG_KNOW_PLUSES))
-            valued += 10 * item.plus + 50 * item.plus2;
+            valued += 50 * item.plus;
 
         if (is_artefact(item))
         {
@@ -1123,7 +1118,6 @@ unsigned int item_value(item_def item, bool ident)
     case OBJ_MISSILES:          // ammunition
         switch (item.sub_type)
         {
-        case MI_DART:
         case MI_STONE:
         case MI_NONE:
             valued++;
@@ -1296,7 +1290,6 @@ unsigned int item_value(item_def item, bool ident)
             {
             case SPARM_RUNNING:
             case SPARM_ARCHMAGI:
-            case SPARM_PRESERVATION:
             case SPARM_RESISTANCE:
                 valued += 250;
                 break;
@@ -1443,6 +1436,7 @@ unsigned int item_value(item_def item, bool ident)
 
             case POT_MAGIC:
             case POT_INVISIBILITY:
+            case POT_CANCELLATION:
                 valued += 55;
                 break;
 
@@ -1463,7 +1457,9 @@ unsigned int item_value(item_def item, bool ident)
             case POT_CURING:
             case POT_DECAY:
             case POT_DEGENERATION:
+#if TAG_MAJOR_VERSION == 34
             case POT_STRONG_POISON:
+#endif
             case POT_LIGNIFY:
                 valued += 20;
                 break;
@@ -1471,7 +1467,6 @@ unsigned int item_value(item_def item, bool ident)
             case POT_BLOOD:
             case POT_PORRIDGE:
             case POT_CONFUSION:
-            case POT_PARALYSIS:
             case POT_POISON:
             case POT_SLOWING:
                 valued += 10;
@@ -1487,63 +1482,24 @@ unsigned int item_value(item_def item, bool ident)
     case OBJ_FOOD:
         switch (item.sub_type)
         {
-        case FOOD_ROYAL_JELLY:
-            valued = 120;
-            break;
-
         case FOOD_MEAT_RATION:
+        case FOOD_BREAD_RATION:
             valued = 50;
             break;
 
-        case FOOD_BREAD_RATION:
-            valued = 44;
-            break;
-
-        case FOOD_HONEYCOMB:
+        case FOOD_ROYAL_JELLY:
             valued = 20;
             break;
 
         case FOOD_BEEF_JERKY:
         case FOOD_PIZZA:
-        case FOOD_SNOZZCUMBER:
+        case FOOD_FRUIT:
             valued = 15;
             break;
 
-        case FOOD_CHEESE:
-        case FOOD_SAUSAGE:
-            valued = 12;
-            break;
-
-        case FOOD_LEMON:
-        case FOOD_ORANGE:
-        case FOOD_BANANA:
-            valued = 10;
-            break;
-
-        case FOOD_APPLE:
-        case FOOD_APRICOT:
-        case FOOD_PEAR:
-            valued = 7;
-            break;
-
         case FOOD_CHUNK:
-            if (food_is_rotten(item))
+        default:
                 break;
-
-        case FOOD_CHOKO:
-        case FOOD_LYCHEE:
-        case FOOD_RAMBUTAN:
-            valued = 6;
-            break;
-
-        case FOOD_STRAWBERRY:
-            valued = 2;
-            break;
-
-        case FOOD_GRAPE:
-        case FOOD_SULTANA:
-            valued = 1;
-            break;
         }
         break;
 
@@ -1558,7 +1514,6 @@ unsigned int item_value(item_def item, bool ident)
                 valued += 520;
                 break;
 
-            case SCR_ENCHANT_WEAPON_III:
             case SCR_BRAND_WEAPON:
                 valued += 200;
                 break;
@@ -1570,6 +1525,7 @@ unsigned int item_value(item_def item, bool ident)
 
             case SCR_BLINKING:
             case SCR_ENCHANT_ARMOUR:
+            case SCR_ENCHANT_WEAPON:
             case SCR_TORMENT:
             case SCR_HOLY_WORD:
             case SCR_SILENCE:
@@ -1577,12 +1533,7 @@ unsigned int item_value(item_def item, bool ident)
                 valued += 75;
                 break;
 
-            case SCR_ENCHANT_WEAPON_II:
-                valued += 55;
-                break;
-
             case SCR_AMNESIA:
-            case SCR_ENCHANT_WEAPON_I:
             case SCR_FEAR:
             case SCR_IMMOLATION:
             case SCR_MAGIC_MAPPING:
@@ -1632,15 +1583,13 @@ unsigned int item_value(item_def item, bool ident)
                 int base = 0;
                 int coefficient = 0;
                 if (item.sub_type == RING_SLAYING)
-                    base = item.plus + 2 * item.plus2;
+                    base = 3 * item.plus;
                 else
                     base = 2 * item.plus;
 
                 switch (item.sub_type)
                 {
                 case RING_SLAYING:
-                    coefficient = 50;
-                    break;
                 case RING_PROTECTION:
                 case RING_EVASION:
                     coefficient = 40;
@@ -1677,7 +1626,6 @@ unsigned int item_value(item_def item, bool ident)
                 case RING_REGENERATION:
                 case RING_WIZARDRY:
                 case AMU_GUARDIAN_SPIRIT:
-                case AMU_CONSERVATION:
                 case AMU_THE_GOURMAND:
                     valued += 300;
                     break;
@@ -1699,7 +1647,7 @@ unsigned int item_value(item_def item, bool ident)
                     break;
 
                 case RING_SUSTAIN_ABILITIES:
-                case RING_SUSTENANCE:
+                case RING_STEALTH:
                 case RING_TELEPORTATION:
                 case RING_FLIGHT:
                 case AMU_STASIS:
@@ -1711,7 +1659,10 @@ unsigned int item_value(item_def item, bool ident)
                     valued += 150;
                     break;
 
-                case RING_HUNGER:
+                case RING_LOUDNESS:
+                    valued += 75;
+                    break;
+
                 case AMU_INACCURACY:
                     valued -= 300;
                     break;
@@ -1829,8 +1780,10 @@ unsigned int item_value(item_def item, bool ident)
             valued = 150;
         else
             valued = 250;
+
+        // Both max charges and enchantment.
         if (item_ident(item, ISFLAG_KNOW_PLUSES))
-            valued += 50 * (item.plus2 / ROD_CHARGE_MULT);
+            valued += 50 * (item.plus2 / ROD_CHARGE_MULT + item.special);
         break;
 
     case OBJ_ORBS:
@@ -1862,10 +1815,8 @@ bool is_worthless_consumable(const item_def &item)
         case POT_CONFUSION:
         case POT_DECAY:
         case POT_DEGENERATION:
-        case POT_PARALYSIS:
         case POT_POISON:
         case POT_SLOWING:
-        case POT_STRONG_POISON:
             return true;
         default:
             return false;
@@ -1928,7 +1879,6 @@ void shop()
     if (_shop_get_stock(i).empty())
         _delete_shop(i);
 
-    burden_change();
     redraw_screen();
 
     if (bought_something)
@@ -1971,7 +1921,7 @@ string shop_name(const coord_def& where, bool add_stop)
     return name;
 }
 
-static string _shop_type_name(shop_type type)
+string shop_type_name(shop_type type)
 {
     switch (type)
     {
@@ -2050,7 +2000,7 @@ string shop_name(const coord_def& where)
     if (!cshop->shop_type_name.empty())
         sh_name += cshop->shop_type_name;
     else
-        sh_name += _shop_type_name(type);
+        sh_name += shop_type_name(type);
 
     if (!cshop->shop_suffix_name.empty())
         sh_name += " " + cshop->shop_suffix_name;
@@ -2268,14 +2218,8 @@ unsigned int ShoppingList::cull_identical_items(const item_def& item,
 
     // Ignore stat-modification rings which reduce a stat, since they're
     // worthless.
-    if (item.base_type == OBJ_JEWELLERY)
-    {
-        if (item.sub_type == RING_SLAYING && item.plus < 0 && item.plus2 < 0)
-            return 0;
-
-        if (item.plus < 0)
-            return 0;
-    }
+    if (item.base_type == OBJ_JEWELLERY && item.plus < 0)
+        return 0;
 
     // Manuals are consumable, and interesting enough to keep on list.
     if (item.base_type == OBJ_BOOKS && item.sub_type == BOOK_MANUAL)
@@ -2317,14 +2261,12 @@ unsigned int ShoppingList::cull_identical_items(const item_def& item,
         // known pluses when the new ring's pluses are unknown.
         if (item.base_type == OBJ_JEWELLERY)
         {
-            const int nplus = ring_has_pluses(item);
+            const bool has_plus = ring_has_pluses(item);
             const int delta_p = item.plus - list_item.plus;
-            const int delta_p2 = nplus >= 2 ? item.plus2 - list_item.plus2 : 0;
-            if (nplus
+            if (has_plus
                 && item_ident(list_item, ISFLAG_KNOW_PLUSES)
                 && (!item_ident(item, ISFLAG_KNOW_PLUSES)
-                     || delta_p <= 0 && delta_p2 <= 0
-                        && (delta_p < 0 || delta_p2 < 0)))
+                     || delta_p < 0))
             {
                 continue;
             }
@@ -2463,8 +2405,12 @@ bool ShoppingList::items_are_same(const item_def& item_a,
 
 void ShoppingList::move_things(const coord_def &_src, const coord_def &_dst)
 {
-    if (crawl_state.map_stat_gen || crawl_state.test)
+    if (crawl_state.map_stat_gen
+        || crawl_state.obj_stat_gen
+        || crawl_state.test)
+    {
         return; // Shopping list is unitialized and uneeded.
+    }
 
     const level_pos src(level_id::current(), _src);
     const level_pos dst(level_id::current(), _dst);
@@ -2920,4 +2866,45 @@ string ShoppingList::item_name_simple(const item_def& item, bool ident)
 {
     return item.name(DESC_PLAIN, false, ident, false, false,
                      ISFLAG_KNOW_CURSE);
+}
+
+static const char *shop_types[] =
+{
+    "weapon",
+    "armour",
+    "antique weapon",
+    "antique armour",
+    "antiques",
+    "jewellery",
+    "gadget",
+    "book",
+    "food",
+    "distillery",
+    "scroll",
+    "general",
+};
+
+int str_to_shoptype(const string &s)
+{
+    if (s == "random" || s == "any")
+        return SHOP_RANDOM;
+
+    for (unsigned i = 0; i < ARRAYSZ(shop_types); ++i)
+    {
+        if (s == shop_types[i])
+            return i;
+    }
+    return -1;
+}
+
+const char *shoptype_to_str(shop_type type)
+{
+    return shop_types[type];
+}
+
+void list_shop_types()
+{
+    mpr_nojoin(MSGCH_PLAIN, "Available shop types: ");
+    for (unsigned i = 0; i < ARRAYSZ(shop_types); ++i)
+        mprf_nocap("%s", shop_types[i]);
 }

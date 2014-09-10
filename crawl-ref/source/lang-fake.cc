@@ -8,6 +8,7 @@
 
 #include "libutil.h"
 #include "options.h"
+#include "stringutil.h"
 #include "unicode.h"
 
 #define UPPER "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -234,6 +235,15 @@ static const char* runes[][4] =
   {0}
 };
 
+static const char* grunt[][4] =
+{
+  {"^killed$", "annihilated"},
+  {"^kill$", "annihilate"},
+  {"!", "..."},
+  {".", "!", 0, LETTERS "0123456789"},
+  {0}
+};
+
 static void _replace_cap_variants(string &str,
                                   string a,
                                   string b,
@@ -330,6 +340,7 @@ static void _german(string &txt)
     */
     for (unsigned int i = 0; i < txt.length(); i++)
         if (txt[i] == 'c' || txt[i] == 'C')
+        {
             switch (tolower(txt[i+1]))
             {
             case 'h': case 'z':
@@ -340,6 +351,7 @@ static void _german(string &txt)
             default:
                 txt[i] = isalower(txt[i]) ? 'k' : 'K';
             }
+        }
     /*
     There will be growing publik enthusiasm in the sekond year when the
     troublesome "ph" will be replaced with "f". This will make words like
@@ -372,7 +384,9 @@ static void _german(string &txt)
             if (!isaalpha(txt[i-1])
               || !isaalpha(txt[i-2])
               || !isaalpha(txt[i-3]))
+            {
                 continue;
+            }
             txt.erase(i, 1);
         }
     /*
@@ -428,6 +442,49 @@ static void _wide(string &txt)
     txt = out;
 }
 
+static void _grunt(string &txt)
+{
+    static const char* exact_grunt[][2] =
+    {
+        {"battlesphere", "BATTLESPHERE"},
+        {"Battlesphere", "BATTLESPHERE"},
+        {"battlemage", "BATTLEMAGE"},
+        {"Battlemage", "BATTLEMAGE"},
+        {"Battle Magician", "BATTLEMAGE"},
+        {"battleaxe", "BATTLEAXE"},
+        {"book of Battle", "BATTLEBOOK"},
+        {"Battlelust", "BATTLELUST"},
+        {"Kill them all", "RIP AND TEAR"},
+        {"accepts your kill", "roars: ANNIHILATED"},
+        {"appreciates your killing of a heretic priest",
+         "smash puny heretic"},
+        {"appreciates your killing of a magic user",
+         "smash puny caster"},
+        {"appreciates your killing of a holy being",
+         "smash puny angel"},
+        {"appreciates your kill", "screams: ANNIHILATED"},
+        {"You pass out from exhaustion.", "POWER NAP!!!"},
+        {"You die...", "rip"},
+        {"LOW HITPOINT WARNING", "don't die"},
+        {"Ouch! That really hurt!", "DANG"},
+        {0}
+    };
+
+    const char* (*repl)[2] = exact_grunt;
+    for (; **repl; repl++)
+    {
+        size_t pos = 0;
+        string a = (*repl)[0];
+        string b = (*repl)[1];
+        while ((pos = txt.find(a, pos)) != string::npos)
+        {
+            txt.erase(pos, a.length());
+            txt.insert(pos, b);
+            pos += b.length();
+        }
+    }
+}
+
 void filter_lang(string &str)
 {
     const char* (*repl)[4];
@@ -450,6 +507,9 @@ void filter_lang(string &str)
         return _wide(str);
     case LANG_FUTHARK:
         repl = runes;
+        break;
+    case LANG_GRUNT:
+        _grunt(str); repl = grunt;
         break;
     default:
         return;

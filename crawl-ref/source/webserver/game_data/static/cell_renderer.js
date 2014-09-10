@@ -140,7 +140,9 @@ function ($, view_data, main, tileinfo_player, icons, dngn, enums,
                 return;
             }
 
+            // track whether this cell overlaps to the top or left
             this.current_sy = 0;
+            this.current_left_overlap = 0;
 
             cell.fg = enums.prepare_fg_flags(cell.fg || 0);
             cell.bg = enums.prepare_bg_flags(cell.bg || 0);
@@ -339,6 +341,7 @@ function ($, view_data, main, tileinfo_player, icons, dngn, enums,
             }
 
             cell.sy = this.current_sy;
+            cell.left_overlap = this.current_left_overlap;
         },
 
         // adapted from DungeonRegion::draw_minibars in tilereg_dgn.cc
@@ -526,11 +529,24 @@ function ($, view_data, main, tileinfo_player, icons, dngn, enums,
         {
             var bg = cell.bg;
             var bg_idx = cell.bg.value;
+            var renderer = this;
 
             if (cell.mangrove_water && bg_idx > dngn.DNGN_UNSEEN)
                 this.draw_dngn(dngn.DNGN_SHALLOW_WATER, x, y);
             else if (bg_idx >= dngn.DNGN_FIRST_TRANSPARENT)
+            {
                 this.draw_dngn(cell.flv.f, x, y); // f = floor
+
+                // Draw floor overlays beneath the feature
+                if (cell.ov)
+                {
+                    $.each(cell.ov, function (i, overlay)
+                           {
+                               if (overlay && overlay <= dngn.FLOOR_MAX)
+                                   renderer.draw_dngn(overlay, x, y);
+                           });
+                }
+            }
 
             // Draw blood beneath feature tiles.
             if (bg_idx > dngn.WALL_MAX)
@@ -572,16 +588,19 @@ function ($, view_data, main, tileinfo_player, icons, dngn, enums,
             {
                 // Draw blood on top of wall tiles.
                 if (bg_idx <= dngn.WALL_MAX)
-                    this.draw_blood_overlay(x, y, cell, bg_idx >= dngn.FLOOR_MAX);
+                    this.draw_blood_overlay(x, y, cell, bg_idx > dngn.FLOOR_MAX);
 
                 // Draw overlays
                 if (cell.ov)
                 {
-                    var renderer = this;
                     $.each(cell.ov, function (i, overlay)
                            {
-                               if (overlay)
+                               if (overlay &&
+                                   (bg_idx < dngn.DNGN_FIRST_TRANSPARENT ||
+                                    overlay > dngn.FLOOR_MAX))
+                               {
                                    renderer.draw_dngn(overlay, x, y);
+                               }
                            });
                 }
 
@@ -612,8 +631,11 @@ function ($, view_data, main, tileinfo_player, icons, dngn, enums,
                 {
                     if (cell.sanctuary)
                         this.draw_dngn(dngn.SANCTUARY, x, y);
+                    // TAG_MAJOR_VERSION == 34
                     if (cell.heat_aura)
                         this.draw_dngn(dngn.HEAT_AURA + cell.heat_aura - 1, x, y);
+                    if (cell.gold_aura)
+                        this.draw_dngn(dngn.GOLD_AURA + cell.gold_aura - 1, x, y);
                     if (cell.silenced)
                         this.draw_dngn(dngn.SILENCED, x, y);
                     if (cell.halo == enums.HALO_RANGE)
@@ -800,6 +822,11 @@ function ($, view_data, main, tileinfo_player, icons, dngn, enums,
                 this.draw_icon(icons.MIGHT, x, y, -status_shift, 0);
                 status_shift += 6;
             }
+            if (fg.DRAIN)
+            {
+                this.draw_icon(icons.DRAIN, x, y, -status_shift, 0);
+                status_shift += 6;
+            }
             if (fg.PAIN_MIRROR)
             {
                 this.draw_icon(icons.PAIN_MIRROR, x, y, -status_shift, 0);
@@ -819,6 +846,16 @@ function ($, view_data, main, tileinfo_player, icons, dngn, enums,
             {
                 this.draw_icon(icons.BLIND, x, y, -status_shift, 0);
                 status_shift += 10;
+            }
+            if (fg.DEATHS_DOOR)
+            {
+                this.draw_icon(icons.DEATHS_DOOR, x, y, -status_shift, 0);
+                status_shift += 6;
+            }
+            if (fg.RECALL)
+            {
+                this.draw_icon(icons.RECALL, x, y, -status_shift, 0);
+                status_shift += 9;
             }
 
             // Anim. weap. and summoned might overlap, but that's okay
@@ -924,11 +961,17 @@ function ($, view_data, main, tileinfo_player, icons, dngn, enums,
 
             if (sy >= ey) return;
 
+            var total_x_offset = ((ofsx || 0) + info.ox + size_ox);
+
+            if (total_x_offset < this.current_left_overlap)
+                this.current_left_overlap = total_x_offset;
+
             if (sy < this.current_sy)
                 this.current_sy = sy;
 
             var w = info.ex - info.sx;
             var h = info.ey - info.sy;
+
             this.ctx.imageSmoothingEnabled = options.get("tile_filter_scaling");
             this.ctx.webkitImageSmoothingEnabled =
                 options.get("tile_filter_scaling");
@@ -937,7 +980,7 @@ function ($, view_data, main, tileinfo_player, icons, dngn, enums,
             this.ctx.drawImage(img,
                                info.sx, info.sy + sy - pos_sy_adjust,
                                w, h + ey - pos_ey_adjust,
-                               x + ((ofsx || 0) + info.ox + size_ox) * this.x_scale,
+                               x + total_x_offset * this.x_scale,
                                y + sy * this.y_scale,
                                w * this.x_scale,
                                (h + ey - pos_ey_adjust) * this.y_scale)

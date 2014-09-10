@@ -21,12 +21,12 @@
 #include "evoke.h"
 #include "externs.h"
 #include "godabil.h"
-#include "libutil.h"
 #include "player.h"
 #include "religion.h"
 #include "species.h"
 #include "skills.h"
 #include "skill_menu.h"
+#include "stringutil.h"
 #include "unwind.h"
 
 typedef string (*string_fn)();
@@ -214,9 +214,6 @@ static string _stk_walker()
 {
     return Skill_Species == SP_NAGA         ? "Slider"   :
            Skill_Species == SP_TENGU        ? "Glider"   :
-#if TAG_MAJOR_VERSION == 34
-           Skill_Species == SP_DJINNI       ? "Floater"  :
-#endif
            Skill_Species == SP_OCTOPODE     ? "Wriggler" :
            Skill_Species == SP_VINE_STALKER ? "Stalker"
                                             : "Walker";
@@ -457,7 +454,7 @@ skill_type best_skill(skill_type min_skill, skill_type max_skill,
 // other skills will have to attain the next level higher to be
 // considered a better skill (thus, the first skill to reach level 27
 // becomes the characters final nickname). -- bwr
-void init_skill_order(void)
+void init_skill_order()
 {
     for (int i = SK_FIRST_SKILL; i < NUM_SKILLS; i++)
     {
@@ -605,53 +602,37 @@ vector<skill_type> get_crosstrain_skills(skill_type sk)
     }
 }
 
-float crosstrain_bonus(skill_type sk)
+/**
+ * Is the provided skill one of the elemental spellschools?
+ *
+ * @param sk    The skill in question.
+ * @return      Whether it is fire, ice, earth, or air.
+ */
+static bool _skill_is_elemental(skill_type sk)
 {
-    int bonus = 1;
-
-    vector<skill_type> crosstrain_skills = get_crosstrain_skills(sk);
-
-    for (unsigned int i = 0; i < crosstrain_skills.size(); ++i)
-        if (you.skill(crosstrain_skills[i], 10, true)
-            >= you.skill(sk, 10, true) + CROSSTRAIN_THRESHOLD)
-        {
-            bonus *= 2;
-        }
-
-    return bonus;
+    return sk == SK_FIRE_MAGIC || sk == SK_EARTH_MAGIC
+           || sk == SK_AIR_MAGIC || sk == SK_ICE_MAGIC;
 }
 
-skill_type opposite_skill(skill_type sk)
-{
-    switch (sk)
-    {
-    case SK_FIRE_MAGIC  : return SK_ICE_MAGIC;   break;
-    case SK_ICE_MAGIC   : return SK_FIRE_MAGIC;  break;
-    case SK_AIR_MAGIC   : return SK_EARTH_MAGIC; break;
-    case SK_EARTH_MAGIC : return SK_AIR_MAGIC;   break;
-    default: return SK_NONE;
-    }
-}
-
-static int _skill_elemental_preference(skill_type sk, int scale)
-{
-    const skill_type sk2 = opposite_skill(sk);
-    if (sk2 == SK_NONE)
-        return 0;
-    return you.skill(sk, scale) - you.skill(sk2, scale);
-}
-
+/**
+ * How skilled is the player at the elemental components of a spell?
+ *
+ * @param spell     The type of spell in question.
+ * @param scale     Scaling factor for skill.
+ * @return          The player's skill at the elemental parts of a given spell.
+ */
 int elemental_preference(spell_type spell, int scale)
 {
     skill_set skill_list;
     spell_skills(spell, skill_list);
     int preference = 0;
     for (skill_set_iter it = skill_list.begin(); it != skill_list.end(); ++it)
-        preference += _skill_elemental_preference(*it, scale);
+        if (_skill_is_elemental(*it))
+            preference += you.skill(*it, scale);
     return preference;
 }
 
-/*
+/**
  * Compare skill levels
  *
  * It compares the level of 2 skills, and breaks ties by using skill order.
@@ -670,15 +651,6 @@ bool compare_skills(skill_type sk1, skill_type sk2)
         return you.skill(sk1, 10, true) > you.skill(sk2, 10, true)
                || you.skill(sk1, 10, true) == you.skill(sk2, 10, true)
                   && you.skill_order[sk1] < you.skill_order[sk2];
-}
-
-bool is_antitrained(skill_type sk)
-{
-    skill_type opposite = opposite_skill(sk);
-    if (opposite == SK_NONE || you.skills[sk] >= 27)
-        return false;
-
-    return compare_skills(opposite, sk) && you.skills[opposite];
 }
 
 void dump_skills(string &text)
@@ -738,21 +710,12 @@ int transfer_skill_points(skill_type fsk, skill_type tsk, int skp_max,
         dprf("ct_skill_points[%s]: %d", skill_name(fsk), you.ct_skill_points[fsk]);
 
     // We need to transfer by small steps and update skill levels each time
-    // so that cross/anti-training are handled properly.
+    // so that cross-training is handled properly.
     while (total_skp_lost < skp_max
            && (simu || total_skp_lost < (int)you.transfer_skill_points))
     {
         int skp_lost = min(20, skp_max - total_skp_lost);
         int skp_gained = skp_lost * penalty / 100;
-
-        float ct_bonus = crosstrain_bonus(tsk);
-        if (ct_bonus > 1 && fsk != tsk)
-        {
-            skp_gained *= ct_bonus;
-            you.ct_skill_points[tsk] += (1 - 1 / ct_bonus) * skp_gained;
-        }
-        else if (is_antitrained(tsk))
-            skp_gained /= ANTITRAIN_PENALTY;
 
         ASSERT(you.skill_points[fsk] > you.ct_skill_points[fsk]);
 

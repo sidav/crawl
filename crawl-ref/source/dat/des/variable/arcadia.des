@@ -29,16 +29,16 @@ KMONS:   9 = ettin ; giant club randart . giant club randart / \
              glowing shapeshifter hd:13 w:5 / stone giant / \
              sphinx / tengu reaver w:5 / deep elf high priest w:5
 KMONS:   J = bat skeleton
-KMONS:   K = giant firefly
+KMONS:   K = spriggan rider
 KMONS:   L = spriggan ; robe . dagger
 KMONS:   M = yak
 KMONS:   N = spriggan ; robe . quarterstaff
 KMONS:   O = dire elephant / death yak / emperor scorpion / anaconda w:5
 KMONS:   Q = bush
 KMONS:   R = plant
-ITEM:    dagger / short sword / cutlass / flail / whip / blowgun / bow
+ITEM:    dagger / short sword / cutlass / flail / whip / blowgun / shortbow
 ITEM:    robe / cloak / hat / buckler / steam dragon armour w:1
-ITEM:    bread ration q:2, cheese q:3
+ITEM:    bread ration q:3
 KFEAT:   _ = altar_trog
 NSUBST:  . = 10:0 / 8 = 00... / 2:O / 1:3 / 1:5 / *:.
 NSUBST:  6 = 1:9 / 2 = 669 / *:6
@@ -199,13 +199,13 @@ MONS:   the Enchantress patrolling, thorn hunter / spriggan defender
 MONS:   tengu reaver / glowing shapeshifter hd:13
 MONS:   satyr w:15 / spriggan berserker w:15 / spriggan air mage, faun
 MONS:   tengu conjurer ; quarterstaff . robe . longbow . arrow / \
-        tengu conjurer ; quarterstaff . robe . crossbow . bolt / \
+        tengu conjurer ; quarterstaff . robe . arbalest . bolt / \
         centaur warrior / rakshasa / ogre mage ; giant club . \
         robe . potion of berserk rage q:1 ident:type
-KMONS:  L = thorn lotus
+KMONS:  L = water nymph
 KMONS:  P = plant
-ITEM:   grape q:1 / grape q:2 / nothing w:180
-ITEM:   any potion / grape q:1 / nothing w:30
+ITEM:   fruit q:1 / fruit q:2 / nothing w:180
+ITEM:   any potion / fruit q:1 / nothing w:30
 KFEAT:  L = deep_water
 NSUBST: w = 2:L / *:w
 SUBST:  X = xt, T = t.
@@ -291,78 +291,4 @@ Ttt4..........ttT
 TTtt.......4.ttTT
  TTtttttttttttTT
   TTTTTTTTTTTTT
-ENDMAP
-
-################################################################################
-## A palace where lost denizens of the forgotten forest
-## gather to worship a powerful water deity
-NAME:     gammafunk_forest_water_palace
-TAGS:     no_rotate patrolling
-ORIENT:   north
-MONS:     spriggan rider w:19 / spriggan w:1
-MONS:     yaktaur / rakshasa / tengu conjurer / \
-          deep elf knight w:5 / boggart band w:5
-MONS:     centaur warrior w:5 / faun w:20 / manticore / satyr
-MONS:     spriggan berserker / spriggan air mage w:5
-MONS:     dire elephant, spriggan defender
-MONS:     sphinx w:20 / tengu reaver w:15 / deep elf high priest
-KMONS:    E = water elemental
-KMONS:    P = thorn hunter
-KMONS:    L = thorn lotus
-KMONS:    N = water nymph
-KMONS:    S = shambling mangrove
-KFEAT:    PELNS = shallow_water
-SUBST:    X = tx
-SHUFFLE:  PS
-NSUBST:   1 = 4:1 / 4:2 / * = 1122., 6 = 1:7 / 2 = 66677 / *:6
-NSUBST:   N = 2:NL / 2:PS
-FTILE:    |*1234567GTU+. = floor_pebble_cyan
-: old_forest_ends(_G)
-veto {{
-  return crawl.game_started()
-         and (dgn.br_exists("Forest") or you.uniques("the Enchantress"))
-}}
-MAP
-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-ttt....WWWWWWWWcccccccccccccccccWWWWWWWW....ttt
-Xtt...WWWWWWWWcc*..|||||||||..*ccWWWWWWWW...ttX
-Xtt...WWWGWWWWc**....6.6.6....**cWWWWGWWW...ttX
-Xtt...WWWWWWWWc**.5..........5**cWWWWWWWW...ttX
-Xtt...WWWWWccccccccccc+++cccccccccccWWWWW...ttX
-Xtt...WWWWccWWWWWWWWWWWWWWWWWWWWWWWccWWWW...ttX
-Xtt1..WWWWcWWWWWWWWWWWWWWWWWWWWWWWWWcWWWW..1ttX
-Xtt...WWLWcWWcccWWNWWW.U.WWWNWWcccWWcWWLW...ttX
-Xtt...WWWWcWWcGcWWWWWU...UWWWWWcGcWWcWWWW...ttX
-Xtt...WWWWcWW.5.WWWW..2.2..WWWW.5.WWcWWWW...ttX
-Xtt1..WWWWcWWWWWWWWW...6...WWWWWWWWWcWWWW..1ttX
-Xtt...WWWWcWWWWWWWWW.......WWWWWWWWWcWWWW...ttX
-Xtt...WWWWcWWWWWWWWWW.....WWWWWWWWWWcWWWW...ttX
-Xtt...WWWWcWWWWWWWWWWW...WWWWWWWWWWWcWWWW...ttX
-Xtt1..WWPWcWWWWNWWWWWWWWWWWWWWWNWWWWcWWPW..1ttX
-Xtt...WWWWcWWWWWWWWWWWWWWWWWWWWWWWWWcWWWW...ttX
-Xtt...WWWWcWWWWWWWWWWWWWWWWWWWWWWWWWcWWWW...ttX
-Xtt...WWWWcWWWWWWWWWWWWWWWWWWWWWWWWWcWWWW...ttX
-Xtt1..WWWWcWWWcccWWWWW...WWWWWcccWWWcWWWW..1ttX
-Xtt...WWWWcWWWcTcWWWW.3.4.WWWWcTcWWWcWWWW...ttX
-Xtt...WWWWcWWW.5.WWWW.....WWWW.5.WWWcWWWW...ttX
-Xtt...WWWWcWWWWWWWWWW.4.3.WWWWWWWWWWcWWWW...ttX
-Xtt...WWLWcWWWWWWWWWW.....WWWWWWWWWWcWWLW...ttX
-Xtt1..WWWWccWWWWWWWWW.....WWWWWWWWWccWWWW..1ttX
-Xtt...WWWWWccccccccccc+++cccccccccccWWWWW...ttX
-Xtt...WWWWWWWWc.................cWWWWWWWW...ttX
-Xtt...WWWWWWWWc..T...........T..cWWWWWWWW...ttX
-Xtt...WWcccWWWc4...............3cWWWcccWW...ttX
-Xtt...WWcGcWWWc...T..3...4..T...cWWWcGcWW...ttX
-Xtt...WWWWWWWWcc...............ccWWWWWWWW...ttX
-Xtt....WWWWSWWWccccccc+++cccccccWWWSWWWW....ttX
-Xtt......WWWWWWWEWWEWWWWWWEWWEWWWWWWWW......ttX
-Xttt......WWWWWWWWWWWWWWWWWWWWWWWWW........tttX
-Xttttt............T....6....T............tttttX
-Xttttttt.....1...................1.....tttttttX
-Xttttttttt........T.........T........tttttttttX
-Xtttttttttttt.....................ttttttttttttX
-Xtttttttttttttttt.............ttttttttttttttttX
-Xttttttttttttttttttt.......tttttttttttttttttttX
-XXXXXXXXXXXXXXXXXXXXXX.@.XXXXXXXXXXXXXXXXXXXXXX
 ENDMAP

@@ -422,10 +422,6 @@ deck of destruction
 Un paquet de cartes magiques, dont la plupart provoque la mort et la
 destruction des ennemis (ou, par malchance, à soi-même).
 %%%%
-deck of dungeons
-
-Un paquet de cartes magiques traitant de la modification du donjon.
-%%%%
 deck of punishment
 
 Un paquet de cartes magiques qui cause des ravages sur l'utilisateur.
@@ -546,10 +542,6 @@ Un chapeau fait de cuir ou de tissu.
 helmet
 
 Un couvre-chef en métal.
-%%%%
-honeycomb
-
-Un morceau de ruche d'abeilles géantes, gorgé de succulent miel.
 %%%%
 horn of Geryon
 
@@ -679,12 +671,6 @@ Un récipient enchanté qui déborde d'eau élémentaire. Retirer le bouchon dé
 un torrent d'eau de la fiole et libère les esprits de l'eau qui résident à
 l'intérieur.
 %%%%
-piece of ambrosia
-
-Une partie de l'étrange substance produite par les papillons de nuits fantômes.
-Le consommer fournit de l'énergie magique ainsi que la nutrition, au prix d'une
-perte de concentration mentale pour une courte période.
-%%%%
 potion of agility
 
 Une potion magique qui augmente considérablement la dextérité et l'esquive de
@@ -772,10 +758,6 @@ potion of haste
 
 Un breuvage enchanté qui accélère les actions de celui qui le boit.
 %%%%
-potion of strong poison
-
-Une épouvantable potion empoisonnée.
-%%%%
 quad damage
 
 Un mystérieux objet qui ressemble à une rune. Une fois évoqué, l'utilisateur
@@ -846,11 +828,6 @@ son degré d'enchantement.
 ring of sustain abilities
 
 Cet anneau protège son porteur des pertes de force, dextérité, ou intelligence.
-%%%%
-ring of sustenance
-
-Cet anneau délivre de l'énergie à son porteur, lui permettant de manger moins
-souvent.
 %%%%
 ring of teleportation
 
@@ -954,21 +931,7 @@ scroll of curse weapon
 
 Ce parchemin place une malédiction sur une arme équipé.
 %%%%
-scroll of enchant weapon i
-
-Ce parchemin place un enchantement sur l'arme équipée, la rendant plus précise
-en combat. Les chances de succès de l'enchantement diminuent suivant le nombre
-d'enchantement déjà réalisé, et ne peut jamais aller au delà de +9. Les
-artefacts ne peuvent pas être enchanté.
-%%%%
-scroll of enchant weapon ii
-
-Ce parchemin place un enchantement sur l'arme équipée, augmentant ses dégâts en
-combat. Les chances de succès de l'enchantement diminuent suivant le nombre
-d'enchantement déjà réalisé, et ne peut jamais aller au delà de +9. Les
-artefacts ne peuvent pas être enchanté.
-%%%%
-scroll of enchant weapon iii
+scroll of enchant weapon
 
 Ce parchemin place un enchantement sur l'arme équipée,  la rendant plus précise
 et augmentant ses dégâts en combat. Les chances de succès de l'enchantement

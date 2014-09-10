@@ -11,13 +11,17 @@
 #include "ability.h"
 #include "act-iter.h"
 #include "areas.h"
+#include "attitude-change.h"
 #include "coord.h"
 #include "coordit.h"
 #include "database.h"
+#include "dgn-overview.h"
 #include "dungeon.h"
 #include "env.h"
 #include "fprop.h"
 #include "exclude.h"
+#include "itemprop.h"
+#include "libutil.h"
 #include "losglobal.h"
 #include "macro.h"
 #include "mon-act.h"
@@ -25,12 +29,12 @@
 #include "mon-movetarget.h"
 #include "mon-pathfind.h"
 #include "mon-speak.h"
-#include "mon-stuff.h"
 #include "ouch.h"
 #include "random.h"
 #include "religion.h"
 #include "spl-summoning.h"
 #include "state.h"
+#include "stringutil.h"
 #include "terrain.h"
 #include "traps.h"
 #include "hints.h"
@@ -71,7 +75,8 @@ static void _mon_check_foe_invalid(monster* mon)
         {
             const monster* foe_mons = foe->as_monster();
             if (foe_mons->alive() && summon_can_attack(mon, foe)
-                && (mon->friendly() != foe_mons->friendly()
+                && (mon->has_ench(ENCH_INSANE)
+                    || mon->friendly() != foe_mons->friendly()
                     || mon->neutral() != foe_mons->neutral()))
             {
                 return;
@@ -148,121 +153,63 @@ static void _set_firing_pos(monster* mon, coord_def target)
     mon->firing_pos = best_pos;
 }
 
-struct dist2_sorter
+static void _decide_monster_firing_position(monster* mon, actor* owner)
 {
-    coord_def pos;
-    bool operator()(const coord_def a, const coord_def b)
+    // Monster can see foe: continue 'tracking'
+    // by updating target x,y.
+    if (mon->foe == MHITYOU)
     {
-        return distance2(a, pos) < distance2(b, pos);
-    }
-};
+        const bool ignore_special_firing_AI = mon->friendly()
+                                              || mon->berserk_or_insane();
 
-static bool _can_traverse_unseen(const monster* mon, const coord_def& target)
-{
-    if (mon->pos() == target)
-        return true;
-
-    ray_def ray;
-    if (!find_ray(mon->pos(), target, ray, opc_immob))
-        return false;
-
-    while (ray.pos() != target && ray.advance())
-        if (!mon_can_move_to_pos(mon, ray.pos() - mon->pos()))
-            return false;
-
-    return true;
-}
-
-// Attempt to find the furthest position from a given target which still has
-// line of sight to it, and which the monster can move to (without pathfinding)
-static coord_def _furthest_aim_spot(monster* mon, coord_def target)
-{
-    int best_distance = 0;
-    coord_def best_pos(0, 0);
-
-    for (distance_iterator di(mon->pos(), false, false, LOS_RADIUS);
-         di; ++di)
-    {
-        const coord_def p(*di);
-        const int range = p.distance_from(target);
-
-        if (!cell_see_cell(mon->pos(), *di, LOS_NO_TRANS))
-            continue;
-
-        if (!in_bounds(p) || range > LOS_RADIUS - 1
-            || !cell_see_cell(p, target, LOS_NO_TRANS)
-            || !mon_can_move_to_pos(mon, p - mon->pos(), true))
-        {
-            continue;
-        }
-
-        const int distance = p.distance_from(target);
-        if (distance > best_distance)
-        {
-            if (_can_traverse_unseen(mon, p))
+        // The foe is the player.
+        if (mons_class_flag(mon->type, M_MAINTAIN_RANGE)
+            && !ignore_special_firing_AI)
             {
-                best_pos = p;
-                best_distance = distance;
+                // Get to firing range even if we are close.
+                _set_firing_pos(mon, you.pos());
             }
-        }
-    }
-
-    return best_pos;
-}
-
-// Tries to find and set an optimal spot for the curse skull to lurk, just
-// outside player's line of sight. We consider this to be the spot the furthest
-// from the player which still has line of sight to where the player will move
-// if they are approaching us. (This keeps it from lurking immediately around
-// corners, where the player can enter melee range of it the first turn it comes
-// into sight)
-//
-// The answer given is not always strictly optimal, since no actual pathfinding
-// is done, and sometimes the best lurking position crosses spots visible to
-// the player unless a more circuitous route is taken, but generally it is
-// pretty good, and eliminates the most obvious cases of players luring them
-// into easy kill.
-static void _set_curse_skull_lurk_pos(monster* mon)
-{
-    // If we're already moving somewhere that we can actually reach, don't
-    // search for a new spot.
-    if (!mon->firing_pos.origin() && _can_traverse_unseen(mon, mon->firing_pos))
-        return;
-
-    // Examine spots adjacent to our target, starting with those closest to us
-    vector<coord_def> spots;
-    for (adjacent_iterator ai(you.pos()); ai; ++ai)
-    {
-        if (!cell_is_solid(*ai) || feat_is_door(grd(*ai)))
-            spots.push_back(*ai);
-    }
-
-    dist2_sorter sorter = {mon->pos()};
-    sort(spots.begin(), spots.end(), sorter);
-
-    coord_def lurk_pos(0, 0);
-    for (unsigned int i = 0; i < spots.size(); ++i)
-    {
-        lurk_pos = _furthest_aim_spot(mon, spots[i]);
-
-        // Consider the first position found to be good enough
-        if (!lurk_pos.origin())
+        else if (mon->type == MONS_SIREN && !ignore_special_firing_AI)
+            find_siren_water_target(mon);
+        else if (!mon->firing_pos.zero()
+                 && mon->see_cell_no_trans(mon->target))
         {
-            mon->firing_pos = lurk_pos;
-            return;
+            // If monster is currently getting into firing position and
+            // sees the player and can attack him, clear firing_pos.
+            mon->firing_pos.reset();
+        }
+
+        if (!(mon->firing_pos.zero() && try_pathfind(mon)))
+        {
+            // Whew. If we arrived here, path finding didn't yield anything
+            // (or wasn't even attempted) and we need to set our target
+            // the traditional way.
+
+            mon->target = PLAYER_POS;
         }
     }
-}
+    else
+    {
+        // We have a foe but it's not the player.
+        monster* target = &menv[mon->foe];
+        mon->target = target->pos();
 
-static bool _stabber_keep_distance(const monster* mon, const actor* foe)
-{
-    return mons_class_flag(mon->type, M_STABBER)
-           && !mon->berserk_or_insane()
-           && (mons_has_incapacitating_ranged_attack(mon, foe)
-               || mons_has_incapacitating_spell(mon, foe))
-           && !foe->incapacitated()
-           && !adjacent(mon->pos(), foe->pos())
-           && !mons_aligned(mon, foe);
+        if (mons_class_flag(mon->type, M_MAINTAIN_RANGE)
+            && !mon->berserk_or_insane()
+            && !(mons_is_avatar(mon->type)
+                 && owner && mon->foe == owner->mindex()))
+        {
+            _set_firing_pos(mon, mon->target);
+        }
+        // Hold position if we've reached our ideal range
+        else if (mon->type == MONS_SPELLFORGED_SERVITOR
+                 && (mon->pos() - target->pos()).abs()
+                 <= dist_range(mon->props["ideal_range"].get_int())
+                 && !one_chance_in(8))
+        {
+            mon->firing_pos = mon->pos();
+        }
+    }
 }
 
 //---------------------------------------------------------------
@@ -339,7 +286,7 @@ void handle_behaviour(monster* mon)
 
                 // If the rot would reduce us to <= 0 max HP, attribute the
                 // kill to the monster.
-                if (loss >= you.hp_max_temp)
+                if (loss >= you.hp_max)
                     ouch(loss, mon->mindex(), KILLED_BY_ROTTING);
 
                 rot_hp(loss);
@@ -734,9 +681,7 @@ void handle_behaviour(monster* mon)
                             else
                             {
                                 if (x_chance_in_y(50, you.stealth())
-                                    || you.penance[GOD_ASHENZARI] && coinflip()
-                                    || mons_class_flag(mon->type, M_VIGILANT)
-                                       && !one_chance_in(3))
+                                    || you.penance[GOD_ASHENZARI] && coinflip())
                                 {
                                     mon->target = you.pos();
                                 }
@@ -758,12 +703,6 @@ void handle_behaviour(monster* mon)
                     && !(mon->friendly() && mon->foe == MHITYOU))
                 {
                     new_beh = BEH_WANDER;
-                }
-                else if ((mon->type == MONS_CURSE_SKULL
-                          && mon->foe == MHITYOU
-                          && grid_distance(mon->pos(), you.pos()) <= LOS_RADIUS))
-                {
-                    _set_curse_skull_lurk_pos(mon);
                 }
                 // If the player walk out of the LOS of a monster with a ranged
                 // attack, we assume it sees in which direction the player went
@@ -809,79 +748,7 @@ void handle_behaviour(monster* mon)
                 break;
             }
 
-            // Monster can see foe: continue 'tracking'
-            // by updating target x,y.
-            if (mon->foe == MHITYOU)
-            {
-                // The foe is the player.
-                if (mons_class_flag(mon->type, M_MAINTAIN_RANGE)
-                    && !mon->berserk_or_insane())
-                {
-                    if (mon->attitude != ATT_FRIENDLY)
-                        // Get to firing range even if we are close.
-                        _set_firing_pos(mon, you.pos());
-                }
-                else if (_stabber_keep_distance(mon, &you))
-                {
-                    if (mon->pos().distance_from(you.pos()) < 4
-                        && !one_chance_in(7))
-                    {
-                        mon->firing_pos = mon->pos();
-                    }
-                    else
-                        _set_firing_pos(mon, you.pos());
-                }
-                else if (mon->type == MONS_SIREN)
-                    find_siren_water_target(mon);
-                else if (!mon->firing_pos.zero()
-                    && mon->see_cell_no_trans(mon->target))
-                {
-                    // If monster is currently getting into firing position and
-                    // sees the player and can attack him, clear firing_pos.
-                    mon->firing_pos.reset();
-                }
-
-                if (mon->firing_pos.zero() && try_pathfind(mon))
-                    break;
-
-                // Whew. If we arrived here, path finding didn't yield anything
-                // (or wasn't even attempted) and we need to set our target
-                // the traditional way.
-
-                mon->target = PLAYER_POS;
-            }
-            else
-            {
-                // We have a foe but it's not the player.
-                monster* target = &menv[mon->foe];
-                mon->target = target->pos();
-
-                if (mons_class_flag(mon->type, M_MAINTAIN_RANGE)
-                    && !mon->berserk_or_insane()
-                    && !(mons_is_avatar(mon->type)
-                         && owner && mon->foe == owner->mindex()))
-                {
-                    _set_firing_pos(mon, mon->target);
-                }
-                else if (target && _stabber_keep_distance(mon, target))
-                {
-                    if (mon->pos().distance_from(target->pos()) < 4
-                        && !one_chance_in(7))
-                    {
-                        mon->firing_pos = mon->pos();
-                    }
-                    else
-                        _set_firing_pos(mon, target->pos());
-                }
-                // Hold position if we've reached our ideal range
-                else if (mon->type == MONS_SPELLFORGED_SERVITOR
-                         && (mon->pos() - target->pos()).abs()
-                         <= dist_range(mon->props["ideal_range"].get_int())
-                         && !one_chance_in(8))
-                {
-                    mon->firing_pos = mon->pos();
-                }
-            }
+            _decide_monster_firing_position(mon, owner);
 
             break;
 
@@ -1256,16 +1123,11 @@ void behaviour_event(monster* mon, mon_event_type event, const actor *src,
     int fleeThreshold = min(mon->max_hit_points / 4, 20);
 
     bool isSmart          = (mons_intel(mon) > I_ANIMAL);
-    bool wontAttack       = mon->wont_attack();
-    bool sourceWontAttack = false;
     bool setTarget        = false;
     bool breakCharm       = false;
     bool was_sleeping     = mon->asleep();
     string msg;
     int src_idx           = src ? src->mindex() : MHITNOT; // AXE ME
-
-    if (src)
-        sourceWontAttack = src->wont_attack();
 
     if (is_sanctuary(mon->pos()) && mons_is_fleeing_sanctuary(mon))
     {
@@ -1304,21 +1166,13 @@ void behaviour_event(monster* mon, mon_event_type event, const actor *src,
 
     case ME_WHACK:
     case ME_ANNOY:
+        if (mon->has_ench(ENCH_GOLD_LUST))
+            mon->del_ench(ENCH_GOLD_LUST);
+
+        // Will turn monster against <src>.
         // Orders to withdraw take precedence over interruptions
         if (mon->behaviour == BEH_WITHDRAW && src != &you)
             break;
-
-        // Will turn monster against <src>, unless they
-        // are BOTH friendly or good neutral AND stupid,
-        // or else fleeing anyway.  Hitting someone over
-        // the head, of course, always triggers this code.
-        if (event != ME_WHACK
-            && !mon->has_ench(ENCH_INSANE)
-            && (wontAttack == sourceWontAttack && mons_intel(mon) <= I_PLANT
-                || mons_is_fleeing(mon)))
-        {
-            break;
-        }
 
         // Monster types that you can't gain experience from cannot
         // fight back, so don't bother having them do so.  If you
@@ -1364,7 +1218,8 @@ void behaviour_event(monster* mon, mon_event_type event, const actor *src,
 
         if (src == &you
             && !mon->has_ench(ENCH_INSANE)
-            && !mons_is_avatar(mon->type))
+            && !mons_is_avatar(mon->type)
+            && mon->type != MONS_SPELLFORGED_SERVITOR)
         {
             mon->attitude = ATT_HOSTILE;
             breakCharm    = true;
@@ -1557,6 +1412,7 @@ void behaviour_event(monster* mon, mon_event_type event, const actor *src,
     if (breakCharm)
     {
         mon->del_ench(ENCH_CHARM);
+        gozag_break_bribe(mon);
         mons_att_changed(mon);
     }
 
@@ -1609,9 +1465,9 @@ void behaviour_event(monster* mon, mon_event_type event, const actor *src,
             {
                 ASSERT_RANGE(get_talent(ABIL_CONVERT_TO_BEOGH, false).hotkey,
                              'A', 'z' + 1);
-                mprf("(press <white>%s %c</white> to convert to Beogh)",
-                     command_to_string(CMD_USE_ABILITY).c_str(),
-                     get_talent(ABIL_CONVERT_TO_BEOGH, false).hotkey);
+                mprf("(press <w>%c</w> on the <w>%s</w>bility menu to convert to Beogh)",
+                     get_talent(ABIL_CONVERT_TO_BEOGH, false).hotkey,
+                     command_to_string(CMD_USE_ABILITY).c_str());
                 you.attribute[ATTR_SEEN_BEOGH] = 1;
             }
         }
@@ -1625,6 +1481,36 @@ void make_mons_stop_fleeing(monster* mon)
 {
     if (mons_is_retreating(mon))
         behaviour_event(mon, ME_CORNERED);
+}
+
+beh_type attitude_creation_behavior(mon_attitude_type att)
+{
+    switch (att)
+    {
+    case ATT_NEUTRAL:
+        return BEH_NEUTRAL;
+    case ATT_GOOD_NEUTRAL:
+        return BEH_GOOD_NEUTRAL;
+    case ATT_STRICT_NEUTRAL:
+        return BEH_STRICT_NEUTRAL;
+    case ATT_FRIENDLY:
+        return BEH_FRIENDLY;
+    default:
+        return BEH_HOSTILE;
+    }
+}
+
+// If you're invis and throw/zap whatever, alerts menv to your position.
+void alert_nearby_monsters()
+{
+    // Judging from the above comment, this function isn't
+    // intended to wake up monsters, so we're only going to
+    // alert monsters that aren't sleeping.  For cases where an
+    // event should wake up monsters and alert them, I'd suggest
+    // calling noisy() before calling this function. - bwr
+    for (monster_near_iterator mi(you.pos()); mi; ++mi)
+        if (!mi->asleep())
+             behaviour_event(*mi, ME_ALERT, &you);
 }
 
 //Make all monsters lose track of a given target after a few turns
@@ -1649,4 +1535,108 @@ void shake_off_monsters(const actor* target)
             m->foe_memory = min(m->foe_memory, 7);
         }
     }
+}
+
+// If _mons_find_level_exits() is ever expanded to handle more grid
+// types, this should be expanded along with it.
+static void _mons_indicate_level_exit(const monster* mon)
+{
+    const dungeon_feature_type feat = grd(mon->pos());
+    const bool is_shaft = (get_trap_type(mon->pos()) == TRAP_SHAFT);
+
+    if (feat_is_gate(feat))
+        simple_monster_message(mon, " passes through the gate.");
+    else if (feat_is_travelable_stair(feat))
+    {
+        command_type dir = feat_stair_direction(feat);
+        simple_monster_message(mon,
+            make_stringf(" %s the %s.",
+                dir == CMD_GO_UPSTAIRS     ? "goes up" :
+                dir == CMD_GO_DOWNSTAIRS   ? "goes down"
+                                           : "takes",
+                feat_is_escape_hatch(feat) ? "escape hatch"
+                                           : "stairs").c_str());
+    }
+    else if (is_shaft)
+    {
+        simple_monster_message(mon,
+            make_stringf(" %s the shaft.",
+                mons_flies(mon) ? "goes down"
+                                : "jumps into").c_str());
+    }
+}
+
+void make_mons_leave_level(monster* mon)
+{
+    if (mon->pacified())
+    {
+        if (you.can_see(mon))
+        {
+            _mons_indicate_level_exit(mon);
+            remove_unique_annotation(mon);
+        }
+
+        // Pacified monsters leaving the level take their stuff with
+        // them.
+        mon->flags |= MF_HARD_RESET;
+        monster_die(mon, KILL_DISMISSED, NON_MONSTER);
+    }
+}
+
+// Given an adjacent monster, returns true if the monster can hit it
+// (the monster should not be submerged, be submerged in shallow water
+// if the monster has a polearm, or be submerged in anything if the
+// monster has tentacles).
+bool monster_can_hit_monster(monster* mons, const monster* targ)
+{
+    if (!summon_can_attack(mons, targ))
+        return false;
+
+    if (!targ->submerged() || mons->has_damage_type(DVORP_TENTACLE))
+        return true;
+
+    if (grd(targ->pos()) != DNGN_SHALLOW_WATER)
+        return false;
+
+    const item_def *weapon = mons->weapon();
+    return weapon && melee_skill(*weapon) == SK_POLEARMS;
+}
+
+// Friendly summons can't attack out of the player's LOS, it's too abusable.
+bool summon_can_attack(const monster* mons)
+{
+    if (crawl_state.game_is_arena() || crawl_state.game_is_zotdef())
+        return true;
+
+    return !mons->friendly() || !mons->is_summoned()
+           || you.see_cell_no_trans(mons->pos());
+}
+
+bool summon_can_attack(const monster* mons, const coord_def &p)
+{
+    if (crawl_state.game_is_arena() || crawl_state.game_is_zotdef())
+        return true;
+
+    // Spectral weapons only attack their target
+    if (mons->type == MONS_SPECTRAL_WEAPON)
+    {
+        // FIXME: find a way to use check_target_spectral_weapon
+        //        without potential info leaks about visibility.
+        if (mons->props.exists(SW_TARGET_MID))
+        {
+            actor *target = actor_by_mid(mons->props[SW_TARGET_MID].get_int());
+            return target && target->pos() == p;
+        }
+        return false;
+    }
+
+    if (!mons->friendly() || !mons->is_summoned())
+        return true;
+
+    return you.see_cell_no_trans(mons->pos()) && you.see_cell_no_trans(p);
+}
+
+bool summon_can_attack(const monster* mons, const actor* targ)
+{
+    return summon_can_attack(mons, targ->pos());
 }

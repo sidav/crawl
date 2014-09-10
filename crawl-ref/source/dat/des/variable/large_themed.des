@@ -18,9 +18,10 @@ NAME:    minmay_goblin_kobold_castle
 TAGS:    no_rotate
 ORIENT:  north
 DEPTH:   D:3-6
-MONS:    goblin; sling . stone / hobgoblin w:2; sling . sling bullet / nothing
+MONS:    goblin; hunting sling . stone / hobgoblin w:2; hunting sling . sling \
+         bullet / nothing
 MONS:    goblin; club / hobgoblin; club / gnoll w:3; club | spear / nothing
-MONS:    kobold; dart / nothing
+MONS:    kobold; stone / nothing
 MONS:    kobold; club / big kobold w:1; club | short sword w:2 / nothing
 SUBST:   y : y:48 w:1 W:1, Y : Y:48 W:1 .:1, y = wWW, Y = WW.
 SUBST:   5 = 2 1:2 .:24
@@ -94,7 +95,7 @@ WEIGHT: 5
 TAGS:   uniq_black_bear_nest
 DEPTH:  D:4-8
 NSUBST: ' = 1:1 / 2:R / *:.
-KITEM:  R = w:2 honeycomb / w:1 royal jelly
+KITEM:  R = royal jelly
 MONS:   patrolling black bear
 MAP
 xxxxxxxxxxxxxxx
@@ -112,7 +113,7 @@ WEIGHT: 5
 TAGS:   uniq_black_bear_nest
 DEPTH:  D:4-8
 NSUBST: ' = 1:1 / 2:R / *:.
-KITEM:  R = w:2 honeycomb / w:1 royal jelly
+KITEM:  R = royal jelly
 MONS:   patrolling black bear
 MAP
 xxxxxxxx@xx
@@ -215,7 +216,7 @@ ENDMAP
 NAME:   minmay_smoke_and_mirrors
 ORIENT: northwest
 DEPTH:  D:12-, Depths
-MONS:   wizard / rakshasa / vapour / nothing
+MONS:   wizard / rakshasa / boggart / nothing
 MARKER: F = lua:fog_machine { cloud_type="purple smoke", \
             pow_min = 5, pow_max = 15, delay_min = 10,   \
             delay_max = 50, size_min = 1, size_max = 5,  \
@@ -850,9 +851,9 @@ MAP
   @@@@@@ @@@@@@@@@@@@@@@@@@@ @@@@@@
 xx......v...................v.......xxxxxxxxxxxxxxxxx
 xx......v..G.............G..v.......xxxxxxxxxxxxxxxxx
-xx......v...................v.......xxxxxxxxxxxxxxxxx
+xx......v.........1.........v.......xxxxxxxxxxxxxxxxx
 xxxxxxxxvvvvvv.........vvvvvvxxxxxxxxxxxxxxxxxxxxxxxx
-xxxxvvvvvvvvvvvvv===vvvvvvvvvvvvvxxxxxxxxxxxxxxxxxxxx
+xxxxvvvvvvvvvvvvv+++vvvvvvvvvvvvvxxxxxxxxxxxxxxxxxxxx
 xxxvv.....vvvvvv.....vvvvvv.....vvxxxxxxxxxxxxxxxxxxx
 xxxv.......+vvv...Y...vvv+.......vxxxxxxxxxxxxxxxxxxx
 xxxvvvV1.vvv.vvv.....vvv.vvv.1Vvvvxxxxxxxxxxxxxxxxxxx
@@ -889,7 +890,7 @@ DEPTH:  Depths, !Depths:$, Crypt:1-4
 ORIENT: southeast
 NSUBST: 3 = 3:. / *:3
 SUBST:  ^ : ^mmm
-KFEAT:  ^ = teleport trap
+KFEAT:  ^ = permanent teleport trap
 KFEAT:  m = iron_grate
 KFEAT:  y = rock_wall
 KMASK:  y = no_wall_fixup
@@ -1440,7 +1441,7 @@ DEPTH:   D:12-
 ORIENT:  north
 MONS:    killer bee, queen bee, oklob plant
 KFEAT:   X = x
-ITEM:    honeycomb / royal jelly w:1, honeycomb w:4 / royal jelly
+ITEM:    royal jelly
 KITEM:   | = |
 SUBST:   A = X:3 .:2, z = x.., ' = .:460 01d%
 : if you.absdepth() > 14 then
@@ -1614,7 +1615,7 @@ TAGS:   no_monster_gen no_pool_fixup
 ORIENT: northwest
 DEPTH:  D:2-4
 KMONS:  O = Ijyb / hobgoblin w:1, hobgoblin
-MONS:   goblin, goblin ; sling . stone, jackal
+MONS:   goblin, goblin ; hunting sling . stone, jackal
 NSUBST: . = 1:6 / 3:3 / *:.
 MAP
 xxxxxxxxxxxxxxxxxxx
@@ -1721,4 +1722,45 @@ ppptc.......c..........c...c...ctpt''
     ''''''''''''''''''''!!!'''
          ''''  '  ''   '!!!'
                         @@@
+ENDMAP
+
+NAME: cheibrodos_hippocracy
+DEPTH: D:12-15
+TAGS: no_item_gen no_monster_gen no_pool_fixup
+ORIENT: north
+MONS: giant orange brain, small abomination, giant eyeball, demonic crawler
+ITEM: randbook
+NSUBST: ' = 3:4 / *:.
+NSUBST: " = 4:0 / 1:9 / *:.
+NSUBST: ? = 1:9 / *:0
+MAP
+      xxxxxxxxxxxxxxxxxxxxxxx
+     xxxxxxxxxxxxxxxxxxxxxxxxx
+    xxxwwwwwxxxxxxxxx......xxxx
+  xxxxwxxxxx...xxxx...xxxx..xxx
+ xxxwwxx.........x..xxx..xx..xx
+xxxwxxx............xx.....xx.xx
+xxwxx*...?.?......xx..xx..2x.xx
+xxwx%d....1.......x..xxW22Wx.xx
+xxwx**...?.?.....xx..xxWWWxx.xx
+xxwxx%..........xx....xxwxx..xx
+xxxwxxxx......xxxw.xx..xxx..xxx
+ xxxwwwxxxxxxxxwwww'xx.....xxx
+  xxxxxwwwwwwwwxx.w'xxxxxxxxx
+   xxxxxxxx4.xxxx.w'xxxxxxxx
+   xx"m"xxx*%xxxxw'wxx
+  xx"m""".xmxxxxx'wxxx
+  xx3m"""..xxxx''w'xx
+  xx"m"""..xxx'ww'xx
+   xx"m"xx.xxx'w'xx
+    xxxxxx.xx'ww'xx
+        xx.xxx'w'xx
+         xx.xx'ww'xx
+         xx.xx'ww'xx
+         xx.x.xw'xx
+          xx.xxx'xxx
+           xxxxxw.xx
+              xxw.xx
+              xx.xxx
+              xx@xxx
 ENDMAP

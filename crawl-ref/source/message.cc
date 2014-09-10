@@ -7,27 +7,28 @@
 
 #include "message.h"
 
+#include "areas.h"
 #include "cio.h"
 #include "colour.h"
 #include "delay.h"
 #include "format.h"
+#include "hints.h"
 #include "initfile.h"
 #include "libutil.h"
 #include "menu.h"
-#include "mon-stuff.h"
+#include "mon-message.h"
 #include "notes.h"
 #include "options.h"
 #include "player.h"
 #include "religion.h"
 #include "stash.h"
 #include "state.h"
-#include "areas.h"
 #include "tags.h"
 #include "travel.h"
-#include "hints.h"
+#include "shout.h"
+#include "stringutil.h"
 #include "unwind.h"
 #include "view.h"
-#include "shout.h"
 #include "viewgeom.h"
 
 #include <sstream>
@@ -897,6 +898,7 @@ static msg_colour_type channel_to_msgcol(msg_channel_type channel, int param)
             break;
 
         case MSGCH_MUTATION:
+        case MSGCH_MONSTER_WARNING:
             ret = MSGCOL_LIGHTRED;
             break;
 
@@ -935,6 +937,7 @@ static msg_colour_type channel_to_msgcol(msg_channel_type channel, int param)
         case MSGCH_EQUIPMENT:
         case MSGCH_EXAMINE:
         case MSGCH_EXAMINE_FILTER:
+        case MSGCH_DGL_MESSAGE:
         default:
             ret = param > 0 ? msg_colour(param) : MSGCOL_LIGHTGREY;
             break;
@@ -1369,7 +1372,7 @@ static void mpr_check_patterns(const string& message,
         if (channel == MSGCH_EQUIPMENT || channel == MSGCH_FLOOR_ITEMS
             || channel == MSGCH_MULTITURN_ACTION
             || channel == MSGCH_EXAMINE || channel == MSGCH_EXAMINE_FILTER
-            || channel == MSGCH_TUTORIAL)
+            || channel == MSGCH_TUTORIAL || channel == MSGCH_DGL_MESSAGE)
         {
             continue;
         }
@@ -1451,7 +1454,7 @@ void flush_prev_message()
     buffer.flush_prev();
 }
 
-void mesclr(bool force)
+void clear_messages(bool force)
 {
     if (!crawl_state.io_inited)
         return;
@@ -1466,7 +1469,7 @@ void mesclr(bool force)
     if (Options.clear_messages || force)
         msgwin.clear();
 
-    // TODO: we could indicate indicate mesclr with a different
+    // TODO: we could indicate indicate clear_messages with a different
     //       leading character than '-'.
 }
 
@@ -1501,7 +1504,7 @@ static void readkey_more(bool user_forced)
         set_more_autoclear(true);
 }
 
-/*
+/**
  * more() preprocessing.
  *
  * @return Whether the more prompt should be skipped.
@@ -1542,7 +1545,134 @@ void more(bool user_forced)
         return;
     flush_prev_message();
     msgwin.more(false, user_forced);
-    mesclr();
+    clear_messages();
+}
+
+void canned_msg(canned_message_type which_message)
+{
+    switch (which_message)
+    {
+        case MSG_SOMETHING_APPEARS:
+            mprf("Something appears %s!",
+                 player_has_feet() ? "at your feet" : "before you");
+            break;
+        case MSG_NOTHING_HAPPENS:
+            mpr("Nothing appears to happen.");
+            break;
+        case MSG_YOU_UNAFFECTED:
+            mpr("You are unaffected.");
+            break;
+        case MSG_YOU_RESIST:
+            mpr("You resist.");
+            learned_something_new(HINT_YOU_RESIST);
+            break;
+        case MSG_YOU_PARTIALLY_RESIST:
+            mpr("You partially resist.");
+            break;
+        case MSG_TOO_BERSERK:
+            mpr("You are too berserk!");
+            crawl_state.cancel_cmd_repeat();
+            break;
+        case MSG_TOO_CONFUSED:
+            mpr("You're too confused!");
+            break;
+        case MSG_PRESENT_FORM:
+            mpr("You can't do that in your present form.");
+            crawl_state.cancel_cmd_repeat();
+            break;
+        case MSG_NOTHING_CARRIED:
+            mpr("You aren't carrying anything.");
+            crawl_state.cancel_cmd_repeat();
+            break;
+        case MSG_CANNOT_DO_YET:
+            mpr("You can't do that yet.");
+            crawl_state.cancel_cmd_repeat();
+            break;
+        case MSG_OK:
+            mprf(MSGCH_PROMPT, "Okay, then.");
+            crawl_state.cancel_cmd_repeat();
+            break;
+        case MSG_UNTHINKING_ACT:
+            mpr("Why would you want to do that?");
+            crawl_state.cancel_cmd_repeat();
+            break;
+        case MSG_NOTHING_THERE:
+            mpr("There's nothing there!");
+            crawl_state.cancel_cmd_repeat();
+            break;
+        case MSG_NOTHING_CLOSE_ENOUGH:
+            mpr("There's nothing close enough!");
+            crawl_state.cancel_cmd_repeat();
+            break;
+        case MSG_NO_ENERGY:
+            mpr("You don't have the energy to cast that spell.");
+            crawl_state.cancel_cmd_repeat();
+            break;
+        case MSG_SPELL_FIZZLES:
+            mpr("The spell fizzles.");
+            break;
+        case MSG_HUH:
+            mprf(MSGCH_EXAMINE_FILTER, "Huh?");
+            crawl_state.cancel_cmd_repeat();
+            break;
+        case MSG_EMPTY_HANDED_ALREADY:
+        case MSG_EMPTY_HANDED_NOW:
+        {
+            const char* when =
+            (which_message == MSG_EMPTY_HANDED_ALREADY ? "already" : "now");
+            if (you.species == SP_FELID)
+                mprf("Your mouth is %s empty.", when);
+            else if (you.has_usable_claws(true))
+                mprf("You are %s empty-clawed.", when);
+            else if (you.has_usable_tentacles(true))
+                mprf("You are %s empty-tentacled.", when);
+            else
+                mprf("You are %s empty-handed.", when);
+            break;
+        }
+        case MSG_YOU_BLINK:
+            mpr("You blink.");
+            break;
+        case MSG_STRANGE_STASIS:
+            mpr("You feel a strange sense of stasis.");
+            break;
+        case MSG_NO_SPELLS:
+            mpr("You don't know any spells.");
+            break;
+        case MSG_MANA_INCREASE:
+            mpr("You feel your magic capacity increase.");
+            break;
+        case MSG_MANA_DECREASE:
+            mpr("You feel your magic capacity decrease.");
+            break;
+        case MSG_DISORIENTED:
+            mpr("You feel momentarily disoriented.");
+            break;
+        case MSG_TOO_HUNGRY:
+            mpr("You're too hungry.");
+            break;
+        case MSG_DETECT_NOTHING:
+            mpr("You detect nothing.");
+            break;
+        case MSG_CALL_DEAD:
+            mpr("You call on the dead to rise...");
+            break;
+        case MSG_ANIMATE_REMAINS:
+            mpr("You attempt to give life to the dead...");
+            break;
+        case MSG_DECK_EXHAUSTED:
+            mpr("The deck of cards disappears in a puff of smoke.");
+            break;
+        case MSG_BEING_WATCHED:
+            mpr("You feel you are being watched by something.");
+            break;
+        case MSG_CANNOT_MOVE:
+            mpr("You cannot move.");
+            break;
+        case MSG_YOU_DIE:
+            mpr_nojoin(MSGCH_PLAIN, "You die...");
+            break;
+    }
 }
 
 static bool is_channel_dumpworthy(msg_channel_type channel)
@@ -1636,10 +1766,10 @@ void load_messages(reader& inf)
     }
     // With Options.message_clear, we don't want the message window
     // pre-filled.
-    mesclr();
+    clear_messages();
 }
 
-void replay_messages(void)
+void replay_messages()
 {
     formatted_scroller hist(MF_START_AT_END | MF_ALWAYS_SHOW_MORE, "");
     hist.set_more();

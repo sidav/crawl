@@ -1,8 +1,8 @@
 #ifndef MON_INFO_H
 #define MON_INFO_H
 
-#include "mon-stuff.h"
 #include "mon-util.h"
+#include "mon-message.h"
 
 enum monster_info_flags
 {
@@ -46,7 +46,9 @@ enum monster_info_flags
     MB_SUBMERGED,
     MB_BLEEDING,
     MB_DEFLECT_MSL,
+#if TAG_MAJOR_VERSION == 34
     MB_PREP_RESURRECT,
+#endif
     MB_REGENERATION,
     MB_RAISED_MR,
     MB_MIRROR_DAMAGE,
@@ -63,7 +65,9 @@ enum monster_info_flags
 #endif
     MB_FEAR_INSPIRING,
     MB_WITHDRAWN,
+#if TAG_MAJOR_VERSION == 34
     MB_ATTACHED,
+#endif
     MB_DAZED,
     MB_MUTE,
     MB_BLIND,
@@ -95,11 +99,15 @@ enum monster_info_flags
     MB_WATER_HOLD,
     MB_WATER_HOLD_DROWN,
     MB_FLAYED,
+#if TAG_MAJOR_VERSION == 34
     MB_RETCHING,
+#endif
     MB_WEAK,
     MB_DIMENSION_ANCHOR,
     MB_CONTROL_WINDS,
+#if TAG_MAJOR_VERSION == 34
     MB_WIND_AIDED,
+#endif
     MB_SUMMONED_NO_STAIRS, // Temp. summoned and capped monsters
     MB_SUMMONED_CAPPED,    // Expiring due to summons cap
     MB_TOXIC_RADIANCE,
@@ -115,6 +123,11 @@ enum monster_info_flags
     MB_BLACK_MARK,
     MB_SAP_MAGIC,
     MB_SHROUD,
+    MB_CORROSION,
+    MB_SPECTRALISED,
+    MB_SLOW_MOVEMENT,
+    MB_LIGHTLY_DRAINED,
+    MB_HEAVILY_DRAINED,
     NUM_MB_FLAGS
 };
 
@@ -146,6 +159,7 @@ struct monster_info_base
     string constrictor_name;
     vector<string> constricting_name;
     monster_spells spells;
+    mon_attack_def attack[MAX_NUM_ATTACKS];
 
     uint32_t client_id;
 };
@@ -316,6 +330,8 @@ struct monster_info : public monster_info_base
     {
         return mons_class_flag(this->type, M_FAKE_SPELLS) || this->props.exists("fake_spells");
     }
+
+    bool has_spells() const;
 
 protected:
     string _core_name() const;

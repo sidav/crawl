@@ -23,6 +23,7 @@
 #include "los.h"
 #include "message.h"
 #include "misc.h"
+#include "mon-book.h"
 #include "mon-chimera.h"
 #include "mon-util.h"
 #include "monster.h"
@@ -31,6 +32,7 @@
 #include "skills2.h"
 #include "spl-summoning.h"
 #include "state.h"
+#include "stringutil.h"
 #include "terrain.h"
 #include "traps.h"
 
@@ -45,13 +47,9 @@ static monster_info_flags ench_to_mb(const monster& mons, enchant_type ench)
                       || ench == ENCH_SWIFT
                       || ench == ENCH_PETRIFIED
                       || ench == ENCH_PETRIFYING))
+    {
         return NUM_MB_FLAGS;
-
-    if (ench == ENCH_HASTE && mons.has_ench(ENCH_SLOW))
-        return NUM_MB_FLAGS;
-
-    if (ench == ENCH_SLOW && mons.has_ench(ENCH_HASTE))
-        return NUM_MB_FLAGS;
+    }
 
     if (ench == ENCH_PETRIFIED && mons.has_ench(ENCH_PETRIFYING))
         return NUM_MB_FLAGS;
@@ -113,8 +111,6 @@ static monster_info_flags ench_to_mb(const monster& mons, enchant_type ench)
         return MB_PARALYSED;
     case ENCH_SOUL_RIPE:
         return MB_POSSESSABLE;
-    case ENCH_PREPARING_RESURRECT:
-        return MB_PREP_RESURRECT;
     case ENCH_REGENERATION:
         return MB_REGENERATION;
     case ENCH_RAISED_MR:
@@ -125,8 +121,6 @@ static monster_info_flags ench_to_mb(const monster& mons, enchant_type ench)
         return MB_FEAR_INSPIRING;
     case ENCH_WITHDRAWN:
         return MB_WITHDRAWN;
-    case ENCH_ATTACHED:
-        return MB_ATTACHED;
     case ENCH_BLEED:
         return MB_BLEEDING;
     case ENCH_DAZED:
@@ -166,16 +160,12 @@ static monster_info_flags ench_to_mb(const monster& mons, enchant_type ench)
             return MB_WATER_HOLD_DROWN;
     case ENCH_FLAYED:
         return MB_FLAYED;
-    case ENCH_RETCHING:
-        return MB_RETCHING;
     case ENCH_WEAK:
         return MB_WEAK;
     case ENCH_DIMENSION_ANCHOR:
         return MB_DIMENSION_ANCHOR;
     case ENCH_CONTROL_WINDS:
         return MB_CONTROL_WINDS;
-    case ENCH_WIND_AIDED:
-        return MB_WIND_AIDED;
     case ENCH_TOXIC_RADIANCE:
         return MB_TOXIC_RADIANCE;
     case ENCH_GRASPING_ROOTS:
@@ -202,6 +192,14 @@ static monster_info_flags ench_to_mb(const monster& mons, enchant_type ench)
         return MB_SAP_MAGIC;
     case ENCH_SHROUD:
         return MB_SHROUD;
+    case ENCH_CORROSION:
+        return MB_CORROSION;
+    case ENCH_DRAINED:
+        {
+            const bool heavily_drained = mons.get_ench(ench).degree
+                                         >= mons.get_experience_level() / 2;
+            return heavily_drained ? MB_HEAVILY_DRAINED : MB_LIGHTLY_DRAINED;
+        }
     default:
         return NUM_MB_FLAGS;
     }
@@ -414,6 +412,12 @@ monster_info::monster_info(monster_type p_type, monster_type p_base_type)
         }
     }
 
+    for (int i = 0; i < MAX_NUM_ATTACKS; ++i)
+    {
+        attack[i] = get_monster_data(type)->attack[i];
+        attack[i].damage = 0;
+    }
+
     props.clear();
 
     client_id = 0;
@@ -465,10 +469,8 @@ monster_info::monster_info(const monster* m, int milev)
         base_type = type;
 
     // these use number for internal information
-    if (type == MONS_MANTICORE
-        || type == MONS_SIXFIRHY
+    if (type == MONS_SIXFIRHY
         || type == MONS_JIANGSHI
-        || type == MONS_SHEDU
         || type == MONS_KRAKEN_TENTACLE
         || type == MONS_KRAKEN_TENTACLE_SEGMENT
         || type == MONS_ELDRITCH_TENTACLE_SEGMENT
@@ -591,7 +593,7 @@ monster_info::monster_info(const monster* m, int milev)
     if (mons_looks_distracted(m))
         mb.set(MB_DISTRACTED);
     if (m->liquefied_ground())
-        mb.set(MB_SLOWED);
+        mb.set(MB_SLOW_MOVEMENT);
     if (m->is_wall_clinging())
         mb.set(MB_CLINGING);
 
@@ -668,11 +670,14 @@ monster_info::monster_info(const monster* m, int milev)
     if (m->is_shapeshifter() && (m->flags & MF_KNOWN_SHIFTER))
         mb.set(MB_SHAPESHIFTER);
 
-    if (m->is_known_chaotic())
+    if (m->known_chaos())
         mb.set(MB_CHAOTIC);
 
     if (m->submerged())
         mb.set(MB_SUBMERGED);
+
+    if (testbits(m->flags, MF_SPECTRALISED))
+        mb.set(MB_SPECTRALISED);
 
     if (mons_is_pghost(type))
     {
@@ -702,6 +707,12 @@ monster_info::monster_info(const monster* m, int milev)
             this->props["priest"] = true;
         else if (m->is_actual_spellcaster())
             this->props["actual_spellcaster"] = true;
+    }
+
+    for (int i = 0; i < MAX_NUM_ATTACKS; ++i)
+    {
+        attack[i] = mons_attack_spec(m, i, true);
+        attack[i].damage = 0;
     }
 
     for (unsigned i = 0; i <= MSLOT_LAST_VISIBLE_SLOT; ++i)
@@ -1156,10 +1167,9 @@ bool monster_info::less_than(const monster_info& m1, const monster_info& m2,
 
     // Force plain but different coloured draconians to be treated like the
     // same sub-type.
-    if (!zombified && m1.type >= MONS_DRACONIAN
-        && m1.type <= MONS_PALE_DRACONIAN
-        && m2.type >= MONS_DRACONIAN
-        && m2.type <= MONS_PALE_DRACONIAN)
+    if (!zombified
+        && mons_is_base_draconian(m1.type)
+        && mons_is_base_draconian(m2.type))
     {
         return false;
     }
@@ -1199,7 +1209,7 @@ bool monster_info::less_than(const monster_info& m1, const monster_info& m2,
         return m1.number > m2.number;
 
     if (m1.type == MONS_BALLISTOMYCETE)
-        return m1.number > 0 > (m2.number > 0);
+        return m1.number > 0 && m2.number <= 0;
 
     // Shifters after real monsters of the same type.
     if (m1.is(MB_SHAPESHIFTER) != m2.is(MB_SHAPESHIFTER))
@@ -1458,6 +1468,21 @@ void monster_info::to_string(int count, string& desc, int& desc_colour,
 vector<string> monster_info::attributes() const
 {
     vector<string> v;
+
+    if (is(MB_BERSERK))
+        v.push_back("berserk");
+    if (is(MB_HASTED) || is(MB_BERSERK))
+    {
+        if (!is(MB_SLOWED))
+            v.push_back("fast");
+        else
+            v.push_back("fast+slow");
+    }
+    else if (is(MB_SLOWED))
+        v.push_back("slow");
+    if (is(MB_STRONG) || is(MB_BERSERK))
+        v.push_back("unusually strong");
+
     if (is(MB_POISONED))
         v.push_back("poisoned");
     if (is(MB_SICK))
@@ -1466,20 +1491,12 @@ vector<string> monster_info::attributes() const
         v.push_back("rotting away"); //jmf: "covered in sores"?
     if (is(MB_GLOWING))
         v.push_back("softly glowing");
-    if (is(MB_SLOWED))
-        v.push_back("moving slowly");
     if (is(MB_INSANE))
         v.push_back("frenzied and insane");
-    if (is(MB_BERSERK))
-        v.push_back("berserk");
     if (is(MB_FRENZIED))
         v.push_back("consumed by blood-lust");
     if (is(MB_ROUSED))
         v.push_back("inspired to greatness");
-    if (is(MB_HASTED))
-        v.push_back("moving very quickly");
-    if (is(MB_STRONG))
-        v.push_back("unusually strong");
     if (is(MB_CONFUSED))
         v.push_back("bewildered and confused");
     if (is(MB_INVISIBLE))
@@ -1499,7 +1516,7 @@ vector<string> monster_info::attributes() const
     if (is(MB_VULN_MAGIC))
         v.push_back("susceptible to magic");
     if (is(MB_SWIFT))
-        v.push_back("moving somewhat quickly");
+        v.push_back("covering ground quickly");
     if (is(MB_SILENCING))
         v.push_back("radiating silence");
     if (is(MB_PARALYSED))
@@ -1508,8 +1525,6 @@ vector<string> monster_info::attributes() const
         v.push_back("bleeding");
     if (is(MB_DEFLECT_MSL))
         v.push_back("deflecting missiles");
-    if (is(MB_PREP_RESURRECT))
-        v.push_back("quietly preparing");
     if (is(MB_FEAR_INSPIRING))
         v.push_back("inspiring fear");
     if (is(MB_BREATH_WEAPON))
@@ -1523,8 +1538,6 @@ vector<string> monster_info::attributes() const
         v.push_back(string("protected by ")
                     + pronoun(PRONOUN_POSSESSIVE) + " shell");
     }
-    if (is(MB_ATTACHED))
-        v.push_back("attached and sucking blood");
     if (is(MB_DAZED))
         v.push_back("dazed");
     if (is(MB_MUTE))
@@ -1560,16 +1573,12 @@ vector<string> monster_info::attributes() const
     }
     if (is(MB_FLAYED))
         v.push_back("covered in terrible wounds");
-    if (is(MB_RETCHING))
-        v.push_back("retching with violent nausea");
     if (is(MB_WEAK))
         v.push_back("weak");
     if (is(MB_DIMENSION_ANCHOR))
         v.push_back("unable to translocate");
     if (is(MB_CONTROL_WINDS))
         v.push_back("controlling the winds");
-    if (is(MB_WIND_AIDED))
-        v.push_back("aim guided by the winds");
     if (is(MB_TOXIC_RADIANCE))
         v.push_back("radiating toxic energy");
     if (is(MB_GRASPING_ROOTS))
@@ -1596,6 +1605,16 @@ vector<string> monster_info::attributes() const
         v.push_back("magic-sapped");
     if (is(MB_SHROUD))
         v.push_back("shrouded");
+    if (is(MB_CORROSION))
+        v.push_back("covered in acid");
+    if (is(MB_SPECTRALISED))
+        v.push_back("ghostly");
+    if (is(MB_SLOW_MOVEMENT))
+        v.push_back("covering ground slowly");
+    if (is(MB_LIGHTLY_DRAINED))
+        v.push_back("lightly drained");
+    if (is(MB_HEAVILY_DRAINED))
+        v.push_back("heavily drained");
     return v;
 }
 
@@ -1780,7 +1799,7 @@ size_type monster_info::body_size() const
 
 bool monster_info::cannot_move() const
 {
-    return is(MB_PARALYSED) || is(MB_PETRIFIED) || is(MB_PREP_RESURRECT);
+    return is(MB_PARALYSED) || is(MB_PETRIFIED);
 }
 
 bool monster_info::airborne() const
@@ -1791,6 +1810,33 @@ bool monster_info::airborne() const
 bool monster_info::ground_level() const
 {
     return !airborne() && !is(MB_CLINGING);
+}
+
+// Only checks for spells from preset monster spellbooks.
+// Use monster.h's has_spells for knowing a monster has spells
+bool monster_info::has_spells() const
+{
+    const vector<mon_spellbook_type> books = get_spellbooks(*this);
+
+    const size_t num_books = books.size();
+
+    // Random pan lords don't display their spells.
+    if (num_books == 0 || books[0] == MST_NO_SPELLS
+        || type == MONS_PANDEMONIUM_LORD)
+    {
+        return false;
+    }
+
+    // Ghosts have a special book but may not have any spells anyways.
+    if (books[0] == MST_GHOST)
+    {
+        for (int i = 0; i < NUM_MONSTER_SPELL_SLOTS; ++i)
+            if (this->spells[i] != SPELL_NO_SPELL)
+                return true;
+        return false;
+    }
+
+    return true;
 }
 
 void get_monster_info(vector<monster_info>& mons)

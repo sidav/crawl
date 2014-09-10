@@ -38,8 +38,6 @@
 -- only get about 60 turns to kill the last enemy, and it might spawn in a far
 -- away spot. This is intentional.
 --
--- XXX: TRJ doesn't work.
---
 -- XXX: Zin is overpowered.
 
 function arena_sprint_is_boss_round(round_id)
@@ -231,7 +229,7 @@ function arena_sprint_get_monster_set(round, boss)
                 "lesser demon w:30 / grinder w:3 / w:2 eustachio",
                 "zombie / skeleton / wight w:5 / necrophage / phantom w:5",
                 "worker ant / soldier ant w:2 / queen ant w:1 / killer bee w:2",
-                "ooze / w:5 jelly / w:1 brown ooze",
+                "ooze / w:5 jelly",
                 "giant cockroach / giant mite w:20 / w:5 spider /\
                     w:5 goliath beetle / worm / w:5 brain worm",
                 "giant spore hd:3"
@@ -251,13 +249,12 @@ function arena_sprint_get_monster_set(round, boss)
                 "w:20 merfolk / w:5 mermaid / hippogriff / centaur / w:5 griffon /\
                     w:1 harpy / w:5 cyclops / w:1 snapping turtle",
                 "w:5 bog body / w:5 giant leech / insubstantial wisp / w:5 swamp drake /\
-                    w:1 vapour / giant frog / w:2 spiny frog / w:2 hydra /\
-                    w:2 vampire mosquito",
+                    giant frog / w:2 spiny frog / w:2 hydra / w:2 vampire mosquito",
                 "w:30 spider / goliath beetle / w:2 boulder beetle / w:2 jumping spider /\
                     scorpion / w:2 tarantella / w:1 wolf spider",
                 "w:15 adder / ball python / water moccasin / naga / w:2 black mamba /\
                     w:1 naga mage / w:1 naga warrior",
-                "jelly / w:5 ooze / w:3 brown ooze / giant eyeball / w:2 shining eye",
+                "jelly / w:5 ooze / giant eyeball / w:2 shining eye",
                 "killer bee w:20 / w:5 queen bee",
                 "zombie / skeleton / wight / necrophage /\
                     phantom w:5 / w:1 josephine",
@@ -265,9 +262,8 @@ function arena_sprint_get_monster_set(round, boss)
                     sixfirhy w:2 / hellwing",
                 "w:20 mummy / w:5 guardian mummy / w:5 menkaure",
                 -- Fire, Air, Earth, Water, Death
-                "w:20 fire bat / fire elemental / w:5 fire drake / w:5 mottled dragon /\
-                    w:1 flaming corpse",
-                "steam dragon / w:5 air elemental / w:1 vapour / w:5 lightning spire /\
+                "w:20 fire bat / fire elemental / w:5 fire drake / w:5 mottled dragon",
+                "steam dragon / w:5 air elemental / w:1 wind drake / w:5 lightning spire /\
                     w:30 sky beast / insubstantial wisp",
                 "w:15 earth elemental / w:5 gargoyle / w:5 boulder beetle /\
                     w:15 iron devil / w:15 iron imp",
@@ -298,7 +294,7 @@ function arena_sprint_get_monster_set(round, boss)
                 "place:Swamp",
                 "place:Spider",
                 "place:Snake",
-                "jelly / w:5 brown ooze / giant eyeball / w:2 shining eye /\
+                "jelly / giant eyeball / w:2 shining eye /\
                     w:2 golden eye / w:2 eye of draining / w:1 slime creature",
                 "killer bee w:15 / w:5 queen bee / w:1 oklob plant",
                 "w:3 skeletal warrior / wight / necrophage / zombie w:5 /\
@@ -308,8 +304,8 @@ function arena_sprint_get_monster_set(round, boss)
                 "mummy / w:5 guardian mummy / w:1 mummy priest",
                 -- Fire, Air, Earth, Water, Death
                 "fire bat / fire elemental / fire drake / mottled dragon /\
-                    flaming corpse / w:5 sun demon / w:2 efreet / hell hound",
-                "steam dragon / air elemental / w:3 vapour / lightning spire /\
+                    w:5 sun demon / w:2 efreet / hell hound",
+                "steam dragon / air elemental / w:3 wind drake / lightning spire /\
                     w:20 sky beast / insubstantial wisp",
                 "earth elemental w:15 / gargoyle w:5 / boulder beetle /\
                     iron devil / iron imp / w:5 iron troll",
@@ -323,9 +319,9 @@ function arena_sprint_get_monster_set(round, boss)
                 "troll / deep troll w:12 / iron troll w:2",
                 "fire drake / swamp drake / steam dragon / swamp dragon /\
                  mottled dragon / komodo dragon",
-                "necrophage / plague shambler / w:2 ghoul / bog body",
+                "necrophage / w:2 ghoul / bog body",
                 "shapeshifter hd:7",
-                "polar bear / grizzly bear",
+                "polar bear",
                 -- Gimmicks
                 "brain worm", "giant spore hd:3", "deep elf priest always_corpse",
                 "kobold name:kamikaze_kobold n_rpl n_noc n_des perm_ench:inner_flame",
@@ -352,9 +348,9 @@ function arena_sprint_get_monster_set(round, boss)
                 "mummy / w:5 guardian mummy / w:2 mummy priest / w:1 sphinx",
                 -- Fire, Air, Earth, Water, Death
                 "w:5 fire bat / fire elemental / fire drake / mottled dragon /\
-                    flaming corpse / sun demon / efreet / hell hound /\
+                    sun demon / efreet / hell hound /\
                     hell hog / w:5 fire crab",
-                "w:1 storm dragon / air elemental / w:5 vapour / w:17 sky beast /\
+                "w:1 storm dragon / air elemental / w:5 wind drake / w:17 sky beast /\
                     insubstantial wisp",
                 "earth elemental w:20 / boulder beetle /\
                     iron devil / w:5 iron troll / w:1 roxanne /\
@@ -364,14 +360,14 @@ function arena_sprint_get_monster_set(round, boss)
                 "wraith / eidolon / phantasmal warrior / w:2 nergalle",
                 -- Misc
                 "centaur w:15 / centaur warrior w:5 / nessos w:1",
-                "ugly thing w:30 / w:15 very ugly thing / w:1 kirke",
-                "vampire mosquito / red wasp w:5 / yellow wasp / giant firefly",
+                "w:15 ugly thing / w:1 kirke",
+                "vampire mosquito / red wasp w:5 / yellow wasp",
                 "ogre mage / w:5 deep elf mage / vampire mage / naga mage",
                 "troll / deep troll / iron troll",
                 "fire drake w:5 / swamp drake / swamp dragon /\
                     mottled dragon w:5 / komodo dragon w:5 / lindwurm w:5 /\
                     fire dragon w:5 / ice dragon w:5 / storm dragon w:1",
-                "necrophage / plague shambler / ghoul / bog body",
+                "necrophage / ghoul / bog body",
                 "shapeshifter",
                 -- Gimmicks
                 "neqoxec", "giant spore hd:3", "deep elf priest always_corpse",
@@ -406,7 +402,7 @@ function arena_sprint_get_monster_set(round, boss)
                 "fire elemental / fire dragon / sun demon / efreet / hell hound /\
                     hell hog / fire crab / fire giant / w:5 balrug / w:1 margery /\
                     w:2 azrael",
-                "storm dragon / air elemental / w:5 vapour / spriggan air mage /\
+                "storm dragon / air elemental / w:5 wind drake / spriggan air mage /\
                     insubstantial wisp / w:3 titan / w:1 nikola",
                 "earth elemental / w:5 iron golem / stone giant /\
                     iron devil / w:5 iron troll / w:1 the iron giant /\
@@ -415,11 +411,11 @@ function arena_sprint_get_monster_set(round, boss)
                     golden dragon simulacrum / spriggan simulacrum / water elemental /\
                     ice devil / merfolk aquamancer / frost giant",
                 "death cob / death yak / death drake w:5 / deep elf death mage /\
-                    deep dwarf death knight / death ooze / green death",
+                    death knight / death ooze / green death",
                 -- Misc
                 "centaur / centaur warrior",
                 "yaktaur w:15 / yaktaur captain w:5",
-                "ugly thing w:15 / w:15 very ugly thing / w:1 kirke",
+                "ugly thing w:15 / w:1 kirke",
                 "ogre mage / w:5 deep elf mage / vampire mage / naga mage /\
                     lich / w:5 ancient lich / w:1 frederick",
                 "hill giant / stone giant / w:5 frost giant / w:5 fire giant /\
@@ -429,7 +425,7 @@ function arena_sprint_get_monster_set(round, boss)
                 "yak / sheep / death yak / apis / catoblepas",
                 "glowing shapeshifter",
                 "hell knight / w:5 necromancer / w:1 margery",
-                "wraith / wight / phantasmal warrior / plague shambler / skeletal warrior /\
+                "wraith / wight / phantasmal warrior / skeletal warrior /\
                     vampire / ghoul / mummy / flayed ghost / bone dragon / death cob /\
                     profane servitor",
                 "vault guard / necromancer / hell knight / wizard /\
@@ -478,17 +474,16 @@ function arena_sprint_get_monster_set(round, boss)
                 "w:5 orb of fire / brimstone fiend / balrug / hellion /\
                     fire giant / sun demon / fire vortex",
                 "place:Coc:$ w:20 / ice fiend / blizzard demon / ice devil",
-                "spriggan air mage / w:5 titan / w:5 electric golem / vapour /\
+                "spriggan air mage / w:5 titan / w:5 electric golem / wind drake /\
                     air elemental / ball lightning / storm dragon",
                 "shadow fiend / reaper / shadow dragon / death drake /\
                     deep elf death mage / lich w:15 / ancient lich w:5 /\
                     unborn w:5 / place:Tar:$ w:40",
-                "daeva / angel / cherub / w:5 pearl dragon / ophan / \
-                    w:5 silver star / apis",
+                "daeva / angel / cherub / pearl dragon / ophan / apis",
                 -- Misc
                 "centaur warrior",
                 "yaktaur / yaktaur captain",
-                "very ugly thing",
+                "ugly thing",
                 "lich / w:5 ancient lich / w:5 unborn / w:2 boris",
                 "stone giant / frost giant / fire giant / titan / w:1 chuck",
                 "fire dragon / ice dragon / storm dragon / shadow dragon /\
@@ -516,7 +511,7 @@ function arena_sprint_get_monster_set(round, boss)
                 "ghost moth / w:30 lorocyproca / eye of draining",
                 "giant eyeball w:5 / ettin",
                 "executioner / w:1 ignacio",
-                "ghost moth / moth of wrath / w:15 vampire mosquito / w:15 giant firefly"
+                "ghost moth / moth of wrath / w:30 vampire mosquito"
             }
         elseif round <= 36 then
             mon_set = {
@@ -553,13 +548,12 @@ function arena_sprint_get_monster_set(round, boss)
                     fire giant / sun demon",
                 "place:Coc:$ w:20 / ice fiend / blizzard demon / ice devil /\
                     white draconian",
-                "spriggan air mage / titan / electric golem / vapour /\
-                    ball lightning / storm dragon",
+                "spriggan air mage / titan / electric golem / ball lightning /\
+                    storm dragon",
                 "shadow fiend / reaper / shadow dragon / death drake /\
                     deep elf death mage / ancient lich /\
                     unborn w:5 / place:Tar:$ w:40",
-                "daeva / angel / cherub / pearl dragon / ophan / \
-                    silver star / apis",
+                "daeva / angel / cherub / pearl dragon w:20 / ophan / apis",
                 -- Misc
                 "yaktaur captain",
                 "lich / ancient lich",
@@ -583,18 +577,17 @@ function arena_sprint_get_monster_set(round, boss)
                 "ghost moth / w:30 lorocyproca / eye of draining",
                 "giant eyeball w:5 / tentacled monstrosity",
                 "executioner / w:1 ignacio / w:5 death drake",
-                "ghost moth / moth of wrath / w:5 vampire mosquito / w:5 giant firefly",
+                "ghost moth / moth of wrath / vampire mosquito",
                 -- Aaaarggghhhhh!
                 "daeva / w:15 angel",
                 "greater mummy / mummy priest / guardian mummy",
                 "air elemental name:greater n_adj perm_ench:tornado col:lightcyan / air elemental w:20",
-                "elephant slug col:magenta name:orb_slug n_rpl n_des n_spe spells:orb_of_destruction",
+                "goliath beetle hd:20 col:magenta name:orb_beetle n_rpl n_des n_spe spells:orb_of_destruction",
                 "brimstone fiend / ice fiend / shadow fiend / executioner / hell sentinel",
                 "titan / spriggan air mage / blizzard demon / w:20 sky beast",
                 "sphinx / place:Tomb:$",
-                "orb of fire / w:5 orb of fire name:orb_of_ice n_rpl n_des spells:glaciate col:lightblue tile:mons_orb_of_ice /\
-                  orb of fire name:orb_of_electricity n_rpl n_des spells:chain_lightning col:yellow tile:mons_orb_of_electricity /\
-                  w:5 silver star",
+                "orb of fire / orb of fire name:orb_of_ice n_rpl n_des spells:glaciate col:lightblue tile:mons_orb_of_ice /\
+                  orb of fire name:orb_of_electricity n_rpl n_des spells:chain_lightning col:yellow tile:mons_orb_of_electricity",
                 "hellion / w:5 efreet"
             }
         else -- Because somehow, the above stuff was too easy.
@@ -631,8 +624,7 @@ function arena_sprint_get_monster_set(round, boss)
                 "shadow fiend / reaper / shadow dragon / death drake /\
                     deep elf death mage / ancient lich /\
                     unborn w:5",
-                "daeva / angel / cherub / pearl dragon w:20 / ophan /\
-                    silver star w:20 / apis",
+                "daeva w:20 / angel / cherub / pearl dragon w:20 / ophan / apis",
                 -- Misc
                 "deep elf master archer",
                 "ancient lich",
@@ -660,13 +652,12 @@ function arena_sprint_get_monster_set(round, boss)
                 "daeva",
                 "greater mummy / mummy priest",
                 "air elemental name:greater n_adj perm_ench:tornado col:lightcyan",
-                "elephant slug col:magenta name:orb_slug n_rpl n_des n_spe spells:orb_of_destruction",
+                "goliath beetle hd:20 col:magenta name:orb_beetle n_rpl n_des n_spe spells:orb_of_destruction",
                 "brimstone fiend / ice fiend / shadow fiend w:5 / hell sentinel",
                 "titan / spriggan air mage / blizzard demon",
                 "sphinx",
                 "orb of fire / orb of fire name:orb_of_ice n_rpl n_des spells:glaciate col:lightblue tile:mons_orb_of_ice /\
-                  orb of fire name:orb_of_electricity n_rpl n_des spells:chain_lightning col:yellow tile:mons_orb_of_electricity /\
-                  w:20 silver star",
+                  orb of fire name:orb_of_electricity n_rpl n_des spells:chain_lightning col:yellow tile:mons_orb_of_electricity",
                 "hellion"
             }
         end
@@ -717,8 +708,8 @@ function arena_sprint_init_boss_table()
                  "gossamer rune of zot"}
     else
         bs[2] = {"place:Shoals", "polyphemus hp:350 / ilsuiw hp:250 /\
-                 siren name:succubus tile:mons_succubus n_rpl n_des n_spe \
-                     col:lightmagenta hp:300 spells:malign_gateway perm_ench:flight",
+                 siren name:dimme tile:mons_dimme n_rpl n_des n_spe \
+                     col:lightmagenta hp:300 spells:malign_gateway",
                  "barnacled rune of zot"}
     end
 
@@ -995,7 +986,7 @@ LROCKTILE:  wall_hall
 # Both would be rather useless if you picked them, though. Positions are random,
 # and you don't have enough time to reach an altar before the game starts.
 NSUBST: B = 0 / 1 / 2 / 3 / 4 / 5 / 6 / 7 / 8 / 9 / h / i / j / k / l / n / \
-            o / *:.
+            o / p / q / *:.
 KFEAT:  0 = altar_zin
 KFEAT:  1 = altar_the_shining_one
 KFEAT:  2 = altar_lugonu
@@ -1013,6 +1004,9 @@ KFEAT:  k = altar_cheibriados
 KFEAT:  l = altar_jiyva
 KFEAT:  n = altar_fedhas
 KFEAT:  o = altar_dithmenos
+KFEAT:  p = altar_gozag
+KFEAT:  q = altar_qazlal
+: if crawl.unavailable_god("Gozag") then _G.subst("p = .") end
 KITEM:  { = scroll of blinking q:3, scroll of fog q:3 ident:all, \
             potion of heal wounds q:3, potion of haste q:3, \
             wand of fire charges:5 ident:all, \
@@ -1034,7 +1028,7 @@ KFEAT:  { = {
 KFEAT:  C = scroll shop type:Identification suffix:Station count:17 greed:25 ; scroll of identify q:3
 KFEAT:  D = book shop type:Must-Have suffix:Magic greed:7 count:13 use_all ; \
             book of summonings | book of spatial translocations | book of enchantments |\
-            book of death | book of war chants | book of the sky | book of the warp |\
+            book of death | book of the sky | book of the warp |\
             book of the earth | book of burglary | book of annihilations |\
             grand grimoire | necronomicon | not_cursed lightning rod
 KFEAT:  EP = scroll shop greed:10 use_all count:17 ; \
@@ -1042,15 +1036,15 @@ KFEAT:  EP = scroll shop greed:10 use_all count:17 ; \
             scroll of fog q:3 | scroll of fog q:4 | scroll of fog q:5 |\
             scroll of recharging q:3 | scroll of recharging q:3 | scroll of recharging q:3 |\
             scroll of silence q:3 | scroll of brand weapon | scroll of vulnerability q:3 |\
-            scroll of amnesia q:5 | scroll of remove curse q:15 | scroll of enchant weapon iii q:6 |\
+            scroll of amnesia q:5 | scroll of remove curse q:15 | scroll of enchant weapon q:8 |\
             scroll of enchant armour q:4 | scroll of enchant armour q:4
 KFEAT:  FS = distillery shop use_all count:17 greed:10 ; \
              potion of haste q:3 | potion of haste q:4 | potion of haste q:5 |\
              potion of agility q:6 | potion of might q:6 | potion of brilliance q:6 |\
              potion of cure mutation | potion of cure mutation q:2 | potion of cure mutation q:3 |\
-             potion of resistance q:3 | potion of resistance q:4 | potion of resistance q:5 |\
-             potion of magic q:3 | potion of magic q:4 | potion of magic q:5 |\
-             potion of berserk rage q:5 | potion of berserk rage q:5
+             potion of resistance q:6 | potion of resistance q:6 | potion of magic q:6 |\
+             potion of magic q:6 | potion of berserk rage q:5 | potion of berserk rage q:5 |\
+             potion of restore abilities q:10 | potion of restore abilities q:10
 KFEAT:  O = distillery shop type:Do-It-Yourself suffix:Clinic count:17 use_all greed:10 ; \
             potion of heal wounds q:3 | potion of heal wounds q:3 | potion of heal wounds q:3 |\
             potion of heal wounds q:3 | potion of heal wounds q:3 | potion of heal wounds q:3 |\
@@ -1087,7 +1081,8 @@ KFEAT:  Q = weapon shop type:Weapon suffix:Rack count:17 use_all greed:30 ; \
             mundane not_cursed great mace | mundane not_cursed giant spiked club |\
             mundane not_cursed demon trident | mundane not_cursed bardiche |\
             mundane not_cursed lajatang | mundane not_cursed longbow |\
-            mundane not_cursed sling | mundane not_cursed crossbow |\
+            mundane not_cursed greatsling | mundane not_cursed triple crossbow \
+                |\
             mundane bolt q:50 | mundane sling bullet q:50 |\
             mundane arrow q:50
 KFEAT:  H = distillery shop type:Bottled suffix:Wisdom count:5 use_all greed:6 ; \
@@ -1100,7 +1095,7 @@ KFEAT:  R = general shop type:Premium suffix:Goods use_all count:11 greed:20 ; \
             wand of hasting charges:5 | wand of hasting charges:5 |\
             wand of invisibility charges:5 | crystal ball of energy
 KFEAT:  J = general shop type:Miscellaneous suffix:Merchandise count:14 greed:15 use_all ; \
-            sultana q:200 | potion of blood q:5 | potion of blood q:5 |\
+            fruit q:100 | potion of blood q:5 | potion of blood q:5 |\
             potion of blood q:5 | potion of blood q:5 | ring of poison resistance |\
             ring of protection from fire | ring of protection from cold |\
             ring of protection from magic | ring of regeneration |\

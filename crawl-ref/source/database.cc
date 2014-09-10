@@ -14,6 +14,7 @@
 #include <unistd.h>
 #endif
 
+#include "end.h"
 #include "clua.h"
 #include "database.h"
 #include "errors.h"
@@ -21,8 +22,8 @@
 #include "libutil.h"
 #include "options.h"
 #include "random.h"
-#include "stuff.h"
 #include "syscalls.h"
+#include "stringutil.h"
 #include "threads.h"
 #include "unicode.h"
 
@@ -118,6 +119,7 @@ static TextDB AllDBs[] =
     TextDB("misc", "database/",
             "miscname.txt", // names for miscellaneous things
             "godname.txt",  // god-related names (mostly His Xomminess)
+            "montitle.txt", // titles for monsters (i.e. uniques)
             NULL),
 
     TextDB("quotes", "descript/",
@@ -824,7 +826,7 @@ string getSpeakString(const string &key)
     int num_replacements = 0;
 
 #ifdef DEBUG_MONSPEAK
-    dprf("monster speech lookup for %s", key.c_str());
+    dprf(DIAG_SPEECH, "monster speech lookup for %s", key.c_str());
 #endif
     string txt = _getRandomisedStr(SpeakDB, key, "", num_replacements);
     _execute_embedded_lua(txt);

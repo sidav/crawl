@@ -12,6 +12,7 @@
 
 #include "act-iter.h"
 #include "beam.h"
+#include "butcher.h"
 #include "cloud.h"
 #include "coord.h"
 #include "coordit.h"
@@ -19,6 +20,7 @@
 #include "fprop.h"
 #include "godconduct.h"
 #include "items.h"
+#include "libutil.h"
 #include "losglobal.h"
 #include "message.h"
 #include "misc.h"
@@ -26,26 +28,14 @@
 #include "mon-util.h"
 #include "ouch.h"
 #include "player.h"
+#include "prompt.h"
 #include "random-pick.h"
 #include "spl-util.h"
-#include "stuff.h"
 #include "target.h"
 #include "terrain.h"
 #include "transform.h"
 #include "viewchar.h"
 #include "shout.h"
-
-static void _burn_tree(coord_def pos)
-{
-    bolt beam;
-    beam.origin_spell = SPELL_CONJURE_FLAME;
-    beam.range = 1;
-    beam.flavour = BEAM_FIRE;
-    beam.name = "fireball"; // yay doing this by name
-    beam.source = beam.target = pos;
-    beam.set_agent(&you);
-    beam.fire();
-}
 
 spret_type conjure_flame(int pow, const coord_def& where, bool fail)
 {
@@ -60,23 +50,8 @@ spret_type conjure_flame(int pow, const coord_def& where, bool fail)
 
     if (cell_is_solid(where))
     {
-        switch (grd(where))
-        {
-        case DNGN_METAL_WALL:
-            mpr("You can't ignite solid metal!");
-            break;
-        case DNGN_GREEN_CRYSTAL_WALL:
-            mpr("You can't ignite solid crystal!");
-            break;
-        case DNGN_TREE:
-        case DNGN_MANGROVE:
-            fail_check();
-            _burn_tree(where);
-            return SPRET_SUCCESS;
-        default:
-            mpr("You can't ignite solid rock!");
-            break;
-        }
+        const char *feat = feat_type_name(grd(where));
+        mprf("You can't place the cloud on %s.", article_a(feat).c_str());
         return SPRET_ABORT;
     }
 
@@ -182,7 +157,8 @@ spret_type cast_big_c(int pow, cloud_type cty, const actor *caster, bolt &beam,
 
     if (cell_is_solid(beam.target))
     {
-        mpr("You can't place clouds on a wall.");
+        const char *feat = feat_type_name(grd(beam.target));
+        mprf("You can't place clouds on %s.", article_a(feat).c_str());
         return SPRET_ABORT;
     }
 
@@ -246,13 +222,6 @@ void big_cloud(cloud_type cl_type, const actor *agent,
 
 spret_type cast_ring_of_flames(int power, bool fail)
 {
-    // You shouldn't be able to cast this in the rain. {due}
-    if (in_what_cloud(CLOUD_RAIN))
-    {
-        mpr("Your spell sizzles in the rain.");
-        return SPRET_ABORT;
-    }
-
     fail_check();
     did_god_conduct(DID_FIRE, min(5 + power/5, 50));
     you.increase_duration(DUR_FIRE_SHIELD,
@@ -271,6 +240,9 @@ void manage_fire_shield(int delay)
     you.duration[DUR_FIRE_SHIELD]-= delay;
     if (you.duration[DUR_FIRE_SHIELD] < 0)
         you.duration[DUR_FIRE_SHIELD] = 0;
+
+    // Melt ice armour and condensation shield entirely.
+    maybe_melt_player_enchantments(BEAM_FIRE, 100);
 
     // Remove fire clouds on top of you
     if (env.cgrid(you.pos()) != EMPTY_CLOUD
@@ -359,7 +331,7 @@ int holy_flames(monster* caster, actor* defender)
 {
     const coord_def pos = defender->pos();
     int cloud_count = 0;
-    const int dur = 8 + random2avg(caster->hit_dice * 3, 2);
+    const int dur = 8 + random2avg(caster->get_hit_dice() * 3, 2);
 
     for (adjacent_iterator ai(pos); ai; ++ai)
     {
@@ -425,13 +397,6 @@ void apply_control_winds(const monster* mon)
     for (int i = cloud_list.size() - 1; i >= 0; --i)
     {
         cloud_struct* cl = &env.cloud[cloud_list[i]];
-        if (cl->type == CLOUD_FOREST_FIRE)
-        {
-            if (you.see_cell(cl->pos))
-                mpr("The forest fire is smothered by the winds.");
-            delete_cloud(cloud_list[i]);
-            continue;
-        }
 
         // Leave clouds engulfing hostiles alone
         if (actor_at(cl->pos) && !mons_aligned(actor_at(cl->pos), mon))
@@ -479,22 +444,6 @@ void apply_control_winds(const monster* mon)
                 env.cloud[cloud_list[i]].decay =
                         env.cloud[cloud_list[i]].decay / 2 - 20;
             }
-        }
-    }
-
-    // Now give a ranged accuracy boost to nearby allies
-    for (monster_near_iterator mi(mon, LOS_NO_TRANS); mi; ++mi)
-    {
-        if (distance2(mon->pos(), mi->pos()) >= 33 || !mons_aligned(mon, *mi))
-            continue;
-
-        if (!mi->has_ench(ENCH_WIND_AIDED))
-            mi->add_ench(mon_enchant(ENCH_WIND_AIDED, 1, mon, 20));
-        else
-        {
-            mon_enchant aid = mi->get_ench(ENCH_WIND_AIDED);
-            aid.duration = 20;
-            mi->update_ench(aid);
         }
     }
 }
@@ -549,6 +498,9 @@ spret_type cast_cloud_cone(const actor *caster, int pow, const coord_def &pos,
          caster->name(DESC_THE).c_str(),
          caster->conj_verb("create").c_str(),
          cloud_type_name(cloud).c_str());
+
+    if (cloud == CLOUD_FIRE && caster->is_player())
+        did_god_conduct(DID_FIRE, min(5 + pow/2, 23));
 
     return SPRET_SUCCESS;
 }

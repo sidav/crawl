@@ -63,8 +63,6 @@ Turn into a speedy vampire bat. In bat form, you can neither interact with
 items in any form (except picking them up or dropping them), nor cast spells.
 Note that Bat Form will decrease your current Strength while increasing your
 Dexterity. Thus, you won't be able to change form if your Strength is too low.
-The flight is magically augmented, so you will stay in the air even if the
-weight of your possessions or some disability would normally drag you down.
 %%%%
 Bottle Blood ability
 
@@ -110,7 +108,7 @@ Stop singing your Song of Slaying.
 Self-Restoration ability
 
 At the permanent loss of one magic point restore your Strength, Dexterity and
-Intelligence, and heal any rotted hit points.
+Intelligence, and heal any rotted health.
 %%%%
 Device Recharging ability
 
@@ -138,8 +136,8 @@ Evoke Blink ability
 %%%%
 Evoke Berserk Rage ability
 
-Go berserk. Going berserk greatly, if temporarily, increases your hit points
-and damage output in melee fights. It will time out quickly if you don't kill
+Go berserk. Going berserk greatly, if temporarily, increases your health and
+damage output in melee fights. It will time out quickly if you don't kill
 anything, but may be extended by multiple kills. While berserk, you cannot
 perform a number of actions such as, for example, (un)wield a weapon, quaff
 something, evoke wands or items, or cast spells. Such a rage is usually
@@ -281,7 +279,7 @@ zombies and skeletons cannot leave the level they were created on.
 %%%%
 Drain Life ability
 
-Heal hit points by draining the life force of the monsters surrounding you.
+Heal by draining the life force of the monsters surrounding you.
 %%%%
 Enslave Soul ability
 
@@ -351,8 +349,8 @@ greatly appreciates using this ability.
 %%%%
 Berserk ability
 
-Go berserk. Going berserk greatly, if temporarily, increases your hit points
-and damage output in melee fights. It will time out quickly if you don't kill
+Go berserk. Going berserk greatly, if temporarily, increases your health and
+damage output in melee fights. It will time out quickly if you don't kill
 anything, but may be extended by multiple kills. While berserk, you cannot
 perform a number of actions such as, for example, (un)wield a weapon, quaff
 something, evoke wands or items, or cast spells. Such a rage is usually
@@ -398,7 +396,7 @@ You can also heal allies and neutral monsters.
 %%%%
 Lesser Self-Healing ability
 
-Depending on your Invocations skill, heal a small amount of hit points.
+Depending on your Invocations skill, heal a small amount of health.
 %%%%
 Purification ability
 
@@ -425,14 +423,14 @@ You can also heal allies and neutral monsters.
 %%%%
 Greater Self-Healing ability
 
-Depending on your Invocations skill, heal a moderate amount of hit points.
+Depending on your Invocations skill, heal a moderate amount of health.
 Roughly, Greater Healing will allow you to heal three times the amount of
 Lesser Healing at a slightly higher total piety cost.
 %%%%
 Divine Vigour ability
 
-Greatly increase your maximum hit points and magic points, depending on
-Invocations skill. Your current hit points and magic points will also be
+Greatly increase your maximum health and magic points, depending on
+Invocations skill. Your current health and magic points will also be
 increased proportionally.
 %%%%
 # Lugonu
@@ -471,8 +469,10 @@ Choose any deck in your inventory and draw a card from it.
 Peek at Two ability
 
 Discard one card from any deck in your inventory to draw two cards from the
-deck, look at them, and shuffle them back into the deck. The deck will be
-identified and inscribed as containing those two cards.
+deck, look at them, and place them back on top of the deck. The deck will be
+identified and inscribed as containing those two cards. Note that once
+peeked at, a deck cannot be used with any of Nemelex's other abilities
+(except Draw One).
 %%%%
 Triple Draw ability
 
@@ -505,6 +505,11 @@ surroundings.
 Stop Recall ability
 
 Stop recalling your followers.
+%%%%
+Give Item to Named Follower ability
+
+Give a weapon or piece of armour to a named orcish follower. An orc can only
+ever receive one of these gifts.
 %%%%
 # Fedhas
 Sunlight ability
@@ -569,13 +574,14 @@ Create a neutral jelly that will wander the floor and digest items.
 %%%%
 Jelly Paralyse ability
 
-Pray to temporarily halt the item consumption of any visible slimes. This
-ability costs piety depending on the number of jellies that are affected.
+Call on any nearby jellies to cease their item consumption and pray to Jiyva
+for a short duration. This ability costs piety depending on the number of
+jellies that are affected.
 %%%%
 Slimify ability
 
 Coat a wielded weapon or your fists with slime, turning the next living or
-undead monster hit into a neutral slime.
+corporeal undead monster hit into a neutral slime.
 %%%%
 Cure Bad Mutation ability
 
@@ -611,6 +617,47 @@ will bleed smoke on any incoming attack. However, your ability to deal damage
 in melee will be halved, your spellcasting power will be greatly hampered, and
 your skills will be further drained when taking damage.
 %%%%
+# Gozag
+Potion Petition ability
+
+Petition Gozag to sell you the effects of a set of potions. Gozag will offer
+four lists at a time, with varying prices. One of the potion sets will always
+solely consist of a potion of porridge, which will always be affordable if the
+ability is usable. Prices will slowly increase as you purchase potions.
+%%%%
+Call Merchant ability
+
+Through Gozag, send funds to a merchant to help them set up shop in the
+dungeon. The shop may appear in an unvisited area of the dungeon, or near your
+location if there are no other appropriate locations for a store. The cost of
+funding a shop increases with the number of shops funded.
+%%%%
+Bribe Branch ability
+
+Give 3000 gold to Gozag to spread throughout the inhabitants of the current
+branch, only possible if the branch has intelligent native monsters. Those
+native to a bribed branch will occasionally become uninterested in fighting you
+(with tougher inhabitants having an increasing chance of being bribed),
+and more rarely will join your ranks subject to continued payment. Upon
+exhaustion of the bribe fund, bribed enemies who have not joined you will
+resume hostilities.
+%%%%
+# Qazlal
+Upheaval ability
+
+Calls on the forces of nature to blast a small area with magma, ice, wind,
+or rubble.
+%%%%
+Elemental Force ability
+
+Causes elemental clouds around you to coalesce into elementals. Your own
+clouds create friendly elementals; hostile clouds create hostile elementals;
+natural clouds create neutral elementals.
+%%%%
+Disaster Area ability
+
+Blasts the entire area around you with powerful natural forces.
+%%%%
 Renounce Religion ability
 
 Renounce your faith. This will make your character leave your god (and usually
@@ -626,10 +673,6 @@ you've built your reputation!
 All other gods hate Beogh, and don't take desertion lightly.
 %%%%
 # Zotdef
-Make dart trap ability
-
-Create a dart trap at the targeted location.
-%%%%
 Make oklob sapling ability
 
 Plant an oklob sapling with the ability to spit acid at the targeted location.
@@ -727,11 +770,6 @@ Acquire a large quantity of gold.
 Make oklob circle ability
 
 Grow a circle of oklob plants centred at the targeted location.
-%%%%
-Sage ability
-
-Funnel some of your earned experience towards a certain skill and train it
-faster than normal.
 %%%%
 Acquirement ability
 

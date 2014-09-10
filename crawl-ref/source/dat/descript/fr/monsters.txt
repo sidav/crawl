@@ -541,11 +541,6 @@ Brimstone Fiend
 Un démon puissant et énorme, baigné de flammes infernales et doté de grandes
 ailes écailleuses. Un des plus effrayants habitants de n'importe quel Enfer.
 %%%%
-brown ooze
-
-Un être liquide et visqueux qui s'écoule sur le sol à la recherche de quelque
-chose à dissoudre.
-%%%%
 burning bush
 
 Une masse de brindilles noircies entourées de flammes oranges. Les murs et le
@@ -914,12 +909,6 @@ fire vortex
 
 Un nuage de flammes entortillées.
 %%%%
-flaming corpse
-
-Un cadavre noirci, complètement carbonisé et recouvert d'un feu inextinguible,
-on dirait les reste d'un aventurier malchanceux. Il se précipite frénétiquement
-dans le donjon, voulant partager son destin avec les autres.
-%%%%
 flayed ghost
 
 Une affreuse créature mort-vivante qui flotte dans les airs ; l'esprit angoissé
@@ -983,13 +972,6 @@ giant eyeball
 Un globe oculaire géant en lévitation au regard hypnotique. Certains disent que
 les globes oculaires géants sont des serviteurs de Jiyva.
 %%%%
-giant firefly
-
-Contrairement a ses homologues ordinaires qui sont a peine plus grands qu'un
-centimètre, cet insecte volant est assez grand pour être chevauché par des
-spriggans. Il brille, cependant de manière assez pâle pour être difficilement
-visible.
-%%%%
 giant frog
 
 Un gros amphibien et inhabituellement agressif qui peut parcourir des distances
@@ -1000,12 +982,6 @@ giant gecko
 Un lézard avec des coussinets lui permettant de grimper aux murs et au plafond,
 et avec des grandes dents acérées. Il est bien plus grand qu'un gecko normal,
 alors que sa taille contredit son agilité.
-%%%%
-giant goldfish
-
-Parent de la carpe. Les poissons rouges qui s'échappent dans le donjon
-atteignent souvent des tailles prodigieuses en se nourrissant des cadavres des
-créatures assez malchanceuses pour tomber dans l'eau avec eux.
 %%%%
 giant leech
 
@@ -1088,11 +1064,6 @@ griffon
 
 Une grande créature avec le postérieur d'un lion et les ailes, la tête et les
 serres d'un aigle.
-%%%%
-grizzly bear
-
-Un grand ours à la fourrure grise. Comme tout les ursidés, l'ours grizzli
-deviendra enragé s'il est grièvement blessé ou apeuré.
 %%%%
 guardian mummy
 
@@ -1612,12 +1583,6 @@ pillar of salt
 
 Un énorme pilier de sel qui est en train de fondre rapidement.
 %%%%
-plague shambler
-
-Un cadavre réanimé qui se déplace d'un pas traînant. Piégé par un tissu de
-sorts maléfiques dans une grotesque parodie de vie, cet infecte corps en
-décomposition cherche en titubant à punir les vivants.
-%%%%
 plant
 
 Peu de plantes peuvent pousser dans l'environnement ingrat du donjon, mais
@@ -1651,14 +1616,6 @@ program bug
 
 Un monstre vorace et incroyablement buggé. Veuillez rapporter son existence aux
 développeurs de Devteam.
-%%%%
-pulsating lump
-
-Un blob répugnant de toute sortes de matières organiques – muscle, tripes,
-nerf, viscère, moelle – empilés aléatoirement en une seule masse contorsionnée.
-Sa chair altérée est mutagène au contact ; mais sans aucune forme d'agencement
-structurel de ses parties, il lui manque la coordination nécessaire pour se
-déplacer rapidement.
 %%%%
 quasit
 
@@ -1793,10 +1750,6 @@ Le fléau des magiciens, ces esprits épouvantables apportent un silence
 surnaturel sur la zone qui les entourent, rendant impossible les sorts
 impliquant des incantations magiques ou la lecture de parchemins.
 %%%%
-silver star
-
-Une orbe d'énergie divine, pulsant d'une lumière aveuglante.
-%%%%
 sixfirhy
 
 Une petite créature vile qui bouge par saccades, s'arrêtant puis dardant à une
@@ -1910,11 +1863,6 @@ Un spriggan dont la connexion avec les oiseaux et les bêtes est
 exceptionnellement forte. Dans la nature, ces protecteurs de la terre sont la
 perte des non-écologistes.
 %%%%
-spriggan enchanter
-
-Un Spriggan particulièrement habile dans l'art des maléfices et des charmes —
-et, apparemment, mortel avec une lame rapide.
-%%%%
 spriggan rider
 
 Montés sur des lucioles géantes, ces cavaliers font en sorte que personne n'ose
@@ -2026,14 +1974,6 @@ titan
 Cet énorme humanoïde, portant des éclairs à la main, est inhabituellement grand
 et cela même pour des géants.
 %%%%
-thorn lotus
-
-Un grand et vif floraison dérive tranquillement à la surface de l'eau.
-Méfiez-vous, car sa beauté est trompeuse ; maintenu l'intérieur de ses pétales
-se trouve une stigmatisation hérissée d'épines aiguille, pleinement capables
-d'empaler les prédateurs et les aventuriers inconscients avant même qu'ils
-soient suffisamment proche pour la menacer.
-%%%%
 toadstool
 
 Une espèce de champignon à courte vie typiquement trouvable sur ou autour des
@@ -2115,12 +2055,6 @@ vampire mosquito
 Un moustique qui s'est nourri d'un sang impur et qui s'est transformé en un
 insecte mort-vivant répugnant et pestilentiel, cherchant à drainer ses victimes
 jusqu'à la dernière goutte.
-%%%%
-vapour
-
-Un nuage d'une vapeur bizarre, seulement visible par ceux qui ont une vision
-surnaturelle. Tant qu'il flotte sans but dans le donjon, il se remplit de
-charge électrique, qui parfois se décharge dans votre direction.
 %%%%
 vault guard
 

@@ -27,13 +27,14 @@
 #include "message.h"
 #include "mon-util.h"
 #include "notes.h"
+#include "output.h"
 #include "place.h"
 #include "religion.h"
 #include "shopping.h"
 #include "spl-book.h"
 #include "stash.h"
 #include "state.h"
-#include "stuff.h"
+#include "stringutil.h"
 #include "syscalls.h"
 #include "env.h"
 #include "tags.h"
@@ -84,7 +85,7 @@ string stash_annotate_item(const char *s, const item_def *item, bool exclusive)
         text += fs.tostring(2, -2);
     }
 
-    // Include singular form (royal jelly vs royal jellies).
+    // Include singular form (slice of pizza vs slices of pizza).
     if (item->quantity > 1)
     {
         text += "\n";
@@ -183,11 +184,13 @@ Stash::Stash(int xp, int yp) : enabled(true), items()
     update();
 }
 
-bool Stash::are_items_same(const item_def &a, const item_def &b)
+bool Stash::are_items_same(const item_def &a, const item_def &b, bool exact)
 {
     const bool same = a.base_type == b.base_type
         && a.sub_type == b.sub_type
-        && (a.plus == b.plus || a.base_type == OBJ_GOLD)
+        // Ignore Gozag's gold flag, and rod charges.
+        && (a.plus == b.plus || a.base_type == OBJ_GOLD && !exact
+                             || a.base_type == OBJ_RODS && !exact)
         && a.plus2 == b.plus2
         && a.special == b.special
         && a.colour == b.colour
@@ -196,7 +199,7 @@ bool Stash::are_items_same(const item_def &a, const item_def &b)
 
     // Account for rotting meat when comparing items.
     return same
-           || (a.base_type == b.base_type
+           || (!exact && a.base_type == b.base_type
                && (a.base_type == OBJ_CORPSES
                    || (a.base_type == OBJ_FOOD && a.sub_type == FOOD_CHUNK
                        && b.sub_type == FOOD_CHUNK))
@@ -281,6 +284,15 @@ static bool _grid_has_perceived_multiple_items(const coord_def& pos)
     return count > 1;
 }
 
+bool Stash::unmark_trapping_nets()
+{
+    bool changed = false;
+    for (vector<item_def>::iterator i = items.begin(); i != items.end(); i++)
+        if (item_is_stationary_net(*i))
+            i->plus2 = 0, changed = true;
+    return changed;
+}
+
 void Stash::update()
 {
     coord_def p(x,y);
@@ -355,7 +367,16 @@ void Stash::update()
         // the top item matches what we remember.
         const item_def &first = items[0];
         // Compare these items
-        if (!are_items_same(first, item))
+        if (are_items_same(first, item))
+        {
+            // Replace the item to reflect seen recharging, rotting, etc.
+            if (!are_items_same(first, item, true))
+            {
+                items.erase(items.begin());
+                add_item(item, true);
+            }
+        }
+        else
         {
             // See if 'item' matches any of the items we have. If it does,
             // we'll just make that the first item and leave 'verified'
@@ -452,7 +473,10 @@ public:
     bool can_travel;
 protected:
     void draw_title();
+    int title_height() const;
     bool process_key(int key);
+private:
+    formatted_string create_title_string(bool wrap = true) const;
 };
 
 void StashMenu::draw_title()
@@ -460,42 +484,77 @@ void StashMenu::draw_title()
     if (title)
     {
         cgotoxy(1, 1);
-        formatted_string fs = formatted_string(title->colour);
-        fs.cprintf("%s", title->text.c_str());
-        if (title->quantity)
-        {
-            fs.cprintf(", %d item%s", title->quantity,
-                                      title->quantity == 1? "" : "s");
-        }
-        fs.cprintf(")");
-
-        if (action_cycle == Menu::CYCLE_TOGGLE)
-        {
-            fs.cprintf("  [a-z: %s  ?/!: %s]",
-                       menu_action == ACT_EXAMINE ? "examine" : "shopping",
-                       menu_action == ACT_EXAMINE ? "shopping" : "examine");
-        }
-
-        if (can_travel)
-        {
-            if (action_cycle == Menu::CYCLE_TOGGLE)
-            {
-                // XXX: This won't fit in the title, so it goes into the
-                // footer/-more-.  Not ideal, but I don't know where else
-                // to put it.
-                string str = "<w>[ENTER: travel]</w>";
-                set_more(formatted_string::parse_string(str));
-                flags |= MF_ALWAYS_SHOW_MORE;
-            }
-            else
-                fs.cprintf("  [ENTER: travel]");
-        }
-        fs.display();
+        create_title_string().display();
 
 #ifdef USE_TILE_WEB
-        webtiles_set_title(fs);
+        webtiles_set_title(create_title_string(false));
 #endif
     }
+}
+
+int StashMenu::title_height() const
+{
+    if (title)
+    {
+        return 1 + (create_title_string().width() - 1) / get_number_of_cols();
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+formatted_string StashMenu::create_title_string(bool wrap) const
+{
+    formatted_string fs = formatted_string(title->colour);
+    fs.cprintf("%s", title->text.c_str());
+    if (title->quantity)
+    {
+        fs.cprintf(", %d item%s", title->quantity,
+                                  title->quantity == 1? "" : "s");
+    }
+    fs.cprintf(")");
+
+    vector<string> extra_parts;
+
+    string part = "[a-z: ";
+    part += string(menu_action == ACT_EXAMINE ? "examine" : "shopping");
+    part += "  ?/!: ";
+    part += string(menu_action == ACT_EXAMINE ? "shopping" : "examine");
+    part += "]";
+    extra_parts.push_back(part);
+
+    if (can_travel)
+        extra_parts.push_back(string("[ENTER: travel]"));
+
+    int term_width = get_number_of_cols();
+    int remaining = term_width - fs.width();
+    unsigned int extra_idx = 0;
+    while (static_cast<int>(extra_parts[extra_idx].length()) + 2 <= remaining
+           || !wrap)
+    {
+        fs.cprintf("  %s", extra_parts[extra_idx].c_str());
+
+        remaining -= extra_parts[extra_idx].length() + 2;
+        extra_idx++;
+        if (extra_idx >= extra_parts.size())
+            break;
+    }
+    // XXX assuming only two rows are possible for now
+    if (extra_idx < extra_parts.size())
+    {
+        fs.cprintf("%s", string(remaining, ' ').c_str());
+
+        string second_line;
+        for (unsigned int i = extra_idx; i < extra_parts.size(); ++i)
+            second_line += string("  ") + extra_parts[i];
+
+        fs.cprintf("%s%s",
+                   string(term_width - second_line.length(), ' ').c_str(),
+                   second_line.c_str());
+    }
+
+    return fs;
 }
 
 bool StashMenu::process_key(int key)
@@ -869,8 +928,10 @@ void ShopInfo::describe_shop_item(const shop_item &si) const
     const iflags_t oldflags = si.item.flags;
 
     if (shoptype_identifies_stock(static_cast<shop_type>(shoptype)))
+    {
         const_cast<shop_item&>(si).item.flags |= ISFLAG_IDENT_MASK
             | ISFLAG_NOTED_ID | ISFLAG_NOTED_GET;
+    }
 
     item_def it = static_cast<item_def>(si.item);
     describe_item(it);
@@ -1220,6 +1281,14 @@ bool LevelStashes::update_stash(const coord_def& c)
     return true;
 }
 
+bool LevelStashes::unmark_trapping_nets(const coord_def &c)
+{
+    if (Stash *s = find_stash(c))
+        return s->unmark_trapping_nets();
+    else
+        return false;
+}
+
 void LevelStashes::move_stash(const coord_def& from, const coord_def& to)
 {
     ASSERT(from != to);
@@ -1505,6 +1574,14 @@ void StashTracker::move_stash(const coord_def& from, const coord_def& to)
         lev->move_stash(from, to);
 }
 
+bool StashTracker::unmark_trapping_nets(const coord_def &c)
+{
+    if (LevelStashes *lev = find_current_level())
+        return lev->unmark_trapping_nets(c);
+    else
+        return false;
+}
+
 void StashTracker::remove_level(const level_id &place)
 {
     levels.erase(place);
@@ -1665,67 +1742,59 @@ protected:
 };
 
 // helper for search_stashes
-class compare_by_distance
+static bool _compare_by_distance(const stash_search_result& lhs,
+                                 const stash_search_result& rhs)
 {
-public:
-    bool operator()(const stash_search_result& lhs,
-                    const stash_search_result& rhs)
+    if (lhs.player_distance != rhs.player_distance)
     {
-        if (lhs.player_distance != rhs.player_distance)
-        {
-            // Sort by increasing distance
-            return lhs.player_distance < rhs.player_distance;
-        }
-        else if (lhs.player_distance == 0)
-        {
-            // If on the same level, sort by distance to player.
-            const int lhs_dist = grid_distance(you.pos(), lhs.pos.pos);
-            const int rhs_dist = grid_distance(you.pos(), rhs.pos.pos);
-            if (lhs_dist != rhs_dist)
-                return lhs_dist < rhs_dist;
-        }
-
-        if (lhs.matches != rhs.matches)
-        {
-            // Then by decreasing number of matches
-            return lhs.matches > rhs.matches;
-        }
-        else if (lhs.match != rhs.match)
-        {
-            // Then by name.
-            return lhs.match < rhs.match;
-        }
-        else
-            return false;
+        // Sort by increasing distance
+        return lhs.player_distance < rhs.player_distance;
     }
-};
+    else if (lhs.player_distance == 0)
+    {
+        // If on the same level, sort by distance to player.
+        const int lhs_dist = grid_distance(you.pos(), lhs.pos.pos);
+        const int rhs_dist = grid_distance(you.pos(), rhs.pos.pos);
+        if (lhs_dist != rhs_dist)
+            return lhs_dist < rhs_dist;
+    }
+
+    if (lhs.matches != rhs.matches)
+    {
+        // Then by decreasing number of matches
+        return lhs.matches > rhs.matches;
+    }
+    else if (lhs.match != rhs.match)
+    {
+        // Then by name.
+        return lhs.match < rhs.match;
+    }
+    else
+        return false;
+}
 
 // helper for search_stashes
-class compare_by_name
+static bool _compare_by_name(const stash_search_result& lhs,
+                             const stash_search_result& rhs)
 {
-public:
-    bool operator()(const stash_search_result& lhs,
-                    const stash_search_result& rhs)
+    if (lhs.match != rhs.match)
     {
-        if (lhs.match != rhs.match)
-        {
-            // Sort by name
-            return lhs.match < rhs.match;
-        }
-        else if (lhs.player_distance != rhs.player_distance)
-        {
-            // Then sort by increasing distance
-            return lhs.player_distance < rhs.player_distance;
-        }
-        else if (lhs.matches != rhs.matches)
-        {
-            // Then by decreasing number of matches
-            return lhs.matches > rhs.matches;
-        }
-        else
-            return false;
+        // Sort by name
+        return lhs.match < rhs.match;
     }
-};
+    else if (lhs.player_distance != rhs.player_distance)
+    {
+        // Then sort by increasing distance
+        return lhs.player_distance < rhs.player_distance;
+    }
+    else if (lhs.matches != rhs.matches)
+    {
+        // Then by decreasing number of matches
+        return lhs.matches > rhs.matches;
+    }
+    else
+        return false;
+}
 
 void StashTracker::search_stashes()
 {
@@ -1756,7 +1825,7 @@ void StashTracker::search_stashes()
     }
     msgwin_reply(validline ? buf : "");
 
-    mesclr();
+    clear_messages();
     if (!validline || (!*buf && lastsearch.empty()))
     {
         canned_msg(MSG_OK);
@@ -2089,9 +2158,9 @@ bool StashTracker::display_search_results(
     }
 
     if (sort_by_dist)
-        sort(results->begin(), results->end(), compare_by_distance());
+        sort(results->begin(), results->end(), _compare_by_distance);
     else
-        sort(results->begin(), results->end(), compare_by_name());
+        sort(results->begin(), results->end(), _compare_by_name);
 
     StashSearchMenu stashmenu(show_as_stacks ? "hide" : "show",
                               sort_by_dist ? "dist" : "name",

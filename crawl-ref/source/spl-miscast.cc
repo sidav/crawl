@@ -24,9 +24,9 @@
 #include "message.h"
 #include "misc.h"
 #include "mon-cast.h"
+#include "mon-death.h"
 #include "mon-place.h"
 #include "mgen_data.h"
-#include "mon-stuff.h"
 #include "mon-util.h"
 #include "mutation.h"
 #include "player.h"
@@ -36,7 +36,7 @@
 #include "spl-clouds.h"
 #include "spl-summoning.h"
 #include "state.h"
-#include "stuff.h"
+#include "stringutil.h"
 #include "areas.h"
 #include "terrain.h"
 #include "transform.h"
@@ -609,9 +609,6 @@ void MiscastEffect::_potion_effect(potion_type pot_eff, int pot_pow)
         case POT_SLOWING:
             target->slow_down(act_source, pot_pow);
             break;
-        case POT_PARALYSIS:
-            target->paralyse(act_source, pot_pow, cause);
-            break;
         case POT_CONFUSION:
             target->confuse(act_source, pot_pow);
             break;
@@ -651,7 +648,7 @@ bool MiscastEffect::_malign_gateway()
 
     if (success)
     {
-        const int malign_gateway_duration = BASELINE_DELAY * (random2(5) + 5);
+        const int malign_gateway_duration = BASELINE_DELAY * (random2(3) + 2);
         env.markers.add(new map_malign_gateway_marker(point,
                                 malign_gateway_duration,
                                 false,
@@ -773,7 +770,11 @@ static bool _has_hair(actor* target)
     return !form_changed_physiology() && you.species != SP_GHOUL
            && you.species != SP_OCTOPODE
            && you.species != SP_TENGU && !player_genus(GENPC_DRACONIAN)
-           && you.species != SP_GARGOYLE && you.species != SP_LAVA_ORC;
+           && you.species != SP_GARGOYLE
+#if TAG_MAJOR_VERSION == 34
+           && you.species != SP_LAVA_ORC
+#endif
+           ;
 }
 
 static string _hair_str(actor* target, bool &plural)
@@ -1605,7 +1606,7 @@ void MiscastEffect::_divination_mon(int severity)
             mon_msg_seen = "@The_monster@ looks disoriented.";
             target->confuse(
                 act_source,
-                1 + random2(3 + act_source->get_experience_level()));
+                1 + random2(3 + act_source->get_hit_dice()));
             break;
         }
         break;
@@ -1614,7 +1615,7 @@ void MiscastEffect::_divination_mon(int severity)
         mon_msg_seen = "@The_monster@ shudders.";
         target->confuse(
             act_source,
-            5 + random2(3 + act_source->get_experience_level()));
+            5 + random2(3 + act_source->get_hit_dice()));
         break;
 
     case 3:         // nasty
@@ -1623,7 +1624,7 @@ void MiscastEffect::_divination_mon(int severity)
             target_as_monster()->forget_random_spell();
         target->confuse(
             act_source,
-            8 + random2(3 + act_source->get_experience_level()));
+            8 + random2(3 + act_source->get_hit_dice()));
         break;
     }
     do_msg();
@@ -1641,7 +1642,8 @@ void MiscastEffect::_necromancy(int severity)
             // An actual necromancy miscast.
             if (x_chance_in_y(you.piety, piety_breakpoint(5)))
             {
-                canned_msg(MSG_NOTHING_HAPPENS);
+                simple_god_message(" protects you from your miscast "
+                                   "necromantic spell!");
                 return;
             }
         }
@@ -2207,7 +2209,7 @@ void MiscastEffect::_fire(int severity)
             {
                 monster* mon_target = target_as_monster();
                 mon_target->add_ench(mon_enchant(ENCH_STICKY_FLAME,
-                    min(4, 1 + random2(mon_target->hit_dice) / 2),
+                    min(4, 1 + random2(mon_target->get_hit_dice()) / 2),
                     guilty));
             }
             break;
@@ -2311,7 +2313,7 @@ void MiscastEffect::_ice(int severity)
             else
                 do_msg();
             if (target->alive())
-                target->expose_to_element(BEAM_COLD, 2, true, false);
+                target->expose_to_element(BEAM_COLD, 2, false);
             break;
         }
         break;
@@ -2996,7 +2998,7 @@ void MiscastEffect::_zot()
     case 3:    // other misc stuff
     reroll_2:
         // Cases at the end are for players only.
-        switch (random2(target->is_player() ? 15 : 10))
+        switch (random2(target->is_player() ? 14 : 9))
         {
         case 0:
             target->paralyse(act_source, 2 + random2(4), cause);

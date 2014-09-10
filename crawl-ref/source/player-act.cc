@@ -9,23 +9,31 @@
 
 #include <math.h>
 
+#include "act-iter.h"
 #include "areas.h"
 #include "art-enum.h"
 #include "artefact.h"
 #include "coordit.h"
 #include "dgnevent.h"
 #include "env.h"
+#include "fight.h"
 #include "food.h"
+#include "godconduct.h"
 #include "goditem.h"
 #include "hints.h"
+#include "itemname.h"
 #include "itemprop.h"
 #include "items.h"
+#include "item_use.h"
 #include "libutil.h"
+#include "message.h"
 #include "misc.h"
 #include "monster.h"
+#include "mon-util.h" // for decline_pronoun
+#include "player-stats.h"
+#include "religion.h"
 #include "spl-damage.h"
 #include "state.h"
-#include "stuff.h"
 #include "terrain.h"
 #include "transform.h"
 #include "traps.h"
@@ -136,12 +144,18 @@ bool player::extra_balanced() const
 {
     const dungeon_feature_type grid = grd(pos());
     return species == SP_GREY_DRACONIAN
+              || form == TRAN_TREE
               || grid == DNGN_SHALLOW_WATER
                   && (species == SP_NAGA // tails, not feet
                       || body_size(PSIZE_BODY) >= SIZE_LARGE)
                   && (form == TRAN_LICH || form == TRAN_STATUE
                       || form == TRAN_SHADOW
                       || !form_changed_physiology());
+}
+
+int player::get_hit_dice() const
+{
+    return experience_level;
 }
 
 int player::get_experience_level() const
@@ -164,10 +178,15 @@ bool player::is_habitable_feat(dungeon_feature_type actual_grid) const
             || species == SP_DJINNI
 #endif
             )
+    {
         return true;
+    }
 
-    if (actual_grid == DNGN_LAVA && species != SP_LAVA_ORC
-        || actual_grid == DNGN_DEEP_WATER && !can_swim())
+    if (
+#if TAG_MAJOR_VERSION == 34
+        actual_grid == DNGN_LAVA && species != SP_LAVA_ORC ||
+#endif
+        actual_grid == DNGN_DEEP_WATER && !can_swim())
     {
         return false;
     }
@@ -210,11 +229,6 @@ int player::body_weight(bool base) const
     return weight;
 }
 
-int player::total_weight() const
-{
-    return body_weight() + burden;
-}
-
 int player::damage_type(int)
 {
     if (const item_def* wp = weapon())
@@ -239,7 +253,7 @@ brand_type player::damage_brand(int)
         if (!is_range_weapon(inv[wpn]))
             ret = get_weapon_brand(inv[wpn]);
     }
-    else if (duration[DUR_CONFUSING_TOUCH])
+    else if (duration[DUR_CONFUSING_TOUCH] || form == TRAN_FUNGUS)
         ret = SPWPN_CONFUSE;
     else
     {
@@ -259,11 +273,7 @@ brand_type player::damage_brand(int)
 
         case TRAN_BAT:
             if (species == SP_VAMPIRE && one_chance_in(8))
-                ret = SPWPN_VAMPIRICISM;
-            break;
-
-        case TRAN_JELLY:
-            ret = SPWPN_ACID;
+                ret = SPWPN_VAMPIRISM;
             break;
 
         default:
@@ -272,6 +282,106 @@ brand_type player::damage_brand(int)
     }
 
     return ret;
+}
+
+
+/**
+ * Return the delay caused by attacking with the provided weapon & projectile.
+ *
+ * @param weap          The weapon to be used; may be null.
+ * @param projectile    The projectile to be fired/thrown; may be null.
+ * @param random        Whether to randomize delay, or provide a fixed value
+ *                      for display.
+ * @param scaled        Whether to apply special delay modifiers (finesse)
+ * @return              The time taken by an attack with the given weapon &
+ *                      projectile, in aut.
+ */
+random_var player::attack_delay(const item_def *weap,
+                                const item_def *projectile, bool random,
+                                bool scaled) const
+{
+    random_var attk_delay = constant(15);
+    const int armour_penalty = adjusted_body_armour_penalty(20);
+    const int base_shield_penalty = adjusted_shield_penalty(20);
+
+    bool check_weapon = (!projectile && !!weap)
+                        || projectile
+                            && (is_launched(this, weap, *projectile)
+                                != LRET_THROWN);
+
+    if (!check_weapon)
+    {
+        if (form_uses_xl())
+        {
+            attk_delay =
+                constant(10)
+                - div_rand_round(constant(you.experience_level * 10), 54);
+        }
+        else
+        {
+            attk_delay =
+                rv::max(constant(10),
+                        (rv::roll_dice(1, 10) +
+                         div_rand_round(
+                             rv::roll_dice(2, armour_penalty),
+                             20)));
+
+            skill_type sk = projectile ? SK_THROWING : SK_UNARMED_COMBAT;
+            attk_delay -= div_rand_round(constant(you.skill(sk, 10)), 54);
+
+            // Bats are faster (for what good it does them).
+            if (you.form == TRAN_BAT && !projectile)
+                attk_delay = div_rand_round(attk_delay * constant(3), 5);
+        }
+    }
+    else
+    {
+        if (weap && is_weapon(*weap)
+            && (!projectile && !is_range_weapon(*weap)
+                || projectile
+                   && is_launched(this, weap, *projectile) == LRET_LAUNCHED))
+        {
+            const skill_type wpn_skill = item_attack_skill(*weap);
+            attk_delay = constant(property(*weap, PWPN_SPEED));
+            attk_delay -=
+                div_rand_round(constant(you.skill(wpn_skill, 10)), 20);
+
+            // apply minimum to weapon skill modification
+            attk_delay = rv::max(attk_delay, weapon_min_delay(*weap));
+
+            if (weap->base_type == OBJ_WEAPONS
+                && get_weapon_brand(*weap) == SPWPN_SPEED)
+            {
+                attk_delay = div_rand_round(constant(2) * attk_delay, 3);
+            }
+        }
+    }
+
+    // At the moment it never gets this low anyway.
+    attk_delay = rv::max(attk_delay, constant(3));
+
+    // Calculate this separately to avoid overflowing the weights in
+    // the random_var.
+    random_var shield_penalty = constant(0);
+    if (base_shield_penalty)
+    {
+        shield_penalty =
+            div_rand_round(rv::min(rv::roll_dice(1, base_shield_penalty),
+                                   rv::roll_dice(1, base_shield_penalty)),
+                           20);
+    }
+    // Give unarmed shield-users a slight penalty always.
+    if (!weap && player_wearing_slot(EQ_SHIELD))
+        shield_penalty += rv::random2(2);
+
+    int final_delay = random ? attk_delay.roll() + shield_penalty.roll()
+                             : attk_delay.expected() + shield_penalty.expected();
+    // Stop here if we just want the unmodified value.
+    if (!scaled)
+        return final_delay;
+
+    const int scaling = finesse_adjust_delay(you.time_taken);
+    return max(2, div_rand_round(scaling * final_delay, 10));
 }
 
 // Returns the item in the given equipment slot, NULL if the slot is empty.
@@ -324,38 +434,62 @@ bool player::can_wield(const item_def& item, bool ignore_curse,
     return could_wield(item, ignore_brand, ignore_transform);
 }
 
+/**
+ * Checks whether the player could ever wield the given weapon, regardless of
+ * what they're currently wielding, transformed into, or any other state.
+ *
+ * @param item              The item to wield.
+ * @param ignore_brand      Whether to disregard the weapon's brand.
+ * @return                  Whether the player could potentially wield the
+ *                          item.
+ */
 bool player::could_wield(const item_def &item, bool ignore_brand,
-                         bool ignore_transform) const
+                         bool ignore_transform, bool quiet) const
 {
-    if (species == SP_FELID)
-        return false;
+    const size_type bsize = body_size(PSIZE_TORSO, ignore_transform);
 
-    if (body_size(PSIZE_TORSO, ignore_transform) < SIZE_LARGE
-            && (item_mass(item) >= 500
-                || item.base_type == OBJ_WEAPONS
-                    && item_mass(item) >= 300))
-        return false;
-
-    // Anybody can wield missiles to enchant, item_mass permitting
-    if (item.base_type == OBJ_MISSILES)
-        return true;
-
-    // Or any other object, although there's no point here.
-    if (!is_weapon(item))
-        return true;
-
-    // Small species wielding large weapons...
-    if (body_size(PSIZE_BODY, ignore_transform) < SIZE_MEDIUM
-        && !check_weapon_wieldable_size(item,
-               body_size(PSIZE_BODY, ignore_transform)))
+    // Only ogres and trolls can wield large rocks (for sandblast).
+    if (bsize < SIZE_LARGE
+        && item.base_type == OBJ_MISSILES && item.sub_type == MI_LARGE_ROCK)
     {
+        if (!quiet)
+            mpr("That's too large and heavy for you to wield.");
         return false;
     }
 
-    if (!ignore_brand)
+    // Most non-weapon objects can be wielded, though there's rarely a point
+    if (!is_weapon(item))
     {
-        if (undead_or_demonic() && is_holy_item(item))
+        if (item.base_type == OBJ_ARMOUR || item.base_type == OBJ_JEWELLERY)
+        {
+            if (!quiet)
+                mprf("You can't wield %s.", base_type_string(item).c_str());
             return false;
+        }
+
+        return true;
+    }
+    else if (species == SP_FELID)
+    {
+        if (!quiet)
+            mpr("You can't use weapons.");
+        return false;
+    }
+
+    // Small species wielding large weapons...
+    if (!is_weapon_wieldable(item, bsize))
+    {
+        if (!quiet)
+            mpr("That's too large for you to wield.");
+        return false;
+    }
+
+    // don't let undead/demonspawn wield holy weapons/scrolls (out of spite)
+    if (!ignore_brand && undead_or_demonic() && is_holy_item(item))
+    {
+        if (!quiet)
+            mpr("This weapon is holy and will not allow you to wield it.");
+        return false;
     }
 
     return true;
@@ -390,16 +524,9 @@ string player::name(description_level_type dt, bool) const
     }
 }
 
-string player::pronoun(pronoun_type pro, bool) const
+string player::pronoun(pronoun_type pro, bool /*force_visible*/) const
 {
-    switch (pro)
-    {
-    default:
-    case PRONOUN_SUBJECTIVE:        return "you";
-    case PRONOUN_POSSESSIVE:        return "your";
-    case PRONOUN_REFLEXIVE:         return "yourself";
-    case PRONOUN_OBJECTIVE:         return "you";
-    }
+    return decline_pronoun(GENDER_YOU, pro);
 }
 
 string player::conj_verb(const string &verb) const
@@ -418,7 +545,9 @@ string player::hand_name(bool plural, bool *can_plural) const
 
     if (form == TRAN_BAT || form == TRAN_DRAGON)
         str = "foreclaw";
-    else if (form == TRAN_PIG || form == TRAN_SPIDER || form == TRAN_PORCUPINE)
+    else if (form == TRAN_PIG)
+        str = "front trotter";
+    else if (form == TRAN_SPIDER || form == TRAN_PORCUPINE)
         str = "front leg";
     else if (form == TRAN_ICE_BEAST)
         str = "paw";
@@ -428,8 +557,6 @@ string player::hand_name(bool plural, bool *can_plural) const
         str = "branch";
     else if (form == TRAN_WISP)
         str = "misty tendril";
-    else if (form == TRAN_JELLY)
-        str = "bump"; // not even pseudopods...
     else if (form == TRAN_LICH || form == TRAN_STATUE
              || form == TRAN_SHADOW
              || !form_changed_physiology())
@@ -462,12 +589,12 @@ string player::foot_name(bool plural, bool *can_plural) const
 
     if (form == TRAN_SPIDER)
         str = "hind leg";
+    else if (form == TRAN_PIG)
+        str = "trotter";
     else if (form == TRAN_TREE)
         str = "root";
     else if (form == TRAN_WISP)
         str = "strand";
-    else if (form == TRAN_JELLY)
-        str = "underside", *can_plural = false;
     else if (form == TRAN_LICH || form == TRAN_STATUE
              || form == TRAN_SHADOW
              || !form_changed_physiology())
@@ -488,10 +615,6 @@ string player::foot_name(bool plural, bool *can_plural) const
         }
         else if (species == SP_FELID)
             str = "paw";
-#if TAG_MAJOR_VERSION == 34
-        else if (species == SP_DJINNI)
-            str = "underside", *can_plural = false;
-#endif
         else if (fishtail)
         {
             str         = "tail";
@@ -618,7 +741,7 @@ bool player::cannot_fight() const
     return false;
 }
 
-void player::attacking(actor *other)
+void player::attacking(actor *other, bool ranged)
 {
     ASSERT(!crawl_state.game_is_arena());
 
@@ -632,7 +755,7 @@ void player::attacking(actor *other)
             pet_target = mon->mindex();
     }
 
-    if (mons_is_firewood((monster*) other))
+    if (ranged || mons_is_firewood((monster*) other))
         return;
 
     const int chance = pow(3, player_mutation_level(MUT_BERSERK) - 1);
@@ -640,9 +763,109 @@ void player::attacking(actor *other)
         go_berserk(false);
 }
 
-void player::go_berserk(bool intentional, bool potion)
+/**
+ * Check to see if Chei slows down the berserking player.
+ * @param intentional If true, this was initiated by the player, and additional
+ *                    messages can be printed if we can't berserk.
+ * @return            True if Chei will slow the player, false otherwise.
+ */
+static bool _chei_prevents_berserk_haste(bool intentional)
 {
-    ::go_berserk(intentional, potion);
+    if (!you_worship(GOD_CHEIBRIADOS))
+        return false;
+
+    // Chei makes berserk not speed you up.
+    // Unintentional would be forgiven "just this once" every time.
+    // Intentional could work as normal, but that would require storing
+    // whether you transgressed to start it -- so we just consider this
+    // a part of your penance.
+    if (!intentional)
+    {
+        simple_god_message(" protects you from inadvertent hurry.");
+        return true;
+    }
+
+    did_god_conduct(DID_HASTY, 8);
+    // Let's see if you've lost your religion...
+    if (!you_worship(GOD_CHEIBRIADOS))
+        return false;
+
+    simple_god_message(" forces you to slow down.");
+    return true;
+}
+
+/**
+ * Make the player go berserk!
+ * @param intentional If true, this was initiated by the player, and additional
+ *                    messages can be printed if we can't berserk.
+ * @param potion      If true, this was caused by the player quaffing !berserk;
+ *                    and we get the same additional messages as when
+ *                    intentional is true.
+ * @return            True if we went berserk, false otherwise.
+ */
+bool player::go_berserk(bool intentional, bool potion)
+{
+    ASSERT(!crawl_state.game_is_arena());
+
+    if (!you.can_go_berserk(intentional, potion))
+        return false;
+
+    if (stasis_blocks_effect(true,
+                             "%s thrums violently and saps your rage.",
+                             3,
+                             "%s vibrates violently and saps your rage."))
+    {
+        return false;
+    }
+
+    if (crawl_state.game_is_hints())
+        Hints.hints_berserk_counter++;
+
+    mpr("A red film seems to cover your vision as you go berserk!");
+
+    if (you.duration[DUR_FINESSE] > 0)
+    {
+        you.duration[DUR_FINESSE] = 0; // Totally incompatible.
+        mpr("Your finesse ends abruptly.");
+    }
+
+    if (!_chei_prevents_berserk_haste(intentional))
+        mpr("You feel yourself moving faster!");
+
+    mpr("You feel mighty!");
+
+    int berserk_duration = (20 + random2avg(19,2)) / 2;
+
+    you.increase_duration(DUR_BERSERK, berserk_duration);
+
+    calc_hp();
+    set_hp(you.hp * 3 / 2);
+
+    deflate_hp(you.hp_max, false);
+
+    if (!you.duration[DUR_MIGHT])
+        notify_stat_change(STAT_STR, 5, true, "going berserk");
+
+    if (you.berserk_penalty != NO_BERSERK_PENALTY)
+        you.berserk_penalty = 0;
+
+    you.redraw_quiver = true; // Account for no firing.
+
+#if TAG_MAJOR_VERSION == 34
+    if (you.species == SP_LAVA_ORC)
+    {
+        mpr("You burn with rage!");
+        // This will get sqrt'd later, so.
+        you.temperature = TEMP_MAX;
+    }
+#endif
+
+    if (player_equip_unrand(UNRAND_JIHAD))
+        for (monster_near_iterator mi(you.pos(), LOS_NO_TRANS); mi; ++mi)
+            if (mi->friendly())
+                mi->go_berserk(false);
+
+    return true;
 }
 
 bool player::can_go_berserk() const
@@ -725,12 +948,7 @@ bool player::can_go_berserk(bool intentional, bool potion, bool quiet) const
     if (!intentional && !potion && clarity())
     {
         if (verbose)
-        {
             mpr("You're too calm and focused to rage.");
-            if (!clarity(false))
-                maybe_id_clarity();
-        }
-
         return false;
     }
 
@@ -804,7 +1022,7 @@ bool player::berserk() const
 
 bool player::can_cling_to_walls() const
 {
-    return form == TRAN_SPIDER || player_equip_unrand(UNRAND_SPIDER);
+    return false;
 }
 
 bool player::is_web_immune() const

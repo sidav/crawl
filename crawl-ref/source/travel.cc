@@ -37,19 +37,23 @@
 #include "map_knowledge.h"
 #include "message.h"
 #include "misc.h"
+#include "mon-death.h"
 #include "mon-util.h"
 #include "options.h"
+#include "output.h"
 #include "place.h"
 #include "player.h"
+#include "prompt.h"
 #include "religion.h"
 #include "stairs.h"
 #include "stash.h"
 #include "state.h"
-#include "stuff.h"
+#include "stringutil.h"
 #include "tags.h"
 #include "terrain.h"
 #include "traps.h"
 #include "travel.h"
+#include "unicode.h"
 #include "unwind.h"
 #include "view.h"
 
@@ -202,8 +206,12 @@ static inline bool _is_safe_cloud(const coord_def& c)
     if (ctype == CLOUD_NONE)
         return true;
 
-    // We can also safely run through smoke.
-    return !is_damaging_cloud(ctype, true);
+    // We can also safely run through smoke, or any of our own clouds if
+    // following Qazlal.
+    return !is_damaging_cloud(ctype, true)
+           || you_worship(GOD_QAZLAL)
+              && !player_under_penance()
+              && YOU_KILL(env.map_knowledge(c).cloudinfo()->killer);
 }
 
 // Returns an estimate for the time needed to cross this feature.
@@ -253,7 +261,7 @@ bool feat_is_traversable_now(dungeon_feature_type grid, bool try_fallback)
 
         // You can't open doors in bat form.
         if (grid == DNGN_CLOSED_DOOR || grid == DNGN_RUNED_DOOR)
-            return player_can_open_doors() || you.form == TRAN_JELLY;
+            return player_can_open_doors();
     }
 
     return feat_is_traversable(grid, try_fallback);
@@ -336,7 +344,7 @@ static bool _is_reseedable(const coord_def& c, bool ignore_danger = false)
     map_cell &cell(env.map_knowledge(c));
     const dungeon_feature_type grid = cell.feat();
 
-    if (feat_is_wall(grid) || grid == DNGN_MANGROVE)
+    if (feat_is_wall(grid) || grid == DNGN_TREE)
         return false;
 
     return feat_is_water(grid)
@@ -429,19 +437,12 @@ static bool _is_travelsafe_square(const coord_def& c, bool ignore_hostile,
     // Also make note of what's displayed on the level map for
     // plant/fungus checks.
     const map_cell& levelmap_cell = env.map_knowledge(c);
-    const monster_info *minfo = levelmap_cell.monsterinfo();
-
-    // Can't swap with monsters caught in nets
-    if (minfo && minfo->attitude >= ATT_STRICT_NEUTRAL
-        && (minfo->is(MB_CAUGHT) || minfo->is(MB_WEBBED)) && !try_fallback)
-    {
-        return false;
-    }
 
     // Travel will not voluntarily cross squares blocked by immobile
     // monsters.
     if (!ignore_danger && !ignore_hostile)
     {
+        const monster_info *minfo = levelmap_cell.monsterinfo();
         if (minfo && _monster_blocks_travel(minfo))
             return false;
     }
@@ -597,7 +598,7 @@ static inline void _check_interesting_square(const coord_def pos,
     ed.found_feature(pos, grd(pos));
 }
 
-static void _userdef_run_stoprunning_hook(void)
+static void _userdef_run_stoprunning_hook()
 {
 #ifdef CLUA_BINDINGS
     if (you.running)
@@ -607,7 +608,7 @@ static void _userdef_run_stoprunning_hook(void)
 #endif
 }
 
-static void _userdef_run_startrunning_hook(void)
+static void _userdef_run_startrunning_hook()
 {
 #ifdef CLUA_BINDINGS
     if (you.running)
@@ -907,13 +908,6 @@ void explore_pickup_event(int did_pickup, int tried_pickup)
     }
 }
 
-static bool _can_sacrifice(const coord_def p)
-{
-    const dungeon_feature_type feat = grd(p);
-    return !you.cannot_speak()
-           && (!feat_is_altar(feat) || feat_is_player_altar(feat));
-}
-
 static bool _sacrificeable_at(const coord_def& p)
 {
     for (stack_iterator si(p, true); si; ++si)
@@ -1039,7 +1033,7 @@ command_type travel()
                     if ((stack && _prompt_stop_explore(ES_GREEDY_VISITED_ITEM_STACK)
                          || sacrificeable && _prompt_stop_explore(ES_GREEDY_SACRIFICEABLE))
                         && (Options.auto_sacrifice != AS_YES || !sacrificeable
-                            || stack || !_can_sacrifice(newpos)))
+                            || stack))
                     {
                         explore_stopped_pos = newpos;
                         stop_running();
@@ -1820,7 +1814,9 @@ void find_travel_pos(const coord_def& youpos,
     run_mode_type rmode = (move_x && move_y) ? RMODE_TRAVEL
                                              : RMODE_NOT_RUNNING;
 
-    const coord_def dest = tp.pathfind(rmode, true);
+    coord_def dest = tp.pathfind(rmode, false);
+    if (dest == coord_def())
+        dest = tp.pathfind(rmode, true);
     coord_def new_dest = dest;
 
     if (grd(dest) == DNGN_RUNED_DOOR)
@@ -2111,9 +2107,9 @@ static vector<branch_type> _get_branches(bool (*selector)(const Branch &))
 {
     vector<branch_type> result;
 
-    for (int i = 0; i < NUM_BRANCHES; ++i)
-        if (selector(branches[i]))
-            result.push_back(branches[i].id);
+    for (branch_iterator it; it; ++it)
+        if (selector(**it))
+            result.push_back(it->id);
 
     return result;
 }
@@ -2152,7 +2148,7 @@ static int _prompt_travel_branch(int prompt_flags, bool* to_entrance)
     level_id curr = level_id::current();
     while (true)
     {
-        mesclr();
+        clear_messages();
 
         if (waypoint_list)
             travel_cache.list_waypoints();
@@ -2436,7 +2432,7 @@ static travel_target _prompt_travel_depth(const level_id &id,
     target.p.id.depth = _get_nearest_level_depth(target.p.id.branch);
     while (true)
     {
-        mesclr();
+        clear_messages();
         mprf(MSGCH_PROMPT, "What level of %s? "
              "(default %s, ? - help) ",
              branches[target.p.id.branch].longname,
@@ -3034,7 +3030,7 @@ void start_explore(bool grab_items)
               && (Options.auto_sacrifice == AS_YES
                   || Options.auto_sacrifice == AS_BEFORE_EXPLORE)))
          {
-             pray();
+             pray(false);
          }
 
     }
@@ -3058,10 +3054,9 @@ void start_explore(bool grab_items)
             if ((Options.auto_sacrifice == AS_YES
                  || Options.auto_sacrifice == AS_BEFORE_EXPLORE
                  || Options.auto_sacrifice == AS_PROMPT
-                    && yesno("Do you want to sacrifice the items here? ", true, 'n'))
-                && _can_sacrifice(you.pos()))
+                    && yesno("Do you want to sacrifice the items here? ", true, 'n')))
             {
-                pray();
+                pray(false);
             }
             else if (Options.auto_sacrifice == AS_PROMPT_IGNORE)
             {
@@ -3131,11 +3126,11 @@ level_id level_id::get_next_level_id(const coord_def &pos)
         return stair_destination(pos);
 #endif
 
-    for (int i = 0; i < NUM_BRANCHES; ++i)
+    for (branch_iterator it; it; ++it)
     {
-        if (gridc == branches[i].entry_stairs)
+        if (gridc == it->entry_stairs)
         {
-            id.branch = static_cast<branch_type>(i);
+            id.branch = it->id;
             id.depth = 1;
             break;
         }
@@ -3748,7 +3743,7 @@ void TravelCache::delete_waypoint()
 
     while (get_waypoint_count())
     {
-        mesclr();
+        clear_messages();
         mpr("Existing waypoints:");
         list_waypoints();
         mprf(MSGCH_PROMPT, "Delete which waypoint? (* - delete all, Esc - exit) ");
@@ -3777,7 +3772,7 @@ void TravelCache::delete_waypoint()
         return;
     }
 
-    mesclr();
+    clear_messages();
     mpr("All waypoints deleted. Have a nice day!");
 }
 
@@ -3789,7 +3784,7 @@ void TravelCache::add_waypoint(int x, int y)
         return;
     }
 
-    mesclr();
+    clear_messages();
 
     const bool waypoints_exist = get_waypoint_count();
     if (waypoints_exist)
@@ -3833,7 +3828,7 @@ void TravelCache::add_waypoint(int x, int y)
     waypoints[waynum].pos = pos;
 
     string new_dest = _get_trans_travel_dest(waypoints[waynum], false, true);
-    mesclr();
+    clear_messages();
     if (overwrite)
     {
         if (lid == old_lid) // same level
@@ -4096,8 +4091,13 @@ bool runrest::run_should_stop() const
     const coord_def targ = you.pos() + pos;
     const map_cell& tcell = env.map_knowledge(targ);
 
-    if (tcell.cloud() != CLOUD_NONE)
+    if (tcell.cloud() != CLOUD_NONE
+        && (!you_worship(GOD_QAZLAL)
+            || player_under_penance()
+            || !YOU_KILL(tcell.cloudinfo()->killer)))
+    {
         return true;
+    }
 
     if (is_excluded(targ) && !is_stair_exclusion(targ))
     {
@@ -4529,7 +4529,7 @@ void do_interlevel_travel()
         _start_translevel_travel_prompt();
 
     if (you.running)
-        mesclr();
+        clear_messages();
 }
 
 #ifdef USE_TILE

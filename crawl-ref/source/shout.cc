@@ -10,6 +10,7 @@
 #include "act-iter.h"
 #include "art-enum.h"
 #include "artefact.h"
+#include "areas.h"
 #include "branch.h"
 #include "cluautil.h"
 #include "coord.h"
@@ -18,6 +19,7 @@
 #include "env.h"
 #include "exercise.h"
 #include "ghost.h"
+#include "hints.h"
 #include "jobs.h"
 #include "libutil.h"
 #include "los.h"
@@ -26,8 +28,8 @@
 #include "mon-behv.h"
 #include "mon-chimera.h"
 #include "mon-place.h"
+#include "mon-poly.h"
 #include "mon-pathfind.h"
-#include "mon-stuff.h"
 #include "mon-util.h"
 #include "monster.h"
 #include "noise.h"
@@ -36,9 +38,8 @@
 #include "religion.h"
 #include "skills.h"
 #include "state.h"
+#include "stringutil.h"
 #include "terrain.h"
-#include "areas.h"
-#include "hints.h"
 #include "view.h"
 
 #include <sstream>
@@ -302,7 +303,7 @@ bool check_awaken(monster* mons)
         return true;
 
     // I assume that creatures who can sense invisible are very perceptive.
-    int mons_perc = 10 + (mons_intel(mons) * 4) + mons->hit_dice
+    int mons_perc = 10 + (mons_intel(mons) * 4) + mons->get_hit_dice()
                        + mons_sense_invis(mons) * 5;
 
     bool unnatural_stealthy = false; // "stealthy" only because of invisibility?
@@ -564,8 +565,7 @@ void check_monsters_sense(sense_type sense, int range, const coord_def& where)
 
             // Let sleeping hounds lie.
             if (mi->asleep()
-                && mons_species(mi->type) != MONS_VAMPIRE
-                && mi->type != MONS_SHARK)
+                && mons_species(mi->type) != MONS_VAMPIRE)
             {
                 // 33% chance of sleeping on
                 // 33% of being disturbed (start BEH_WANDER)
@@ -587,39 +587,12 @@ void check_monsters_sense(sense_type sense, int range, const coord_def& where)
                             mi->pos().x, mi->pos().y);
             behaviour_event(*mi, ME_ALERT, 0, where);
 
-            if (mi->type == MONS_SHARK)
-            {
-                // Sharks go into a battle frenzy if they smell blood.
-                monster_pathfind mp;
-                if (mp.init_pathfind(*mi, where))
-                {
-                    mon_enchant ench = mi->get_ench(ENCH_BATTLE_FRENZY);
-                    const int dist = 15 - (mi->pos() - where).rdist();
-                    const int dur  = random_range(dist, dist*2)
-                                     * speed_to_duration(mi->speed);
-
-                    if (ench.ench != ENCH_NONE)
-                    {
-                        int level = ench.degree;
-                        if (level < 4 && one_chance_in(2*level))
-                            ench.degree++;
-                        ench.duration = max(ench.duration, dur);
-                        mi->update_ench(ench);
-                    }
-                    else
-                    {
-                        mi->add_ench(mon_enchant(ENCH_BATTLE_FRENZY, 1, 0, dur));
-                        simple_monster_message(*mi, " goes into a frenzy at the "
-                                                    "smell of blood!");
-                    }
-                }
-            }
-            break;
-
         case SENSE_WEB_VIBRATION:
             if (!mons_class_flag(mi->type, M_WEB_SENSE)
                 && !mons_class_flag(get_chimera_legs(*mi), M_WEB_SENSE))
+            {
                 break;
+            }
             if (!one_chance_in(4))
             {
                 if (coinflip())
@@ -667,7 +640,6 @@ static int _noise_attenuation_millis(const coord_def &pos)
     case DNGN_SEALED_DOOR:
         return BASE_NOISE_ATTENUATION_MILLIS * 8;
     case DNGN_TREE:
-    case DNGN_MANGROVE:
         return BASE_NOISE_ATTENUATION_MILLIS * 3;
     default:
         if (feat_is_statue_or_idol(feat))
@@ -1038,9 +1010,7 @@ void noise_grid::write_cell(FILE *outf, coord_def p, int ch) const
 {
     const int intensity = min(25, cells(p).noise_intensity_millis / 1000);
     if (intensity)
-        fprintf(outf,
-                "<span class='i%d'>&#%d;</span>",
-                intensity, ch);
+        fprintf(outf, "<span class='i%d'>&#%d;</span>", intensity, ch);
     else
         fprintf(outf, "<span>&#%d;</span>", ch);
 }

@@ -10,17 +10,19 @@
 #include <sstream>
 
 #include "act-iter.h"
+#include "branch.h"
 #include "coordit.h"
 #include "database.h"
 #include "env.h"
+#include "godabil.h"
 #include "godcompanions.h"
 #include "goditem.h"
 #include "libutil.h"
 #include "message.h"
 #include "mon-behv.h"
+#include "mon-death.h"
 #include "mon-util.h"
 #include "monster.h"
-#include "mon-stuff.h"
 #include "player.h"
 #include "random.h"
 #include "religion.h"
@@ -28,49 +30,45 @@
 #include "travel.h"
 #include "transform.h"
 
+// Called whenever an already existing monster changes its attitude, possibly
+// temporarily.
+void mons_att_changed(monster* mon)
+{
+    const mon_attitude_type att = mon->temp_attitude();
+
+    if (mons_is_tentacle_head(mons_base_type(mon))
+        || mon->type == MONS_ELDRITCH_TENTACLE)
+    {
+        for (monster_iterator mi; mi; ++mi)
+            if (mi->is_child_tentacle_of(mon))
+            {
+                mi->attitude = att;
+                if (mon->type != MONS_ELDRITCH_TENTACLE)
+                {
+                    for (monster_iterator connect; connect; ++connect)
+                    {
+                        if (connect->is_child_tentacle_of(mi->as_monster()))
+                            connect->attitude = att;
+                    }
+                }
+
+                // It's almost always flipping between hostile and friendly;
+                // enslaving a pacified starspawn is still a shock.
+                mi->stop_constricting_all();
+            }
+    }
+
+    if (mon->attitude == ATT_HOSTILE
+        && (mons_is_god_gift(mon, GOD_BEOGH)
+           || mons_is_god_gift(mon, GOD_YREDELEMNUL)))
+    {
+        remove_companion(mon);
+    }
+    mon->align_avatars();
+}
+
 static void _jiyva_convert_slime(monster* slime);
 static void _fedhas_neutralise_plant(monster* plant);
-static void _good_god_holy_fail_attitude_change(monster* holy);
-
-void good_god_follower_attitude_change(monster* mons)
-{
-    if (you.undead_or_demonic() || crawl_state.game_is_arena())
-        return;
-
-    // For followers of good gods, decide whether holy beings will be
-    // good neutral towards you.
-    if (is_good_god(you.religion)
-        && mons->foe == MHITYOU
-        && mons->is_holy()
-        && !testbits(mons->flags, MF_ATT_CHANGE_ATTEMPT)
-        && !mons->wont_attack()
-        && you.visible_to(mons) && !mons->asleep()
-        && !mons_is_confused(mons) && !mons->paralysed())
-    {
-        mons->flags |= MF_ATT_CHANGE_ATTEMPT;
-
-        if (x_chance_in_y(you.piety, MAX_PIETY) && !you.penance[you.religion])
-        {
-            const item_def* wpn = you.weapon();
-            if (wpn
-                && wpn->base_type == OBJ_WEAPONS
-                && (is_unholy_item(*wpn)
-                    || is_evil_item(*wpn))
-                && coinflip()) // 50% chance of conversion failing
-            {
-                msg::stream << mons->name(DESC_THE)
-                            << " glares at your weapon."
-                            << endl;
-                _good_god_holy_fail_attitude_change(mons);
-                return;
-            }
-            good_god_holy_attitude_change(mons);
-            stop_running();
-        }
-        else
-            _good_god_holy_fail_attitude_change(mons);
-    }
-}
 
 void beogh_follower_convert(monster* mons, bool orc_hit)
 {
@@ -90,7 +88,7 @@ void beogh_follower_convert(monster* mons, bool orc_hit)
     {
         mons->flags |= MF_ATT_CHANGE_ATTEMPT;
 
-        const int hd = mons->hit_dice;
+        const int hd = mons->get_experience_level();
 
         if (you.piety >= piety_breakpoint(2) && !player_under_penance()
             && random2(you.piety / 15) + random2(4 + you.experience_level / 3)
@@ -175,7 +173,7 @@ bool yred_slaves_abandon_you()
         {
             num_slaves++;
 
-            const int hd = mons->hit_dice;
+            const int hd = mons->get_experience_level();
 
             // During penance, followers get a saving throw.
             if (random2((you.piety - you.penance[GOD_YREDELEMNUL]) / 18)
@@ -233,7 +231,7 @@ bool beogh_followers_abandon_you()
                 && !mons_is_confused(mons)
                 && !mons->cannot_act())
             {
-                const int hd = mons->hit_dice;
+                const int hd = mons->get_experience_level();
 
                 // During penance, followers get a saving throw.
                 if (random2((you.piety - you.penance[GOD_BEOGH]) / 18)
@@ -279,92 +277,6 @@ bool beogh_followers_abandon_you()
     }
 
     return false;
-}
-
-static void _print_good_god_holy_being_speech(bool neutral,
-                                              const string key,
-                                              monster* mon,
-                                              msg_channel_type channel)
-{
-    string full_key = "good_god_";
-    if (!neutral)
-        full_key += "non";
-    full_key += "neutral_holy_being_";
-    full_key += key;
-
-    string msg = getSpeakString(full_key);
-
-    if (!msg.empty())
-    {
-        msg = do_mon_str_replacements(msg, mon);
-        strip_channel_prefix(msg, channel);
-        mprf(channel, "%s", msg.c_str());
-    }
-}
-
-// Holy monsters may turn good neutral when encountering followers of
-// the good gods, and be made worshippers of TSO if necessary.
-void good_god_holy_attitude_change(monster* holy)
-{
-    ASSERT(holy->is_holy());
-
-    if (you.can_see(holy)) // show reaction
-    {
-        string key = "reaction";
-
-        // Quadrupeds can't salute, etc.
-        mon_body_shape shape = get_mon_shape(holy);
-        if (shape >= MON_SHAPE_HUMANOID && shape <= MON_SHAPE_NAGA)
-            key += "_humanoid";
-
-        _print_good_god_holy_being_speech(true, key, holy,
-                                          MSGCH_FRIEND_ENCHANT);
-
-        if (!one_chance_in(3)
-            && holy->can_speak()
-            && holy->type != MONS_MENNAS) // Mennas is mute and only has visual speech
-            _print_good_god_holy_being_speech(true, "speech", holy,
-                                              MSGCH_TALK);
-    }
-
-    holy->attitude = ATT_GOOD_NEUTRAL;
-
-    // The monster is not really *created* neutral, but should it become
-    // hostile later on, it won't count as a good kill.
-    holy->flags |= MF_WAS_NEUTRAL;
-
-    // If the holy being was previously worshipping a different god,
-    // make it worship TSO.
-    holy->god = GOD_SHINING_ONE;
-
-    // Avoid immobile "followers".
-    behaviour_event(holy, ME_ALERT);
-
-    mons_att_changed(holy);
-}
-
-static void _good_god_holy_fail_attitude_change(monster* holy)
-{
-    ASSERT(holy->is_holy());
-
-    if (you.can_see(holy)) // show reaction
-    {
-        string key = "reaction";
-
-        // Quadrupeds can't salute, etc.
-        mon_body_shape shape = get_mon_shape(holy);
-        if (shape >= MON_SHAPE_HUMANOID && shape <= MON_SHAPE_NAGA)
-            key += "_humanoid";
-
-        _print_good_god_holy_being_speech(false, key, holy,
-                                          MSGCH_FRIEND_ENCHANT);
-
-        if (!one_chance_in(3)
-            && holy->can_speak()
-            && holy->type != MONS_MENNAS) // Mennas is mute and only has visual speech
-            _print_good_god_holy_being_speech(false, "speech", holy,
-                                              MSGCH_TALK);
-    }
 }
 
 static void _print_converted_orc_speech(const string key,
@@ -492,4 +404,119 @@ static void _jiyva_convert_slime(monster* slime)
     mons_make_god_gift(slime, GOD_JIYVA);
 
     mons_att_changed(slime);
+}
+
+void gozag_set_bribe(monster* traitor)
+{
+    // Try to bribe the monster.
+    const int bribability = gozag_type_bribable(traitor->type);
+    if (bribability > 0)
+    {
+        const branch_type br = gozag_bribable_branch(traitor->type);
+        if (!player_in_branch(br))
+            return;
+
+        const monster* leader =
+            traitor->props.exists("band_leader")
+            ? monster_by_mid(traitor->props["band_leader"].get_int())
+            : NULL;
+
+        int cost = max(1, exper_value(traitor) / 20);
+
+        if (leader)
+        {
+            if (leader->has_ench(ENCH_PERMA_BRIBED)
+                || leader ->props.exists(GOZAG_PERMABRIBE_KEY))
+            {
+                gozag_deduct_bribe(br, 2*cost);
+                traitor->props[GOZAG_PERMABRIBE_KEY].get_bool() = true;
+            }
+            else if (leader->has_ench(ENCH_BRIBED)
+                     || leader->props.exists(GOZAG_BRIBE_KEY))
+            {
+                gozag_deduct_bribe(br, cost);
+                // Don't continue if we exhausted our funds.
+                if (branch_bribe[br] > 0)
+                    traitor->props[GOZAG_BRIBE_KEY].get_bool() = true;
+            }
+        }
+        else if (x_chance_in_y(bribability, GOZAG_MAX_BRIBABILITY))
+        {
+            // Sometimes get permanent followers at twice the cost.
+            if (branch_bribe[br] > 2*cost && one_chance_in(3))
+            {
+                gozag_deduct_bribe(br, 2*cost);
+                traitor->props[GOZAG_PERMABRIBE_KEY].get_bool() = true;
+            }
+            else
+            {
+                gozag_deduct_bribe(br, cost);
+                // Don't continue if we exhausted our funds.
+                if (branch_bribe[br] > 0)
+                    traitor->props[GOZAG_BRIBE_KEY].get_bool() = true;
+            }
+        }
+    }
+}
+
+void gozag_check_bribe(monster* traitor)
+{
+    string msg;
+    if (traitor->props.exists(GOZAG_PERMABRIBE_KEY))
+    {
+        traitor->props.erase(GOZAG_PERMABRIBE_KEY);
+        traitor->add_ench(ENCH_PERMA_BRIBED);
+        msg = getSpeakString(traitor->name(DESC_DBNAME, true)
+                             + " Gozag permabribe");
+        if (msg.empty())
+            msg = getSpeakString("Gozag permabribe");
+    }
+    else if (traitor->props.exists(GOZAG_BRIBE_KEY))
+    {
+        traitor->props.erase(GOZAG_BRIBE_KEY);
+        traitor->add_ench(ENCH_BRIBED);
+        msg = getSpeakString(traitor->name(DESC_DBNAME, true)
+                             + " Gozag bribe");
+        if (msg.empty())
+            msg = getSpeakString("Gozag bribe");
+    }
+
+    if (!msg.empty())
+    {
+        msg_channel_type channel = MSGCH_FRIEND_ENCHANT;
+        msg = do_mon_str_replacements(msg, traitor);
+        strip_channel_prefix(msg, channel);
+        mprf(channel, "%s", msg.c_str());
+    }
+}
+
+void gozag_break_bribe(monster* victim)
+{
+    if (!victim->has_ench(ENCH_BRIBED)
+        && !victim->has_ench(ENCH_PERMA_BRIBED)
+        && !victim->props.exists(GOZAG_BRIBE_KEY)
+        && !victim->props.exists(GOZAG_PERMABRIBE_KEY))
+    {
+        return;
+    }
+
+    const branch_type br = gozag_bribable_branch(victim->type);
+    ASSERT(br != NUM_BRANCHES);
+
+    // Deduct a perma-bribe increment.
+    gozag_deduct_bribe(gozag_bribable_branch(victim->type),
+                       max(1, exper_value(victim) / 10));
+
+    // Un-bribe the victim.
+    victim->props[GOZAG_BRIBE_BROKEN_KEY].get_bool() = true;
+    victim->del_ench(ENCH_BRIBED);
+    victim->del_ench(ENCH_PERMA_BRIBED);
+    victim->props.erase(GOZAG_BRIBE_BROKEN_KEY);
+    victim->props.erase(GOZAG_BRIBE_KEY);
+    victim->props.erase(GOZAG_PERMABRIBE_KEY);
+
+    // Make other nearby bribed monsters un-bribed, too.
+    for (monster_iterator mi; mi; ++mi)
+        if (mi->can_see(victim))
+            gozag_break_bribe(*mi);
 }

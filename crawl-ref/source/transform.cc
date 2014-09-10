@@ -23,6 +23,7 @@
 #include "itemprop.h"
 #include "items.h"
 #include "libutil.h"
+#include "message.h"
 #include "misc.h"
 #include "mon-abil.h"
 #include "mutation.h"
@@ -31,11 +32,12 @@
 #include "player.h"
 #include "player-equip.h"
 #include "player-stats.h"
+#include "prompt.h"
 #include "random.h"
 #include "religion.h"
 #include "skills2.h"
 #include "state.h"
-#include "stuff.h"
+#include "stringutil.h"
 #include "terrain.h"
 #include "traps.h"
 #include "xom.h"
@@ -57,7 +59,9 @@ static const char* form_names[] =
     "tree",
     "porcupine",
     "wisp",
+#if TAG_MAJOR_VERSION == 34
     "jelly",
+#endif
     "fungus",
     "shadow",
 };
@@ -92,18 +96,15 @@ bool form_can_fly(transformation_type form)
 
 bool form_can_swim(transformation_type form)
 {
-    // Ice floats, scum goes to the top.
-    if (form == TRAN_ICE_BEAST || form == TRAN_JELLY)
+    // Ice floats.
+    if (form == TRAN_ICE_BEAST)
         return true;
 
-    if ((you.species == SP_MERFOLK || you.species == SP_OCTOPODE)
+    if (species_can_swim(you.species)
         && (!form_changed_physiology(form) || form == TRAN_LICH))
     {
         return true;
     }
-
-    if (you.species == SP_OCTOPODE && !form_changed_physiology(form))
-        return true;
 
     size_type size = you.transform_size(form, PSIZE_BODY);
     if (size == SIZE_CHARACTER)
@@ -116,8 +117,7 @@ bool form_likes_water(transformation_type form)
 {
     // Grey dracs can't swim, so can't statue form merfolk/octopodes
     // -- yet they can still survive in water.
-    if (you.species == SP_GREY_DRACONIAN || you.species == SP_MERFOLK
-        || you.species == SP_OCTOPODE)
+    if (species_likes_water(you.species))
     {
         if (form == TRAN_NONE
             || form == TRAN_BLADE_HANDS
@@ -133,16 +133,16 @@ bool form_likes_water(transformation_type form)
 
 bool form_likes_lava(transformation_type form)
 {
+#if TAG_MAJOR_VERSION == 34
     // Lava orcs can only swim in non-phys-change forms.
+    // However, ice beast & statue form will melt back to lava, so they're OK
     return you.species == SP_LAVA_ORC
-           && !form_changed_physiology(form);
-}
-
-bool form_can_butcher(transformation_type form)
-{
-    return form != TRAN_WISP
-        && form != TRAN_JELLY
-        && form != TRAN_FUNGUS;
+           && (!form_changed_physiology(form)
+               || form == TRAN_ICE_BEAST
+               || form == TRAN_STATUE);
+#else
+    return false;
+#endif
 }
 
 // Used to mark transformations which override species intrinsics.
@@ -152,6 +152,14 @@ bool form_changed_physiology(transformation_type form)
            && form != TRAN_BLADE_HANDS;
 }
 
+bool form_can_bleed(transformation_type form)
+{
+    return form != TRAN_STATUE && form != TRAN_ICE_BEAST
+           && form != TRAN_SPIDER && form != TRAN_TREE
+           && form != TRAN_FUNGUS && form != TRAN_PORCUPINE
+           && form != TRAN_SHADOW && form != TRAN_LICH;
+}
+
 bool form_can_use_wand(transformation_type form)
 {
     return form_can_wield(form) || form == TRAN_DRAGON;
@@ -159,12 +167,18 @@ bool form_can_use_wand(transformation_type form)
 
 bool form_can_wear_item(const item_def& item, transformation_type form)
 {
-    if (form == TRAN_JELLY || form == TRAN_PORCUPINE || form == TRAN_WISP)
+    if (form == TRAN_PORCUPINE
+#if TAG_MAJOR_VERSION == 34
+        || form == TRAN_JELLY
+#endif
+        || form == TRAN_WISP)
+    {
         return false;
+    }
 
     if (item.base_type == OBJ_JEWELLERY)
     {
-        // Everyone but jellies, porcupines and wisps can wear amulets.
+        // Everyone but porcupines and wisps can wear amulets.
         if (jewellery_is_amulet(item))
             return true;
         // Bats and pigs can't wear rings.
@@ -435,13 +449,11 @@ size_type player::transform_size(transformation_type tform, int psize) const
     case TRAN_FUNGUS:
         return SIZE_TINY;
     case TRAN_PIG:
-    case TRAN_JELLY:
         return SIZE_SMALL;
     case TRAN_ICE_BEAST:
         return SIZE_LARGE;
     case TRAN_DRAGON:
-    case TRAN_TREE:
-        return SIZE_HUGE;
+        return SIZE_GIANT;
     default:
         return SIZE_CHARACTER;
     }
@@ -452,7 +464,7 @@ static bool _abort_or_fizzle(bool just_check)
     if (!just_check && you.turn_is_over)
     {
         canned_msg(MSG_SPELL_FIZZLES);
-        move_player_to_grid(you.pos(), false, true);
+        move_player_to_grid(you.pos(), false);
         return true; // pay the necessary costs
     }
     return false; // SPRET_ABORT
@@ -478,8 +490,10 @@ monster_type transform_mons()
         return you.species == SP_VAMPIRE ? MONS_VAMPIRE_BAT : MONS_BAT;
     case TRAN_PIG:
         return MONS_HOG;
+#if TAG_MAJOR_VERSION == 34
     case TRAN_JELLY:
         return MONS_JELLY;
+#endif
     case TRAN_PORCUPINE:
         return MONS_PORCUPINE;
     case TRAN_TREE:
@@ -487,7 +501,7 @@ monster_type transform_mons()
     case TRAN_WISP:
         return MONS_INSUBSTANTIAL_WISP;
     case TRAN_SHADOW:
-        return MONS_SHADOW; // XXX: should get its own monster?
+        return MONS_PLAYER_SHADOW;
     case TRAN_BLADE_HANDS:
     case TRAN_APPENDAGE:
     case TRAN_NONE:
@@ -541,7 +555,6 @@ int form_hp_mod()
         return 13;
     case TRAN_ICE_BEAST:
         return 12;
-    case TRAN_JELLY:
     case TRAN_DRAGON:
     case TRAN_TREE:
         return 15;
@@ -588,6 +601,17 @@ static bool _flying_in_new_form(transformation_type which_trans)
     return sources > sources_removed;
 }
 
+/**
+ * Check if it'd be lethal for the player to enter a form in a given terrain.
+ *
+ * In addition to checking whether the feature is dangerous for the form
+ * itself (form_likes_*), the function checks to see if the player is safe
+ * due to flying or similar effects.
+ *
+ * @param which_trans       The form being checked.
+ * @param feat              The dungeon feature to be checked for danger.
+ * @return                  If the feat is lethal for the player in the form.
+ **/
 bool feat_dangerous_for_form(transformation_type which_trans,
                              dungeon_feature_type feat)
 {
@@ -595,25 +619,14 @@ bool feat_dangerous_for_form(transformation_type which_trans,
     if (form_can_fly(which_trans) || _flying_in_new_form(which_trans))
         return false;
 
-    // We can only cling for safety if we're already doing so.
-    if (which_trans == TRAN_SPIDER && you.is_wall_clinging())
-        return false;
-
     if (feat == DNGN_LAVA)
         return !form_likes_lava(which_trans);
 
     if (feat == DNGN_DEEP_WATER)
     {
-        if (beogh_water_walk()
-            || species_likes_water(you.species)
-            || you.racial_permanent_flight())
-        {
+        if (beogh_water_walk())
             return false;
-        }
-        // Trees are ok with deep water, but you need means of escaping
-        // once the transformation expires.
-        if (which_trans == TRAN_TREE)
-            return !you.wearing_ego(EQ_ALL_ARMOUR, SPARM_FLYING);
+
         return !form_likes_water(which_trans);
     }
 
@@ -670,21 +683,25 @@ static mutation_type _beastly_appendage()
     return chosen;
 }
 
-const char* appendage_name(int app)
-{
-    ASSERT(beastly_slot(app) != EQ_NONE);
-    const mutation_def& mdef = get_mutation_def((mutation_type) app);
-    return mdef.short_desc;
-}
-
 static bool _transformation_is_safe(transformation_type which_trans,
                                     dungeon_feature_type feat, bool quiet)
 {
     if (which_trans == TRAN_TREE)
     {
-        const int cloud = env.cgrid(you.pos());
-        if (cloud != EMPTY_CLOUD && is_damaging_cloud(env.cloud[cloud].type, false))
+        const cloud_type cloud = cloud_type_at(you.pos());
+        if (cloud != CLOUD_NONE
+            // Tree form is immune to these two.
+            && cloud != CLOUD_MEPHITIC
+            && cloud != CLOUD_POISON
+            && is_damaging_cloud(cloud, false))
+        {
+            if (!quiet)
+            {
+                mprf("You can't transform into a tree while standing in a cloud of %s.",
+                     cloud_type_name(cloud).c_str());
+            }
             return false;
+        }
     }
 #if TAG_MAJOR_VERSION == 34
 
@@ -723,7 +740,9 @@ static int _transform_duration(transformation_type which_trans, int pow)
     case TRAN_FUNGUS:
     case TRAN_PIG:
     case TRAN_PORCUPINE:
+#if TAG_MAJOR_VERSION == 34
     case TRAN_JELLY:
+#endif
     case TRAN_TREE:
     case TRAN_WISP:
         return min(15 + random2(pow) + random2(pow / 2), 100);
@@ -731,6 +750,15 @@ static int _transform_duration(transformation_type which_trans, int pow)
         return 0;
     default:
         die("unknown transformation: %d", which_trans);
+    }
+}
+
+static int _beastly_appendage_level(int appendage)
+{
+    switch (appendage)
+    {
+    case MUT_HORNS: return 2;
+    default:        return 3;
     }
 }
 
@@ -837,6 +865,7 @@ bool transform(int pow, transformation_type which_trans, bool involuntary,
         return _abort_or_fizzle(just_check);
     }
 
+#if TAG_MAJOR_VERSION == 34
     if (you.species == SP_LAVA_ORC && !temperature_effect(LORC_STONESKIN)
         && (which_trans == TRAN_ICE_BEAST || which_trans == TRAN_STATUE))
     {
@@ -844,6 +873,7 @@ bool transform(int pow, transformation_type which_trans, bool involuntary,
             mpr("Your temperature is too high to benefit from that spell.");
         return _abort_or_fizzle(just_check);
     }
+#endif
 
     set<equipment_type> rem_stuff = _init_equipment_removal(which_trans);
 
@@ -957,18 +987,6 @@ bool transform(int pow, transformation_type which_trans, bool involuntary,
     case TRAN_FUNGUS:
         tran_name = "fungus";
         msg      += "a fleshy mushroom.";
-        if (!just_check)
-        {
-            you.set_duration(DUR_CONFUSING_TOUCH,
-                             you.duration[DUR_TRANSFORMATION]
-                                 ? you.duration[DUR_TRANSFORMATION]
-                                 : INFINITE_DURATION);
-        }
-        break;
-
-    case TRAN_JELLY:
-        tran_name = "jelly";
-        msg      += "a lump of acidic jelly.";
         break;
 
     case TRAN_PORCUPINE:
@@ -1046,7 +1064,8 @@ bool transform(int pow, transformation_type which_trans, bool involuntary,
     update_player_symbol();
 
     _remove_equipment(rem_stuff);
-    burden_change();
+
+    you.props[TRANSFORM_POW_KEY] = pow;
 
     if (str)
     {
@@ -1070,8 +1089,10 @@ bool transform(int pow, transformation_type which_trans, bool involuntary,
     case TRAN_STATUE:
         if (you.duration[DUR_STONESKIN])
             mpr("Your new body merges with your stone armour.");
+#if TAG_MAJOR_VERSION == 34
         else if (you.species == SP_LAVA_ORC)
             mpr("Your new body is particularly stony.");
+#endif
         if (you.duration[DUR_ICY_ARMOUR])
         {
             mprf(MSGCH_DURATION, "Your new body cracks your icy armour.");
@@ -1088,24 +1109,15 @@ bool transform(int pow, transformation_type which_trans, bool involuntary,
         if (you.attribute[ATTR_HELD])
         {
             trap_def *trap = find_trap(you.pos());
-            // Some folks claims it's "a bug", and spiders should be immune
-            // to webs.  They know how to walk safely, but not if already
-            // entangled.  So let's give a message.
             if (trap && trap->type == TRAP_WEB)
-                mpr("You wish you had such spider senses a moment ago.");
+            {
+                mpr("You disentangle yourself from the web.");
+                you.attribute[ATTR_HELD] = 0;
+            }
         }
         break;
 
-    case TRAN_FUNGUS:
-        // ignore hunger_state (but don't reset hunger)
-        you.hunger_state = HS_SATIATED;
-        set_redraw_status(REDRAW_HUNGER);
-        break;
-
     case TRAN_TREE:
-        // ignore hunger_state (but don't reset hunger)
-        you.hunger_state = HS_SATIATED;
-        set_redraw_status(REDRAW_HUNGER);
         mpr("Your roots penetrate the ground.");
         if (you.duration[DUR_TELEPORT])
         {
@@ -1153,18 +1165,12 @@ bool transform(int pow, transformation_type which_trans, bool involuntary,
             int app = you.attribute[ATTR_APPENDAGE];
             ASSERT(app != NUM_MUTATIONS);
             ASSERT(beastly_slot(app) != EQ_NONE);
-            you.mutation[app] = app == MUT_HORNS ? 2 : 3;
+            you.mutation[app] = _beastly_appendage_level(app);
         }
         break;
 
-    case TRAN_WISP:
-        // ignore hunger_state (but don't reset hunger)
-        you.hunger_state = HS_SATIATED;
-        set_redraw_status(REDRAW_HUNGER);
-        break;
-
     case TRAN_SHADOW:
-        drain_exp(true, 25, true);
+        drain_player(25, true, true);
         if (you.invisible())
             mpr("You fade into the shadows.");
         else
@@ -1193,7 +1199,6 @@ bool transform(int pow, transformation_type which_trans, bool involuntary,
             you.stop_being_constricted();
     }
 
-    you.check_clinging(false);
 
     // If we are no longer living, end an effect that afflicts only the living
     if (you.duration[DUR_FLAYED] && you.holiness() != MH_NATURAL)
@@ -1223,7 +1228,7 @@ bool transform(int pow, transformation_type which_trans, bool involuntary,
                           || which_trans == TRAN_APPENDAGE)
                       && you.species == SP_MERFOLK)
     {
-        move_player_to_grid(you.pos(), false, true);
+        move_player_to_grid(you.pos(), false);
     }
 
     if (you.hp <= 0)
@@ -1250,6 +1255,8 @@ void untransform(bool skip_wielding, bool skip_move)
     you.redraw_evasion      = true;
     you.redraw_armour_class = true;
     you.wield_change        = true;
+    if (you.props.exists(TRANSFORM_POW_KEY))
+        you.props.erase(TRANSFORM_POW_KEY);
 
     // Must be unset first or else infinite loops might result. -- bwr
     const transformation_type old_form = you.form;
@@ -1262,16 +1269,12 @@ void untransform(bool skip_wielding, bool skip_move)
     you.duration[DUR_TRANSFORMATION]   = 0;
     update_player_symbol();
 
-    burden_change();
-
     switch (old_form)
     {
     case TRAN_SPIDER:
         mprf(MSGCH_DURATION, "Your transformation has ended.");
         notify_stat_change(STAT_DEX, -5, true,
                      "losing the spider transformation");
-        if (!skip_move)
-            you.check_clinging(false);
         break;
 
     case TRAN_BAT:
@@ -1290,12 +1293,19 @@ void untransform(bool skip_wielding, bool skip_move)
 
     case TRAN_STATUE:
         // This only handles lava orcs going statue -> stoneskin.
-        if (you.species == SP_LAVA_ORC && temperature_effect(LORC_STONESKIN)
-            || you.species == SP_GARGOYLE)
+        if (
+#if TAG_MAJOR_VERSION == 34
+            you.species == SP_LAVA_ORC && temperature_effect(LORC_STONESKIN)
+            ||
+#endif
+            you.species == SP_GARGOYLE)
         {
             mprf(MSGCH_DURATION, "You revert to a slightly less stony form.");
         }
-        else if (you.species != SP_LAVA_ORC)
+        else
+#if TAG_MAJOR_VERSION == 34
+        if (you.species != SP_LAVA_ORC)
+#endif
             mprf(MSGCH_DURATION, "You revert to your normal fleshy form.");
         notify_stat_change(STAT_DEX, 2, true,
                      "losing the statue transformation");
@@ -1309,10 +1319,12 @@ void untransform(bool skip_wielding, bool skip_move)
         break;
 
     case TRAN_ICE_BEAST:
+#if TAG_MAJOR_VERSION == 34
         if (you.species == SP_LAVA_ORC && !temperature_effect(LORC_STONESKIN))
             mprf(MSGCH_DURATION, "Your icy form melts away into molten rock.");
         else
-            mprf(MSGCH_DURATION, "You warm up again.");
+#endif
+        mprf(MSGCH_DURATION, "You warm up again.");
 
         // Note: if the core goes down, the combined effect soon disappears,
         // but the reverse isn't true. -- bwr
@@ -1335,7 +1347,6 @@ void untransform(bool skip_wielding, bool skip_move)
         break;
 
     case TRAN_PIG:
-    case TRAN_JELLY:
     case TRAN_PORCUPINE:
     case TRAN_WISP:
         break;
@@ -1351,40 +1362,33 @@ void untransform(bool skip_wielding, bool skip_move)
         {
             int app = you.attribute[ATTR_APPENDAGE];
             ASSERT(beastly_slot(app) != EQ_NONE);
-            // would be lots of work to do it via delete_mutation, the hacky
-            // way is one line:
-            you.mutation[app] = you.innate_mutations[app];
+            const int levels = you.mutation[app];
+            // Preserve extra mutation levels acquired after transforming.
+            const int beast_levels = _beastly_appendage_level(app);
+            const int extra = max(0, levels - you.innate_mutation[app]
+                                            - beast_levels);
+            you.mutation[app] = you.innate_mutation[app] + extra;
             you.attribute[ATTR_APPENDAGE] = 0;
-            mprf(MSGCH_DURATION, "Your %s disappear%s.", appendage_name(app),
-                 (app == MUT_TENTACLE_SPIKE) ? "s" : "");
+
+            // The mutation might have been removed already by a conflicting
+            // demonspawn innate mutation; no message then.
+            if (levels)
+            {
+                const char * const verb = you.mutation[app] ? "shrink"
+                                                            : "disappear";
+                mprf(MSGCH_DURATION, "Your %s %s%s.",
+                     mutation_name(static_cast<mutation_type>(app)), verb,
+                     app == MUT_TENTACLE_SPIKE ? "s" : "");
+            }
         }
         break;
 
     case TRAN_FUNGUS:
         mprf(MSGCH_DURATION, "You stop sporulating.");
-        you.set_duration(DUR_CONFUSING_TOUCH, 0);
         break;
+
     case TRAN_TREE:
         mprf(MSGCH_DURATION, "You feel less woody.");
-        if (grd(you.pos()) == DNGN_DEEP_WATER)
-        {
-            if (beogh_water_walk() || species_likes_water(you.species))
-                ; // nothing to do
-            else if (you.racial_permanent_flight()
-                  || you.wearing_ego(EQ_ALL_ARMOUR, SPARM_FLYING))
-            {
-                you.attribute[ATTR_PERM_FLIGHT] = 1;
-                mpr("You fly out of the water.");
-            }
-            else if (you.species == SP_TENGU
-                     && you.experience_level >= 5)
-            {
-                you.increase_duration(DUR_FLIGHT, 50, 100);
-                mpr("You frantically fly out of the water.");
-            }
-            else
-                fall_into_a_pool(you.pos(), true, DNGN_DEEP_WATER);
-        }
         notify_stat_change(STAT_STR, -10, true,
                      "losing the tree transformation");
         break;
@@ -1395,22 +1399,13 @@ void untransform(bool skip_wielding, bool skip_move)
 
     _unmeld_equipment(melded);
 
-    if (old_form == TRAN_TREE && grd(you.pos()) == DNGN_DEEP_WATER
-        && you.wearing_ego(EQ_ALL_ARMOUR, SPARM_FLYING)
-        && !species_likes_water(you.species)
-        && !you.attribute[ATTR_PERM_FLIGHT]) // tengu may have both
-    {
-        you.attribute[ATTR_PERM_FLIGHT] = 1;
-        mpr("You frantically enable flight.");
-    }
-
     // Re-check terrain now that be may no longer be swimming or flying.
     if (!skip_move && (old_flight && !you.flight_mode()
                        || (feat_is_water(grd(you.pos()))
                            && (old_form == TRAN_ICE_BEAST
                                || you.species == SP_MERFOLK))))
     {
-        move_player_to_grid(you.pos(), false, true);
+        move_player_to_grid(you.pos(), false);
     }
 
 #ifdef USE_TILE
@@ -1485,4 +1480,48 @@ static void _extra_hp(int amount_extra) // must also set in calc_hp
     you.hp /= 10;
 
     deflate_hp(you.hp_max, false);
+}
+
+void emergency_untransform()
+{
+    mpr("You quickly transform back into your natural form.");
+    untransform(false, true); // We're already entering the water.
+
+    if (you.species == SP_MERFOLK)
+        merfolk_start_swimming(false);
+}
+
+void merfolk_start_swimming(bool stepped)
+{
+    if (you.fishtail)
+        return;
+
+    if (stepped)
+        mpr("Your legs become a tail as you enter the water.");
+    else
+        mpr("Your legs become a tail as you dive into the water.");
+
+    if (you.invisible())
+        mpr("...but don't expect to remain undetected.");
+
+    you.fishtail = true;
+    remove_one_equip(EQ_BOOTS);
+    you.redraw_evasion = true;
+
+#ifdef USE_TILE
+    init_player_doll();
+#endif
+}
+
+void merfolk_stop_swimming()
+{
+    if (!you.fishtail)
+        return;
+    you.fishtail = false;
+    unmeld_one_equip(EQ_BOOTS);
+    you.redraw_evasion = true;
+
+#ifdef USE_TILE
+    init_player_doll();
+#endif
 }

@@ -60,7 +60,6 @@ butterfly10
 fire_bat MONS_FIRE_BAT
 %rim 1
 raven MONS_RAVEN
-mon/holy/phoenix MONS_PHOENIX
 %sdir mon/vault
 %rim 0
 microbat MONS_MICROBAT
@@ -93,7 +92,6 @@ natasha MONS_NATASHA
 ## Bees ('k')
 killer_bee MONS_KILLER_BEE
 queen_bee MONS_QUEEN_BEE
-giant_firefly MONS_FIREFLY
 
 ## Lizards ('l')
 giant_newt MONS_GIANT_NEWT
@@ -105,11 +103,9 @@ komodo_dragon MONS_KOMODO_DRAGON
 ## Slugs ('j')
 %sdir mon/unique
 gastronok MONS_GASTRONOK
-%sdir mon/animals
-giant_slug MONS_GIANT_SLUG
-elephant_slug MONS_ELEPHANT_SLUG
 
 ## Rodents ('r')
+%sdir mon/animals
 %rim 0
 rat MONS_RAT
 green_rat MONS_GREEN_RAT
@@ -144,18 +140,21 @@ alligator_snapping_turtle MONS_ALLIGATOR_SNAPPING_TURTLE
 alligator_snapping_turtle_shell MONS_ALLIGATOR_SNAPPING_TURTLE_SHELL
 %rim 0
 fire_crab MONS_FIRE_CRAB
+ghost_crab MONS_GHOST_CRAB
 %rim 1
 
 ## Worms ('w')
 %sdir mon/aquatic
 %rim 0
 swamp_worm MONS_SWAMP_WORM
-lava_worm MONS_LAVA_WORM
 %rim 1
 %sdir mon/animals
 worm MONS_WORM
 brain_worm MONS_BRAIN_WORM
 giant_leech MONS_GIANT_LEECH
+%rim 0
+torpor_snail MONS_TORPOR_SNAIL
+%rim 1
 
 ## Flying insects ('y')
 vampire_mosquito MONS_VAMPIRE_MOSQUITO
@@ -167,10 +166,7 @@ moth_of_wrath MONS_MOTH_OF_WRATH
 
 ## Aquatics (';')
 %sdir mon/aquatic
-big_fish MONS_BIG_FISH
-giant_goldfish MONS_GIANT_GOLDFISH
 electric_eel MONS_ELECTRIC_EEL
-shark MONS_SHARK
 %rim 1
 
 %include dc-tentacles.txt
@@ -213,7 +209,6 @@ mana_viper MONS_MANA_VIPER
 
 ## Bears ('U')
 black_bear MONS_BLACK_BEAR
-grizzly_bear MONS_GRIZZLY_BEAR
 polar_bear MONS_POLAR_BEAR
 
 ## Yaks, sheep and elephants ('Y')
@@ -253,7 +248,6 @@ twister1 MONS_TWISTER /*'v'*/
 twister2
 twister3
 twister4
-vapour MONS_VAPOUR /*'#'*/
 orb_of_fire MONS_ORB_OF_FIRE /*'*'*/
 orb_of_destruction1 MONS_ORB_OF_DESTRUCTION /*'*'*/
 orb_of_destruction2
@@ -267,8 +261,6 @@ fulminant_prism4
 ball_lightning MONS_BALL_LIGHTNING /*'*'*/
 %sdir mon/undead
 death_cob MONS_DEATH_COB /*'%'*/
-%sdir mon/holy
-silver_star MONS_SILVER_STAR /*'*'*/
 
 ### Abyssal horrors ('*')
 %sdir mon/abyss
@@ -533,6 +525,7 @@ wiglaf MONS_WIGLAF
 %rim 0
 human MONS_HUMAN
 hell_knight MONS_HELL_KNIGHT
+death_knight MONS_DEATH_KNIGHT
 necromancer MONS_NECROMANCER
 wizard MONS_WIZARD
 vault_guard MONS_VAULT_GUARD
@@ -671,9 +664,6 @@ tengu_warrior MONS_TENGU_WARRIOR
 tengu_reaver MONS_TENGU_REAVER
 %sdir mon/unique
 sojobo MONS_SOJOBO
-%sdir mon/holy
-shedu MONS_SHEDU
-%sdir mon/unique
 arachne MONS_ARACHNE
 arachne_staveless MONS_ARACHNE_STAVELESS
 
@@ -698,8 +688,6 @@ slime_creature3
 slime_creature4
 slime_creature5
 %rim 1
-pulsating_lump MONS_PULSATING_LUMP
-brown_ooze MONS_BROWN_OOZE
 azure_jelly MONS_AZURE_JELLY
 acid_blob MONS_ACID_BLOB
 death_ooze MONS_DEATH_OOZE
@@ -790,7 +778,6 @@ bush_burning MONS_BUSH_BURNING
 oklob_sapling MONS_OKLOB_SAPLING
 oklob_plant MONS_OKLOB_PLANT
 %rim 0
-thorn_lotus MONS_THORN_LOTUS
 thorn_hunter MONS_THORN_HUNTER
 treant MONS_TREANT
 briar_patch MONS_BRIAR_PATCH
@@ -917,8 +904,6 @@ spriggan_rider MONS_SPRIGGAN_RIDER
 spriggan_druid MONS_SPRIGGAN_DRUID
 spriggan_berserker MONS_SPRIGGAN_BERSERKER
 spriggan_defender MONS_SPRIGGAN_DEFENDER
-spriggan_assassin MONS_SPRIGGAN_ASSASSIN
-spriggan_enchanter MONS_SPRIGGAN_ENCHANTER
 %rim 0
 spriggan_air_mage MONS_SPRIGGAN_AIR_MAGE
 %rim 1
@@ -952,7 +937,6 @@ water_nymph MONS_WATER_NYMPH
 bog_body MONS_BOG_BODY
 necrophage MONS_NECROPHAGE
 ghoul MONS_GHOUL
-rotting_hulk MONS_ROTTING_HULK
 
 %sdir mon/unique
 blork_the_orc MONS_BLORK_THE_ORC
@@ -977,6 +961,8 @@ vault/deformed_orc MONS_DEFORMED_ORC
 %rim 0
 shadow MONS_SHADOW /*' '*/
 phantom MONS_PHANTOM
+## Ghosts of AXED_MONs
+missing_ghost MONS_GHOST
 ## used for Detect Creatures
 ghost MONS_PLAYER_GHOST
 silent_spectre MONS_SILENT_SPECTRE
@@ -993,7 +979,6 @@ insubstantial_wisp MONS_INSUBSTANTIAL_WISP
 %sdir mon
 dwarf MONS_DWARF
 deep_dwarf MONS_DEEP_DWARF
-deep_dwarf_death_knight MONS_DEEP_DWARF_DEATH_KNIGHT
 %sdir mon/unique
 jorgrun MONS_JORGRUN
 
@@ -1004,8 +989,6 @@ wight MONS_WIGHT
 %rim 1
 skeletal_warrior MONS_SKELETAL_WARRIOR
 ancient_champion MONS_ANCIENT_CHAMPION
-%rim 0
-flaming_corpse MONS_FLAMING_CORPSE
 %rim 1
 %sdir mon/undead
 curse_skull MONS_CURSE_SKULL
@@ -1020,7 +1003,7 @@ murray MONS_MURRAY
 
 ## Sprint specials
 %sdir mon/sprint
-succubus MONS_SUCCUBUS
+dimme MONS_DIMME
 %rim 0
 orb_of_ice MONS_ORB_OF_ICE
 orb_of_electricity MONS_ORB_OF_ELECTRICITY

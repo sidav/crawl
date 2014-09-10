@@ -20,6 +20,7 @@
 #include "database.h"
 #include "decks.h"
 #include "describe.h"
+#include "end.h"
 #include "files.h"
 #include "food.h"
 #include "format.h"
@@ -38,6 +39,7 @@
 #include "mutation.h"
 #include "options.h"
 #include "ouch.h"
+#include "output.h"
 #include "jobs.h"
 #include "player.h"
 #include "random.h"
@@ -48,7 +50,7 @@
 #include "species.h"
 #include "spl-book.h"
 #include "state.h"
-#include "stuff.h"
+#include "stringutil.h"
 #include "env.h"
 #include "tags.h"
 #include "terrain.h"
@@ -106,7 +108,7 @@ void init_hints_options()
 
     // Clear possible debug messages before messing
     // with messaging options.
-    mesclr(true);
+    clear_messages(true);
 //     Options.clear_messages = true;
     Options.show_more  = true;
     Options.small_more = false;
@@ -207,8 +209,9 @@ void pick_hints(newgame_def* choice)
             Hints.hints_type = keyn - 'a';
             choice->species  = _get_hints_species(Hints.hints_type);
             choice->job = _get_hints_job(Hints.hints_type);
-            choice->weapon = choice->job == JOB_HUNTER ? WPN_BOW
-                                                       : WPN_HAND_AXE; // easiest choice for fighters
+            // easiest choice for fighters
+            choice->weapon = choice->job == JOB_HUNTER ? WPN_SHORTBOW
+                                                       : WPN_HAND_AXE;
 
             return;
         }
@@ -417,7 +420,12 @@ void hints_new_turn()
         }
         else
         {
-            if (2*you.hp < you.hp_max)
+            if (poison_is_lethal())
+            {
+                if (Hints.hints_events[HINT_NEED_POISON_HEALING])
+                    learned_something_new(HINT_NEED_POISON_HEALING);
+            }
+            else if (2*you.hp < you.hp_max)
                 learned_something_new(HINT_RUN_AWAY);
 
             if (Hints.hints_type == HINT_MAGIC_CHAR && you.magic_points < 1)
@@ -616,13 +624,8 @@ static void _hints_healing_reminder()
     if (!crawl_state.game_is_hints())
         return;
 
-    if (you.duration[DUR_POISONING] && 2*you.hp < you.hp_max)
-    {
-        if (Hints.hints_events[HINT_NEED_POISON_HEALING])
-            learned_something_new(HINT_NEED_POISON_HEALING);
-    }
-    else if (Hints.hints_seen_invisible > 0
-             && you.num_turns - Hints.hints_seen_invisible <= 20)
+    if (Hints.hints_seen_invisible > 0
+        && you.num_turns - Hints.hints_seen_invisible <= 20)
     {
         // If we recently encountered an invisible monster, we need a
         // special message.
@@ -643,7 +646,7 @@ static void _hints_healing_reminder()
 
             string text;
             text =  "Remember to rest between fights and to enter unexplored "
-                    "terrain with full hitpoints and magic. Ideally you "
+                    "terrain with full health and magic. Ideally you "
                     "should retreat into areas you've already explored and "
                     "cleared of monsters; resting on the edge of the explored "
                     "terrain increases the chances of your rest being "
@@ -655,8 +658,8 @@ static void _hints_healing_reminder()
             if (you.hp < you.hp_max && you_worship(GOD_TROG)
                 && you.can_go_berserk())
             {
-                text += "\nAlso, berserking might help you not to lose so many "
-                        "hitpoints in the first place. To use your abilities type "
+                text += "\nAlso, berserking might help you not to lose so much "
+                        "health in the first place. To use your abilities type "
                         "<w>a</w>.";
             }
             mprf(MSGCH_TUTORIAL, "%s", text.c_str());
@@ -859,15 +862,12 @@ void hints_monster_seen(const monster& mon)
 {
     if (mons_class_flag(mon.type, M_NO_EXP_GAIN))
     {
-        hints_event_type et = mon.type == MONS_TOADSTOOL ?
-            HINT_SEEN_TOADSTOOL : HINT_SEEN_ZERO_EXP_MON;
-
-        if (Hints.hints_events[et])
+        if (Hints.hints_events[HINT_SEEN_ZERO_EXP_MON])
         {
             if (Hints.hints_just_triggered)
                 return;
 
-            learned_something_new(et, mon.pos());
+            learned_something_new(HINT_SEEN_ZERO_EXP_MON, mon.pos());
             return;
         }
 
@@ -951,23 +951,23 @@ void hints_monster_seen(const monster& mon)
     if (Hints.hints_type == HINT_RANGER_CHAR)
     {
         text =  "However, as a hunter you will want to deal with it using your "
-                "bow. If you have a look at your bow from your "
+                "bow. If you have a look at your shortbow from your "
                 "<w>i</w>nventory, you'll find an explanation of how to do "
                 "this. ";
 
         if (!you.weapon()
             || you.weapon()->base_type != OBJ_WEAPONS
-            || you.weapon()->sub_type != WPN_BOW)
+            || you.weapon()->sub_type != WPN_SHORTBOW)
         {
             text += "First <w>w</w>ield it, then follow the instructions."
                 "<tiles>\nAs a short-cut you can also <w>right-click</w> on your "
-                "bow to read its description, and <w>left-click</w> to wield "
+                "shortbow to read its description, and <w>left-click</w> to wield "
                 "it.</tiles>";
         }
         else
         {
-            text += "<tiles>Clicking with your <w>right mouse button</w> on your bow "
-                    "will also let you read its description.</tiles>";
+            text += "<tiles>Clicking with your <w>right mouse button</w> on your "
+                    "shortbow will also let you read its description.</tiles>";
         }
 
         mprf(MSGCH_TUTORIAL, "%s", untag_tiles_console(text).c_str());
@@ -1267,11 +1267,6 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
                     "with these. Checking other axes' enchantments and "
                     "attributes can be worthwhile.";
         }
-        else if (Hints.hints_type == HINT_MAGIC_CHAR)
-        {
-            text << "\nAs a spellslinger you don't need a weapon to fight. "
-                    "It can be useful as a backup, though.";
-        }
         break;
 
     case HINT_SEEN_MISSILES:
@@ -1279,7 +1274,7 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
                 "<console>('<w>"
              << stringize_glyph(get_item_symbol(SHOW_ITEM_MISSILE))
              << "</w>') </console>"
-                "you've picked up. Missiles like darts and throwing nets "
+                "you've picked up. Missiles like tomahwaks and throwing nets "
                 "can be thrown by hand, but other missiles like arrows and "
                 "needles require a launcher and training in using it to be "
                 "really effective. "
@@ -1306,8 +1301,8 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
         }
         else
         {
-            text << "\nFor now you might be best off with sticking to darts "
-                    "or stones for ranged attacks.";
+            text << "\nFor now you might be best off with sticking to "
+                    "stones for ranged attacks.";
         }
         break;
 
@@ -1492,15 +1487,12 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
                 "nothing and can't be dropped. Gold can be used to buy "
                 "items from shops, and can also be sacrificed to some gods. ";
 
-        if (!Options.show_gold_turns)
-        {
-            text << "Whenever you pick up some gold, your current amount will "
-                    "be mentioned. If you'd like to check your wealth at other "
-                    "times, you can press <w>%</w>. It will also be "
-                    "listed on the <w>%</w> screen.";
-            cmd.push_back(CMD_LIST_GOLD);
-            cmd.push_back(CMD_RESISTS_SCREEN);
-        }
+        text << "Whenever you pick up some gold, your current amount will "
+                "be mentioned. If you'd like to check your wealth at other "
+                "times, you can press <w>$</w>. It will also be "
+                "listed on the <w>%</w> screen.";
+        cmd.push_back(CMD_LIST_GOLD);
+        cmd.push_back(CMD_RESISTS_SCREEN);
         break;
 
     case HINT_SEEN_STAIRS:
@@ -1743,7 +1735,7 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
         cmd.push_back(CMD_GO_DOWNSTAIRS);
 
         text << "\n\nIf there's anything you want which you can't afford yet "
-                "you can select those items and press <w>@</w> to put them "
+                "you can hold <w>Shift</w> and select those items to put them "
                 "on your shopping list. The game will then remind you when "
                 "you gather enough gold to buy the items on your list.";
         break;
@@ -1811,8 +1803,8 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
 
         if (you_worship(GOD_TROG))
         {
-            text << " Also, kills of demons and living creatures grant you "
-                    "favour in the eyes of Trog.";
+            text << " Also, most kills will grant you favour in the eyes of "
+                    "Trog.";
         }
         break;
 
@@ -1928,7 +1920,7 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
             learned_something_new(HINT_YOU_ENCHANTED);
             Hints.hints_just_triggered = true;
         }
-        text << "While sick, your hitpoints won't regenerate and your attributes "
+        text << "While sick, your health won't regenerate and your attributes "
                 "may decrease. Sickness wears off with time, so you should wait it "
                 "out with %.";
         cmd.push_back(CMD_REST);
@@ -1943,8 +1935,8 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
             learned_something_new(HINT_YOU_ENCHANTED);
             Hints.hints_just_triggered = true;
         }
-        text << "Poison will slowly reduce your HP. You can try to wait it out "
-                "with <w>%</w>, but if you're low on hit points it's usually safer "
+        text << "Poison will slowly reduce your health. You can try to wait it out "
+                "with <w>%</w>, but if you're low on health it's usually safer "
                 "to quaff a potion of curing.";
         cmd.push_back(CMD_REST);
         break;
@@ -1957,15 +1949,15 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
         Hints.hints_just_triggered = true;
 
         text << "Ugh, your flesh is rotting! Not only does this slowly "
-                "reduce your HP, it also slowly reduces your <w>maximum</w> "
-                "HP (your usual maximum HP will be indicated by a number in "
-                "parentheses).\n"
+                "reduce your health, it also slowly reduces your <w>maximum</w> "
+                "health (your usual maximum health will be indicated by a "
+                "number in parentheses).\n"
                 "While you can wait it out, you'll probably want to stop the "
                 "rotting as soon as possible by <w>%</w>uaffing a potion of "
-                "curing, since the longer you wait the more your maximum HP "
-                "will be reduced. Once you've stopped rotting you can restore "
-                "your maximum HP to normal by drinking potions of curing and "
-                "heal wounds while fully healed.";
+                "curing, since the longer you wait the more your maximum "
+                "health will be reduced. Once you've stopped rotting you can "
+                "restore your maximum health to normal by drinking potions of "
+                "curing and heal wounds while fully healed.";
         cmd.push_back(CMD_QUAFF);
         break;
 
@@ -2014,21 +2006,11 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
         cmd.push_back(CMD_PICKUP);
         break;
 
-    case HINT_HEAVY_LOAD:
-        if (you.burden_state != BS_UNENCUMBERED)
-        {
-            text << "It is not usually a good idea to run around encumbered; "
-                    "it slows you down and increases your hunger.";
-        }
-        else
-        {
-            text << "Sadly, your inventory is limited to 52 items, and it "
-                    "appears your knapsack is full.";
-        }
-
+    case HINT_FULL_INVENTORY:
+        text << "Sadly, your inventory is limited to 52 items, and it "
+            "appears your knapsack is full.";
         text << " However, this is easy enough to rectify: simply "
-                "<w>%</w>rop some of the stuff you don't need or that's too "
-                "heavy to lug around permanently.";
+                "<w>%</w>rop some of the stuff you don't need right now.";
         cmd.push_back(CMD_DROP);
 
 #ifdef USE_TILE
@@ -2056,14 +2038,13 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
     case HINT_ROTTEN_FOOD:
         if (!crawl_state.game_is_hints())
         {
-            text << "One or more of the chunks or corpses you carry has "
-                    "started to rot. While some species can eat rotten "
-                    "meat, you can't.";
+            text << "One or more of the chunks you carry has started to rot. "
+                    "While some species can eat rotten meat, you can't.";
             break;
         }
-        text << "One or more of the chunks or corpses you carry has started "
-                "to rot. Few species can digest these, so you might just as "
-                "well <w>%</w>rop them now. "
+        text << "One or more of the chunks you carry has started to rot. Few "
+                "species can digest these, so you might just as well "
+                "<w>%</w>rop them now. "
                 "When selecting items from a menu, there's a shortcut "
                 "(<w>,</w>) to select all items in your inventory at once "
                 "that are useless to you.";
@@ -2186,12 +2167,12 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
         break;
 
     case HINT_HEALING_POTIONS:
-        text << "Your hit points are getting dangerously low. Retreating and/or "
+        text << "Your health is getting dangerously low. Retreating and/or "
                 "quaffing a potion of heal wounds or curing might be a good idea.";
         break;
 
     case HINT_NEED_HEALING:
-        text << "If you're low on hitpoints or magic and there's no urgent "
+        text << "If you're low on health or magic and there's no urgent "
                 "need to move, you can rest for a bit. Ideally, you should "
                 "retreat to an area you've already explored and cleared "
                 "of monsters before resting, since resting on the edge of "
@@ -2206,11 +2187,10 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
         break;
 
     case HINT_NEED_POISON_HEALING:
-        text << "Your poisoning could easily kill you, so now would be a "
-                "good time to <w>%</w>uaff a potion of heal wounds or, "
-                "better yet, a potion of curing. If you have seen neither "
-                "of these so far, try unknown ones in your inventory. Good "
-                "luck!";
+        text << "You are lethally poisoned, so now would be a good time to "
+                "<w>%</w>uaff a potion of heal wounds or, better yet, a "
+                "potion of curing. If you have seen neither of these so far, "
+                "try unknown potions in your inventory. Good luck!";
         cmd.push_back(CMD_QUAFF);
         break;
 
@@ -2228,7 +2208,7 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
     case HINT_NEED_HEALING_INVIS:
         text << "You recently noticed an invisible monster, so unless you "
                 "killed it or left the scene resting might not be safe. If you "
-                "still need to replenish your hitpoints or magic, you'll have "
+                "still need to replenish your health or magic, you'll have "
                 "to quaff an appropriate potion. For normal resting you will "
                 "first have to get away from the danger.";
 
@@ -2255,10 +2235,9 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
         break;
 
     case HINT_RUN_AWAY:
-        text << "Whenever you've got only a few hitpoints left and you're in "
-                "danger of dying, check your options carefully. Often, "
-                "retreat or use of some item might be a viable alternative "
-                "to fighting on.";
+        text << "Whenever your health is very low and you're in danger of "
+                "dying, check your options carefully. Often, retreat or use "
+                "of some item might be a viable alternative to fighting on.";
 
         if (you.species == SP_CENTAUR)
         {
@@ -2277,11 +2256,10 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
         {
             text << "\nAlso, with "
                  << apostrophise(god_name(you.religion))
-                 << " support you can use your Berserk ability (<w>%</w>) "
-                    "to temporarily gain more hitpoints and greater "
-                    "strength. Bear in mind that berserking at the last "
-                    "minute is often risky, and prevents you from using "
-                    "items to escape!";
+                 << " support you can use your Berserk ability (<w>%</w>) to "
+                    "temporarily gain more health and greater strength. Bear "
+                    "in mind that berserking at the last minute is often "
+                    "risky, and prevents you from using items to escape!";
             cmd.push_back(CMD_USE_ABILITY);
         }
         break;
@@ -2311,17 +2289,13 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
     case HINT_NEW_ABILITY_GOD:
         switch (you.religion)
         {
-        // Gods where first granted ability is active.
-        case GOD_KIKUBAAQUDGHA: case GOD_YREDELEMNUL: case GOD_NEMELEX_XOBEH:
-        case GOD_ZIN:           case GOD_OKAWARU:     case GOD_SIF_MUNA:
-        case GOD_TROG:          case GOD_ELYVILON:    case GOD_LUGONU:
-            text << "You just gained a divine ability. Press <w>%</w> to "
-                    "take a look at your abilities or to use one of them.";
-            cmd.push_back(CMD_USE_ABILITY);
-            break;
-
         // Gods where first granted ability is passive.
-        default:
+        case GOD_ASHENZARI:
+        case GOD_BEOGH:
+        case GOD_MAKHLEB:
+        case GOD_VEHUMET:
+        case GOD_XOM:
+        case GOD_SHINING_ONE:
             text << "You just gained a divine ability. Press <w>%</w> "
 #ifdef USE_TILE
                     "or press <w>Shift</w> and <w>right-click</w> on the "
@@ -2329,6 +2303,13 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
 #endif
                     "to take a look at your abilities.";
             cmd.push_back(CMD_DISPLAY_RELIGION);
+            break;
+
+        // Gods where first granted ability is active.
+        default:
+            text << "You just gained a divine ability. Press <w>%</w> to "
+                    "take a look at your abilities or to use one of them.";
+            cmd.push_back(CMD_USE_ABILITY);
             break;
         }
         break;
@@ -2540,7 +2521,7 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
 
         if (Hints.hints_type == HINT_RANGER_CHAR && wpn != -1
             && you.inv[wpn].base_type == OBJ_WEAPONS
-            && you.inv[wpn].sub_type == WPN_BOW)
+            && you.inv[wpn].sub_type == WPN_SHORTBOW)
         {
             text << "You can easily switch between weapons in slots a and "
                     "b by pressing <w>%</w>.";
@@ -2564,8 +2545,8 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
                 "absolutely have to follow it. Rather, you can let it run "
                 "away. Sometimes, though, it can be useful to attack a "
                 "fleeing creature by throwing something after it. If you "
-                "have any darts or stones in your <w>%</w>nventory, you can "
-                "look at one of them to read an explanation of how to do this.";
+                "have any stones in your <w>%</w>nventory, you can look "
+                "at one of them to read an explanation of how to do this.";
         cmd.push_back(CMD_DISPLAY_INVENTORY);
         break;
 
@@ -2681,20 +2662,6 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
         // Handled in special functions.
         break;
 
-    case HINT_SEEN_TOADSTOOL:
-    {
-        const monster* m = monster_at(gc);
-
-        if (!m || !you.can_see(m))
-            DELAY_EVENT;
-
-        text << "Sometimes toadstools will grow on decaying corpses, and "
-                "will wither away soon after appearing. Worshippers of "
-                "Fedhas Madash, the plant god, can make use of them, "
-                "but to everyone else they're just ugly dungeon decoration.";
-        break;
-    }
-
     case HINT_SEEN_ZERO_EXP_MON:
     {
         const monster_info* mi = env.map_knowledge(gc).monsterinfo();
@@ -2734,10 +2701,8 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
              << "</w>)"
 #endif
                 ", keep moving, don't fight any of the monsters, and don't "
-                "bother picking up any items on the ground. If you're "
-                "encumbered or overburdened, then lighten up your load, and if "
-                "the monsters are closing in, try to use items of hasting to get "
-                "away.";
+                "bother picking up any items on the ground. If the monsters "
+                "are closing in, try to use items of hasting to get away.";
         break;
 
     case HINT_SPELL_MISCAST:
@@ -3022,8 +2987,7 @@ string hints_skills_info()
         "You can toggle which skills to train by "
         "pressing their slot letters. A <darkgrey>grey</darkgrey> skill "
         "will not be trained and ease the training of others. "
-        "Press <w>!</w> to learn about skill training and <w>?</w> to read "
-        "your skills' descriptions.";
+        "Press <w>?</w> to read your skills' descriptions.";
     text << broken;
     text << "</" << colour_to_str(channel_to_colour(MSGCH_TUTORIAL)) << ">";
 
@@ -3235,7 +3199,7 @@ void hints_describe_item(const item_def &item)
                 else
                 {
                     // Compare with other melee weapons.
-                    curr_wpskill = weapon_skill(item);
+                    curr_wpskill = melee_skill(item);
                     best_wpskill = best_skill(SK_SHORT_BLADES, SK_STAVES);
                     // Maybe unarmed is better.
                     if (you.skills[SK_UNARMED_COMBAT] > you.skills[best_wpskill])
@@ -3244,7 +3208,7 @@ void hints_describe_item(const item_def &item)
 
                 if (you.skills[curr_wpskill] + 2 < you.skills[best_wpskill])
                 {
-                    ostr << "\nOn second look, you've been training in <w>"
+                    ostr << "\nHowever, you've been training in <w>"
                          << skill_name(best_wpskill)
                          << "</w> for a while, so maybe you should "
                             "continue training that rather than <w>"
@@ -3280,14 +3244,6 @@ void hints_describe_item(const item_def &item)
                     ostr << "To attack a monster, you can simply walk into it.";
             }
 
-            if (is_throwable(&you, item) && !long_text)
-            {
-                ostr << "\n\nSome weapons (including this one), can also be "
-                        "<w>%</w>ired. ";
-                cmd.push_back(CMD_FIRE);
-                ostr << _hints_throw_stuff(item);
-                long_text = true;
-            }
             if (!item_type_known(item)
                 && (is_artefact(item)
                     || get_equip_desc(item) != ISFLAG_NO_DESC))
@@ -3304,9 +3260,6 @@ void hints_describe_item(const item_def &item)
                         "hands again until the curse has been lifted by "
                         "reading a scroll of remove curse or one of the "
                         "enchantment scrolls.";
-
-                if (!wielded && is_throwable(&you, item))
-                    ostr << " (Throwing it is safe, though.)";
 
                 Hints.hints_events[HINT_YOU_CURSED] = false;
             }
@@ -3404,16 +3357,15 @@ void hints_describe_item(const item_def &item)
                 && get_armour_slot(item) == EQ_BODY_ARMOUR
                 && !is_effectively_light_armour(&item))
             {
-                ostr << "\nNote that body armour with high evasion penalties "
-                        "may hinder your ability to learn and cast spells. "
-                        "Light armour such as robes, leather armour or any "
-                        "elven armour will be generally safe for any aspiring "
-                        "spellcaster.";
+                ostr << "\nNote that body armour with a high encumbrance "
+                        "rating may hinder your ability to cast spells. Light "
+                        "armour such as robes and leather armour will be "
+                        "generally safe for any aspiring spellcaster.";
             }
             else if (Hints.hints_type == HINT_MAGIC_CHAR
                      && is_shield(item))
             {
-                ostr << "\nNote that shields will hinder you ability to "
+                ostr << "\nNote that shields will hinder your ability to "
                         "cast spells; the larger the shield, the bigger "
                         "the penalty.";
             }
@@ -3502,8 +3454,7 @@ void hints_describe_item(const item_def &item)
                 else
                 {
                     ostr << "<w>%</w>rop this. Use <w>%&</w> to select all "
-                            "skeletons, corpses and rotten chunks in your "
-                            "inventory. ";
+                            "rotten chunks in your inventory. ";
                     cmd.push_back(CMD_DROP);
                     cmd.push_back(CMD_DROP);
                 }
@@ -3601,9 +3552,9 @@ void hints_describe_item(const item_def &item)
             if (item.sub_type == BOOK_MANUAL)
             {
                 ostr << "A manual can greatly help you in training a skill. "
-                        "To use it, just <w>%</w>ead it. As long as you are "
-                        "carrying it, the skill in question will be trained "
-                        "more efficiently and will level up faster.";
+                        "As long as you are carrying it, the skill in "
+                        "question will be trained more effeciently and will "
+                        "level up faster.";
                 cmd.push_back(CMD_READ);
             }
             else // It's a spellbook!
@@ -3667,7 +3618,7 @@ void hints_describe_item(const item_def &item)
 
                     if (you.spell_no)
                     {
-                        ostr << "\n\nTo do magic, ";
+                        ostr << "\n\nTo use magic, ";
 #ifdef USE_TILE
                         ostr << "you can <w>left mouse click</w> on the "
                                 "monster you wish to target (or on your "
@@ -3702,9 +3653,9 @@ void hints_describe_item(const item_def &item)
 
                 if (in_inventory(item))
                 {
-                    ostr << " In the drop menu you can select all skeletons, "
-                            "corpses, and rotten chunks in your inventory "
-                            "at once with <w>%&</w>.";
+                    ostr << " In the drop menu you can select all rotten "
+                            " chunks in your inventory at once with "
+                            "<w>%&</w>.";
                     cmd.push_back(CMD_DROP);
                 }
                 break;
@@ -3732,22 +3683,11 @@ void hints_describe_item(const item_def &item)
                 else
                 {
                     ostr << "<w>%</w>rop this. Use <w>%&</w> to select all "
-                            "skeletons and rotten chunks or corpses in your "
-                            "inventory. ";
+                            "rotten chunks in your inventory. ";
                     cmd.push_back(CMD_DROP);
                     cmd.push_back(CMD_DROP);
                 }
                 ostr << "No god will accept such rotten sacrifice, either.";
-            }
-            else
-            {
-#ifdef USE_TILE
-                ostr << " For an individual corpse in your inventory, the most "
-                        "practical way to chop it up is to drop it by clicking "
-                        "on it with your <w>left mouse button</w> while "
-                        "<w>Shift</w> is pressed, and then repeat that command "
-                        "for the corpse tile now lying on the floor.";
-#endif
             }
             if (!in_inventory(item))
                 break;
@@ -3768,7 +3708,7 @@ void hints_describe_item(const item_def &item)
             {
                 ostr << "\n\nTo find out what this rod might do, you have "
                         "to <w>%</w>ield it to see if you can use the "
-                        "spells hidden within, then e<w>%</w>oke it to "
+                        "spell hidden within, then e<w>%</w>oke it to "
                         "actually do so"
 #ifdef USE_TILE
                         ", both of which can be done by clicking on it"
@@ -3970,13 +3910,12 @@ static void _hints_describe_feature(int x, int y)
     case DNGN_TRAP_ALARM:
     case DNGN_TRAP_ZOT:
     case DNGN_TRAP_MECHANICAL:
-         ostr << "These nasty constructions can do physical damage (with "
-                 "darts or needles, for example) or have other, more "
-                 "magical effects. ";
+         ostr << "These nasty constructions can cause a range of "
+                 "unpleasant effects. ";
 
          if (feat == DNGN_TRAP_MECHANICAL)
          {
-             ostr << "You can attempt to deactivate the mechanical type by "
+             ostr << "You can attempt to deactivate a mechanical trap by "
                      "standing next to it and then pressing <w>Ctrl</w> "
                      "and the direction of the trap. Note that this usually "
                      "causes the trap to go off, so it can be quite a "
@@ -3987,9 +3926,8 @@ static void _hints_describe_feature(int x, int y)
          }
          else
          {
-             ostr << "Magical traps can't be disarmed, and unlike "
-                     "mechanical traps you can't avoid tripping them "
-                     "by flying over them.";
+             ostr << "Magical traps can't be disarmed, and you can't "
+                     "avoid tripping them by flying over them.";
          }
          Hints.hints_events[HINT_SEEN_TRAP] = false;
          break;
@@ -4005,7 +3943,7 @@ static void _hints_describe_feature(int x, int y)
          break;
 
     case DNGN_TRAP_WEB:
-         ostr << "Some areas of the dungeon, such as Spiders Nest, may "
+         ostr << "Some areas of the dungeon, such as the Spider Nest, may "
                  "be strewn with giant webs that may ensnare you for a short "
                  "time and notify nearby spiders of your location. "
                  "You can attempt to clear away the web by "
@@ -4184,7 +4122,7 @@ static void _hints_describe_feature(int x, int y)
             ostr << "\n\n";
 
         ostr << "Many forms of combat and some forms of magical attack "
-                "will splatter the surroundings with blood (if the victim has "
+                "will spatter the surroundings with blood (if the victim has "
                 "any blood, that is). Some monsters can smell blood from "
                 "a distance and will come looking for whatever the blood "
                 "was spilled from.";
@@ -4317,7 +4255,7 @@ void hints_describe_monster(const monster_info& mi, bool has_stat_desc)
     {
         ostr << "Did you think you were the only adventurer in the dungeon? "
                 "Well, you thought wrong! These unique adversaries often "
-                "possess skills that normal monster wouldn't, so be "
+                "possess skills that normal monsters wouldn't, so be "
                 "careful.\n\n";
         dangerous = true;
     }
@@ -4329,15 +4267,15 @@ void hints_describe_monster(const monster_info& mi, bool has_stat_desc)
     }
     else
     {
-        const char ch = mons_base_char(mi.type);
-        if (ch >= '1' && ch <= '5')
+        const int tier = mons_demon_tier(mi.type);
+        if (tier > 0)
         {
             ostr << "This monster is a demon of the "
-                 << (ch == '1' ? "highest" :
-                     ch == '2' ? "second-highest" :
-                     ch == '3' ? "middle" :
-                     ch == '4' ? "second-lowest" :
-                     ch == '5' ? "lowest"
+                 << (tier == 1 ? "highest" :
+                     tier == 2 ? "second-highest" :
+                     tier == 3 ? "middle" :
+                     tier == 4 ? "second-lowest" :
+                     tier == 5 ? "lowest"
                                : "buggy")
                  << " tier.\n\n";
         }

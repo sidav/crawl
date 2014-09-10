@@ -14,6 +14,7 @@
 #include "dungeon.h"
 #include "env.h"
 #include "libutil.h"
+#include "macro.h"
 #include "message.h"
 #include "mon-util.h"
 #include "options.h"
@@ -22,9 +23,9 @@
 #include "skills2.h"
 #include "spl-util.h"
 #include "state.h"
-#include "stuff.h"
+#include "stringutil.h"
 
-monster_type debug_prompt_for_monster(void)
+monster_type debug_prompt_for_monster()
 {
     char specs[1024];
 
@@ -433,6 +434,9 @@ static const char* diag_names[] =
     "beam",
     "abyss",
     "monplace",
+#ifdef DEBUG_MONSPEAK
+    "speech",
+#endif
 };
 
 void wizard_toggle_dprf()

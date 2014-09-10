@@ -361,10 +361,6 @@ helmet
 
 Ein Stück einer Kopfbedeckung aus Metall.
 %%%%
-honeycomb
-
-Ein Klumpen von einer köstlichen Honigwabe, von riesigen Bienen geschaffen.
-%%%%
 ice dragon hide
 
 Die schuppige Haut eines Kälte atmenden Drachen. Es kann in die richtige
@@ -452,12 +448,6 @@ seiner rohen Form bietet es nicht viel Schutz, aber mit magischen Hilfsmitteln
 kann es womöglich verwendet werden, um eine ausgezeichnete Rüstung
 herzustellen.
 %%%%
-piece of ambrosia
-
-Ein Teil von Geistesnachtfaltern produzierter fremder Substanz. Es zu
-konsumieren, liefert magische sowohl Energie als auch Ernährung zu den Kosten,
-Ihren geistigen Fokus zu verlieren, für eine kurze Periode
-%%%%
 potion of agility
 
 Ein zauberhafter Trank, der das Geschick und Ausweichen von eins sehr steigert,
@@ -535,10 +525,6 @@ potion of slowing
 
 Ein Trank, der Ihre Taten verlangsamt.
 %%%%
-potion of strong poison
-
-Ein schrecklich giftiger Trank.
-%%%%
 quad damage
 
 Eine mysteriöse Sache, die einer Rune von irgendeiner Art ähnelt. Sobald
@@ -604,11 +590,6 @@ ring of sustain abilities
 
 Dieser Ring schützt seinen Träger vor dem Verlust ihrer Kraft, Flinkheit und
 Intelligenz.
-%%%%
-ring of sustenance
-
-Dieser Ring versorgt seinen Träger mit Energie, so das er nicht so oft essen
-muss.
 %%%%
 ring of teleportation
 

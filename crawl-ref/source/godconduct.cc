@@ -337,6 +337,7 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
             case GOD_BEOGH:
             case GOD_LUGONU:
             case GOD_DITHMENOS:
+            case GOD_QAZLAL:
                 if (you_worship(GOD_DITHMENOS)
                     && mons_class_flag(victim->type, M_SHADOW))
                 {
@@ -371,6 +372,7 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
             case GOD_BEOGH:
             case GOD_LUGONU:
             case GOD_DITHMENOS:
+            case GOD_QAZLAL:
                 if (you_worship(GOD_DITHMENOS)
                     && mons_class_flag(victim->type, M_SHADOW))
                 {
@@ -406,6 +408,7 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
             case GOD_BEOGH:
             case GOD_LUGONU:
             case GOD_DITHMENOS:
+            case GOD_QAZLAL:
                 if (you_worship(GOD_DITHMENOS)
                     && mons_class_flag(victim->type, M_SHADOW))
                 {
@@ -543,6 +546,7 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
             case GOD_BEOGH:
             case GOD_LUGONU:
             case GOD_DITHMENOS:
+            case GOD_QAZLAL:
                 if (you_worship(GOD_DITHMENOS)
                     && mons_class_flag(victim->type, M_SHADOW))
                 {
@@ -614,6 +618,7 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
             case GOD_MAKHLEB:
             case GOD_BEOGH:
             case GOD_LUGONU:
+            case GOD_QAZLAL:
                 if (god_hates_attacking_friend(you.religion, victim))
                     break;
 
@@ -655,6 +660,7 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
             case GOD_TROG:
             case GOD_BEOGH:
             case GOD_LUGONU:
+            case GOD_QAZLAL:
                 simple_god_message(" accepts your collateral kill.");
                 retval = true;
                 piety_denom = level + 10 - you.experience_level/3;
@@ -692,6 +698,7 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
             case GOD_MAKHLEB:
             case GOD_BEOGH:
             case GOD_LUGONU:
+            case GOD_QAZLAL:
                 simple_god_message(" accepts your collateral kill.");
                 retval = true;
                 piety_denom = level + 10 - (is_good_god(you.religion) ? 0 :
@@ -732,6 +739,7 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
             case GOD_TROG:
             case GOD_BEOGH:
             case GOD_LUGONU:
+            case GOD_QAZLAL:
                 simple_god_message(" accepts your collateral kill.");
                 retval = true;
                 piety_denom = level + 10 - (is_good_god(you.religion) ? 0 :
@@ -819,39 +827,6 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
                 piety_change = -level;
                 piety_denom = 10;
                 retval = true;
-            }
-            break;
-
-        case DID_CARDS:
-            if (you_worship(GOD_NEMELEX_XOBEH))
-            {
-                piety_change = level;
-                retval = true;
-
-                // level == 0: stacked, deck not used up
-                // level == 1: used up or nonstacked
-                // level == 2: used up and nonstacked
-                // and there's a 1/3 chance of an additional bonus point
-                // for nonstacked cards.
-                int chance = 0;
-                switch (level)
-                {
-                case 0: chance = 0;   break;
-                case 1: chance = 40;  break;
-                case 2: chance = 70;  break;
-                default:
-                case 3: chance = 100; break;
-                }
-
-                if (x_chance_in_y(chance, 100)
-                    && you.attribute[ATTR_CARD_COUNTDOWN])
-                {
-                    you.attribute[ATTR_CARD_COUNTDOWN]--;
-#if defined(DEBUG_DIAGNOSTICS) || defined(DEBUG_CARDS) || defined(DEBUG_GIFTS)
-                    mprf(MSGCH_DIAGNOSTICS, "Countdown down to %d",
-                         you.attribute[ATTR_CARD_COUNTDOWN]);
-#endif
-                }
             }
             break;
 
@@ -989,6 +964,12 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
                 piety_denom = level;
                 retval = true;
             }
+            else if (you_worship(GOD_NEMELEX_XOBEH))
+            {
+                piety_change = 14;
+                piety_denom = level;
+                retval = true;
+            }
             break;
 
         case DID_SEE_MONSTER:
@@ -1121,7 +1102,7 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
                 "Servant Kill Demon", "Servant Kill Natural Unholy",
                 "Servant Kill Natural Evil", "Undead Slave Kill Holy",
                 "Servant Kill Holy", "Banishment", "Spell Memorise", "Spell Cast",
-                "Spell Practise", "Cards",
+                "Spell Practise",
                 "Drink Blood", "Cannibalism","Eat Souled Being",
                 "Deliberate Mutation", "Cause Glowing", "Use Unclean",
                 "Use Chaos", "Desecrate Orcish Remains", "Destroy Orcish Idol",
@@ -1145,7 +1126,7 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
 #endif
     }
 
-    do_god_revenge(thing_done, victim);
+    do_god_revenge(thing_done);
 
     return retval;
 }
@@ -1197,8 +1178,8 @@ void set_attack_conducts(god_conduct_trigger conduct[3], const monster* mon,
         _first_attack_was_unchivalric.set(midx);
     }
 
-    if (mon->is_holy())
-        conduct[2].set(DID_ATTACK_HOLY, mon->hit_dice, known, mon);
+    if (mon->is_holy() && !mon->is_illusion())
+        conduct[2].set(DID_ATTACK_HOLY, mon->get_experience_level(), known, mon);
 
     _first_attack_conduct.set(midx);
 }

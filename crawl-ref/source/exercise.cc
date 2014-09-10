@@ -80,6 +80,9 @@ skill_type abil_skill(ability_type abil)
     case ABIL_CHEIBRIADOS_DISTORTION:
     case ABIL_DITHMENOS_SHADOW_STEP:
     case ABIL_DITHMENOS_SHADOW_FORM:
+    case ABIL_QAZLAL_UPHEAVAL:
+    case ABIL_QAZLAL_ELEMENTAL_FORCE:
+    case ABIL_QAZLAL_DISASTER_AREA:
         return SK_INVOCATIONS;
 
     case ABIL_KIKU_RECEIVE_CORPSES:
@@ -142,6 +145,7 @@ static int _abil_degree(ability_type abil)
     case ABIL_FEDHAS_SPAWN_SPORES:
     case ABIL_FEDHAS_EVOLUTION:
     case ABIL_CHEIBRIADOS_TIME_BEND:
+    case ABIL_QAZLAL_UPHEAVAL:
         return 2 + random2(3);
     case ABIL_YRED_ANIMATE_REMAINS:
     case ABIL_YRED_ANIMATE_DEAD:
@@ -154,6 +158,7 @@ static int _abil_degree(ability_type abil)
     case ABIL_ELYVILON_GREATER_HEALING_OTHERS:
     case ABIL_LUGONU_BANISH:
     case ABIL_CHEIBRIADOS_DISTORTION:
+    case ABIL_QAZLAL_ELEMENTAL_FORCE:
         return 3 + random2(5);
     case ABIL_TSO_CLEANSING_FLAME:
         return 3 + random2(6);
@@ -168,6 +173,7 @@ static int _abil_degree(ability_type abil)
     case ABIL_LUGONU_CORRUPT:
     case ABIL_CHEIBRIADOS_TIME_STEP:
     case ABIL_KIKU_TORMENT:
+    case ABIL_QAZLAL_DISASTER_AREA:
         return 5 + random2(5);
     case ABIL_ZIN_SANCTUARY:
         return 5 + random2(8);
@@ -285,7 +291,6 @@ static void _check_train_sneak(bool invis)
     const item_def *body_armour = you.slot_item(EQ_BODY_ARMOUR, false);
     const int armour_mass = body_armour? item_mass(*body_armour) : 0;
     if (!x_chance_in_y(armour_mass, 1000)
-        && you.burden_state == BS_UNENCUMBERED
         && !you.attribute[ATTR_SHADOWS]
             // If invisible, training happens much more rarely.
         && (!invis && one_chance_in(25) || one_chance_in(100)))
@@ -301,9 +306,7 @@ static void _exercise_passive()
         // Armour trained in check_train_armour
     }
     // Exercise stealth skill:
-    else if (you.burden_state == BS_UNENCUMBERED
-             && !you.berserk()
-             && !you.attribute[ATTR_SHADOWS])
+    else if (!you.berserk() && !you.attribute[ATTR_SHADOWS])
     {
         const item_def *body_armour = you.slot_item(EQ_BODY_ARMOUR, false);
         const int armour_mass = body_armour? item_mass(*body_armour) : 0;
@@ -340,6 +343,8 @@ void practise(exer_type ex, int param1)
     case EX_MONSTER_WILL_HIT:
         if (coinflip())
             _check_train_armour(coinflip() ? 2 : 1);
+        else if (coinflip())
+            exercise(SK_FIGHTING, 1);
         break;
 
     case EX_MONSTER_MAY_HIT:
@@ -365,7 +370,6 @@ void practise(exer_type ex, int param1)
     case EX_WILL_THROW_MSL:
         switch (param1) // missile subtype
         {
-        case MI_DART:
         case MI_TOMAHAWK:
         case MI_JAVELIN:
         case MI_THROWING_NET:

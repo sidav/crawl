@@ -26,16 +26,18 @@
 #include "mgen_data.h"
 #include "monster.h"
 #include "mon-clone.h"
-#include "mon-stuff.h"
+#include "mon-death.h"
 #include "mon-util.h"
 #include "options.h"
+#include "output.h"
 #include "player.h"
 #include "player-equip.h"
+#include "ranged_attack.h"
 #include "skills.h"
 #include "skills2.h"
 #include "species.h"
 #include "state.h"
-#include "stuff.h"
+#include "stringutil.h"
 #include "throw.h"
 #include "unwind.h"
 #include "version.h"
@@ -69,11 +71,7 @@ static skill_type _equipped_skill()
     const int missile = you.m_quiver->get_fire_item();
 
     if (iweap && iweap->base_type == OBJ_WEAPONS)
-    {
-        if (is_range_weapon(*iweap))
-            return range_skill(*iweap);
-        return weapon_skill(*iweap);
-    }
+        return item_attack_skill(*iweap);
 
     if (missile != -1)
         return range_skill(you.inv[missile]);
@@ -157,7 +155,7 @@ static void _write_mon(FILE * o, monster &mon)
 {
     fprintf(o, "%s: HD %d   AC %d   EV %d\n",
             mon.name(DESC_PLAIN, true).c_str(),
-            mon.hit_dice,
+            mon.get_experience_level(),
             mon.ac,
             mon.ev);
 }
@@ -208,7 +206,7 @@ static bool _fsim_kit_equip(const string &kit, string &error)
                                          you.pos(), &error);
             if (item == NON_ITEM)
                 return false;
-            if (move_item_to_player(item, 1, true, true) <= 0)
+            if (!move_item_to_inv(item, 1, true))
                 return false;
             _equip_weapon(weapon, abort);
         }
@@ -364,6 +362,8 @@ static fight_data _get_fight_data(monster &mon, int iter_limit, bool defend)
     {
         for (int i = 0; i < iter_limit; i++)
         {
+            // Don't reset the monster while it is constricted.
+            you.stop_constricting(mon.mid, false, true);
             // This sets mgrid(mons.pos()) to NON_MONSTER
             mon = orig;
             // Re-place the monster if it e.g. blinked away.
@@ -378,17 +378,13 @@ static fight_data _get_fight_data(monster &mon, int iter_limit, bool defend)
                         is_range_weapon(*iweap))
                 || (!iweap && missile != -1))
             {
-                bolt beam;
-                // throw_it() will decrease quantity by 1
-                inc_inv_item_quantity(missile, 1);
-                //Don't leave stacks of ammo
-                you.inv[missile].flags |= ISFLAG_SUMMONED;
-                beam.target = mon.pos();
-                beam.animate = false;
-                beam.dont_stop_player = true;
-                if (throw_it(beam, missile, false, DEBUG_COOKIE))
+                ranged_attack attk(&you, &mon, &you.inv[missile], false);
+                attk.simu = true;
+                attk.attack();
+                if (attk.ev_margin >= 0)
                     hits++;
-                you.inv[missile].flags &= ~ISFLAG_SUMMONED;
+                you.time_taken = you.attack_delay(you.weapon(),
+                                                  &you.inv[missile]);
             }
             else // otherwise, melee combat
             {
@@ -539,7 +535,7 @@ static void _fsim_simple_scale(FILE * o, monster* mon, bool defense)
     const int iter_limit = Options.fsim_rounds;
     for (int i = xl_mode ? 1 : 0; i <= 27; i++)
     {
-        mesclr();
+        clear_messages();
 
         if (xl_mode)
             set_xl(i, true);
@@ -594,7 +590,7 @@ static void _fsim_double_scale(FILE * o, monster* mon, bool defense)
         fprintf(o, Options.fsim_csv ? "%d\t" : "%2d", y);
         for (int x = 1; x <= 27; x += 2)
         {
-            mesclr();
+            clear_messages();
             set_skill_level(skx, x);
             set_skill_level(sky, y);
             fight_data fdata = _get_fight_data(*mon, iter_limit, defense);

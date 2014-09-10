@@ -270,7 +270,6 @@ enum MenuFlag
     MF_START_AT_END     = 0x2000,   ///< Scroll to end of list
     MF_PRESELECTED      = 0x4000,   ///< Has a preselected entry.
     MF_QUIET_SELECT     = 0x8000,   ///< No selection box and no count.
-    MF_DROP_PICKUP      = 0x10000,  ///< Show inventory weights by default
 };
 
 class MenuDisplay
@@ -463,6 +462,7 @@ protected:
 
     virtual void draw_title();
     virtual void write_title();
+    virtual int title_height() const;
     virtual void draw_menu();
     virtual bool page_down();
     virtual bool line_down();

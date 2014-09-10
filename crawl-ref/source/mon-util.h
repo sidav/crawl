@@ -157,6 +157,7 @@ struct monsterentry
     mon_itemuse_type gmon_use;
     mon_itemeat_type gmon_eat;
     size_type size;
+    mon_body_shape shape;
 };
 
 enum mon_threat_level_type
@@ -229,7 +230,7 @@ bool mons_immune_magic(const monster* mon);
 const char* mons_resist_string(const monster* mon, int res_margin);
 const char* resist_margin_phrase(int margin);
 
-mon_attack_def mons_attack_spec(const monster* mon, int attk_number);
+mon_attack_def mons_attack_spec(const monster* mon, int attk_number, bool base_flavour = false);
 
 corpse_effect_type mons_corpse_effect(monster_type mc);
 
@@ -243,9 +244,10 @@ bool mons_is_feat_mimic(monster_type mc);
 void discover_mimic(const coord_def& pos, bool wake = true);
 void discover_shifter(monster* shifter);
 
-bool mons_is_statue(monster_type mc, bool allow_disintegrate = false);
+bool mons_is_statue(monster_type mc);
 bool mons_is_demon(monster_type mc);
 bool mons_is_draconian(monster_type mc);
+bool mons_is_base_draconian(monster_type mc);
 bool mons_is_demonspawn(monster_type mc);
 bool mons_is_conjured(monster_type mc);
 bool mons_is_beast(monster_type mc);
@@ -278,11 +280,11 @@ mon_energy_usage mons_class_energy(monster_type mc);
 int mons_class_zombie_base_speed(monster_type zombie_base_mc);
 int mons_base_speed(const monster* mon);
 
+bool get_tentacle_head(const monster*& mon);
+
 bool mons_class_can_regenerate(monster_type mc);
 bool mons_can_regenerate(const monster* mon);
 bool mons_class_fast_regen(monster_type mc);
-bool mons_class_can_display_wounds(monster_type mc);
-bool mons_can_display_wounds(const monster* mon);
 int mons_zombie_size(monster_type mc);
 monster_type mons_zombie_base(const monster* mon);
 bool mons_class_is_zombified(monster_type mc);
@@ -330,6 +332,8 @@ bool mons_can_attack(const monster* mon);
 bool mons_has_incapacitating_spell(const monster* mon, const actor* foe);
 bool mons_has_incapacitating_ranged_attack(const monster* mon, const actor* foe);
 
+// FIXME: move decline_pronoun somewhere more generic.
+const char *decline_pronoun(gender_type gender, pronoun_type variant);
 const char *mons_pronoun(monster_type mon_type, pronoun_type variant,
                          bool visible = true);
 
@@ -469,6 +473,8 @@ monster_type mons_tentacle_child_type(const monster* mons);
 bool mons_tentacle_adjacent(const monster* parent, const monster* child);
 mon_threat_level_type mons_threat_level(const monster *mon,
                                         bool real = false);
+int count_monsters(monster_type mtyp, bool friendly_only);
+int count_allies();
 
 bool mons_foe_is_marked(const monster* mons);
 vector<monster* > get_on_level_followers();
@@ -480,4 +486,17 @@ bool mons_antimagic_affected(const monster* mons);
 
 void reset_all_monsters();
 void debug_mondata();
+
+bool choose_any_monster(const monster* mon);
+monster *choose_random_nearby_monster(
+    int weight,
+    bool (*suitable)(const monster* mon) =
+        choose_any_monster,
+    bool prefer_named_or_priest = false);
+
+monster *choose_random_monster_on_level(
+    int weight,
+    bool (*suitable)(const monster* mon) =
+        choose_any_monster);
+
 #endif

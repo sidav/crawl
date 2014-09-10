@@ -20,10 +20,11 @@ ignore += This .*flesh tastes
 ignore += You .* eating
 ignore += The winds around you calm down.
 ignore += Lightning arcs down from a storm cloud
+ignore += (crumbles|melts) away\.
 
 # Traps
 #
-ignore += You found a web trap!
+ignore += You found a web!
 stop += found.*trap
 stop += You have blundered into a Zot trap
 stop += You fall through a shaft

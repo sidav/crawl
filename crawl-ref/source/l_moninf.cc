@@ -10,10 +10,14 @@
 
 #include "cluautil.h"
 #include "coord.h"
+#include "defines.h"
 #include "env.h"
 #include "libutil.h"
 #include "mon-info.h"
+#include "mon-book.h"
 #include "player.h"
+#include "spl-util.h"
+#include "stringutil.h"
 #include "transform.h"
 
 #include <algorithm>
@@ -52,6 +56,7 @@ MIRET1(number, type, type)
 MIRET1(number, base_type, base_type)
 MIRET1(number, number, number)
 MIRET1(number, colour, colour)
+MIRET1(boolean, has_known_ranged_attack, is(MB_RANGED_ATTACK))
 
 // const char* here would save a tiny bit of memory, but every map
 // for an unique pair of types costs 35KB of code.  We have
@@ -91,6 +96,37 @@ LUAFN(moninf_get_is)
         return 0;
     }
     lua_pushboolean(ls, mi->is(num));
+    return 1;
+}
+
+// returns multiple arrays based on number of spellbooks.
+LUAFN(moninf_get_spells)
+{
+    MONINF(ls, 1, mi);
+
+    lua_newtable(ls);
+
+    if (!mi->has_spells())
+        return 1;
+
+    unique_books books = get_unique_spells(*mi);
+    const size_t num_books = books.size();
+
+    for (size_t i = 0; i < num_books; ++i)
+    {
+        const vector<spell_type> &unique_spells = books[i];
+        vector<string> spell_titles;
+
+        for (size_t j = 0; j < unique_spells.size(); ++j)
+        {
+            const spell_type spell = unique_spells[j];
+            spell_titles.push_back(spell_title(spell));
+        }
+
+        clua_stringtable(ls, spell_titles);
+        lua_rawseti(ls, -2, i+1);
+    }
+
     return 1;
 }
 
@@ -257,6 +293,8 @@ static const struct luaL_reg moninf_lib[] =
     MIREG(damage_desc),
     MIREG(desc),
     MIREG(name),
+    MIREG(has_known_ranged_attack),
+    MIREG(spells),
 
     { NULL, NULL }
 };

@@ -21,20 +21,14 @@
 // The card type and per-card flags are each stored as unsigned bytes,
 // for a maximum of 256 different kinds of cards and 8 bits of flags.
 
-enum deck_rarity_type
-{
-    DECK_RARITY_RANDOM,
-    DECK_RARITY_COMMON,
-    DECK_RARITY_RARE,
-    DECK_RARITY_LEGENDARY,
-};
-
 enum deck_type
 {
     // pure decks
     DECK_OF_ESCAPE,
     DECK_OF_DESTRUCTION,
+#if TAG_MAJOR_VERSION == 34
     DECK_OF_DUNGEONS,
+#endif
     DECK_OF_SUMMONING,
     DECK_OF_WONDERS,
 };
@@ -50,8 +44,10 @@ enum card_flags_type
 
 enum card_type
 {
+#if TAG_MAJOR_VERSION == 34
     CARD_PORTAL,                // "the mover"
     CARD_WARP,                  // "the jumper"
+#endif
     CARD_SWAP,                  // "swap"
     CARD_VELOCITY,              // "the runner"
 
@@ -60,20 +56,22 @@ enum card_type
     CARD_DAMNATION,             // banishment
     CARD_SOLITUDE,              // dispersal
     CARD_WARPWRIGHT,            // create teleport trap
-    CARD_FLIGHT,
+    CARD_SHAFT,
 
     CARD_VITRIOL,               // acid damage
-    CARD_FLAME,                 // fire damage
-    CARD_FROST,                 // cold damage
+    CARD_CLOUD,                 // fire/cold clouds
+    CARD_HAMMER,                // plain damage
     CARD_VENOM,                 // poison damage
-    CARD_HAMMER,                // pure damage
-    CARD_SPARK,                 // lightning damage
+    CARD_FORTITUDE,             // strength and damage shaving
+    CARD_STORM,
     CARD_PAIN,                  // single target, like spell of agony
     CARD_TORMENT,               // Symbol of Torment
     CARD_ORB,
 
     CARD_ELIXIR,                // healing
+#if TAG_MAJOR_VERSION == 34
     CARD_BATTLELUST,            // melee boosts
+#endif
     CARD_METAMORPHOSIS,         // transformation
     CARD_HELM,                  // defence
     CARD_BLADE,                 // weapon boosts
@@ -90,22 +88,30 @@ enum card_type
 
     CARD_POTION,
     CARD_FOCUS,
+#if TAG_MAJOR_VERSION == 34
     CARD_SHUFFLE,
     CARD_EXPERIENCE,
+#endif
     CARD_WILD_MAGIC,
+#if TAG_MAJOR_VERSION == 34
     CARD_SAGE,                  // skill training
+#endif
     CARD_HELIX,                 // remove one *bad* mutation
     CARD_ALCHEMIST,
 
+#if TAG_MAJOR_VERSION == 34
     CARD_WATER,                 // flood squares
     CARD_GLASS,                 // make walls transparent
+#endif
     CARD_DOWSING,               // mapping/detect SD/traps/items/monsters
+#if TAG_MAJOR_VERSION == 34
     CARD_TROWEL,                // create feature/vault
     CARD_MINEFIELD,             // plant traps
+#endif
     CARD_STAIRS,                // moves stairs around
 
-    CARD_GENIE,                 // acquirement OR rotting/deterioration
 #if TAG_MAJOR_VERSION == 34
+    CARD_GENIE,                 // acquirement OR rotting/deterioration
     CARD_BARGAIN,               // shopping discount
 #endif
     CARD_WRATH,                 // Godly wrath
@@ -115,6 +121,8 @@ enum card_type
     CARD_FAMINE,
     CARD_CURSE,                 // Curse your items
     CARD_SWINE,                 // *oink*
+    CARD_ILLUSION,
+    CARD_DEGEN,
 
     NUM_CARDS
 };
@@ -152,10 +160,6 @@ void init_deck(item_def &item);
 int cards_in_deck(const item_def &deck);
 card_type get_card_and_flags(const item_def& deck, int idx,
                              uint8_t& _flags);
-
-// Used elsewhere in ZotDef.
-void sage_card(int power, deck_rarity_type rarity);
-void create_pond(const coord_def& center, int radius, bool allow_deep);
 
 const vector<card_type> get_drawn_cards(const item_def& deck);
 // see and mark the first card with a scroll.

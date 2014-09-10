@@ -15,6 +15,7 @@
 #include "itemprop.h"
 #include "items.h"
 #include "libutil.h"
+#include "message.h"
 #include "misc.h"
 #include "notes.h"
 #include "options.h"
@@ -26,8 +27,8 @@
 #include "spl-cast.h"
 #include "spl-miscast.h"
 #include "spl-summoning.h"
+#include "spl-wpnench.h"
 #include "state.h"
-#include "stuff.h"
 #include "transform.h"
 #include "xom.h"
 
@@ -68,10 +69,7 @@ void equip_item(equipment_type slot, int item_slot, bool msg)
     ASSERT(you.equip[slot] == -1);
     ASSERT(!you.melded[slot]);
 
-    // Maybe this prevent a carried item from allowing training.
-    maybe_change_train(you.inv[item_slot], false);
     you.equip[slot] = item_slot;
-    item_skills(you.inv[item_slot], you.start_train);
 
     _equip_effect(slot, item_slot, false, msg);
     ash_check_bondage();
@@ -90,10 +88,7 @@ bool unequip_item(equipment_type slot, bool msg)
         return false;
     else
     {
-        item_skills(you.inv[item_slot], you.stop_train);
         you.equip[slot] = -1;
-        // Maybe this allows training for a carried item.
-        maybe_change_train(you.inv[item_slot], true);
 
         if (!you.melded[slot])
             _unequip_effect(slot, item_slot, false, msg);
@@ -135,10 +130,14 @@ bool unmeld_slot(equipment_type slot, bool msg)
 
 static void _equip_weapon_effect(item_def& item, bool showMsgs, bool unmeld);
 static void _unequip_weapon_effect(item_def& item, bool showMsgs, bool meld);
-static void _equip_armour_effect(item_def& arm, bool unmeld);
-static void _unequip_armour_effect(item_def& item, bool meld);
-static void _equip_jewellery_effect(item_def &item, bool unmeld);
-static void _unequip_jewellery_effect(item_def &item, bool mesg, bool meld);
+static void _equip_armour_effect(item_def& arm, bool unmeld,
+                                 equipment_type slot);
+static void _unequip_armour_effect(item_def& item, bool meld,
+                                   equipment_type slot);
+static void _equip_jewellery_effect(item_def &item, bool unmeld,
+                                    equipment_type slot);
+static void _unequip_jewellery_effect(item_def &item, bool mesg, bool meld,
+                                      equipment_type slot);
 static void _equip_use_warning(const item_def& item);
 
 static void _assert_valid_slot(equipment_type eq, equipment_type slot)
@@ -176,9 +175,9 @@ static void _equip_effect(equipment_type slot, int item_slot, bool unmeld,
     if (slot == EQ_WEAPON)
         _equip_weapon_effect(item, msg, unmeld);
     else if (slot >= EQ_CLOAK && slot <= EQ_BODY_ARMOUR)
-        _equip_armour_effect(item, unmeld);
+        _equip_armour_effect(item, unmeld, slot);
     else if (slot >= EQ_LEFT_RING && slot < NUM_EQUIP)
-        _equip_jewellery_effect(item, unmeld);
+        _equip_jewellery_effect(item, unmeld, slot);
 }
 
 static void _unequip_effect(equipment_type slot, int item_slot, bool meld,
@@ -195,19 +194,17 @@ static void _unequip_effect(equipment_type slot, int item_slot, bool meld,
     if (slot == EQ_WEAPON)
         _unequip_weapon_effect(item, msg, meld);
     else if (slot >= EQ_CLOAK && slot <= EQ_BODY_ARMOUR)
-        _unequip_armour_effect(item, meld);
+        _unequip_armour_effect(item, meld, slot);
     else if (slot >= EQ_LEFT_RING && slot < NUM_EQUIP)
-        _unequip_jewellery_effect(item, msg, meld);
-
-    if (slot == EQ_SHIELD && !meld)
-        you.stop_train.insert(SK_SHIELDS);
+        _unequip_jewellery_effect(item, msg, meld, slot);
 }
 
 ///////////////////////////////////////////////////////////
 // Actual equip and unequip effect implementation below
 //
 
-static void _equip_artefact_effect(item_def &item, bool *show_msgs, bool unmeld)
+static void _equip_artefact_effect(item_def &item, bool *show_msgs, bool unmeld,
+                                   equipment_type slot)
 {
 #define unknown_proprt(prop) (proprt[(prop)] && !known[(prop)])
 
@@ -223,10 +220,7 @@ static void _equip_artefact_effect(item_def &item, bool *show_msgs, bool unmeld)
             entry->equip_func(&item, show_msgs, unmeld);
 
         if (entry->world_reacts_func)
-        {
-            equipment_type eq = get_item_slot(item.base_type, item.sub_type);
-            you.unrand_reacts |= (1 << eq);
-        }
+            you.unrand_reacts.set(slot);
     }
 
     const bool alreadyknown = item_type_known(item);
@@ -237,109 +231,36 @@ static void _equip_artefact_effect(item_def &item, bool *show_msgs, bool unmeld)
     artefact_known_props_t known;
     artefact_wpn_properties(item, proprt, known);
 
-    // Only give property messages for previously unknown properties.
     if (proprt[ARTP_AC])
-    {
         you.redraw_armour_class = true;
-        if (!known[ARTP_AC])
-        {
-            if (msg)
-            {
-                mprf("You feel %s.", proprt[ARTP_AC] > 0?
-                     "well-protected" : "more vulnerable");
-            }
-            artefact_wpn_learn_prop(item, ARTP_AC);
-        }
-    }
 
     if (proprt[ARTP_EVASION])
-    {
         you.redraw_evasion = true;
-        if (!known[ARTP_EVASION])
-        {
-            if (msg)
-            {
-                mprf("You feel somewhat %s.", proprt[ARTP_EVASION] > 0?
-                     "nimbler" : "more awkward");
-            }
-            artefact_wpn_learn_prop(item, ARTP_EVASION);
-        }
-    }
 
     if (proprt[ARTP_EYESIGHT])
         autotoggle_autopickup(false);
 
-    if (proprt[ARTP_MAGICAL_POWER] && !known[ARTP_MAGICAL_POWER])
+    if (proprt[ARTP_MAGICAL_POWER] && !known[ARTP_MAGICAL_POWER] && msg)
     {
-        if (msg)
-        {
-            canned_msg(proprt[ARTP_MAGICAL_POWER] > 0 ? MSG_MANA_INCREASE
-                                                      : MSG_MANA_DECREASE);
-        }
-        artefact_wpn_learn_prop(item, ARTP_MAGICAL_POWER);
+        canned_msg(proprt[ARTP_MAGICAL_POWER] > 0 ? MSG_MANA_INCREASE
+                                                  : MSG_MANA_DECREASE);
     }
 
     // Modify ability scores.
-    // Output result even when identified (because of potential fatality).
-    notify_stat_change(STAT_STR,     proprt[ARTP_STRENGTH], !msg, item);
-    notify_stat_change(STAT_INT, proprt[ARTP_INTELLIGENCE], !msg, item);
-    notify_stat_change(STAT_DEX,    proprt[ARTP_DEXTERITY], !msg, item);
+    notify_stat_change(STAT_STR, proprt[ARTP_STRENGTH],
+                       !(msg && unknown_proprt(ARTP_STRENGTH)), item);
+    notify_stat_change(STAT_INT, proprt[ARTP_INTELLIGENCE],
+                       !(msg && unknown_proprt(ARTP_INTELLIGENCE)), item);
+    notify_stat_change(STAT_DEX, proprt[ARTP_DEXTERITY],
+                       !(msg && unknown_proprt(ARTP_DEXTERITY)), item);
 
-    const artefact_prop_type stat_props[3] =
-        {ARTP_STRENGTH, ARTP_INTELLIGENCE, ARTP_DEXTERITY};
-
-    for (int i = 0; i < 3; i++)
-        if (unknown_proprt(stat_props[i]))
-            artefact_wpn_learn_prop(item, stat_props[i]);
-
-    // For evokable stuff, check whether other equipped items yield
-    // the same ability.  If not, and if the ability granted hasn't
-    // already been discovered, give a message.
-    if (unknown_proprt(ARTP_FLY))
-    {
-        if (msg && !items_give_ability(item.link, ARTP_FLY))
-        {
-            if (you.airborne())
-                mpr("You feel vaguely more buoyant than before.");
-            else
-                mpr("You feel buoyant.");
-        }
-        artefact_wpn_learn_prop(item, ARTP_FLY);
-    }
-
-    if (unknown_proprt(ARTP_INVISIBLE) && !you.duration[DUR_INVIS])
-    {
-        if (msg)
-            mpr("You become transparent for a moment.");
-        artefact_wpn_learn_prop(item, ARTP_INVISIBLE);
-    }
-
-    if (unknown_proprt(ARTP_BERSERK))
-    {
-        if (msg && !items_give_ability(item.link, ARTP_BERSERK))
-            mpr("You feel a brief urge to hack something to bits.");
-        artefact_wpn_learn_prop(item, ARTP_BERSERK);
-    }
-
-    if (unknown_proprt(ARTP_BLINK))
-    {
-        if (msg && !items_give_ability(item.link, ARTP_BLINK))
-            mpr("You feel jittery for a moment.");
-        artefact_wpn_learn_prop(item, ARTP_BLINK);
-    }
-
-    if (unknown_proprt(ARTP_MUTAGENIC))
-    {
-        if (msg)
-            mpr("You feel a build-up of mutagenic energy.");
-        artefact_wpn_learn_prop(item, ARTP_MUTAGENIC);
-    }
+    if (unknown_proprt(ARTP_MUTAGENIC) && msg)
+        mpr("You feel a build-up of mutagenic energy.");
 
     if (!unmeld && !item.cursed() && proprt[ARTP_CURSED] > 0
          && one_chance_in(proprt[ARTP_CURSED]))
     {
         do_curse_item(item, !msg);
-        artefact_wpn_learn_prop(item, ARTP_CURSED);
     }
 
     if (!alreadyknown && dangerous)
@@ -355,11 +276,18 @@ static void _equip_artefact_effect(item_def &item, bool *show_msgs, bool unmeld)
     // Let's try this here instead of up there.
     if (proprt[ARTP_MAGICAL_POWER])
         calc_mp();
+
+    if (!fully_identified(item))
+    {
+        set_ident_type(item, ID_KNOWN_TYPE);
+        set_ident_flags(item, ISFLAG_IDENT_MASK);
+    }
 #undef unknown_proprt
 }
 
 static void _unequip_artefact_effect(item_def &item,
-                                     bool *show_msgs, bool meld)
+                                     bool *show_msgs, bool meld,
+                                     equipment_type slot)
 {
     ASSERT(is_artefact(item));
 
@@ -369,24 +297,10 @@ static void _unequip_artefact_effect(item_def &item,
     const bool msg = !show_msgs || *show_msgs;
 
     if (proprt[ARTP_AC])
-    {
         you.redraw_armour_class = true;
-        if (!known[ARTP_AC] && msg)
-        {
-            mprf("You feel less %s.",
-                 proprt[ARTP_AC] > 0? "well-protected" : "vulnerable");
-        }
-    }
 
     if (proprt[ARTP_EVASION])
-    {
         you.redraw_evasion = true;
-        if (!known[ARTP_EVASION] && msg)
-        {
-            mprf("You feel less %s.",
-                 proprt[ARTP_EVASION] > 0? "nimble" : "awkward");
-        }
-    }
 
     if (proprt[ARTP_HP])
         _calc_hp_artefact();
@@ -397,12 +311,11 @@ static void _unequip_artefact_effect(item_def &item,
                                                   : MSG_MANA_INCREASE);
     }
 
-    // Modify ability scores; always output messages.
-    notify_stat_change(STAT_STR, -proprt[ARTP_STRENGTH],     !msg, item,
+    notify_stat_change(STAT_STR, -proprt[ARTP_STRENGTH],     true, item,
                        true);
-    notify_stat_change(STAT_INT, -proprt[ARTP_INTELLIGENCE], !msg, item,
+    notify_stat_change(STAT_INT, -proprt[ARTP_INTELLIGENCE], true, item,
                        true);
-    notify_stat_change(STAT_DEX, -proprt[ARTP_DEXTERITY],    !msg, item,
+    notify_stat_change(STAT_DEX, -proprt[ARTP_DEXTERITY],    true, item,
                        true);
 
     if (proprt[ARTP_FLY] != 0 && you.cancellable_flight()
@@ -440,10 +353,7 @@ static void _unequip_artefact_effect(item_def &item,
             entry->unequip_func(&item, show_msgs);
 
         if (entry->world_reacts_func)
-        {
-            equipment_type eq = get_item_slot(item.base_type, item.sub_type);
-            you.unrand_reacts &= ~(1 << eq);
-        }
+            you.unrand_reacts.set(slot, false);
     }
 }
 
@@ -484,7 +394,7 @@ static void _wield_cursed(item_def& item, bool known_cursed, bool unmeld)
         if (origin_is_god_gift(item, &god) && god == GOD_XOM)
             amusement *= 2;
     }
-    const int wpn_skill = weapon_skill(item.base_type, item.sub_type);
+    const int wpn_skill = item_attack_skill(item.base_type, item.sub_type);
     if (wpn_skill != SK_FIGHTING && you.skills[wpn_skill] == 0)
         amusement *= 2;
 
@@ -557,7 +467,7 @@ static void _equip_weapon_effect(item_def& item, bool showMsgs, bool unmeld)
     {
         // Call unrandart equip func before item is identified.
         if (artefact)
-            _equip_artefact_effect(item, &showMsgs, unmeld);
+            _equip_artefact_effect(item, &showMsgs, unmeld, EQ_WEAPON);
 
         const bool was_known      = item_type_known(item);
               bool known_recurser = false;
@@ -595,7 +505,8 @@ static void _equip_weapon_effect(item_def& item, bool showMsgs, bool unmeld)
                     break;
 
                 case SPWPN_FREEZING:
-                    mpr("It glows with a cold blue light!");
+                    mpr(is_range_weapon(item) ? "It is covered in frost."
+                                              : "It glows with a cold blue light!");
                     break;
 
                 case SPWPN_HOLY_WRATH:
@@ -607,13 +518,6 @@ static void _equip_weapon_effect(item_def& item, bool showMsgs, bool unmeld)
                         mprf(MSGCH_SOUND, "You hear the crackle of electricity.");
                     else
                         mpr("You see sparks fly.");
-                    break;
-
-                case SPWPN_DRAGON_SLAYING:
-                    mpr(player_genus(GENPC_DRACONIAN)
-                        || you.form == TRAN_DRAGON
-                            ? "You feel a sudden desire to commit suicide."
-                            : "You feel a sudden desire to slay dragons!");
                     break;
 
                 case SPWPN_VENOM:
@@ -637,15 +541,7 @@ static void _equip_weapon_effect(item_def& item, bool showMsgs, bool unmeld)
                          you.hand_name(true).c_str());
                     break;
 
-                case SPWPN_FLAME:
-                    mpr("It bursts into flame!");
-                    break;
-
-                case SPWPN_FROST:
-                    mpr("It is covered in frost.");
-                    break;
-
-                case SPWPN_VAMPIRICISM:
+                case SPWPN_VAMPIRISM:
                     if (you.species == SP_VAMPIRE)
                     {
                         mpr("You feel a bloodthirsty glee!");
@@ -742,9 +638,6 @@ static void _equip_weapon_effect(item_def& item, bool showMsgs, bool unmeld)
         break;
     }
 
-    if (showMsgs)
-        warn_shield_penalties();
-
     you.attribute[ATTR_WEAPON_SWAP_INTERRUPTED] = 0;
 }
 
@@ -756,7 +649,7 @@ static void _unequip_weapon_effect(item_def& item, bool showMsgs, bool meld)
     // Call this first, so that the unrandart func can set showMsgs to
     // false if it does its own message handling.
     if (is_artefact(item))
-        _unequip_artefact_effect(item, &showMsgs, meld);
+        _unequip_artefact_effect(item, &showMsgs, meld, EQ_WEAPON);
 
     if (item.base_type == OBJ_MISCELLANY
         && item.sub_type == MISC_LANTERN_OF_SHADOWS)
@@ -807,7 +700,7 @@ static void _unequip_weapon_effect(item_def& item, bool showMsgs, bool meld)
                 you.redraw_evasion = true;
                 break;
 
-            case SPWPN_VAMPIRICISM:
+            case SPWPN_VAMPIRISM:
                 if (showMsgs)
                 {
                     if (you.species == SP_VAMPIRE)
@@ -858,11 +751,9 @@ static void _unequip_weapon_effect(item_def& item, bool showMsgs, bool meld)
 
             if (you.duration[DUR_WEAPON_BRAND])
             {
-                you.duration[DUR_WEAPON_BRAND] = 0;
-                set_item_ego_type(item, OBJ_WEAPONS, SPWPN_NORMAL);
-
+                end_weapon_brand(item);
                 // We're letting this through even if hiding messages.
-                mpr("Your branding evaporates.");
+                mpr("Your temporary branding evaporates.");
             }
         }
     }
@@ -902,7 +793,23 @@ static void _unequip_weapon_effect(item_def& item, bool showMsgs, bool meld)
     }
 }
 
-static void _equip_armour_effect(item_def& arm, bool unmeld)
+static void _spirit_shield_message(bool unmeld)
+{
+    if (!unmeld && you.spirit_shield() < 2)
+    {
+        dec_mp(you.magic_points);
+        mpr("You feel your power drawn to a protective spirit.");
+        if (you.species == SP_DEEP_DWARF)
+            mpr("Now linked to your health, your magic stops regenerating.");
+    }
+    else if (!unmeld && player_mutation_level(MUT_MANA_SHIELD))
+        mpr("You feel the presence of a powerless spirit.");
+    else // unmeld or already spirit-shielded
+        mpr("You feel spirits watching over you.");
+}
+
+static void _equip_armour_effect(item_def& arm, bool unmeld,
+                                 equipment_type slot)
 {
     const bool known_cursed = item_known_cursed(arm);
     int ego = get_armour_ego_type(arm);
@@ -924,7 +831,7 @@ static void _equip_armour_effect(item_def& arm, bool unmeld)
             break;
 
         case SPARM_POISON_RESISTANCE:
-            mpr("You feel healthy.");
+            mpr("You feel resistant to poison.");
             break;
 
         case SPARM_SEE_INVISIBLE:
@@ -987,7 +894,7 @@ static void _equip_armour_effect(item_def& arm, bool unmeld)
             break;
 
         case SPARM_POSITIVE_ENERGY:
-            mpr("Your life force is being protected.");
+            mpr("You feel more protected from negative energy.");
             break;
 
         case SPARM_ARCHMAGI:
@@ -998,22 +905,7 @@ static void _equip_armour_effect(item_def& arm, bool unmeld)
             break;
 
         case SPARM_SPIRIT_SHIELD:
-            if (!unmeld && you.spirit_shield() < 2)
-            {
-                dec_mp(you.magic_points);
-                if (
-#if TAG_MAJOR_VERSION == 34
-                        you.species == SP_DJINNI ||
-#endif
-                        you.species == SP_VINE_STALKER)
-                    mpr("You feel the presence of a powerless spirit.");
-                else
-                    mpr("You feel your power drawn to a protective spirit.");
-                if (you.species == SP_DEEP_DWARF)
-                    mpr("Now linked to your health, your magic stops regenerating.");
-            }
-            else
-                mpr("You feel spirits watching over you.");
+            _spirit_shield_message(unmeld);
             break;
 
         case SPARM_ARCHERY:
@@ -1025,7 +917,7 @@ static void _equip_armour_effect(item_def& arm, bool unmeld)
     if (is_artefact(arm))
     {
         bool show_msgs = true;
-        _equip_artefact_effect(arm, &show_msgs, unmeld);
+        _equip_artefact_effect(arm, &show_msgs, unmeld, slot);
     }
 
     if (arm.cursed() && !unmeld)
@@ -1053,14 +945,12 @@ static void _equip_armour_effect(item_def& arm, bool unmeld)
         }
     }
 
-    if (get_item_slot(arm) == EQ_SHIELD)
-        warn_shield_penalties();
-
     you.redraw_armour_class = true;
     you.redraw_evasion = true;
 }
 
-static void _unequip_armour_effect(item_def& item, bool meld)
+static void _unequip_armour_effect(item_def& item, bool meld,
+                                   equipment_type slot)
 {
     you.redraw_armour_class = true;
     you.redraw_evasion = true;
@@ -1073,16 +963,16 @@ static void _unequip_armour_effect(item_def& item, bool meld)
         break;
 
     case SPARM_FIRE_RESISTANCE:
-        mpr("\"Was it this warm in here before?\"");
+        mpr("You feel less resistant to fire.");
         break;
 
     case SPARM_COLD_RESISTANCE:
-        mpr("You catch a bit of a chill.");
+        mpr("You feel less resistant to cold.");
         break;
 
     case SPARM_POISON_RESISTANCE:
         if (player_res_poison() <= 0)
-            mpr("You feel less healthy.");
+            mpr("You no longer feel resistant to poison.");
         break;
 
     case SPARM_SEE_INVISIBLE:
@@ -1159,7 +1049,7 @@ static void _unequip_armour_effect(item_def& item, bool meld)
         break;
 
     case SPARM_POSITIVE_ENERGY:
-        mpr("You feel vulnerable.");
+        mpr("You feel less protected from negative energy.");
         break;
 
     case SPARM_ARCHMAGI:
@@ -1173,11 +1063,6 @@ static void _unequip_armour_effect(item_def& item, bool meld)
             if (you.species == SP_DEEP_DWARF)
                 mpr("Your magic begins regenerating once more.");
         }
-        else if (you.wearing(EQ_AMULET, AMU_GUARDIAN_SPIRIT, true))
-        {
-            item_def& amu(you.inv[you.equip[EQ_AMULET]]);
-            wear_id_type(amu);
-        }
         break;
 
     case SPARM_ARCHERY:
@@ -1189,7 +1074,7 @@ static void _unequip_armour_effect(item_def& item, bool meld)
     }
 
     if (is_artefact(item))
-        _unequip_artefact_effect(item, NULL, meld);
+        _unequip_artefact_effect(item, NULL, meld, slot);
 }
 
 static void _remove_amulet_of_faith(item_def &item)
@@ -1198,6 +1083,15 @@ static void _remove_amulet_of_faith(item_def &item)
         && !you_worship(GOD_XOM))
     {
         simple_god_message(" seems less interested in you.");
+
+        if (you_worship(GOD_GOZAG))
+        {
+            you.attribute[ATTR_GOZAG_POTIONS] += 2;
+            you.attribute[ATTR_GOZAG_SHOPS]   += 2;
+
+            simple_god_message(" increases your offered prices.");
+            return;
+        }
 
         const int piety_loss = div_rand_round(you.piety, 3);
         // Piety penalty for removing the Amulet of Faith.
@@ -1213,19 +1107,9 @@ static void _remove_amulet_of_faith(item_def &item)
     }
 }
 
-static void _equip_jewellery_effect(item_def &item, bool unmeld)
+static void _equip_jewellery_effect(item_def &item, bool unmeld,
+                                    equipment_type slot)
 {
-    item_type_id_state_type ident        = ID_TRIED_TYPE;
-    artefact_prop_type      fake_rap     = ARTP_NUM_PROPERTIES;
-    bool                    learn_pluses = false;
-
-    // FIXME:
-    // Randart jewellery shouldn't auto-ID just because the base type
-    // is known. Somehow the player should still be told, preferably
-    // by message. (jpeg)
-
-    // XXX has to match artefact.cc:_artefact_desc_properties(), sort-of (SamB)
-
     const bool artefact     = is_artefact(item);
     const bool known_cursed = item_known_cursed(item);
     const bool known_bad    = (item_type_known(item)
@@ -1233,103 +1117,37 @@ static void _equip_jewellery_effect(item_def &item, bool unmeld)
 
     switch (item.sub_type)
     {
-    case RING_HUNGER:
-    case RING_LIFE_PROTECTION:
-    case RING_POISON_RESISTANCE:
-    case RING_PROTECTION_FROM_COLD:
-    case RING_PROTECTION_FROM_FIRE:
-    case RING_PROTECTION_FROM_MAGIC:
-    case RING_SUSTAIN_ABILITIES:
-    case RING_SUSTENANCE:
-    case RING_SLAYING:
-        break;
-
     case RING_FIRE:
         mpr("You feel more attuned to fire.");
-        ident = ID_KNOWN_TYPE;
         break;
 
     case RING_ICE:
         mpr("You feel more attuned to ice.");
-        ident = ID_KNOWN_TYPE;
-        break;
-
-    case RING_WIZARDRY:
-        ident = ID_KNOWN_TYPE;
         break;
 
     case RING_SEE_INVISIBLE:
-        // We might have to turn autopickup back on again.
-        // TODO: Check all monsters in LOS. If any of them are invisible
-        //       (and thus become visible once the ring is worn), the ring
-        //       should be autoidentified.
         if (item_type_known(item))
             autotoggle_autopickup(false);
         break;
 
     case RING_PROTECTION:
         you.redraw_armour_class = true;
-        if (item.plus != 0)
-        {
-            fake_rap = ARTP_AC;
-            ident = ID_KNOWN_TYPE;
-
-            learn_pluses = true;
-        }
-        break;
-
-    case RING_INVISIBILITY:
-        mprf("You become %stransparent for a moment.",
-             you.duration[DUR_INVIS] ? "more " : "");
-        fake_rap = ARTP_INVISIBLE;
-        ident = ID_KNOWN_TYPE;
         break;
 
     case RING_EVASION:
         you.redraw_evasion = true;
-        if (item.plus != 0)
-        {
-            fake_rap = ARTP_EVASION;
-            ident = ID_KNOWN_TYPE;
-
-            learn_pluses = true;
-        }
         break;
 
     case RING_STRENGTH:
-        if (item.plus)
-        {
-            notify_stat_change(STAT_STR, item.plus, false, item);
-
-            fake_rap = ARTP_STRENGTH;
-            ident = ID_KNOWN_TYPE;
-
-           learn_pluses = true;
-        }
+        notify_stat_change(STAT_STR, item.plus, false, item);
         break;
 
     case RING_DEXTERITY:
-        if (item.plus)
-        {
-            notify_stat_change(STAT_DEX, item.plus, false, item);
-
-            fake_rap = ARTP_DEXTERITY;
-            ident = ID_KNOWN_TYPE;
-
-           learn_pluses = true;
-        }
+        notify_stat_change(STAT_DEX, item.plus, false, item);
         break;
 
     case RING_INTELLIGENCE:
-        if (item.plus)
-        {
-            notify_stat_change(STAT_INT, item.plus, false, item);
-
-            fake_rap = ARTP_INTELLIGENCE;
-            ident = ID_KNOWN_TYPE;
-
-           learn_pluses = true;
-        }
+        notify_stat_change(STAT_INT, item.plus, false, item);
         break;
 
     case RING_MAGICAL_POWER:
@@ -1343,90 +1161,32 @@ static void _equip_jewellery_effect(item_def &item, bool unmeld)
 
         calc_mp();
 
-        fake_rap = ARTP_MAGICAL_POWER;
-        ident = ID_KNOWN_TYPE;
-        break;
-
-    case RING_FLIGHT:
-        mprf("You feel %sbuoyant.", you.airborne() ? "more " : "");
-        fake_rap = ARTP_FLY;
-        ident = ID_KNOWN_TYPE;
         break;
 
     case RING_TELEPORTATION:
-        if (crawl_state.game_is_sprint())
+        if (you.no_tele())
             mpr("You feel a slight, muted jump rush through you.");
         else
             // keep in sync with player_teleport
             mprf("You feel slightly %sjumpy.",
                  (player_teleport(false) > 8) ? "more " : "");
-        ident = ID_KNOWN_TYPE;
-        break;
-
-    case RING_TELEPORT_CONTROL:
-        mprf("You feel %scontrolled for a moment.",
-              you.duration[DUR_CONTROL_TELEPORT] ? "more " : "");
-        ident = ID_KNOWN_TYPE;
-        break;
-
-    case AMU_RAGE:
-        mpr("You feel a brief urge to hack something to bits.");
-        fake_rap = ARTP_BERSERK;
-        ident = ID_KNOWN_TYPE;
         break;
 
     case AMU_FAITH:
-        if (!you_worship(GOD_NO_GOD))
-        {
-            mprf(MSGCH_GOD, "You feel a surge of divine interest.");
-            ident = ID_KNOWN_TYPE;
-        }
+        mprf(MSGCH_GOD, "You feel a %ssurge of divine interest.",
+             you_worship(GOD_NO_GOD) ? "strange " : "");
+        if (you_worship(GOD_GOZAG))
+            simple_god_message(" discounts your offered prices.");
         break;
 
     case AMU_THE_GOURMAND:
         // What's this supposed to achieve? (jpeg)
         you.duration[DUR_GOURMAND] = 0;
-
-        if (you.species != SP_MUMMY
-            && you.species != SP_VAMPIRE
-            && player_mutation_level(MUT_HERBIVOROUS) < 3)
-        {
-            mpr("You feel a craving for the dungeon's cuisine.");
-            ident = ID_KNOWN_TYPE;
-        }
+        mpr("You feel a craving for the dungeon's cuisine.");
         break;
-
-#if TAG_MAJOR_VERSION == 34
-    case AMU_CONTROLLED_FLIGHT:
-        ident = ID_KNOWN_TYPE;
-        break;
-#endif
 
     case AMU_GUARDIAN_SPIRIT:
-        if (you.spirit_shield() < 2 && !unmeld)
-        {
-            dec_mp(you.magic_points);
-            if (
-#if TAG_MAJOR_VERSION == 34
-                    you.species == SP_DJINNI ||
-#endif
-                    you.species == SP_VINE_STALKER)
-                mpr("You feel the presence of a powerless spirit.");
-            else
-                mpr("You feel your power drawn to a protective spirit.");
-            if (you.species == SP_DEEP_DWARF)
-                mpr("Now linked to your health, your magic stops regenerating.");
-        }
-        else
-            mpr("You feel spirits watching over you.");
-        ident = ID_KNOWN_TYPE;
-        break;
-
-    case RING_REGENERATION:
-        // To be exact, bloodless vampires should get the id only after they
-        // drink anything.  Not worth complicating the code, IMHO. [1KB]
-        if (player_mutation_level(MUT_SLOW_HEALING) < 3)
-            ident = ID_KNOWN_TYPE;
+        _spirit_shield_message(unmeld);
         break;
 
     case AMU_STASIS:
@@ -1442,8 +1202,6 @@ static void _equip_jewellery_effect(item_def &item, bool unmeld)
                  (amount > 250) ? " massive" :
                  (amount >  50) ? " violent" :
                                   "");
-            ident = ID_KNOWN_TYPE;
-
             // XXX: This can probably be improved.
             contaminate_player(pow(amount, 0.333) * 1000, item_type_known(item));
 
@@ -1469,10 +1227,8 @@ static void _equip_jewellery_effect(item_def &item, bool unmeld)
             you.duration[DUR_BERSERK] = 0;
             you.duration[DUR_FINESSE] = 0;
         }
-        break;
-
-    // When making a jewel type auto-id, please update Ashenzari's list
-    // in godpassive.cc as well.
+        else
+            mprf("You feel %s static.", you.species == SP_FORMICID ? "familiarly" : "strangely");
     }
 
     // Artefacts have completely different appearance than base types
@@ -1480,25 +1236,14 @@ static void _equip_jewellery_effect(item_def &item, bool unmeld)
     if (artefact)
     {
         bool show_msgs = true;
-        _equip_artefact_effect(item, &show_msgs, unmeld);
+        _equip_artefact_effect(item, &show_msgs, unmeld, slot);
 
-        if (ident == ID_KNOWN_TYPE)
-            set_ident_flags(item, ISFLAG_KNOW_TYPE);
-
-        if (learn_pluses)
-            set_ident_flags(item, ISFLAG_KNOW_PLUSES);
-
-        if (fake_rap != ARTP_NUM_PROPERTIES)
-            artefact_wpn_learn_prop(item, fake_rap);
-
-        item.flags |= ISFLAG_TRIED;
+        set_ident_flags(item, ISFLAG_KNOW_PROPERTIES);
     }
     else
     {
-        set_ident_type(item, ident);
-
-        if (ident == ID_KNOWN_TYPE)
-            set_ident_flags(item, ISFLAG_IDENT_MASK);
+        set_ident_type(item, ID_KNOWN_TYPE);
+        set_ident_flags(item, ISFLAG_IDENT_MASK);
     }
 
     if (item.cursed())
@@ -1525,7 +1270,8 @@ static void _equip_jewellery_effect(item_def &item, bool unmeld)
     mprf_nocap("%s", item.name(DESC_INVENTORY_EQUIP).c_str());
 }
 
-static void _unequip_jewellery_effect(item_def &item, bool mesg, bool meld)
+static void _unequip_jewellery_effect(item_def &item, bool mesg, bool meld,
+                                      equipment_type slot)
 {
     // The ring/amulet must already be removed from you.equip at this point.
 
@@ -1539,7 +1285,7 @@ static void _unequip_jewellery_effect(item_def &item, bool mesg, bool meld)
     switch (item.sub_type)
     {
     case RING_FIRE:
-    case RING_HUNGER:
+    case RING_LOUDNESS:
     case RING_ICE:
     case RING_LIFE_PROTECTION:
     case RING_POISON_RESISTANCE:
@@ -1549,7 +1295,7 @@ static void _unequip_jewellery_effect(item_def &item, bool mesg, bool meld)
     case RING_REGENERATION:
     case RING_SLAYING:
     case RING_SUSTAIN_ABILITIES:
-    case RING_SUSTENANCE:
+    case RING_STEALTH:
     case RING_TELEPORTATION:
     case RING_WIZARDRY:
     case RING_TELEPORT_CONTROL:
@@ -1616,7 +1362,7 @@ static void _unequip_jewellery_effect(item_def &item, bool mesg, bool meld)
     }
 
     if (is_artefact(item))
-        _unequip_artefact_effect(item, &mesg, meld);
+        _unequip_artefact_effect(item, &mesg, meld, slot);
 
     // Must occur after ring is removed. -- bwr
     calc_mp();

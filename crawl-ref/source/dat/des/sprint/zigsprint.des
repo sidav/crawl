@@ -92,7 +92,7 @@ function setup_room(e, id)
             scroll of fog w:1 ident:all / scroll of holy word w:1 ident:all /\
             potion of might ident:all w:2 / potion of agility w:2 ident:all /\
             potion of haste q:2 ident:all w:2 / scroll of acquirement w:1 ident:all /\
-            scroll of enchant weapon iii ident:all q:2 w:2 /\
+            scroll of enchant weapon ident:all q:4 w:2 /\
             scroll of enchant armour ident:all q:4 w:2 /\
             scroll of brand weapon ident:all")
 
@@ -203,7 +203,7 @@ function choose_mset_2(e)
   local rnd = crawl.random2(141)
 -- Slime
   if rnd < 9 then
-    e.kmons("1 = jelly w:15 / ooze / brown ooze / slime creature /\
+    e.kmons("1 = jelly w:15 / ooze / slime creature /\
                giant eyeball w:5 / golden eye w:5 / eye of draining w:5 /\
                eye of devastation w:5 / shining eye w:5")
 -- Snake
@@ -227,7 +227,7 @@ function choose_mset_2(e)
     e.kmons("1 = lesser demon / place:Abyss w:6")
 -- Forest
   elseif rnd < 64 then
-    e.kmons("1 = spriggan / wolf / black bear / grizzly bear / spriggan rider w:5 /\
+    e.kmons("1 = spriggan / wolf / black bear / spriggan rider w:5 /\
                spriggan druid w:2")
 -- Shoals
   elseif rnd < 74 then
@@ -248,7 +248,7 @@ function choose_mset_2(e)
                freezing wraith / blue devil")
 -- Air
   elseif rnd < 88 then
-    e.kmons("1 = insubstantial wisp / air elemental / vapour w:5")
+    e.kmons("1 = insubstantial wisp / air elemental / wind drake w:5")
 -- Earth
   elseif rnd < 90 then
     e.kmons("1 = toenail golem / earth elemental / gargoyle w:2")
@@ -298,7 +298,7 @@ function choose_mset_3(e)
   local rnd = crawl.random2(116)
 -- Slime
   if rnd < 9 then
-    e.kmons("1 = jelly w:15 / ooze / brown ooze w:15 / slime creature w:15 /\
+    e.kmons("1 = jelly w:15 / ooze / slime creature w:30 /\
                giant eyeball w:2 / golden eye w:5 / eye of draining w:2 /\
                eye of devastation w:5 / shining eye w:5 / acid blob w:5 /\
                death ooze / azure jelly w:5 / great orb of eyes w:5 /\
@@ -327,7 +327,8 @@ function choose_mset_3(e)
   elseif rnd < 49 then
     e.kmons("1 = place:Shoals:3 / place:Shoals:$ w:45 / merfolk javelineer /\
                  merfolk impaler / merfolk aquamancer")
-    e.subst(". = W.., 1 = W")
+    e.subst(". = W..")
+    e.kfeat("1 = shallow_water")
 -- Cocytus
   elseif rnd < 54 then
     e.kmons("1 = place:Coc:1")
@@ -356,7 +357,7 @@ function choose_mset_3(e)
                blizzard demon")
 -- Air
   elseif rnd < 77 then
-    e.kmons("1 = insubstantial wisp / air elemental / vapour / spriggan air mage /\
+    e.kmons("1 = insubstantial wisp / air elemental / wind drake / spriggan air mage /\
                storm dragon / titan w:2")
 -- Earth
   elseif rnd < 79 then
@@ -413,7 +414,7 @@ function choose_mset_3(e)
 -- Holy
   else
     e.kmons("1 = daeva / angel / cherub / pearl dragon / ophan / \
-                 apis / phoenix / shedu band / nothing w:78")
+                 apis / nothing w:78")
   end
 end
 
@@ -422,7 +423,7 @@ function choose_mset_4(e)
 local rnd = crawl.random2(142)
 -- Slime
   if rnd < 9 then
-    e.kmons("1 = jelly w:5 / brown ooze w:15 / slime creature w:15 /\
+    e.kmons("1 = jelly w:5 / slime creature w:30 /\
                giant eyeball w:2 / golden eye w:4 / eye of draining w:2 /\
                eye of devastation w:5 / shining eye w:4 / acid blob /\
                death ooze / azure jelly / great orb of eyes w:4 /\
@@ -486,7 +487,7 @@ local rnd = crawl.random2(142)
                ice fiend w:5 / blizzard demon")
 -- Air
   elseif rnd < 84 then
-    e.kmons("1 = insubstantial wisp / air elemental / vapour / spriggan air mage /\
+    e.kmons("1 = insubstantial wisp / air elemental / wind drake / spriggan air mage /\
                storm dragon / titan / electric golem")
 -- Earth
   elseif rnd < 87 then
@@ -549,7 +550,7 @@ local rnd = crawl.random2(142)
 -- Holy
   else
     e.kmons("1 = daeva / angel / cherub / pearl dragon / ophan / \
-                 apis / phoenix")
+                 apis")
   end
 end
 
@@ -703,6 +704,9 @@ KFEAT:  p = altar_jiyva
 KFEAT:  q = altar_fedhas
 KFEAT:  r = altar_cheibriados
 KFEAT:  s = altar_dithmenos
+KFEAT:  t = altar_gozag
+KFEAT:  u = altar_qazlal
+: if crawl.unavailable_god("Gozag") then _G.subst("t = {") end
 KITEM:    B = plate armour mundane not_cursed ident:all plus:5, \
               fire dragon armour mundane not_cursed ident:all plus:5, \
               ice dragon armour mundane not_cursed ident:all plus:5, \
@@ -712,29 +716,32 @@ KITEM:    B = plate armour mundane not_cursed ident:all plus:5, \
 KITEM:    C = buckler mundane not_cursed ident:all plus:3, \
               shield mundane not_cursed ident:all plus:3, \
               large shield mundane not_cursed ident:all plus:3
-KITEM:    D = broad axe mundane not_cursed ident:all plus:5 plus2:5, \
-              battleaxe mundane not_cursed ident:all plus:5 plus2:5, \
-              executioner's axe mundane not_cursed ident:all plus:5 plus2:5
-KITEM:    E = demon trident mundane not_cursed ident:all plus:5 plus2:5, \
-              bardiche mundane not_cursed ident:all plus:5 plus2:5
-KITEM:    F = demon whip mundane not_cursed ident:all plus:5 plus2:5, \
-              great mace mundane not_cursed ident:all plus:5 plus2:5, \
-              giant club mundane not_cursed ident:all plus:5 plus2:5, \
-              giant spiked club mundane not_cursed ident:all plus:5 plus2:5
-KITEM:    G = dagger mundane not_cursed ident:all plus:5 plus2:5, \
-              cutlass mundane not_cursed ident:all plus:5 plus2:5, \
-              quick blade mundane not_cursed ident:all plus:5 plus2:5
-KITEM:    H = demon blade mundane not_cursed ident:all plus:5 plus2:5, \
-              bastard sword mundane not_cursed ident:all plus:5 plus2:5, \
-              great sword mundane not_cursed ident:all plus:5 plus2:5, \
-              claymore mundane not_cursed ident:all plus:5 plus2:5
-KITEM:    I = lajatang mundane not_cursed ident:all plus:5 plus2:5
-KITEM:    J = crossbow mundane not_cursed ident:all plus:5 plus2:5, \
+KITEM:    D = broad axe mundane not_cursed ident:all plus:5, \
+              battleaxe mundane not_cursed ident:all plus:5, \
+              executioner's axe mundane not_cursed ident:all plus:5
+KITEM:    E = demon trident mundane not_cursed ident:all plus:5, \
+              bardiche mundane not_cursed ident:all plus:5
+KITEM:    F = demon whip mundane not_cursed ident:all plus:5, \
+              great mace mundane not_cursed ident:all plus:5, \
+              giant club mundane not_cursed ident:all plus:5, \
+              giant spiked club mundane not_cursed ident:all plus:5
+KITEM:    G = dagger mundane not_cursed ident:all plus:5, \
+              cutlass mundane not_cursed ident:all plus:5, \
+              quick blade mundane not_cursed ident:all plus:5
+KITEM:    H = demon blade mundane not_cursed ident:all plus:5, \
+              bastard sword mundane not_cursed ident:all plus:5, \
+              great sword mundane not_cursed ident:all plus:5, \
+              claymore mundane not_cursed ident:all plus:5
+KITEM:    I = lajatang mundane not_cursed ident:all plus:5
+KITEM:    J = hand crossbow mundane not_cursed ident:all plus:5, \
               bolt q:1000 mundane ident:all, \
-              bow mundane not_cursed ident:all plus:5 plus2:5, \
-          arrow q:1000 mundane ident:all, \
-              longbow mundane not_cursed ident:all plus:5 plus2:5, \
-              sling mundane not_cursed ident:all plus:5 plus2:5, \
+              arbalest mundane not_cursed ident:all plus:5, \
+              triple crossbow mundane not_cursed ident:all plus:5, \
+              shortbow mundane not_cursed ident:all plus:5, \
+              arrow q:1000 mundane ident:all, \
+              longbow mundane not_cursed ident:all plus:5, \
+              hunting sling mundane not_cursed ident:all plus:5, \
+              greatsling mundane not_cursed ident:all plus:5, \
               sling bullet q:1000 mundane ident:all
 KITEM:    K = potion of curing q:9 ident:all, \
               potion of heal wounds q:9 ident:all, \
@@ -756,7 +763,7 @@ KITEM:    L = scroll of blinking q:3 ident:all, \
               scroll of fog q:7 ident:all, \
               scroll of recharging q:3 ident:all, \
           scroll of amnesia q:4 ident:all
-KITEM:    M = meat ration q:4, bread ration q:4, strawberry q:42
+KITEM:    M = meat ration q:4, bread ration q:4, fruit q:42
 KITEM:    N = wand of draining ident:all charges:5, \
               wand of cold ident:all charges:5, \
               wand of fire ident:all charges:5, \
@@ -772,7 +779,9 @@ KITEM:    P = ring of strength not_cursed ident:all plus:6, \
 KITEM:    R = broad axe unrand:obsidian_axe ident:all, \
               shield unrand:shield_of_the_gong ident:all, \
               plate armour unrand:maxwells_patent_armour ident:all, \
-              great mace unrand:dark_maul ident:all
+              great mace unrand:dark_maul ident:all, \
+              triple crossbow unrand:sniper ident:all, \
+              quarterstaff unrand:majin-bo ident:all
 KITEM:    T = longbow unrand:piercer ident:all, \
               long sword unrand:singing_sword ident:all, \
               great mace unrand:mace_of_variability ident:all, \
@@ -781,7 +790,8 @@ KITEM:    T = longbow unrand:piercer ident:all, \
               bastard sword unrand:sword_of_zonguldrok ident:all, \
               spear unrand:wyrmbane ident:all, \
               claymore unrand:plutonium_sword ident:all, \
-              club unrand:devastator ident:all
+              club unrand:devastator ident:all, \
+              great mace unrand:firestarter ident:all
 KITEM:    S = disc of storms ident:all, \
               tome of destruction ident:all, tome of destruction ident:all
 KFEAT:    ^ = granite_statue
@@ -798,7 +808,7 @@ c......L..O...n
 ^...C..K..N...^
 b...B.........o
 ^.............^
-a^r^.^^{^^s^q^p
+a^r^u^{^t^s^q^p
 ENDMAP
 
 NAME:  room_1

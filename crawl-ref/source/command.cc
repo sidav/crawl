@@ -36,7 +36,9 @@
 #include "message.h"
 #include "mon-util.h"
 #include "ouch.h"
+#include "output.h"
 #include "player.h"
+#include "prompt.h"
 #include "religion.h"
 #include "showsymb.h"
 #include "skills2.h"
@@ -45,7 +47,9 @@
 #include "spl-cast.h"
 #include "spl-util.h"
 #include "state.h"
-#include "stuff.h"
+#include "stringutil.h"
+#include "unicode.h"
+
 #include "env.h"
 #include "syscalls.h"
 #include "terrain.h"
@@ -58,9 +62,9 @@
 #include "view.h"
 #include "viewchar.h"
 
-static void _adjust_item(void);
-static void _adjust_spell(void);
-static void _adjust_ability(void);
+static void _adjust_item();
+static void _adjust_spell();
+static void _adjust_ability();
 
 static const char *features[] =
 {
@@ -101,12 +105,12 @@ static const char *features[] =
 #endif
 };
 
-static string _get_version_information(void)
+static string _get_version_information()
 {
     return string("This is <w>" CRAWL " ") + Version::Long + "</w>\n";
 }
 
-static string _get_version_features(void)
+static string _get_version_features()
 {
     string result  = "<w>Features</w>\n";
            result += "--------\n";
@@ -125,7 +129,7 @@ static void _add_file_to_scroller(FILE* fp, formatted_scroller& m,
                                   int first_hotkey  = 0,
                                   bool auto_hotkeys = false);
 
-static string _get_version_changes(void)
+static string _get_version_changes()
 {
     // Attempts to print "Highlights" of the latest version.
     FILE* fp = fopen_u(datafile_path("changelog.txt", false).c_str(), "r");
@@ -200,7 +204,7 @@ static string _get_version_changes(void)
 }
 
 //#define DEBUG_FILES
-static void _print_version(void)
+static void _print_version()
 {
     formatted_scroller cmd_version;
 
@@ -217,7 +221,7 @@ static void _print_version(void)
     cmd_version.show();
 }
 
-void adjust(void)
+void adjust()
 {
     mprf(MSGCH_PROMPT, "Adjust (i)tems, (s)pells, or (a)bilities? ");
 
@@ -279,7 +283,7 @@ void swap_inv_slots(int from_slot, int to_slot, bool verbose)
     you.last_pickup.erase(from_slot);
 }
 
-static void _adjust_item(void)
+static void _adjust_item()
 {
     int from_slot, to_slot;
 
@@ -311,7 +315,7 @@ static void _adjust_item(void)
     you.redraw_quiver = true;
 }
 
-static void _adjust_spell(void)
+static void _adjust_spell()
 {
     if (!you.spell_no)
     {
@@ -377,7 +381,7 @@ static void _adjust_spell(void)
         mprf_nocap("%c - %s", input_1, spell_title(spell));
 }
 
-static void _adjust_ability(void)
+static void _adjust_ability()
 {
     const vector<talent> talents = your_talents(false);
 
@@ -492,7 +496,7 @@ void list_armour()
     }
 }
 
-void list_jewellery(void)
+void list_jewellery()
 {
     string jstr;
     int cols = get_number_of_cols() - 1;
@@ -558,6 +562,12 @@ void toggle_viewport_monster_hp()
     viewwindow();
 }
 
+void toggle_viewport_weapons()
+{
+    crawl_state.viewport_weapons = !crawl_state.viewport_weapons;
+    viewwindow();
+}
+
 static bool _cmdhelp_textfilter(const string &tag)
 {
 #ifdef WIZARD
@@ -596,7 +606,8 @@ static const char *targeting_help_wiz =
     "<w>D</w>: get debugging information about the monster\n"
     "<w>o</w>: give item to monster\n"
     "<w>F</w>: cycle monster friendly/good neutral/neutral/hostile\n"
-    "<w>Ctrl-H</w>: heal the monster to full hit points\n"
+    "<w>G</w>: make monster gain experience\n"
+    "<w>Ctrl-H</w>: heal the monster fully\n"
     "<w>P</w>: apply divine blessing to monster\n"
     "<w>m</w>: move monster or player\n"
     "<w>M</w>: cause spell miscast for monster or player\n"
@@ -858,7 +869,8 @@ static vector<string> _get_god_keys()
     for (int i = GOD_NO_GOD + 1; i < NUM_GODS; i++)
     {
         god_type which_god = static_cast<god_type>(i);
-        names.push_back(god_name(which_god));
+        if (!is_disabled_god(which_god))
+            names.push_back(god_name(which_god));
     }
 
     return names;
@@ -868,16 +880,13 @@ static vector<string> _get_branch_keys()
 {
     vector<string> names;
 
-    for (int i = BRANCH_DUNGEON; i < NUM_BRANCHES; i++)
+    for (branch_iterator it; it; ++it)
     {
-        branch_type which_branch = static_cast<branch_type>(i);
-        const Branch &branch     = branches[which_branch];
-
         // Skip unimplemented branches
-        if (branch_is_unfinished(which_branch))
+        if (branch_is_unfinished(it->id))
             continue;
 
-        names.push_back(branch.shortname);
+        names.push_back(it->shortname);
     }
     return names;
 }
@@ -1190,10 +1199,9 @@ static int _do_description(string key, string type, const string &suffix,
                     append_armour_stats(desc, mitm[thing_created]);
                     desc += "\n";
                 }
-                else if (get_item_by_name(&mitm[thing_created], name, OBJ_MISSILES)
-                         && mitm[thing_created].sub_type != MI_THROWING_NET)
+                else if (get_item_by_name(&mitm[thing_created], name, OBJ_MISSILES))
                 {
-                    append_missile_info(desc);
+                    append_missile_info(desc, mitm[thing_created]);
                     desc += "\n";
                 }
                 else if (type == "spell"
@@ -1679,7 +1687,7 @@ static void _keyhelp_query_descriptions()
         _find_description(&again, &error);
 
         if (again)
-            mesclr();
+            clear_messages();
     }
     while (again);
 
@@ -1714,7 +1722,7 @@ static int _keyhelp_keyfilter(int ch)
             // resets 'again'
             again = _handle_FAQ();
             if (again)
-                mesclr();
+                clear_messages();
         }
         while (again);
 
@@ -2163,8 +2171,10 @@ static void _add_formatted_keyhelp(column_composer &cols)
 #else
 #ifdef USE_TILE_WEB
     if (tiles.is_controlled_from_web())
+    {
         cols.add_formatted(0, "<w>F12</w> : read messages (online play only)",
                            false);
+    }
     else
 #endif
     _add_command(cols, 0, CMD_READ_MESSAGES, "read messages (online play only)", 2);
@@ -2220,10 +2230,12 @@ static void _add_formatted_keyhelp(column_composer &cols)
                        false, true, _cmdhelp_textfilter);
     _add_command(cols, 1, CMD_SHOW_TERRAIN, "toggle terrain-only view");
     if (!is_tiles())
+    {
         _add_command(cols, 1, CMD_TOGGLE_VIEWPORT_MONSTER_HP, "colour monsters in view by HP");
+        _add_command(cols, 1, CMD_TOGGLE_VIEWPORT_WEAPONS, "show monster weapons");
+    }
     _add_command(cols, 1, CMD_DISPLAY_OVERMAP, "show dungeon Overview");
     _add_command(cols, 1, CMD_TOGGLE_AUTOPICKUP, "toggle auto-pickup");
-    _add_command(cols, 1, CMD_TOGGLE_FRIENDLY_PICKUP, "change ally pickup behaviour");
     _add_command(cols, 1, CMD_TOGGLE_TRAVEL_SPEED, "set your travel speed to your");
     cols.add_formatted(1, "         slowest ally\n",
                            false, true, _cmdhelp_textfilter);
@@ -2472,13 +2484,12 @@ void list_commands(int hotkey, bool do_redraw_screen, string highlight_string)
     // Page size is number of lines - one line for --more-- prompt.
     cols.set_pagesize(get_number_of_lines() - 1);
 
-    const bool hint_tuto = crawl_state.game_is_hints_tutorial();
-    if (hint_tuto)
+    if (crawl_state.game_is_hints_tutorial())
         _add_formatted_hints_help(cols);
     else
         _add_formatted_keyhelp(cols);
 
-    _show_keyhelp_menu(cols.formatted_lines(), !hint_tuto, Options.easy_exit_menu,
+    _show_keyhelp_menu(cols.formatted_lines(), true, Options.easy_exit_menu,
                        hotkey, highlight_string);
 
     if (do_redraw_screen)
@@ -2515,6 +2526,7 @@ int list_wizard_commands(bool do_redraw_screen)
                        "<w>#</w>      load character from a dump file\n"
                        "<w>Z</w>      gain lots of Zot Points\n"
                        "<w>&</w>      list all divine followers\n"
+                       "<w>=</w>      show info about skill points\n"
                        "\n"
                        "<yellow>Create level features</yellow>\n"
                        "<w>L</w>      place a vault by name\n"

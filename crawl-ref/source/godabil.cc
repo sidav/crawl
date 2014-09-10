@@ -8,15 +8,21 @@
 #include <queue>
 #include <sstream>
 
+#include "act-iter.h"
 #include "areas.h"
 #include "artefact.h"
+#include "attitude-change.h"
 #include "beam.h"
+#include "branch.h"
+#include "butcher.h"
 #include "cloud.h"
 #include "colour.h"
 #include "coordit.h"
 #include "database.h"
 #include "delay.h"
 #include "dactions.h"
+#include "dgn-overview.h"
+#include "dungeon.h"
 #include "effects.h"
 #include "env.h"
 #include "fight.h"
@@ -24,6 +30,7 @@
 #include "food.h"
 #include "fprop.h"
 #include "godabil.h"
+#include "godblessing.h"
 #include "godcompanions.h"
 #include "goditem.h"
 #include "invent.h"
@@ -31,19 +38,27 @@
 #include "items.h"
 #include "losglobal.h"
 #include "libutil.h"
+#include "macro.h"
+#include "mapdef.h"
+#include "mapmark.h"
+#include "maps.h"
 #include "message.h"
 #include "misc.h"
 #include "mon-act.h"
 #include "mon-behv.h"
 #include "mon-cast.h"
+#include "mon-death.h"
 #include "mon-place.h"
+#include "mon-poly.h"
 #include "mgen_data.h"
-#include "mon-stuff.h"
 #include "mutation.h"
 #include "notes.h"
 #include "ouch.h"
+#include "output.h"
 #include "place.h"
 #include "player-stats.h"
+#include "potion.h"
+#include "prompt.h"
 #include "random.h"
 #include "religion.h"
 #include "skill_menu.h"
@@ -56,13 +71,14 @@
 #include "spl-util.h"
 #include "stash.h"
 #include "state.h"
-#include "stuff.h"
+#include "stringutil.h"
 #include "target.h"
 #include "terrain.h"
 #include "throw.h"
 #include "traps.h"
 #include "unwind.h"
 #include "view.h"
+#include "viewchar.h"
 #include "viewgeom.h"
 
 #ifdef USE_TILE
@@ -427,11 +443,68 @@ string zin_recite_text(const int seed, const int prayertype, int step)
     return recite;
 }
 
+/** How vulnerable to RECITE_HERETIC is this monster?
+ *
+ * @param[in] mon The monster to check.
+ * @returns the susceptibility.
+ */
+static int _heretic_recite_weakness(const monster *mon)
+{
+    int degree = 0;
+
+    // Sleeping or paralyzed monsters will wake up or still perceive their
+    // surroundings, respectively.  So, you can still recite to them.
+    if (mons_intel(mon) >= I_NORMAL
+        && !(mon->has_ench(ENCH_DUMB) || mons_is_confused(mon)))
+    {
+        // In the eyes of Zin, everyone is a sinner until proven otherwise!
+            degree++;
+
+        // Any priest is a heretic...
+        if (mon->is_priest())
+            degree++;
+
+        // Or those who believe in themselves...
+        if (mon->type == MONS_DEMIGOD)
+            degree++;
+
+        // ...but evil gods are worse.
+        if (is_evil_god(mon->god) || is_unknown_god(mon->god))
+            degree++;
+
+        // (The above mean that worshipers will be treated as
+        // priests for reciting, even if they aren't actually.)
+
+
+        // Sanity check: monsters that won't attack you, and aren't
+        // priests/evil, don't get recited against.
+        if (mon->wont_attack() && degree <= 1)
+            degree = 0;
+
+        // Sanity check: monsters that are holy, know holy spells, or worship
+        // holy gods aren't heretics.
+        if (mon->is_holy() || is_good_god(mon->god))
+            degree = 0;
+    }
+
+    return degree;
+}
+
 typedef FixedVector<int, NUM_RECITE_TYPES> recite_counts;
-// Check whether this monster might be influenced by Recite.
-// Returns 0, if no monster found.
-// Returns 1, if eligible monster found.
-// Returns -1, if monster already affected or too dumb to understand.
+/** Check whether this monster might be influenced by Recite.
+ *
+ * @param[in] mon The monster to check.
+ * @param[out] eligibility A vector, indexed by recite_type, that indicates
+ *             which recitation types the monster is affected by, if any:
+ *             eligibility[RECITE_FOO] is nonzero if the monster is affected
+ *             by RECITE_FOO. Only modified if the function returns 0 or 1.
+ * @return  -1 if the monster is already affected. The eligibility vector
+ *          is unchanged.
+ * @return  0 if the monster is otherwise ineligible for recite. The
+ *          eligibility vector is filled with zeros.
+ * @return  1 if the monster is eligible for recite. The eligibility vector
+ *          indicates which types of recitation it is vulnerable to.
+ */
 static int _zin_check_recite_to_single_monster(const monster *mon,
                                                recite_counts &eligibility)
 {
@@ -443,78 +516,14 @@ static int _zin_check_recite_to_single_monster(const monster *mon,
 
     const mon_holy_type holiness = mon->holiness();
 
-    // Can't recite at plants or golems.
-    if (holiness == MH_PLANT || holiness == MH_NONLIVING)
-        return -1;
-
     eligibility.init(0);
 
-    // Recitations are based on monster::is_unclean, but are NOT identical to it,
-    // because that lumps all forms of uncleanliness together. We want to specify.
+    // Anti-chaos prayer: Hits things vulnerable to silver, or with chaotic spells/gods.
+    eligibility[RECITE_CHAOTIC] = mon->how_chaotic(true);
 
-    // Anti-chaos prayer:
-
-    // Hits some specific insane or shapeshifted uniques.
-    if (mon->type == MONS_CRAZY_YIUF
-        || mon->type == MONS_PSYCHE
-        || mon->type == MONS_GASTRONOK)
-    {
-        eligibility[RECITE_CHAOTIC]++;
-    }
-
-    // Hits monsters that have chaotic spells memorized.
-    if (mon->has_chaotic_spell() && mon->is_actual_spellcaster())
-        eligibility[RECITE_CHAOTIC]++;
-
-    // Hits monsters with 'innate' chaos.
-    if (mon->is_chaotic())
-        eligibility[RECITE_CHAOTIC]++;
-
-    // Hits monsters that are worshipers of a chaotic god.
-    if (is_chaotic_god(mon->god))
-        eligibility[RECITE_CHAOTIC]++;
-
-    // Hits (again) monsters that are priests of a chaotic god.
-    if (is_chaotic_god(mon->god) && mon->is_priest())
-        eligibility[RECITE_CHAOTIC]++;
-
-    // Anti-impure prayer:
-
-    // Hits monsters that have unclean spells memorized.
-    if (mon->has_unclean_spell())
-        eligibility[RECITE_IMPURE]++;
-
-    // Hits monsters that desecrate the dead.
-    if (mons_eats_corpses(mon))
-        eligibility[RECITE_IMPURE]++;
-
-    // Hits corporeal undead, which are a perversion of natural form.
-    if (holiness == MH_UNDEAD && !mon->is_insubstantial())
-        eligibility[RECITE_IMPURE]++;
-
-    // Hits monsters that have these brands.
-    if (mon->has_attack_flavour(AF_VAMPIRIC))
-        eligibility[RECITE_IMPURE]++;
-    if (mon->has_attack_flavour(AF_DISEASE))
-        eligibility[RECITE_IMPURE]++;
-    if (mon->has_attack_flavour(AF_HUNGER))
-        eligibility[RECITE_IMPURE]++;
-    if (mon->has_attack_flavour(AF_ROT))
-        eligibility[RECITE_IMPURE]++;
-    if (mon->has_attack_flavour(AF_STEAL))
-        eligibility[RECITE_IMPURE]++;
-    if (mon->has_attack_flavour(AF_PLAGUE))
-        eligibility[RECITE_IMPURE]++;
-
-    // Being naturally mutagenic isn't good either.
-    corpse_effect_type ce = mons_corpse_effect(mon->type);
-    if ((ce == CE_ROT || ce == CE_MUTAGEN) && !mon->is_chaotic())
-        eligibility[RECITE_IMPURE]++;
-
-    // Death drakes and necrophage get a bump to uncleanliness.
-    if (mon->type == MONS_NECROPHAGE || mon->type == MONS_DEATH_DRAKE)
-        eligibility[RECITE_IMPURE]++;
-
+    // Anti-impure prayer: Hits things that Zin hates in general.
+    // Don't look at the monster's god; that's what RECITE_HERETIC is for.
+    eligibility[RECITE_IMPURE] = mon->how_unclean(false);
     // Sanity check: if a monster is 'really' natural, don't consider it impure.
     if (mons_intel(mon) < I_NORMAL
         && (holiness == MH_NATURAL || holiness == MH_PLANT)
@@ -525,73 +534,15 @@ static int _zin_check_recite_to_single_monster(const monster *mon,
         eligibility[RECITE_IMPURE] = 0;
     }
 
-    // Don't allow against enemies that are already affected by an
-    // earlier recite type.
-    if (eligibility[RECITE_CHAOTIC] > 0)
-        eligibility[RECITE_IMPURE] = 0;
-
-    // Anti-unholy prayer
-
-    // Hits demons and incorporeal undead.
+    // Anti-unholy prayer: Hits demons and incorporeal undead.
     if (holiness == MH_UNDEAD && mon->is_insubstantial()
         || holiness == MH_DEMONIC)
     {
         eligibility[RECITE_UNHOLY]++;
     }
 
-    // Don't allow against enemies that are already affected by an
-    // earlier recite type.
-    if (eligibility[RECITE_CHAOTIC] > 0
-        || eligibility[RECITE_IMPURE] > 0)
-    {
-        eligibility[RECITE_UNHOLY] = 0;
-    }
-
-    // Anti-heretic prayer
-
-    // Sleeping or paralyzed monsters will wake up or still perceive their
-    // surroundings, respectively.  So, you can still recite to them.
-
-    if (mons_intel(mon) >= I_NORMAL
-        && !(mon->has_ench(ENCH_DUMB) || mons_is_confused(mon)))
-    {
-        // In the eyes of Zin, everyone is a sinner until proven otherwise!
-        eligibility[RECITE_HERETIC]++;
-
-        // Any priest is a heretic...
-        if (mon->is_priest())
-            eligibility[RECITE_HERETIC]++;
-
-        // Or those who believe in themselves...
-        if (mon->type == MONS_DEMIGOD)
-            eligibility[RECITE_HERETIC]++;
-
-        // ...but evil gods are worse.
-        if (is_evil_god(mon->god) || is_unknown_god(mon->god))
-            eligibility[RECITE_HERETIC]++;
-
-        // (The above mean that worshipers will be treated as
-        // priests for reciting, even if they aren't actually.)
-
-        // Don't allow against enemies that are already affected by an
-        // earlier recite type.
-        if (eligibility[RECITE_CHAOTIC] > 0
-            || eligibility[RECITE_IMPURE] > 0
-            || eligibility[RECITE_UNHOLY] > 0)
-        {
-            eligibility[RECITE_HERETIC] = 0;
-        }
-
-        // Sanity check: monsters that won't attack you, and aren't
-        // priests/evil, don't get recited against.
-        if (mon->wont_attack() && eligibility[RECITE_HERETIC] <= 1)
-            eligibility[RECITE_HERETIC] = 0;
-
-        // Sanity check: monsters that are holy, know holy spells, or worship
-        // holy gods aren't heretics.
-        if (mon->is_holy() || is_good_god(mon->god))
-            eligibility[RECITE_HERETIC] = 0;
-    }
+    // Anti-heretic prayer: Hits intelligent monsters, especially priests.
+    eligibility[RECITE_HERETIC] = _heretic_recite_weakness(mon);
 
 #ifdef DEBUG_DIAGNOSTICS
     string elig;
@@ -608,13 +559,6 @@ static int _zin_check_recite_to_single_monster(const monster *mon,
     return 0;
 }
 
-// Check whether there are monsters who might be influenced by Recite.
-// If 'recite' is false, we're just checking whether we can.
-// If it's true, we're actually reciting and need to present a menu.
-
-// Returns 0, if no monsters found.
-// Returns 1, if eligible audience found.
-// Returns -1, if entire audience already affected or too dumb to understand.
 bool zin_check_able_to_recite(bool quiet)
 {
     if (you.duration[DUR_RECITE])
@@ -631,15 +575,33 @@ bool zin_check_able_to_recite(bool quiet)
         return false;
     }
 
+    if (you.duration[DUR_WATER_HOLD] && !you.res_water_drowning())
+    {
+        if (!quiet)
+            mpr("You cannot recite while unable to breathe!");
+        return false;
+    }
+
     return true;
 }
 
-static const char* zin_book_desc[NUM_RECITE_TYPES] =
-{
-    "Chaotic", "Impure", "Heretic", "Unholy",
-};
-
-int zin_check_recite_to_monsters(recite_type *prayertype)
+/**
+ * Check whether there are monsters who might be influenced by Recite.
+ * If prayertype is null, we're just checking whether we can.
+ * Otherwise we're actually reciting, and may need to present a menu.
+ *
+ * @param[out] prayertype If non-null, receives the type of recitation to
+ *             be used: either the only possible type, or the type chosen
+ *             by the player.  Only modified when we return 1.
+ * @return  0 if no monsters were found, or if the player declined to choose
+ *          a type of recitation, or if all the found monsters returned
+ *          zero from _zin_check_recite_to_single_monster().
+ * @return  1 if an eligible audience was found.
+ * @return  -1 if only an ineligible audience was found: no eligibile
+ *          monsters, and at least one returned -1 from
+ *          _zin_check_recite_to_single_monster().
+ */
+int zin_check_recite_to_monsters()
 {
     bool found_ineligible = false;
     bool found_eligible = false;
@@ -682,84 +644,12 @@ int zin_check_recite_to_monsters(recite_type *prayertype)
         return -1;
     }
 
-    if (!prayertype)
-        return 1;
-
     int eligible_types = 0;
     for (int i = 0; i < NUM_RECITE_TYPES; i++)
         if (count[i] > 0)
             eligible_types++;
 
-    // If there's only one eligible recitation, and we're actually reciting, then perform it.
-    if (eligible_types == 1)
-    {
-        for (int i = 0; i < NUM_RECITE_TYPES; i++)
-            if (count[i] > 0)
-                *prayertype = (recite_type)i;
-
-        return 1;
-    }
-
-    // But often, you'll have multiple options...
-    mesclr();
-
-    mprf(MSGCH_PROMPT, "Recite against which type of sinner?");
-
-    int menu_cnt = 0;
-    recite_type letters[NUM_RECITE_TYPES];
-
-    for (int i = 0; i < NUM_RECITE_TYPES; i++)
-    {
-        if (count[i] > 0)
-        {
-            string affected_str = make_stringf("%s (%d: ",
-                                               zin_book_desc[i], count[i]);
-
-            // TODO: merge with _desc_mons_type_map from view.cc?  But we
-            //       probably don't want genus factoring here.
-            // TODO: sort these by something other than name-with-article.
-            for (map<string, int>::iterator it = affected_by_type[i].begin();
-                 it != affected_by_type[i].end(); it++)
-            {
-                if (it != affected_by_type[i].begin())
-                    affected_str += ", ";
-
-                affected_str += it->first;
-                if (it->second > 1)
-                    affected_str += make_stringf(" x%d", it->second);
-            }
-            affected_str += ")";
-
-            int linect = 0;
-            while (!affected_str.empty())
-            {
-                // -8 for "  [a] - "
-                const string line = wordwrap_line(affected_str,
-                                                  msgwin_line_length() - 8);
-                if (linect++ == 0)
-                    mprf_nojoin("  [%c] - %s", 'a' + menu_cnt, line.c_str());
-                else
-                    mprf("%8s%s", "", line.c_str());
-            }
-            letters[menu_cnt++] = (recite_type)i;
-        }
-    }
-    flush_prev_message();
-
-    while (true)
-    {
-        int keyn = toalower(getch_ck());
-
-        if (keyn >= 'a' && keyn < 'a' + menu_cnt)
-        {
-            *prayertype = letters[keyn - 'a'];
-            break;
-        }
-        else
-            return 0;
-    }
-
-    return 1;
+    return 1; // We just recite against everything.
 }
 
 enum zin_eff
@@ -782,8 +672,7 @@ enum zin_eff
     ZIN_HOLY_WORD,
 };
 
-bool zin_recite_to_single_monster(const coord_def& where,
-                                  recite_type prayertype)
+bool zin_recite_to_single_monster(const coord_def& where)
 {
     // That's a pretty good sanity check, I guess.
     if (!you_worship(GOD_ZIN))
@@ -801,10 +690,15 @@ bool zin_recite_to_single_monster(const coord_def& where,
     if (_zin_check_recite_to_single_monster(mon, eligibility) < 1)
         return false;
 
-    // First check: are they even eligible for this kind of recitation?
-    // (Monsters that have been hurt by recitation aren't eligible.)
-    if (eligibility[prayertype] < 1)
-        return false;
+    recite_type prayertype = RECITE_HERETIC;
+    for (int i = NUM_RECITE_TYPES - 1; i >= RECITE_HERETIC; i--)
+    {
+        if (eligibility[i] > 0)
+        {
+            prayertype = static_cast <recite_type>(i);
+            break;
+        }
+    }
 
     // Second check: because this affects the whole screen over several turns,
     // its effects are staggered. There's a 50% chance per monster, per turn,
@@ -816,7 +710,7 @@ bool zin_recite_to_single_monster(const coord_def& where,
     // Resistance is now based on HD. You can affect up to (30+30)/2 = 30 'power' (HD).
     int power = (skill_bump(SK_INVOCATIONS, 10) + you.piety * 3 / 2) / 20;
     // Old recite was mostly deterministic, which is bad.
-    int resist = mon->get_experience_level() + random2(6);
+    int resist = mon->get_hit_dice() + random2(6);
     int check = power - resist;
 
     // We abort if we didn't *beat* their HD - but first we might get a cute message.
@@ -1222,7 +1116,7 @@ static void _zin_saltify(monster* mon)
     const monster_type pillar_type =
         mons_is_zombified(mon) ? mons_zombie_base(mon)
                                : mons_species(mon->type);
-    const int hd = mon->get_experience_level();
+    const int hd = mon->get_hit_dice();
 
     simple_monster_message(mon, " is turned into a pillar of salt by the wrath of Zin!");
 
@@ -1392,7 +1286,6 @@ void elyvilon_purification()
     you.duration[DUR_CONF] = 0;
     you.duration[DUR_SLOW] = 0;
     you.duration[DUR_PETRIFYING] = 0;
-    you.duration[DUR_RETCHING] = 0;
     you.duration[DUR_WEAK] = 0;
     restore_stat(STAT_ALL, 0, false);
     unrot_hp(9999);
@@ -1607,23 +1500,180 @@ bool beogh_water_walk()
            && you.piety >= piety_breakpoint(4);
 }
 
+/**
+ * Has the monster been given a Beogh gift?
+ *
+ * @param mon the orc in question.
+ * @returns whether you have given the monster a Beogh gift before now.
+ */
+static bool _given_gift(const monster* mon)
+{
+    return mon->props.exists(BEOGH_WPN_GIFT_KEY)
+            || mon->props.exists(BEOGH_ARM_GIFT_KEY)
+            || mon->props.exists(BEOGH_SH_GIFT_KEY);
+}
+
+/**
+ * Checks whether the target monster is a valid target for beogh item-gifts.
+ *
+ * @param mons[in]  The monster to consider giving an item to.
+ * @param quiet     Whether to print messages if the target is invalid.
+ * @return          Whether the player can give an item to the monster.
+ */
+bool beogh_can_gift_items_to(const monster* mons, bool quiet)
+{
+    if (!mons || !mons->visible_to(&you))
+    {
+        if (!quiet)
+            canned_msg(MSG_NOTHING_THERE);
+        return false;
+    }
+
+    if (!is_orcish_follower(mons))
+    {
+        if (!quiet)
+            mpr("That's not an orcish ally!");
+        return false;
+    }
+
+    if (!mons->is_named())
+    {
+        if (!quiet)
+            mpr("That orc has not proved itself worthy of your gift.");
+        return false;
+    }
+
+    const char* monsname = mons->name(DESC_THE, false).c_str();
+
+    if (_given_gift(mons))
+    {
+        if (!quiet)
+            mprf("%s has already been given a gift.", monsname);
+        return false;
+    }
+
+    return true;
+}
+
+/**
+ * Checks whether there are any valid targets for beogh gifts in LOS.
+ */
+static bool _valid_beogh_gift_targets_in_sight()
+{
+    for (monster_near_iterator rad(you.pos(), LOS_NO_TRANS); rad; ++rad)
+        if (beogh_can_gift_items_to(*rad))
+            return true;
+    return false;
+}
+
+/**
+ * Allow the player to give an item to a named orcish ally that hasn't
+ * been given a gift before
+ *
+ * @returns whether an item was given.
+ */
+bool beogh_gift_item()
+{
+    if (!_valid_beogh_gift_targets_in_sight())
+    {
+        mpr("No worthy followers in sight.");
+        return false;
+    }
+
+    dist spd;
+
+    direction_chooser_args args;
+    args.restricts = DIR_TARGET;
+    args.mode = TARG_BEOGH_GIFTABLE;
+    args.range = LOS_RADIUS;
+    args.needs_path = false;
+    args.may_target_monster = true;
+    args.cancel_at_self = true;
+    args.show_floor_desc = true;
+    args.top_prompt = "Select a follower to give a gift to.";
+
+    direction(spd, args);
+
+    if (!spd.isValid)
+        return false;
+
+    monster* mons = monster_at(spd.target);
+    if (!beogh_can_gift_items_to(mons, false))
+        return false;
+
+    const char* monsname = mons->name(DESC_THE, false).c_str();
+
+    int item_slot = prompt_invent_item("Give which item?",
+                                       MT_INVLIST, OSEL_ANY, true);
+
+    if (item_slot == PROMPT_ABORT || item_slot == PROMPT_NOTHING)
+    {
+        canned_msg(MSG_OK);
+        return false;
+    }
+
+    item_def& gift = you.inv[item_slot];
+
+    const bool shield = is_shield(gift);
+    const bool body_armour = gift.base_type == OBJ_ARMOUR
+                             && get_armour_slot(gift) == EQ_BODY_ARMOUR;
+    const bool weapon = gift.base_type == OBJ_WEAPONS;
+    const bool range_weapon = weapon && is_range_weapon(gift);
+    const item_def* mons_weapon = mons->weapon();
+
+    if (!(weapon && mons->could_wield(gift)
+          || body_armour && check_armour_size(gift, mons->body_size())
+          || shield
+             && (!mons_weapon
+                 || mons->hands_reqd(*mons_weapon) != HANDS_TWO)))
+    {
+        mprf("%s can't use that.", monsname);
+        return false;
+    }
+
+    // if we're giving a ranged weapon to an orc holding a melee weapon in
+    // their hands, or vice versa, put it in their carried slot instead.
+    // this will of course drop anything that's there.
+    const bool use_alt_slot = weapon && mons_weapon
+                              && is_range_weapon(gift) !=
+                                 is_range_weapon(*mons_weapon);
+
+    mons->take_item(item_slot, body_armour ? MSLOT_ARMOUR :
+                                    shield ? MSLOT_SHIELD :
+                              use_alt_slot ? MSLOT_ALT_WEAPON :
+                                             MSLOT_WEAPON);
+    if (use_alt_slot)
+        mons->swap_weapons(true);
+
+    dprf("is_ranged weap: %d", range_weapon);
+    if (range_weapon)
+        gift_ammo_to_orc(mons, true); // give a small initial ammo freebie
+
+
+    if (shield)
+        mons->props[BEOGH_SH_GIFT_KEY] = true;
+    else if (body_armour)
+        mons->props[BEOGH_ARM_GIFT_KEY] = true;
+    else
+        mons->props[BEOGH_WPN_GIFT_KEY] = true;
+
+    return true;
+}
+
 void jiyva_paralyse_jellies()
 {
-    mprf(MSGCH_PRAY, "You %s prayer to %s.",
-         you.duration[DUR_JELLY_PRAYER] ? "renew your" : "offer a",
+    mprf("You call upon nearby slimes to pray to %s.",
          god_name(you.religion).c_str());
-
-    you.duration[DUR_JELLY_PRAYER] = 200;
 
     int jelly_count = 0;
     for (radius_iterator ri(you.pos(), LOS_DEFAULT); ri; ++ri)
     {
         monster* mon = monster_at(*ri);
-
+        const int dur = 16 + random2(9);
         if (mon != NULL && mons_is_slime(mon) && !mon->is_shapeshifter())
         {
             mon->add_ench(mon_enchant(ENCH_PARALYSIS, 0,
-                                      &you, 200));
+                                      &you, dur * BASELINE_DELAY));
             jelly_count++;
         }
     }
@@ -1631,9 +1681,9 @@ void jiyva_paralyse_jellies()
     if (jelly_count > 0)
     {
         if (jelly_count > 1)
-            mprf(MSGCH_PRAY, "The nearby slimes join your prayer.");
+            mpr("The nearby slimes join the prayer.");
         else
-            mprf(MSGCH_PRAY, "A nearby slime joins your prayer.");
+            mpr("A nearby slime joins the prayer.");
 
         lose_piety(max(5, min(jelly_count, 20)));
     }
@@ -1662,7 +1712,8 @@ bool yred_injury_mirror()
 {
     return you_worship(GOD_YREDELEMNUL) && !player_under_penance()
            && you.piety >= piety_breakpoint(1)
-           && you.duration[DUR_MIRROR_DAMAGE];
+           && you.duration[DUR_MIRROR_DAMAGE]
+           && crawl_state.which_god_acting() != GOD_YREDELEMNUL;
 }
 
 bool yred_can_animate_dead()
@@ -1725,12 +1776,11 @@ void yred_make_enslaved_soul(monster* mon, bool force_hostile)
     // the proper stats from it.
     define_zombie(mon, mon->type, MONS_SPECTRAL_THING);
 
-    // If the original monster has been drained or levelled up, its HD
-    // might be different from its class HD, in which case its HP should
-    // be rerolled to match.
-    if (mon->hit_dice != orig.hit_dice)
+    // If the original monster has been levelled up, its HD might be different
+    // from its class HD, in which case its HP should be rerolled to match.
+    if (mon->get_experience_level() != orig.get_experience_level())
     {
-        mon->hit_dice = max(orig.hit_dice, 1);
+        mon->set_hit_dice(max(orig.get_experience_level(), 1));
         roll_zombie_hp(mon);
     }
 
@@ -1833,7 +1883,7 @@ bool kiku_receive_corpses(int pow)
             continue;
         }
 
-        mitm[index_of_corpse_created].props["never_hide"] = true;
+        mitm[index_of_corpse_created].props[NEVER_HIDE_KEY] = true;
 
         ASSERT(valid_corpse >= 0);
 
@@ -1866,6 +1916,11 @@ bool kiku_receive_corpses(int pow)
     }
 }
 
+/**
+ * Destroy a corpse at the player's location
+ *
+ * @return  True if a corpse was destroyed, false otherwise.
+*/
 bool kiku_take_corpse()
 {
     for (int i = you.visible_igrd(you.pos()); i != NON_ITEM; i = mitm[i].link)
@@ -1874,12 +1929,6 @@ bool kiku_take_corpse()
 
         if (item.base_type != OBJ_CORPSES || item.sub_type != CORPSE_BODY)
             continue;
-        // should only fresh corpses count?
-
-        // only nets currently, but let's check anyway...
-        if (item_is_stationary(item))
-            continue;
-
         item_was_destroyed(item);
         destroy_item(i);
         return true;
@@ -2135,7 +2184,7 @@ static bool _create_plant(coord_def& target, int hp_adjust = 0)
 
 #define SUNLIGHT_DURATION 80
 
-bool fedhas_sunlight()
+spret_type fedhas_sunlight(bool fail)
 {
     dist spelld;
 
@@ -2152,7 +2201,9 @@ bool fedhas_sunlight()
     direction(spelld, args);
 
     if (!spelld.isValid)
-        return false;
+        return SPRET_ABORT;
+
+    fail_check();
 
     const coord_def base = spelld.target;
 
@@ -2205,7 +2256,7 @@ bool fedhas_sunlight()
              "an invisible shape" : "some invisible shapes");
     }
 
-    return true;
+    return SPRET_SUCCESS;
 }
 
 void process_sunlights(bool future)
@@ -2442,8 +2493,11 @@ static bool _prompt_amount(int max, int& selected, const string& prompt)
         }
 
         // Default is max
-        if (keyin == '\n'  || keyin == '\r')
+        if (keyin == '\n' || keyin == '\r')
+        {
+            selected = max;
             return true;
+        }
 
         // Otherwise they should enter a digit
         if (isadigit(keyin))
@@ -2455,7 +2509,7 @@ static bool _prompt_amount(int max, int& selected, const string& prompt)
         // else they entered some garbage?
     }
 
-    return max;
+    return false;
 }
 
 static int _collect_fruit(vector<pair<int,int> >& available_fruit)
@@ -2724,16 +2778,12 @@ int count_corpses_in_los(vector<stack_iterator> *positions)
     return count;
 }
 
-// Destroy corpses in the player's LOS (first corpse on a stack only)
-// and make 1 giant spore per corpse.  Spores are given the input as
-// their starting behavior; the function returns the number of corpses
-// processed.
-int fedhas_corpse_spores(beh_type attitude, bool interactive)
+int fedhas_check_corpse_spores(bool quiet)
 {
     vector<stack_iterator> positions;
     int count = count_corpses_in_los(&positions);
 
-    if (count == 0)
+    if (quiet || count == 0)
         return count;
 
     viewwindow(false);
@@ -2754,12 +2804,27 @@ int fedhas_corpse_spores(beh_type attitude, bool interactive)
 #endif
     }
 
-    if (interactive && yesnoquit("Will you create these spores?",
-                                 true, 'y') <= 0)
+    if (yesnoquit("Will you create these spores?", true, 'y') <= 0)
     {
         viewwindow(false);
         return -1;
     }
+
+    return count;
+}
+
+// Destroy corpses in the player's LOS (first corpse on a stack only)
+// and make 1 giant spore per corpse.  Spores are given the input as
+// their starting behavior; the function returns the number of corpses
+// processed.
+int fedhas_corpse_spores(beh_type attitude)
+{
+    vector<stack_iterator> positions;
+    int count = count_corpses_in_los(&positions);
+    ASSERT(attitude != BEH_FRIENDLY || count > 0);
+
+    if (count == 0)
+        return count;
 
     for (unsigned i = 0; i < positions.size(); ++i)
     {
@@ -2893,7 +2958,9 @@ static bool _place_ballisto(const coord_def& pos)
     return false;
 }
 
-bool fedhas_evolve_flora()
+#define FEDHAS_EVOLVE_TARGET_KEY "fedhas_evolve_target"
+
+bool fedhas_check_evolve_flora(bool quiet)
 {
     monster_conversion upgrade;
 
@@ -2914,9 +2981,13 @@ bool fedhas_evolve_flora()
 
     if (!in_range)
     {
-        mpr("No evolvable flora in sight.");
+        if (!quiet)
+            mpr("No evolvable flora in sight.");
         return false;
     }
+
+    if (quiet) // just checking if there's something we can evolve here
+        return true;
 
     dist spelld;
 
@@ -2953,8 +3024,8 @@ bool fedhas_evolve_flora()
                 mpr("You must target a plant or fungus.");
             return false;
         }
-        return _place_ballisto(spelld.target);
-
+        you.props[FEDHAS_EVOLVE_TARGET_KEY].get_coord() = spelld.target;
+        return true;
     }
 
     if (!_possible_evolution(plant, upgrade))
@@ -2989,6 +3060,27 @@ bool fedhas_evolve_flora()
         mpr("Not enough piety available.");
         return false;
     }
+
+    you.props[FEDHAS_EVOLVE_TARGET_KEY].get_coord() = spelld.target;
+    return true;
+}
+
+void fedhas_evolve_flora()
+{
+    monster_conversion upgrade;
+    const coord_def target = you.props[FEDHAS_EVOLVE_TARGET_KEY].get_coord();
+    you.props.erase(FEDHAS_EVOLVE_TARGET_KEY);
+
+    monster* const plant = monster_at(target);
+
+    if (!plant)
+    {
+        ASSERT(is_moldy(target));
+        _place_ballisto(target);
+        return;
+    }
+
+    ASSERT(_possible_evolution(plant, upgrade));
 
     switch (plant->type)
     {
@@ -3050,18 +3142,21 @@ bool fedhas_evolve_flora()
     if (plant->type == MONS_HYPERACTIVE_BALLISTOMYCETE)
         plant->add_ench(ENCH_EXPLODING);
 
-    plant->hit_dice += you.skill_rdiv(SK_INVOCATIONS);
+    plant->set_hit_dice(plant->get_experience_level()
+                        + you.skill_rdiv(SK_INVOCATIONS));
 
     if (upgrade.fruit_cost)
+    {
+        vector<pair<int, int> > collected_fruit;
+        _collect_fruit(collected_fruit);
         _decrease_amount(collected_fruit, upgrade.fruit_cost);
+    }
 
     if (upgrade.piety_cost)
     {
         lose_piety(upgrade.piety_cost);
         mpr("Your piety has decreased.");
     }
-
-    return true;
 }
 
 static int _lugonu_warp_monster(monster* mon, int pow)
@@ -3125,7 +3220,8 @@ void cheibriados_time_bend(int pow)
         monster* mon = monster_at(*ai);
         if (mon && !mon->is_stationary())
         {
-            int res_margin = roll_dice(mon->hit_dice, 3) - random2avg(pow, 2);
+            int res_margin = roll_dice(mon->get_hit_dice(), 3)
+                             - random2avg(pow, 2);
             if (res_margin > 0)
             {
                 mprf("%s%s",
@@ -3190,7 +3286,7 @@ bool cheibriados_slouch(int pow)
         }
 
     targetter_los hitfunc(&you, LOS_DEFAULT);
-    if (stop_attack_prompt(hitfunc, "hurt", _act_slouchable))
+    if (stop_attack_prompt(hitfunc, "harm", _act_slouchable))
         return false;
 
     mpr("You can feel time thicken for a moment.");
@@ -3400,7 +3496,7 @@ void spare_beogh_convert()
          wit != witnesses.end(); ++wit)
     {
         monster *orc = monster_by_mid(*wit);
-        if (!orc && !orc->alive())
+        if (!orc || !orc->alive())
             continue;
 
         ++witc;
@@ -3533,7 +3629,6 @@ monster* shadow_monster(bool equip)
         return NULL;
 
     int wpn_index  = NON_ITEM;
-    int ammo_index = NON_ITEM;
 
     // Do a basic clone of the weapon.
     item_def* wpn = you.weapon();
@@ -3566,24 +3661,6 @@ monster* shadow_monster(bool equip)
         new_item.quantity = 1;
         new_item.flags   |= ISFLAG_SUMMONED;
     }
-    const int missile = you.m_quiver->get_fire_item();
-    if (equip && missile != -1)
-    {
-        ammo_index = get_mitm_slot(10);
-        if (ammo_index == NON_ITEM)
-        {
-            if (wpn_index != NON_ITEM)
-                destroy_item(wpn_index);
-            return NULL;
-        }
-        item_def& new_item = mitm[ammo_index];
-        item_def *ammo     = &you.inv[missile];
-        new_item.base_type = ammo->base_type;
-        new_item.sub_type  = ammo->sub_type;
-        new_item.colour    = ammo->colour;
-        new_item.quantity  = 1;
-        new_item.flags    |= ISFLAG_SUMMONED;
-    }
 
     monster* mon = get_free_monster();
     if (!mon)
@@ -3600,15 +3677,15 @@ monster* shadow_monster(bool equip)
                     | MF_WAS_IN_VIEW | MF_HARD_RESET
                     | MF_ACTUAL_SPELLS;
     mon->hit_points = you.hp;
-    mon->hit_dice   = min(27, max(1,
+    mon->set_hit_dice(min(27, max(1,
                                   you.skill_rdiv(wpn_index != NON_ITEM
-                                                 ? weapon_skill(mitm[wpn_index])
+                                                 ? melee_skill(mitm[wpn_index])
                                                  : SK_UNARMED_COMBAT, 10, 20)
-                                  + you.skill_rdiv(SK_FIGHTING, 10, 20)));
+                                  + you.skill_rdiv(SK_FIGHTING, 10, 20))));
     mon->set_position(you.pos());
     mon->mid        = MID_PLAYER;
     mon->inv[MSLOT_WEAPON]  = wpn_index;
-    mon->inv[MSLOT_MISSILE] = ammo_index;
+    mon->inv[MSLOT_MISSILE] = NON_ITEM;
 
     mgrd(you.pos()) = mon->mindex();
 
@@ -3625,10 +3702,29 @@ void shadow_monster_reset(monster *mon)
     mon->reset();
 }
 
+/**
+ * Check if the player is in melee range of the target.
+ *
+ * Certain effects, e.g. distortion blink, can cause monsters to leave melee
+ * range between the initial hit & the shadow mimic.
+ *
+ * XXX: refactor this with attack/fight code!
+ *
+ * @param target    The creature to be struck.
+ * @return          Whether the player is melee range of the target, using
+ *                  their current weapon.
+ */
+static bool _in_melee_range(actor* target)
+{
+    const int dist = (you.pos() - target->pos()).abs();
+    return dist < 2 || (dist <= 2 && you.reach_range() != REACH_NONE);
+}
+
 void dithmenos_shadow_melee(actor* target)
 {
     if (!target
         || !target->alive()
+        || !_in_melee_range(target)
         || !_dithmenos_shadow_acts())
     {
         return;
@@ -3646,7 +3742,7 @@ void dithmenos_shadow_melee(actor* target)
     shadow_monster_reset(mon);
 }
 
-void dithmenos_shadow_throw(coord_def target)
+void dithmenos_shadow_throw(coord_def target, const item_def &item)
 {
     if (target.origin()
         || !_dithmenos_shadow_acts())
@@ -3658,8 +3754,17 @@ void dithmenos_shadow_throw(coord_def target)
     if (!mon)
         return;
 
-    if (mon->inv[MSLOT_MISSILE] != NON_ITEM)
+    int ammo_index = get_mitm_slot(10);
+    if (ammo_index != NON_ITEM)
     {
+        item_def& new_item = mitm[ammo_index];
+        new_item.base_type = item.base_type;
+        new_item.sub_type  = item.sub_type;
+        new_item.colour    = item.colour;
+        new_item.quantity  = 1;
+        new_item.flags    |= ISFLAG_SUMMONED;
+        mon->inv[MSLOT_MISSILE] = ammo_index;
+
         mon->target = target;
 
         bolt beem;
@@ -3689,9 +3794,9 @@ void dithmenos_shadow_spell(bolt* orig_beam, spell_type spell)
         return;
 
     // Don't let shadow spells get too powerful.
-    mon->hit_dice = max(1,
-                        min(3 * spell_difficulty(spell),
-                            you.experience_level) / 2);
+    mon->set_hit_dice(max(1,
+                          min(3 * spell_difficulty(spell),
+                              you.experience_level) / 2));
 
     mon->target = target;
     if (actor_at(target))
@@ -3711,4 +3816,1086 @@ void dithmenos_shadow_spell(bolt* orig_beam, spell_type spell)
     mons_cast(mon, beem, shadow_spell, false, false);
 
     shadow_monster_reset(mon);
+}
+
+static potion_type _gozag_potion_list[][4] =
+{
+    { POT_HEAL_WOUNDS, NUM_POTIONS, NUM_POTIONS, NUM_POTIONS },
+    { POT_HEAL_WOUNDS, POT_CURING, NUM_POTIONS, NUM_POTIONS },
+    { POT_HEAL_WOUNDS, POT_MAGIC, NUM_POTIONS, NUM_POTIONS, },
+    { POT_CURING, POT_MAGIC, NUM_POTIONS, NUM_POTIONS },
+    { POT_HEAL_WOUNDS, POT_BERSERK_RAGE, NUM_POTIONS, NUM_POTIONS },
+    { POT_HASTE, POT_HEAL_WOUNDS, NUM_POTIONS, NUM_POTIONS },
+    { POT_HASTE, POT_BRILLIANCE, NUM_POTIONS, NUM_POTIONS },
+    { POT_HASTE, POT_AGILITY, NUM_POTIONS, NUM_POTIONS },
+    { POT_MIGHT, POT_AGILITY, NUM_POTIONS, NUM_POTIONS },
+    { POT_HASTE, POT_FLIGHT, NUM_POTIONS, NUM_POTIONS },
+    { POT_HASTE, POT_RESISTANCE, NUM_POTIONS, NUM_POTIONS },
+    { POT_RESISTANCE, POT_AGILITY, NUM_POTIONS, NUM_POTIONS },
+    { POT_RESISTANCE, POT_FLIGHT, NUM_POTIONS, NUM_POTIONS },
+    { POT_INVISIBILITY, POT_AGILITY, NUM_POTIONS , NUM_POTIONS },
+    { POT_HEAL_WOUNDS, POT_CURING, POT_MAGIC, NUM_POTIONS },
+    { POT_HEAL_WOUNDS, POT_CURING, POT_BERSERK_RAGE, NUM_POTIONS },
+    { POT_HEAL_WOUNDS, POT_HASTE, POT_AGILITY, NUM_POTIONS },
+    { POT_MIGHT, POT_AGILITY, POT_BRILLIANCE, NUM_POTIONS },
+    { POT_HASTE, POT_AGILITY, POT_FLIGHT, NUM_POTIONS },
+    { POT_FLIGHT, POT_AGILITY, POT_INVISIBILITY, NUM_POTIONS },
+    { POT_RESISTANCE, POT_MIGHT, POT_AGILITY, NUM_POTIONS },
+    { POT_RESISTANCE, POT_MIGHT, POT_HASTE, NUM_POTIONS },
+    { POT_RESISTANCE, POT_INVISIBILITY, POT_AGILITY, NUM_POTIONS },
+};
+
+static void _gozag_add_potions(CrawlVector &vec, potion_type *which)
+{
+    for (; *which != NUM_POTIONS; which++)
+    {
+        bool dup = false;
+        for (unsigned int i = 0; i < vec.size(); i++)
+            if (vec[i].get_int() == *which)
+            {
+                dup = true;
+                break;
+            }
+        if (!dup)
+            vec.push_back(*which);
+    }
+}
+
+#define ADD_POTIONS(a,b) _gozag_add_potions(a, b[random2(ARRAYSZ(b))])
+
+static void _gozag_add_bad_potion(CrawlVector &vec)
+{
+    const potion_type what = random_choose_weighted(20, POT_CONFUSION,
+                                                    10, POT_DECAY,
+                                                    10, POT_LIGNIFY,
+                                                     5, POT_DEGENERATION,
+                                                     2, POT_POISON,
+                                                     0);
+    vec.push_back(what);
+}
+
+static int _gozag_faith_adjusted_price(int price)
+{
+    return price - (you.faith() * price)/3;
+}
+
+int gozag_porridge_price()
+{
+    int multiplier = GOZAG_POTION_BASE_MULTIPLIER
+                     + you.attribute[ATTR_GOZAG_POTIONS];
+    multiplier *= 4;
+    // These two potions currently have the same price, but just in case...
+    potion_type porridge_type = you.species == SP_VAMPIRE
+                                || player_mutation_level(MUT_CARNIVOROUS) == 3
+                                ? POT_BLOOD
+                                : POT_PORRIDGE;
+    item_def dummy;
+    dummy.base_type = OBJ_POTIONS;
+    dummy.sub_type = porridge_type;
+    dummy.quantity = 1;
+    int price = multiplier * item_value(dummy, true) / 10;
+    return _gozag_faith_adjusted_price(price);
+}
+
+bool gozag_setup_potion_petition(bool quiet)
+{
+    const int gold_min = gozag_porridge_price();
+    if (you.gold < gold_min)
+    {
+        if (!quiet)
+        {
+            mprf("You need at least %d gold to purchase potions right now!",
+                 gold_min);
+        }
+        return false;
+    }
+
+    return true;
+}
+
+bool gozag_potion_petition()
+{
+    CrawlVector *pots[4];
+    int prices[4];
+
+    item_def dummy;
+    dummy.base_type = OBJ_POTIONS;
+    dummy.quantity = 1;
+
+    if (!you.props.exists(make_stringf(GOZAG_POTIONS_KEY, 0)))
+    {
+        for (int i = 0; i < GOZAG_MAX_POTIONS; i++)
+        {
+            prices[i] = 0;
+            int multiplier = GOZAG_POTION_BASE_MULTIPLIER
+                             + you.attribute[ATTR_GOZAG_POTIONS];
+            string key = make_stringf(GOZAG_POTIONS_KEY, i);
+            you.props[key].new_vector(SV_INT, SFLAG_CONST_TYPE);
+            pots[i] = &you.props[key].get_vector();
+            if (i == GOZAG_MAX_POTIONS - 1)
+            {
+                if (you.species == SP_VAMPIRE
+                    || player_mutation_level(MUT_CARNIVOROUS) == 3)
+                {
+                    for (int j = 0; j < 4; j++)
+                        pots[i]->push_back(POT_BLOOD);
+                }
+                else
+                {
+                    pots[i]->push_back(POT_PORRIDGE);
+                    multiplier *= 4; // ouch
+                }
+            }
+            else
+            {
+                ADD_POTIONS(*pots[i], _gozag_potion_list);
+                if (coinflip())
+                    ADD_POTIONS(*pots[i], _gozag_potion_list);
+                if (coinflip())
+                {
+                    _gozag_add_bad_potion(*pots[i]);
+                    multiplier -= 5;
+                }
+            }
+
+            for (int j = 0; j < pots[i]->size(); j++)
+            {
+                dummy.sub_type = (*pots[i])[j].get_int();
+                prices[i] += item_value(dummy, true);
+                dprf("%d", item_value(dummy, true));
+            }
+            dprf("pre: %d", prices[i]);
+            prices[i] *= multiplier;
+            dprf("mid: %d", prices[i]);
+            prices[i] /= 10;
+            dprf("post: %d", prices[i]);
+            key = make_stringf(GOZAG_PRICE_KEY, i);
+            you.props[key].get_int() = prices[i];
+        }
+    }
+    else
+    {
+        for (int i = 0; i < GOZAG_MAX_POTIONS; i++)
+        {
+            string key = make_stringf(GOZAG_POTIONS_KEY, i);
+            pots[i] = &you.props[key].get_vector();
+            key = make_stringf(GOZAG_PRICE_KEY, i);
+            prices[i] = you.props[key].get_int();
+        }
+    }
+
+    int keyin = 0;
+    int faith_price = 0;
+
+    while (true)
+    {
+        if (crawl_state.seen_hups)
+            return false;
+
+        clear_messages();
+        for (int i = 0; i < GOZAG_MAX_POTIONS; i++)
+        {
+            faith_price = _gozag_faith_adjusted_price(prices[i]);
+            string line = make_stringf("  [%c] - %d gold - ", i + 'a',
+                                       faith_price);
+            vector<string> pot_names;
+            for (int j = 0; j < pots[i]->size(); j++)
+                pot_names.push_back(potion_type_name((*pots[i])[j].get_int()));
+            line += comma_separated_line(pot_names.begin(), pot_names.end());
+            mpr_nojoin(MSGCH_PLAIN, line.c_str());
+        }
+        mprf(MSGCH_PROMPT, "Purchase which effect?");
+        keyin = toalower(get_ch()) - 'a';
+        if (keyin < 0 || keyin > GOZAG_MAX_POTIONS - 1)
+            continue;
+
+        faith_price = _gozag_faith_adjusted_price(prices[keyin]);
+        if (you.gold < faith_price)
+        {
+            mpr("You don't have enough gold for that!");
+            more();
+            continue;
+        }
+
+        break;
+    }
+
+    ASSERT(you.gold >= faith_price);
+    you.del_gold(faith_price);
+    you.attribute[ATTR_GOZAG_GOLD_USED] += faith_price;
+    for (int j = 0; j < pots[keyin]->size(); j++)
+    {
+        potion_effect(static_cast<potion_type>((*pots[keyin])[j].get_int()),
+                      40);
+    }
+
+    you.attribute[ATTR_GOZAG_POTIONS]++;
+
+    for (int i = 0; i < 4; i++)
+    {
+        string key = make_stringf(GOZAG_POTIONS_KEY, i);
+        you.props.erase(key);
+        key = make_stringf(GOZAG_PRICE_KEY, i);
+        you.props.erase(key);
+    }
+
+    return true;
+}
+
+static bool _duplicate_shop_type(int cur, shop_type type)
+{
+    for (int i = 0; i < cur; i++)
+        if (you.props[make_stringf(GOZAG_SHOP_TYPE_KEY, i)].get_int() == type)
+            return true;
+
+    return false;
+}
+
+/**
+ * The price to order a merchant from Gozag. Doesn't depend on the shop's
+ * type or contents. The maximum possible price is used as the minimum amount
+ * of gold you need to use the ability.
+ */
+int gozag_price_for_shop(bool max)
+{
+    // This value probably needs tweaking.
+    const int base = max ? 1000 : random_range(500, 1000);
+    const int price = base
+                      * (GOZAG_SHOP_BASE_MULTIPLIER
+                         + GOZAG_SHOP_MOD_MULTIPLIER
+                           * you.attribute[ATTR_GOZAG_SHOPS])
+                      / GOZAG_SHOP_BASE_MULTIPLIER;
+    return max ? _gozag_faith_adjusted_price(price) : price;
+}
+
+static vector<level_id> _get_gozag_shop_candidates(int *max_absdepth)
+{
+    vector<level_id> candidates;
+
+    branch_type allowed_branches[3] = {BRANCH_DUNGEON, BRANCH_VAULTS, BRANCH_DEPTHS};
+    for (int ii = 0; ii < 3; ii++)
+    {
+        branch_type i = allowed_branches[ii];
+
+        level_id lid(i, brdepth[i]);
+
+        // Base shop level number on the deepest we can place a shop
+        // in the given game; this is constant for as long as we can place
+        // shops and is intended to prevent scummy behaviour.
+        if (max_absdepth)
+        {
+            const int absdepth = branches[i].absdepth + brdepth[i] - 1;
+            if (absdepth > *max_absdepth)
+                *max_absdepth = absdepth;
+        }
+
+        for (int j = 1; j <= brdepth[i] && candidates.size() < 4; j++)
+        {
+            // Don't try to place shops on Vaults:$, since they'll be totally
+            // insignificant next to the regular loot/shops
+            if (i == BRANCH_VAULTS && j == brdepth[i])
+                continue;
+            lid.depth = j;
+            if (!is_existing_level(lid)
+                && !you.props.exists(make_stringf(GOZAG_SHOP_KEY,
+                                                  lid.describe().c_str())))
+            {
+                candidates.push_back(lid);
+            }
+        }
+    }
+
+    return candidates;
+}
+
+bool gozag_setup_call_merchant(bool quiet)
+{
+    const int gold_min = gozag_price_for_shop(true);
+    if (you.gold < gold_min)
+    {
+        if (!quiet)
+        {
+            mprf("You currently need %d gold to open negotiations with a "
+                 "merchant.", gold_min);
+        }
+        return false;
+    }
+
+    int max_absdepth = 0;
+    vector<level_id> candidates = _get_gozag_shop_candidates(&max_absdepth);
+
+    if (!candidates.size())
+    {
+        const map_def *shop_vault = find_map_by_name("serial_shops"); // XXX
+        if (!shop_vault)
+            die("Someone changed the shop vault name!");
+        if (!shop_vault->depths.is_usable_in(level_id::current()))
+        {
+            if (!quiet)
+            {
+                mprf("No merchants are willing to come to this level in the "
+                     "absence of new frontiers.");
+                return false;
+            }
+        }
+        if (grd(you.pos()) != DNGN_FLOOR)
+        {
+            if (!quiet)
+            {
+                mprf("You need to be standing on an open floor tile to call a "
+                     "shop here.");
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+bool gozag_call_merchant()
+{
+    int max_absdepth = 0;
+    vector<level_id> candidates = _get_gozag_shop_candidates(&max_absdepth);
+
+    // Set up some dummy shops.
+    // Generate some shop inventory and store it as a store spec.
+    // We still set up the shops in advance in case of hups.
+    if (!you.props.exists(make_stringf(GOZAG_SHOPKEEPER_NAME_KEY, 0)))
+    {
+        for (int i = 0; i < GOZAG_MAX_SHOPS; i++)
+        {
+            shop_type type = NUM_SHOPS;
+            do
+                type = static_cast<shop_type>(random2(NUM_SHOPS));
+            while (_duplicate_shop_type(i, type));
+            you.props[make_stringf(GOZAG_SHOPKEEPER_NAME_KEY, i)].get_string()
+                = make_name(random_int(), false);
+            you.props[make_stringf(GOZAG_SHOP_TYPE_KEY, i)].get_int()
+                = type;
+            you.props[make_stringf(GOZAG_SHOP_SUFFIX_KEY, i)].get_string()
+                = (type == SHOP_GENERAL
+                   || type == SHOP_GENERAL_ANTIQUE
+                   || type == SHOP_DISTILLERY)
+                   ? ""
+                   : random_choose("Shoppe", "Boutique",
+                                   "Emporium", "Shop", NULL);
+
+            you.props[make_stringf(GOZAG_SHOP_COST_KEY, i)].get_int()
+                = gozag_price_for_shop();
+        }
+    }
+
+    int i = 0;
+    int cost = 0;
+    int faith_cost = 0;
+    while (true)
+    {
+        if (crawl_state.seen_hups)
+            return false;
+
+        clear_messages();
+        for (i = 0; i < GOZAG_MAX_SHOPS; i++)
+        {
+            cost = you.props[make_stringf(GOZAG_SHOP_COST_KEY, i)].get_int();
+            faith_cost = _gozag_faith_adjusted_price(cost);
+            string line =
+                make_stringf("  [%c] %5d gold - %s %s %s",
+                             'a' + i,
+                             faith_cost,
+                             apostrophise(
+                                 you.props[
+                                     make_stringf(GOZAG_SHOPKEEPER_NAME_KEY,
+                                     i)].get_string()).c_str(),
+                             shop_type_name(
+                                 static_cast<shop_type>(
+                                     you.props[
+                                         make_stringf(GOZAG_SHOP_TYPE_KEY, i)]
+                                         .get_int())).c_str(),
+                             you.props[make_stringf(GOZAG_SHOP_SUFFIX_KEY, i)]
+                                 .get_string().c_str());
+            mpr_nojoin(MSGCH_PLAIN, line.c_str());
+        }
+        mprf(MSGCH_PROMPT, "Fund which merchant?");
+        i = toalower(get_ch()) - 'a';
+        if (i < 0 || i > GOZAG_MAX_SHOPS - 1)
+            continue;
+        cost = you.props[make_stringf(GOZAG_SHOP_COST_KEY, i)].get_int();
+        faith_cost = _gozag_faith_adjusted_price(cost);
+        if (you.gold < faith_cost)
+        {
+            mpr("You don't have enough gold to fund that merchant!");
+            more();
+            continue;
+        }
+
+        break;
+    }
+
+    ASSERT(you.gold >= faith_cost);
+
+    you.del_gold(faith_cost);
+    you.attribute[ATTR_GOZAG_GOLD_USED] += faith_cost;
+
+    const shop_type type =
+        static_cast<shop_type>(
+            you.props[make_stringf(GOZAG_SHOP_TYPE_KEY, i)].get_int());
+    const string name =
+        you.props[make_stringf(GOZAG_SHOPKEEPER_NAME_KEY, i)];
+
+    string suffix = replace_all(
+                         you.props[make_stringf(GOZAG_SHOP_SUFFIX_KEY, i)]
+                             .get_string(), " ", "_");
+    if (!suffix.empty())
+        suffix = " suffix:" + suffix;
+
+    string spec =
+        make_stringf("%s shop name:%s%s",
+                     shoptype_to_str(type),
+                     replace_all(name, " ", "_").c_str(),
+                     suffix.c_str());
+
+    if (candidates.size())
+    {
+        vector<int> weights;
+        for (unsigned int j = 0; j < candidates.size(); j++)
+            weights.push_back(candidates.size() - j);
+        const int which =
+            choose_random_weighted(weights.begin(), weights.end());
+        level_id lid = candidates[which];
+        you.props[make_stringf(GOZAG_SHOP_KEY, lid.describe().c_str())]
+            .get_string() = spec;
+
+        mprf(MSGCH_GOD, "%s sets up shop in %s.", name.c_str(),
+             branches[lid.branch].longname);
+        dprf("%s", lid.describe().c_str());
+
+        mark_offlevel_shop(lid, type);
+    }
+    else
+    {
+        ASSERT(grd(you.pos()) == DNGN_FLOOR);
+        keyed_mapspec kmspec;
+        kmspec.set_feat(spec, false);
+        if (!kmspec.get_feat().shop.get())
+            die("Invalid shop spec?");
+
+        place_spec_shop(you.pos(), kmspec.get_feat().shop.get());
+        link_items();
+        env.markers.add(new map_feature_marker(you.pos(),
+                                               DNGN_ABANDONED_SHOP));
+        env.markers.clear_need_activate();
+
+        mprf(MSGCH_GOD, "A shop appears before you!");
+    }
+
+    you.attribute[ATTR_GOZAG_SHOPS]++;
+    you.attribute[ATTR_GOZAG_SHOPS_CURRENT]++;
+
+    for (int j = 0; j < 3; j++)
+    {
+        you.props.erase(make_stringf(GOZAG_SHOPKEEPER_NAME_KEY, j));
+        you.props.erase(make_stringf(GOZAG_SHOP_TYPE_KEY, j));
+        you.props.erase(make_stringf(GOZAG_SHOP_SUFFIX_KEY, j));
+        you.props.erase(make_stringf(GOZAG_SHOP_COST_KEY, j));
+    }
+
+    return true;
+}
+
+typedef struct
+{
+    monster_type type;
+    branch_type  branch;
+    int          susceptibility;
+} bribability;
+
+bribability mons_bribability[] =
+{
+    // Orcs
+    { MONS_ORC,             BRANCH_ORC, 1 },
+    { MONS_ORC_PRIEST,      BRANCH_ORC, 2 },
+    { MONS_ORC_WIZARD,      BRANCH_ORC, 2 },
+    { MONS_ORC_WARRIOR,     BRANCH_ORC, 3 },
+    { MONS_ORC_KNIGHT,      BRANCH_ORC, 4 },
+    { MONS_ORC_SORCERER,    BRANCH_ORC, 4 },
+    { MONS_ORC_HIGH_PRIEST, BRANCH_ORC, 4 },
+    { MONS_ORC_WARLORD,     BRANCH_ORC, 5 },
+
+    // Elves
+    { MONS_DEEP_ELF_FIGHTER,       BRANCH_ELF, 1 },
+    { MONS_DEEP_ELF_MAGE,          BRANCH_ELF, 1 },
+    { MONS_DEEP_ELF_SUMMONER,      BRANCH_ELF, 2 },
+    { MONS_DEEP_ELF_CONJURER,      BRANCH_ELF, 2 },
+    { MONS_DEEP_ELF_PRIEST,        BRANCH_ELF, 2 },
+    { MONS_DEEP_ELF_KNIGHT,        BRANCH_ELF, 3 },
+    { MONS_DEEP_ELF_HIGH_PRIEST,   BRANCH_ELF, 4 },
+    { MONS_DEEP_ELF_DEMONOLOGIST,  BRANCH_ELF, 4 },
+    { MONS_DEEP_ELF_ANNIHILATOR,   BRANCH_ELF, 4 },
+    { MONS_DEEP_ELF_SORCERER,      BRANCH_ELF, 4 },
+    { MONS_DEEP_ELF_DEATH_MAGE,    BRANCH_ELF, 4 },
+    { MONS_DEEP_ELF_BLADEMASTER,   BRANCH_ELF, 4 },
+    { MONS_DEEP_ELF_MASTER_ARCHER, BRANCH_ELF, 4 },
+
+    // Nagas and salamanders
+    { MONS_NAGA,                 BRANCH_SNAKE, 1 },
+    { MONS_SALAMANDER,           BRANCH_SNAKE, 1 },
+    { MONS_NAGA_MAGE,            BRANCH_SNAKE, 2 },
+    { MONS_NAGA_SHARPSHOOTER,    BRANCH_SNAKE, 2 },
+    { MONS_NAGA_RITUALIST,       BRANCH_SNAKE, 2 },
+    { MONS_SALAMANDER_MYSTIC,    BRANCH_SNAKE, 2 },
+    { MONS_NAGA_WARRIOR,         BRANCH_SNAKE, 3 },
+    { MONS_GREATER_NAGA,         BRANCH_SNAKE, 4 },
+    { MONS_SALAMANDER_FIREBRAND, BRANCH_SNAKE, 4 },
+
+    { MONS_MERFOLK,            BRANCH_SHOALS, 1 },
+    { MONS_MERMAID,            BRANCH_SHOALS, 1 },
+    { MONS_SIREN,              BRANCH_SHOALS, 2 },
+    { MONS_MERFOLK_IMPALER,    BRANCH_SHOALS, 3 },
+    { MONS_MERFOLK_JAVELINEER, BRANCH_SHOALS, 3 },
+    { MONS_MERFOLK_AQUAMANCER, BRANCH_SHOALS, 4 },
+
+    // Humans
+    { MONS_HUMAN,               BRANCH_VAULTS, 1 },
+    { MONS_WIZARD,              BRANCH_VAULTS, 2 },
+    { MONS_NECROMANCER,         BRANCH_VAULTS, 2 },
+    { MONS_HELL_KNIGHT,         BRANCH_VAULTS, 3 },
+    { MONS_VAULT_GUARD,         BRANCH_VAULTS, 3 },
+    { MONS_VAULT_SENTINEL,      BRANCH_VAULTS, 3 },
+    { MONS_IRONBRAND_CONVOKER,  BRANCH_VAULTS, 3 },
+    { MONS_IRONHEART_PRESERVER, BRANCH_VAULTS, 3 },
+    { MONS_VAULT_WARDEN,        BRANCH_VAULTS, 4 },
+
+    // Draconians
+    { MONS_DRACONIAN,             BRANCH_ZOT, 1 },
+    { MONS_BLACK_DRACONIAN,       BRANCH_ZOT, 2 },
+    { MONS_MOTTLED_DRACONIAN,     BRANCH_ZOT, 2 },
+    { MONS_YELLOW_DRACONIAN,      BRANCH_ZOT, 2 },
+    { MONS_GREEN_DRACONIAN,       BRANCH_ZOT, 2 },
+    { MONS_PURPLE_DRACONIAN,      BRANCH_ZOT, 2 },
+    { MONS_RED_DRACONIAN,         BRANCH_ZOT, 2 },
+    { MONS_WHITE_DRACONIAN,       BRANCH_ZOT, 2 },
+    { MONS_GREY_DRACONIAN,        BRANCH_ZOT, 2 },
+    { MONS_PALE_DRACONIAN,        BRANCH_ZOT, 2 },
+    { MONS_DRACONIAN_CALLER,      BRANCH_ZOT, 3 },
+    { MONS_DRACONIAN_MONK,        BRANCH_ZOT, 3 },
+    { MONS_DRACONIAN_ZEALOT,      BRANCH_ZOT, 3 },
+    { MONS_DRACONIAN_SHIFTER,     BRANCH_ZOT, 3 },
+    { MONS_DRACONIAN_ANNIHILATOR, BRANCH_ZOT, 3 },
+    { MONS_DRACONIAN_KNIGHT,      BRANCH_ZOT, 3 },
+    { MONS_DRACONIAN_SCORCHER,    BRANCH_ZOT, 3 },
+
+    // Demons
+    { MONS_IRON_IMP,        BRANCH_DIS, 1 },
+    { MONS_IRON_DEVIL,      BRANCH_DIS, 2 },
+    { MONS_HELL_SENTINEL,   BRANCH_DIS, 5 },
+    { MONS_CRIMSON_IMP,     BRANCH_GEHENNA, 1 },
+    { MONS_RED_DEVIL,       BRANCH_GEHENNA, 2 },
+    { MONS_ORANGE_DEMON,    BRANCH_GEHENNA, 2 },
+    { MONS_SMOKE_DEMON,     BRANCH_GEHENNA, 3 },
+    { MONS_SUN_DEMON,       BRANCH_GEHENNA, 3 },
+    { MONS_HELLION,         BRANCH_GEHENNA, 4 },
+    { MONS_BALRUG,          BRANCH_GEHENNA, 4 },
+    { MONS_BRIMSTONE_FIEND, BRANCH_GEHENNA, 5 },
+    { MONS_WHITE_IMP,       BRANCH_COCYTUS, 1 },
+    { MONS_BLUE_DEVIL,      BRANCH_COCYTUS, 2 },
+    { MONS_ICE_DEVIL,       BRANCH_COCYTUS, 3 },
+    { MONS_BLIZZARD_DEMON,  BRANCH_COCYTUS, 4 },
+    { MONS_ICE_FIEND,       BRANCH_COCYTUS, 5 },
+    { MONS_SHADOW_IMP,      BRANCH_TARTARUS, 1 },
+    { MONS_HELLWING,        BRANCH_TARTARUS, 2 },
+    { MONS_SOUL_EATER,      BRANCH_TARTARUS, 3 },
+    { MONS_REAPER,          BRANCH_TARTARUS, 4 },
+    { MONS_SHADOW_DEMON,    BRANCH_TARTARUS, 4 },
+    { MONS_SHADOW_FIEND,    BRANCH_TARTARUS, 5 },
+};
+
+// An x-in-16 chance of a monster of the given type being bribed.
+// Tougher monsters have a stronger chance of being bribed.
+int gozag_type_bribable(monster_type type, bool force)
+{
+    if (!you_worship(GOD_GOZAG) && !force)
+        return 0;
+
+    for (unsigned int i = 0; i < ARRAYSZ(mons_bribability); i++)
+    {
+        if (mons_bribability[i].type == type)
+        {
+            return force || branch_bribe[mons_bribability[i].branch]
+                   ? mons_bribability[i].susceptibility
+                   : 0;
+        }
+    }
+
+    return 0;
+}
+
+branch_type gozag_bribable_branch(monster_type type)
+{
+
+    for (unsigned int i = 0; i < ARRAYSZ(mons_bribability); i++)
+    {
+        if (mons_bribability[i].type == type)
+            return mons_bribability[i].branch;
+    }
+
+    return NUM_BRANCHES;
+}
+
+bool gozag_branch_bribable(branch_type branch)
+{
+    for (unsigned int i = 0; i < ARRAYSZ(mons_bribability); i++)
+    {
+        if (mons_bribability[i].branch == branch)
+            return true;
+    }
+
+    return false;
+}
+
+int gozag_branch_bribe_susceptibility(branch_type branch)
+{
+    int susceptibility = 0;
+    for (unsigned int i = 0; i < ARRAYSZ(mons_bribability); i++)
+    {
+        if (mons_bribability[i].branch == branch
+            && susceptibility < mons_bribability[i].susceptibility)
+        {
+            susceptibility = mons_bribability[i].susceptibility;
+        }
+    }
+
+    return susceptibility;
+}
+
+void gozag_deduct_bribe(branch_type br, int amount)
+{
+    if (branch_bribe[br] <= 0)
+        return;
+
+    branch_bribe[br] = max(0, branch_bribe[br] - amount);
+    if (branch_bribe[br] <= 0)
+    {
+        mprf(MSGCH_DURATION, "Your bribe of %s has been exhausted.",
+             branches[br].longname);
+        add_daction(DACT_BRIBE_TIMEOUT);
+    }
+}
+
+bool gozag_check_bribe_branch(bool quiet)
+{
+    const int bribe_amount = GOZAG_BRIBE_AMOUNT;
+    if (you.gold < bribe_amount)
+    {
+        if (!quiet)
+            mprf("You need at least %d gold to offer a bribe.", bribe_amount);
+        return false;
+    }
+    branch_type branch = you.where_are_you;
+    branch_type branch2 = NUM_BRANCHES;
+    if (feat_is_branch_stairs(grd(you.pos())))
+    {
+        for (branch_iterator it; it; ++it)
+            if (it->entry_stairs == grd(you.pos())
+                && gozag_branch_bribable(it->id))
+            {
+                branch2 = it->id;
+                break;
+            }
+    }
+    const string who = make_stringf("the denizens of %s",
+                                   branches[branch].longname);
+    const string who2 = branch2 != NUM_BRANCHES
+                        ? make_stringf("the denizens of %s",
+                                       branches[branch2].longname)
+                        : "";
+    if (!gozag_branch_bribable(branch)
+        && (branch2 == NUM_BRANCHES
+            || !gozag_branch_bribable(branch2)))
+    {
+        if (!quiet)
+        {
+            if (branch2 != NUM_BRANCHES)
+                mprf("You can't bribe %s or %s.", who.c_str(), who2.c_str());
+            else
+                mprf("You can't bribe %s.", who.c_str());
+        }
+        return false;
+    }
+    return true;
+}
+
+bool gozag_bribe_branch()
+{
+    const int bribe_amount = GOZAG_BRIBE_AMOUNT;
+    ASSERT(you.gold >= bribe_amount);
+    bool prompted = false;
+    branch_type branch = you.where_are_you;
+    if (feat_is_branch_stairs(grd(you.pos())))
+    {
+        for (branch_iterator it; it; ++it)
+            if (it->entry_stairs == grd(you.pos())
+                && gozag_branch_bribable(it->id))
+            {
+                string prompt =
+                    make_stringf("Do you want to bribe the denizens of %s?",
+                                 it->longname);
+                if (yesno(prompt.c_str(), true, 'n'))
+                {
+                    branch = it->id;
+                    prompted = true;
+                }
+                break;
+            }
+    }
+    string who = make_stringf("the denizens of %s",
+                              branches[branch].longname);
+    if (!gozag_branch_bribable(branch))
+    {
+        mprf("You can't bribe %s.", who.c_str());
+        return false;
+    }
+
+    string prompt =
+        make_stringf("Do you want to bribe the denizens of %s?",
+                     branches[branch].longname);
+
+    if (prompted || yesno(prompt.c_str(), true, 'n'))
+    {
+        you.del_gold(bribe_amount);
+        you.attribute[ATTR_GOZAG_GOLD_USED] += bribe_amount;
+        branch_bribe[branch] += bribe_amount;
+        string msg = make_stringf(" spreads your bribe to %s!",
+                                  branches[branch].longname);
+        simple_god_message(msg.c_str());
+        add_daction(DACT_SET_BRIBES);
+        return true;
+    }
+
+    canned_msg(MSG_OK);
+    return false;
+}
+
+spret_type qazlal_upheaval(coord_def target, bool quiet, bool fail)
+{
+    int pow = you.skill(SK_INVOCATIONS, 6);
+    const int max_radius = pow >= 100 ? 2 : 1;
+
+    bolt beam;
+    beam.name        = "****";
+    beam.beam_source = you.mindex();
+    beam.source_name = "you";
+    beam.thrower     = KILL_YOU;
+    beam.range       = LOS_RADIUS;
+    beam.damage      = calc_dice(3, 27 + div_rand_round(2 * pow, 5));
+    beam.hit         = AUTOMATIC_HIT;
+    beam.glyph       = dchar_glyph(DCHAR_EXPLOSION);
+    beam.loudness    = 10;
+#ifdef USE_TILE
+    beam.tile_beam = -1;
+#endif
+    beam.draw_delay  = 0;
+
+    if (target.origin())
+    {
+        dist spd;
+        targetter_smite tgt(&you, LOS_RADIUS, 0, max_radius);
+        if (!spell_direction(spd, beam, DIR_TARGET, TARG_HOSTILE,
+                             LOS_RADIUS, false, true, false, NULL,
+                             "Aiming: <white>Upheaval</white>", true,
+                             &tgt))
+        {
+            return SPRET_ABORT;
+        }
+        bolt tempbeam;
+        tempbeam.source    = beam.target;
+        tempbeam.target    = beam.target;
+        tempbeam.flavour   = BEAM_MISSILE;
+        tempbeam.ex_size   = max_radius;
+        tempbeam.hit       = AUTOMATIC_HIT;
+        tempbeam.damage    = dice_def(AUTOMATIC_HIT, 1);
+        tempbeam.thrower   = KILL_YOU;
+        tempbeam.is_tracer = true;
+        tempbeam.explode(false);
+        if (tempbeam.beam_cancelled)
+            return SPRET_ABORT;
+    }
+    else
+        beam.target = target;
+
+    fail_check();
+
+    string message = "";
+
+    switch (random2(4))
+    {
+        case 0:
+            beam.name     = "blast of magma";
+            beam.flavour  = BEAM_LAVA;
+            beam.colour   = RED;
+            beam.hit_verb = "engulfs";
+            message       = "Magma suddenly erupts from the ground!";
+            break;
+        case 1:
+            beam.name    = "blast of ice";
+            beam.flavour = BEAM_ICE;
+            beam.colour  = WHITE;
+            message      = "A blizzard blasts the area with ice!";
+            break;
+        case 2:
+            beam.name    = "cutting wind";
+            beam.flavour = BEAM_AIR;
+            beam.colour  = LIGHTGRAY;
+            message      = "A storm cloud blasts the area with cutting wind!";
+            break;
+        case 3:
+            beam.name    = "blast of rubble";
+            beam.flavour = BEAM_FRAG;
+            beam.colour  = BROWN;
+            message      = "The ground shakes violently, spewing rubble!";
+            break;
+        default:
+            break;
+    }
+
+    vector<coord_def> affected;
+    affected.push_back(beam.target);
+    for (radius_iterator ri(beam.target, max_radius, C_ROUND, LOS_SOLID, true);
+         ri; ++ri)
+    {
+        if (!in_bounds(*ri) || cell_is_solid(*ri))
+            continue;
+
+        int chance = pow;
+
+        bool adj = adjacent(beam.target, *ri);
+        if (!adj && max_radius > 1)
+            chance -= 100;
+        if (adj && max_radius > 1 || x_chance_in_y(chance, 100))
+        {
+            if (beam.flavour == BEAM_FRAG || !cell_is_solid(*ri))
+                affected.push_back(*ri);
+        }
+    }
+
+    for (unsigned int i = 0; i < affected.size(); i++)
+    {
+        beam.draw(affected[i]);
+        if (!quiet)
+            scaled_delay(25);
+    }
+    if (!quiet)
+    {
+        scaled_delay(100);
+        mprf(MSGCH_GOD, "%s", message.c_str());
+    }
+    else
+        scaled_delay(25);
+
+    int wall_count = 0;
+
+    for (unsigned int i = 0; i < affected.size(); i++)
+    {
+        coord_def pos = affected[i];
+        beam.source = pos;
+        beam.target = pos;
+        beam.fire();
+
+        switch (beam.flavour)
+        {
+            case BEAM_LAVA:
+                if (grd(pos) == DNGN_FLOOR && !actor_at(pos) && coinflip())
+                {
+                    temp_change_terrain(
+                        pos, DNGN_LAVA,
+                        random2(you.skill(SK_INVOCATIONS, BASELINE_DELAY)),
+                        TERRAIN_CHANGE_FLOOD);
+                }
+                break;
+            case BEAM_AIR:
+                if (!cell_is_solid(pos) && env.cgrid(pos) == EMPTY_CLOUD
+                    && coinflip())
+                {
+                    place_cloud(CLOUD_STORM, pos,
+                                random2(you.skill_rdiv(SK_INVOCATIONS, 1, 4)),
+                                &you);
+                }
+                break;
+            case BEAM_FRAG:
+                if (((grd(pos) == DNGN_ROCK_WALL
+                     || grd(pos) == DNGN_CLEAR_ROCK_WALL
+                     || grd(pos) == DNGN_SLIMY_WALL)
+                     && x_chance_in_y(pow / 4, 100)
+                    || grd(pos) == DNGN_CLOSED_DOOR
+                    || grd(pos) == DNGN_RUNED_DOOR
+                    || grd(pos) == DNGN_OPEN_DOOR
+                    || grd(pos) == DNGN_SEALED_DOOR
+                    || grd(pos) == DNGN_GRATE))
+                {
+                    noisy(30, pos);
+                    destroy_wall(pos);
+                    wall_count++;
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    if (wall_count && !quiet)
+        mpr("Ka-crash!");
+
+    return SPRET_SUCCESS;
+}
+
+void qazlal_elemental_force()
+{
+    vector<coord_def> targets;
+    for (radius_iterator ri(you.pos(), LOS_RADIUS, C_ROUND, true); ri; ++ri)
+    {
+        if (env.cgrid(*ri) != EMPTY_CLOUD)
+        {
+            switch (env.cloud[env.cgrid(*ri)].type)
+            {
+            case CLOUD_FIRE:
+            case CLOUD_COLD:
+            case CLOUD_BLACK_SMOKE:
+            case CLOUD_GREY_SMOKE:
+            case CLOUD_BLUE_SMOKE:
+            case CLOUD_PURPLE_SMOKE:
+            case CLOUD_FOREST_FIRE:
+            case CLOUD_PETRIFY:
+            case CLOUD_RAIN:
+            case CLOUD_DUST_TRAIL:
+            case CLOUD_STORM:
+                targets.push_back(*ri);
+                break;
+            default:
+                break;
+            }
+        }
+    }
+
+    if (targets.empty())
+    {
+        mpr("You can't see any clouds you can empower.");
+        return;
+    }
+
+    shuffle_array(targets);
+    const int count = max(1, min((int)targets.size(),
+                                 random2avg(you.skill(SK_INVOCATIONS), 2)));
+    mgen_data mg;
+    mg.summon_type = MON_SUMM_AID;
+    mg.abjuration_duration = 1;
+    mg.flags |= MG_FORCE_PLACE | MG_AUTOFOE;
+    int placed = 0;
+    for (unsigned int i = 0; placed < count && i < targets.size(); i++)
+    {
+        coord_def pos = targets[i];
+        const unsigned short cloud = env.cgrid(pos);
+        ASSERT(cloud != EMPTY_CLOUD);
+        cloud_struct &cl = env.cloud[cloud];
+        actor *agent = actor_by_mid(cl.source);
+        mg.behaviour = !agent             ? BEH_NEUTRAL :
+                       agent->is_player() ? BEH_FRIENDLY
+                                          : SAME_ATTITUDE(agent->as_monster());
+        mg.pos       = pos;
+        switch (cl.type)
+        {
+        case CLOUD_FIRE:
+        case CLOUD_FOREST_FIRE:
+            mg.cls = MONS_FIRE_ELEMENTAL;
+            break;
+        case CLOUD_COLD:
+        case CLOUD_RAIN:
+            mg.cls = MONS_WATER_ELEMENTAL; // maybe ice beasts for cold?
+            break;
+        case CLOUD_PETRIFY:
+        case CLOUD_DUST_TRAIL:
+            mg.cls = MONS_EARTH_ELEMENTAL;
+            break;
+        case CLOUD_BLACK_SMOKE:
+        case CLOUD_GREY_SMOKE:
+        case CLOUD_BLUE_SMOKE:
+        case CLOUD_PURPLE_SMOKE:
+        case CLOUD_STORM:
+            mg.cls = MONS_AIR_ELEMENTAL; // maybe sky beasts for storm?
+            break;
+        default:
+            continue;
+        }
+        if (!create_monster(mg))
+            continue;
+        delete_cloud(cloud);
+        placed++;
+    }
+
+    if (placed)
+        mprf(MSGCH_GOD, "Clouds arounds you coalesce and take form!");
+    else
+        canned_msg(MSG_NOTHING_HAPPENS); // can this ever happen?
+}
+
+bool qazlal_disaster_area()
+{
+    bool friendlies = false;
+    vector<coord_def> targets;
+    vector<int> weights;
+    for (radius_iterator ri(you.pos(), LOS_RADIUS, C_ROUND, LOS_NO_TRANS, true);
+         ri; ++ri)
+    {
+        if (!in_bounds(*ri) || cell_is_solid(*ri))
+            continue;
+
+        const monster_info* m = env.map_knowledge(*ri).monsterinfo();
+        if (m && mons_att_wont_attack(m->attitude)
+            && !mons_is_projectile(m->type))
+        {
+            friendlies = true;
+        }
+        const int dist = distance2(you.pos(), *ri);
+        if (dist <= 8)
+            continue;
+
+        targets.push_back(*ri);
+        weights.push_back(LOS_RADIUS_SQ - dist);
+    }
+
+    if (targets.empty())
+    {
+        mpr("There isn't enough space here!");
+        return false;
+    }
+
+    if (friendlies
+        && !yesno("There are friendlies around; are you sure you want to hurt "
+                  "them?", true, 'n'))
+    {
+        canned_msg(MSG_OK);
+        return false;
+    }
+
+    mprf(MSGCH_GOD, "Nature churns violently around you!");
+
+    int count = max(1, min((int)targets.size(),
+                            max(you.skill_rdiv(SK_INVOCATIONS, 1, 2),
+                                random2avg(you.skill(SK_INVOCATIONS, 2), 2))));
+    vector<coord_def> victims;
+    for (int i = 0; i < count; i++)
+    {
+        if (targets.size() == 0)
+            break;
+        int which = choose_random_weighted(weights.begin(), weights.end());
+        unsigned int j = 0;
+        for (; j < victims.size(); j++)
+            if (adjacent(targets[which], victims[j]))
+                break;
+        if (j == victims.size())
+            qazlal_upheaval(targets[which], true);
+        targets.erase(targets.begin() + which);
+        weights.erase(weights.begin() + which);
+    }
+    scaled_delay(100);
+
+    return true;
 }

@@ -38,8 +38,9 @@
 #include "mgen_data.h"
 #include "misc.h"
 #include "mon-behv.h"
+#include "mon-death.h"
 #include "mon-place.h"
-#include "mon-stuff.h"
+#include "mon-poly.h"
 #include "mon-util.h"
 #include "mutation.h"
 #include "notes.h"
@@ -50,6 +51,7 @@
 #include "player-equip.h"
 #include "player-stats.h"
 #include "potion.h"
+#include "prompt.h"
 #include "religion.h"
 #include "shout.h"
 #include "skills2.h"
@@ -57,12 +59,14 @@
 #include "spl-cast.h"
 #include "spl-goditem.h"
 #include "spl-miscast.h"
+#include "spl-monench.h"
 #include "spl-transloc.h"
 #include "spl-util.h"
 #include "stairs.h"
 #include "stash.h"
 #include "state.h"
-#include "stuff.h"
+#include "stepdown.h"
+#include "stringutil.h"
 #include "teleport.h"
 #include "terrain.h"
 #include "transform.h"
@@ -100,9 +104,8 @@ static const spell_type _xom_tension_spells[] =
 {
     SPELL_BLINK, SPELL_CONFUSING_TOUCH, SPELL_CAUSE_FEAR, SPELL_ENGLACIATION,
     SPELL_DISPERSAL, SPELL_STONESKIN, SPELL_RING_OF_FLAMES, SPELL_DISCORD,
-    SPELL_OLGREBS_TOXIC_RADIANCE, SPELL_FIRE_BRAND, SPELL_FREEZING_AURA,
-    SPELL_POISON_WEAPON, SPELL_LETHAL_INFUSION, SPELL_EXCRUCIATING_WOUNDS,
-    SPELL_WARP_BRAND, SPELL_TUKIMAS_DANCE, SPELL_SUMMON_BUTTERFLIES,
+    SPELL_OLGREBS_TOXIC_RADIANCE, SPELL_EXCRUCIATING_WOUNDS,
+    SPELL_WARP_BRAND, SPELL_SUMMON_BUTTERFLIES,
     SPELL_SUMMON_SMALL_MAMMAL, SPELL_SUMMON_SWARM,
     SPELL_BEASTLY_APPENDAGE, SPELL_SPIDER_FORM, SPELL_STATUE_FORM,
     SPELL_ICE_FORM, SPELL_DRAGON_FORM, SPELL_SHADOW_CREATURES,
@@ -344,7 +347,7 @@ void xom_tick()
         }
     }
 
-    if (you.faith() ? coinflip() : one_chance_in(3))
+    if (x_chance_in_y(2 + you.faith(), 6))
     {
         const int tension = get_tension(GOD_XOM);
         const int chance = (tension ==  0 ? 1 :
@@ -455,13 +458,6 @@ static bool _spell_weapon_check(const spell_type spell)
 {
     switch (spell)
     {
-    case SPELL_TUKIMAS_DANCE:
-        // Requires a wielded weapon.
-        return player_weapon_wielded() && !player_in_branch(BRANCH_ABYSS);
-    case SPELL_FIRE_BRAND:
-    case SPELL_FREEZING_AURA:
-    case SPELL_POISON_WEAPON:
-    case SPELL_LETHAL_INFUSION:
     case SPELL_EXCRUCIATING_WOUNDS:
     case SPELL_WARP_BRAND:
     {
@@ -731,7 +727,7 @@ static void _xom_make_item(object_class_type base, int subtype, int power)
 {
     god_acting gdact(GOD_XOM);
 
-    int thing_created = items(true, base, subtype, true, power, 0, 0, 0, GOD_XOM);
+    int thing_created = items(true, base, subtype, true, power, 0, 0, GOD_XOM);
 
     if (feat_destroys_item(grd(you.pos()), mitm[thing_created],
                            !silenced(you.pos())))
@@ -854,16 +850,12 @@ static bool _is_chaos_upgradeable(const item_def &item,
     if (is_blessed(item))
         return false;
 
-    // God gifts from good gods are protected.  Also, Beogh hates all
-    // the other gods, so he'll protect his gifts as well.
+    // God gifts are protected.
     if (item.orig_monnum < 0)
     {
         god_type iorig = static_cast<god_type>(-item.orig_monnum);
-        if (iorig > GOD_NO_GOD && iorig < NUM_GODS
-            && (is_good_god(iorig) || iorig == GOD_BEOGH))
-        {
+        if (iorig > GOD_NO_GOD && iorig < NUM_GODS)
             return false;
-        }
     }
 
     // Leave branded items alone, since this is supposed to be an
@@ -966,7 +958,7 @@ static bool _choose_chaos_upgrade(const monster* mon)
             // If the launcher alters its ammo, then branding the
             // monster's ammo won't be an upgrade.
             int brand = get_weapon_brand(item);
-            if (brand == SPWPN_FLAME || brand == SPWPN_FROST
+            if (brand == SPWPN_FLAMING || brand == SPWPN_FREEZING
                 || brand == SPWPN_VENOM)
             {
                 special_launcher = true;
@@ -1024,8 +1016,8 @@ static void _do_chaos_upgrade(item_def &item, const monster* mon)
             item.flags |= ISFLAG_GLOWING;
 
         // Make the pluses more like a randomly generated ego item.
-        item.plus  += random2(5);
-        item.plus2 += random2(5);
+        if (item.base_type == OBJ_WEAPONS)
+            item.plus  += random2(5);
     }
 }
 
@@ -1052,7 +1044,7 @@ static monster_type _xom_random_demon(int sever)
 static bool _player_is_dead(bool soon = true)
 {
     return you.hp <= 0
-        || is_feat_dangerous(grd(you.pos())) && !you.is_wall_clinging()
+        || is_feat_dangerous(grd(you.pos()))
         || you.did_escape_death()
         || soon && (you.strength() <= 0 || you.dex() <= 0 || you.intel() <= 0);
 }
@@ -1263,7 +1255,7 @@ static int _xom_polymorph_nearby_monster(bool helpful, bool debug = false)
             choose_random_nearby_monster(0, _choose_mutatable_monster);
         // [ds] Be less eager to polymorph plants, since there are now
         // locations with lots of plants (Lair and Shoals).
-        if (mon && (!mons_is_plant(mon) || one_chance_in(6)))
+        if (mon && !mons_is_firewood(mon))
         {
             if (debug)
                 return helpful ? XOM_GOOD_POLYMORPH : XOM_BAD_POLYMORPH;
@@ -1424,7 +1416,7 @@ static int _xom_swap_weapons(bool debug = false)
             && !(weapon.flags & ISFLAG_SUMMONED)
             && you.can_wield(weapon, true) && mi->can_wield(*wpn, true)
             && get_weapon_brand(weapon) != SPWPN_DISTORTION
-            && (get_weapon_brand(weapon) != SPWPN_VAMPIRICISM
+            && (get_weapon_brand(weapon) != SPWPN_VAMPIRISM
                 || you.is_undead || you.hunger_state >= HS_FULL)
             && (!is_artefact(weapon) || _art_is_safe(weapon)))
         {
@@ -1500,8 +1492,6 @@ static int _xom_swap_weapons(bool debug = false)
     myitem        = mitm[monwpn];
     myitem.link   = freeslot;
     myitem.pos.set(-1, -1);
-    // Remove "dropped by ally" flag.
-    myitem.flags &= ~(ISFLAG_DROPPED_BY_ALLY);
 
     if (!myitem.slot)
         myitem.slot = index_to_letter(myitem.link);
@@ -1510,7 +1500,6 @@ static int _xom_swap_weapons(bool debug = false)
     note_inscribe_item(myitem);
     dec_mitm_item_quantity(monwpn, myitem.quantity);
     you.m_quiver->on_inv_quantity_changed(freeslot, myitem.quantity);
-    burden_change();
 
     mprf("You wield %s %s!",
          mon->name(DESC_ITS).c_str(),
@@ -1597,7 +1586,7 @@ static int _xom_random_stickable(const int HD)
     {
         WPN_CLUB,    WPN_SPEAR,      WPN_TRIDENT,      WPN_HALBERD,
         WPN_SCYTHE,  WPN_GLAIVE,     WPN_QUARTERSTAFF,
-        WPN_BLOWGUN, WPN_BOW,        WPN_LONGBOW,      WPN_GIANT_CLUB,
+        WPN_BLOWGUN, WPN_SHORTBOW,   WPN_LONGBOW,      WPN_GIANT_CLUB,
         WPN_GIANT_SPIKED_CLUB
     };
 
@@ -1645,10 +1634,11 @@ static int _xom_snakes_to_sticks(int sever, bool debug = false)
             const int sub_type =
                     (base_type == OBJ_MISSILES ?
                         (x_chance_in_y(3,5) ? MI_ARROW : MI_JAVELIN)
-                            : _xom_random_stickable(mi->hit_dice));
+                            : _xom_random_stickable(mi->get_experience_level()));
 
             int thing_created = items(0, base_type, sub_type, true,
-                                      mi->hit_dice / 3 - 1, 0, 0, -1, -1);
+                                      mi->get_experience_level() / 3 - 1,
+                                      0, 0, -1, -1);
 
             if (thing_created == NON_ITEM)
                 continue;
@@ -1803,7 +1793,7 @@ static int _xom_give_mutations(bool good, bool debug = false)
  * but it may include the player as a victim.
  * @param debug  If true, don't have Xom act, but return a value indicating
  *               whether he would have acted.
- * @returns      XOM_DID_NOTHING if Xom didn't act, XOM_GOOD_LIGHTNING
+ * @return       XOM_DID_NOTHING if Xom didn't act, XOM_GOOD_LIGHTNING
  *               otherwise.
  */
 static int _xom_throw_divine_lightning(bool debug = false)
@@ -2114,40 +2104,69 @@ static int _xom_change_scenery(bool debug = false)
     return XOM_GOOD_SCENERY;
 }
 
-static int _xom_inner_flame(int sever, bool debug = false)
+static int _xom_destruction(int sever, bool debug = false)
 {
     bool rc = false;
+    bool fake_destruction = one_chance_in(3);
+
     for (monster_near_iterator mi(you.pos(), LOS_NO_TRANS); mi; ++mi)
     {
-        if (mi->wont_attack()
-            || mons_immune_magic(*mi)
-            || one_chance_in(4))
+        if (mons_is_projectile(*mi)
+            || mons_is_tentacle_or_tentacle_segment(mi->type)
+            || one_chance_in(3))
+        {
+            continue;
+        }
+
+        // Skip adjacent monsters, and skip non-hostile monsters if not feeling nasty.
+        if (!fake_destruction
+            && (adjacent(you.pos(), mi->pos())
+                || mi->wont_attack() && !_xom_feels_nasty()))
         {
             continue;
         }
 
         if (debug)
-            return XOM_GOOD_INNER_FLAME;
+            return XOM_GOOD_DESTRUCTION;
 
-        if (mi->add_ench(mon_enchant(ENCH_INNER_FLAME, 0,
-              &menv[ANON_FRIENDLY_MONSTER], random2(sever) * 10)))
+        if (!fake_destruction)
         {
+            bolt beam;
+
+            beam.flavour      = BEAM_FIRE;
+            beam.glyph        = dchar_glyph(DCHAR_FIRED_BURST);
+            beam.damage       = dice_def(2, 4 + sever / 10);
+            beam.target       = mi->pos();
+            beam.name         = "fireball";
+            beam.colour       = RED;
+            beam.thrower      = KILL_MISC;
+            beam.beam_source  = NON_MONSTER;
+            beam.aux_source   = "Xom's destruction";
+            beam.ex_size      = 1;
+            beam.is_explosion = true;
+
             // Only give this message once.
             if (!rc)
-                god_speaks(GOD_XOM, _get_xom_speech("inner flame").c_str());
-
-            simple_monster_message(*mi, (mi->body_size(PSIZE_BODY) > SIZE_BIG)
-                                   ? " is filled with an intense inner flame!"
-                                   : " is filled with an inner flame.");
+                god_speaks(GOD_XOM, _get_xom_speech("destruction").c_str());
             rc = true;
+
+            beam.explode();
+        }
+        else
+        {
+            if (!rc)
+                god_speaks(GOD_XOM, _get_xom_speech("fake destruction").c_str());
+            rc = true;
+            backlight_monsters(mi->pos(), 0, 0);
         }
     }
 
     if (rc)
     {
-        take_note(Note(NOTE_XOM_EFFECT, you.piety, -1, "inner flame monster(s)"),
+        take_note(Note(NOTE_XOM_EFFECT, you.piety, -1,
+                       fake_destruction ? "fake destruction" : "destruction"),
                   true);
-        return XOM_GOOD_INNER_FLAME;
+        return XOM_GOOD_DESTRUCTION;
     }
     return XOM_DID_NOTHING;
 }
@@ -2190,7 +2209,7 @@ static int _xom_enchant_monster(bool helpful, bool debug = false)
         ench = RANDOM_ELEMENT(enchantments);
     }
 
-    enchant_monster_with_flavour(mon, 0, ench);
+    enchant_actor_with_flavour(mon, 0, ench);
 
     // Take a note.
     static char ench_buf[80];
@@ -2246,8 +2265,8 @@ static int _xom_is_good(int sever, int tension, bool debug = false)
         done = _xom_animate_monster_weapon(sever, debug);
     else if (x_chance_in_y(12, sever))
         done = _xom_polymorph_nearby_monster(true, debug);
-    else if (x_chance_in_y(13, sever))
-        done = _xom_inner_flame(sever, debug);
+    else if (tension > 0 && x_chance_in_y(13, sever))
+        done = _xom_destruction(sever, debug);
     else if (tension > 0 && x_chance_in_y(14, sever))
         done = _xom_rearrange_pieces(sever, debug);
     else if (random2(tension) < 15 && x_chance_in_y(15, sever))
@@ -2815,8 +2834,7 @@ static int _xom_player_confusion_effect(int sever, bool debug = false)
     {
         // Don't confuse the player if standing next to lava or deep water.
         for (adjacent_iterator ai(you.pos()); ai; ++ai)
-            if (in_bounds(*ai) && is_feat_dangerous(grd(*ai))
-                && !you.can_cling_to(*ai))
+            if (in_bounds(*ai) && is_feat_dangerous(grd(*ai)))
                 return XOM_DID_NOTHING;
     }
 
@@ -3176,7 +3194,7 @@ static int _xom_draining_torment_effect(int sever, bool debug = false)
                 return XOM_BAD_DRAINING;
             god_speaks(GOD_XOM, speech.c_str());
 
-            drain_exp(true, 100);
+            drain_player(100, true);
 
             take_note(Note(NOTE_XOM_EFFECT, you.piety, -1, "draining"), true);
             return XOM_BAD_DRAINING;
@@ -3976,7 +3994,7 @@ static string _get_death_type_keyword(const kill_method_type killed_by)
  * save you.
  * @param death_type  The type of death that occurred.
  * @param aux         Additional string describing this death.
- * @returns           True if Xom saves your life, false otherwise.
+ * @return            True if Xom saves your life, false otherwise.
  */
 bool xom_saves_your_life(const kill_method_type death_type, const char *aux)
 {
@@ -4034,6 +4052,30 @@ bool xom_saves_your_life(const kill_method_type death_type, const char *aux)
         you.gift_timeout = 10;
 
     return true;
+}
+
+// Xom might have something to say when you enter a new level.
+void xom_new_level_noise_or_stealth()
+{
+    if (!you_worship(GOD_XOM) && !player_under_penance(GOD_XOM))
+        return;
+
+    // But only occasionally.
+    if (one_chance_in(30))
+    {
+        if (!player_under_penance(GOD_XOM) && coinflip())
+        {
+            god_speaks(GOD_XOM, _get_xom_speech("stealth player").c_str());
+            mpr(you.duration[DUR_STEALTH] ? "You feel more catlike."
+                                          : "You feel stealthy.");
+            you.increase_duration(DUR_STEALTH, 10 + random2(80));
+            take_note(Note(NOTE_XOM_EFFECT, you.piety, -1,
+                           "stealth player"), true);
+        }
+        else
+            _xom_noise();
+    }
+    return;
 }
 
 #ifdef WIZARD

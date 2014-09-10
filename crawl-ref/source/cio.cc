@@ -7,11 +7,12 @@
 
 #include "cio.h"
 #include "externs.h"
-#include "options.h"
 #include "libutil.h"
 #include "macro.h"
 #include "message.h"
+#include "options.h"
 #include "state.h"
+#include "stringutil.h"
 #include "unicode.h"
 #include "viewgeom.h"
 

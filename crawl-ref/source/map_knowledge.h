@@ -6,12 +6,14 @@
 
 struct cloud_info
 {
-    cloud_info() : type(CLOUD_NONE), colour(0), duration(3), tile(0), pos(0, 0)
+    cloud_info() : type(CLOUD_NONE), colour(0), duration(3), tile(0), pos(0, 0),
+                   killer(KILL_NONE)
     { }
 
     cloud_info(cloud_type t, colour_t c,
-               uint8_t dur, unsigned short til, coord_def gc)
-        : type(t), colour(c), duration(dur), tile(til), pos(gc)
+               uint8_t dur, unsigned short til, coord_def gc,
+               killer_type kill)
+        : type(t), colour(c), duration(dur), tile(til), pos(gc), killer(kill)
     { }
 
     cloud_type type:8;
@@ -19,6 +21,7 @@ struct cloud_info
     uint8_t duration; // decay/20, clamped to 0-3
     unsigned short tile;
     coord_def pos;
+    killer_type killer;
 };
 
 #define MAP_MAGIC_MAPPED_FLAG   0x01
@@ -50,7 +53,10 @@ struct cloud_info
 #define MAP_UMBRAED        0x1000000
 #define MAP_QUAD_HALOED    0X4000000
 #define MAP_DISJUNCT       0X8000000
+#if TAG_MAJOR_VERSION == 34
 #define MAP_HOT           0x10000000
+#endif
+#define MAP_GOLDEN        0x20000000
 
 /*
  * A map_cell stores what the player knows about a cell.
@@ -145,7 +151,14 @@ struct map_cell
 
     bool detected_item() const
     {
-        return !!(flags & MAP_DETECTED_ITEM);
+        const bool ret = !!(flags & MAP_DETECTED_ITEM);
+        // TODO: change to an ASSERT when the underlying crash goes away
+        if (ret && !_item)
+        {
+            //clear_item();
+            return false;
+        }
+        return ret;
     }
 
     void set_item(const item_info& ii, bool more_items)
@@ -303,7 +316,7 @@ void set_terrain_seen(const coord_def c);
 void set_terrain_visible(const coord_def c);
 void clear_terrain_visibility();
 
-int count_detected_mons(void);
+int count_detected_mons();
 
 void clear_map(bool clear_items = true, bool clear_mons = true);
 

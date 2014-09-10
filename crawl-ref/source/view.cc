@@ -26,19 +26,23 @@
 #include "delay.h"
 #include "dgn-overview.h"
 #include "directn.h"
+#include "effects.h"
 #include "env.h"
 #include "exclude.h"
 #include "feature.h"
 #include "files.h"
 #include "fprop.h"
+#include "godabil.h"
 #include "godconduct.h"
 #include "godpassive.h"
+#include "godwrath.h"
 #include "hints.h"
 #include "libutil.h"
 #include "message.h"
 #include "misc.h"
 #include "mon-behv.h"
-#include "mon-stuff.h"
+#include "mon-death.h"
+#include "mon-poly.h"
 #include "mon-util.h"
 #include "options.h"
 #include "notes.h"
@@ -48,12 +52,13 @@
 #include "religion.h"
 #include "showsymb.h"
 #include "state.h"
-#include "stuff.h"
+#include "stringutil.h"
 #include "target.h"
 #include "terrain.h"
 #include "tilemcache.h"
 #include "traps.h"
 #include "travel.h"
+#include "unicode.h"
 #include "viewchar.h"
 #include "viewmap.h"
 #include "xom.h"
@@ -65,6 +70,8 @@
 #endif
 
 //#define DEBUG_PANE_BOUNDS
+
+static bool _show_terrain = false;
 
 crawl_view_geometry crawl_view;
 
@@ -140,24 +147,28 @@ void seen_monsters_react()
         if (!mi->visible_to(&you))
             continue;
 
-        good_god_follower_attitude_change(*mi);
         beogh_follower_convert(*mi);
+        gozag_check_bribe(*mi);
         slime_convert(*mi);
 
-        // XXX: Hack for triggering Duvessa's going berserk.
-        if (mi->props.exists("duvessa_berserk"))
+        // Trigger Duvessa & Dowan upgrades
+        if (mi->props.exists(ELVEN_ENERGIZE_KEY))
         {
-            mi->props.erase("duvessa_berserk");
-            mi->go_berserk(true);
+            mi->props.erase(ELVEN_ENERGIZE_KEY);
+            elven_twin_energize(*mi);
         }
-
-        // XXX: Hack for triggering Dowan's spell changes.
-        if (mi->props.exists("dowan_upgrade"))
+#if TAG_MAJOR_VERSION == 34
+        else if (mi->props.exists(OLD_DUVESSA_ENERGIZE_KEY))
         {
-            mi->add_ench(ENCH_HASTE);
-            mi->props.erase("dowan_upgrade");
-            simple_monster_message(*mi, " seems to find hidden reserves of power!");
+            mi->props.erase(OLD_DUVESSA_ENERGIZE_KEY);
+            elven_twin_energize(*mi);
         }
+        else if (mi->props.exists(OLD_DOWAN_ENERGIZE_KEY))
+        {
+            mi->props.erase(OLD_DOWAN_ENERGIZE_KEY);
+            elven_twin_energize(*mi);
+        }
+#endif
     }
 }
 
@@ -192,7 +203,12 @@ static string _desc_mons_type_map(map<monster_type, int> types)
     return make_stringf("%s come into view.", message.c_str());
 }
 
-/*
+static monster_type _mons_genus_keep_uniques(monster_type mc)
+{
+    return mons_is_unique(mc) ? mc : mons_genus(mc);
+}
+
+/**
  * Monster list simplification
  *
  * When too many monsters come into view at once, we group the ones with the
@@ -227,7 +243,7 @@ static void _genus_factoring(map<monster_type, int> &types,
     it = types.begin();
     do
     {
-        if (mons_genus(it->first) != genus)
+        if (_mons_genus_keep_uniques(it->first) != genus)
         {
             ++it;
             continue;
@@ -289,20 +305,22 @@ void update_monsters_in_view()
         unsigned int size = monsters.size();
         map<monster_type, int> types;
         map<monster_type, int> genera; // This is the plural for genus!
+        const monster* target = NULL;
         for (unsigned int i = 0; i < size; ++i)
         {
             const monster_type type = monsters[i]->type;
             types[type]++;
-            genera[mons_genus(type)]++;
+            genera[_mons_genus_keep_uniques(type)]++;
         }
 
         if (size == 1)
-            mprf(MSGCH_WARN, "%s", msgs[0].c_str());
+            mprf(MSGCH_MONSTER_WARNING, "%s", msgs[0].c_str());
         else
         {
             while (types.size() > max_msgs && !genera.empty())
                 _genus_factoring(types, genera);
-            mprf(MSGCH_WARN, "%s", _desc_mons_type_map(types).c_str());
+            mprf(MSGCH_MONSTER_WARNING, "%s",
+                 _desc_mons_type_map(types).c_str());
         }
 
         bool warning = false;
@@ -312,6 +330,13 @@ void update_monsters_in_view()
         for (unsigned int i = 0; i < size; ++i)
         {
             const monster* mon = monsters[i];
+            if (!target
+                && player_mutation_level(MUT_SCREAM)
+                && x_chance_in_y(3 + player_mutation_level(MUT_SCREAM) * 3,
+                                 100))
+            {
+                target = mon;
+            }
             if (!mon->props.exists("ash_id") && !mon->props.exists("zin_id"))
                 continue;
 
@@ -355,6 +380,41 @@ void update_monsters_in_view()
             if (you_worship(GOD_ZIN))
                 update_monster_pane();
 #endif
+        }
+
+        if (target)
+            yell(target);
+
+        if (player_under_penance(GOD_GOZAG))
+        {
+            counted_monster_list mon_count;
+            vector<monster *> mons;
+            for (unsigned int i = 0; i < monsters.size(); i++)
+            {
+                monster *mon = monsters[i];
+                if (mon->wont_attack())
+                    continue;
+
+                int bribability = gozag_type_bribable(mon->type, true);
+                if (bribability
+                    && x_chance_in_y(bribability, GOZAG_MAX_BRIBABILITY))
+                {
+                    mon_count.add(mon);
+                    mons.push_back(mon);
+                }
+            }
+            if (mons.size() > 0)
+            {
+                string msg = make_stringf("Gozag incites %s against you.",
+                                          mon_count.describe().c_str());
+                if (strwidth(msg) >= get_number_of_cols() - 2)
+                    msg = "Gozag incites your enemies against you.";
+                mprf(MSGCH_GOD, GOD_GOZAG, "%s", msg.c_str());
+                for (unsigned int i = 0; i < mons.size(); i++)
+                    gozag_incite(mons[i]);
+
+                dec_penance(GOD_GOZAG, mons.size());
+            }
         }
     }
 
@@ -582,6 +642,7 @@ void fully_map_level()
 // Is the given monster near (in LOS of) the player?
 bool mons_near(const monster* mons)
 {
+    ASSERT(mons);
     if (crawl_state.game_is_arena() || crawl_state.arena_suspended)
         return true;
     return you.see_cell(mons->pos());
@@ -666,7 +727,9 @@ string screenshot()
 
 int viewmap_flash_colour()
 {
-    if (you.attribute[ATTR_SHADOWS])
+    if (_show_terrain)
+        return BLACK;
+    else if (you.attribute[ATTR_SHADOWS])
         return LIGHTGREY;
     else if (you.berserk())
         return RED;
@@ -860,10 +923,7 @@ static int player_view_update_at(const coord_def &gc)
 
     // We remove any references to mcache when
     // writing to the background.
-    if (Options.clean_map)
-        env.tile_bk_fg(gc) = get_clean_map_idx(env.tile_fg(ep));
-    else
-        env.tile_bk_fg(gc) = env.tile_fg(ep);
+    env.tile_bk_fg(gc) = env.tile_fg(ep);
     env.tile_bk_bg(gc) = env.tile_bg(ep);
     env.tile_bk_cloud(gc) = env.tile_cloud(ep);
 #endif
@@ -912,7 +972,7 @@ static void _draw_out_of_bounds(screen_cell_t *cell)
 static void _draw_outside_los(screen_cell_t *cell, const coord_def &gc)
 {
     // Outside the env.show area.
-    cglyph_t g = get_cell_glyph(gc, Options.clean_map);
+    cglyph_t g = get_cell_glyph(gc);
     cell->glyph  = g.ch;
     cell->colour = g.col;
 
@@ -969,8 +1029,6 @@ static void _draw_los(screen_cell_t *cell,
     UNUSED(anim_updates);
 #endif
 }
-
-static bool _show_terrain = false;
 
 //---------------------------------------------------------------
 //

@@ -192,7 +192,7 @@ ifneq (,$(findstring MINGW,$(uname_S)))
 	NEED_LIBW32C = YesPlease
 	BUILD_PCRE = YesPlease
 	BUILD_ZLIB = YesPlease
-	DEFINES_L += -DWINMM_PLAY_SOUNDS
+	DEFINES_L += -DWINMM_PLAY_SOUNDS -D__USE_MINGW_ANSI_STDIO
 	EXTRA_LIBS += -lwinmm
 	ifdef TILES
 		EXTRA_LIBS += -lmingw32 -lgdi32 -lwinmm contrib/install/$(ARCH)/lib/libSDLmain.a -mwindows
@@ -200,11 +200,11 @@ ifneq (,$(findstring MINGW,$(uname_S)))
 		BUILD_SDL = YesPlease
 		BUILD_SDLIMAGE = YesPlease
 		BUILD_LIBPNG = YesPlease
+		COPY_FONTS = yes
 	endif
 	ifeq ($(shell gcc -v -static -static-libstdc++ 2>&1 | grep 'unrecognized option'),)
 		EXTRA_LIBS += -static -static-libgcc -static-libstdc++
 	endif
-	COPY_FONTS = yes
 endif
 ifeq ($(uname_S),Darwin)
 	STRIP := strip -x
@@ -219,8 +219,8 @@ ifeq ($(uname_S),Darwin)
 		BUILD_SDL = YesPlease
 		BUILD_SDLIMAGE = YesPlease
 		BUILD_LIBPNG = YesPlease
+		COPY_FONTS = yes
 	endif
-	COPY_FONTS = yes
 endif
 ifdef USE_ICC
 	NO_RDYNAMIC := YesPlease
@@ -373,9 +373,6 @@ SAVEDIR := ~/.crawl
 endif
 
 
-INCLUDES_L += -isystem contrib/install/$(ARCH)/include
-LIBS += -Lcontrib/install/$(ARCH)/lib
-
 INCLUDES_L += -Iutil -I.
 
 ifdef APPLE_GCC
@@ -484,8 +481,17 @@ ifeq ($(shell which $(LMACH)gcc$(GCC_VER_SUFFIX) > /dev/null 2> /dev/null && ech
 LMACH :=
 endif
 
+ifneq ($(FORCE_CC),)
+GCC := $(FORCE_CC)
+else
 GCC := $(LMACH)$(GCC_VER_PREFIX)gcc$(GCC_VER_SUFFIX)
+endif
+
+ifneq ($(FORCE_CXX),)
+GXX := $(FORCE_CXX)
+else
 GXX := $(LMACH)$(GCC_VER_PREFIX)g++$(GCC_VER_SUFFIX)
+endif
 
 else
 
@@ -586,14 +592,18 @@ ifndef BUILD_LUA
     endif
   else
     ifneq ($(shell $(PKGCONFIG) lua5.1 --exists || echo no),)
-      ifneq ($(shell $(PKGCONFIG) lua --exists || echo no),)
-        BUILD_LUA = yes
-      else
-        ifeq ($(shell $(PKGCONFIG) lua --modversion | head -c 3),5.1)
-          LUA_PACKAGE = lua
-        else
+      ifneq ($(shell $(PKGCONFIG) lua-5.1 --exists || echo no),)
+        ifneq ($(shell $(PKGCONFIG) lua --exists || echo no),)
           BUILD_LUA = yes
+        else
+          ifeq ($(shell $(PKGCONFIG) lua --modversion | head -c 3),5.1)
+            LUA_PACKAGE = lua
+          else
+            BUILD_LUA = yes
+          endif
         endif
+      else
+        LUA_PACKAGE = lua-5.1
       endif
     else
       LUA_PACKAGE = lua5.1
@@ -607,6 +617,10 @@ ifndef BUILD_LUA
   INCLUDES_L += $(shell $(PKGCONFIG) $(LUA_PACKAGE) --cflags-only-I | sed -e 's/-I/-isystem /')
   CFLAGS_L  += $(shell $(PKGCONFIG) $(LUA_PACKAGE) --cflags-only-other)
   LIBS += $(shell $(PKGCONFIG) $(LUA_PACKAGE) --libs)
+endif
+
+ifdef USE_LUAJIT
+DEFINES_L += -DUSE_LUAJIT
 endif
 
 ifndef BUILD_SQLITE
@@ -713,6 +727,13 @@ endif
 
 ifdef EUCLIDEAN
 DEFINES_L += -DEUCLIDEAN
+endif
+
+ifdef USE_DGAMELAUNCH
+SRC_BRANCH    := $(shell git rev-parse --abbrev-ref HEAD || echo release)
+ifneq ($(SRC_BRANCH),$(filter master release stone_soup-%, $(SRC_BRANCH)))
+  DEFINES_L += -DEXPERIMENTAL_BRANCH="\"$(SRC_BRANCH)\""
+endif
 endif
 
 #
@@ -952,12 +973,12 @@ endif
 endif
 
 ifdef BUILD_PCRE
-USE_PCRE = YesPlease
-endif
-
-ifdef USE_PCRE
 DEFINES += -DREGEX_PCRE
-LIBS += -lpcre
+else 
+  ifdef USE_PCRE
+  DEFINES += -DREGEX_PCRE
+  LIBS += -lpcre
+  endif
 endif
 
 ifdef USE_ICC
@@ -980,15 +1001,6 @@ LDFLAGS += $(CFOPTIMIZE) $(CFOPTIMIZE_L)
 ifdef REPORT
 CFOTHERS += -ftime-report
 endif
-
-ifdef ANDROID
-CFLAGS   := $(CFOPTIMIZE) $(CFOTHERS) $(CFWARN) $(CFLAGS)
-else
-CFLAGS   := $(CFOPTIMIZE) $(CFOTHERS) $(CFWARN)
-endif
-CFLAGS_L := $(CFOPTIMIZE_L) $(DEFINES_L) $(CFWARN_L) $(INCLUDES_L) $(CFOTHERS_L)
-ALL_CFLAGS := $(CFLAGS) $(CFLAGS_L)
-YACC_CFLAGS  := $(ALL_CFLAGS) -Wno-unused-function -Wno-sign-compare -DYYENABLE_NLS=0 -DYYLTYPE_IS_TRIVIAL=0
 
 UTIL = util/
 
@@ -1087,7 +1099,23 @@ endif
 
 EXTRA_OBJECTS += version.o
 
+ifdef CONTRIBS
+INCLUDES_L += -isystem contrib/install/$(ARCH)/include
+LIBS += -Lcontrib/install/$(ARCH)/lib
+endif
+
 LIBS += $(CONTRIB_LIBS) $(EXTRA_LIBS)
+
+
+ifdef ANDROID
+CFLAGS   := $(CFOPTIMIZE) $(CFOTHERS) $(CFWARN) $(CFLAGS)
+else
+CFLAGS   := $(CFOPTIMIZE) $(CFOTHERS) $(CFWARN)
+endif
+CFLAGS_L := $(CFOPTIMIZE_L) $(DEFINES_L) $(CFWARN_L) $(INCLUDES_L) $(CFOTHERS_L)
+ALL_CFLAGS := $(CFLAGS) $(CFLAGS_L)
+YACC_CFLAGS  := $(ALL_CFLAGS) -Wno-unused-function -Wno-sign-compare -DYYENABLE_NLS=0 -DYYLTYPE_IS_TRIVIAL=0
+
 
 DOC_BASE        := ../docs
 DOC_TEMPLATES   := $(DOC_BASE)/template
@@ -1133,7 +1161,8 @@ TITLEIMGS = denzi_dragon denzi_kitchen_duty denzi_summoner \
             shadyamish_octm denzi_evil_mage denzi_invasion \
             psiweapon_kiku white_noise_entering_the_dungeon \
             white_noise_grabbing_the_orb pooryurik_knight \
-            psiweapon_roxanne baconkid_gastronok baconkid_mnoleg
+            psiweapon_roxanne baconkid_gastronok baconkid_mnoleg \
+            peileppe_bloax_eye
 
 STATICFILES = $(TILEIMAGEFILES:%=webserver/game_data/static/%.png) \
               webserver/static/stone_soup_icon-32x32.png \

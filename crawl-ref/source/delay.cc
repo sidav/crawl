@@ -14,6 +14,8 @@
 #include "ability.h"
 #include "areas.h"
 #include "artefact.h"
+#include "bloodspatter.h"
+#include "butcher.h"
 #include "clua.h"
 #include "command.h"
 #include "coord.h"
@@ -22,13 +24,16 @@
 #include "describe.h"
 #include "directn.h"
 #include "dungeon.h"
+#include "effects.h"
 #include "exercise.h"
 #include "enum.h"
 #include "fprop.h"
 #include "exclude.h"
 #include "food.h"
+#include "godabil.h"
 #include "godpassive.h"
 #include "godprayer.h"
+#include "godwrath.h"
 #include "invent.h"
 #include "items.h"
 #include "itemprop.h"
@@ -38,13 +43,13 @@
 #include "message.h"
 #include "misc.h"
 #include "mon-behv.h"
-#include "mon-stuff.h"
 #include "mon-util.h"
 #include "notes.h"
 #include "ouch.h"
 #include "output.h"
 #include "player.h"
 #include "player-equip.h"
+#include "prompt.h"
 #include "random.h"
 #include "religion.h"
 #include "godconduct.h"
@@ -54,8 +59,9 @@
 #include "stairs.h"
 #include "stash.h"
 #include "state.h"
-#include "stuff.h"
+#include "stringutil.h"
 #include "env.h"
+#include "teleport.h"
 #include "transform.h"
 #include "traps.h"
 #include "travel.h"
@@ -438,12 +444,12 @@ void handle_interrupted_swap()
     you.attribute[ATTR_WEAPON_SWAP_INTERRUPTED] = 0;
 }
 
-bool you_are_delayed(void)
+bool you_are_delayed()
 {
     return !you.delay_queue.empty();
 }
 
-delay_type current_delay_action(void)
+delay_type current_delay_action()
 {
     return you_are_delayed() ? you.delay_queue.front().type
                              : DELAY_NOT_DELAYED;
@@ -858,8 +864,31 @@ static void _finish_delay(const delay_queue_item &delay)
         break;
 
     case DELAY_JEWELLERY_ON:
-        puton_ring(delay.parm1);
+    {
+        const item_def &item = you.inv[delay.parm1];
+
+        // recheck stasis here, since our condition may have changed since
+        // starting the amulet swap process
+        // just breaking here is okay because swapping jewellery is a one-turn
+        // action, so conceptually there is nothing to interrupt - in other
+        // words, this is equivalent to if the user took off the previous
+        // amulet and was slowed before putting the amulet of stasis on as a
+        // separate action on the next turn
+        if (nasty_stasis(item, OPER_PUTON))
+        {
+            string prompt = "Really put on ";
+            prompt += item.name(DESC_INVENTORY);
+            prompt += string(" while ")
+                      + (you.duration[DUR_TELEPORT] ? "about to teleport" :
+                         you.duration[DUR_SLOW] ? "slowed" : "hasted");
+            prompt += "?";
+            if (!yesno(prompt.c_str(), false, 'n'))
+                break;
+        }
+
+        puton_ring(delay.parm1, false);
         break;
+    }
 
     case DELAY_ARMOUR_ON:
         _armour_wear_effects(delay.parm1);
@@ -975,7 +1004,7 @@ static void _finish_delay(const delay_queue_item &delay)
             if (monster* m = monster_at(pass))
             {
                 // One square, a few squares, anywhere...
-                if (!shift_monster(m) && !monster_blink(m, true))
+                if (!m->shift() && !monster_blink(m, true))
                     monster_teleport(m, true, true);
                 // Might still fail.
                 if (monster_at(pass))
@@ -984,14 +1013,14 @@ static void _finish_delay(const delay_queue_item &delay)
                     goto passwall_aborted;
                 }
 
-                move_player_to_grid(pass, false, true);
+                move_player_to_grid(pass, false);
 
                 // Wake the monster if it's asleep.
                 if (m)
                     behaviour_event(m, ME_ALERT, &you);
             }
             else
-                move_player_to_grid(pass, false, true);
+                move_player_to_grid(pass, false);
 
         passwall_aborted:
             redraw_screen();
@@ -1178,7 +1207,6 @@ static void _armour_wear_effects(const int item_slot)
     {
         if (you.duration[DUR_CONDENSATION_SHIELD] > 0)
             remove_condensation_shield();
-        you.start_train.insert(SK_SHIELDS);
     }
 
     equip_item(eq_slot, item_slot);
@@ -1268,7 +1296,7 @@ static void _handle_run_delays(const delay_queue_item &delay)
             if (lev && lev->sacrificeable(you.pos()))
             {
                 const interrupt_block block_interrupts;
-                pray();
+                pray(false);
                 return;
             }
         }
@@ -1290,7 +1318,7 @@ static void _handle_run_delays(const delay_queue_item &delay)
     if (cmd != CMD_NO_CMD)
     {
         if (delay.type != DELAY_REST)
-            mesclr();
+            clear_messages();
         process_command(cmd);
     }
 
@@ -1558,7 +1586,9 @@ static inline bool _monster_warning(activity_interrupt_type ai,
         return false;
     else
     {
-        string text = mon->full_name(DESC_A);
+        string text = getMiscString(mon->name(DESC_DBNAME) + " title");
+        if (text.empty())
+            text = mon->full_name(DESC_A);
         if (mon->type == MONS_PLAYER_GHOST)
         {
             text += make_stringf(" (%s)",
@@ -1603,7 +1633,7 @@ static inline bool _monster_warning(activity_interrupt_type ai,
             text += " comes up the stairs.";
         else if (at.context == SC_DOWNSTAIRS)
             text += " comes down the stairs.";
-        else if (at.context == SC_GATE)
+        else if (at.context == SC_ARCH)
             text += " comes through the gate.";
         else if (at.context == SC_ABYSS)
             text += _abyss_monster_creation_message(mon);
@@ -1655,13 +1685,30 @@ static inline bool _monster_warning(activity_interrupt_type ai,
             msgs_buf->push_back(text);
         else
         {
-            mprf(MSGCH_WARN, "%s", text.c_str());
+            mprf(MSGCH_MONSTER_WARNING, "%s", text.c_str());
             if (ash_id || zin_id)
                 mprf(MSGCH_GOD, "%s", god_warning.c_str());
 #ifndef USE_TILE_LOCAL
             if (zin_id)
                 update_monster_pane();
 #endif
+            if (player_under_penance(GOD_GOZAG) && !mon->wont_attack())
+            {
+                int bribability = gozag_type_bribable(mon->type, true);
+                if (bribability
+                    && x_chance_in_y(bribability, GOZAG_MAX_BRIBABILITY))
+                {
+                    mprf(MSGCH_GOD, GOD_GOZAG, "Gozag incites %s against you.",
+                         mon->name(DESC_THE).c_str());
+                    gozag_incite(const_cast<monster *>(mon));
+                    dec_penance(GOD_GOZAG, 1);
+                }
+            }
+        }
+        if (player_mutation_level(MUT_SCREAM)
+            && x_chance_in_y(3 + player_mutation_level(MUT_SCREAM) * 3, 100))
+        {
+            yell(mon);
         }
         const_cast<monster* >(mon)->seen_context = SC_JUST_SEEN;
     }
@@ -1741,11 +1788,7 @@ bool interrupt_activity(activity_interrupt_type ai,
     const delay_queue_item &item = you.delay_queue.front();
 
     if (ai == AI_FULL_HP)
-        mprf("%s restored.",
-#if TAG_MAJOR_VERSION == 34
-                you.species == SP_DJINNI ? "EP" :
-#endif
-                "HP");
+        mpr("HP restored.");
     else if (ai == AI_FULL_MP)
         mpr("Magic restored.");
 
@@ -1791,9 +1834,9 @@ bool interrupt_activity(activity_interrupt_type ai,
 
 static const char *activity_interrupt_names[] =
 {
-    "force", "keypress", "full_hp", "full_mp", "statue",
-    "hungry", "message", "hp_loss", "burden", "stat",
-    "monster", "monster_attack", "teleport", "hit_monster", "sense_monster"
+    "force", "keypress", "full_hp", "full_mp", "statue", "hungry", "message",
+    "hp_loss", "stat", "monster", "monster_attack", "teleport", "hit_monster",
+    "sense_monster"
 };
 
 static const char *_activity_interrupt_name(activity_interrupt_type ai)

@@ -30,7 +30,7 @@ end
 -- Stuff for st's various vaults.
 function st_zot_vaults_setup(e)
     e.tags("no_item_gen")
-    e.depth("Zot:1-4")
+    e.depth("Zot, !Zot:$")
     e.kmons("D = mottled dragon / fire dragon w:25 / ice dragon w:25 /\
                storm dragon w:20 / shadow dragon w:20 / golden dragon /\
                iron dragon w:5 / quicksilver dragon w:5 / bone dragon w:5 /\
@@ -647,37 +647,11 @@ MAP
 *
 ENDMAP
 
-NAME:   lemuel_zot_downstairs
-TAGS:   allow_dup extra luniq
-DEPTH:  Zot:1-4
-ORIENT: float
-SUBST:  . = .^
-KFEAT:  ^ = known Zot trap
-SUBST:  > = }])
-MAP
-xxxxxxx
-@....>x
-xxxxxxx
-ENDMAP
-
-NAME:   lemuel_zot_upstairs
-TAGS:   allow_dup extra luniq
-DEPTH:  Zot:2-
-ORIENT: float
-SUBST:  . = .^
-KFEAT:  ^ = known zot trap
-SUBST:  < = ([{
-MAP
-xxxxxxx
-@....<x
-xxxxxxx
-ENDMAP
-
 ###########################
 # Halls of Wrath
 #
 NAME:   lemuel_halls_of_wrath
-DEPTH:  Zot:1-4
+DEPTH:  Zot, !Zot:$
 ORIENT: float
 NSUBST: 1 = 6:2 / *=1
 SUBST:  1 = 1 .:5
@@ -707,7 +681,7 @@ ENDMAP
 # Lich library
 #
 NAME:   lemuel_lich_library
-DEPTH:  Zot:1-4
+DEPTH:  Zot, !Zot:$
 TAGS:   no_monster_gen
 MONS:   flying skull, lich, ancient lich, necromancer, vampire mage
 ITEM:   any book mimic:10 w:20 / any scroll mimic:10
@@ -767,8 +741,8 @@ ENDMAP
 #
 NAME:  lemuel_golem_globe
 DEPTH: Zot
-TAGS:  no_rotate
-KFEAT: T = teleport trap
+TAGS:  no_rotate no_exits
+KFEAT: T = permanent teleport trap
 KFEAT: m = iron_grate
 SUBST: 1 = 1.
 MONS:  electric golem
@@ -787,7 +761,7 @@ ENDMAP
 # There is an 70% chance all three downstairs will be here.
 #
 NAME:   lemuel_draconian_sentries
-DEPTH:  Zot:1-4
+DEPTH:  Zot, !Zot:$
 ORIENT: float
 TAGS:   no_rotate uniq_draconian_sentries
 MONS:   red draconian scorcher / green draconian zealot / yellow draconian caller
@@ -813,7 +787,7 @@ mmm.....www...]..www.....mmm
 ENDMAP
 
 NAME:   lemuel_draconian_sentries_small
-DEPTH:  Zot:1-4
+DEPTH:  Zot, !Zot:$
 ORIENT: float
 TAGS:   no_rotate uniq_draconian_sentries
 MONS:   red draconian scorcher / green draconian zealot / yellow draconian caller
@@ -840,7 +814,7 @@ ENDMAP
 # Acid trip
 # 70% chance of having all stairs.
 NAME:   lemuel_acid_trip
-DEPTH:  Zot:1-4
+DEPTH:  Zot, !Zot:$
 ORIENT: centre
 MONS:   oklob plant, acid blob, jelly, yellow draconian
 MONS:   any nonbase yellow draconian
@@ -873,7 +847,7 @@ ENDMAP
 # Firehouse
 #
 NAME:   lemuel_firehouse
-DEPTH:  Zot:1-4
+DEPTH:  Zot, !Zot:$
 ORIENT: centre
 MONS:   orb of fire
 MONS:   fire elemental
@@ -911,7 +885,7 @@ ENDMAP
 # Circus (by mu)
 # full of klowns, caged animals outside
 NAME:   circus_mu
-DEPTH:  Zot:1-4
+DEPTH:  Zot, !Zot:$
 ORIENT: float
 TAGS:   no_rotate no_hmirror no_monster_gen
 MONS:   killer klown
@@ -920,7 +894,7 @@ MONS:   human ; club
 SUBST:  1 = 1 2:5 3:20
 SUBST:  2 = 2 2 .
 SUBST:  % = !:20 ?:5 .:20
-KITEM:  ! = banana
+KITEM:  ! = fruit
 KITEM:  ? = wand of random effects
 COLOUR: " : yellow
 MAP
@@ -985,7 +959,7 @@ ENDMAP
 # 50% electricity, 25% fire, 25% ice
 NAME:    minmay_elemental_castle
 ORIENT:  southwest
-DEPTH:   Zot:1-4
+DEPTH:   Zot, !Zot:$
 TAGS:    no_rotate
 : if crawl.coinflip() then
 MONS:    titan, storm dragon, electric golem
@@ -1058,12 +1032,12 @@ ENDMAP
 # Based on zotdef III. Idea from kilobyte.
 NAME:   evilmike_crystal_ball_defense
 TAGS:   no_rotate no_monster_gen
-DEPTH:  Zot:1-4
+DEPTH:  Zot, !Zot:$
 ORIENT: float
 MONS:   w:4 oklob sapling / w:4 oklob plant / w:6 burning bush / \
         w:6 lightning spire / nothing
 MONS:   ice statue / silver statue / orange crystal statue / \
-        patrolling curse skull / w:5 nothing
+        curse skull / w:5 nothing
 SUBST:  3 = 11.
 # Not quite the orb, but but close enough
 ITEM:   crystal ball of energy
@@ -1095,7 +1069,7 @@ ENDMAP
 # resembling his overflow altars and effects. Extremely nasty and annoying.
 NAME:    hangedman_xom_zot_hilarity
 TAGS:    no_monster_gen no_trap_gen no_pool_fixup patrolling transparent
-DEPTH:   Zot:1-4
+DEPTH:   Zot, !Zot:$
 WEIGHT:  3
 KMONS:   1357 = guardian mummy ; randart dire flail ego:chaos | \
         randart great mace ego:chaos | randart battleaxe ego:chaos| \
@@ -1108,8 +1082,8 @@ KMONS:   1357 = guardian mummy ; randart dire flail ego:chaos | \
         scythe ego:chaos w:5 | any weapon ego:chaos w:2 | dire flail w:30 | \
         great mace w:30 | battleaxe w:30 | great sword w:30 | \
         scythe w:30 | glaive w:30 | any weapon w:12 . \
-        randart sling ego:chaos | randart bow ego:chaos | \
-        randart crossbow ego:chaos | sling | bow | crossbow | \
+        randart hunting sling ego:chaos | randart shortbow ego:chaos | \
+        randart arbalest ego:chaos | hunting sling | shortbow | arbalest | \
         nothing w:15 . sling bullet | arrow | bolt . \
         lightning rod w:6 | rod of shadows w:4 | rod of the swarm w:4 | \
         rod of destruction w:2 | rod of striking w:6 | wand of hasting w:16 | \
@@ -1122,7 +1096,7 @@ KMONS:   2468 = killer klown
 KMONS:   _ = ghost moth
 KMONS:   90 = moth of wrath / butterfly w:30
 KFEAT:   0 = known zot trap
-KFEAT:   ^~ = teleport trap w:45 / zot trap w:4 / . w:1
+KFEAT:   ^~ = permanent teleport trap w:45 / zot trap w:4 / . w:1
 KFEAT:   _ = altar_xom
 KFEAT:   > = } mimic
 KFEAT:   z = iron_grate
@@ -1206,7 +1180,7 @@ MAP
 ENDMAP
 
 NAME:   bh_zot_levy_curve
-TAGS:   extra mini_float
+TAGS:   extra
 DEPTH:  Zot
 SUBST:  W = Ww
 MAP
@@ -1481,7 +1455,7 @@ ENDMAP
 NAME:    zot_minivault_1
 TAGS:    transparent
 WEIGHT:  20
-DEPTH:   Zot:1-4
+DEPTH:   Zot, !Zot:$
 MAP
  xxxxxxxxxxx
 xxx...0...xxx
@@ -1498,7 +1472,7 @@ ENDMAP
 NAME:    zot_minivault_2
 TAGS:    transparent
 WEIGHT:  5
-DEPTH:   Zot:1-4
+DEPTH:   Zot, !Zot:$
 SUBST:   > = }]}
 MAP
  xxxxxxxxxxx
@@ -1521,7 +1495,7 @@ ENDMAP
 NAME:    zot_minivault_3
 TAGS:    transparent
 WEIGHT:  5
-DEPTH:   Zot:1-4
+DEPTH:   Zot, !Zot:$
 SUBST:   < = ([{000
 MAP
  xxxxxxxxxxx
@@ -1548,7 +1522,7 @@ ENDMAP
 # Based on orb_monky_within_orb
 NAME:    zot_minivault_4
 TAGS:    transparent
-DEPTH:   Zot:1-4
+DEPTH:   Zot, !Zot:$
 COLOUR:  n = magenta
 TILE:    n = dngn_transparent_stone_magenta
 MAP
@@ -1566,7 +1540,7 @@ ENDMAP
 # Based on orb_monky_twist
 NAME:    zot_minivault_5
 TAGS:    transparent
-DEPTH:   Zot:1-4
+DEPTH:   Zot, !Zot:$
 COLOUR:  n = magenta
 TILE:    n = dngn_transparent_stone_magenta
 MAP
@@ -1587,7 +1561,7 @@ ENDMAP
 # Stone is bordered by rock to make it stand out less and not look ugly.
 NAME:    zot_minivault_6
 TAGS:    transparent
-DEPTH:   Zot:1-4
+DEPTH:   Zot, !Zot:$
 SUBST:   < = ([{
 SUBST:   > = }]}
 COLOUR:  n = magenta
@@ -1620,7 +1594,7 @@ ENDMAP
 NAME:    zot_minivault_7
 TAGS:    transparent
 WEIGHT:  5
-DEPTH:   Zot:1-4
+DEPTH:   Zot, !Zot:$
 SUBST:   > = }]}
 MAP
  xxxxxxxxx
@@ -1650,7 +1624,7 @@ ENDMAP
 NAME:    zot_minivault_8
 TAGS:    transparent
 WEIGHT:  5
-DEPTH:   Zot:1-4
+DEPTH:   Zot, !Zot:$
 SUBST:   > = }]}
 MAP
  xxxxxxxxx
@@ -1678,7 +1652,7 @@ ENDMAP
 ##########################################################################
 
 NAME: nicolae_zot_draconian_monastery
-DEPTH: Zot:1-4
+DEPTH: Zot, !Zot:$
 ORIENT: float
 TAGS: no_trap_gen no_monster_gen no_item_gen
 MONS: draconian monk / base draconian w:15, patrolling draconian zealot, patrolling draconian knight
@@ -1728,7 +1702,7 @@ ENDMAP
 
 NAME:    hangedman_zot_spectrum
 TAGS:    no_monster_gen
-DEPTH:   Zot:1-4
+DEPTH:   Zot, !Zot:$
 KMONS:   A = red very ugly thing
 KMONS:   B = red draconian
 KMONS:   C = salamander firebrand / nonbase red draconian w:6
@@ -1781,7 +1755,7 @@ ENDMAP
 
 NAME:    hangedman_zot_vaults_quadrants
 TAGS:    no_monster_gen no_item_gen transparent
-DEPTH:   Zot:1-4
+DEPTH:   Zot, !Zot:$
 ORIENT:  centre
 # Humanoids, guardian beasts, the strongest; first V, then Zot.
 MONS:    ettin / stone giant w:5 / fire giant / frost giant
@@ -2327,7 +2301,7 @@ ENDMAP
 NAME:       hall_of_Zot
 PLACE:      Zot:$
 ORIENT:     north
-TAGS:       no_dump layout_halls
+TAGS:       no_dump
 LFLAGS:     no_tele_control
 LFLOORCOL:  magenta
 LROCKCOL:   lightmagenta
@@ -2351,7 +2325,7 @@ SUBST:    F = .
 #monsters
 MONS:     patrolling Orb Guardian, Killer Klown, electric golem, orb of fire
 MONS:     ancient lich, orange crystal statue / silver statue / ice statue
-SUBST:    8=8., 8=8., 5=5.
+SUBST:    8=8..., 5=5.
 SHUFFLE:  234
 SUBST:    ? = .:8 ?
 SUBST:    ? : KLM

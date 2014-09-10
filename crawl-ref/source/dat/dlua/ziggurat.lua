@@ -210,8 +210,6 @@ mset(with_props("place:Lair:$ w:165 / dire elephant w:12 / " ..
                 "orb spider",
      "place:Crypt:$ w:260 / curse skull w:5 / profane servitor w:5 / " ..
                 "bone dragon / ancient lich / revenant",
-     "place:Forest:$ w:180 / satyr / tengu reaver w:5 / " ..
-                "spriggan defender w:5",
      "place:Abyss:$ w:1990 / corrupter",
      with_props("place:Slime:$", { jelly_protect = true }),
      with_props("place:Coc:$ w:460 / Ice Fiend / " ..
@@ -222,8 +220,8 @@ mset(with_props("place:Lair:$ w:165 / dire elephant w:12 / " ..
                  "dancing weapon / iron dragon w:20", { weight = 5 }),
      with_props("place:Tar:$ w:460 / Shadow Fiend / " ..
                  "curse toe / shadow demon w:20", { weight = 5 }),
-     with_props("daeva / angel / cherub / pearl dragon / shedu band / " ..
-                "ophan / apis / w:2 silver star", { weight = 2 }),
+     with_props("daeva / angel / cherub / pearl dragon / " ..
+                "ophan / apis", { weight = 2 }),
      with_props("hill giant / cyclops / stone giant / fire giant / " ..
                 "frost giant / ettin / titan", { weight = 2 }),
      with_props("fire elemental / fire drake / hell hound / efreet / " ..
@@ -235,7 +233,7 @@ mset(with_props("place:Lair:$ w:165 / dire elephant w:12 / " ..
                 "storm dragon / electric golem / spriggan air mage / " ..
                 "shock serpent", { weight = 2 }),
      with_props("spectral thing / shadow wraith / eidolon w:4 / shadow dragon / " ..
-                "deep elf death mage w:6 / deep dwarf death knight w:4 / " ..
+                "deep elf death mage w:6 / death knight w:4 / " ..
                 "revenant w:4 / profane servitor w:6 / soul eater / " ..
                 "shadow fiend / black sun", { weight = 2 }),
      with_props("swamp drake / fire drake / wind drake w:2 / death drake / " ..

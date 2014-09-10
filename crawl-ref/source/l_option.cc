@@ -43,13 +43,10 @@ static option_handler handlers[] =
 {
     // Boolean options come first
     { "autoswitch",    &Options.auto_switch, option_hboolean },
-    { "clean_map",     &Options.clean_map, option_hboolean },
     { "show_uncursed", &Options.show_uncursed, option_hboolean },
-    { "easy_open",     &Options.easy_open, option_hboolean },
+    { "travel_open_doors",    &Options.travel_open_doors, option_hboolean },
     { "easy_armour",   &Options.easy_unequip, option_hboolean },
     { "easy_unequip",  &Options.easy_unequip, option_hboolean },
-    { "default_target",       &Options.default_target, option_hboolean },
-    { "autopickup_no_burden", &Options.autopickup_no_burden, option_hboolean },
     { "note_skill_max",       &Options.note_skill_max, option_hboolean },
     { "clear_messages",  &Options.clear_messages, option_hboolean },
     { "no_dark_brand",   &Options.no_dark_brand, option_hboolean },

@@ -8,17 +8,21 @@
 #include "dactions.h"
 
 #include "act-iter.h"
+#include "attitude-change.h"
 #include "coordit.h"
 #include "decks.h"
 #include "dungeon.h"
 #include "env.h"
+#include "items.h"
 #include "libutil.h"
+#include "mapmark.h"
 #include "mon-behv.h"
-#include "mon-stuff.h"
+#include "mon-death.h"
 #include "mon-transit.h"
 #include "mon-util.h"
 #include "player.h"
 #include "religion.h"
+#include "show.h"
 #include "state.h"
 #include "travel.h"
 #include "view.h"
@@ -40,7 +44,9 @@ static const char *daction_names[] =
 
     // Actions not needing a counter.
     "old enslaved souls go poof",
+#if TAG_MAJOR_VERSION == 34
     "holy beings allow another conversion attempt",
+#endif
 #if TAG_MAJOR_VERSION > 34
     "slimes allow another conversion attempt",
 #endif
@@ -59,6 +65,10 @@ static const char *daction_names[] =
 #if TAG_MAJOR_VERSION == 34
     "end spirit howl",
 #endif
+    "gold to top of piles",
+    "bribe timeout",
+    "remove Gozag shops",
+    "apply Gozag bribes",
 };
 #endif
 
@@ -74,7 +84,7 @@ bool mons_matches_daction(const monster* mon, daction_type act)
     case DACT_ALLY_UNHOLY_EVIL:
         return mon->wont_attack() && (mon->is_unholy() || mon->is_evil());
     case DACT_ALLY_UNCLEAN_CHAOTIC:
-        return mon->wont_attack() && (mon->is_unclean() || mon->is_chaotic());
+        return mon->wont_attack() && (mon->how_unclean() || mon->how_chaotic());
     case DACT_ALLY_SPELLCASTER:
         return mon->wont_attack() && mon->is_actual_spellcaster();
     case DACT_ALLY_YRED_SLAVE:
@@ -106,9 +116,6 @@ bool mons_matches_daction(const monster* mon, daction_type act)
     case DACT_OLD_ENSLAVED_SOULS_POOF:
         return mons_enslaved_soul(mon);
 
-    case DACT_HOLY_NEW_ATTEMPT:
-        return mon->is_holy();
-
     case DACT_SLIME_NEW_ATTEMPT:
         return mons_is_slime(mon);
 
@@ -121,6 +128,15 @@ bool mons_matches_daction(const monster* mon, daction_type act)
                // *or* another monster that got porkalated
                && (mon->props.exists("kirke_band")
                    || mon->props.exists(ORIG_MONSTER_KEY));
+
+    case DACT_BRIBE_TIMEOUT:
+        return mon->has_ench(ENCH_BRIBED)
+               || mon->has_ench(ENCH_PERMA_BRIBED)
+               || mon->props.exists(GOZAG_BRIBE_KEY)
+               || mon->props.exists(GOZAG_PERMABRIBE_KEY);
+
+    case DACT_SET_BRIBES:
+        return !testbits(mon->flags, MF_WAS_IN_VIEW);
 
     default:
         return false;
@@ -201,7 +217,6 @@ void apply_daction_to_mons(monster* mon, daction_type act, bool local,
             monster_die(mon, KILL_DISMISSED, NON_MONSTER);
             break;
 
-        case DACT_HOLY_NEW_ATTEMPT:
         case DACT_SLIME_NEW_ATTEMPT:
             mon->flags &= ~MF_ATT_CHANGE_ATTEMPT;
             break;
@@ -227,6 +242,18 @@ void apply_daction_to_mons(monster* mon, daction_type act, bool local,
             _daction_hog_to_human(mon, in_transit);
             break;
 
+        case DACT_BRIBE_TIMEOUT:
+            mon->del_ench(ENCH_BRIBED);
+            mon->del_ench(ENCH_PERMA_BRIBED);
+            if (mon->props.exists(GOZAG_BRIBE_KEY))
+                mon->props.erase(GOZAG_BRIBE_KEY);
+            if (mon->props.exists(GOZAG_PERMABRIBE_KEY))
+                mon->props.erase(GOZAG_PERMABRIBE_KEY);
+            break;
+
+        case DACT_SET_BRIBES:
+            gozag_set_bribe(mon);
+
         // The other dactions do not affect monsters directly.
         default:
             break;
@@ -250,11 +277,12 @@ static void _apply_daction(daction_type act)
     case DACT_ALLY_PLANT:
     case DACT_ALLY_TROG:
     case DACT_OLD_ENSLAVED_SOULS_POOF:
-    case DACT_HOLY_NEW_ATTEMPT:
     case DACT_SLIME_NEW_ATTEMPT:
     case DACT_HOLY_PETS_GO_NEUTRAL:
     case DACT_PIKEL_SLAVES:
     case DACT_KIRKE_HOGS:
+    case DACT_BRIBE_TIMEOUT:
+    case DACT_SET_BRIBES:
         for (monster_iterator mi; mi; ++mi)
         {
             if (mons_matches_daction(*mi, act))
@@ -284,8 +312,56 @@ static void _apply_daction(daction_type act)
         if (player_in_branch(BRANCH_TOMB))
             unset_level_flags(LFLAG_NO_TELE_CONTROL, you.depth != 3);
         break;
+    case DACT_GOLD_ON_TOP:
+    {
+        for (rectangle_iterator ri(0); ri; ++ri)
+        {
+            for (stack_iterator j(*ri); j; ++j)
+            {
+                if (j->base_type == OBJ_GOLD)
+                {
+                    bool detected = false;
+                    int dummy = j->index();
+                    j->special = 0;
+                    unlink_item(dummy);
+                    move_item_to_grid(&dummy, *ri, true);
+                    if (!env.map_knowledge(*ri).item()
+                        || env.map_knowledge(*ri).item()->base_type != OBJ_GOLD)
+                    {
+                        detected = true;
+                    }
+                    update_item_at(*ri, true);
+
+                    // The gold might be beneath deep water.
+                    if (detected && env.map_knowledge(*ri).item())
+                        env.map_knowledge(*ri).flags |= MAP_DETECTED_ITEM;
+                    break;
+                }
+            }
+        }
+        break;
+    }
+    case DACT_REMOVE_GOZAG_SHOPS:
+    {
+        vector<map_marker *> markers = env.markers.get_all(MAT_FEATURE);
+        for (unsigned int i = 0; i < markers.size(); i++)
+        {
+            map_feature_marker *feat =
+                dynamic_cast<map_feature_marker *>(markers[i]);
+            ASSERT(feat);
+            if (feat->feat == DNGN_ABANDONED_SHOP)
+            {
+                // TODO: clear shop data out?
+                grd(feat->pos) = DNGN_ABANDONED_SHOP;
+                view_update_at(feat->pos);
+                env.markers.remove(feat);
+            }
+        }
+        break;
+    }
 #if TAG_MAJOR_VERSION == 34
     case DACT_END_SPIRIT_HOWL:
+    case DACT_HOLY_NEW_ATTEMPT:
 #endif
     case NUM_DA_COUNTERS:
     case NUM_DACTIONS:
@@ -337,6 +413,7 @@ static void _daction_hog_to_human(monster *mon, bool in_transit)
         mon->flags & ~(MF_JUST_SUMMONED | MF_WAS_IN_VIEW);
     // Preserve enchantments.
     mon_enchant_list enchantments = mon->enchantments;
+    FixedBitVector<NUM_ENCHANTMENTS> ench_cache = mon->ench_cache;
 
     // Restore original monster.
     *mon = orig;
@@ -352,6 +429,7 @@ static void _daction_hog_to_human(monster *mon, bool in_transit)
     // "else {mon->position = pos}" is unnecessary because the transit code will
     // ignore the old position anyway.
     mon->enchantments = enchantments;
+    mon->ench_cache = ench_cache;
     mon->hit_points   = max(1, (int) (mon->max_hit_points * hp));
     mon->flags        = mon->flags | preserve_flags;
 

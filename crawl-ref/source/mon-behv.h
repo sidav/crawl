@@ -20,6 +20,17 @@ enum mon_event_type
     ME_HURT,                            // lost some HP (by any mean)
 };
 
+struct level_exit
+{
+    coord_def target;
+    bool unreachable;
+
+    level_exit(coord_def t = coord_def(-1, -1), bool u = true)
+        : target(t), unreachable(u)
+    {
+    }
+};
+
 class monster;
 struct coord_def;
 
@@ -30,6 +41,10 @@ void behaviour_event(monster* mon, mon_event_type event_type,
 // This function is somewhat low level; you should probably use
 // behaviour_event(mon, ME_EVAL) instead.
 void handle_behaviour(monster* mon);
+
+beh_type attitude_creation_behavior(mon_attitude_type att);
+
+void alert_nearby_monsters();
 
 void make_mons_stop_fleeing(monster* mon);
 

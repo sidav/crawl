@@ -38,6 +38,7 @@
 #include "spl-transloc.h"
 #include "env.h"
 #include "state.h"
+#include "stringutil.h"
 #include "tileview.h"
 #include "travel.h"
 #include "transform.h"
@@ -101,6 +102,7 @@ bool feat_is_staircase(dungeon_feature_type feat)
 
     // All branch entries/exits are staircases, except for Zot and Vaults entry.
     if (feat == DNGN_ENTER_VAULTS
+        || feat == DNGN_RETURN_FROM_VAULTS
         || feat == DNGN_ENTER_ZOT
         || feat == DNGN_RETURN_FROM_ZOT)
     {
@@ -159,13 +161,14 @@ bool feat_is_travelable_stair(dungeon_feature_type feat)
     case DNGN_RETURN_FROM_DWARF:
     case DNGN_ENTER_FOREST:
     case DNGN_RETURN_FROM_FOREST:
+    case DNGN_ENTER_BLADE:
+    case DNGN_RETURN_FROM_BLADE:
 #endif
     case DNGN_ENTER_ORC:
     case DNGN_ENTER_LAIR:
     case DNGN_ENTER_SLIME:
     case DNGN_ENTER_VAULTS:
     case DNGN_ENTER_CRYPT:
-    case DNGN_ENTER_BLADE:
     case DNGN_ENTER_ZOT:
     case DNGN_ENTER_TEMPLE:
     case DNGN_ENTER_SNAKE:
@@ -180,7 +183,6 @@ bool feat_is_travelable_stair(dungeon_feature_type feat)
     case DNGN_RETURN_FROM_SLIME:
     case DNGN_RETURN_FROM_VAULTS:
     case DNGN_RETURN_FROM_CRYPT:
-    case DNGN_RETURN_FROM_BLADE:
     case DNGN_RETURN_FROM_ZOT:
     case DNGN_RETURN_FROM_TEMPLE:
     case DNGN_RETURN_FROM_SNAKE:
@@ -223,6 +225,7 @@ bool feat_is_gate(dungeon_feature_type feat)
     case DNGN_EXIT_PANDEMONIUM:
     case DNGN_TRANSIT_PANDEMONIUM:
     case DNGN_ENTER_VAULTS:
+    case DNGN_RETURN_FROM_VAULTS:
     case DNGN_ENTER_ZOT:
     case DNGN_RETURN_FROM_ZOT:
     case DNGN_ENTER_HELL:
@@ -295,7 +298,11 @@ command_type feat_stair_direction(dungeon_feature_type feat)
 
 bool feat_is_opaque(dungeon_feature_type feat)
 {
-    return feat <= DNGN_MAXOPAQUE;
+    return feat <= DNGN_MAXOPAQUE
+#if TAG_MAJOR_VERSION == 34
+                || feat == DNGN_TREE
+#endif
+    ;
 }
 
 bool feat_is_solid(dungeon_feature_type feat)
@@ -331,6 +338,12 @@ bool feat_is_closed_door(dungeon_feature_type feat)
            || feat == DNGN_SEALED_DOOR;
 }
 
+bool feat_is_sealed(dungeon_feature_type feat)
+{
+    return feat == DNGN_SEALED_STAIRS_DOWN || feat == DNGN_SEALED_STAIRS_UP
+           || feat == DNGN_SEALED_DOOR;
+}
+
 bool feat_is_statue_or_idol(dungeon_feature_type feat)
 {
     return feat == DNGN_ORCISH_IDOL || feat == DNGN_GRANITE_STATUE;
@@ -362,8 +375,7 @@ bool feat_is_water(dungeon_feature_type feat)
 {
     return feat == DNGN_SHALLOW_WATER
            || feat == DNGN_DEEP_WATER
-           || feat == DNGN_OPEN_SEA
-           || feat == DNGN_MANGROVE;
+           || feat == DNGN_OPEN_SEA;
 }
 
 bool feat_is_watery(dungeon_feature_type feat)
@@ -380,6 +392,12 @@ bool feat_is_lava(dungeon_feature_type feat)
 // GOD_* type.
 god_type feat_altar_god(dungeon_feature_type feat)
 {
+#if TAG_MAJOR_VERSION == 34
+    if (feat == DNGN_ALTAR_GOZAG)
+        return GOD_GOZAG;
+    if (feat == DNGN_ALTAR_QAZLAL)
+        return GOD_QAZLAL;
+#endif
     if (feat >= DNGN_ALTAR_FIRST_GOD && feat <= DNGN_ALTAR_LAST_GOD)
         return static_cast<god_type>(feat - DNGN_ALTAR_FIRST_GOD + 1);
 
@@ -392,6 +410,13 @@ dungeon_feature_type altar_for_god(god_type god)
 {
     if (god == GOD_NO_GOD || god >= NUM_GODS)
         return DNGN_FLOOR;  // Yeah, lame. Tell me about it.
+
+#if TAG_MAJOR_VERSION == 34
+    if (god == GOD_GOZAG)
+        return DNGN_ALTAR_GOZAG;
+    if (god == GOD_QAZLAL)
+        return DNGN_ALTAR_QAZLAL;
+#endif
 
     return static_cast<dungeon_feature_type>(DNGN_ALTAR_FIRST_GOD + god - 1);
 }
@@ -425,7 +450,7 @@ bool feat_is_branchlike(dungeon_feature_type feat)
 
 bool feat_is_tree(dungeon_feature_type feat)
 {
-    return feat == DNGN_TREE || feat == DNGN_MANGROVE;
+    return feat == DNGN_TREE;
 }
 
 bool feat_is_metal(dungeon_feature_type feat)
@@ -439,6 +464,7 @@ bool feat_is_bidirectional_portal(dungeon_feature_type feat)
            && feat_stair_direction(feat) != CMD_NO_CMD
            && feat != DNGN_ENTER_ZOT
            && feat != DNGN_RETURN_FROM_ZOT
+           && feat != DNGN_RETURN_FROM_VAULTS
            && feat != DNGN_EXIT_HELL;
 }
 
@@ -598,29 +624,11 @@ bool feat_destroys_item(dungeon_feature_type feat, const item_def &item,
 
 // For checking whether items would be inaccessible when they wouldn't technically be
 // destroyed - ignores Merfolk/Fedhas ability to access items in deep water.
-bool feat_virtually_destroys_item(dungeon_feature_type feat, const item_def &item,
-                                  bool noisy)
+bool feat_virtually_destroys_item(dungeon_feature_type feat,
+                                  const item_def &item,  bool noisy)
 {
-    switch (feat)
-    {
-    case DNGN_SHALLOW_WATER:
-        if (noisy)
-            mprf(MSGCH_SOUND, "You hear a splash.");
-        return false;
-
-    case DNGN_DEEP_WATER:
-        if (noisy)
-            mprf(MSGCH_SOUND, "You hear a splash.");
-        return true;
-
-    case DNGN_LAVA:
-        if (noisy)
-            mprf(MSGCH_SOUND, "You hear a sizzling splash.");
-        return true;
-
-    default:
-        return false;
-    }
+    const bool destroyed = feat_destroys_item(feat, item, noisy);
+    return destroyed || feat == DNGN_DEEP_WATER;
 }
 
 static coord_def _dgn_find_nearest_square(
@@ -631,13 +639,15 @@ static coord_def _dgn_find_nearest_square(
 {
     memset(travel_point_distance, 0, sizeof(travel_distance_grid_t));
 
-    list<coord_def> points[2];
+    vector<coord_def> points[2];
     int iter = 0;
     points[iter].push_back(pos);
 
     while (!points[iter].empty())
     {
-        for (list<coord_def>::iterator i = points[iter].begin();
+        // Iterate each layer of BFS in random order to avoid bias.
+        shuffle_array(points[iter]);
+        for (vector<coord_def>::iterator i = points[iter].begin();
              i != points[iter].end(); ++i)
         {
             const coord_def &p = *i;
@@ -667,8 +677,7 @@ static coord_def _dgn_find_nearest_square(
         iter = !iter;
     }
 
-    coord_def unfound;
-    return unfound;
+    return coord_def(0, 0); // Not found.
 }
 
 static bool _item_safe_square(const coord_def &pos, void *item)
@@ -678,10 +687,21 @@ static bool _item_safe_square(const coord_def &pos, void *item)
            && !feat_destroys_item(feat, *static_cast<item_def *>(item));
 }
 
+static bool _item_traversable_square(const coord_def &pos)
+{
+    return !cell_is_solid(pos);
+}
+
 // Moves an item on the floor to the nearest adjacent floor-space.
 static bool _dgn_shift_item(const coord_def &pos, item_def &item)
 {
-    const coord_def np = _dgn_find_nearest_square(pos, &item, _item_safe_square);
+    // First try to avoid pushing things through solid features...
+    coord_def np = _dgn_find_nearest_square(pos, &item, _item_safe_square,
+                                            _item_traversable_square);
+    // ... but if we have to, so be it.
+    if (!in_bounds(np) || np == pos)
+        np = _dgn_find_nearest_square(pos, &item, _item_safe_square);
+
     if (in_bounds(np) && np != pos)
     {
         int index = item.index();
@@ -710,14 +730,15 @@ bool is_valid_border_feat(dungeon_feature_type feat)
 // Other features can be defined as mimic in vaults.
 bool is_valid_mimic_feat(dungeon_feature_type feat)
 {
-    // Don't risk trapping the player inside a portal vault, don't destroy
-    // runed doors either.
-    if (feat == DNGN_RUNED_DOOR
+    // Don't risk trapping the player inside a portal vault.
+    if (feat >= DNGN_EXIT_FIRST_PORTAL && feat <= DNGN_EXIT_LAST_PORTAL
 #if TAG_MAJOR_VERSION == 34
         || feat == DNGN_EXIT_PORTAL_VAULT
 #endif
-        || feat >= DNGN_EXIT_FIRST_PORTAL && feat <= DNGN_EXIT_LAST_PORTAL)
+        )
+    {
         return false;
+    }
 
     // There's only one branch exit.
     if (you.depth == 1 && feat_is_travelable_stair(feat)
@@ -729,22 +750,10 @@ bool is_valid_mimic_feat(dungeon_feature_type feat)
     if (feat_is_portal(feat) || feat_is_gate(feat))
         return true;
 
-    if (feat_is_stone_stair(feat) || feat_is_escape_hatch(feat)
-        || feat_is_branch_stairs(feat))
-    {
-        return true;
-    }
-
-    if (feat_is_fountain(feat))
-        return true;
-
-    if (feat_is_door(feat))
+    if (feat_is_stone_stair(feat) || feat_is_branch_stairs(feat))
         return true;
 
     if (feat == DNGN_ENTER_SHOP)
-        return true;
-
-    if (feat_is_statue_or_idol(feat))
         return true;
 
     return false;
@@ -854,7 +863,14 @@ void dgn_move_entities_at(coord_def src, coord_def dst,
     if (move_items)
         move_item_stack_to_grid(src, dst);
 
-    move_cloud_to(src, dst);
+    if (cell_is_solid(dst))
+    {
+        int cl = env.cgrid(dst);
+        if (cl != EMPTY_CLOUD)
+            delete_cloud(cl);
+    }
+    else
+        move_cloud_to(src, dst);
 
     // Move terrain colours and properties.
     env.pgrid(dst) = env.pgrid(src);
@@ -877,6 +893,7 @@ void dgn_move_entities_at(coord_def src, coord_def dst,
 
     // Move player's knowledge.
     env.map_knowledge(dst) = env.map_knowledge(src);
+    env.map_seen.set(dst, env.map_seen(src));
     StashTrack.move_stash(src, dst);
 }
 
@@ -965,7 +982,7 @@ static void _dgn_check_terrain_player(const coord_def pos)
         return;
 
     if (you.can_pass_through(pos))
-        move_player_to_grid(pos, false, true);
+        move_player_to_grid(pos, false);
     else
         you_teleport_now(true);
 }
@@ -974,7 +991,8 @@ void dungeon_terrain_changed(const coord_def &pos,
                              dungeon_feature_type nfeat,
                              bool affect_player,
                              bool preserve_features,
-                             bool preserve_items)
+                             bool preserve_items,
+                             int colour)
 {
     if (grd(pos) == nfeat)
         return;
@@ -989,7 +1007,7 @@ void dungeon_terrain_changed(const coord_def &pos,
         unnotice_feature(level_pos(level_id::current(), pos));
 
         grd(pos) = nfeat;
-        env.grid_colours(pos) = BLACK;
+        env.grid_colours(pos) = colour;
         // Reset feature tile
         env.tile_flv(pos).feat = 0;
         env.tile_flv(pos).feat_idx = 0;
@@ -1330,23 +1348,23 @@ bool slide_feature_over(const coord_def &src, coord_def preferred_dest,
     return swap_features(src, preferred_dest, false, announce);
 }
 
-// Returns true if we manage to scramble free.
-bool fall_into_a_pool(const coord_def& entry, bool allow_shift,
-                      dungeon_feature_type terrain)
+/**
+ * Apply harmful environmental effects from the current tile terrain to the
+ * player.
+ *
+ * @param entry     The terrain type in question.
+ */
+void fall_into_a_pool(dungeon_feature_type terrain)
 {
-    bool escape = false;
-    bool clinging = false;
-    coord_def empty;
-
     if (terrain == DNGN_DEEP_WATER)
     {
         if (beogh_water_walk() || form_likes_water())
-            return false;
+            return;
 
         if (species_likes_water(you.species) && !you.transform_uncancellable)
         {
             emergency_untransform();
-            return false;
+            return;
         }
     }
 
@@ -1356,107 +1374,26 @@ bool fall_into_a_pool(const coord_def& entry, bool allow_shift,
                                       : "programming rift");
 
     more();
-    mesclr();
-
+    clear_messages();
     if (terrain == DNGN_LAVA)
     {
-        const int resist = player_res_fire();
-
-        if (resist <= 0)
-        {
-            mpr("The lava burns you to a cinder!");
-            ouch(INSTANT_DEATH, NON_MONSTER, KILLED_BY_LAVA);
-
-            if (you.dead) // felids
-                return false;
-        }
-        else
-        {
-            int damage = 10 + roll_dice(2, 50) / resist;
-
-            if (damage > 100)
-                mpr("The lava roasts you!!");
-            else if (damage > 70)
-                mpr("The lava burns you!!");
-            else if (damage > 40)
-                mpr("The lava sears you!!");
-            else if (damage > 20)
-                mpr("The lava scorches you!");
-            else
-                mpr("The lava scalds you!");
-
-            ouch(damage, NON_MONSTER, KILLED_BY_LAVA);
-
-            if (you.dead) // felids
-                return false;
-        }
-
-        expose_player_to_element(BEAM_LAVA, 14);
-    }
-
-    // A distinction between stepping and falling from
-    // you.duration[DUR_FLIGHT] prevents stepping into a thin stream
-    // of lava to get to the other side.
-    if (scramble())
-    {
-        if (allow_shift)
-        {
-            escape = find_habitable_spot_near(you.pos(), MONS_HUMAN, 1, false, empty)
-                     || you.check_clinging(false);
-            clinging = you.is_wall_clinging();
-        }
-        else
-        {
-            // Back out the way we came in, if possible.
-            if (grid_distance(you.pos(), entry) == 1
-                && !monster_at(entry))
-            {
-                escape = true;
-                empty = entry;
-            }
-            else  // Zero or two or more squares away, with no way back.
-                escape = false;
-        }
-    }
-    else
-    {
-        if (you.form == TRAN_STATUE)
-            mpr("You sink like a stone!");
-        else
-            mpr("You try to escape, but your burden drags you down!");
-    }
-
-    if (escape)
-    {
-        if (in_bounds(empty) && !is_feat_dangerous(grd(empty)) || clinging)
-        {
-            mpr("You manage to scramble free!");
-            if (!clinging)
-                move_player_to_grid(empty, false, false);
-
-            if (terrain == DNGN_LAVA)
-                expose_player_to_element(BEAM_LAVA, 14);
-
-            return true;
-        }
-    }
-
-    if (you.species == SP_MUMMY)
-    {
-        if (terrain == DNGN_LAVA)
+        if (you.species == SP_MUMMY)
             mpr("You burn to ash...");
-        else if (terrain == DNGN_DEEP_WATER)
-            mpr("You fall apart...");
-    }
-    else
-        mpr("You drown...");
-
-    if (terrain == DNGN_LAVA)
+        else
+            mpr("The lava burns you to a cinder!");
         ouch(INSTANT_DEATH, NON_MONSTER, KILLED_BY_LAVA);
+    }
     else if (terrain == DNGN_DEEP_WATER)
-        ouch(INSTANT_DEATH, NON_MONSTER, KILLED_BY_WATER);
+    {
+        mpr("You sink like a stone!");
 
-    return false;
+        if (you.is_artificial() || you.is_undead)
+            mpr("You fall apart...");
+        else
+            mpr("You drown...");
+
+        ouch(INSTANT_DEATH, NON_MONSTER, KILLED_BY_WATER);
+    }
 }
 
 typedef map<string, dungeon_feature_type> feat_desc_map;
@@ -1569,135 +1506,27 @@ string stair_climb_verb(dungeon_feature_type feat)
         return "pass through";
 }
 
-static const char *dngn_feature_names[] =
-{
-"unseen", "closed_door", "runed_door", "sealed_door",
-"mangrove", "metal_wall", "green_crystal_wall", "rock_wall",
-"slimy_wall", "stone_wall", "permarock_wall",
-"clear_rock_wall", "clear_stone_wall", "clear_permarock_wall", "iron_grate",
-"tree", "open_sea", "endless_lava", "orcish_idol",
-"granite_statue", "malign_gateway", "", "", "", "", "", "", "", "", "",
-
-// DNGN_MINMOVE
-"lava", "deep_water",
-
-// DNGN_MINWALK
-"shallow_water", "floor", "open_door",
-"trap_mechanical", "trap_teleport", "shaft", "trap_web",
-"undiscovered_trap", "enter_shop", "abandoned_shop",
-
-"stone_stairs_down_i", "stone_stairs_down_ii",
-"stone_stairs_down_iii", "escape_hatch_down", "stone_stairs_up_i",
-"stone_stairs_up_ii", "stone_stairs_up_iii", "escape_hatch_up",
-
-"enter_dis", "enter_gehenna", "enter_cocytus",
-"enter_tartarus", "enter_abyss", "exit_abyss",
-#if TAG_MAJOR_VERSION > 34
-"abyssal_stair",
-#endif
-"stone_arch", "enter_pandemonium", "exit_pandemonium",
-"transit_pandemonium", "exit_dungeon", "exit_through_abyss",
-"exit_hell", "enter_hell", "enter_labyrinth",
-"teleporter",
-#if TAG_MAJOR_VERSION == 34
-"enter_portal_vault", "exit_portal_vault",
-#endif
-"expired_portal",
-
-#if TAG_MAJOR_VERSION == 34
-"enter_dwarven_hall",
-#endif
-"enter_orcish_mines", "enter_lair",
-"enter_slime_pits", "enter_vaults", "enter_crypt",
-"enter_hall_of_blades", "enter_zot", "enter_temple",
-"enter_snake_pit", "enter_elven_halls", "enter_tomb",
-"enter_swamp", "enter_shoals", "enter_spider_nest",
-#if TAG_MAJOR_VERSION == 34
-"enter_forest",
-#endif
-"enter_depths",
-
-#if TAG_MAJOR_VERSION == 34
-"return_from_dwarven_hall",
-#endif
-"return_from_orcish_mines",
-"return_from_lair", "return_from_slime_pits",
-"return_from_vaults", "return_from_crypt",
-"return_from_hall_of_blades", "return_from_zot",
-"return_from_temple", "return_from_snake_pit",
-"return_from_elven_halls", "return_from_tomb",
-"return_from_swamp", "return_from_shoals", "return_from_spider_nest",
-#if TAG_MAJOR_VERSION == 34
-"return_from_forest",
-#endif
-"return_from_depths",
-
-"altar_zin", "altar_the_shining_one", "altar_kikubaaqudgha",
-"altar_yredelemnul", "altar_xom", "altar_vehumet",
-"altar_okawaru", "altar_makhleb", "altar_sif_muna", "altar_trog",
-"altar_nemelex_xobeh", "altar_elyvilon", "altar_lugonu",
-"altar_beogh", "altar_jiyva", "altar_fedhas", "altar_cheibriados",
-"altar_ashenzari", "altar_dithmenos",
-#if TAG_MAJOR_VERSION > 34
-"", "", "", "", "", "", "", "",
-#endif
-
-"fountain_blue", "fountain_sparkling", "fountain_blood",
-#if TAG_MAJOR_VERSION == 34
-"non-fountain_blue", "non-fountain_sparkling", "non-fountain_blood",
-#endif
-"dry_fountain",
-
-"explore_horizon",
-"unknown_altar", "unknown_portal",
-
-#if TAG_MAJOR_VERSION == 34
-"abyssal_stair",
-"badly_sealed_door",
-#endif
-
-"sealed_stair_up",
-"sealed_stair_down",
-
-"trap_alarm",
-"trap_zot",
-"passage_of_golubria",
-
-"enter_ziggurat",
-"enter_bazaar",
-"enter_trove",
-"enter_sewer",
-"enter_ossuary",
-"enter_bailey",
-"enter_ice_cave",
-"enter_volcano",
-"enter_wizlab",
-"enter_unused",
-"exit_ziggurat",
-"exit_bazaar",
-"exit_trove",
-"exit_sewer",
-"exit_ossuary",
-"exit_bailey",
-"exit_ice_cave",
-"exit_volcano",
-"exit_wizlab",
-"exit_labyrinth",
-"exit_unused",
-};
-
+/** Find the feature with this name.
+ *
+ *  @param name The name (not the user-visible one) to be matched.
+ *  @returns DNGN_UNSEEN if name is "", DNGN_FLOOR if the name is for a
+ *           dead/forbidden god, and the first entry in the enum with a
+ *           matching name otherwise.
+ */
 dungeon_feature_type dungeon_feature_by_name(const string &name)
 {
-    COMPILE_CHECK(ARRAYSZ(dngn_feature_names) == NUM_FEATURES);
-
     if (name.empty())
         return DNGN_UNSEEN;
 
-    for (unsigned i = 0; i < ARRAYSZ(dngn_feature_names); ++i)
+    for (unsigned i = 0; i < NUM_FEATURES; ++i)
     {
-        if (dngn_feature_names[i] == name)
+        dungeon_feature_type feat = static_cast<dungeon_feature_type>(i);
+
+        if (!is_valid_feature_type(feat))
+            continue;
+
+        if (get_feature_def(feat).vaultname == name)
         {
-            dungeon_feature_type feat = static_cast<dungeon_feature_type>(i);
 
             if (feat_is_altar(feat)
                 && is_unavailable_god(feat_altar_god(feat)))
@@ -1712,32 +1541,48 @@ dungeon_feature_type dungeon_feature_by_name(const string &name)
     return DNGN_UNSEEN;
 }
 
+/** Find feature names that contain this name.
+ *
+ *  @param name The string to be matched.
+ *  @returns a list of matching names.
+ */
 vector<string> dungeon_feature_matches(const string &name)
 {
     vector<string> matches;
 
-    COMPILE_CHECK(ARRAYSZ(dngn_feature_names) == NUM_FEATURES);
     if (name.empty())
         return matches;
 
-    for (unsigned i = 0; i < ARRAYSZ(dngn_feature_names); ++i)
-        if (strstr(dngn_feature_names[i], name.c_str()))
-            matches.push_back(dngn_feature_names[i]);
+    for (unsigned i = 0; i < NUM_FEATURES; ++i)
+    {
+        dungeon_feature_type feat = static_cast<dungeon_feature_type>(i);
+
+        if (!is_valid_feature_type(feat))
+            continue;
+
+        const char *featname = get_feature_def(feat).vaultname;
+        if (strstr(featname, name.c_str()))
+            matches.push_back(featname);
+    }
 
     return matches;
 }
 
+/** Get the lua/wizmode name for a feature.
+ *
+ *  @param rfeat The feature type to be found.
+ *  @returns NULL if rfeat is not defined, the vaultname of the corresponding
+ *           feature_def otherwise.
+ */
 const char *dungeon_feature_name(dungeon_feature_type rfeat)
 {
-    const unsigned feat = rfeat;
-
-    if (feat >= ARRAYSZ(dngn_feature_names))
+    if (!is_valid_feature_type(rfeat))
         return NULL;
 
-    return dngn_feature_names[feat];
+    return get_feature_def(rfeat).vaultname;
 }
 
-void nuke_wall(const coord_def& p)
+void destroy_wall(const coord_def& p)
 {
     if (!in_bounds(p))
         return;
@@ -1748,12 +1593,12 @@ void nuke_wall(const coord_def& p)
 
     remove_mold(p);
 
-    _revert_terrain_to(p, ((grd(p) == DNGN_MANGROVE) ? DNGN_SHALLOW_WATER
-                                                     : DNGN_FLOOR));
-    env.level_map_mask(p) |= MMT_NUKED;
+    _revert_terrain_to(p, (player_in_branch(BRANCH_SWAMP) ? DNGN_SHALLOW_WATER
+                                                          : DNGN_FLOOR));
+    env.level_map_mask(p) |= MMT_TURNED_TO_FLOOR;
 }
 
-/*
+/**
  * Check if an actor can cling to a cell.
  *
  * Wall clinging is done only on orthogonal walls.
@@ -1771,7 +1616,7 @@ bool cell_is_clingable(const coord_def pos)
     return false;
 }
 
-/*
+/**
  * Check if an actor can cling from a cell to another.
  *
  * "clinging" to a wall means being orthogonally (left, right, up, down) next
@@ -1861,6 +1706,27 @@ void set_terrain_changed(const coord_def p)
 
     if (grd(p) == DNGN_SLIMY_WALL)
         env.level_state |= LSTATE_SLIMY_WALL;
+    else if (grd(p) == DNGN_OPEN_DOOR)
+    {
+        // Restore colour from door-change markers
+        vector<map_marker*> markers = env.markers.get_markers_at(p);
+        for (int i = 0, size = markers.size(); i < size; ++i)
+        {
+            if (markers[i]->get_type() == MAT_TERRAIN_CHANGE)
+            {
+                map_terrain_change_marker* marker =
+                    dynamic_cast<map_terrain_change_marker*>(markers[i]);
+
+                if (marker->change_type == TERRAIN_CHANGE_DOOR_SEAL
+                    && marker->colour != BLACK)
+                {
+                    // Restore the unsealed colour.
+                    dgn_set_grid_colour_at(p, marker->colour);
+                    break;
+                }
+            }
+        }
+    }
 
     env.map_knowledge(p).flags |= MAP_CHANGED_FLAG;
 
@@ -1950,10 +1816,10 @@ void temp_change_terrain(coord_def pos, dungeon_feature_type newfeat, int dur,
     if (grd(pos) == newfeat && newfeat == old_feat)
         return;
 
+    int col = env.grid_colours(pos);
     map_terrain_change_marker *marker =
-        new map_terrain_change_marker(pos, old_feat, newfeat, dur, type);
-    if (mon)
-        marker->mon_num = mon->mid;
+        new map_terrain_change_marker(pos, old_feat, newfeat, dur, type,
+                                      mon ? mon->mid : 0, col);
     env.markers.add(marker);
     env.markers.clear_need_activate();
     dungeon_terrain_changed(pos, newfeat, true, false, true);
@@ -2006,6 +1872,7 @@ bool revert_terrain_change(coord_def pos, terrain_change_type ctype)
 {
     vector<map_marker*> markers = env.markers.get_markers_at(pos);
     dungeon_feature_type newfeat = DNGN_UNSEEN;
+    int colour = BLACK;
 
     for (int i = 0, size = markers.size(); i < size; ++i)
     {
@@ -2016,12 +1883,20 @@ bool revert_terrain_change(coord_def pos, terrain_change_type ctype)
 
             if (marker->change_type == ctype)
             {
+                if (marker->colour != BLACK)
+                    colour = marker->colour;
                 if (!newfeat)
                     newfeat = marker->old_feature;
                 env.markers.remove(marker);
             }
             else
+            {
+                // If we had an old colour, give it to the other marker.
+                if (colour != BLACK)
+                    marker->colour = colour;
+                colour = BLACK;
                 newfeat = marker->new_feature;
+            }
         }
     }
 
@@ -2031,7 +1906,7 @@ bool revert_terrain_change(coord_def pos, terrain_change_type ctype)
 
     if (newfeat != DNGN_UNSEEN)
     {
-        dungeon_terrain_changed(pos, newfeat, true, false, true);
+        dungeon_terrain_changed(pos, newfeat, true, false, true, colour);
         return true;
     }
     else

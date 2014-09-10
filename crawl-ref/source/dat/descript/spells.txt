@@ -69,9 +69,9 @@ Banishment spell
 %%%%
 Beastly Appendage spell
 
-This spell makes you temporarily replace one or a pair of appendages with an
-animal counterpart, giving you an extra attack. It is not powerful enough to
-meld armour.
+This spell makes the caster temporarily replace one or a pair of appendages
+with an animal counterpart, giving them an extra attack. It is not powerful
+enough to meld armour.
 %%%%
 Berserker Rage spell
 
@@ -188,9 +188,9 @@ Call Lost Soul spell
 This spell summons a necromantic spectre, and gives it a temporary material
 form. Such spectres, or “lost souls”, can enter the bodies of more powerful
 undead to bring them back from brink of demise, or turn dying living creatures
-into spectral versions of themselves. While the soul's material form is only
-temporary, the effect of such repair is not. At least, until you kill the
-repairee again.
+into ghostly versions of themselves. While the soul's material form is only
+temporary, the effect of such repair is not - at least, until someone kills the
+repairee again!
 %%%%
 Call Tide spell
 
@@ -202,10 +202,8 @@ normally.
 Cantrip spell
 
 Cantrips are minor spells, aimed at trying to scare ignorant enemies or bolster
-the caster's morale. They have no real effect otherwise, and an adventurer of
-your stature has neither need for, nor fear of, such tricks. Or perhaps, just
-to be safe, you should knock thrice on unpainted wood to ward off their evil
-eye.
+the caster's morale. They have no real effect otherwise, and an adventurer has
+neither need for, nor fear of, such tricks.
 %%%%
 Cause Fear spell
 
@@ -248,10 +246,10 @@ airborne targets.
 Condensation Shield spell
 
 This spell causes a disc of dense vapour to condense out of the air surrounding
-the caster. It acts like a normal shield, but its density (and therefore
-stopping power) depends upon the caster's skill with Ice Magic. The disc is
-controlled by the caster's mind and thus will not conflict with the wielding of
-a two-handed weapon.
+the caster. It blocks attacks like a normal shield, but its stopping power
+depends solely on the power of the spell, not the Shields skill. The disc is
+controlled by the caster's mind, and thus will not conflict with the wielding
+of a two-handed weapon.
 %%%%
 Confuse spell
 
@@ -272,7 +270,7 @@ harmlessly if allowed to drift too far away from their caster before exploding.
 %%%%
 Conjure Flame spell
 
-This spell creates a column of roaring flame.
+This spell creates a column of roaring flame in a targeted empty space.
 %%%%
 Control Teleport spell
 
@@ -317,6 +315,10 @@ This spell rapidly accelerates the decomposition of any corpses lying around
 the caster, emitting in the process a foul miasmic vapour, which eats away at
 the life force of any creature it envelops.
 %%%%
+Corrosive Bolt spell
+
+This spell hurls a penetrating bolt of acid.
+%%%%
 Corrupt Body spell
 
 This spell instills a corruption within a target, temporarily mutating their
@@ -353,13 +355,13 @@ into a state of unliving slavery as spectral things.
 Death's Door spell
 
 This spell is extremely powerful, but carries a degree of risk. It renders
-living casters nigh invulnerable to harm for a brief period, but can bring them
-dangerously close to death. So close in fact, that the body believes itself to
-be dead — healing effects will do nothing.
+living casters nigh invulnerable to harm for a brief period, but brings them
+dangerously close to death in the process. So close in fact, that the body
+believes itself to be dead — healing effects will do nothing.
 
-The caster will receive one warning shortly before the spell expires. Being
-more skilled at Necromancy leaves the caster more resilient. Undead cannot use
-this spell.
+The caster will receive one warning shortly before the spell expires. With high
+power, the caster will be left more resilient when the effect ends. Undead
+cannot use this spell.
 %%%%
 Debugging Ray spell
 
@@ -400,9 +402,9 @@ used to cause severe damage, or remove a chunk of rock.
 %%%%
 Disjunction spell
 
-This spell destabilizes the space in a sphere around you for a while, causing
-anyone nearby to be randomly blinked. The chance of blinking depends on the
-distance from you, being nearly certain when directly adjacent.
+This spell destabilizes the space in a sphere around the caster for a while,
+causing anyone nearby to be randomly blinked. The chance of blinking depends on
+the distance from the caster, being nearly certain when directly adjacent.
 %%%%
 Dispel Undead spell
 
@@ -437,6 +439,11 @@ Drain Life spell
 
 <Drain Life ability>
 %%%%
+Drain Magic spell
+
+This hex causes the target's magic to leak into the air, as though they were
+hit by an antimagic weapon.
+%%%%
 Druid's Call spell
 
 This spell allows a druid to recall woodland creatures from elsewhere on the
@@ -449,8 +456,8 @@ pieces.
 %%%%
 Enslavement spell
 
-This spell causes an otherwise hostile creature to fight on your side for a
-while.
+This spell causes an otherwise hostile creature to fight on the caster's side
+for a while.
 %%%%
 Ensnare spell
 
@@ -470,19 +477,12 @@ the recipients on the brink of death but never outright kills them.
 Excruciating Wounds spell
 
 This spell temporarily infuses the weapon held by the caster with the essence
-of pain itself. It will not affect weapons which are otherwise subject to
-special enchantments. Note that unlike other brands, pain can not be made
-permanent by reading a scroll of brand weapon.
+of pain itself. It will not affect artefact weapons.
 %%%%
 Explosive Bolt spell
 
 This spell hurls a bolt containing fiery energy; on piercing a target, it lets
 loose an explosion that harms nearby creatures as well.
-%%%%
-Fire Brand spell
-
-This spell sets a weapon or launcher held by the caster ablaze. It will not
-affect weapons otherwise subject to special enchantments.
 %%%%
 Fire Breath spell
 
@@ -540,12 +540,6 @@ Freeze spell
 
 This spell freezes a creature. This may temporarily slow the metabolism of a
 cold-blooded creature.
-%%%%
-Freezing Aura spell
-
-This spell surrounds a weapon or launcher held by the caster with an aura of
-freezing cold. It will not affect weapons which are otherwise subject to
-special enchantments.
 %%%%
 Freezing Cloud spell
 
@@ -639,12 +633,6 @@ Holy Flames spell
 This spell allows one to trap an enemy in a ring of blessed flame. If such a
 foe decides to step through it, it does extra damage especially to evil and
 unholy beings. Holy creatures can step through it without any ill effects.
-%%%%
-Holy Light spell
-
-This spell allows the caster to shoot out a beam of holy energy. It does damage
-to anyone hit not holy themselves, and those evil and unholy suffer far more
-damage.
 %%%%
 Ice Form spell
 
@@ -743,11 +731,6 @@ Spear, Orb of Destruction, Ghostly Fireball, Fireball, or Flash Freeze.
 Lehudib's Crystal Spear spell
 
 This spell hurls a lethally sharp bolt of crystal.
-%%%%
-Lethal Infusion spell
-
-This spell infuses a weapon held by the caster with unholy energies. It will
-not affect weapons which are otherwise subject to special enchantments.
 %%%%
 Lightning Bolt spell
 
@@ -892,17 +875,18 @@ immense force on impact.
 %%%%
 Ozocubu's Armour spell
 
-This spell envelops the caster's body in a protective layer of ice, the power
-of which depends on his or her skill with ice magic. The caster and the
-caster's equipment will not suffer cold from this layer, yet can be affected by
-other sources of cold normally. The spell will not function for casters already
-wearing heavy armour (any body armour with an encumbrance rating of 5 or more).
-The effects of this spell are boosted if the caster is in ice form.
+This spell envelops the caster's body in a protective layer of ice. The caster
+and the caster's equipment will not suffer cold from this layer, yet can be
+affected by other sources of cold normally. The spell will not function for
+casters already wearing heavy armour (any body armour with an encumbrance
+rating of 5 or more). The effects of this spell are boosted if the caster is in
+Ice Form.
 %%%%
 Ozocubu's Refrigeration spell
 
 This spell drains the heat from the caster and his or her surroundings, causing
-harm to all creatures not resistant to cold.
+harm to all creatures not resistant to cold and preventing potion use for a
+brief duration.
 %%%%
 Pain spell
 
@@ -962,11 +946,6 @@ This spell hurls a magical arrow coated with the most vile and noxious toxin.
 No living thing is completely immune to its effects, and even the undead will
 take damage from the physical component of the spell.
 %%%%
-Poison Weapon spell
-
-This spell temporarily coats any weapon or launcher with poison. It will only
-work on weapons without an existing enchantment.
-%%%%
 Poisonous Cloud spell
 
 This spell conjures forth a great cloud of lethal gasses.
@@ -1005,11 +984,6 @@ Random Bolt spell
 
 This spell creates, at random, a bolt of venom, negative energy, fire, cold,
 dispelling energy, electricity, or a bouncing crystal bolt of fire or cold.
-%%%%
-# TAG_MAJOR_VERSION == 34
-Rearrange the Pieces spell
-
-This spell swaps positions of random pairs of nearby creatures.
 %%%%
 Recall spell
 
@@ -1080,10 +1054,10 @@ A damaging spell mimicked by the shadow of a Dithmenos worshipper.
 %%%%
 Shatter spell
 
-This spell causes a burst of concussive force around the caster, which will
-damage most creatures, although those composed of stone, metal, crystal or
-otherwise brittle material will particularly suffer. The magic has been known
-to adversely affect walls.
+This spell causes an enormous burst of concussive force around the caster.
+Flying and gelatinous creatures can escape the worst effects, and insubstantial
+creatures are entirely unaffected, but all others will be gravely injured by
+the blast. Walls have also sometimes been known to be adversely affected.
 %%%%
 Shock spell
 
@@ -1091,10 +1065,10 @@ This spell throws a bouncing bolt of electricity.
 %%%%
 Shroud of Golubria spell
 
-This spell bends space along a shroud covering your body, protecting you from
-some blows by redirecting their force to the air around you. Ranged attacks
-move too quickly to be diverted in this way. The shroud is highly unstable and
-may fall apart unexpectedly under stress.
+This spell bends space along a shroud covering the caster's body, protecting
+them from some blows by redirecting their force to the air nearby. Ranged
+attacks move too quickly to be diverted in this way. The shroud is highly
+unstable, and may fall apart unexpectedly under stress.
 %%%%
 Silence spell
 
@@ -1109,23 +1083,12 @@ creatures, such as demons, cast magic without speaking and so will be
 unaffected, and those with innate magical abilities will also still be able to
 use them.
 %%%%
-Silver Blast spell
-
-# Yes, Zin's hatreds are about as arbitrary as those of religions he's based
-# on.
-This ability sends a ball of pure power of Zin. When it explodes, it severely
-damages anyone chaotic or unclean who gets caught in the blast. Those merely
-guilty of chaotic or unclean acts get hurt somewhat less, while those evil or
-unholy suffer less yet. Mutated beings draw the ire of Zin as well, even if
-they became mutated against their will.
-%%%%
 Simulacrum spell
 
-This spell uses a piece of flesh in hand to create a replica of the original
-being out of ice. This magic is unstable so eventually the replica will
-sublimate into a freezing cloud, if it isn't hacked or melted into a small
-puddle of water first. Note that simulacra are incapable of leaving the level
-they were created on.
+This spell creates a icy replica from the corpse of the original being. This
+magic is unstable, so eventually the replica will sublimate into a freezing
+cloud, if it isn't hacked or melted into a small puddle of water first. Note
+that simulacra are incapable of leaving the level they were created on.
 %%%%
 Sleep spell
 
@@ -1142,26 +1105,27 @@ Smiting spell
 %%%%
 Song of Slaying spell
 
-This spell conjures ancient verses of battle within your mind and makes you
-recite them — quite loudly! Each non-summoned enemy you slay in combat during
-this recitation temporarily enhances your melee skills. Your effectiveness will
-only be enhanced for the duration of the song; casting this spell while already
-singing will start a new song, not extend an existing one.
+This spell conjures ancient verses of battle within the caster's mind, which
+the caster then recites — quite loudly! Each non-summoned enemy the caster
+slays in combat during this recitation temporarily enhances their melee &
+ranged skills. The bonus only lasts for the duration of the song; casting this
+spell while already singing will start a new song, not extend an existing one.
 %%%%
 Spawn Tentacles spell
 
-Monstrous creatures who possess large tentacles may use extend them far from
-their main body, for purposes which nearly always involve smacking some uppity
-snack like you with those tentacles.
+Monstrous creatures who possess large tentacles may extend them far from their
+main body, for purposes which nearly always involve smacking some uppity snack.
 %%%%
 Spectral Weapon spell
 
-This spell draws out the spirit within a wielded weapon to fight for you, with
-its power dependent on your skill with said weapon. Never striking on its own,
-it only attacks when you do. You can only ever have one spectral weapon at a
-time.
+This spell draws out the spirit within a wielded weapon to fight for the
+caster, with its power dependent on their skill with said weapon. It only
+attacks when the caster does, and its kills count as the caster's own.
 
-Kills by a spectral weapon count as your own when singing a Song of Slaying.
+If the weapon is damaged, part of the injury will be echoed on the caster's
+body. A weapon can only have its spirit drawn into one spectral weapon at a
+time, and the spectral weapon will dissipate if the caster no longer holds the
+original.
 
 Certain powerful named artefacts possess too strong a spirit for this spell to
 be able to draw them out.
@@ -1176,9 +1140,9 @@ volatile of magics cannot be imbued in this fashion.
 %%%%
 Spider Form spell
 
-This spell temporarily transforms the caster into a swift, venomous (but
-poison-susceptible), spider-like creature. Spellcasting is slightly more
-difficult in this form. While in this form, you can cling to walls.
+This spell temporarily transforms the caster into a venomous (but
+poison-susceptible) spider-like creature. Spellcasting is slightly more
+difficult in this form.
 %%%%
 Spit Acid spell
 
@@ -1233,10 +1197,10 @@ This spell hurls a sharp spine of rock outward from the caster.
 %%%%
 Stoneskin spell
 
-This spell hardens one's skin to a degree determined by one's skill in Earth
-Magic. It only works on relatively normal flesh, and will aid neither the
-undead nor the bodily transformed. However, there is one exception: the effects
-of this spell will be boosted for casters in Statue Form.
+This spell hardens one's skin. It only works on relatively normal flesh, and
+will aid neither the undead nor the bodily transformed. However, there is one
+exception: the effects of this spell will be boosted for casters in Statue
+Form.
 %%%%
 Strip Resistance spell
 
@@ -1245,10 +1209,9 @@ or her more vulnerable to hexes and similar spells.
 %%%%
 Sublimation of Blood spell
 
-This spell converts flesh, blood and other bodily fluids into magical energy.
-Casters may focus this spell on their own bodies (which can be dangerous but
-never directly lethal), or can wield freshly butchered flesh in order to draw a
-smaller amount of power into themselves.
+This spell converts some of the caster's blood into magical energy. The process
+is painful but never directly lethal. The efficiency of the conversion
+increases with the spell's power.
 %%%%
 Summon Air Elementals spell
 
@@ -1279,18 +1242,10 @@ Summon Earth Elementals spell
 
 This spell summons one or more earth elementals.
 %%%%
-Summon Elemental spell
-
-This spell calls forth a spirit from the elemental planes to aid the caster. A
-large quantity of the desired element must be available; this is rarely a
-problem for earth and air, but may be for fire or water. The elemental will
-usually be friendly to casters — especially those skilled in the appropriate
-form of elemental magic.
-%%%%
 Summon Eyeballs spell
 
 This spell summons floating eyeballs that may be able to paralyse, drain,
-confuse, mutate or damage you.
+confuse, mutate or disintegrate.
 %%%%
 Summon Fire Elementals spell
 
@@ -1312,12 +1267,12 @@ regardless!
 Summon Guardian Golem spell
 
 This spell summons a protective golem. It redirects the injuries of its allies
-to itself, though it risks overheating after absorbing significant amounts of
-damage. It will gain more health at high power.
+(but not the caster!) to itself, though it risks overheating after absorbing
+significant amounts of damage. It will gain more health at high power.
 %%%%
 Summon Hell Beast spell
 
-Using his horn, Geryon can summon a deadly hell beast against you.
+Using his horn, Geryon can summon a deadly hell beast against his foes.
 %%%%
 Summon Horrible Things spell
 
@@ -1379,8 +1334,7 @@ This spell summons forth a pestilential swarm.
 %%%%
 Summon Ufetubus spell
 
-This spell summons multiple ufetubi, small annoying demons who flock around
-you.
+This spell summons multiple ufetubi; small, annoying demons.
 %%%%
 Summon Undead spell
 
@@ -1458,9 +1412,11 @@ Trog's Hand spell
 %%%%
 Tukima's Dance spell
 
-This spell causes a weapon held in the caster's hand to dance into the air and
-strike the caster's enemies. It will not function on certain wilful artefacts,
-and any abilities that require evocation skill will not be active.
+This spell animates the weapon of a targeted foe, ripping it from their hands
+and causing it to attack them relentlessly. Once the target dies, the weapon
+will fall to the ground shortly thereafter. The spell will not function on
+certain wilful artefacts, and any abilities that require evocation skill will
+not be active.
 %%%%
 Twisted Resurrection spell
 
@@ -1499,8 +1455,8 @@ through unhindered.
 Warp Weapon spell
 
 This spell temporarily binds a localized warp field to the caster's weapon.
-Note that unlike other brands, distortion can not be made permanent by reading
-a scroll of brand weapon.
+It will not affect artefact weapons. Unlike a permanently distortion-branded
+weapon, the affected weapon may still be safely unwielded.
 %%%%
 Waterstrike spell
 

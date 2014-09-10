@@ -113,6 +113,7 @@ public:
     bool choose_direction();
 
 private:
+    bool targets_objects() const;
     bool choose_compass();      // Used when we only need to choose a direction
 
     bool do_main_loop();
@@ -216,7 +217,6 @@ private:
     void toggle_beam();
 
     void finalize_moves();
-    command_type massage_command(command_type key_command) const;
     void draw_beam_if_needed();
     void do_redraws();
 
@@ -261,7 +261,6 @@ private:
     bool need_all_redraw;       // All of the above.
 
     bool show_items_once;       // Should we show items this time?
-    bool target_unshifted;      // Do unshifted direction keys fire?
     // Default behaviour, saved across instances.
     static targeting_behaviour stock_behaviour;
 };
@@ -309,7 +308,7 @@ string feature_description(dungeon_feature_type grid,
 
 vector<dungeon_feature_type> features_by_desc(const base_pattern &pattern);
 
-void full_describe_view(void);
+void full_describe_view();
 void do_look_around(const coord_def &whence = coord_def(0, 0));
 
 extern const struct coord_def Compass[9];

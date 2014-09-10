@@ -138,6 +138,7 @@ public:
     int power;
 };
 
+#if TAG_MAJOR_VERSION == 34
 // A marker powered by phoenixes!
 class map_phoenix_marker : public map_marker
 {
@@ -164,7 +165,7 @@ public:
     coord_def corpse_pos;
 };
 
-#if TAG_MAJOR_VERSION == 34
+
 // A marker for sealed doors
 class map_door_seal_marker : public map_marker
 {
@@ -195,7 +196,7 @@ public:
                     dungeon_feature_type oldfeat = DNGN_FLOOR,
                     dungeon_feature_type newfeat = DNGN_FLOOR,
                     int dur = 0, terrain_change_type type = TERRAIN_CHANGE_GENERIC,
-                    int mnum = 0);
+                    int mnum = 0, int oldcol = BLACK);
 
     void write (writer &) const;
     void read (reader &);
@@ -210,6 +211,7 @@ public:
     dungeon_feature_type old_feature;
     dungeon_feature_type new_feature;
     terrain_change_type  change_type;
+    int colour;
 };
 
 class map_cloud_spreader_marker : public map_marker

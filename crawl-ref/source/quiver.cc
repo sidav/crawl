@@ -15,10 +15,10 @@
 #include "invent.h"
 #include "itemprop.h"
 #include "items.h"
-#include "libutil.h"
 #include "options.h"
 #include "player.h"
-#include "stuff.h"
+#include "prompt.h"
+#include "stringutil.h"
 #include "tags.h"
 #include "throw.h"
 
@@ -525,8 +525,6 @@ static bool _item_matches(const item_def &item, fire_type types,
     if (item.base_type != OBJ_MISSILES)
         return false;
 
-    if ((types & FIRE_DART) && item.sub_type == MI_DART)
-        return true;
     if ((types & FIRE_STONE) && item.sub_type == MI_STONE)
         return true;
     if ((types & FIRE_JAVELIN) && item.sub_type == MI_JAVELIN)
@@ -595,12 +593,15 @@ static ammo_t _get_weapon_ammo_type(const item_def* weapon)
     {
         case WPN_BLOWGUN:
             return AMMO_BLOWGUN;
-        case WPN_SLING:
+        case WPN_HUNTING_SLING:
+        case WPN_GREATSLING:
             return AMMO_SLING;
-        case WPN_BOW:
+        case WPN_SHORTBOW:
         case WPN_LONGBOW:
             return AMMO_BOW;
-        case WPN_CROSSBOW:
+        case WPN_HAND_CROSSBOW:
+        case WPN_ARBALEST:
+        case WPN_TRIPLE_CROSSBOW:
             return AMMO_CROSSBOW;
         default:
             return AMMO_THROW;

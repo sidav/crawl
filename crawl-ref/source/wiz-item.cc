@@ -25,27 +25,34 @@
 #include "items.h"
 #include "invent.h"
 #include "libutil.h"
+#include "macro.h"
 #include "makeitem.h"
 #include "mapdef.h"
 #include "misc.h"
-#include "mon-stuff.h"
+#include "mon-death.h"
 #include "options.h"
 #include "output.h"
+#include "prompt.h"
 #include "player-equip.h"
 #include "religion.h"
 #include "skills2.h"
 #include "spl-book.h"
 #include "spl-util.h"
 #include "stash.h"
-#include "stuff.h"
+#include "stringutil.h"
 #include "terrain.h"
+#include "unicode.h"
 
 #ifdef WIZARD
 static void _make_all_books()
 {
     for (int i = 0; i < NUM_FIXED_BOOKS; ++i)
     {
-        int thing = items(0, OBJ_BOOKS, i, true, 0, 0, 0, 0, AQ_WIZMODE);
+#if TAG_MAJOR_VERSION == 34
+        if (i == BOOK_WAR_CHANTS || i == BOOK_STALKING)
+            continue;
+#endif
+        int thing = items(0, OBJ_BOOKS, i, true, 0, 0, 0, AQ_WIZMODE);
         if (thing == NON_ITEM)
             continue;
 
@@ -167,7 +174,7 @@ void wizard_create_spec_object()
             }
         }
 
-        if (mon >= MONS_DRACONIAN_CALLER && mon <= MONS_DRACONIAN_SCORCHER)
+        if (mon >= MONS_FIRST_NONBASE_DRACONIAN && mon <= MONS_LAST_DRACONIAN)
         {
             mpr("You can't make a draconian corpse by its background.");
             mon = MONS_DRACONIAN;
@@ -267,7 +274,9 @@ static const char* _prop_name[] =
     "*Tele",
     "-Tele",
     "*Rage",
+#if TAG_MAJOR_VERSION == 34
     "Hungr",
+#endif
     "Contm",
     "Acc",
     "Dam",
@@ -284,6 +293,7 @@ static const char* _prop_name[] =
     "+Fog",
 #endif
     "Regen",
+    "SustAb",
     "noupg",
 };
 
@@ -318,10 +328,14 @@ static int8_t _prop_type[] =
     ARTP_VAL_BOOL, //CAUSE_TELEPORTATION
     ARTP_VAL_BOOL, //PREVENT_TELEPORTATION
     ARTP_VAL_POS,  //ANGRY
+#if TAG_MAJOR_VERSION == 34
     ARTP_VAL_POS,  //METABOLISM
+#endif
     ARTP_VAL_POS,  //MUTAGENIC
+#if TAG_MAJOR_VERSION == 34
     ARTP_VAL_ANY,  //ACCURACY
-    ARTP_VAL_ANY,  //DAMAGE
+#endif
+    ARTP_VAL_ANY,  //SLAYING
     ARTP_VAL_POS,  //CURSED
     ARTP_VAL_ANY,  //STEALTH
     ARTP_VAL_ANY,  //MAGICAL_POWER
@@ -335,6 +349,7 @@ static int8_t _prop_type[] =
     ARTP_VAL_BOOL, //FOG
 #endif
     ARTP_VAL_ANY,  //REGENERATION
+    ARTP_VAL_BOOL, //SUSTAB
     ARTP_VAL_BOOL, //NO_UPGRADE
 };
 
@@ -349,7 +364,7 @@ static void _tweak_randart(item_def &item)
         return;
     }
     else
-        mesclr();
+        clear_messages();
 
     artefact_properties_t props;
     artefact_wpn_properties(item, props);
@@ -445,7 +460,7 @@ static void _tweak_randart(item_def &item)
     }
 }
 
-void wizard_tweak_object(void)
+void wizard_tweak_object()
 {
     char specs[50];
     int keyin;
@@ -868,7 +883,7 @@ static void _debug_acquirement_stats(FILE *ostat)
     }
     mitm[p].base_type = OBJ_UNASSIGNED;
 
-    mesclr();
+    clear_messages();
     mpr("[a] Weapons [b] Armours [c] Jewellery      [d] Books");
     mpr("[e] Staves  [f] Wands   [g] Miscellaneous  [h] Food");
     mprf(MSGCH_PROMPT, "What kind of item would you like to get acquirement stats on? ");
@@ -975,7 +990,7 @@ static void _debug_acquirement_stats(FILE *ostat)
         int curr_percent = acq_calls * 100 / num_itrs;
         if (curr_percent > last_percent)
         {
-            mesclr();
+            clear_messages();
             mprf("%2d%% done.", curr_percent);
             last_percent = curr_percent;
         }
@@ -1121,8 +1136,8 @@ static void _debug_acquirement_stats(FILE *ostat)
             "electrocution",
 #if TAG_MAJOR_VERSION == 34
             "orc slaying",
-#endif
             "dragon slaying",
+#endif
             "venom",
             "protection",
             "draining",
@@ -1130,7 +1145,7 @@ static void _debug_acquirement_stats(FILE *ostat)
             "vorpal",
             "flame",
             "frost",
-            "vampiricism",
+            "vampirism",
             "pain",
             "antimagic",
             "distortion",
@@ -1147,7 +1162,7 @@ static void _debug_acquirement_stats(FILE *ostat)
             "reaping",
             "INVALID",
             "acid",
-#if TAG_MAJOR_VERSION != 34
+#if TAG_MAJOR_VERSION > 34
             "confuse",
 #endif
             "debug randart",
@@ -1191,7 +1206,9 @@ static void _debug_acquirement_stats(FILE *ostat)
             "resistance",
             "positive energy",
             "archmagi",
+#if TAG_MAJOR_VERSION == 34
             "preservation",
+#endif
             "reflection",
             "spirit shield",
             "archery",
@@ -1202,8 +1219,10 @@ static void _debug_acquirement_stats(FILE *ostat)
         for (int i = 0; i < NUM_SPECIAL_ARMOURS; ++i)
         {
             if (ego_quants[i] > 0)
+            {
                 fprintf(ostat, "%17s: %5.2f\n", names[i],
                         100.0 * (float) ego_quants[i] / (float) non_art);
+            }
         }
         fprintf(ostat, "\n\n");
     }
@@ -1360,7 +1379,7 @@ static void _debug_rap_stats(FILE *ostat)
          1, //ARTP_EYESIGHT
          1, //ARTP_INVISIBLE
          1, //ARTP_FLY
-#if TAG_MAJOR_VERSION != 34
+#if TAG_MAJOR_VERSION > 34
          1, //ARTP_FOG,
 #endif
          1, //ARTP_BLINK
@@ -1370,10 +1389,14 @@ static void _debug_rap_stats(FILE *ostat)
         -1, //ARTP_CAUSE_TELEPORTATION
         -1, //ARTP_PREVENT_TELEPORTATION
         -1, //ARTP_ANGRY
+#if TAG_MAJOR_VERSION == 34
          0, //ARTP_METABOLISM
+#endif
         -1, //ARTP_MUTAGENIC
+#if TAG_MAJOR_VERSION == 34
          0, //ARTP_ACCURACY
-         0, //ARTP_DAMAGE
+#endif
+         0, //ARTP_SLAYING
         -1, //ARTP_CURSED
          0, //ARTP_STEALTH
          0, //ARTP_MAGICAL_POWER
@@ -1387,6 +1410,7 @@ static void _debug_rap_stats(FILE *ostat)
          1, //ARTP_FOG
 #endif
          1, //ARTP_REGENERATION
+         1, //ARTP_SUSTAB,
          0, //ARTP_NO_UPGRADE
     };
     COMPILE_CHECK(ARRAYSZ(good_or_bad) == ARTP_NUM_PROPERTIES);
@@ -1477,7 +1501,7 @@ static void _debug_rap_stats(FILE *ostat)
 
         if (i % 16767 == 0)
         {
-            mesclr();
+            clear_messages();
             float curr_percent = (float) i * 1000.0
                 / (float) MAX_TRIES;
             mprf("%4.1f%% done.", curr_percent / 10.0);
@@ -1515,7 +1539,7 @@ static void _debug_rap_stats(FILE *ostat)
         "ARTP_EYESIGHT",
         "ARTP_INVISIBLE",
         "ARTP_FLY",
-#if TAG_MAJOR_VERSION != 34
+#if TAG_MAJOR_VERSION > 34
         "ARTP_FOG",
 #endif
         "ARTP_BLINK",
@@ -1525,10 +1549,14 @@ static void _debug_rap_stats(FILE *ostat)
         "ARTP_CAUSE_TELEPORTATION",
         "ARTP_PREVENT_TELEPORTATION",
         "ARTP_ANGRY",
+#if TAG_MAJOR_VERSION == 34
         "ARTP_METABOLISM",
+#endif
         "ARTP_MUTAGENIC",
+#if TAG_MAJOR_VERSION == 34
         "ARTP_ACCURACY",
-        "ARTP_DAMAGE",
+#endif
+        "ARTP_SLAYING",
         "ARTP_CURSED",
         "ARTP_STEALTH",
         "ARTP_MAGICAL_POWER",
@@ -1542,6 +1570,7 @@ static void _debug_rap_stats(FILE *ostat)
         "ARTP_FOG",
 #endif
         "ARTP_REGENERATION",
+        "ARTP_SUSTAB",
         "ARTP_NO_UPGRADE",
     };
     COMPILE_CHECK(ARRAYSZ(rap_names) == ARTP_NUM_PROPERTIES);
@@ -1564,7 +1593,7 @@ static void _debug_rap_stats(FILE *ostat)
     mpr("Results written into 'items.stat'.");
 }
 
-void debug_item_statistics(void)
+void debug_item_statistics()
 {
     FILE *ostat = fopen("items.stat", "a");
 
