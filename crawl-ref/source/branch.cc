@@ -169,7 +169,7 @@ bool branch_is_unfinished(branch_type branch)
         return true;
     }
 #endif
-    return branch == BRANCH_FOREST;
+    return false;
 }
 
 branch_type parent_branch(branch_type branch)
