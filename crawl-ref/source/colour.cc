@@ -6,6 +6,8 @@
 #include <math.h>
 
 #include "areas.h"
+#include "domino.h"
+#include "domino_data.h"
 #include "branch.h"
 #include "cloud.h"
 #include "dgn-height.h"
@@ -135,18 +137,33 @@ static int _etc_rock(int, const coord_def& loc)
     return element_colour(env.rock_colour, false, loc);
 }
 
-static int _etc_elven_brick(int, const coord_def& loc)
+struct domino_colour_calc : public element_colour_calc
 {
-    if ((loc.x + loc.y) % 2)
-        return WHITE;
-    else
+    domino_colour_calc(element_type _type, string _name)
+        : element_colour_calc(_type, _name, (element_colour_calculator)_randomized_element_colour) 
     {
-        if ((loc.x / 2 + loc.y / 2) % 2)
+        domino::DominoSet<domino::EdgeDomino> dominoes(domino::cohen_set, 8);
+        dominoes.Generate(X_WIDTH, Y_WIDTH, output_);
+    };
+
+    virtual int get(const coord_def& loc = coord_def(),
+                    bool non_random = false) {
+        uint8_t val = output_[loc.y * X_WIDTH + loc.x];
+        switch (val) {
+          case 0:
+          case 1:
             return LIGHTGREEN;
-        else
+          case 2:
+          case 3:
             return LIGHTBLUE;
+          default:
+            return WHITE;
+        }
     }
-}
+
+protected:
+    vector<uint8_t> output_;
+};
 
 static int _etc_waves(int, const coord_def& loc)
 {
@@ -610,9 +627,8 @@ void init_element_colours()
                             90,  WHITE,
                             30,  LIGHTGREY,
                         0));
-    add_element_colour(new element_colour_calc(
-                            ETC_ELVEN_BRICK, "elven_brick", _etc_elven_brick
-                       ));
+    add_element_colour(new domino_colour_calc(
+                            ETC_ELVEN_BRICK, "elven_brick"));
     add_element_colour(new element_colour_calc(
                             ETC_WAVES, "waves", _etc_waves
                        ));
