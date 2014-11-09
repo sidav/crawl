@@ -290,17 +290,21 @@ namespace domino {
           return dominoes_.find(id)->second;
         }
         
-        bool Generate(size_t x, size_t y, std::vector<uint8_t>& output, int seed) {
+        bool Generate(size_t x, size_t y, std::vector<uint8_t>& output, int seed)
+        {
           std::subtract_with_carry_engine<unsigned,24,10,24> rng(seed);
           std::set<uint8_t> all_set;
-          for (uint8_t i = 0; i < dominoes_.size(); ++i) {
+          for (uint8_t i = 0; i < dominoes_.size(); ++i)
+          {
             all_set.insert(i);
           }
           const std::set<uint8_t> all = all_set;
 
           std::vector<Point> all_points;
-          for (int32_t j = 0; j < y; ++j) {
-            for (int32_t i = 0; i < x; ++i) {
+          for (size_t j = 0; j < y; ++j)
+          {
+            for (size_t i = 0; i < x; ++i)
+            {
               Point pt = {i, j};
               all_points.push_back(pt);
             }
@@ -309,53 +313,64 @@ namespace domino {
           bool has_conflicts = false;
           std::map<Point, uint8_t> tiling;
           // Init all the tiles
-          for (auto pt : all_points) {
+          for (auto pt : all_points)
+          {
             std::vector<uint8_t> choices;
             Best(pt, tiling, choices);
-            if (!choices.empty()) {
+            if (!choices.empty())
+            {
               shuffle(choices.begin(), choices.end(), rng);
               tiling[pt] = choices[0];
-            } else {
-              tiling[pt] = rng() % adjacencies_.size();
             }
+            else
+              tiling[pt] = rng() % adjacencies_.size();
+            
             has_conflicts |= Conflicts(pt, tiling);
           }
 
           // If we were unable to constructively tile the plane
           // attempt to stochastically solve it.
-          if (has_conflicts) {
+          if (has_conflicts)
+          {
             int trials = 10000;
             bool did_shuffle = false;
             uint32_t last_conflicts = -1;
             int sz = 1;
-            do {
+            do
+            {
               std::set<Point> stuck;
               uint32_t conflict_count = 0;
               has_conflicts = false;
               shuffle(all_points.begin(), all_points.end(), rng);
-              for (auto pt : all_points) {
+              for (auto pt : all_points)
+              {
                 int conflicts = Conflicts(pt, tiling);
-                if (conflicts) {
+                if (conflicts)
+                {
                   has_conflicts = true;
                   ++conflict_count;
                   std::vector<uint8_t> choices;
                   Best(pt, tiling, choices);
-                  if (!choices.empty()) {
+                  if (!choices.empty())
+                  {
                     shuffle(choices.begin(), choices.end(), rng);
                     tiling[pt] = choices[0];
-                  } else {
+                  }
+                  else
                     tiling[pt] = rng() % adjacencies_.size();
-                  }
+                  
                   int after = Conflicts(pt, tiling);
-                  if (after >= conflicts) {
+                  if (after >= conflicts)
                     stuck.insert(pt);
-                  }
                 }
               }
-              if (conflict_count == last_conflicts && !did_shuffle) {
+              if (conflict_count == last_conflicts && !did_shuffle)
+              {
                 did_shuffle = true;
                 Randomise(stuck, tiling, ++sz, rng);
-              } else {
+              }
+              else
+              {
                 did_shuffle = false;
                 sz = 1;
               }
@@ -363,8 +378,10 @@ namespace domino {
               last_conflicts = conflict_count;
             } while (has_conflicts && trials--);
           }
-          for (int32_t j = 0; j < y; ++j) {
-            for (int32_t i = 0; i < x; ++i) {
+          for (int32_t j = 0; j < y; ++j)
+          {
+            for (int32_t i = 0; i < x; ++i)
+            {
               Point pt = {i, j};
               output.push_back(tiling[pt]);
             }
@@ -372,14 +389,15 @@ namespace domino {
           return !has_conflicts;
         }
 
-
       private:
         int Best(
             Point pt,
             const std::map<Point, uint8_t>& tiling,
-            std::vector<uint8_t>& result) const {
+            std::vector<uint8_t>& result) const
+        {
           std::set<uint8_t> all_set;
-          for (uint8_t i = 0; i < dominoes_.size(); ++i) {
+          for (uint8_t i = 0; i < dominoes_.size(); ++i)
+          {
             all_set.insert(i);
           }
           const std::set<uint8_t> all = all_set;
@@ -387,14 +405,17 @@ namespace domino {
           std::map<uint8_t, int> result_map;
           uint8_t neighbors = 0;
           uint8_t mx = 0;
-          for (int x = -1; x <= 1; ++x) {
-            for (int y = -1; y <= 1; ++y) {
-              if (x == 0 && y == 0) {
+          for (int x = -1; x <= 1; ++x)
+          {
+            for (int y = -1; y <= 1; ++y)
+            {
+              if (x == 0 && y == 0)
                 continue;
-              }
+              
               Point nb = {pt.x + x, pt.y + y};
               Point offset = {x, y};
-              if (tiling.find(nb) != tiling.end()) {
+              if (tiling.find(nb) != tiling.end())
+              {
                 ++neighbors;
                 std::set<uint8_t> allowed = all;
                 T other = dominoes_.find(tiling.find(nb)->second)->second;
@@ -402,7 +423,8 @@ namespace domino {
                 asDirection(offset, dir);
                 Adjacency* adj = adjacencies_.find(other.id())->second;
                 adj->adjacent(dir, allowed);
-                for (auto itr : allowed) {
+                for (auto itr : allowed)
+                {
                   result_map[itr] += 1;
                   int val = result_map[itr];
                   if (val > mx) {
@@ -412,38 +434,43 @@ namespace domino {
               }
             }
           }
-          if (!neighbors) {
-            for (uint8_t v : all_set) {
+          if (!neighbors)
+          {
+            for (uint8_t v : all_set)
+            {
               result.push_back(v);
             }
             return 0;
           }
-          for (auto itr : result_map) {
-            if (itr.second == mx) {
+          for (auto itr : result_map)
+          {
+            if (itr.second == mx)
+            {
               result.push_back(itr.first);
             }
           }
           return 8 - mx;
         }
 
-
         template <typename R>
         void Randomise(std::set<Point> pts, std::map<Point, uint8_t>& tiling,
-              int sz, R& rng) const {
+              int sz, R& rng) const
+        {
           std::set<Point> shuffle;
-          for (auto pt : pts) {
-            for (int x = -sz; x <= sz; ++x) {
-              for (int y = -sz; y <= sz; ++y) {
+          for (auto pt : pts)
+          {
+            for (int x = -sz; x <= sz; ++x)
+            {
+              for (int y = -sz; y <= sz; ++y)
+              {
                 Point nb = {pt.x + x, pt.y + y};
-                if (tiling.find(nb) != tiling.end() && rng() % 2) {
+                if (tiling.find(nb) != tiling.end() && rng() % 2)
                   shuffle.insert(nb);
-                }
               }
             }
           }
-          for (auto itr : shuffle) {
+          for (auto itr : shuffle)
             tiling[itr] = rng() % adjacencies_.size();
-          }
         }
 
         int Conflicts(Point pt, const std::map<Point, uint8_t>& tiling) const {
@@ -451,21 +478,23 @@ namespace domino {
           int neighbors = 0;
           uint8_t id = tiling.find(pt)->second;
           T domino = dominoes_.find(id)->second;
-          for (int x = -1; x <= 1; ++x) {
-            for (int y = -1; y <= 1; ++y) {
-              if (x == 0 && y == 0) {
+          for (int x = -1; x <= 1; ++x)
+          {
+            for (int y = -1; y <= 1; ++y)
+            {
+              if (x == 0 && y == 0)
                 continue;
-              }
+              
               Point nb = {pt.x + x, pt.y + y};
               Point offset = {x, y};
-              if (tiling.find(nb) != tiling.end()) {
+              if (tiling.find(nb) != tiling.end())
+              {
                 ++neighbors;
                 T other = dominoes_.find(tiling.find(nb)->second)->second;
                 Direction dir;
                 asDirection(offset, dir);
-                if (!domino.matches(other, dir)) {
+                if (!domino.matches(other, dir))
                   ++conflicts;
-                }
               }
             }
           }

@@ -34,15 +34,18 @@ using namespace std;
 
 namespace domino {
 
-bool operator<(const Point& lhs, const Point& rhs) {
+bool operator<(const Point& lhs, const Point& rhs)
+{
   return lhs.y < rhs.y || (lhs.y == rhs.y && lhs.x < rhs.x);
 }
 
-bool operator==(const Point& lhs, const Point& rhs) {
+bool operator==(const Point& lhs, const Point& rhs)
+{
   return lhs.x == rhs.x && lhs.y == rhs.y;
 }
 
-Adjacency::Adjacency() {
+Adjacency::Adjacency()
+{
   for (size_t i = FIRST_DIRECTION; i <= LAST_DIRECTION; ++i)
   {
     Direction d = static_cast<Direction>(i);
@@ -50,7 +53,8 @@ Adjacency::Adjacency() {
   }
 }
 
-Adjacency::~Adjacency() {
+Adjacency::~Adjacency()
+{
   for (size_t i = FIRST_DIRECTION; i <= LAST_DIRECTION; ++i)
   {
     Direction d = static_cast<Direction>(i);
@@ -58,24 +62,28 @@ Adjacency::~Adjacency() {
   }
 }
 
-bool Adjacency::adjacent(Direction d, set<uint8_t>& open) {
+bool Adjacency::adjacent(Direction d, set<uint8_t>& open)
+{
   intersection(open, *permitted_[d]);
   return !open.empty();
 }
 
-bool Adjacency::permitted(Direction d, uint8_t id) {
+bool Adjacency::permitted(Direction d, uint8_t id)
+{
   return *permitted_[d]->find(id) != *permitted_[d]->end();
 }
 
-void Adjacency::add(uint8_t adjacency, const set<Direction>& dir) {
+void Adjacency::add(uint8_t adjacency, const set<Direction>& dir)
+{
   set<Direction>::iterator itr = dir.begin();
-  for (; itr != dir.end(); ++itr) {
+  for (; itr != dir.end(); ++itr)
     permitted_[*itr]->insert(adjacency);
-  }
 }
 
-bool CornerDomino::matches(const CornerDomino& o, Direction dir) const {
-    switch (dir) {
+bool CornerDomino::matches(const CornerDomino& o, Direction dir) const
+{
+    switch (dir)
+    {
       case NORTH:
         return ne_colour() == o.se_colour() && nw_colour() == o.sw_colour();
       case NORTH_EAST:
@@ -97,7 +105,8 @@ bool CornerDomino::matches(const CornerDomino& o, Direction dir) const {
     }
 }
 
-void CornerDomino::intersect(const CornerDomino& o, set<Direction>& result) const {
+void CornerDomino::intersect(const CornerDomino& o, set<Direction>& result) const
+{
   set<Direction> allowed;
   for (size_t i = FIRST_DIRECTION; i <= LAST_DIRECTION; ++i)
   {
@@ -109,7 +118,8 @@ void CornerDomino::intersect(const CornerDomino& o, set<Direction>& result) cons
   domino::intersection(result, allowed);
 }
 
-std::ostream& operator<< (std::ostream& stream, const CornerDomino& d) {
+std::ostream& operator<< (std::ostream& stream, const CornerDomino& d)
+{
   stream
     << (int) d.nw_colour() << "#" << (int) d.ne_colour() << endl
     << "###" << endl
@@ -117,8 +127,10 @@ std::ostream& operator<< (std::ostream& stream, const CornerDomino& d) {
   return stream;
 }
 
-bool EdgeDomino::matches(const EdgeDomino& o, Direction dir) const {
-    switch (dir) {
+bool EdgeDomino::matches(const EdgeDomino& o, Direction dir) const
+{
+    switch (dir)
+    {
       case NORTH:
         return n_colour() == o.s_colour();
       case EAST:
@@ -134,7 +146,8 @@ bool EdgeDomino::matches(const EdgeDomino& o, Direction dir) const {
     }
 }
 
-void EdgeDomino::intersect(const EdgeDomino& o, set<Direction>& result) const {
+void EdgeDomino::intersect(const EdgeDomino& o, set<Direction>& result) const
+{
   set<Direction> allowed;
   for (size_t i = FIRST_DIRECTION; i <= LAST_DIRECTION; ++i)
   {
@@ -146,7 +159,8 @@ void EdgeDomino::intersect(const EdgeDomino& o, set<Direction>& result) const {
   domino::intersection(result, allowed);
 }
 
-std::ostream& operator<< (std::ostream& stream, const EdgeDomino& d) {
+std::ostream& operator<< (std::ostream& stream, const EdgeDomino& d)
+{
   stream
     << "#" << (int) d.n_colour() << "#" << endl
     << (int) d.w_colour() << "#" << (int) d.e_colour() << endl
