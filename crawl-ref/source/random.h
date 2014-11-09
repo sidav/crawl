@@ -34,6 +34,7 @@ int roll_dice(int num, int size);
 bool decimal_chance(double percent);
 
 int ui_random(int max);
+int ui_random();
 
 /**
  * Chooses one of the numbers passed in at random. The list of numbers

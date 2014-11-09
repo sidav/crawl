@@ -144,6 +144,11 @@ int ui_random(int max)
     return _random2(max, 1);
 }
 
+int ui_random()
+{
+    return _random2(INT_MAX, 1);
+}
+
 // [0, 1]
 bool coinflip()
 {
