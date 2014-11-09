@@ -146,7 +146,7 @@ int ui_random(int max)
 
 int ui_random()
 {
-    return _random2(RAND_MAX, 1);
+    return _random2(INT_MAX, 1);
 }
 
 // [0, 1]
