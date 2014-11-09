@@ -140,7 +140,7 @@ static int _etc_rock(int, const coord_def& loc)
 struct domino_colour_calc : public element_colour_calc
 {
     domino_colour_calc(element_type _type, string _name)
-        : element_colour_calc(_type, _name, (element_colour_calculator)_randomized_element_colour) 
+        : element_colour_calc(_type, _name, (element_colour_calculator)_randomized_element_colour)
     {
         domino::DominoSet<domino::EdgeDomino> dominoes(domino::cohen_set, 8);
         dominoes.Generate(X_WIDTH, Y_WIDTH, output_, ui_random());
