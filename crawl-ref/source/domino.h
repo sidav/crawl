@@ -129,7 +129,7 @@ bool operator<(const Point& lhs, const Point& rhs);
 
 bool operator==(const Point& lhs, const Point& rhs);
 
-static bool asDirection(const Point& pt, Direction& dir)
+static inline bool asDirection(const Point& pt, Direction& dir)
 {
     dir = NO_DIR;
     if (pt.x == 0 && pt.y == -1) { dir = NORTH; }
