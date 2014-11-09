@@ -151,11 +151,10 @@ struct domino_colour_calc : public element_colour_calc
         uint8_t val = output_[loc.y * X_WIDTH + loc.x];
         switch (val) {
           case 0:
-          case 4:
-            return LIGHTGREEN;
-          case 1:
-          case 5:
             return LIGHTBLUE;
+          case 1:
+          case 3:
+            return LIGHTGREEN;
           default:
             return WHITE;
         }
