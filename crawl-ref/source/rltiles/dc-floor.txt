@@ -233,9 +233,14 @@ bog_green2
 bog_green3
 
 acidic_floor0 FLOOR_SLIME_ACIDIC
-acidic_floor1
-acidic_floor2
-acidic_floor3
+domino_0
+domino_1
+domino_2
+domino_3
+domino_4
+domino_5
+domino_6
+domino_7
 
 slime_overlay_N SLIME_OVERLAY
 slime_overlay_E
