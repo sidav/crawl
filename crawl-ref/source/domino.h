@@ -321,9 +321,9 @@ class DominoSet
             return dominoes_.find(id)->second;
         }
 
-        bool Generate(int32_t x, int32_t y, std::vector<uint8_t>& output, int seed)
+        template <typename R>
+        bool Generate(int32_t x, int32_t y, std::vector<uint8_t>& output, R& rng)
         {
-            std::subtract_with_carry_engine<unsigned,24,10,24> rng(seed);
             std::set<uint8_t> all_set;
             for (uint8_t i = 0; i < dominoes_.size(); ++i)
             {

@@ -6,6 +6,7 @@
 #include <math.h>
 
 #include "areas.h"
+#include "asg.h"
 #include "domino.h"
 #include "domino_data.h"
 #include "branch.h"
@@ -143,7 +144,13 @@ struct domino_colour_calc : public element_colour_calc
         : element_colour_calc(_type, _name, (element_colour_calculator)_randomized_element_colour)
     {
         domino::DominoSet<domino::EdgeDomino> dominoes(domino::cohen_set, 8);
-        dominoes.Generate(X_WIDTH, Y_WIDTH, output_, ui_random());
+        uint32_t seed[] =
+        {
+           static_cast<uint32_t>(ui_random()), 
+           static_cast<uint32_t>(ui_random()), 
+        };
+        AsgKISS rng(seed, 2);
+        dominoes.Generate(X_WIDTH, Y_WIDTH, output_, rng);
     };
 
     virtual int get(const coord_def& loc = coord_def(),
