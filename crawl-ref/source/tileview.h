@@ -38,6 +38,7 @@ void tile_clear_flavour();
 void tile_init_flavour();
 // Init the flavour of a single cell.
 void tile_init_flavour(const coord_def &gc);
+void tile_init_flavour(const coord_def &gc, const vector<uint8_t>&);
 // Draw a halo using 'tile' (which has 9 variations) around any features
 // that match target.
 void tile_floor_halo(dungeon_feature_type target, tileidx_t tile);

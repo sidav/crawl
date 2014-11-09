@@ -2,12 +2,15 @@
 
 #include "tileview.h"
 
+#include "asg.h"
 #include "areas.h"
 #include "branch.h"
 #include "cloud.h"
 #include "colour.h"
 #include "coord.h"
 #include "coordit.h"
+#include "domino.h"
+#include "domino_data.h"
 #include "dungeon.h"
 #include "env.h"
 #include "fprop.h"
@@ -25,6 +28,8 @@
 #include "traps.h"
 #include "travel.h"
 #include "viewgeom.h"
+
+using namespace domino;
 
 void tile_new_level(bool first_time, bool init_unseen)
 {
@@ -318,8 +323,22 @@ void tile_clear_flavour()
 // set them to a random instance of the default floor and wall tileset.
 void tile_init_flavour()
 {
+
+    vector<uint8_t> output;
+    if (player_in_branch(BRANCH_SLIME))
+    {
+        domino::DominoSet<domino::EdgeDomino> dominoes(domino::cohen_set, 8);
+        uint32_t seed[] =
+        {
+            static_cast<uint32_t>(ui_random()), 
+            static_cast<uint32_t>(ui_random()), 
+        };
+        AsgKISS rng(seed, 2);
+        dominoes.Generate(X_WIDTH, Y_WIDTH, output, rng);
+    }
+
     for (rectangle_iterator ri(0); ri; ++ri)
-        tile_init_flavour(*ri);
+        tile_init_flavour(*ri, output);
 }
 
 // 11111333333   55555555
@@ -420,13 +439,27 @@ static bool _same_door_at(dungeon_feature_type feat, const coord_def &gc)
 
 void tile_init_flavour(const coord_def &gc)
 {
+    vector<uint8_t> empty;
+    tile_init_flavour(gc, empty);
+}
+
+void tile_init_flavour(const coord_def &gc, const vector<uint8_t>& tiling)
+{
     if (!map_bounds(gc))
         return;
 
     uint32_t seed = you.birth_time + you.where_are_you +
         (you.depth << 8) + (gc.x << 16) + (gc.y << 24);
 
-    int rand1 = hash_rand(INT_MAX, seed, 0);
+    int rand1;
+    if (tiling.empty())
+    {
+        rand1 = hash_rand(INT_MAX, seed, 0);
+    }
+    else
+    {
+        rand1 = tiling[gc.y * X_WIDTH + gc.x];
+    }
     int rand2 = hash_rand(INT_MAX, seed, 1);
 
     if (!env.tile_flv(gc).floor)
