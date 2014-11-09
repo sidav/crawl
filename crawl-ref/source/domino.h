@@ -289,8 +289,9 @@ namespace domino {
         T get(uint8_t id) const {
           return dominoes_.find(id)->second;
         }
-
-        bool Generate(size_t x, size_t y, std::vector<uint8_t>& output) {
+        
+        bool Generate(size_t x, size_t y, std::vector<uint8_t>& output, int seed) {
+          std::subtract_with_carry_engine<unsigned,24,10,24> rng(seed);
           std::set<uint8_t> all_set;
           for (uint8_t i = 0; i < dominoes_.size(); ++i) {
             all_set.insert(i);
@@ -312,10 +313,10 @@ namespace domino {
             std::vector<uint8_t> choices;
             Best(pt, tiling, choices);
             if (!choices.empty()) {
-              random_shuffle(choices.begin(), choices.end());
+              shuffle(choices.begin(), choices.end(), rng);
               tiling[pt] = choices[0];
             } else {
-              tiling[pt] = rand() % adjacencies_.size();
+              tiling[pt] = rng() % adjacencies_.size();
             }
             has_conflicts |= Conflicts(pt, tiling);
           }
@@ -331,7 +332,7 @@ namespace domino {
               std::set<Point> stuck;
               uint32_t conflict_count = 0;
               has_conflicts = false;
-              random_shuffle(all_points.begin(), all_points.end());
+              shuffle(all_points.begin(), all_points.end(), rng);
               for (auto pt : all_points) {
                 int conflicts = Conflicts(pt, tiling);
                 if (conflicts) {
@@ -340,10 +341,10 @@ namespace domino {
                   std::vector<uint8_t> choices;
                   Best(pt, tiling, choices);
                   if (!choices.empty()) {
-                    random_shuffle(choices.begin(), choices.end());
+                    shuffle(choices.begin(), choices.end(), rng);
                     tiling[pt] = choices[0];
                   } else {
-                    tiling[pt] = rand() % adjacencies_.size();
+                    tiling[pt] = rng() % adjacencies_.size();
                   }
                   int after = Conflicts(pt, tiling);
                   if (after >= conflicts) {
@@ -353,7 +354,7 @@ namespace domino {
               }
               if (conflict_count == last_conflicts && !did_shuffle) {
                 did_shuffle = true;
-                Randomise(stuck, tiling, ++sz);
+                Randomise(stuck, tiling, ++sz, rng);
               } else {
                 did_shuffle = false;
                 sz = 1;
@@ -426,20 +427,22 @@ namespace domino {
         }
 
 
-        void Randomise(std::set<Point> pts, std::map<Point, uint8_t>& tiling, int sz) const {
+        template <typename R>
+        void Randomise(std::set<Point> pts, std::map<Point, uint8_t>& tiling,
+              int sz, R& rng) const {
           std::set<Point> shuffle;
           for (auto pt : pts) {
             for (int x = -sz; x <= sz; ++x) {
               for (int y = -sz; y <= sz; ++y) {
                 Point nb = {pt.x + x, pt.y + y};
-                if (tiling.find(nb) != tiling.end() && rand() % 2) {
+                if (tiling.find(nb) != tiling.end() && rng() % 2) {
                   shuffle.insert(nb);
                 }
               }
             }
           }
           for (auto itr : shuffle) {
-            tiling[itr] = rand() % adjacencies_.size();
+            tiling[itr] = rng() % adjacencies_.size();
           }
         }
 

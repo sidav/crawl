@@ -143,7 +143,7 @@ struct domino_colour_calc : public element_colour_calc
         : element_colour_calc(_type, _name, (element_colour_calculator)_randomized_element_colour) 
     {
         domino::DominoSet<domino::EdgeDomino> dominoes(domino::cohen_set, 8);
-        dominoes.Generate(X_WIDTH, Y_WIDTH, output_);
+        dominoes.Generate(X_WIDTH, Y_WIDTH, output_, ui_random());
     };
 
     virtual int get(const coord_def& loc = coord_def(),
@@ -151,10 +151,10 @@ struct domino_colour_calc : public element_colour_calc
         uint8_t val = output_[loc.y * X_WIDTH + loc.x];
         switch (val) {
           case 0:
-          case 1:
+          case 4:
             return LIGHTGREEN;
-          case 2:
-          case 3:
+          case 1:
+          case 5:
             return LIGHTBLUE;
           default:
             return WHITE;
