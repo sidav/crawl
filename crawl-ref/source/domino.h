@@ -75,7 +75,7 @@ void intersection(std::set<T>& output, const std::set<T>& input)
  * W#E
  * #S#
  */
-typedef uint8_t colour;
+typedef uint32_t colour;
 typedef struct
 {
     colour nw;
@@ -148,26 +148,26 @@ class Adjacency
     public:
         Adjacency();
         ~Adjacency();
-        bool adjacent(Direction d, std::set<uint8_t>& open);
-        bool permitted(Direction d, uint8_t id);
-        void add(uint8_t adjacency, const std::set<Direction>& dir);
+        bool adjacent(Direction d, std::set<uint32_t>& open);
+        bool permitted(Direction d, uint32_t id);
+        void add(uint32_t adjacency, const std::set<Direction>& dir);
     private:
-        std::map<Direction, std::set<uint8_t>* > permitted_;
+        std::map<Direction, std::set<uint32_t>* > permitted_;
 };
 
 class Domino
 {
     public:
-        void set_id(uint8_t i)
+        void set_id(uint32_t i)
         {
             id_ = i;
         }
-        uint8_t id()
+        uint32_t id()
         {
             return id_;
         }
     protected:
-        uint8_t id_;
+        uint32_t id_;
 };
 
 class CornerDomino : public Domino
@@ -189,7 +189,7 @@ class CornerDomino : public Domino
             colours_.sw = colours.sw;
         }
 
-        CornerDomino(uint8_t nw, uint8_t ne, uint8_t se, uint8_t sw)
+        CornerDomino(uint32_t nw, uint32_t ne, uint32_t se, uint32_t sw)
         {
             colours_.nw = nw;
             colours_.ne = ne;
@@ -239,7 +239,7 @@ class EdgeDomino : public Domino
             colours_.w = colours.w;
         }
 
-        EdgeDomino(uint8_t n, uint8_t e, uint8_t s, uint8_t w)
+        EdgeDomino(uint32_t n, uint32_t e, uint32_t s, uint32_t w)
         {
             colours_.n = n;
             colours_.e = e;
@@ -281,16 +281,16 @@ template <class T>
 class DominoSet
 {
     public:
-        DominoSet(T* dominoes, uint8_t sz)
+        DominoSet(T* dominoes, uint32_t sz)
         {
-            for (uint8_t i = 0; i < sz; ++i)
+            for (uint32_t i = 0; i < sz; ++i)
             {
                 T d = dominoes[i];
                 d.set_id(i);
                 dominoes_[i] = d;
             }
 
-            for (uint8_t i = 0; i < sz; ++i)
+            for (uint32_t i = 0; i < sz; ++i)
             {
                 Adjacency* adj = new Adjacency();
                 adjacencies_[i] = adj;
@@ -307,29 +307,29 @@ class DominoSet
 
         ~DominoSet()
         {
-            for (uint8_t i = 0; i < adjacencies_.size(); ++i)
+            for (uint32_t i = 0; i < adjacencies_.size(); ++i)
             {
                 delete adjacencies_[i];
             }
         }
 
-        uint8_t size() { return dominoes_.size(); }
+        uint32_t size() { return dominoes_.size(); }
         void print();
 
-        T get(uint8_t id) const
+        T get(uint32_t id) const
         {
             return dominoes_.find(id)->second;
         }
 
         template <typename R>
-        bool Generate(int32_t x, int32_t y, std::vector<uint8_t>& output, R& rng)
+        bool Generate(int32_t x, int32_t y, std::vector<uint32_t>& output, R& rng)
         {
-            std::set<uint8_t> all_set;
-            for (uint8_t i = 0; i < dominoes_.size(); ++i)
+            std::set<uint32_t> all_set;
+            for (uint32_t i = 0; i < dominoes_.size(); ++i)
             {
                 all_set.insert(i);
             }
-            const std::set<uint8_t> all = all_set;
+            const std::set<uint32_t> all = all_set;
 
             std::vector<Point> all_points;
             for (int32_t j = 0; j < y; ++j)
@@ -342,11 +342,11 @@ class DominoSet
             }
 
             bool has_conflicts = false;
-            std::map<Point, uint8_t> tiling;
+            std::map<Point, uint32_t> tiling;
             // Init all the tiles
             for (auto pt : all_points)
             {
-                std::vector<uint8_t> choices;
+                std::vector<uint32_t> choices;
                 Best(pt, tiling, choices);
                 if (!choices.empty())
                 {
@@ -380,7 +380,7 @@ class DominoSet
                         {
                             has_conflicts = true;
                             ++conflict_count;
-                            std::vector<uint8_t> choices;
+                            std::vector<uint32_t> choices;
                             Best(pt, tiling, choices);
                             if (!choices.empty())
                             {
@@ -423,19 +423,19 @@ class DominoSet
     private:
         int Best(
                 Point pt,
-                const std::map<Point, uint8_t>& tiling,
-                std::vector<uint8_t>& result) const
+                const std::map<Point, uint32_t>& tiling,
+                std::vector<uint32_t>& result) const
         {
-            std::set<uint8_t> all_set;
-            for (uint8_t i = 0; i < dominoes_.size(); ++i)
+            std::set<uint32_t> all_set;
+            for (uint32_t i = 0; i < dominoes_.size(); ++i)
             {
                 all_set.insert(i);
             }
-            const std::set<uint8_t> all = all_set;
+            const std::set<uint32_t> all = all_set;
 
-            std::map<uint8_t, int> result_map;
-            uint8_t neighbors = 0;
-            uint8_t mx = 0;
+            std::map<uint32_t, int> result_map;
+            uint32_t neighbors = 0;
+            uint32_t mx = 0;
             for (int x = -1; x <= 1; ++x)
             {
                 for (int y = -1; y <= 1; ++y)
@@ -448,7 +448,7 @@ class DominoSet
                     if (tiling.find(nb) != tiling.end())
                     {
                         ++neighbors;
-                        std::set<uint8_t> allowed = all;
+                        std::set<uint32_t> allowed = all;
                         T other = dominoes_.find(tiling.find(nb)->second)->second;
                         Direction dir;
                         asDirection(offset, dir);
@@ -467,7 +467,7 @@ class DominoSet
             }
             if (!neighbors)
             {
-                for (uint8_t v : all_set)
+                for (uint32_t v : all_set)
                 {
                     result.push_back(v);
                 }
@@ -484,7 +484,7 @@ class DominoSet
         }
 
         template <typename R>
-            void Randomise(std::set<Point> pts, std::map<Point, uint8_t>& tiling,
+            void Randomise(std::set<Point> pts, std::map<Point, uint32_t>& tiling,
                     int sz, R& rng) const
             {
                 std::set<Point> shuffle;
@@ -504,10 +504,10 @@ class DominoSet
                     tiling[itr] = rng() % adjacencies_.size();
             }
 
-        int Conflicts(Point pt, const std::map<Point, uint8_t>& tiling) const {
+        int Conflicts(Point pt, const std::map<Point, uint32_t>& tiling) const {
             int conflicts = 0;
             int neighbors = 0;
-            uint8_t id = tiling.find(pt)->second;
+            uint32_t id = tiling.find(pt)->second;
             T domino = dominoes_.find(id)->second;
             for (int x = -1; x <= 1; ++x)
             {
@@ -532,8 +532,8 @@ class DominoSet
             return conflicts;
         }
 
-        std::map<uint8_t, T> dominoes_;
-        std::map<uint8_t, Adjacency*> adjacencies_;
+        std::map<uint32_t, T> dominoes_;
+        std::map<uint32_t, Adjacency*> adjacencies_;
 };
 
 };  // namespace domino
