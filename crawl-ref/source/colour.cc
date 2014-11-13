@@ -168,7 +168,7 @@ struct domino_colour_calc : public element_colour_calc
     }
 
 protected:
-    vector<uint8_t> output_;
+    vector<uint32_t> output_;
 };
 
 static int _etc_waves(int, const coord_def& loc)

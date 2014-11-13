@@ -324,7 +324,7 @@ void tile_clear_flavour()
 void tile_init_flavour()
 {
 
-    vector<uint8_t> output;
+    vector<uint32_t> output;
     if (player_in_branch(BRANCH_SLIME))
     {
         domino::DominoSet<domino::EdgeDomino> dominoes(domino::cohen_set, 8);
@@ -439,11 +439,11 @@ static bool _same_door_at(dungeon_feature_type feat, const coord_def &gc)
 
 void tile_init_flavour(const coord_def &gc)
 {
-    vector<uint8_t> empty;
+    vector<uint32_t> empty;
     tile_init_flavour(gc, empty);
 }
 
-void tile_init_flavour(const coord_def &gc, const vector<uint8_t>& tiling)
+void tile_init_flavour(const coord_def &gc, const vector<uint32_t>& tiling)
 {
     if (!map_bounds(gc))
         return;
