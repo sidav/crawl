@@ -46,6 +46,13 @@ static EdgeDomino cohen_set[8] = {
 #undef B
 #undef Y
 
+static OrientedDomino oriented_set[4] = {
+  { 1,  1, -1, -1},
+  { 1, -1, -1, -1},
+  { 1, -1, -1, 1},
+  { 1,  1, -1, 1},
+};
+
 // This is a six-colour set of 44 tiles.
 // See: Aperiodic Sets of Square Tiles with Colored Corners (Lagae, 2006)
 static CornerDomino aperiodic_set[44] = {

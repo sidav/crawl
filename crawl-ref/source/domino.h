@@ -92,6 +92,32 @@ typedef struct
     colour w;
 } EdgeColours;
 
+enum polarity
+{
+    NEGATIVE = -1,
+    POSITIVE = 1,
+};
+
+typedef struct
+{
+    colour c;
+    polarity o;
+} OrientedColour;
+
+static OrientedColour operator-(const OrientedColour x)
+{
+  return { x.c, x.o == NEGATIVE ? POSITIVE : NEGATIVE };
+}
+
+typedef struct
+{
+    OrientedColour n;
+    OrientedColour e;
+    OrientedColour s;
+    OrientedColour w;
+} OrientedColours;
+
+
 enum Direction
 {
     FIRST_DIRECTION = 0,
@@ -277,6 +303,89 @@ class EdgeDomino : public Domino
 
 std::ostream& operator<< (std::ostream& stream, const EdgeDomino& dir);
 
+class OrientedDomino : public Domino
+{
+    public:
+        OrientedDomino()
+        {
+            id_ = -1;
+        }
+
+        OrientedDomino(const OrientedColours colours)
+        {
+            colours_.n = colours.n;
+            colours_.e = colours.e;
+            colours_.s = colours.s;
+            colours_.w = colours.w;
+        }
+
+        OrientedDomino(const OrientedColour n, const OrientedColour e,
+              const OrientedColour s, const OrientedColour w)
+        {
+            colours_.n = n;
+            colours_.e = e;
+            colours_.s = s;
+            colours_.w = w;
+        }
+
+        OrientedDomino(int32_t n, int32_t e, int32_t s, int32_t w)
+        {
+            #define SIGN(x) (x < 0 ? NEGATIVE : POSITIVE)
+            colours_.n = { static_cast<uint32_t>(abs(n)), SIGN(n) };
+            colours_.e = { static_cast<uint32_t>(abs(e)), SIGN(e) };
+            colours_.s = { static_cast<uint32_t>(abs(s)), SIGN(s) };
+            colours_.w = { static_cast<uint32_t>(abs(w)), SIGN(w) };
+            #undef SIGN
+        }
+
+        ~OrientedDomino() {}
+
+        OrientedDomino rotateCW()
+        {
+            return { colours_.w, colours_.n, colours_.e, colours_.s };
+        }
+
+        OrientedDomino rotateCCW()
+        {
+            return { colours_.e, colours_.s, colours_.w, colours_.n  };
+        }
+
+        OrientedDomino mirrorH ()
+        {
+            return { -colours_.n, colours_.w, -colours_.s, colours_.e };
+        }
+
+        OrientedDomino mirrorV()
+        {
+            return { colours_.s, -colours_.e, colours_.n, -colours_.w };
+        }
+
+        bool matches(const OrientedDomino& o, Direction dir) const;
+        void intersect(const OrientedDomino& other, std::set<Direction>& directions) const;
+
+        OrientedColour n_colour() const
+        {
+            return colours_.n;
+        }
+
+        OrientedColour e_colour() const {
+            return colours_.e;
+        }
+
+        OrientedColour s_colour() const
+        {
+            return colours_.s;
+        }
+
+        OrientedColour w_colour() const
+        {
+            return colours_.w;
+        }
+
+    private:
+        OrientedColours colours_;
+};
+
 template <class T>
 class DominoSet
 {
@@ -321,7 +430,7 @@ class DominoSet
             return dominoes_.find(id)->second;
         }
 
-        template <typename R>
+        template <class R>
         bool Generate(int32_t x, int32_t y, std::vector<uint32_t>& output, R& rng)
         {
             std::set<uint32_t> all_set;

@@ -168,4 +168,40 @@ std::ostream& operator<< (std::ostream& stream, const EdgeDomino& d)
     return stream;
 }
 
+bool OrientedDomino::matches(const OrientedDomino& o, Direction dir) const
+{
+    switch (dir)
+    {
+        case NORTH:
+            return n_colour().c == o.s_colour().c
+                && n_colour().o != o.s_colour().o;
+        case EAST:
+            return e_colour().c == o.w_colour().c
+                && e_colour().o != o.w_colour().o;
+        case SOUTH:
+            return s_colour().c == o.n_colour().c
+                && s_colour().o != o.n_colour().o;
+        case WEST:
+            return w_colour().c == o.e_colour().c
+                && w_colour().o != o.e_colour().o;
+        case NO_DIR:
+            return false;
+        default:
+            return true;
+    }
+}
+
+void OrientedDomino::intersect(const OrientedDomino& o, set<Direction>& result) const
+{
+    set<Direction> allowed;
+    for (size_t i = FIRST_DIRECTION; i <= LAST_DIRECTION; ++i)
+    {
+        Direction d = static_cast<Direction>(i);
+        if (matches(o, d)) {
+            allowed.insert(d);
+        }
+    }
+    domino::intersection(result, allowed);
+}
+
 }  // namespace domino
