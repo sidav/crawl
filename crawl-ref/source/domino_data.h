@@ -47,10 +47,10 @@ static EdgeDomino cohen_set[8] = {
 #undef Y
 
 static OrientedDomino oriented_set[4] = {
-  { 1,  1, -1, -1},
-  { 1, -1, -1, -1},
-  { 1, -1, -1, 1},
-  { 1,  1, -1, 1},
+  { {1, OrientationA}, {1, OrientationA}, {1, OrientationA}, {1, OrientationA}},
+  { {1, OrientationA}, {1, OrientationA}, {1, OrientationA}, {1, OrientationA}},
+  { {1, OrientationA}, {1, OrientationA}, {1, OrientationA}, {1, OrientationA}},
+  { {1, OrientationA}, {1, OrientationA}, {1, OrientationA}, {1, OrientationA}},
 };
 
 // This is a six-colour set of 44 tiles.

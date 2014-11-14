@@ -174,16 +174,16 @@ bool OrientedDomino::matches(const OrientedDomino& o, Direction dir) const
     {
         case NORTH:
             return n_colour().c == o.s_colour().c
-                && n_colour().o != o.s_colour().o;
+                && n_colour().o == o.s_colour().o;
         case EAST:
             return e_colour().c == o.w_colour().c
-                && e_colour().o != o.w_colour().o;
+                && e_colour().o == o.w_colour().o;
         case SOUTH:
             return s_colour().c == o.n_colour().c
-                && s_colour().o != o.n_colour().o;
+                && s_colour().o == o.n_colour().o;
         case WEST:
             return w_colour().c == o.e_colour().c
-                && w_colour().o != o.e_colour().o;
+                && w_colour().o == o.e_colour().o;
         case NO_DIR:
             return false;
         default:
