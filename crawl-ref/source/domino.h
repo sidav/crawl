@@ -367,7 +367,7 @@ class OrientedDomino : public Domino
 
         OrientedDomino rotateCW()
         {
-            return { 
+            return {
                 succ(colours_.w),
                 succ(colours_.n),
                 succ(colours_.e),
@@ -377,7 +377,7 @@ class OrientedDomino : public Domino
 
         OrientedDomino rotateCCW()
         {
-            return { 
+            return {
                 pred(colours_.e),
                 pred(colours_.s),
                 pred(colours_.w),

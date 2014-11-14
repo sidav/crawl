@@ -330,8 +330,8 @@ void tile_init_flavour()
         domino::DominoSet<domino::EdgeDomino> dominoes(domino::cohen_set, 8);
         uint32_t seed[] =
         {
-            static_cast<uint32_t>(ui_random()), 
-            static_cast<uint32_t>(ui_random()), 
+            static_cast<uint32_t>(ui_random()),
+            static_cast<uint32_t>(ui_random()),
         };
         AsgKISS rng(seed, 2);
         dominoes.Generate(X_WIDTH, Y_WIDTH, output, rng);
