@@ -352,12 +352,12 @@ class OrientedDomino : public Domino
 
         OrientedDomino mirrorH ()
         {
-            return { -colours_.n, colours_.w, -colours_.s, colours_.e };
+            return { -colours_.n, -colours_.w, -colours_.s, -colours_.e };
         }
 
         OrientedDomino mirrorV()
         {
-            return { colours_.s, -colours_.e, colours_.n, -colours_.w };
+            return { -colours_.s, -colours_.e, -colours_.n, -colours_.w };
         }
 
         bool matches(const OrientedDomino& o, Direction dir) const;
