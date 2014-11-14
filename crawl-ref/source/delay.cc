@@ -7,8 +7,8 @@
 
 #include "delay.h"
 
-#include <stdio.h>
-#include <string.h>
+#include <cstdio>
+#include <cstring>
 
 #include "ability.h"
 #include "areas.h"
@@ -107,8 +107,7 @@ static bool _is_parent_delay(delay_type delay)
 
 static int _push_delay(const delay_queue_item &delay)
 {
-    for (delay_queue_type::iterator i = you.delay_queue.begin();
-         i != you.delay_queue.end(); ++i)
+    for (auto i = you.delay_queue.begin(); i != you.delay_queue.end(); ++i)
     {
         if (_is_parent_delay(i->type))
         {
@@ -1215,13 +1214,12 @@ static void _handle_macro_delay()
 
 static void _decrement_delay(delay_type delay)
 {
-    for (delay_queue_type::iterator i = you.delay_queue.begin();
-         i != you.delay_queue.end(); ++i)
+    for (auto &delay_item : you.delay_queue)
     {
-        if (i->type == delay)
+        if (delay_item.type == delay)
         {
-            if (i->duration > 0)
-                --i->duration;
+            if (delay_item.duration > 0)
+                --delay_item.duration;
             break;
         }
     }
@@ -1699,6 +1697,7 @@ bool interrupt_activity(activity_interrupt_type ai,
     return false;
 }
 
+// Must match the order of activity_interrupt_type in enum.h!
 static const char *activity_interrupt_names[] =
 {
     "force", "keypress", "full_hp", "full_mp", "statue", "hungry", "message",

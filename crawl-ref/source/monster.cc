@@ -66,9 +66,6 @@
 #include "view.h"
 #include "xom.h"
 
-// Macro that saves some typing, nothing more.
-#define smc get_monster_data(mc)
-
 monster::monster()
     : hit_points(0), max_hit_points(0),
       speed(0), speed_increment(0), target(), firing_pos(),
@@ -779,14 +776,19 @@ bool monster::is_silenced() const
                && !res_water_drowning();
 }
 
+bool monster::search_spells(function<bool (const mon_spell_slot)> func) const
+{
+    for (mon_spell_slot slot : spells)
+        if (func(slot))
+            return true;
+
+    return false;
+}
+
 bool monster::has_spell_of_type(unsigned disciplines) const
 {
-    for (unsigned int i = 0; i < spells.size(); ++i)
-    {
-        if (spell_typematch(spells[i].spell, disciplines))
-            return true;
-    }
-    return false;
+    return search_spells([&] (const mon_spell_slot& slot)
+                         { return spell_typematch(slot.spell, disciplines); } );
 }
 
 void monster::bind_melee_flags()
@@ -3022,11 +3024,8 @@ bool monster::has_spells() const
 
 bool monster::has_spell(spell_type spell) const
 {
-    for (unsigned int i = 0; i < spells.size(); ++i)
-        if (spells[i].spell == spell)
-            return true;
-
-    return false;
+    return search_spells([&] (const mon_spell_slot& slot)
+                         { return slot.spell == spell; } );
 }
 
 unsigned short monster::spell_slot_flags(spell_type spell) const
@@ -3041,47 +3040,32 @@ unsigned short monster::spell_slot_flags(spell_type spell) const
 
 bool monster::has_unholy_spell() const
 {
-    for (unsigned int i = 0; i < spells.size(); ++i)
-        if (is_unholy_spell(spells[i].spell))
-            return true;
-
-    return false;
+    return search_spells([] (const mon_spell_slot& slot)
+                         { return is_unholy_spell(slot.spell); } );
 }
 
 bool monster::has_evil_spell() const
 {
-    for (unsigned int i = 0; i < spells.size(); ++i)
-        if (is_evil_spell(spells[i].spell))
-            return true;
-
-    return false;
+    return search_spells([] (const mon_spell_slot& slot)
+                         { return is_evil_spell(slot.spell); } );
 }
 
 bool monster::has_unclean_spell() const
 {
-    for (unsigned int i = 0; i < spells.size(); ++i)
-        if (is_unclean_spell(spells[i].spell))
-            return true;
-
-    return false;
+    return search_spells([] (const mon_spell_slot& slot)
+                         { return is_unclean_spell(slot.spell); } );
 }
 
 bool monster::has_chaotic_spell() const
 {
-    for (unsigned int i = 0; i < spells.size(); ++i)
-        if (is_chaotic_spell(spells[i].spell))
-            return true;
-
-    return false;
+    return search_spells([] (const mon_spell_slot& slot)
+                         { return is_chaotic_spell(slot.spell); } );
 }
 
 bool monster::has_corpse_violating_spell() const
 {
-    for (unsigned int i = 0; i < spells.size(); ++i)
-        if (is_corpse_violating_spell(spells[i].spell))
-            return true;
-
-    return false;
+    return search_spells([] (const mon_spell_slot& slot)
+                         { return is_corpse_violating_spell(slot.spell); } );
 }
 
 bool monster::has_attack_flavour(int flavour) const
@@ -3959,6 +3943,9 @@ int monster::res_fire() const
     if (has_ench(ENCH_FIRE_VULN))
         u--;
 
+    if (has_ench(ENCH_RESISTANCE))
+        u++;
+
     if (u < -3)
         u = -3;
     else if (u > 3)
@@ -4007,6 +3994,9 @@ int monster::res_cold() const
             u++;
     }
 
+    if (has_ench(ENCH_RESISTANCE))
+        u++;
+
     if (u < -3)
         u = -3;
     else if (u > 3)
@@ -4043,6 +4033,9 @@ int monster::res_elec() const
         if (w && w->base_type == OBJ_STAVES && w->sub_type == STAFF_AIR)
             u++;
     }
+
+    if (has_ench(ENCH_RESISTANCE))
+        u++;
 
     // Monsters can legitimately get multiple levels of electricity resistance.
 
@@ -4102,6 +4095,9 @@ int monster::res_poison(bool temp) const
         if (w && w->base_type == OBJ_STAVES && w->sub_type == STAFF_POISON)
             u++;
     }
+
+    if (has_ench(ENCH_RESISTANCE))
+        u++;
 
     // Monsters can have multiple innate levels of poison resistance, but
     // like players, equipment doesn't stack.
@@ -4257,7 +4253,12 @@ bool monster::res_corr(bool calc_unid, bool items) const
 
 int monster::res_acid(bool calc_unid) const
 {
-    return max(get_mons_resist(this, MR_RES_ACID), (int)actor::res_corr(calc_unid));
+    int u = max(get_mons_resist(this, MR_RES_ACID), (int)actor::res_corr(calc_unid));
+
+    if (has_ench(ENCH_RESISTANCE))
+        u++;
+
+    return u;
 }
 
 int monster::res_magic() const
@@ -4331,11 +4332,8 @@ bool monster::no_tele(bool calc_unid, bool permit_id, bool blinking) const
 
 bool monster::antimagic_susceptible() const
 {
-    for (unsigned int i = 0; i < spells.size(); ++i)
-       if (spells[i].flags & MON_SPELL_ANTIMAGIC_MASK)
-           return true;
-
-    return false;
+    return search_spells([] (const mon_spell_slot& slot)
+                         { return slot.flags & MON_SPELL_ANTIMAGIC_MASK; } );
 }
 
 flight_type monster::flight_mode() const
@@ -5111,13 +5109,8 @@ bool monster::has_multitargeting() const
 
 bool monster::is_priest() const
 {
-    for (unsigned int i = 0; i < spells.size(); ++i)
-    {
-       if (spells[i].flags & MON_SPELL_PRIEST)
-           return true;
-    }
-
-    return false;
+    return search_spells([] (const mon_spell_slot& slot)
+                         { return slot.flags & MON_SPELL_PRIEST; } );
 }
 
 bool monster::is_fighter() const
@@ -5132,11 +5125,8 @@ bool monster::is_archer() const
 
 bool monster::is_actual_spellcaster() const
 {
-    for (unsigned int i = 0; i < spells.size(); ++i)
-       if (spells[i].flags & MON_SPELL_WIZARD)
-           return true;
-
-    return false;
+    return search_spells([] (const mon_spell_slot& slot)
+                         { return slot.flags & MON_SPELL_WIZARD; } );
 }
 
 bool monster::is_shapeshifter() const
@@ -5948,6 +5938,7 @@ bool monster::can_drink_potion(potion_type ptype) const
         case POT_MIGHT:
         case POT_AGILITY:
         case POT_INVISIBILITY:
+        case POT_RESISTANCE:
             // If there are any item using monsters that are permanently
             // invisible, this might have to be restricted.
             return true;
@@ -5987,6 +5978,8 @@ bool monster::should_drink_potion(potion_type ptype) const
         return !has_ench(ENCH_MIGHT) && foe_distance() <= 2;
     case POT_AGILITY:
         return !has_ench(ENCH_AGILE);
+    case POT_RESISTANCE:
+        return !has_ench(ENCH_RESISTANCE);
     case POT_INVISIBILITY:
         // We're being nice: friendlies won't go invisible if the player
         // won't be able to see them.
@@ -6000,9 +5993,11 @@ bool monster::should_drink_potion(potion_type ptype) const
 }
 
 // Return the ID status gained.
-item_type_id_state_type monster::drink_potion_effect(potion_type pot_eff)
+item_type_id_state_type monster::drink_potion_effect(potion_type pot_eff,
+                                                     bool card)
 {
-    simple_monster_message(this, " drinks a potion.");
+    if (!card)
+        simple_monster_message(this, " drinks a potion.");
 
     item_type_id_state_type ident = ID_MON_TRIED_TYPE;
 
@@ -6064,6 +6059,11 @@ item_type_id_state_type monster::drink_potion_effect(potion_type pot_eff)
 
     case POT_AGILITY:
         if (enchant_actor_with_flavour(this, this, BEAM_AGILITY))
+            ident = ID_KNOWN_TYPE;
+        break;
+
+    case POT_RESISTANCE:
+        if (enchant_actor_with_flavour(this, this, BEAM_RESISTANCE))
             ident = ID_KNOWN_TYPE;
         break;
 

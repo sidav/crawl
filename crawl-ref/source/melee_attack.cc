@@ -8,9 +8,9 @@
 #include "melee_attack.h"
 
 #include <algorithm>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 #include "areas.h"
 #include "art-enum.h"
@@ -2836,7 +2836,7 @@ bool melee_attack::mons_attack_effects()
         mons_apply_attack_flavour();
 
         if (needs_message && !special_damage_message.empty())
-            mprf("%s", special_damage_message.c_str());
+            mpr(special_damage_message);
 
         if (special_damage > 0)
         {
@@ -2849,7 +2849,7 @@ bool melee_attack::mons_attack_effects()
         apply_staff_damage();
 
         if (needs_message && !special_damage_message.empty())
-            mprf("%s", special_damage_message.c_str());
+            mpr(special_damage_message);
 
         if (special_damage > 0
             && inflict_damage(special_damage, special_damage_flavour))
@@ -3832,7 +3832,7 @@ void melee_attack::chaos_affect_actor(actor *victim)
     if (!attk.special_damage_message.empty()
         && you.can_see(victim))
     {
-        mprf("%s", attk.special_damage_message.c_str());
+        mpr(attk.special_damage_message);
     }
 }
 

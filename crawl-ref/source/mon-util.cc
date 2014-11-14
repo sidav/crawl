@@ -7,8 +7,8 @@
 
 #include "mon-util.h"
 
+#include <cmath>
 #include <sstream>
-#include <math.h>
 
 #include "act-iter.h"
 #include "areas.h"
@@ -84,7 +84,7 @@ static bool initialised_randmons = false;
 static vector<monster_type> monsters_by_habitat[NUM_HABITATS];
 static vector<monster_type> species_by_habitat[NUM_HABITATS];
 
-#include "mon-spll.h"
+#include "mon-spell.h"
 #include "mon-data.h"
 
 #define MONDATASIZE ARRAYSZ(mondata)
@@ -155,11 +155,8 @@ static void _initialise_randmons()
 
         }
 
-        for (set<monster_type>::iterator it = tmp_species.begin();
-             it != tmp_species.end(); ++it)
-        {
-            species_by_habitat[i].push_back(*it);
-        }
+        for (auto type : tmp_species)
+            species_by_habitat[i].push_back(type);
     }
     initialised_randmons = true;
 }
@@ -669,6 +666,7 @@ bool mons_is_fiery(const monster* mon)
     return mon->has_attack_flavour(AF_FIRE)
            || mon->has_attack_flavour(AF_PURE_FIRE)
            || mon->has_attack_flavour(AF_STICKY_FLAME)
+           || mon->has_attack_flavour(AF_FIREBRAND)
            || mon->has_spell_of_type(SPTYP_FIRE);
 }
 
@@ -1230,7 +1228,9 @@ shout_type mons_shouts(monster_type mc, bool demon_shout)
     {
         const int max_shout = (u == S_RANDOM ? NUM_SHOUTS : NUM_LOUDNESS);
         do
+        {
             u = static_cast<shout_type>(random2(max_shout));
+        }
         while (!_shout_fits_monster(mc, u));
     }
 
@@ -1422,7 +1422,7 @@ bool mons_class_leaves_hide(monster_type mc)
 {
     if (mons_genus(mc) == MONS_TROLL)
         return true;
-    switch (mc)
+    switch (mons_species(mc))
     {
     case MONS_FIRE_DRAGON:
     case MONS_ICE_DRAGON:
@@ -2177,7 +2177,6 @@ static vector<mon_spellbook_type> _mons_spellbook_list(monster_type mon_type)
 
     case MONS_ORC_WIZARD:
     case MONS_DEEP_ELF_FIGHTER:
-    case MONS_DEEP_ELF_KNIGHT:
         books.push_back(MST_ORC_WIZARD_I);
         books.push_back(MST_ORC_WIZARD_II);
         books.push_back(MST_ORC_WIZARD_III);
@@ -2198,12 +2197,6 @@ static vector<mon_spellbook_type> _mons_spellbook_list(monster_type mon_type)
         books.push_back(MST_OGRE_MAGE_III);
         books.push_back(MST_OGRE_MAGE_IV);
         books.push_back(MST_OGRE_MAGE_V);
-        break;
-
-    case MONS_DRACONIAN_KNIGHT:
-        books.push_back(MST_DRACONIAN_KNIGHT_I);
-        books.push_back(MST_DRACONIAN_KNIGHT_II);
-        books.push_back(MST_DRACONIAN_KNIGHT_III);
         break;
 
     case MONS_ANCIENT_CHAMPION:
@@ -2245,6 +2238,12 @@ static vector<mon_spellbook_type> _mons_spellbook_list(monster_type mon_type)
         books.push_back(MST_GREATER_MUMMY_II);
         books.push_back(MST_GREATER_MUMMY_III);
         books.push_back(MST_GREATER_MUMMY_IV);
+        break;
+
+    case MONS_DEEP_ELF_KNIGHT:
+        books.push_back(MST_DEEP_ELF_KNIGHT_I);
+        books.push_back(MST_DEEP_ELF_KNIGHT_II);
+        books.push_back(MST_DEEP_ELF_KNIGHT_III);
         break;
 
     default:
@@ -2311,9 +2310,8 @@ unique_books get_unique_spells(const monster_info &mi,
         }
 
         for (unsigned int j = 0;
-             (book == MST_GHOST && j < mi.spells.size())
-             || (book != MST_GHOST
-                 && mspell_list[msidx].spells[j].spell != SPELL_NO_SPELL);
+             book == MST_GHOST && j < mi.spells.size()
+             || book != MST_GHOST && j < mspell_list[msidx].spells.size();
              ++j)
         {
             mon_spell_slot slot;
@@ -2337,7 +2335,7 @@ unique_books get_unique_spells(const monster_info &mi,
                 if (spell == spells[k])
                     match = true;
 
-            if (!match && spell != SPELL_NO_SPELL && spell != SPELL_MELEE)
+            if (!match)
                 spells.push_back(spell);
         }
 
@@ -2377,7 +2375,7 @@ mon_spell_slot drac_breath(monster_type drac_type)
     return slot;
 }
 
-static void _mons_load_spells(monster* mon)
+void mons_load_spells(monster* mon)
 {
     vector<mon_spellbook_type> books = _mons_spellbook_list(mon->type);
     const mon_spellbook_type book = books[random2(books.size())];
@@ -2426,7 +2424,9 @@ static colour_t _random_butterfly_colour()
     colour_t col;
     // Restricted to 'light' colours.
     do
+    {
         col = random_monster_colour();
+    }
     while (is_low_colour(col));
 
     return col;
@@ -2554,7 +2554,9 @@ void define_monster(monster* mons)
         // White draconians will never be draconian scorchers, but
         // apart from that, anything goes.
         do
+        {
             monbase = random_draconian_monster_species();
+        }
         while (drac_colour_incompatible(mcls, monbase));
     }
 
@@ -2605,7 +2607,7 @@ void define_monster(monster* mons)
 
     mons->bind_melee_flags();
 
-    _mons_load_spells(mons);
+    mons_load_spells(mons);
     mons->bind_spell_flags();
 
     // Reset monster enchantments.
@@ -3295,6 +3297,7 @@ static bool _beneficial_beam_flavour(beam_type flavour)
     case BEAM_INVISIBILITY:
     case BEAM_MIGHT:
     case BEAM_AGILITY:
+    case BEAM_RESISTANCE:
         return true;
 
     default:
@@ -4910,8 +4913,7 @@ void fixup_spells(monster_spells &spells, int hd, bool wizard, bool priest)
     for (unsigned int i = 0; i < spells.size(); i++)
         spells[i].freq = one_freq;
 
-    for (monster_spells::iterator it = spells.begin();
-         it != spells.end(); it++)
+    for (auto it = spells.begin(); it != spells.end(); it++)
     {
         if (it->spell == SPELL_NO_SPELL)
         {

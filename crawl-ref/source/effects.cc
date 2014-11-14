@@ -9,11 +9,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <queue>
 #include <set>
-#include <stdio.h>
-#include <string.h>
 
 #include "abyss.h"
 #include "act-iter.h"
@@ -755,7 +755,7 @@ void random_uselessness(int scroll_slot)
     }
 }
 
-int recharge_wand(bool known, string *pre_msg)
+int recharge_wand(bool known, const string &pre_msg)
 {
     int item_slot = -1;
     do
@@ -821,8 +821,8 @@ int recharge_wand(bool known, string *pre_msg)
                 desc = info;
             }
 
-            if (known && pre_msg)
-                mpr(pre_msg->c_str());
+            if (known && !pre_msg.empty())
+                mpr(pre_msg);
 
             mprf("%s %s for a moment%s.",
                  wand.name(DESC_YOUR).c_str(),
@@ -871,8 +871,8 @@ int recharge_wand(bool known, string *pre_msg)
             if (!work)
                 return 0;
 
-            if (known && pre_msg)
-                mpr(pre_msg->c_str());
+            if (known && !pre_msg.empty())
+                mpr(pre_msg);
 
             mprf("%s glows for a moment.", wand.name(DESC_YOUR).c_str());
         }
@@ -2034,7 +2034,9 @@ static void _jiyva_effects(int time_delta)
             // Spread jellies around the level.
             coord_def newpos;
             do
+            {
                 newpos = random_in_bounds();
+            }
             while (grd(newpos) != DNGN_FLOOR
                        && grd(newpos) != DNGN_SHALLOW_WATER
                    || monster_at(newpos)

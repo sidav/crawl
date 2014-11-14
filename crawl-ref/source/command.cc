@@ -7,10 +7,10 @@
 
 #include "command.h"
 
+#include <cctype>
+#include <cstdio>
+#include <cstring>
 #include <sstream>
-#include <ctype.h>
-#include <stdio.h>
-#include <string.h>
 
 #include "ability.h"
 #include "branch.h"
@@ -1659,7 +1659,7 @@ static void _keyhelp_query_descriptions()
 
     viewwindow();
     if (!error.empty())
-        mprf("%s", error.c_str());
+        mpr(error);
 }
 
 static int _keyhelp_keyfilter(int ch)

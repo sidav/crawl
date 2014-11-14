@@ -8,9 +8,9 @@
 #include "evoke.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
-#include <math.h>
-#include <string.h>
+#include <cstring>
 
 #include "act-iter.h"
 #include "areas.h"
@@ -1149,7 +1149,7 @@ static double _angle_between(coord_def origin, coord_def p1, coord_def p2)
     return min(fabs(ang - ang0), fabs(ang - ang0 + 2 * PI));
 }
 
-void wind_blast(actor* agent, int pow, coord_def target)
+void wind_blast(actor* agent, int pow, coord_def target, bool card)
 {
     vector<actor *> act_list;
 
@@ -1303,10 +1303,12 @@ void wind_blast(actor* agent, int pow, coord_def target)
 
     if (agent->is_player())
     {
+        const string source = card ? "card" : "fan";
+
         if (pow > 120)
-            mpr("A mighty gale blasts forth from the fan!");
+            mprf("A mighty gale blasts forth from the %s!", source.c_str());
         else
-            mpr("A fierce wind blows from the fan.");
+            mprf("A fierce wind blows from the %s.", source.c_str());
     }
 
     noisy(8, agent->pos());
@@ -1321,7 +1323,7 @@ void wind_blast(actor* agent, int pow, coord_def target)
                          affected_monsters.describe().c_str(),
                          conjugate_verb("be", affected_monsters.count() > 1).c_str());
         if (strwidth(message) < get_number_of_cols() - 2)
-            mpr(message.c_str());
+            mpr(message);
         else
             mpr("The monsters around you are blown away!");
     }

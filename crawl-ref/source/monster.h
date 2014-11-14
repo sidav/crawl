@@ -184,7 +184,7 @@ public:
 
     bool can_drink_potion(potion_type ptype) const;
     bool should_drink_potion(potion_type ptype) const;
-    item_type_id_state_type drink_potion_effect(potion_type pot_eff);
+    item_type_id_state_type drink_potion_effect(potion_type pot_eff, bool card = false);
 
     bool can_evoke_jewellery(jewellery_type jtype) const;
     bool should_evoke_jewellery(jewellery_type jtype) const;
@@ -578,6 +578,7 @@ private:
     bool check_set_valid_home(const coord_def &place,
                               coord_def &chosen,
                               int &nvalid) const;
+    bool search_spells(function<bool (const mon_spell_slot)> func) const;
 };
 
 #endif

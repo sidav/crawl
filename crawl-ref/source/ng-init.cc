@@ -267,12 +267,11 @@ void initialise_temples()
         if (!maps.empty())
         {
             int chance = 0;
-            for (mapref_vector::iterator map = maps.begin();
-                 map != maps.end(); map++)
+            for (auto map : maps)
             {
                 // XXX: this should handle level depth better
-                chance += (*map)->weight(level_id(BRANCH_DUNGEON,
-                                                  MAX_OVERFLOW_LEVEL));
+                chance += map->weight(level_id(BRANCH_DUNGEON,
+                                               MAX_OVERFLOW_LEVEL));
             }
             overflow_weights[i] = chance;
         }
@@ -318,11 +317,10 @@ multi_overflow:
         if (overflow_weights[num] > 0)
         {
             int chance = 0;
-            for (mapref_vector::iterator map = maps.begin(); map != maps.end();
-                 map++)
+            for (auto map : maps)
             {
-                chance += (*map)->weight(level_id(BRANCH_DUNGEON,
-                                                  MAX_OVERFLOW_LEVEL));
+                chance += map->weight(level_id(BRANCH_DUNGEON,
+                                               MAX_OVERFLOW_LEVEL));
             }
             if (!x_chance_in_y(chance, overflow_weights[num] + chance))
                 continue;
@@ -373,13 +371,13 @@ multi_overflow:
     }
 }
 
+#if TAG_MAJOR_VERSION == 34
 static int _get_random_porridge_desc()
 {
     return PDESCQ(PDQ_GLUGGY, one_chance_in(3) ? PDC_BROWN
                                                : PDC_WHITE);
 }
 
-#if TAG_MAJOR_VERSION == 34
 static int _get_random_coagulated_blood_desc()
 {
     potion_description_qualifier_type qualifier = PDQ_NONE;
@@ -423,13 +421,13 @@ void initialise_item_descriptions()
     // Must remember to check for already existing colours/combinations.
     you.item_description.init(255);
 
-    you.item_description[IDESC_POTIONS][POT_PORRIDGE]
-        = _get_random_porridge_desc();
     you.item_description[IDESC_POTIONS][POT_BLOOD]
         = _get_random_blood_desc();
 #if TAG_MAJOR_VERSION == 34
     you.item_description[IDESC_POTIONS][POT_BLOOD_COAGULATED]
         = _get_random_coagulated_blood_desc();
+    you.item_description[IDESC_POTIONS][POT_PORRIDGE]
+        = _get_random_porridge_desc();
 #endif
 
     // The order here must match that of IDESC in describe.h
@@ -519,7 +517,9 @@ void initialise_item_descriptions()
 void fix_up_jiyva_name()
 {
     do
+    {
         you.jiyva_second_name = make_name(random_int(), false, 8, 'J');
+    }
     while (strncmp(you.jiyva_second_name.c_str(), "J", 1) != 0);
 
     you.jiyva_second_name = replace_all(you.jiyva_second_name, " ", "");

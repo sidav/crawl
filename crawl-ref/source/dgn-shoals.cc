@@ -787,11 +787,10 @@ bool dgn_shoals_connect_point(const coord_def &point,
         const int n_points = 15;
         const int radius = 4;
 
-        for (vector<coord_def>::const_iterator i = track.begin();
-             i != track.end(); ++i)
+        for (auto tc : track)
         {
             int height = 0, npoints = 0;
-            for (radius_iterator ri(*i, radius, C_POINTY); ri; ++ri)
+            for (radius_iterator ri(tc, radius, C_POINTY); ri; ++ri)
             {
                 if (in_bounds(*ri))
                 {
@@ -807,7 +806,7 @@ bool dgn_shoals_connect_point(const coord_def &point,
                 const int elevation_change_per_dot =
                     max(1, elevation_change / n_points + 1);
 
-                dgn_island_centred_at(*i, n_points, radius,
+                dgn_island_centred_at(tc, n_points, radius,
                                       int_range(elevation_change_per_dot,
                                                 elevation_change_per_dot + 20),
                                       3);

@@ -7,7 +7,7 @@
 
 #include "wiz-fsim.h"
 
-#include <errno.h>
+#include <cerrno>
 
 #include "beam.h"
 #include "bitary.h"
@@ -525,7 +525,7 @@ static void _fsim_simple_scale(FILE * o, monster* mon, bool defense)
     else
         fprintf(o, "%s\n", title.c_str());
 
-    mpr(title.c_str());
+    mpr(title);
 
     const int iter_limit = Options.fsim_rounds;
     for (int i = xl_mode ? 1 : 0; i <= 27; i++)
@@ -541,7 +541,7 @@ static void _fsim_simple_scale(FILE * o, monster* mon, bool defense)
         fight_data fdata = _get_fight_data(*mon, iter_limit, defense);
         const string line = make_stringf("        %2d | %s", i,
                                          _fight_string(fdata, false));
-        mprf("%s", line.c_str());
+        mpr(line);
         if (Options.fsim_csv)
             fprintf(o, "%d\t%s\n", i, _fight_string(fdata, true));
         else
@@ -687,7 +687,7 @@ void wizard_fight_sim(bool double_scale)
             {
                 mprf("Aborting sim on %s", Options.fsim_kit[i].c_str());
                 if (error != "")
-                    mpr(error.c_str());
+                    mpr(error);
                 break;
             }
         }

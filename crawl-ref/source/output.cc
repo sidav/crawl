@@ -7,9 +7,9 @@
 
 #include "output.h"
 
+#include <cmath>
+#include <cstdlib>
 #include <sstream>
-#include <math.h>
-#include <stdlib.h>
 
 #include "ability.h"
 #include "branch.h"
@@ -1393,9 +1393,6 @@ static string _level_description_string_hud()
 
     if (brdepth[place.branch] > 1)
         short_name += make_stringf(":%d", you.depth);
-    // Definite articles
-    else if (place.branch == BRANCH_ABYSS)
-        short_name.insert(0, "The ");
     // Indefinite articles
     else if (place.branch != BRANCH_PANDEMONIUM && !is_connected_branch(place.branch))
         short_name = article_a(short_name);
@@ -2678,8 +2675,7 @@ static string _status_mut_abilities(int sw)
         break;
 
     case SP_VAMPIRE:
-        if (you.experience_level >= 6)
-            mutations.push_back("bottle blood");
+        mutations.push_back("bottle blood");
         break;
 
     case SP_DEEP_DWARF:

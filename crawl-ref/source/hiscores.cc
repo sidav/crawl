@@ -15,10 +15,10 @@
 #include "hiscores.h"
 
 #include <algorithm>
+#include <cctype>
+#include <cstdio>
+#include <cstdlib>
 #include <memory>
-#include <ctype.h>
-#include <stdio.h>
-#include <stdlib.h>
 #ifndef TARGET_COMPILER_VC
 #include <unistd.h>
 #endif
@@ -1272,11 +1272,8 @@ void scorefile_entry::init_death_cause(int dam, mid_t dsrc,
 
             killerpath = "";
 
-            for (CrawlVector::const_iterator it = blame.begin();
-                 it != blame.end(); ++it)
-            {
-                killerpath = killerpath + ":" + _xlog_escape(it->get_string());
-            }
+            for (const auto &bl : blame)
+                killerpath = killerpath + ":" + _xlog_escape(bl.get_string());
 
             killerpath.erase(killerpath.begin());
         }
@@ -2589,16 +2586,15 @@ string scorefile_entry::death_description(death_desc_verbosity verbosity) const
             {
                 vector<string> summoners = _xlog_split_fields(killerpath);
 
-                for (vector<string>::iterator it = summoners.begin();
-                     it != summoners.end(); ++it)
+                for (const auto &sumname : summoners)
                 {
                     if (!semiverbose)
                     {
-                        desc += "... " + *it;
+                        desc += "... " + sumname;
                         desc += _hiscore_newline_string();
                     }
                     else
-                        desc += " (" + *it;
+                        desc += " (" + sumname;
                 }
 
                 if (semiverbose)

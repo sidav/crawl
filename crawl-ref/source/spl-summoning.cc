@@ -145,7 +145,7 @@ spret_type cast_sticks_to_snakes(int pow, god_type god, bool fail)
     // Don't enchant sticks marked with {!D}.
     if (!check_warning_inscriptions(wpn, OPER_DESTROY))
     {
-        mprf("%s", abort_msg.c_str());
+        mpr(abort_msg);
         return SPRET_ABORT;
     }
 
@@ -158,7 +158,7 @@ spret_type cast_sticks_to_snakes(int pow, god_type god, bool fail)
 
     if (!item_is_snakable(wpn))
     {
-        mprf("%s", abort_msg.c_str());
+        mpr(abort_msg);
         return SPRET_ABORT;
     }
     else
@@ -191,7 +191,7 @@ spret_type cast_sticks_to_snakes(int pow, god_type god, bool fail)
 
     if (!count)
     {
-        mprf("%s", abort_msg.c_str());
+        mpr(abort_msg);
         return SPRET_SUCCESS;
     }
 
@@ -397,7 +397,7 @@ spret_type cast_summon_hydra(actor *caster, int pow, god_type god, bool fail)
                       MONS_HYDRA, heads)))
     {
         if (you.see_cell(hydra->pos()))
-            mpr("A hydra appears.");
+            mprf("%s appears.", hydra->name(DESC_A).c_str());
     }
     else if (caster->is_player())
         canned_msg(MSG_NOTHING_HAPPENS);
@@ -1340,7 +1340,7 @@ spret_type cast_malign_gateway(actor * caster, int pow, god_type god, bool fail)
         if (one_chance_in(5) && caster->is_player())
         {
             // if someone deletes the db, no message is ok
-            mpr(getMiscString("SHT_int_loss").c_str());
+            mpr(getMiscString("SHT_int_loss"));
             // Messages the same as for SHT, as they are currently (10/10) generic.
             lose_stat(STAT_INT, 1 + random2(3), false, "opening a malign portal");
         }
@@ -1360,7 +1360,7 @@ spret_type cast_summon_horrible_things(int pow, god_type god, bool fail)
     if (one_chance_in(5))
     {
         // if someone deletes the db, no message is ok
-        mpr(getMiscString("SHT_int_loss").c_str());
+        mpr(getMiscString("SHT_int_loss"));
         lose_stat(STAT_INT, 1 + random2(2), false, "summoning horrible things");
     }
 

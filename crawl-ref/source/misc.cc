@@ -12,7 +12,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
-#include <string.h>
+#include <cstring>
 #if !defined(__IBMCPP__) && !defined(TARGET_COMPILER_VC)
 #include <unistd.h>
 #endif
@@ -1216,11 +1216,11 @@ unsigned int breakpoint_rank(int val, const int breakpoints[],
 void counted_monster_list::add(const monster* mons)
 {
     const string name = mons->name(DESC_PLAIN);
-    for (counted_list::iterator i = list.begin(); i != list.end(); ++i)
+    for (auto &entry : list)
     {
-        if (i->first->name(DESC_PLAIN) == name)
+        if (entry.first->name(DESC_PLAIN) == name)
         {
-            i->second++;
+            entry.second++;
             return;
         }
     }
@@ -1230,8 +1230,8 @@ void counted_monster_list::add(const monster* mons)
 int counted_monster_list::count()
 {
     int nmons = 0;
-    for (counted_list::const_iterator i = list.begin(); i != list.end(); ++i)
-        nmons += i->second;
+    for (const auto &entry : list)
+        nmons += entry.second;
     return nmons;
 }
 
@@ -1240,7 +1240,7 @@ string counted_monster_list::describe(description_level_type desc,
 {
     string out;
 
-    for (counted_list::const_iterator i = list.begin(); i != list.end();)
+    for (auto i = list.begin(); i != list.end();)
     {
         const counted_monster &cm(*i);
         if (i != list.begin())

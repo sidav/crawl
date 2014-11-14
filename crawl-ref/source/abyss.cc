@@ -240,7 +240,9 @@ static bool _abyss_place_rune_vault(const map_bitmask &abyss_genlevel_mask)
     bool result = false;
     int tries = 10;
     do
+    {
         result = _abyss_place_vault_tagged(abyss_genlevel_mask, "abyss_rune");
+    }
     while (!result && --tries);
 
     // Make sure the rune is linked.
@@ -454,7 +456,9 @@ static dungeon_feature_type _abyss_pick_altar()
     god_type god;
 
     do
+    {
         god = random_god();
+    }
     while (is_good_god(god));
 
     return altar_for_god(god);
@@ -702,10 +706,9 @@ static void _abyss_move_masked_vaults_by_delta(const coord_def delta)
             vault_indexes.insert(vi);
     }
 
-    for (set<int>::const_iterator i = vault_indexes.begin();
-         i != vault_indexes.end(); ++i)
+    for (auto i : vault_indexes)
     {
-        vault_placement &vp(*env.level_vaults[*i]);
+        vault_placement &vp(*env.level_vaults[i]);
 #ifdef DEBUG_DIAGNOSTICS
         const coord_def oldp = vp.pos;
 #endif
@@ -807,11 +810,8 @@ static void _abyss_identify_area_to_shift(coord_def source, int radius,
             affected_vault_indexes.insert(map_index);
     }
 
-    for (set<int>::const_iterator i = affected_vault_indexes.begin();
-         i != affected_vault_indexes.end(); ++i)
-    {
-        _abyss_expand_mask_to_cover_vault(mask, *i);
-    }
+    for (auto i : affected_vault_indexes)
+        _abyss_expand_mask_to_cover_vault(mask, i);
 }
 
 static void _abyss_invert_mask(map_bitmask *mask)
@@ -1920,12 +1920,16 @@ static void _corrupt_choose_colours(corrupt_env *cenv)
 {
     colour_t colour = BLACK;
     do
+    {
         colour = random_uncommon_colour();
+    }
     while (colour == env.rock_colour || colour == LIGHTGREY || colour == WHITE);
     cenv->rock_colour = colour;
 
     do
+    {
         colour = random_uncommon_colour();
+    }
     while (colour == env.floor_colour || colour == LIGHTGREY
            || colour == WHITE);
     cenv->floor_colour = colour;

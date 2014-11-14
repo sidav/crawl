@@ -22,11 +22,11 @@ Notes:
 
 #include "package.h"
 
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <sstream>
 #include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -188,11 +188,9 @@ void package::load_traces()
 
     free_blocks[sizeof(file_header)] = file_len - sizeof(file_header);
 
-    for (directory_t::iterator ch = directory.begin();
-        ch != directory.end(); ++ch)
-    {
-        trace_chunk(ch->second);
-    }
+    for (const auto &entry : directory)
+        trace_chunk(entry.second);
+
 #ifdef COSTLY_ASSERTS
     // any inconsitency in the save is guaranteed to be already found
     // by this time -- this checks only for internal bugs
@@ -389,13 +387,12 @@ plen_t package::write_directory()
     delete_chunk("");
 
     stringstream dir;
-    for (directory_t::iterator i = directory.begin();
-         i != directory.end(); ++i)
+    for (const auto &entry : directory)
     {
-        uint8_t name_len = i->first.length();
+        uint8_t name_len = entry.first.length();
         dir.write((const char*)&name_len, sizeof(name_len));
-        dir.write(&i->first[0], i->first.length());
-        plen_t start = htole(i->second);
+        dir.write(&entry.first[0], entry.first.length());
+        plen_t start = htole(entry.second);
         dir.write((const char*)&start, sizeof(plen_t));
     }
 
@@ -492,19 +489,15 @@ void package::fsck()
            (unsigned int)directory.size(), (unsigned int)block_map.size(),
            (unsigned int)free_blocks.size(), file_len);
 
-    for (fb_t::const_iterator bl = free_blocks.begin(); bl != free_blocks.end();
-        ++bl)
-    {
-        printf("<at %u size %u>\n", bl->first, bl->second);
-    }
+    for (const auto &bl : free_blocks)
+        printf("<at %u size %u>\n", bl.first, bl.second);
 #endif
-    for (bm_t::const_iterator bl = block_map.begin(); bl != block_map.end();
-        ++bl)
+    for (const auto &bl : block_map)
     {
 #ifdef FSCK_VERBOSE
-        printf("[at %u size %u+header]\n", bl->first, bl->second.first);
+        printf("[at %u size %u+header]\n", bl.first, bl.second.first);
 #endif
-        free_block(bl->first, bl->second.first + sizeof(block_header));
+        free_block(bl.first, bl.second.first + sizeof(block_header));
     }
     // after freeing everything, the file should be empty
     ASSERT(free_blocks.empty());
@@ -574,12 +567,10 @@ vector<string> package::list_chunks()
 {
     vector<string> list;
     list.reserve(directory.size());
-    for (directory_t::iterator i = directory.begin();
-         i != directory.end(); ++i)
-    {
-        if (!i->first.empty())
-            list.push_back(i->first);
-    }
+    for (const auto &entry : directory)
+        if (!entry.first.empty())
+            list.push_back(entry.first);
+
     return list;
 }
 
@@ -641,8 +632,8 @@ plen_t package::get_slack()
     load_traces();
 
     plen_t slack = 0;
-    for (fb_t::iterator bl = free_blocks.begin(); bl!=free_blocks.end(); ++bl)
-        slack += bl->second;
+    for (const auto &bl : free_blocks)
+        slack += bl.second;
     return slack;
 }
 

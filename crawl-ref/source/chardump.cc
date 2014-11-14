@@ -8,11 +8,11 @@
 #include "chardump.h"
 
 #include <string>
-#include <ctype.h>
+#include <cctype>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #if !defined(__IBMCPP__) && !defined(TARGET_COMPILER_VC)
 #include <unistd.h>
 #endif
@@ -1183,24 +1183,22 @@ static void _sdump_action_counts(dump_params &par)
     for (int cact = 0; cact < NUM_CACTIONS; cact++)
     {
         vector<pair<int, FixedVector<int, 28> > > action_vec;
-        for (map<pair<caction_type, int>, FixedVector<int, 27> >::const_iterator
-              ac = you.action_count.begin(); ac != you.action_count.end(); ++ac)
+        for (const auto &entry : you.action_count)
         {
-            if (ac->first.first != cact)
+            if (entry.first.first != cact)
                 continue;
             FixedVector<int, 28> v;
             v[27] = 0;
             for (int i = 0; i < 27; i++)
             {
-                v[i] = ac->second[i];
+                v[i] = entry.second[i];
                 v[27] += v[i];
             }
-            action_vec.push_back(pair<int, FixedVector<int, 28> >(ac->first.second, v));
+            action_vec.push_back(pair<int, FixedVector<int, 28> >(entry.first.second, v));
         }
         sort(action_vec.begin(), action_vec.end(), _sort_by_first);
 
-        for (vector<pair<int, FixedVector<int, 28> > >::const_iterator ac =
-                action_vec.begin(); ac != action_vec.end(); ++ac)
+        for (auto ac = action_vec.begin(); ac != action_vec.end(); ++ac)
         {
             if (ac == action_vec.begin())
             {

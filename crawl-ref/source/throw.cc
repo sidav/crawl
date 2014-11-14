@@ -7,8 +7,8 @@
 
 #include "throw.h"
 
+#include <cmath>
 #include <sstream>
-#include <math.h>
 
 #include "artefact.h"
 #include "command.h"
@@ -201,7 +201,7 @@ void fire_target_behaviour::pick_fire_item_from_inventory()
     }
     else if (!err.empty())
     {
-        mprf("%s", err.c_str());
+        mpr(err);
         more();
     }
     set_prompt();
@@ -254,7 +254,7 @@ static bool _fire_choose_item_and_target(int& slot, dist& target,
         string warn;
         if (!_fire_validate_item(slot, warn))
         {
-            mpr(warn.c_str());
+            mpr(warn);
             return false;
         }
         // Force item to be the prechosen one.
@@ -423,7 +423,7 @@ int get_ammo_to_shoot(int item, dist &target, bool teleport)
     string warn;
     if (!_fire_validate_item(item, warn))
     {
-        mpr(warn.c_str());
+        mpr(warn);
         return -1;
     }
     return item;
@@ -479,7 +479,7 @@ void throw_item_no_quiver()
 
     if (!_fire_validate_item(slot, warn))
     {
-        mpr(warn.c_str());
+        mpr(warn);
         return;
     }
 
@@ -1095,7 +1095,7 @@ bool mons_throw(monster* mons, bolt &beam, int msl, bool teleport)
     if (mons->observable())
     {
         mons->flags |= MF_SEEN_RANGED;
-        mpr(msg.c_str());
+        mpr(msg);
     }
 
     _throw_noise(mons, beam, item);

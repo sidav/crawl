@@ -7,7 +7,7 @@
 
 #include "wiz-item.h"
 
-#include <errno.h>
+#include <cerrno>
 
 #include "acquire.h"
 #include "act-iter.h"
@@ -67,7 +67,7 @@ static void _make_all_books()
         set_ident_flags(book, ISFLAG_KNOW_TYPE);
         set_ident_flags(book, ISFLAG_IDENT_MASK);
 
-        mprf("%s", book.name(DESC_PLAIN).c_str());
+        mpr(book.name(DESC_PLAIN));
     }
 }
 
@@ -600,7 +600,7 @@ void wizard_value_artefact()
         if (!is_artefact(item))
             mpr("That item is not an artefact!");
         else
-            mprf("%s", debug_art_val_str(item).c_str());
+            mpr(debug_art_val_str(item));
     }
 }
 
@@ -836,7 +836,7 @@ void wizard_list_items()
             if (env.shop[i].type != SHOP_UNASSIGNED)
             {
                 for (stack_iterator si(coord_def(0, i+5)); si; ++si)
-                    mpr(si->name(DESC_PLAIN, false, false, false).c_str());
+                    mpr(si->name(DESC_PLAIN, false, false, false));
             }
 
         mpr("");

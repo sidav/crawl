@@ -67,6 +67,7 @@
 #include "spl-summoning.h"
 #include "spl-transloc.h"
 #include "spl-util.h"
+#include "sprint.h"
 #include "state.h"
 #include "stringutil.h"
 #include "target.h"
@@ -1466,11 +1467,8 @@ bool trog_burn_spellbooks()
         mprf("The spellbook%s fail%s to ignite!",
              totalblocked == 1 ? ""  : "s",
              totalblocked == 1 ? "s" : "");
-        for (vector<coord_def>::iterator it = mimics.begin();
-             it != mimics.end(); ++it)
-        {
-            discover_mimic(*it, false);
-        }
+        for (auto c : mimics)
+            discover_mimic(c, false);
         return false;
     }
     else
@@ -3508,10 +3506,9 @@ void spare_beogh_convert()
     }
 
     int witc = 0;
-    for (set<mid_t>::const_iterator wit = witnesses.begin();
-         wit != witnesses.end(); ++wit)
+    for (auto wit : witnesses)
     {
-        monster *orc = monster_by_mid(*wit);
+        monster *orc = monster_by_mid(wit);
         if (!orc || !orc->alive())
             continue;
 
@@ -3559,22 +3556,21 @@ bool dithmenos_shadow_step()
          cloud_prompted = false,
          terrain_prompted = false;
 
-    for (set<coord_def>::const_iterator site = tgt.additional_sites.begin();
-         site != tgt.additional_sites.end(); site++)
+    for (auto site : tgt.additional_sites)
     {
         if (!cloud_prompted
-            && !check_moveto_cloud(*site, "shadow step", &cloud_prompted))
+            && !check_moveto_cloud(site, "shadow step", &cloud_prompted))
         {
             return false;
         }
 
         if (!zot_trap_prompted)
         {
-            trap_def* trap = find_trap(*site);
-            if (trap && env.grid(*site) != DNGN_UNDISCOVERED_TRAP
+            trap_def* trap = find_trap(site);
+            if (trap && env.grid(site) != DNGN_UNDISCOVERED_TRAP
                 && trap->type == TRAP_ZOT)
             {
-                if (!check_moveto_trap(*site, "shadow step",
+                if (!check_moveto_trap(site, "shadow step",
                                        &trap_prompted))
                 {
                     you.turn_is_over = false;
@@ -3583,7 +3579,7 @@ bool dithmenos_shadow_step()
                 zot_trap_prompted = true;
             }
             else if (!trap_prompted
-                     && !check_moveto_trap(*site, "shadow step",
+                     && !check_moveto_trap(site, "shadow step",
                                            &trap_prompted))
             {
                 you.turn_is_over = false;
@@ -3592,14 +3588,14 @@ bool dithmenos_shadow_step()
         }
 
         if (!exclusion_prompted
-            && !check_moveto_exclusion(*site, "shadow step",
+            && !check_moveto_exclusion(site, "shadow step",
                                        &exclusion_prompted))
         {
             return false;
         }
 
         if (!terrain_prompted
-            && !check_moveto_terrain(*site, "shadow step", "",
+            && !check_moveto_terrain(site, "shadow step", "",
                                      &terrain_prompted))
         {
             return false;
@@ -3874,43 +3870,22 @@ static void _gozag_add_potions(CrawlVector &vec, potion_type *which)
 
 #define ADD_POTIONS(a,b) _gozag_add_potions(a, b[random2(ARRAYSZ(b))])
 
-static void _gozag_add_bad_potion(CrawlVector &vec)
-{
-    const potion_type what = random_choose_weighted(20, POT_CONFUSION,
-                                                    10, POT_DECAY,
-                                                    10, POT_LIGNIFY,
-                                                     5, POT_DEGENERATION,
-                                                     2, POT_POISON,
-                                                     0);
-    vec.push_back(what);
-}
-
 static int _gozag_faith_adjusted_price(int price)
 {
     return price - (you.faith() * price)/3;
 }
 
-int gozag_porridge_price()
+int gozag_potion_price()
 {
     int multiplier = GOZAG_POTION_BASE_MULTIPLIER
                      + you.attribute[ATTR_GOZAG_POTIONS];
-    multiplier *= 4;
-    // These two potions currently have the same price, but just in case...
-    potion_type porridge_type = you.species == SP_VAMPIRE
-                                || player_mutation_level(MUT_CARNIVOROUS) == 3
-                                ? POT_BLOOD
-                                : POT_PORRIDGE;
-    item_def dummy;
-    dummy.base_type = OBJ_POTIONS;
-    dummy.sub_type = porridge_type;
-    dummy.quantity = 1;
-    int price = multiplier * item_value(dummy, true) / 10;
+    int price = multiplier * 15; // arbitrary
     return _gozag_faith_adjusted_price(price);
 }
 
 bool gozag_setup_potion_petition(bool quiet)
 {
-    const int gold_min = gozag_porridge_price();
+    const int gold_min = gozag_potion_price();
     if (you.gold < gold_min)
     {
         if (!quiet)
@@ -3926,8 +3901,8 @@ bool gozag_setup_potion_petition(bool quiet)
 
 bool gozag_potion_petition()
 {
-    CrawlVector *pots[4];
-    int prices[4];
+    CrawlVector *pots[GOZAG_MAX_POTIONS];
+    int prices[GOZAG_MAX_POTIONS];
 
     item_def dummy;
     dummy.base_type = OBJ_POTIONS;
@@ -3935,53 +3910,40 @@ bool gozag_potion_petition()
 
     if (!you.props.exists(make_stringf(GOZAG_POTIONS_KEY, 0)))
     {
-        for (int i = 0; i < GOZAG_MAX_POTIONS; i++)
+        bool affordable_potions = false;
+        while (!affordable_potions)
         {
-            prices[i] = 0;
-            int multiplier = GOZAG_POTION_BASE_MULTIPLIER
-                             + you.attribute[ATTR_GOZAG_POTIONS];
-            string key = make_stringf(GOZAG_POTIONS_KEY, i);
-            you.props[key].new_vector(SV_INT, SFLAG_CONST_TYPE);
-            pots[i] = &you.props[key].get_vector();
-            if (i == GOZAG_MAX_POTIONS - 1)
+            for (int i = 0; i < GOZAG_MAX_POTIONS; i++)
             {
-                if (you.species == SP_VAMPIRE
-                    || player_mutation_level(MUT_CARNIVOROUS) == 3)
-                {
-                    for (int j = 0; j < 4; j++)
-                        pots[i]->push_back(POT_BLOOD);
-                }
-                else
-                {
-                    pots[i]->push_back(POT_PORRIDGE);
-                    multiplier *= 4; // ouch
-                }
-            }
-            else
-            {
+                prices[i] = 0;
+                int multiplier = GOZAG_POTION_BASE_MULTIPLIER
+                                 + you.attribute[ATTR_GOZAG_POTIONS];
+                string key = make_stringf(GOZAG_POTIONS_KEY, i);
+                you.props.erase(key);
+                you.props[key].new_vector(SV_INT, SFLAG_CONST_TYPE);
+                pots[i] = &you.props[key].get_vector();
+
                 ADD_POTIONS(*pots[i], _gozag_potion_list);
                 if (coinflip())
                     ADD_POTIONS(*pots[i], _gozag_potion_list);
-                if (coinflip())
-                {
-                    _gozag_add_bad_potion(*pots[i]);
-                    multiplier -= 5;
-                }
-            }
 
-            for (int j = 0; j < pots[i]->size(); j++)
-            {
-                dummy.sub_type = (*pots[i])[j].get_int();
-                prices[i] += item_value(dummy, true);
-                dprf("%d", item_value(dummy, true));
+                for (int j = 0; j < pots[i]->size(); j++)
+                {
+                    dummy.sub_type = (*pots[i])[j].get_int();
+                    prices[i] += item_value(dummy, true);
+                    dprf("%d", item_value(dummy, true));
+                }
+                dprf("pre: %d", prices[i]);
+                prices[i] *= multiplier;
+                dprf("mid: %d", prices[i]);
+                prices[i] /= 10;
+                dprf("post: %d", prices[i]);
+                key = make_stringf(GOZAG_PRICE_KEY, i);
+                you.props[key].get_int() = prices[i];
+
+                if (prices[i] <= gozag_potion_price())
+                    affordable_potions = true;
             }
-            dprf("pre: %d", prices[i]);
-            prices[i] *= multiplier;
-            dprf("mid: %d", prices[i]);
-            prices[i] /= 10;
-            dprf("post: %d", prices[i]);
-            key = make_stringf(GOZAG_PRICE_KEY, i);
-            you.props[key].get_int() = prices[i];
         }
     }
     else
@@ -4042,7 +4004,7 @@ bool gozag_potion_petition()
 
     you.attribute[ATTR_GOZAG_POTIONS]++;
 
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < GOZAG_MAX_POTIONS; i++)
     {
         string key = make_stringf(GOZAG_POTIONS_KEY, i);
         you.props.erase(key);
@@ -4053,13 +4015,17 @@ bool gozag_potion_petition()
     return true;
 }
 
-static bool _duplicate_shop_type(int cur, shop_type type)
+/**
+ * How many shop types are offered with each use of Call Merchant?
+ */
+static int _gozag_max_shops()
 {
-    for (int i = 0; i < cur; i++)
-        if (you.props[make_stringf(GOZAG_SHOP_TYPE_KEY, i)].get_int() == type)
-            return true;
+    const int max_non_food_shops = 3;
 
-    return false;
+    // add a food shop if you can eat (non-mu/dj)
+    if (!you_foodless_normally())
+        return max_non_food_shops + 1;
+    return max_non_food_shops;
 }
 
 /**
@@ -4163,146 +4129,275 @@ bool gozag_setup_call_merchant(bool quiet)
     return true;
 }
 
-bool gozag_call_merchant()
+/**
+ * Is the given index within the valid range for gozag shop offers?
+ */
+static bool _gozag_valid_shop_index(int index)
 {
-    int max_absdepth = 0;
-    vector<level_id> candidates = _get_gozag_shop_candidates(&max_absdepth);
+    return index >= 0 && index < _gozag_max_shops();
+}
 
-    // Set up some dummy shops.
-    // Generate some shop inventory and store it as a store spec.
-    // We still set up the shops in advance in case of hups.
-    if (!you.props.exists(make_stringf(GOZAG_SHOPKEEPER_NAME_KEY, 0)))
+/**
+ * What is the type of shop that gozag is offering at the given index?
+ */
+static shop_type _gozag_shop_type(int index)
+{
+    ASSERT(_gozag_valid_shop_index(index));
+    const int type =
+        you.props[make_stringf(GOZAG_SHOP_TYPE_KEY, index)].get_int();
+    return static_cast<shop_type>(type);
+}
+
+/**
+ * What is the price of calling the shop that gozag is offering at the given
+ * index, including the effects of faith?
+ */
+static int _gozag_shop_price(int index)
+{
+    ASSERT(_gozag_valid_shop_index(index));
+    // the base cost
+    const int cost = you.props[make_stringf(GOZAG_SHOP_COST_KEY,
+                                            index)].get_int();
+    // shop cost adjusted for faith (amulet, mutation)
+    return _gozag_faith_adjusted_price(cost);
+}
+
+/**
+ * Does the given shop type duplicate an earlier-chosen one?
+ *
+ * @param cur       The index of the current shop.
+ *                  (Assumption: shops [0,cur-1] have been chosen already.)
+ * @param type      The type of shop being considered.
+ * @return          Whether the given shop type duplicates a predecessor.
+ */
+static bool _duplicate_shop_type(int cur, shop_type type)
+{
+    for (int i = 0; i < cur; i++)
+        if (_gozag_shop_type(i) == type)
+            return true;
+
+    return false;
+}
+
+/**
+ * Initialize the set of shops currently offered to the player through Call
+ * Merchant.
+ *
+ * @param index     The index of the shop offer to be defined.
+ */
+static void _setup_gozag_shop(int index)
+{
+    ASSERT(!you.props.exists(make_stringf(GOZAG_SHOPKEEPER_NAME_KEY, index)));
+
+    shop_type type = NUM_SHOPS;
+    if (index == 0 && !you_foodless_normally())
+        type = SHOP_FOOD;
+    else
     {
-        for (int i = 0; i < GOZAG_MAX_SHOPS; i++)
+        do
         {
-            shop_type type = NUM_SHOPS;
-            do
-                type = static_cast<shop_type>(random2(NUM_SHOPS));
-            while (_duplicate_shop_type(i, type));
-            you.props[make_stringf(GOZAG_SHOPKEEPER_NAME_KEY, i)].get_string()
-                = make_name(random_int(), false);
-            you.props[make_stringf(GOZAG_SHOP_TYPE_KEY, i)].get_int()
-                = type;
-            you.props[make_stringf(GOZAG_SHOP_SUFFIX_KEY, i)].get_string()
-                = (type == SHOP_GENERAL
-                   || type == SHOP_GENERAL_ANTIQUE
-                   || type == SHOP_DISTILLERY)
-                   ? ""
-                   : random_choose("Shoppe", "Boutique",
-                                   "Emporium", "Shop", NULL);
-
-            you.props[make_stringf(GOZAG_SHOP_COST_KEY, i)].get_int()
-                = gozag_price_for_shop();
+            type = static_cast<shop_type>(random2(NUM_SHOPS));
         }
+        while (_duplicate_shop_type(index, type));
+    }
+    you.props[make_stringf(GOZAG_SHOP_TYPE_KEY, index)].get_int() = type;
+
+    you.props[make_stringf(GOZAG_SHOPKEEPER_NAME_KEY, index)].get_string()
+                                    = make_name(random_int(), false);
+
+    const bool need_suffix = type != SHOP_GENERAL
+                             && type != SHOP_GENERAL_ANTIQUE
+                             && type != SHOP_DISTILLERY;
+    you.props[make_stringf(GOZAG_SHOP_SUFFIX_KEY, index)].get_string()
+                                    = need_suffix ?
+                                      random_choose("Shoppe", "Boutique",
+                                                    "Emporium", "Shop", NULL) :
+                                      "";
+
+    you.props[make_stringf(GOZAG_SHOP_COST_KEY, index)].get_int()
+                                    = gozag_price_for_shop();
+}
+
+/**
+ * Build a string describing the name, price & type of the shop being offered
+ * at the given index.
+ *
+ * @param index     The index of the shop to be described.
+ * @return          The shop description.
+ *                  E.g. "[a]   973 gold - Cranius' Magic Scroll Boutique"
+ */
+static string _describe_gozag_shop(int index)
+{
+    const int cost = _gozag_shop_price(index);
+
+    const char offer_letter = 'a' + index;
+    const string shop_name =
+        apostrophise(you.props[make_stringf(GOZAG_SHOPKEEPER_NAME_KEY,
+                                            index)].get_string());
+    const shop_type type = _gozag_shop_type(index);
+    const string suffix =
+        you.props[make_stringf(GOZAG_SHOP_SUFFIX_KEY, index)].get_string();
+
+    return make_stringf("  [%c] %5d gold - %s %s %s",
+                        offer_letter,
+                        cost,
+                        shop_name.c_str(),
+                        shop_type_name(type).c_str(),
+                        suffix.c_str());
+}
+
+/**
+ * Let the player choose from the currently available merchants to call.
+ *
+ * @param   The index of the chosen shop; -1 if none was chosen (due to e.g.
+ *          a seen_hup).
+ */
+static int _gozag_choose_shop()
+{
+    if (crawl_state.seen_hups)
+        return -1;
+
+    clear_messages();
+    for (int i = 0; i < _gozag_max_shops(); i++)
+        mpr_nojoin(MSGCH_PLAIN, _describe_gozag_shop(i).c_str());
+
+    mprf(MSGCH_PROMPT, "Fund which merchant?");
+    const int shop_index = toalower(get_ch()) - 'a';
+    if (shop_index < 0 || shop_index > _gozag_max_shops() - 1)
+        return _gozag_choose_shop(); // tail recurse
+
+    if (you.gold < _gozag_shop_price(shop_index))
+    {
+        mpr("You don't have enough gold to fund that merchant!");
+        more();
+        return _gozag_choose_shop(); // tail recurse
     }
 
-    int i = 0;
-    int cost = 0;
-    int faith_cost = 0;
-    while (true)
-    {
-        if (crawl_state.seen_hups)
-            return false;
+    return shop_index;
+}
 
-        clear_messages();
-        for (i = 0; i < GOZAG_MAX_SHOPS; i++)
-        {
-            cost = you.props[make_stringf(GOZAG_SHOP_COST_KEY, i)].get_int();
-            faith_cost = _gozag_faith_adjusted_price(cost);
-            string line =
-                make_stringf("  [%c] %5d gold - %s %s %s",
-                             'a' + i,
-                             faith_cost,
-                             apostrophise(
-                                 you.props[
-                                     make_stringf(GOZAG_SHOPKEEPER_NAME_KEY,
-                                     i)].get_string()).c_str(),
-                             shop_type_name(
-                                 static_cast<shop_type>(
-                                     you.props[
-                                         make_stringf(GOZAG_SHOP_TYPE_KEY, i)]
-                                         .get_int())).c_str(),
-                             you.props[make_stringf(GOZAG_SHOP_SUFFIX_KEY, i)]
-                                 .get_string().c_str());
-            mpr_nojoin(MSGCH_PLAIN, line.c_str());
-        }
-        mprf(MSGCH_PROMPT, "Fund which merchant?");
-        i = toalower(get_ch()) - 'a';
-        if (i < 0 || i > GOZAG_MAX_SHOPS - 1)
-            continue;
-        cost = you.props[make_stringf(GOZAG_SHOP_COST_KEY, i)].get_int();
-        faith_cost = _gozag_faith_adjusted_price(cost);
-        if (you.gold < faith_cost)
-        {
-            mpr("You don't have enough gold to fund that merchant!");
-            more();
-            continue;
-        }
-
-        break;
-    }
-
-    ASSERT(you.gold >= faith_cost);
-
-    you.del_gold(faith_cost);
-    you.attribute[ATTR_GOZAG_GOLD_USED] += faith_cost;
-
-    const shop_type type =
-        static_cast<shop_type>(
-            you.props[make_stringf(GOZAG_SHOP_TYPE_KEY, i)].get_int());
+/**
+ * Make a vault spec for the gozag shop offer at the given index.
+ */
+static string _gozag_shop_spec(int index)
+{
+    const shop_type type = _gozag_shop_type(index);
     const string name =
-        you.props[make_stringf(GOZAG_SHOPKEEPER_NAME_KEY, i)];
+        you.props[make_stringf(GOZAG_SHOPKEEPER_NAME_KEY, index)];
 
     string suffix = replace_all(
-                         you.props[make_stringf(GOZAG_SHOP_SUFFIX_KEY, i)]
-                             .get_string(), " ", "_");
+                                you.props[make_stringf(GOZAG_SHOP_SUFFIX_KEY,
+                                                       index)]
+                                .get_string(), " ", "_");
     if (!suffix.empty())
         suffix = " suffix:" + suffix;
 
-    string spec =
-        make_stringf("%s shop name:%s%s",
-                     shoptype_to_str(type),
-                     replace_all(name, " ", "_").c_str(),
-                     suffix.c_str());
+    return make_stringf("%s shop name:%s%s gozag",
+                        shoptype_to_str(type),
+                        replace_all(name, " ", "_").c_str(),
+                        suffix.c_str());
+
+}
+
+/**
+ * "Place" a gozag-called shop in a level you haven't yet seen.
+ * (Mark it to be placed when the level is generated & message/annotate
+ * appropriately.)
+ *
+ * @param index         The index of the shop offer to be placed.
+ * @param candidates    Potentially viable levels to place the shop in.
+ */
+static void _gozag_place_shop_offlevel(int index, vector<level_id> &candidates)
+{
+    ASSERT(candidates.size());
+
+    vector<int> weights;
+    for (unsigned int j = 0; j < candidates.size(); j++)
+        weights.push_back(candidates.size() - j);
+    const int which = choose_random_weighted(weights.begin(), weights.end());
+    const level_id lid = candidates[which];
+
+    // "place" the shop
+    you.props[make_stringf(GOZAG_SHOP_KEY, lid.describe().c_str())]
+                                    .get_string() = _gozag_shop_spec(index);
+
+    const string name =
+        you.props[make_stringf(GOZAG_SHOPKEEPER_NAME_KEY, index)];
+    mprf(MSGCH_GOD, "%s sets up shop in %s.", name.c_str(),
+         branches[lid.branch].longname);
+    dprf("%s", lid.describe().c_str());
+
+    mark_offlevel_shop(lid, _gozag_shop_type(index));
+}
+
+/**
+ * Place a gozag-called shop in your current location.
+ *
+ * @param index     The index of the shop offer to be placed.
+ */
+static void _gozag_place_shop_here(int index)
+{
+    ASSERT(grd(you.pos()) == DNGN_FLOOR);
+    keyed_mapspec kmspec;
+    kmspec.set_feat(_gozag_shop_spec(index), false);
+    if (!kmspec.get_feat().shop.get())
+        die("Invalid shop spec?");
+
+    feature_spec feat = kmspec.get_feat();
+    shop_spec *spec = feat.shop.get();
+    ASSERT(spec);
+    place_spec_shop(you.pos(), *spec);
+
+    link_items();
+    env.markers.add(new map_feature_marker(you.pos(),
+                                           DNGN_ABANDONED_SHOP));
+    env.markers.clear_need_activate();
+
+    mprf(MSGCH_GOD, "A shop appears before you!");
+}
+
+/**
+ * Attempt to call the shop specified at the given index.
+ *
+ * @param index     The index of the shop (in gozag props)
+ */
+static void _gozag_place_shop(int index)
+{
+    vector<level_id> candidates = _get_gozag_shop_candidates(NULL);
 
     if (candidates.size())
-    {
-        vector<int> weights;
-        for (unsigned int j = 0; j < candidates.size(); j++)
-            weights.push_back(candidates.size() - j);
-        const int which =
-            choose_random_weighted(weights.begin(), weights.end());
-        level_id lid = candidates[which];
-        you.props[make_stringf(GOZAG_SHOP_KEY, lid.describe().c_str())]
-            .get_string() = spec;
-
-        mprf(MSGCH_GOD, "%s sets up shop in %s.", name.c_str(),
-             branches[lid.branch].longname);
-        dprf("%s", lid.describe().c_str());
-
-        mark_offlevel_shop(lid, type);
-    }
+        _gozag_place_shop_offlevel(index, candidates);
     else
-    {
-        ASSERT(grd(you.pos()) == DNGN_FLOOR);
-        keyed_mapspec kmspec;
-        kmspec.set_feat(spec, false);
-        if (!kmspec.get_feat().shop.get())
-            die("Invalid shop spec?");
+        _gozag_place_shop_here(index);
+}
 
-        place_spec_shop(you.pos(), kmspec.get_feat().shop.get());
-        link_items();
-        env.markers.add(new map_feature_marker(you.pos(),
-                                               DNGN_ABANDONED_SHOP));
-        env.markers.clear_need_activate();
+bool gozag_call_merchant()
+{
+    // Set up some dummy shops.
+    // Generate some shop inventory and store it as a store spec.
+    // We still set up the shops in advance in case of hups.
+    for (int i = 0; i < _gozag_max_shops(); i++)
+        if (!you.props.exists(make_stringf(GOZAG_SHOPKEEPER_NAME_KEY, i)))
+            _setup_gozag_shop(i);
 
-        mprf(MSGCH_GOD, "A shop appears before you!");
-    }
+    const int shop_index = _gozag_choose_shop();
+    if (shop_index == -1) // hup!
+        return false;
+
+    ASSERT(shop_index >= 0 && shop_index < _gozag_max_shops());
+
+    const int cost = _gozag_shop_price(shop_index);
+    ASSERT(you.gold >= cost);
+
+    you.del_gold(cost);
+    you.attribute[ATTR_GOZAG_GOLD_USED] += cost;
+
+    _gozag_place_shop(shop_index);
 
     you.attribute[ATTR_GOZAG_SHOPS]++;
     you.attribute[ATTR_GOZAG_SHOPS_CURRENT]++;
 
-    for (int j = 0; j < 3; j++)
+    for (int j = 0; j < _gozag_max_shops(); j++)
     {
         you.props.erase(make_stringf(GOZAG_SHOPKEEPER_NAME_KEY, j));
         you.props.erase(make_stringf(GOZAG_SHOP_TYPE_KEY, j));
@@ -5569,7 +5664,7 @@ bool ru_do_sacrifice(ability_type sac)
         }
         offer_text = make_stringf("%s: %s", sac_def.sacrifice_text,
             sac_text.c_str());
-        mile_text = make_stringf("%s: %s", sac_def.milestone_text,
+        mile_text = make_stringf("%s: %s.", sac_def.milestone_text,
             sac_text.c_str());
     }
     else
@@ -5577,7 +5672,11 @@ bool ru_do_sacrifice(ability_type sac)
         variable_sac = false;
         mut = sac_def.mutation;
         num_sacrifices = 1;
-        offer_text = make_stringf("%s.", sac_def.sacrifice_text);
+        const char* handtxt = "";
+        if (sac == ABIL_RU_SACRIFICE_HAND)
+            handtxt = you.hand_name(true).c_str();
+
+        offer_text = make_stringf("%s%s", sac_def.sacrifice_text, handtxt);
         mile_text = make_stringf("%s.", sac_def.milestone_text);
     }
 
@@ -5682,8 +5781,11 @@ void ru_reset_sacrifice_timer(bool clear_timer)
     else
         added_delay = (90 + max(100, static_cast<int>(you.piety)) - 100) / 3;
 
-    you.props["ru_sacrifice_delay"] =
-        div_rand_round((delay + added_delay) * (3 + you.faith()), 3);
+    delay = div_rand_round((delay + added_delay) * (3 + you.faith()), 3);
+    if (crawl_state.game_is_sprint())
+        delay /= SPRINT_MULTIPLIER;
+
+    you.props["ru_sacrifice_delay"] = delay;
 }
 
 // Check to see if you're eligible to retaliate.

@@ -2,8 +2,8 @@
 
 #include "colour.h"
 
+#include <cmath>
 #include <utility>
-#include <math.h>
 
 #include "areas.h"
 #include "asg.h"
@@ -72,7 +72,9 @@ colour_t random_uncommon_colour()
     colour_t result;
 
     do
+    {
         result = random_colour();
+    }
     while (result == LIGHTCYAN || result == CYAN || result == BROWN);
 
     return result;
@@ -117,13 +119,9 @@ static int _randomized_element_colour(int rand, const coord_def&,
                                       random_colour_map rand_vals)
 {
     int accum = 0;
-    for (random_colour_map::const_iterator it = rand_vals.begin();
-         it != rand_vals.end();
-         ++it)
-    {
-        if ((accum += it->first) > rand)
-            return it->second;
-    }
+    for (const auto &entry : rand_vals)
+        if ((accum += entry.first) > rand)
+            return entry.second;
 
     return BLACK;
 }

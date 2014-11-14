@@ -9,10 +9,10 @@
 
 #include <algorithm>
 #include <cstdarg>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <sstream>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 #include "areas.h"
 #include "attitude-change.h"
@@ -3758,7 +3758,7 @@ static void _describe_cell(const coord_def& where, bool in_range)
 #else
         feature_desc += " (Press <w>v</w> for more information.)";
 #endif
-        mprf("%s", feature_desc.c_str());
+        mpr(feature_desc);
     }
     else
     {

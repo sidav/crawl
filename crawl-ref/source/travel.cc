@@ -613,11 +613,10 @@ static int _slowest_ally_speed()
 {
     vector<monster* > followers = get_on_level_followers();
     int min_speed = INT_MAX;
-    for (vector<monster* >::iterator fol = followers.begin();
-         fol != followers.end(); ++fol)
+    for (auto fol : followers)
     {
-        int speed = (*fol)->speed * BASELINE_DELAY
-                    / (*fol)->action_energy(EUT_MOVE);
+        int speed = fol->speed * BASELINE_DELAY
+                    / fol->action_energy(EUT_MOVE);
         if (speed < min_speed)
             min_speed = speed;
     }
@@ -2131,7 +2130,7 @@ static int _prompt_travel_branch(int prompt_flags)
                 if (linec == 4)
                 {
                     linec = 0;
-                    mpr(line.c_str());
+                    mpr(line);
                     line = "";
                 }
                 line += make_stringf("(%c) %-14s ",
@@ -2139,7 +2138,7 @@ static int _prompt_travel_branch(int prompt_flags)
                                      branches[br[i]].shortname);
             }
             if (!line.empty())
-                mpr(line.c_str());
+                mpr(line);
         }
 
         string shortcuts = "(";
@@ -2336,12 +2335,10 @@ static level_pos _find_entrance(const level_pos &from)
     if (new_lid.is_valid()) {
         LevelInfo &li = travel_cache.get_level_info(new_lid);
         vector<stair_info> &stairs = li.get_stairs();
-        for (vector<stair_info>::const_iterator sit = stairs.begin();
-                sit != stairs.end();
-                ++sit)
-            if (sit->destination.id.branch == target_branch)
+        for (const auto &stair : stairs)
+            if (stair.destination.id.branch == target_branch)
             {
-                pos = sit->position;
+                pos = stair.position;
                 break;
             }
 
@@ -2351,12 +2348,10 @@ static level_pos _find_entrance(const level_pos &from)
     {
         LevelInfo &li = travel_cache.get_level_info(lid);
         vector<stair_info> &stairs = li.get_stairs();
-        for (vector<stair_info>::const_iterator sit = stairs.begin();
-                sit != stairs.end();
-                ++sit)
-            if (!sit->destination.id.is_valid())
+        for (const auto &stair : stairs)
+            if (!stair.destination.id.is_valid())
             {
-                pos = sit->position;
+                pos = stair.position;
                 break;
             }
 
@@ -3717,12 +3712,12 @@ void TravelCache::list_waypoints() const
         line += choice;
         if (!(++count % 5))
         {
-            mpr(line.c_str());
+            mpr(line);
             line = "";
         }
     }
     if (!line.empty())
-        mpr(line.c_str());
+        mpr(line);
 }
 
 uint8_t TravelCache::is_waypoint(const level_pos &lp) const
@@ -4471,7 +4466,7 @@ template <class C> void explore_discoveries::say_any(
     if (strwidth(message) >= get_number_of_cols())
         mprf("Found %s %s.", number_in_words(size).c_str(), category);
     else
-        mprf("%s", message.c_str());
+        mpr(message);
 }
 
 vector<string> explore_discoveries::apply_quantities(
@@ -4504,7 +4499,7 @@ bool explore_discoveries::prompt_stop() const
     const bool marker_stop = !marker_msgs.empty() || !marked_feats.empty();
 
     for (unsigned int i = 0; i < marker_msgs.size(); i++)
-        mprf("%s", marker_msgs[i].c_str());
+        mpr(marker_msgs[i]);
 
     for (unsigned int i = 0; i < marked_feats.size(); i++)
         mprf("Found %s", marked_feats[i].c_str());

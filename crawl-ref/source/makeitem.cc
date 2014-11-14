@@ -254,17 +254,19 @@ static brand_type _determine_weapon_brand(const item_def& item, int item_level)
     if (item.special != 0)
         return static_cast<brand_type>(item.special);
 
-    const bool force_good = item_level >= MAKE_GIFT_ITEM;
-    const int tries       = force_good ? 5 : 1;
+    int tries;
+
+    if (item_level >= MAKE_GIFT_ITEM)
+        tries =  5;
+    else if (is_demonic(item) || x_chance_in_y(101 + item_level, 300))
+        tries = 1;
+    else
+        tries = 0;
+
     brand_type rc         = SPWPN_NORMAL;
 
     for (int count = 0; count < tries && rc == SPWPN_NORMAL; ++count)
     {
-        if (!force_good && !is_demonic(item)
-            && !x_chance_in_y(101 + item_level, 300))
-        {
-            continue;
-        }
 
         // We are not guaranteed to have a special set by the end of
         // this.
@@ -1469,7 +1471,9 @@ static void _generate_wand_item(item_def& item, int force_type, int item_level)
     else
     {
         do
+        {
             item.sub_type = _random_wand_subtype();
+        }
         while (item_level < 2 && is_high_tier_wand(item.sub_type));
     }
 
@@ -1547,7 +1551,7 @@ static void _generate_potion_item(item_def& item, int force_type,
         int tries = 500;
         do
         {
-            // total weight is 1075
+            // total weight is 1065
             stype = random_choose_weighted(191, POT_CURING,
                                             95, POT_HEAL_WOUNDS,
                                             75, POT_RESTORE_ABILITIES,
@@ -1568,7 +1572,6 @@ static void _generate_potion_item(item_def& item, int force_type,
                                             25, POT_DEGENERATION,
                                             23, POT_CURE_MUTATION,
                                             12, POT_BENEFICIAL_MUTATION,
-                                            10, POT_PORRIDGE,
                                              2, POT_EXPERIENCE,
                                              2, POT_DECAY,
                                              0);
@@ -1777,7 +1780,9 @@ static void _generate_staff_item(item_def& item, bool allow_uniques, int force_t
     {
 #if TAG_MAJOR_VERSION == 34
         do
+        {
             item.sub_type = random2(NUM_STAVES);
+        }
         while (item.sub_type == STAFF_ENCHANTMENT
                || item.sub_type == STAFF_CHANNELING);
 #else
@@ -1802,7 +1807,9 @@ static void _generate_rod_item(item_def& item, int force_type, int item_level)
 #if TAG_MAJOR_VERSION == 34
     {
         do
+        {
             item.sub_type = random2(NUM_RODS);
+        }
         while (item.sub_type == ROD_WARDING || item.sub_type == ROD_VENOM);
     }
 #else
@@ -1928,7 +1935,9 @@ static void _generate_misc_item(item_def& item, int force_type, int force_ego)
     else
     {
         do
+        {
             item.sub_type = random2(NUM_MISCELLANY);
+        }
         while
             // never randomly generated
             (item.sub_type == MISC_RUNE_OF_ZOT
@@ -2307,7 +2316,9 @@ jewellery_type get_random_amulet_type()
 #if TAG_MAJOR_VERSION == 34
     int res;
     do
+    {
         res = (AMU_FIRST_AMULET + random2(NUM_JEWELLERY - AMU_FIRST_AMULET));
+    }
     // Do not generate cFly or Cons
     while (res == AMU_CONTROLLED_FLIGHT || res == AMU_CONSERVATION);
 

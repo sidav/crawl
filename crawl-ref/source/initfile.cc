@@ -14,10 +14,10 @@
 #include "initfile.h"
 
 #include <algorithm>
+#include <cctype>
+#include <cstdio>
+#include <cstdlib>
 #include <string>
-#include <ctype.h>
-#include <stdio.h>
-#include <stdlib.h>
 
 #include "chardump.h"
 #include "clua.h"
@@ -1969,25 +1969,23 @@ int game_options::read_use_animations(const string &field) const
 {
     int animations = 0;
     vector<string> types = split_string(",", field);
-    for (vector<string>::const_iterator it = types.begin();
-         it != types.end();
-         ++it)
+    for (const auto &type : types)
     {
-        if (*it == "beam")
+        if (type == "beam")
             animations |= UA_BEAM;
-        else if (*it == "range")
+        else if (type == "range")
             animations |= UA_RANGE;
-        else if (*it == "hp")
+        else if (type == "hp")
             animations |= UA_HP;
-        else if (*it == "monster_in_sight")
+        else if (type == "monster_in_sight")
             animations |= UA_MONSTER_IN_SIGHT;
-        else if (*it == "pickup")
+        else if (type == "pickup")
             animations |= UA_PICKUP;
-        else if (*it == "monster")
+        else if (type == "monster")
             animations |= UA_MONSTER;
-        else if (*it == "player")
+        else if (type == "player")
             animations |= UA_PLAYER;
-        else if (*it == "branch_entry")
+        else if (type == "branch_entry")
             animations |= UA_BRANCH_ENTRY;
     }
 
@@ -2321,17 +2319,15 @@ static void _handle_list(vector<T> &value_list, string field,
         value_list.clear();
 
     vector<T> new_entries;
-    vector<string> parts = split_string(",", field);
-    for (vector<string>::iterator part = parts.begin();
-         part != parts.end(); ++part)
+    for (const auto &part : split_string(",", field))
     {
-        if (part->empty())
+        if (part.empty())
             continue;
 
         if (subtract)
-            remove_matching(value_list, *part);
+            remove_matching(value_list, part);
         else
-            new_entries.push_back(*part);
+            new_entries.push_back(part);
     }
     _merge_lists(value_list, new_entries, prepend);
 }
@@ -2387,18 +2383,17 @@ void game_options::read_option_line(const string &str, bool runscript)
 #define NEWGAME_OPTION(_opt, _conv, _type)                                     \
     if (plain)                                                                 \
         _opt.clear();                                                          \
-    vector<string> parts = split_string(",", field);                           \
-    for (vector<string>::iterator it = parts.begin(); it != parts.end(); it++) \
+    for (const auto &part : split_string(",", field))                          \
     {                                                                          \
         if (minus_equal)                                                       \
         {                                                                      \
             vector<_type>::iterator it2 =                                      \
-                find(_opt.begin(), _opt.end(), _conv(*it));                    \
+                find(_opt.begin(), _opt.end(), _conv(part));                   \
             if (it2 != _opt.end())                                             \
                 _opt.erase(it2);                                               \
         }                                                                      \
         else                                                                   \
-            _opt.push_back(_conv(*it));                                        \
+            _opt.push_back(_conv(part));                                       \
     }
     string key    = "";
     string subkey = "";
@@ -4553,8 +4548,11 @@ bool parse_args(int argc, char **argv, bool rc_only)
         }
 
         // Disallow options specified more than once.
-        if (arg_seen[o] == true)
+        if (arg_seen[o])
+        {
+            fprintf(stderr, "Duplicate option: %s\n\n", argv[current]);
             return false;
+        }
 
         // Set arg to 'seen'.
         arg_seen[o] = true;

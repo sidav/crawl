@@ -72,7 +72,9 @@ enum ability_type
     ABIL_MUMMY_RESTORATION,
     // Vampires
     ABIL_TRAN_BAT,
+#if TAG_MAJOR_VERSION == 34
     ABIL_BOTTLE_BLOOD,
+#endif
     // Deep Dwarves
     ABIL_RECHARGING,
     // Formicids
@@ -263,6 +265,7 @@ enum ability_type
     NUM_ABILITIES
 };
 
+// Be sure to change activity_interrupt_names in delay.cc to match!
 enum activity_interrupt_type
 {
     AI_FORCE_INTERRUPT = 0,         // Forcibly kills any activity that can be
@@ -461,7 +464,8 @@ enum beam_type                  // bolt::flavour
     BEAM_CHAOTIC_REFLECTION,
     BEAM_DRAIN_MAGIC,
     BEAM_TUKIMAS_DANCE,
-    BEAM_LAST_ENCHANTMENT = BEAM_TUKIMAS_DANCE,
+    BEAM_RESISTANCE,
+    BEAM_LAST_ENCHANTMENT = BEAM_RESISTANCE,
 
     BEAM_MEPHITIC,
     BEAM_INK,
@@ -1698,6 +1702,7 @@ enum duration_type
     DUR_HORROR,
     DUR_NO_SCROLLS,
     DUR_NEGATIVE_VULN,
+    DUR_CLEAVE,
     NUM_DURATIONS
 };
 
@@ -1840,6 +1845,7 @@ enum enchant_type
     ENCH_DEFLECT_MISSILES,
     ENCH_NEGATIVE_VULN,
     ENCH_CONDENSATION_SHIELD,
+    ENCH_RESISTANCE,
     // Update enchantment names in mon-ench.cc when adding or removing
     // enchantments.
     NUM_ENCHANTMENTS
@@ -3582,7 +3588,9 @@ enum potion_type
     POT_CANCELLATION,
     POT_CONFUSION,
     POT_INVISIBILITY,
+#if TAG_MAJOR_VERSION == 34
     POT_PORRIDGE,
+#endif
     POT_DEGENERATION,
     POT_DECAY,
 #if TAG_MAJOR_VERSION == 34

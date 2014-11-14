@@ -17,6 +17,7 @@
 #include "butcher.h"
 #include "cloud.h"
 #include "cluautil.h"
+#include "colour.h"
 #include "coordit.h"
 #include "dactions.h"
 #include "database.h"
@@ -140,16 +141,22 @@ monster_type fill_out_corpse(const monster* mons,
             corpse.props[NEVER_HIDE_KEY] = true;
     }
 
-    if (mons)
+    monster_info minfo(mons_species(mtype));
+    int col = int(minfo.colour());
+    if (col == COLOUR_UNDEF && mons)
     {
-        monster_info minfo(mons);
-        corpse.props[FORCED_ITEM_COLOUR_KEY] = (int) minfo.colour();
+        // XXX hack to avoid crashing in wiz mode.
+        if (mons_is_ghost_demon(mons->type) && !mons->ghost.get())
+            col = LIGHTRED;
+        else
+        {
+            minfo = *(new monster_info(mons));
+            col = int(minfo.colour());
+        }
     }
-    else
-    {
-        monster_info minfo(mtype);
-        corpse.props[FORCED_ITEM_COLOUR_KEY] = (int) minfo.colour();
-    }
+    if (col == COLOUR_UNDEF)
+        col = int(random_colour());
+    corpse.props[FORCED_ITEM_COLOUR_KEY] = col;
 
     if (mons && !mons->mname.empty() && !(mons->flags & MF_NAME_NOCORPSE))
     {
@@ -426,39 +433,35 @@ int place_monster_corpse(const monster* mons, bool silent, bool force)
     item_def corpse;
     const monster_type corpse_class = fill_out_corpse(mons, mons->type,
                                                       corpse);
-
-    bool vault_forced = false;
+    if (corpse_class == MONS_NO_MONSTER)
+        return -1;
 
     // Don't place a corpse?  If a zombified monster is somehow capable
     // of leaving a corpse, then always place it.
     if (mons_class_is_zombified(mons->type))
         force = true;
 
-    // "always_corpse" forces monsters to always generate a corpse upon
-    // their deaths.
-    if (mons->props.exists("always_corpse")
+    const bool vault_forced =
+        mons->props.exists("always_corpse")
         || mons_class_flag(mons->type, M_ALWAYS_CORPSE)
         || mons_is_demonspawn(mons->type)
            && mons_class_flag(draco_or_demonspawn_subspecies(mons),
-                              M_ALWAYS_CORPSE))
-    {
-        vault_forced = true;
-    }
+                              M_ALWAYS_CORPSE);
 
-    if (corpse_class == MONS_NO_MONSTER
-        || (!force && !vault_forced && coinflip()))
-    {
+    // 50/50 chance of getting a corpse, unless it's forced by the caller or
+    // the monster's flags.
+    // gozag always gets a "corpse". (gold.)
+    if (!force && !vault_forced && !in_good_standing(GOD_GOZAG) && coinflip())
         return -1;
-    }
 
     if (!force && in_good_standing(GOD_GOZAG))
     {
         const monsterentry* me = get_monster_data(corpse_class);
-        const int min_base_gold = 13;
+        const int min_base_gold = 7;
         // monsters weighing more than this give more than base gold
         const int baseline_weight = 550; // MONS_HUMAN
         const int base_gold = max(min_base_gold,
-                                  (me->weight - baseline_weight) / 40
+                                  (me->weight - baseline_weight) / 80
                                     + min_base_gold);
         corpse.clear();
         corpse.base_type = OBJ_GOLD;
@@ -2593,7 +2596,8 @@ int monster_die(monster* mons, killer_type killer,
         // Like Boris, but her vault can't come back
         if (mons_is_natasha(mons))
             you.unique_creatures.set(MONS_NATASHA, false);
-        mons_felid_revive(mons);
+        if (!mons_reset && !wizard)
+            mons_felid_revive(mons);
     }
     else if (mons_is_pikel(mons))
     {
@@ -3418,7 +3422,7 @@ void elven_twin_died(monster* twin, bool in_transit, killer_type killer, int kil
     if (mons_near(mons) && !death_message.empty() && mons->can_speak())
         mons_speaks_msg(mons, death_message, MSGCH_TALK, silenced(you.pos()));
     else if (mons->can_speak())
-        mprf("%s", death_message.c_str());
+        mpr(death_message);
 
     // Upgrade the spellbook here, as elven_twin_energize
     // may not be called due to lack of visibility.

@@ -7,10 +7,10 @@
 
 #include "food.h"
 
+#include <cctype>
+#include <cstdio>
+#include <cstring>
 #include <sstream>
-#include <ctype.h>
-#include <stdio.h>
-#include <string.h>
 
 #include "butcher.h"
 #include "database.h"
@@ -396,7 +396,7 @@ static void _describe_food_change(int food_increment)
 
     msg += _how_hungry().c_str();
     msg += ".";
-    mpr(msg.c_str());
+    mpr(msg);
 }
 
 bool eat_item(item_def &food)
@@ -1071,7 +1071,7 @@ void finished_eating_message(int food_type)
             string taste = getMiscString("eating_fruit");
             if (taste.empty())
                 taste = "Eugh, buggy fruit.";
-            mprf("%s", taste.c_str());
+            mpr(taste);
             break;
         }
         default:
@@ -1089,7 +1089,7 @@ void finished_eating_message(int food_type)
         string taste = getMiscString("eating_pizza");
         if (taste.empty())
             taste = "Bleh, bug pizza.";
-        mprf("%s", taste.c_str());
+        mpr(taste);
         break;
     }
     default:
@@ -1276,15 +1276,15 @@ bool is_preferred_food(const item_def &food)
     if (you.species == SP_VAMPIRE)
         return is_blood_potion(food);
 
+#if TAG_MAJOR_VERSION == 34
     if (food.base_type == OBJ_POTIONS && food.sub_type == POT_PORRIDGE
         && item_type_known(food)
-#if TAG_MAJOR_VERSION == 34
         && you.species != SP_DJINNI
-#endif
         )
     {
         return !player_mutation_level(MUT_CARNIVOROUS);
     }
+#endif
 
     if (food.base_type != OBJ_FOOD)
         return false;

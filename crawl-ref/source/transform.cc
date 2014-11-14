@@ -7,8 +7,8 @@
 
 #include "transform.h"
 
-#include <stdio.h>
-#include <string.h>
+#include <cstdio>
+#include <cstring>
 
 #include "artefact.h"
 #include "art-enum.h"
@@ -1813,11 +1813,9 @@ static bool _flying_in_new_form(transformation_type which_trans)
 
     int sources = you.evokable_flight();
     int sources_removed = 0;
-    set<equipment_type> removed = _init_equipment_removal(which_trans);
-    for (set<equipment_type>::iterator iter = removed.begin();
-         iter != removed.end(); ++iter)
+    for (auto eq : _init_equipment_removal(which_trans))
     {
-        item_def *item = you.slot_item(*iter, true);
+        item_def *item = you.slot_item(eq, true);
         if (item == NULL)
             continue;
         item_info inf = get_item_info(*item);
@@ -2150,7 +2148,7 @@ bool transform(int pow, transformation_type which_trans, bool involuntary,
         set_hydra_form_heads(div_rand_round(pow, 10));
 
     // Give the transformation message.
-    mpr(get_form(which_trans)->transform_message(previous_trans).c_str());
+    mpr(get_form(which_trans)->transform_message(previous_trans));
 
     // Update your status.
     you.form = which_trans;

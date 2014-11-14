@@ -7,10 +7,10 @@
 
 #include "items.h"
 
-#include <ctype.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cctype>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 #include "areas.h"
 #include "arena.h"
@@ -631,8 +631,6 @@ void item_was_lost(const item_def &item)
 
 void item_was_destroyed(const item_def &item)
 {
-    if (item.props.exists("destroy_xp"))
-        gain_exp(item.props["destroy_xp"].get_int());
     _handle_gone_item(item);
     xom_check_destroyed_item(item);
 }
@@ -924,7 +922,7 @@ void pickup_menu(int item_link)
 
     if (!pickup_warning.empty())
     {
-        mpr(pickup_warning.c_str());
+        mpr(pickup_warning);
         learned_something_new(HINT_FULL_INVENTORY);
     }
 
@@ -1373,7 +1371,7 @@ void pickup(bool partial_quantity)
         }
 
         if (!pickup_warning.empty())
-            mpr(pickup_warning.c_str());
+            mpr(pickup_warning);
     }
     if (you.last_pickup.empty())
         you.last_pickup = tmp_l_p;
@@ -1422,6 +1420,13 @@ bool items_similar(const item_def &item1, const item_def &item2)
     // Missiles with different egos shouldn't merge.
     if (item1.base_type == OBJ_MISSILES && item1.special != item2.special)
         return false;
+
+    // Don't merge trapping nets with other nets.
+    if (item1.base_type == OBJ_MISSILES && item1.sub_type == MI_THROWING_NET
+        && item1.net_placed != item2.net_placed)
+    {
+        return false;
+    }
 
     if (item1.base_type == OBJ_FOOD && item2.sub_type == FOOD_CHUNK
         && determine_chunk_effect(item1, true) !=
@@ -2376,12 +2381,11 @@ void drop_last()
 {
     vector<SelItem> items_to_drop;
 
-    for (map<int,int>::iterator it = you.last_pickup.begin();
-        it != you.last_pickup.end(); ++it)
+    for (const auto &entry : you.last_pickup)
     {
-        const item_def* item = &you.inv[it->first];
+        const item_def* item = &you.inv[entry.first];
         if (item->quantity > 0)
-            items_to_drop.push_back(SelItem(it->first, it->second, item));
+            items_to_drop.push_back(SelItem(entry.first, entry.second, item));
     }
 
     if (items_to_drop.empty())
@@ -3014,7 +3018,7 @@ static void _do_autopickup()
     }
 
     if (!pickup_warning.empty())
-        mpr(pickup_warning.c_str());
+        mpr(pickup_warning);
 
     if (did_pickup)
         you.turn_is_over = true;
@@ -3799,10 +3803,10 @@ colour_t item_def::corpse_colour() const
         {
             const colour_t class_colour = mons_class_colour(mon_type);
 #if TAG_MAJOR_VERSION == 34
-            if (class_colour == BLACK)
+            if (class_colour == COLOUR_UNDEF)
                 return LIGHTRED;
 #else
-            ASSERT(class_colour != BLACK);
+            ASSERT(class_colour != COLOUR_UNDEF);
 #endif
             return class_colour;
         }
@@ -4271,7 +4275,7 @@ bool get_item_by_name(item_def *item, char* specs,
                 if (pos < best_index)
                 {
                     if (create_for_real)
-                        mpr(item->name(DESC_PLAIN).c_str());
+                        mpr(item->name(DESC_PLAIN));
                     type_wanted = i;
                     best_index = pos;
                 }
@@ -4372,7 +4376,7 @@ bool get_item_by_name(item_def *item, char* specs,
                     if (pos < best_index)
                     {
                         if (create_for_real)
-                            mpr(item->name(DESC_PLAIN).c_str());
+                            mpr(item->name(DESC_PLAIN));
                         special_wanted = i;
                         best_index = pos;
                     }

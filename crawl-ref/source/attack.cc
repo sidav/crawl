@@ -10,9 +10,9 @@
 #include "attack.h"
 
 #include <algorithm>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 #include "art-enum.h"
 #include "delay.h"
@@ -1851,12 +1851,7 @@ bool attack::apply_damage_brand(const char *what)
         }
 
         if (responsible->is_player())
-        {
-            // If your god objects to using chaos, then it makes the
-            // brand obvious.
-            if (did_god_conduct(DID_CHAOS, 2 + random2(3), brand_was_known))
-                obvious_effect = true;
-        }
+            did_god_conduct(DID_CHAOS, 2 + random2(3), brand_was_known);
     }
 
     if (!obvious_effect)
@@ -1864,7 +1859,7 @@ bool attack::apply_damage_brand(const char *what)
 
     if (needs_message && !special_damage_message.empty())
     {
-        mprf("%s", special_damage_message.c_str());
+        mpr(special_damage_message);
 
         special_damage_message.clear();
         // Don't do message-only miscasts along with a special

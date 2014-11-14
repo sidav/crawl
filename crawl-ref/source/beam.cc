@@ -528,6 +528,7 @@ static beam_type _chaotic_reflection_flavour(bolt* beam)
             10, BEAM_BLINK,
             10, BEAM_SLEEP,
             10, BEAM_VULNERABILITY,
+            10, BEAM_RESISTANCE,
              2, BEAM_ENSNARE,
              0);
 }
@@ -733,7 +734,9 @@ void bolt::bounce()
     }
 
     do
+    {
         ray.regress();
+    }
     while (cell_is_solid(ray.pos()));
 
     extra_range_used += range_used(true);
@@ -1113,7 +1116,9 @@ bool bolt::hit_wall()
         if (pos() != source && need_regress())
         {
             do
+            {
                 ray.regress();
+            }
             while (ray.pos() != source && cell_is_solid(ray.pos()));
 
             // target is where the explosion is centered, so update it.
@@ -2202,7 +2207,7 @@ static coord_def _random_point_hittable_from(const coord_def &c,
     return coord_def();
 }
 
-static void _create_feat_splash(coord_def center,
+void create_feat_splash(coord_def center,
                                 int radius,
                                 int nattempts)
 {
@@ -2536,15 +2541,14 @@ void bolt::affect_endpoint()
             targetter_cloud tgt(agent(), range, get_cloud_size(true),
                                                 get_cloud_size(false, true));
             tgt.set_aim(pos());
-            for (map<coord_def, aff_type>::iterator it = tgt.seen.begin();
-                 it != tgt.seen.end(); it++)
+            for (const auto &entry : tgt.seen)
             {
-                if (it->second != AFF_YES && it->second != AFF_MAYBE)
+                if (entry.second != AFF_YES && entry.second != AFF_MAYBE)
                     continue;
 
-                if (it->first == you.pos())
+                if (entry.first == you.pos())
                     tracer_affect_player();
-                else if (monster* mon = monster_at(it->first))
+                else if (monster* mon = monster_at(entry.first))
                     tracer_affect_monster(mon);
 
                 if (agent()->is_player() && beam_cancelled)
@@ -2573,7 +2577,7 @@ void bolt::affect_endpoint()
         else
             noisy(spell_effect_noise(SPELL_PRIMAL_WAVE),
                   pos(), "You hear a splash.");
-        _create_feat_splash(pos(), 2, random_range(3, 12, 2));
+        create_feat_splash(pos(), 2, random_range(3, 12, 2));
     }
 
     if (origin_spell == SPELL_BLINKBOLT)
@@ -3091,6 +3095,7 @@ bool bolt::harmless_to_player() const
     case BEAM_MIGHT:
     case BEAM_AGILITY:
     case BEAM_INVISIBILITY:
+    case BEAM_RESISTANCE:
         return true;
 
     case BEAM_HOLY:
@@ -3746,6 +3751,13 @@ void bolt::affect_player_enchantment(bool resistible)
     case BEAM_TUKIMAS_DANCE:
         cast_tukimas_dance(ench_power, &you);
         obvious_effect = true;
+        break;
+
+    case BEAM_RESISTANCE:
+        potion_effect(POT_RESISTANCE, ench_power, nullptr, blame_player);
+        obvious_effect = true;
+        nasty = false;
+        nice  = true;
         break;
 
     default:
@@ -5075,6 +5087,7 @@ bool bolt::has_saving_throw() const
     case BEAM_VIRULENCE:        // saving throw handled specially
     case BEAM_IGNITE_POISON:
     case BEAM_AGILITY:
+    case BEAM_RESISTANCE:
         return false;
     case BEAM_VULNERABILITY:
         return !one_chance_in(3);  // Ignores MR 1/3 of the time
@@ -5666,6 +5679,15 @@ mon_resist_type bolt::apply_enchantment_to_monster(monster* mon)
         obvious_effect = true;
         break;
 
+    case BEAM_RESISTANCE:
+        if (!mon->has_ench(ENCH_RESISTANCE)
+            && mon->add_ench(ENCH_RESISTANCE))
+        {
+            if (simple_monster_message(mon, " suddenly seems more resistant."))
+                obvious_effect = true;
+        }
+        return MON_AFFECTED;
+
     default:
         break;
     }
@@ -6236,7 +6258,8 @@ bool bolt::nice_to(const monster* mon) const
         || flavour == BEAM_HEALING
         || flavour == BEAM_MIGHT
         || flavour == BEAM_AGILITY
-        || flavour == BEAM_INVISIBILITY)
+        || flavour == BEAM_INVISIBILITY
+        || flavour == BEAM_RESISTANCE)
     {
         return true;
     }
@@ -6493,6 +6516,7 @@ static string _beam_type_name(beam_type type)
     case BEAM_TUKIMAS_DANCE:         return "tukima's dance";
     case BEAM_BOUNCY_TRACER:         return "bouncy tracer";
     case BEAM_DEATH_RATTLE:          return "breath of the dead";
+    case BEAM_RESISTANCE:            return "resistance";
 
     case NUM_BEAMS:                  die("invalid beam type");
     }

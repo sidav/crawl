@@ -6,16 +6,16 @@
 #include "AppHdr.h"
 
 #include <algorithm>
+#include <cerrno>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <ctime>
 #include <iostream>
 #include <list>
 #include <sstream>
 #include <string>
-#include <errno.h>
 #include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
 
 #ifndef TARGET_OS_WINDOWS
 # ifndef __ANDROID__
@@ -23,7 +23,7 @@
 # endif
 #endif
 #ifdef USE_UNIX_SIGNALS
-#include <signal.h>
+#include <csignal>
 #endif
 
 #include "ability.h"
@@ -563,6 +563,26 @@ static void _wanderer_startup_message()
     }
 }
 
+static void _wanderer_note_items()
+{
+    ostringstream equip_str;
+    equip_str << you.your_name
+            << " set off with: ";
+    bool first_item = true;
+
+    for (int i = 0; i < ENDOFPACK; ++i)
+    {
+        item_def& item(you.inv[i]);
+        if (item.defined()) {
+            if (!first_item)
+                equip_str << ", ";
+            equip_str << item.name(DESC_A, false, true);
+            first_item = false;
+        }
+    }
+    take_note(Note(NOTE_MESSAGE, 0, 0, equip_str.str().c_str()));
+}
+
 /**
  * The suffix to apply to welcome_spam when looking up an entry name from the
  * database.
@@ -634,6 +654,9 @@ static void _take_starting_note()
     }
 #endif
 
+    if (you.char_class == JOB_WANDERER)
+        _wanderer_note_items();
+
     notestr << "HP: " << you.hp << "/" << you.hp_max
             << " MP: " << you.magic_points << "/" << you.max_magic_points;
 
@@ -669,6 +692,7 @@ static void _set_removed_types_as_identified()
     you.type_ids[OBJ_POTIONS][POT_GAIN_INTELLIGENCE] = ID_KNOWN_TYPE;
     you.type_ids[OBJ_POTIONS][POT_WATER] = ID_KNOWN_TYPE;
     you.type_ids[OBJ_POTIONS][POT_STRONG_POISON] = ID_KNOWN_TYPE;
+    you.type_ids[OBJ_POTIONS][POT_PORRIDGE] = ID_KNOWN_TYPE;
     you.type_ids[OBJ_SCROLLS][SCR_ENCHANT_WEAPON_II] = ID_KNOWN_TYPE;
     you.type_ids[OBJ_SCROLLS][SCR_ENCHANT_WEAPON_III] = ID_KNOWN_TYPE;
 #endif
@@ -2292,19 +2316,19 @@ static void _update_mold()
 static void _update_golubria_traps()
 {
     vector<coord_def> traps = find_golubria_on_level();
-    for (vector<coord_def>::const_iterator it = traps.begin(); it != traps.end(); ++it)
+    for (auto c : traps)
     {
-        trap_def *trap = find_trap(*it);
+        trap_def *trap = find_trap(c);
         if (trap && trap->type == TRAP_GOLUBRIA)
         {
             if (--trap->ammo_qty <= 0)
             {
-                if (you.see_cell(*it))
+                if (you.see_cell(c))
                     mpr("Your passage of Golubria closes with a snap!");
                 else
                     mprf(MSGCH_SOUND, "You hear a snapping sound.");
                 trap->destroy();
-                noisy(spell_effect_noise(SPELL_GOLUBRIAS_PASSAGE), *it);
+                noisy(spell_effect_noise(SPELL_GOLUBRIAS_PASSAGE), c);
             }
         }
     }
@@ -2750,7 +2774,7 @@ static void _open_door(coord_def move, bool check_confused)
         // This doesn't ever seem to be triggered.
         case DNGN_OPEN_DOOR:
             if (!door_already_open.empty())
-                mpr(door_already_open.c_str());
+                mpr(door_already_open);
             else
                 mpr("It's already open!");
             break;
@@ -2770,7 +2794,7 @@ static void _open_door(coord_def move, bool check_confused)
         if (door_veto_message.empty())
             mpr("The door is shut tight!");
         else
-            mpr(door_veto_message.c_str());
+            mpr(door_veto_message);
 
         return;
     }

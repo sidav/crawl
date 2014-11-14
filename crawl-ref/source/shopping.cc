@@ -7,12 +7,13 @@
 
 #include "shopping.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 #include "artefact.h"
 #include "branch.h"
+#include "butcher.h"
 #include "cio.h"
 #include "decks.h"
 #include "describe.h"
@@ -909,7 +910,8 @@ static bool _purchase(int shop, int item_got, int cost, bool id)
     }
 
     // Shopkeepers will now place goods you can't carry outside the shop.
-    if (!move_item_to_inv(item_got, item.quantity, false))
+    if (item_is_stationary(mitm[item_got])
+        || !move_item_to_inv(item_got, item.quantity, false))
     {
         move_item_to_grid(&item_got, env.shop[shop].pos);
         return false;
@@ -1523,41 +1525,44 @@ unsigned int item_value(item_def item, bool ident)
 
             case POT_RESISTANCE:
             case POT_HASTE:
-                valued += 70;
+                valued += 100;
                 break;
 
             case POT_MAGIC:
             case POT_INVISIBILITY:
             case POT_CANCELLATION:
-                valued += 55;
+                valued += 80;
                 break;
 
             case POT_BERSERK_RAGE:
             case POT_HEAL_WOUNDS:
             case POT_RESTORE_ABILITIES:
-            case POT_FLIGHT:
-                valued += 30;
+                valued += 50;
                 break;
 
             case POT_MIGHT:
             case POT_AGILITY:
             case POT_BRILLIANCE:
+                valued += 40;
+                break;
+
+            case POT_CURING:
+            case POT_LIGNIFY:
+            case POT_FLIGHT:
+                valued += 30;
+                break;
+
             case POT_MUTATION:
                 valued += 25;
                 break;
 
-            case POT_CURING:
             case POT_DECAY:
             case POT_DEGENERATION:
 #if TAG_MAJOR_VERSION == 34
             case POT_STRONG_POISON:
-#endif
-            case POT_LIGNIFY:
-                valued += 20;
-                break;
-
-            case POT_BLOOD:
             case POT_PORRIDGE:
+#endif
+            case POT_BLOOD:
             case POT_CONFUSION:
             case POT_POISON:
             case POT_SLOWING:
@@ -1596,6 +1601,9 @@ unsigned int item_value(item_def item, bool ident)
                 break;
         }
         break;
+
+    case OBJ_CORPSES:
+        valued = get_max_corpse_chunks(item.mon_type) * 5;
 
     case OBJ_SCROLLS:
         if (!item_type_known(item))

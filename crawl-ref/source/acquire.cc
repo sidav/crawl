@@ -9,11 +9,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <queue>
 #include <set>
-#include <stdio.h>
-#include <string.h>
 
 #include "artefact.h"
 #include "art-enum.h"
@@ -609,7 +609,9 @@ static int _acquirement_staff_subtype(bool /*divine*/, int & /*quantity*/)
     int result = 0;
 #if TAG_MAJOR_VERSION == 34
     do
+    {
         result = random2(NUM_STAVES);
+    }
     while (result == STAFF_ENCHANTMENT || result == STAFF_CHANNELING);
 #else
     result = random2(NUM_STAVES);
@@ -653,7 +655,9 @@ static int _acquirement_rod_subtype(bool /*divine*/, int & /*quantity*/)
 {
     int result;
     do
+    {
         result = random2(NUM_RODS);
+    }
     while (player_mutation_level(MUT_NO_LOVE)
               && (result == ROD_SWARM || result == ROD_SHADOWS)
 #if TAG_MAJOR_VERSION == 34
@@ -1021,7 +1025,7 @@ static bool _do_book_acquirement(item_def &book, int agent)
     case BOOK_RANDART_LEVEL:
     {
         book.sub_type  = BOOK_RANDART_LEVEL;
-        if (!make_book_level_randart(book, level, -1, owner))
+        if (!make_book_level_randart(book, level, owner))
             return false;
         break;
     }
@@ -1546,7 +1550,7 @@ bool acquirement(object_class_type class_wanted, int agent,
             if (i == ARRAYSZ(acq_classes) / 2 - 1 || i == ARRAYSZ(acq_classes) - 1)
             {
                 line.erase(0, 1);
-                mpr(line.c_str());
+                mpr(line);
                 line.clear();
             }
         }

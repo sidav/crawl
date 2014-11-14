@@ -7,11 +7,11 @@
 
 #include "describe.h"
 
+#include <cstdio>
 #include <iomanip>
 #include <numeric>
 #include <sstream>
 #include <string>
-#include <stdio.h>
 
 #include "artefact.h"
 #include "branch.h"
@@ -57,6 +57,8 @@
  #include "tilereg-crt.h"
 #endif
 #include "unicode.h"
+
+extern const spell_type serpent_of_hell_breaths[4][3];
 
 // ========================================================================
 //      Internal Functions
@@ -235,8 +237,8 @@ static vector<string> _randart_propnames(const item_def& item,
         { "AC",     ARTP_AC,                    0 },
         { "EV",     ARTP_EVASION,               0 },
         { "Str",    ARTP_STRENGTH,              0 },
-        { "Dex",    ARTP_DEXTERITY,             0 },
         { "Int",    ARTP_INTELLIGENCE,          0 },
+        { "Dex",    ARTP_DEXTERITY,             0 },
         { "Slay",   ARTP_SLAYING,               0 },
 
         // Qualitative attributes (and Stealth)
@@ -1942,15 +1944,19 @@ string get_item_description(const item_def &item, bool verbose,
         {
             item_def stack = static_cast<item_def>(item);
             CrawlHashTable &props = stack.props;
-            ASSERT(props.exists("timer"));
-            CrawlVector &timer = props["timer"].get_vector();
-            ASSERT(!timer.empty());
+            if (!props.exists("timer"))
+                description << "\nTimers not yet initialized.";
+            else
+            {
+                CrawlVector &timer = props["timer"].get_vector();
+                ASSERT(!timer.empty());
 
-            description << "\nQuantity: " << stack.quantity
-                        << "        Timer size: " << (int) timer.size();
-            description << "\nTimers:\n";
-            for (int i = 0; i < timer.size(); ++i)
-                 description << (timer[i].get_int()) << "  ";
+                description << "\nQuantity: " << stack.quantity
+                            << "        Timer size: " << (int) timer.size();
+                description << "\nTimers:\n";
+                for (int i = 0; i < timer.size(); ++i)
+                    description << (timer[i].get_int()) << "  ";
+            }
         }
 #endif
 
@@ -2289,12 +2295,10 @@ static command_type _get_action(int key, vector<command_type> actions)
         act_key_init = false;
     }
 
-    for (vector<command_type>::const_iterator at = actions.begin();
-         at < actions.end(); ++at)
-    {
-        if (key == act_key[*at])
-            return *at;
-    }
+    for (auto cmd : actions)
+        if (key == act_key[cmd])
+            return cmd;
+
     return CMD_NO_CMD;
 }
 
@@ -2406,8 +2410,7 @@ static bool _actions_prompt(item_def &item, bool allow_inscribe, bool do_prompt)
         act_str_init = false;
     }
 
-    for (vector<command_type>::const_iterator at = actions.begin();
-         at < actions.end(); ++at)
+    for (auto at = actions.begin(); at < actions.end(); ++at)
     {
 #ifdef USE_TILE_LOCAL
         tmp = new TextItem();
@@ -2801,10 +2804,11 @@ static int _get_spell_description(const spell_type spell,
         description += "The spell is scrawled in ancient runes that are beyond "
                        "your current level of understanding.\n";
     }
-    if (spell_is_useless(spell) && you_can_memorise(spell))
+    if (spell_is_useless(spell, true, false, rod) && you_can_memorise(spell))
     {
-        description += "This spell will have no effect right now: "
-                        + spell_uselessness_reason(spell) + "\n";
+        description += "\nThis spell will have no effect right now: "
+        + spell_uselessness_reason(spell, true, false, rod)
+        + "\n";
     }
 
     _append_spell_stats(spell, description, rod);
@@ -3247,9 +3251,30 @@ static string _monster_spell_type_description(const monster_info& mi,
         for (size_t j = 0; j < book_spells.size(); ++j)
         {
             const spell_type spell = book_spells[j];
-            if (j > 0)
-                result << ", ";
-            result << spell_title(spell);
+            if (spell == SPELL_SERPENT_OF_HELL_BREATH)
+            {
+                const int idx =
+                        mi.type == MONS_SERPENT_OF_HELL          ? 0
+                      : mi.type == MONS_SERPENT_OF_HELL_COCYTUS  ? 1
+                      : mi.type == MONS_SERPENT_OF_HELL_DIS      ? 2
+                      : mi.type == MONS_SERPENT_OF_HELL_TARTARUS ? 3
+                      :                                           -1;
+                ASSERT(idx >= 0 && idx <= 3);
+                for (size_t k = 0;
+                     k < ARRAYSZ(serpent_of_hell_breaths[idx]);
+                     ++k)
+                {
+                    if (j > 0 || k > 0)
+                        result << ", ";
+                    result << spell_title(serpent_of_hell_breaths[idx][k]);
+                }
+            }
+            else
+            {
+                if (j > 0)
+                    result << ", ";
+                result << spell_title(spell);
+            }
         }
         result << "\n";
     }
@@ -3877,13 +3902,19 @@ void get_monster_db_desc(const monster_info& mi, describe_info &inf,
             inf.body << ", and it is incapable of using stairs";
         inf.body << ".\n";
     }
-
-    if (mi.is(MB_PERM_SUMMON))
+    else if (mi.is(MB_PERM_SUMMON))
     {
         inf.body << "\n" << "This monster has been summoned in a durable "
                        "way, and only partially exists. Killing it yields no "
                        "experience, nutrition or items. You cannot easily "
                        "abjure it, though.\n";
+    }
+    else if (mons_class_leaves_hide(mi.type))
+    {
+        inf.body << "\nIf " << mi.pronoun(PRONOUN_SUBJECTIVE) << " is slain "
+        "and butchered, it may be possible to recover "
+        << mi.pronoun(PRONOUN_POSSESSIVE) << " hide, which can be "
+        "enchanted into armour.\n";
     }
 
     if (mi.is(MB_SUMMONED_CAPPED))
@@ -3987,11 +4018,8 @@ void get_monster_db_desc(const monster_info& mi, describe_info &inf,
 
         const CrawlVector& blame = mons.props["blame"].get_vector();
 
-        for (CrawlVector::const_iterator it = blame.begin();
-             it != blame.end(); ++it)
-        {
-            inf.body << "    " << it->get_string() << "\n";
-        }
+        for (const auto &entry : blame)
+            inf.body << "    " << entry.get_string() << "\n";
     }
 #endif
 }

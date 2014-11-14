@@ -9,11 +9,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <functional>
 #include <sstream>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 #include "ability.h"
 #include "acquire.h"
@@ -570,7 +570,9 @@ god_type random_god(bool available)
     god_type god;
 
     do
+    {
         god = static_cast<god_type>(random2(NUM_GODS - 1) + 1);
+    }
     while (available && is_unavailable_god(god));
 
     return god;
@@ -1381,12 +1383,11 @@ int yred_random_servants(unsigned int threshold, bool force_hostile)
     if (!force_hostile && _yred_high_level_servant(mon_type))
     {
         int current_high_level = 0;
-        for (map<mid_t, companion>::iterator i = companion_list.begin();
-             i != companion_list.end(); ++i)
+        for (auto &entry : companion_list)
         {
-            monster* mons = monster_by_mid(i->first);
+            monster* mons = monster_by_mid(entry.first);
             if (!mons)
-                mons = &i->second.mons.mons;
+                mons = &entry.second.mons.mons;
             if (_yred_high_level_servant(mons->type))
                 current_high_level++;
         }
@@ -1455,7 +1456,8 @@ static bool _give_nemelex_gift(bool forced = false)
     {
 
         misc_item_type gift_type = random_choose_weighted(
-                                        8, MISC_DECK_OF_WAR,
+                                        4, MISC_DECK_OF_WAR,
+                                        4, MISC_DECK_OF_DESTRUCTION,
                                         2, MISC_DECK_OF_ESCAPE,
                                         0);
 
@@ -1719,13 +1721,12 @@ static spell_type _vehumet_find_spell_gift(set<spell_type> excluded_spells)
     spell_type spell = SPELL_NO_SPELL;
     int total_weight = 0;
     int this_weight = 0;
-    for (set<spell_type>::iterator it = eligible_spells.begin();
-         it != eligible_spells.end(); ++it)
+    for (auto elig : eligible_spells)
     {
-        this_weight = _vehumet_weighting(*it);
+        this_weight = _vehumet_weighting(elig);
         total_weight += this_weight;
         if (x_chance_in_y(this_weight, total_weight))
-            spell = *it;
+            spell = elig;
     }
     return spell;
 }
@@ -1958,8 +1959,7 @@ bool do_god_gift(bool forced)
                 {
                     you.vehumet_gifts = offers;
                     string prompt = " offers you knowledge of ";
-                    for (set<spell_type>::iterator it = offers.begin();
-                         it != offers.end(); ++it)
+                    for (auto it = offers.begin(); it != offers.end(); ++it)
                     {
                         if (it != offers.begin())
                         {
@@ -3107,8 +3107,8 @@ void nemelex_death_message()
     const piety_gain_t piety_gain = static_cast<piety_gain_t>
             (min(random2(you.piety) / 30, (int)PIETY_LOTS));
 
-    mprf("%s", _sacrifice_message(nemelex_death_glow_message(piety_gain),
-               "Your body", you.backlit(), false, piety_gain).c_str());
+    mpr(_sacrifice_message(nemelex_death_glow_message(piety_gain),
+                           "Your body", you.backlit(), false, piety_gain));
 }
 
 bool god_hates_attacking_friend(god_type god, const actor *fr)
@@ -3387,7 +3387,11 @@ void join_religion(god_type which_god, bool immediate)
         _make_empty_vec(you.props["current_purity_sacrifice"], SV_INT);
         _make_empty_vec(you.props["current_arcane_sacrifices"], SV_INT);
         you.props["ru_progress_to_next_sacrifice"] = 0;
-        you.props["ru_sacrifice_delay"] = 50; // offer the first sacrifice fast
+        // offer the first sacrifice faster than normal;
+        int delay = 50;
+        if (crawl_state.game_is_sprint())
+          delay /= SPRINT_MULTIPLIER;
+        you.props["ru_sacrifice_delay"] = delay;
     }
     else
     {
@@ -3615,7 +3619,7 @@ void join_religion(god_type which_god, bool immediate)
         else
             simple_god_message(" waives the service fee.");
 
-        for (int i = 0; i < MAX_GOD_ABILITIES; ++i)
+        for (size_t i = 0; i < abilities.size(); ++i)
         {
             if (you.gold >= get_gold_cost(abilities[i])
                 && _abil_chg_message(god_gain_power_messages[you.religion][i],
@@ -3886,8 +3890,7 @@ bool god_likes_fresh_corpses(god_type god)
     if (god == GOD_LUGONU)
         return !player_in_branch(BRANCH_ABYSS);
 
-    return god == GOD_OKAWARU
-           || god == GOD_MAKHLEB
+    return god == GOD_MAKHLEB
            || god == GOD_TROG;
 }
 
@@ -4058,12 +4061,12 @@ void handle_god_time(int time_delta)
         int delay;
         switch (you.religion)
         {
-        case GOD_OKAWARU:
         case GOD_TROG:
             if (one_chance_in(14))
                 lose_piety(1);
             break;
 
+        case GOD_OKAWARU:
         case GOD_MAKHLEB:
         case GOD_BEOGH:
         case GOD_LUGONU:

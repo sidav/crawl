@@ -795,11 +795,8 @@ static coord_def _dgn_find_nearest_square(
     {
         // Iterate each layer of BFS in random order to avoid bias.
         shuffle_array(points[iter]);
-        for (vector<coord_def>::iterator i = points[iter].begin();
-             i != points[iter].end(); ++i)
+        for (const auto &p : points[iter])
         {
-            const coord_def &p = *i;
-
             if (p != pos && acceptable(p, thing))
                 return p;
 
@@ -1172,7 +1169,7 @@ static void _announce_swap_real(coord_def orig_pos, coord_def dest_pos)
             str << " to " << prep << " " << dest_actor;
     }
     str << "!";
-    mpr(str.str().c_str());
+    mpr(str.str());
 }
 
 static void _announce_swap(coord_def pos1, coord_def pos2)

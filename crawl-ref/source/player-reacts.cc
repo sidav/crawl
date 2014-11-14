@@ -8,23 +8,23 @@
 #include "player-reacts.h"
 
 #include <algorithm>
+#include <cerrno>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <list>
 #include <sstream>
 #include <string>
 
-#include <errno.h>
 #ifndef TARGET_OS_WINDOWS
 # ifndef __ANDROID__
 #  include <langinfo.h>
 # endif
 #endif
 #include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #ifdef USE_UNIX_SIGNALS
-#include <signal.h>
+#include <csignal>
 #endif
 
 #include "act-iter.h"
@@ -1062,6 +1062,9 @@ static void _decrement_durations()
 
     _decrement_a_duration(DUR_SAP_MAGIC, delay,
                           "Your magic seems less tainted.");
+
+    _decrement_a_duration(DUR_CLEAVE, delay,
+                          "Your cleaving frenzy subsides.");
 
     if (_decrement_a_duration(DUR_CORROSION, delay,
                           "You repair your equipment."))

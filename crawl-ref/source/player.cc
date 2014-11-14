@@ -7,13 +7,13 @@
 
 #include "player.h"
 
-#include <sstream>
 #include <algorithm>
-#include <ctype.h>
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cctype>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <sstream>
 
 #include "ability.h"
 #include "act-iter.h"
@@ -211,7 +211,7 @@ static bool _check_moveto_dangerous(const coord_def& p, const string& msg)
     }
 
     if (msg != "")
-        mpr(msg.c_str());
+        mpr(msg);
     else if (species_likes_water(you.species) && feat_is_water(env.grid(p)))
         mpr("You cannot enter water in your current form.");
     else if (species_likes_lava(you.species) && feat_is_lava(env.grid(p)))
@@ -3074,9 +3074,6 @@ void level_change(bool skip_attribute_increase)
                              "You can now transform into a vampire bat.");
                     }
                 }
-                else if (you.experience_level == 6)
-                    mprf(MSGCH_INTRINSIC_GAIN,
-                         "You can now bottle potions of blood from corpses.");
                 break;
 
             case SP_NAGA:
@@ -3884,7 +3881,7 @@ static void _display_vampire_status()
     if (!attrib.empty())
     {
         msg += comma_separated_line(attrib.begin(), attrib.end());
-        mpr(msg.c_str());
+        mpr(msg);
     }
 }
 
@@ -4020,11 +4017,11 @@ void display_char_status()
     for (unsigned i = 0; i <= STATUS_LAST_STATUS; ++i)
     {
         if (fill_status_info(i, &inf) && !inf.long_text.empty())
-            mprf("%s", inf.long_text.c_str());
+            mpr(inf.long_text);
     }
     string cinfo = _constriction_description();
     if (!cinfo.empty())
-        mpr(cinfo.c_str());
+        mpr(cinfo);
 
     _display_movement_speed();
     _display_tohit();
@@ -4694,7 +4691,7 @@ void contaminate_player(int change, bool controlled, bool msg)
         dprf("change: %d  radiation: %d", change, you.magic_contamination);
 
     if (msg && new_level >= 1 && old_level <= 1 && new_level != old_level)
-        mprf("%s", describe_contamination(new_level).c_str());
+        mpr(describe_contamination(new_level));
     else if (msg && new_level != old_level)
     {
         if (old_level == 1 && new_level == 0)
@@ -6869,18 +6866,17 @@ string player::no_tele_reason(bool calc_unid, bool blinking) const
         bool found_nonartefact = false;
         bool found_stasis = false;
 
-        for (vector<item_def>::iterator it=notele_items.begin();
-             it < notele_items.end(); ++it)
+        for (const auto &item : notele_items)
         {
-            if (it->base_type == OBJ_WEAPONS)
+            if (item.base_type == OBJ_WEAPONS)
             {
                 problems.push_back(make_stringf("wielding %s",
-                                                it->name(DESC_A).c_str()));
+                                                item.name(DESC_A).c_str()));
             }
             else
-                worn_notele.push_back(it->name(DESC_A).c_str());
+                worn_notele.push_back(item.name(DESC_A).c_str());
 
-            if (it->base_type == OBJ_JEWELLERY && jewellery_is_amulet(*it))
+            if (item.base_type == OBJ_JEWELLERY && jewellery_is_amulet(item))
                 amulet_handled = true;
         }
 
@@ -6944,7 +6940,7 @@ bool player::no_tele_print_reason(bool calc_unid, bool blinking) const
     if (reason.empty())
         return false;
 
-    mpr(reason.c_str());
+    mpr(reason);
     return true;
 }
 
@@ -8042,7 +8038,7 @@ void player::set_gold(int amount)
         if (you_worship(GOD_GOZAG))
         {
             vector<ability_type> abilities = get_god_abilities(true, true);
-            for (int i = 0; i < MAX_GOD_ABILITIES; i++)
+            for (size_t i = 0; i < abilities.size(); i++)
             {
                 const int cost = get_gold_cost(abilities[i]);
                 if (gold >= cost && old_gold < cost)
@@ -8702,9 +8698,8 @@ void player_open_door(coord_def doorpos, bool check_confused)
     }
 
     vector<coord_def> excludes;
-    for (set<coord_def>::iterator i = all_door.begin(); i != all_door.end(); ++i)
+    for (const auto &dc : all_door)
     {
-        const coord_def& dc = *i;
         // Even if some of the door is out of LOS, we want the entire
         // door to be updated.  Hitting this case requires a really big
         // door!

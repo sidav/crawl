@@ -985,7 +985,7 @@ static void _do_chaos_upgrade(item_def &item, const monster* mon)
         msg += " is briefly surrounded by a scintillating aura of "
                "random colours.";
 
-        mpr(msg.c_str());
+        mpr(msg);
     }
 
     const int brand = (item.base_type == OBJ_WEAPONS) ? (int) SPWPN_CHAOS
@@ -1588,7 +1588,9 @@ static int _xom_random_stickable(const int HD)
     // Maximum snake hd is 11 (anaconda) so random2(hd) gives us 0-10, and
     // weapon_rarity also gives us 1-10.
     do
+    {
         c = random2(HD);
+    }
     while (c >= ARRAYSZ(arr)
            || random2(HD) > weapon_rarity(arr[c]) && x_chance_in_y(c, HD));
 
@@ -1897,11 +1899,8 @@ static int _xom_change_scenery(bool debug = false)
                 // If it's a gate, add all doors belonging to the gate.
                 set<coord_def> all_door;
                 find_connected_identical(*ri, all_door);
-                for (set<coord_def>::const_iterator dc = all_door.begin();
-                     dc != all_door.end(); ++dc)
-                {
-                    closed_doors.push_back(*dc);
-                }
+                for (auto dc : all_door)
+                    closed_doors.push_back(dc);
             }
         }
         else if (feat == DNGN_OPEN_DOOR && !actor_at(*ri)
@@ -1925,10 +1924,9 @@ static int _xom_change_scenery(bool debug = false)
                 set<coord_def> all_door;
                 find_connected_identical(*ri, all_door);
                 bool is_blocked = false;
-                for (set<coord_def>::const_iterator dc = all_door.begin();
-                     dc != all_door.end(); ++dc)
+                for (auto dc : all_door)
                 {
-                    if (actor_at(*dc) || igrd(*dc) != NON_ITEM)
+                    if (actor_at(dc) || igrd(dc) != NON_ITEM)
                     {
                         is_blocked = true;
                         break;
@@ -1939,11 +1937,8 @@ static int _xom_change_scenery(bool debug = false)
                 // belonging to the gate.
                 if (!is_blocked)
                 {
-                    for (set<coord_def>::const_iterator dc = all_door.begin();
-                         dc != all_door.end(); ++dc)
-                    {
-                        open_doors.push_back(*dc);
-                    }
+                    for (auto dc : all_door)
+                        open_doors.push_back(dc);
                 }
             }
         }
@@ -2201,6 +2196,7 @@ static int _xom_enchant_monster(bool helpful, bool debug = false)
             BEAM_MIGHT,
             BEAM_AGILITY,
             BEAM_INVISIBILITY,
+            BEAM_RESISTANCE,
         };
         ench = RANDOM_ELEMENT(enchantments);
     }
@@ -2657,9 +2653,9 @@ static void _xom_zero_miscast()
     }
 
     if (!priority.empty() && coinflip())
-        mpr(priority[random2(priority.size())].c_str());
+        mpr(priority[random2(priority.size())]);
     else
-        mpr(messages[random2(messages.size())].c_str());
+        mpr(messages[random2(messages.size())]);
 }
 
 static void _get_hand_type(string &hand, bool &can_plural)

@@ -10,6 +10,7 @@
 #include "evoke.h"
 #include "food.h"
 #include "godabil.h"
+#include "itemprop.h"
 #include "mutation.h"
 #include "options.h"
 #include "player-stats.h"
@@ -607,6 +608,16 @@ bool fill_status_info(int status, status_info* inf)
             inf->light_colour =
                 is_damaging_cloud(cloud, true, cloud_is_yours_at(you.pos())) ? LIGHTRED : DARKGREY;
         }
+        break;
+    }
+
+    case DUR_CLEAVE:
+    {
+        const item_def* weapon = you.weapon();
+
+        if (weapon && item_attack_skill(*weapon) == SK_AXES)
+            inf->light_colour = DARKGREY;
+
         break;
     }
 

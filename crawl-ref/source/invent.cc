@@ -7,11 +7,11 @@
 
 #include "invent.h"
 
+#include <cctype>
+#include <cstdlib>
+#include <cstring>
 #include <iomanip>
 #include <sstream>
-#include <ctype.h>
-#include <stdlib.h>
-#include <string.h>
 
 #include "artefact.h"
 #include "colour.h"
@@ -676,10 +676,9 @@ bool sort_item_charged(const InvEntry *a)
 static bool _compare_invmenu_items(const InvEntry *a, const InvEntry *b,
                                    const item_sort_comparators *cmps)
 {
-    for (item_sort_comparators::const_iterator i = cmps->begin();
-         i != cmps->end(); ++i)
+    for (const auto &comparator : *cmps)
     {
-        const int cmp = i->compare(a, b);
+        const int cmp = comparator.compare(a, b);
         if (cmp)
             return cmp < 0;
     }
@@ -2087,7 +2086,7 @@ bool item_is_evokable(const item_def &item, bool reach, bool known,
                 return true;
 
             if (msg)
-                mprf("%s", error.c_str());
+                mpr(error);
 
             return false;
         }
@@ -2120,7 +2119,7 @@ bool item_is_evokable(const item_def &item, bool reach, bool known,
             if (!wielded)
             {
                 if (msg)
-                    mprf("%s", error.c_str());
+                    mpr(error);
                 return false;
             }
             return true;
@@ -2134,7 +2133,7 @@ bool item_is_evokable(const item_def &item, bool reach, bool known,
         if (!wielded)
         {
             if (msg)
-                mprf("%s", error.c_str());
+                mpr(error);
             return false;
         }
         return true;
@@ -2147,7 +2146,7 @@ bool item_is_evokable(const item_def &item, bool reach, bool known,
             if (!wielded)
             {
                 if (msg)
-                    mprf("%s", error.c_str());
+                    mpr(error);
                 return false;
             }
             return true;

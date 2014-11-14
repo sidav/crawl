@@ -6,7 +6,11 @@
 #ifndef EXTERNS_H
 #define EXTERNS_H
 
+#define __STDC_FORMAT_MACROS
+#include <cinttypes>
+#include <cstdint>
 #include <cstdlib>
+#include <ctime>
 #include <deque>
 #include <list>
 #include <map>
@@ -14,10 +18,6 @@
 #include <set>
 #include <string>
 #include <vector>
-#include <time.h>
-#include <stdint.h>
-#define __STDC_FORMAT_MACROS
-#include <inttypes.h>
 
 #include "bitary.h"
 #include "enum.h"
@@ -532,6 +532,7 @@ struct item_def
         short initial_cards;        ///< the # of cards a deck *started* with
         short rune_enum;            ///< rune_type; enum for runes of zot
         short net_durability;       ///< damage dealt to a net
+        short book_param;           ///< level of spells in a monolevel book
     };
     union {
         short plus2;        ///< legacy/generic name for this union
