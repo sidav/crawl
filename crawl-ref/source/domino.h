@@ -92,56 +92,21 @@ typedef struct
     colour w;
 } EdgeColours;
 
-enum orientation
+enum polarity
 {
-    OrientationA = 0,
-    OrientationB = 1,
-    OrientationC = 2,
-    OrientationD = 3,
+    NEGATIVE = -1,
+    POSITIVE = 1,
 };
-
-static orientation succ(const orientation o)
-{
-    switch (o)
-    {
-        case OrientationA: return OrientationB;
-        case OrientationB: return OrientationC;
-        case OrientationC: return OrientationD;
-        case OrientationD: return OrientationA;
-    }
-};
-
-static orientation pred(const orientation o)
-{
-    switch (o)
-    {
-        case OrientationA: return OrientationD;
-        case OrientationB: return OrientationA;
-        case OrientationC: return OrientationB;
-        case OrientationD: return OrientationC;
-    }
-};
-
 
 typedef struct
 {
     colour c;
-    orientation o;
+    polarity o;
 } OrientedColour;
-
-static OrientedColour succ(const OrientedColour oc)
-{
-    return { oc.c, succ(oc.o) };
-}
-
-static OrientedColour pred(const OrientedColour oc)
-{
-    return { oc.c, pred(oc.o) };
-}
 
 static OrientedColour operator-(const OrientedColour x)
 {
-  return { x.c, pred(pred(x.o)) };
+  return { x.c, x.o == NEGATIVE ? POSITIVE : NEGATIVE };
 }
 
 typedef struct
@@ -363,26 +328,26 @@ class OrientedDomino : public Domino
             colours_.w = w;
         }
 
+        OrientedDomino(int32_t n, int32_t e, int32_t s, int32_t w)
+        {
+            #define SIGN(x) (x < 0 ? NEGATIVE : POSITIVE)
+            colours_.n = { static_cast<uint32_t>(abs(n)), SIGN(n) };
+            colours_.e = { static_cast<uint32_t>(abs(e)), SIGN(e) };
+            colours_.s = { static_cast<uint32_t>(abs(s)), SIGN(s) };
+            colours_.w = { static_cast<uint32_t>(abs(w)), SIGN(w) };
+            #undef SIGN
+        }
+
         ~OrientedDomino() {}
 
         OrientedDomino rotateCW()
         {
-            return {
-                succ(colours_.w),
-                succ(colours_.n),
-                succ(colours_.e),
-                succ(colours_.s),
-            };
+            return { colours_.w, colours_.n, colours_.e, colours_.s };
         }
 
         OrientedDomino rotateCCW()
         {
-            return {
-                pred(colours_.e),
-                pred(colours_.s),
-                pred(colours_.w),
-                pred(colours_.n),
-            };
+            return { colours_.e, colours_.s, colours_.w, colours_.n  };
         }
 
         OrientedDomino mirrorH ()
