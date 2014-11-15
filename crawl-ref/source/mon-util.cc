@@ -961,7 +961,7 @@ static void _destroy_mimic_feature(const coord_def &pos)
 #endif
 }
 
-void discover_mimic(const coord_def& pos, bool wake)
+void discover_mimic(const coord_def& pos)
 {
     item_def* item = item_mimic_at(pos);
     const bool feature_mimic = !item && feature_mimic_at(pos);
@@ -1200,14 +1200,13 @@ static bool _shout_fits_monster(monster_type mc, int shout)
     // For Pandemonium lords, almost everything is fair game.  It's only
     // used for the shouting verb ("say", "bellow", "roar", etc.) anyway.
     if (mc != MONS_HELL_BEAST)
-        return shout != S_BUZZ && shout != S_WHINE && shout != S_CROAK;
+        return shout != S_BUZZ && shout != S_CROAK;
 
     switch (shout)
     {
-    // 2-headed ogres, bees or mosquitos never fit.
+    // Two-headed ogres or bees never fit.
     case S_SHOUT2:
     case S_BUZZ:
-    case S_WHINE:
     // The beast cannot speak.
     case S_DEMON_TAUNT:
         return false;
@@ -1443,8 +1442,11 @@ bool mons_class_leaves_hide(monster_type mc)
 int mons_zombie_size(monster_type mc)
 {
     mc = mons_species(mc);
+    if (!mons_class_can_be_zombified(mc))
+        return Z_NOZOMBIE;
+
     ASSERT_smc();
-    return smc->zombie_size;
+    return smc->size > SIZE_MEDIUM ? Z_BIG : Z_SMALL;
 }
 
 monster_type mons_zombie_base(const monster* mon)
@@ -1491,14 +1493,13 @@ monster_type mons_base_type(const monster* mon)
 
 bool mons_class_can_leave_corpse(monster_type mc)
 {
-    return mons_weight(mc) > 0;
+    return mons_corpse_effect(mc) != CE_NOCORPSE;
 }
 
 bool mons_class_can_be_zombified(monster_type mc)
 {
     monster_type ms = mons_species(mc);
     return !invalid_monster_type(ms)
-           && mons_zombie_size(ms) != Z_NOZOMBIE
            && mons_class_can_leave_corpse(ms);
 }
 
@@ -2493,7 +2494,6 @@ void define_monster(monster* mons)
         break;
 
     case MONS_HELL_BEAST:
-        hd = 4 + random2(4);
         mons->props["speed"] = 10 + random2(8);
         break;
 
@@ -4371,7 +4371,6 @@ string do_mon_str_replacements(const string &in_msg, const monster* mons,
         "buzzes",
         "moans",
         "gurgles",
-        "whines",
         "croaks",
         "growls",
         "hisses",
@@ -4655,6 +4654,12 @@ void debug_mondata()
         if (invalid_monster_type(mc))
             continue;
         const char* name = mons_class_name(mc);
+        if (!name)
+        {
+            fails += make_stringf("Monster %d has no name\n", mc);
+            continue;
+        }
+
         const monsterentry *md = get_monster_data(mc);
 
         int MR = md->resist_magic;
@@ -4663,14 +4668,37 @@ void debug_mondata()
         if (md->resist_magic > 200 && md->resist_magic != MAG_IMMUNE)
             fails += make_stringf("%s has MR %d > 200\n", name, MR);
 
-        // Tests below apply only to corpses.
-        if (md->species != mc || md->bitfields & M_CANT_SPAWN)
+        // Tests below apply only to real monsters.
+        if (md->bitfields & M_CANT_SPAWN)
             continue;
 
-        if (md->weight && !md->corpse_thingy)
-            fails += make_stringf("%s has a corpse but no corpse_type\n", name);
-        if (md->weight && !md->zombie_size)
-            fails += make_stringf("%s has a corpse but no zombie_size\n", name);
+        if (md->weight < 0)
+        {
+            fails += make_stringf("%s has negative mass: %d\n", name,
+                                  md->weight);
+        } else if (md->corpse_thingy && !md->weight && md->species == mc)
+            fails += make_stringf("%s drops a nil-weight corpse", name);
+
+        if (!md->hpdice[0] && md->basechar != 'Z') // derived undead...
+            fails += make_stringf("%s has 0 HD: %d\n", name, md->hpdice[0]);
+
+        if (md->basechar == ' ')
+            fails += make_stringf("%s has an empty glyph\n", name);
+
+        if (md->AC < 0 && !mons_is_job(mc))
+            fails += make_stringf("%s has negative AC\n", name);
+        if (md->ev < 0 && !mons_is_job(mc))
+            fails += make_stringf("%s has negative EV\n", name);
+        if (md->exp_mod < 0)
+            fails += make_stringf("%s has negative xp mod\n", name);
+
+        if (md->speed < 0)
+            fails += make_stringf("%s has 0 speed\n", name);
+        else if (md->speed == 0 && !mons_class_is_firewood(mc)
+            && mc != MONS_HYPERACTIVE_BALLISTOMYCETE)
+        {
+            fails += make_stringf("%s has 0 speed\n", name);
+        }
     }
 
     if (!fails.empty())
@@ -4882,7 +4910,7 @@ void update_monster_symbol(monster_type mtype, cglyph_t md)
         monster_symbols[mtype].colour = md.col;
 }
 
-void fixup_spells(monster_spells &spells, int hd, bool wizard, bool priest)
+void fixup_spells(monster_spells &spells, int hd)
 {
     unsigned count = 0;
     for (unsigned int i = 0; i < spells.size(); i++)
@@ -4892,12 +4920,7 @@ void fixup_spells(monster_spells &spells, int hd, bool wizard, bool priest)
 
         count++;
 
-        if (wizard)
-            spells[i].flags |= MON_SPELL_WIZARD;
-        else if (priest)
-            spells[i].flags |= MON_SPELL_PRIEST;
-        else
-            spells[i].flags |= MON_SPELL_MAGICAL; // rip
+        spells[i].flags |= MON_SPELL_WIZARD;
 
         if (i == NUM_MONSTER_SPELL_SLOTS - 1)
             spells[i].flags |= MON_SPELL_EMERGENCY;

@@ -50,7 +50,7 @@ attack::attack(actor *attk, actor *defn, actor *blame)
       damage_done(0), special_damage(0), aux_damage(0), min_delay(0),
       final_attack_delay(0), special_damage_flavour(BEAM_NONE),
       stab_attempt(false), stab_bonus(0), apply_bleeding(false),
-      noise_factor(0), ev_margin(0), weapon(NULL),
+      ev_margin(0), weapon(NULL),
       damage_brand(SPWPN_NORMAL), wpn_skill(SK_UNARMED_COMBAT),
       shield(NULL), art_props(0), unrand_entry(NULL),
       attacker_to_hit_penalty(0), attack_verb("bug"), verb_degree(),
@@ -1010,13 +1010,11 @@ void attack::do_miscast()
     string hand_str;
 
     string cause = atk_name(DESC_THE);
-    int    source;
 
     const int ignore_mask = ISFLAG_KNOW_CURSE | ISFLAG_KNOW_PLUSES;
 
     if (attacker->is_player())
     {
-        source = NON_MONSTER;
         if (chaos_brand)
         {
             cause = "a chaos effect from ";
@@ -1031,8 +1029,6 @@ void attack::do_miscast()
     }
     else
     {
-        source = attacker->mindex();
-
         if (chaos_brand && miscast_target == attacker
             && you.can_see(attacker))
         {
@@ -1040,8 +1036,9 @@ void attack::do_miscast()
         }
     }
 
-    MiscastEffect(miscast_target, source, (spschool_flag_type) miscast_type,
-                  miscast_level, cause, NH_NEVER, 0, hand_str, false);
+    MiscastEffect(miscast_target, attacker, MELEE_MISCAST,
+                  (spschool_flag_type) miscast_type, miscast_level, cause,
+                  NH_NEVER, 0, hand_str, false);
 
     // Don't do miscast twice for one attack.
     miscast_level = -1;

@@ -346,52 +346,11 @@ int monster::body_weight(bool /*base*/) const
 
     int weight = mons_weight(mc);
 
-    // weight == 0 in the monster entry indicates "no corpse".  Can't
-    // use CE_NOCORPSE, because the corpse-effect field is used for
-    // corpseless monsters to indicate what happens if their blood
-    // is sucked.  Grrrr.
-    if (weight == 0 && !is_insubstantial())
-    {
-        weight = actor::body_weight();
+    if (type == MONS_SPECTRAL_THING)
+        weight = 0;
 
-        switch (mc)
-        {
-        case MONS_IRON_IMP:
-            weight += 450;
-            break;
-
-        case MONS_RUST_DEVIL:
-            weight += 550;
-            break;
-
-        case MONS_EARTH_ELEMENTAL:
-        case MONS_CRYSTAL_GUARDIAN:
-            weight *= 2;
-            break;
-
-        case MONS_IRON_DRAGON:
-        case MONS_IRON_GOLEM:
-            weight *= 3;
-            break;
-
-        case MONS_QUICKSILVER_DRAGON:
-        case MONS_OBSIDIAN_STATUE:
-        case MONS_STATUE:
-            weight *= 4;
-            break;
-
-        case MONS_SHADOW_FIEND:
-        case MONS_SHADOW_IMP:
-        case MONS_SHADOW_DEMON:
-            weight /= 3;
-            break;
-
-        default: ;
-        }
-
-        if (is_skeletal() || mons_genus(mc) == MONS_LICH)
-            weight /= 2;
-    }
+    if (type == MONS_SKELETON)
+        weight /= 2;
 
     // Slime creature weight is multiplied by the number merged.
     if (mc == MONS_SLIME_CREATURE && blob_size > 1)
@@ -3404,13 +3363,11 @@ int monster::base_armour_class() const
         return _zombie_ac_modifier(type) + base_ac;
     }
 
-    // abominations & hell beasts are weird.
+    // abominations are weird.
     if (type == MONS_ABOMINATION_LARGE)
         return min(20, 7 + get_hit_dice() / 2);
     if (type == MONS_ABOMINATION_SMALL)
         return min(10, 3 + get_hit_dice() * 2 / 3);
-    if (type == MONS_HELL_BEAST)
-        return max(0, get_hit_dice() - 2);
 
     const int base_ac = get_monster_data(type)->AC;
 
@@ -3523,13 +3480,11 @@ int monster::base_evasion() const
         return _zombie_ev_modifier(type) + base_ev;
     }
 
-    // abominations & hell beasts are weird.
+    // abominations are weird.
     if (type == MONS_ABOMINATION_LARGE)
         return min(20, 2 * get_hit_dice() / 3);
     if (type == MONS_ABOMINATION_SMALL)
         return min(10, 4 + get_hit_dice());
-    if (type == MONS_HELL_BEAST)
-        return 7 + get_hit_dice();
 
     const int base_ev = get_monster_data(type)->ev;
 

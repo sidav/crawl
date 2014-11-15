@@ -941,7 +941,7 @@ static void _mummy_curse(monster* mons, killer_type killer, int index)
             mprf(MSGCH_MONSTER_SPELL, "A malignant aura surrounds %s.",
                  target->name(DESC_THE).c_str());
         }
-        MiscastEffect(target, mons->mindex(), SPTYP_NECROMANCY,
+        MiscastEffect(target, mons, MISC_MISCAST, SPTYP_NECROMANCY,
                       pow, random2avg(88, 3), "a mummy death curse");
     }
 }
@@ -2235,11 +2235,14 @@ int monster_die(monster* mons, killer_type killer,
             if (mons->friendly() && !mons_is_object(mons->type))
             {
                 const int mon_intel = mons_class_intel(mons->type) - I_ANIMAL;
+                // plant HD aren't very meaningful. (fedhas hack)
+                const int severity = mons->holiness() == MH_PLANT ?
+                                     1 :
+                                     1 + (mons->get_experience_level() / 4);
 
                 did_god_conduct(mon_intel > 0 ? DID_SOULED_FRIEND_DIED
                                               : DID_FRIEND_DIED,
-                                1 + (mons->get_experience_level() / 2),
-                                true, mons);
+                                severity, true, mons);
             }
 
             if (pet_kill && fedhas_protects(mons))
@@ -3148,14 +3151,6 @@ string summoned_poof_msg(const monster* mons, bool plural)
     msg = make_stringf(msg.c_str(), plural ? "" : "s");
 
     return msg;
-}
-
-string summoned_poof_msg(const int midx, const item_def &item)
-{
-    if (midx == NON_MONSTER)
-        return summoned_poof_msg(static_cast<const monster* >(NULL), item);
-    else
-        return summoned_poof_msg(&menv[midx], item);
 }
 
 string summoned_poof_msg(const monster* mons, const item_def &item)

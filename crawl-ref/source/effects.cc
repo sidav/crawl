@@ -524,17 +524,17 @@ void direct_effect(monster* source, spell_type spell,
     case SPELL_CHAOTIC_MIRROR:
         if (x_chance_in_y(4, 10))
         {
-            pbolt.name = "reflection of chaos";
-            pbolt.source_id = source->mid;
-            pbolt.aux_source = "chaotic mirror";
-            pbolt.hit = AUTOMATIC_HIT;
-            pbolt.is_beam = true;
-            pbolt.ench_power = MAG_IMMUNE;
-            pbolt.real_flavour = BEAM_CHAOTIC_REFLECTION;
+            pbolt.name                  = "reflection of chaos";
+            pbolt.source_id             = source->mid;
+            pbolt.aux_source            = "chaotic mirror";
+            pbolt.hit                   = AUTOMATIC_HIT;
+            pbolt.pierce                = true;
+            pbolt.ench_power            = MAG_IMMUNE;
+            pbolt.real_flavour          = BEAM_CHAOTIC_REFLECTION;
             pbolt.fake_flavour();
-            pbolt.real_flavour = pbolt.flavour;
-            pbolt.damage = dice_def(1, 6);
-            pbolt.use_target_as_pos = true;
+            pbolt.real_flavour          = pbolt.flavour;
+            pbolt.damage                = dice_def(1, 6);
+            pbolt.use_target_as_pos     = true;
             pbolt.source = pbolt.target = defender->pos();
             pbolt.affect_actor(defender);
             pbolt.source = pbolt.target = source->pos();
@@ -1254,7 +1254,7 @@ static void _hell_effects(int time_delta)
         else                // 1 in 8 odds {dlb}
             which_miscast = coinflip() ? SPTYP_HEXES : SPTYP_CHARMS;
 
-        MiscastEffect(&you, HELL_EFFECT_MISCAST, which_miscast,
+        MiscastEffect(&you, NULL, HELL_EFFECT_MISCAST, which_miscast,
                       4 + random2(6), random2avg(97, 3),
                       "the effects of Hell");
     }
@@ -1297,7 +1297,7 @@ static void _hell_effects(int time_delta)
         }
         else
         {
-            MiscastEffect(&you, HELL_EFFECT_MISCAST, which_miscast,
+            MiscastEffect(&you, NULL, HELL_EFFECT_MISCAST, which_miscast,
                           4 + random2(6), random2avg(97, 3),
                           "the effects of Hell");
         }

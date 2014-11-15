@@ -107,7 +107,7 @@ LUAFN(debug_reveal_mimics)
 {
     for (rectangle_iterator ri(1); ri; ++ri)
         if (mimic_at(*ri))
-            discover_mimic(*ri, false);
+            discover_mimic(*ri);
     return 0;
 }
 
@@ -155,7 +155,7 @@ LUAFN(debug_bouncy_beam)
     beam.flavour    = BEAM_ELECTRICITY;
     beam.source     = source;
     beam.target     = target;
-    beam.is_beam    = true;
+    beam.pierce     = true;
     beam.draw_delay = 0;
 
     if (findray)
