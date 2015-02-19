@@ -1,3 +1,27 @@
+Stone Soup 0.15.2 (20141018)
+----------------------------
+* Assorted crash fixes, bug fixes, and display cleanups.
+* Always weight formicid weapon acquirement towards two-handed weapons.
+* Allow in-game updates to the mon_glyph option to change the glyph.
+* Allow the option syntax of mon_glyph = <mon1>:<mon2> in order to set the
+  color/glyph of one monster using the base values of another monster.
+* In tiles, the tile_player_tile option allows you to specify an arbitrary
+  monster tile to display for your character. The options tile_weapon_offsets
+  and tile_shield_offsets can be used to adjust the player weapon and shield
+  location when using these custom tiles.
+* For use with tile_player_tile: the old orb guardian tile, a new monster
+  vampire tile, and weapon/shield offsets for various monster tiles.
+
+Stone Soup 0.15.1 (20140915)
+----------------------------
+* Assorted crash fixes.
+* Monsters don't benefit from player throwing skill.
+* Monsters no longer flee at random on re-entering a level after a short time.
+* Several messages correctly no longer appear for out-of-sight monster
+  actions.
+* Dithmenos' stealth bonus works properly again.
+* Several spell icons that missed the initial 0.15 release.
+
 Stone Soup 0.15 (20140828)
 --------------------------
 * New god: Qazlal Stormbringer.
@@ -211,6 +235,7 @@ Items
 * Cleaving hits the full eight squares around a player, when not blocked by
   walls.
 * Putting on or taking off armour now always takes five turns.
+* Scrolls of magic mapping now show 100% of the map.
 * Gloves of archery no longer penalise melee.
 * Sustain abilities effects no longer stack.
 * Amulets of resist corrosion now give only 50% corrosion resistance, from 90%.

@@ -9,7 +9,6 @@
 #include "describe.h"
 #include "itemname.h"
 #include "itemprop.h"
-#include "options.h"
 #include "player.h"
 #include "tiledef-player.h"
 #include "tiledef-unrand.h"
@@ -326,7 +325,6 @@ tileidx_t tilep_equ_armour(const item_def &item)
     case ARM_ROBE:
         return _modrng(item.rnd, TILEP_BODY_ROBE_FIRST_NORM,
                        TILEP_BODY_ROBE_LAST_NORM);
-
     case ARM_LEATHER_ARMOUR:
         return tileidx_enchant_equ(item, TILEP_BODY_LEATHER_ARMOUR, true);
     case ARM_RING_MAIL:          return TILEP_BODY_RINGMAIL;
@@ -509,11 +507,7 @@ tileidx_t tileidx_player()
         case TRAN_APPENDAGE:
         case TRAN_NONE:
         default:
-            {
-                if (Options.tile_show_player_species)
-                    ch = tileidx_player_mons();
-                break;
-            }
+            break;
     }
 
     // Currently, the flying flag is only used for not drawing the tile in the

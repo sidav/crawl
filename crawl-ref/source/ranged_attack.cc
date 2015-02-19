@@ -353,7 +353,7 @@ int ranged_attack::weapon_damage()
     }
     if (using_weapon())
         dam += property(*weapon, PWPN_DAMAGE);
-    else
+    else if (attacker->is_player())
         dam += calc_base_unarmed_damage();
 
     return dam;
@@ -656,6 +656,7 @@ bool ranged_attack::apply_missile_brand()
     if (projectile->base_type != OBJ_MISSILES)
         return false;
 
+    special_damage = 0;
     special_missile_type brand = get_ammo_brand(*projectile);
     if (brand == SPMSL_CHAOS)
         brand = random_chaos_missile_brand();
@@ -674,7 +675,7 @@ bool ranged_attack::apply_missile_brand()
                                     defender->is_icy() ? "melt" : "burn",
                                     projectile->name(DESC_THE).c_str());
         defender->expose_to_element(BEAM_FIRE);
-        attacker->god_conduct(DID_FIRE, 2);
+        attacker->god_conduct(DID_FIRE, 1);
         break;
     case SPMSL_FROST:
         if (using_weapon()
@@ -682,7 +683,7 @@ bool ranged_attack::apply_missile_brand()
         {
             break;
         }
-        calc_elemental_brand_damage(BEAM_COLD, defender->res_fire(), "freeze",
+        calc_elemental_brand_damage(BEAM_COLD, defender->res_cold(), "freeze",
                                     projectile->name(DESC_THE).c_str());
         defender->expose_to_element(BEAM_COLD, 2);
         break;

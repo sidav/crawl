@@ -31,8 +31,12 @@
 #include "kills.h"
 #include "files.h"
 #include "defines.h"
+#ifdef USE_TILE
+#include "tilepick.h"
+#include "tiledef-player.h"
 #ifdef USE_TILE_WEB
- #include "tileweb.h"
+#include "tileweb.h"
+#endif
 #endif
 #include "invent.h"
 #include "itemprop.h"
@@ -875,7 +879,6 @@ void game_options::reset_options()
 #endif
     use_fake_player_cursor = true;
     show_player_species    = false;
-
     explore_stop           = (ES_ITEM | ES_STAIR | ES_PORTAL | ES_BRANCH
                               | ES_SHOP | ES_ALTAR | ES_RUNED_DOOR
                               | ES_GREEDY_PICKUP_SMART
@@ -1058,7 +1061,12 @@ void game_options::reset_options()
     tile_water_anim          = true;
 #endif
     tile_misc_anim           = true;
-    tile_show_player_species = false;
+    tile_use_monster         = MONS_PROGRAM_BUG;
+    tile_player_tile         = 0;
+    tile_weapon_offsets.first  = INT_MAX;
+    tile_weapon_offsets.second = INT_MAX;
+    tile_shield_offsets.first  = INT_MAX;
+    tile_shield_offsets.second = INT_MAX;
 #endif
 
 #ifdef USE_TILE_WEB
@@ -1229,29 +1237,26 @@ void game_options::add_fire_order_slot(const string &s, bool prepend)
     }
 }
 
-void game_options::add_mon_glyph_overrides(const string &mons,
-                                           cglyph_t &mdisp)
+static monster_type _mons_class_by_string(const string &name)
 {
     // If one character, this is a monster letter.
-    int letter = -1;
-    if (mons.length() == 1)
-        letter = mons[0] == '_' ? ' ' : mons[0];
+    ucs_t letter = -1;
+    if (name.length() == 1)
+        letter = name[0];
 
-    bool found = false;
     for (monster_type i = MONS_0; i < NUM_MONSTERS; ++i)
     {
         const monsterentry *me = get_monster_data(i);
         if (!me || me->mc == MONS_PROGRAM_BUG)
             continue;
 
-        if (me->basechar == letter || me->name == mons)
+        if ((ucs_t) me->basechar == letter
+              || lowercase_string(me->name) == lowercase_string(name))
         {
-            found = true;
-            mon_glyph_overrides[i] = mdisp;
+            return i;
         }
     }
-    if (!found)
-        report_error("Unknown monster: \"%s\"", mons.c_str());
+    return MONS_0;
 }
 
 cglyph_t game_options::parse_mon_glyph(const string &s) const
@@ -1277,9 +1282,34 @@ void game_options::add_mon_glyph_override(const string &text)
     if (override.size() != 2u)
         return;
 
-    cglyph_t mdisp = parse_mon_glyph(override[1]);
+    const monster_type m = _mons_class_by_string(override[0]);
+    if (m == MONS_0) {
+        report_error("Unknown monster: \"%s\"", text.c_str());
+        return;
+    }
+
+    cglyph_t mdisp;
+
+    // Look for monsters first so that "blue devil" works right.
+    const monster_type n = _mons_class_by_string(override[1]);
+    if (n != MONS_0)
+    {
+        const monsterentry *me = get_monster_data(n);
+        mdisp.ch = me->basechar;
+        mdisp.col = me->colour;
+    }
+    else
+        mdisp = parse_mon_glyph(override[1]);
+
     if (mdisp.ch || mdisp.col)
-        add_mon_glyph_overrides(override[0], mdisp);
+    {
+        mon_glyph_overrides[m] = mdisp;
+        
+        // Ideally we'd not set this at game start only to have it overwritten
+        // in the monster init, but we need monster symbols to be updated when
+        // the option changes in-game.
+        update_monster_symbol(m, mdisp);
+    }
 }
 
 void game_options::add_item_glyph_override(const string &text)
@@ -1842,6 +1872,110 @@ static int _str_to_killcategory(const string &s)
 
     return -1;
 }
+
+#ifdef USE_TILE
+void game_options::set_player_tile(const string &field)
+{
+    if (field == "normal")
+    {
+        tile_use_monster = MONS_0;
+        tile_player_tile = 0;
+        return;
+    }
+    else if (field == "playermons")
+    {
+        tile_use_monster = MONS_PLAYER;
+        tile_player_tile = 0;
+        return;
+    }
+
+    vector<string> fields = split_string(":", field);
+    // Handle tile:<tile-name> values
+    if (fields.size() == 2 && fields[0] == "tile")
+    {
+        // A variant tile. We have to find the base tile to look this up inthe
+        // tile index.
+        if (isdigit(*(fields[1].rbegin())))
+        {
+            string base_tname = fields[1];
+            size_t found = base_tname.rfind('_');
+            int offset = 0;
+            tileidx_t base_tile = 0;
+            if (found != std::string::npos
+                && parse_int(fields[1].substr(found + 1).c_str(), offset))
+            {
+                base_tname = base_tname.substr(0, found);
+                if (!tile_player_index(base_tname.c_str(), &base_tile))
+                {
+                    report_error("Can't find base tile \"%s\" of variant "
+                                 "tile \"%s\"", base_tname.c_str(),
+                                 fields[1].c_str());
+                    return;
+                }
+                tile_player_tile = tileidx_mon_clamp(base_tile, offset);
+            }
+        }
+        else if (!tile_player_index(fields[1].c_str(), &tile_player_tile))
+        {
+            report_error("Unknown tile: \"%s\"", fields[1].c_str());
+            return;
+        }
+        tile_use_monster = MONS_PLAYER;
+    }
+    else if (fields.size() == 2 && fields[0] == "mons")
+    {
+        // Handle mons:<monster-name> values
+        const monster_type m = _mons_class_by_string(fields[1]);
+        if (m == MONS_0)
+            report_error("Unknown monster: \"%s\"", fields[1].c_str());
+        else
+        {
+            tile_use_monster = m;
+            tile_player_tile = 0;
+        }
+    }
+    else
+    {
+        report_error("Invalid setting for tile_player_tile: \"%s\"",
+                     field.c_str());
+    }
+}
+
+void game_options::set_tile_offsets(const string &field, bool set_shield)
+{
+    bool error = false;
+    pair<int, int> *offsets;
+    if (set_shield)
+        offsets = &tile_shield_offsets;
+    else
+        offsets = &tile_weapon_offsets;
+
+    if (field == "reset")
+    {
+        offsets->first = INT_MAX;
+        offsets->second = INT_MAX;
+        return;
+    }
+
+    vector<string> offs = split_string(",", field);
+    if (offs.size() != 2
+        || !parse_int(offs[0].c_str(), offsets->first)
+        || abs(offsets->first) > 32
+        || !parse_int(offs[1].c_str(), offsets->second)
+        || abs(offsets->second) > 32)
+    {
+        report_error("Invalid %s tile offsets: \"%s\"",
+                     set_shield ? "shield" : "weapon", field.c_str());
+        error = true;
+    }
+
+    if (error)
+    {
+        offsets->first = INT_MAX;
+        offsets->second = INT_MAX;
+    }
+}
+#endif // USE_TILE
 
 void game_options::do_kill_map(const string &from, const string &to)
 {
@@ -3513,8 +3647,18 @@ void game_options::read_option_line(const string &str, bool runscript)
     else BOOL_OPTION(tile_show_demon_tier);
     else BOOL_OPTION(tile_water_anim);
     else BOOL_OPTION(tile_misc_anim);
-    else BOOL_OPTION(tile_show_player_species);
+    else if (key == "tile_show_player_species" && field == "true")
+    {
+        field = "playermons";
+        set_player_tile(field);
+    }
     else LIST_OPTION(tile_layout_priority);
+    else if (key == "tile_player_tile")
+        set_player_tile(field);
+    else if (key == "tile_weapon_offsets")
+        set_tile_offsets(field, false);
+    else if (key == "tile_shield_offsets")
+        set_tile_offsets(field, true);
     else if (key == "tile_tag_pref")
         tile_tag_pref = _str_to_tag_pref(field.c_str());
 #ifdef USE_TILE_WEB

@@ -4,7 +4,9 @@
 #include "tilemcache.h"
 
 #include "env.h"
+#include "mon-info.h"
 #include "mon-util.h"
+#include "options.h"
 #include "tiledef-player.h"
 #include "tilepick.h"
 #include "tilepick-p.h"
@@ -49,6 +51,7 @@ public:
     static bool get_shield_offset(tileidx_t mon_tile, int *ofs_x, int *ofs_y);
 
 protected:
+    monster_type mtype;
     tileidx_t m_mon_tile;
     tileidx_t m_equ_tile;
     tileidx_t m_shd_tile;
@@ -218,6 +221,7 @@ mcache_monster::mcache_monster(const monster_info& mon)
 {
     ASSERT(mcache_monster::valid(mon));
 
+    mtype = mon.type;
     m_mon_tile = tileidx_monster(mon) & TILE_FLAG_MASK;
 
     const item_info* mon_weapon = mon.inv[MSLOT_WEAPON].get();
@@ -333,9 +337,7 @@ bool mcache_monster::get_weapon_offset(tileidx_t mon_tile,
     case TILEP_MONS_SPRIGGAN_DEFENDER:
     case TILEP_MONS_SPRIGGAN_BERSERKER:
     case TILEP_MONS_MERFOLK:
-    case TILEP_MONS_MERFOLK_WATER:
     case TILEP_MONS_MERFOLK_JAVELINEER:
-    case TILEP_MONS_MERFOLK_JAVELINEER_WATER:
         *ofs_x = -1;
         *ofs_y = 0;
         break;
@@ -350,7 +352,6 @@ bool mcache_monster::get_weapon_offset(tileidx_t mon_tile,
     case TILEP_MONS_TIAMAT+7:
     case TILEP_MONS_TIAMAT+8:
     case TILEP_MONS_MERFOLK_IMPALER:
-    case TILEP_MONS_MERFOLK_IMPALER_WATER:
     case TILEP_MONS_TENGU:
     case TILEP_MONS_TENGU_CONJURER:
     case TILEP_MONS_TENGU_WARRIOR:
@@ -437,11 +438,8 @@ bool mcache_monster::get_weapon_offset(tileidx_t mon_tile,
     case TILEP_MONS_UNBORN:
     case TILEP_MONS_JORGRUN:
     case TILEP_MONS_MERMAID:
-    case TILEP_MONS_MERMAID_WATER:
     case TILEP_MONS_SIREN:
-    case TILEP_MONS_SIREN_WATER:
     case TILEP_MONS_ILSUIW:
-    case TILEP_MONS_ILSUIW_WATER:
     case TILEP_MONS_DIMME:
     case TILEP_MONS_HALFLING:
         *ofs_x = 0;
@@ -455,11 +453,17 @@ bool mcache_monster::get_weapon_offset(tileidx_t mon_tile,
     case TILEP_MONS_DEEP_ELF_DEMONOLOGIST:
     case TILEP_MONS_DEEP_ELF_ANNIHILATOR:
     case TILEP_MONS_MINOTAUR:
+    case TILEP_MONS_VAMPIRE:
+    case TILEP_MONS_MERFOLK_IMPALER_WATER:
         *ofs_x = -1;
         *ofs_y = -2;
         break;
     case TILEP_MONS_CENTAUR_MELEE:
+        *ofs_x = -3;
+        *ofs_y = -3;
+        break;
     case TILEP_MONS_DEMIGOD:
+    case TILEP_MONS_KIRKE:
         *ofs_x = -1;
         *ofs_y = -3;
         break;
@@ -478,7 +482,6 @@ bool mcache_monster::get_weapon_offset(tileidx_t mon_tile,
         break;
     case TILEP_MONS_DEEP_ELF_ELEMENTALIST:
     case TILEP_MONS_MERFOLK_AQUAMANCER:
-    case TILEP_MONS_MERFOLK_AQUAMANCER_WATER:
     case TILEP_MONS_FORMICID:
         *ofs_x = -2;
         *ofs_y = -1;
@@ -502,6 +505,9 @@ bool mcache_monster::get_weapon_offset(tileidx_t mon_tile,
     case TILEP_MONS_MASTER_ELEMENTALIST:
     case TILEP_MONS_JESSICA:
     case TILEP_MONS_ANGEL:
+    case TILEP_MONS_MERFOLK_WATER:
+    case TILEP_MONS_MERFOLK_JAVELINEER_WATER:
+    case TILEP_MONS_MERFOLK_AQUAMANCER_WATER:
         *ofs_x = 1;
         *ofs_y = -1;
         break;
@@ -534,6 +540,10 @@ bool mcache_monster::get_weapon_offset(tileidx_t mon_tile,
     case TILEP_MONS_ELF:
         *ofs_x = 2;
         *ofs_y = -3;
+        break;
+    case TILEP_MONS_GHOST:
+        *ofs_x = 3;
+        *ofs_y = -4;
         break;
     case TILEP_MONS_FRANCES: // left-handed
         *ofs_x = 20;
@@ -594,6 +604,157 @@ bool mcache_monster::get_weapon_offset(tileidx_t mon_tile,
         *ofs_x = 6;
         *ofs_y = 2;
         break;
+    case TILEP_MONS_TROLL:
+        *ofs_x = -3;
+        *ofs_y = 11;
+        break;
+    case TILEP_MONS_GHOUL:
+        *ofs_x = -3;
+        *ofs_y = -3;
+        break;
+    case TILEP_MONS_ORB_OF_FIRE:
+        *ofs_x = 0;
+        *ofs_y = 2;
+        break;
+    case TILEP_MONS_TENTACLED_MONSTROSITY:
+    case TILEP_MONS_CIGOTUVIS_MONSTER:
+        *ofs_x = -4;
+        *ofs_y = 2;
+        break;
+    case TILEP_MONS_SERPENT_OF_HELL_GEHENNA:
+    case TILEP_MONS_SERPENT_OF_HELL_COCYTUS:
+    case TILEP_MONS_SERPENT_OF_HELL_DIS:
+    case TILEP_MONS_SERPENT_OF_HELL_TARTARUS:
+        *ofs_x = -4;
+        *ofs_y = 3;
+        break;
+    case TILEP_MONS_UNSEEN_HORROR:
+        *ofs_x = -4;
+        *ofs_y = -4;
+        break;
+    case TILEP_MONS_UGLY_THING:
+    case TILEP_MONS_UGLY_THING_1:
+    case TILEP_MONS_UGLY_THING_2:
+    case TILEP_MONS_UGLY_THING_3:
+    case TILEP_MONS_UGLY_THING_4:
+    case TILEP_MONS_UGLY_THING_5:
+        *ofs_x = -4;
+        *ofs_y = -7;
+        break;
+    case TILEP_MONS_VERY_UGLY_THING:
+    case TILEP_MONS_VERY_UGLY_THING_1:
+    case TILEP_MONS_VERY_UGLY_THING_2:
+    case TILEP_MONS_VERY_UGLY_THING_3:
+    case TILEP_MONS_VERY_UGLY_THING_4:
+    case TILEP_MONS_VERY_UGLY_THING_5:
+        *ofs_x = -3;
+        *ofs_y = 4;
+        break;
+    case TILEP_MONS_ORANGE_STATUE:
+        *ofs_x = 3;
+        *ofs_y = -4;
+        break;
+    case TILEP_MONS_LOROCYPROCA:
+        *ofs_x = -4;
+        *ofs_y = 6;
+        break;
+    case TILEP_MONS_HELLION:
+        *ofs_x = -1;
+        *ofs_y = 4;
+        break;
+    case TILEP_MONS_CACODEMON:
+        *ofs_x = -3;
+        *ofs_y = -13;
+        break;
+    case TILEP_MONS_STARCURSED_MASS:
+        *ofs_x = -4;
+        *ofs_y = 4;
+        break;
+    case TILEP_MONS_WRETCHED_STAR:
+        *ofs_x = 1;
+        *ofs_y = -4;
+        break;
+    case TILEP_MONS_ELDRITCH_TENTACLE_PORTAL_9:
+        *ofs_x = -2;
+        *ofs_y = -3;
+        break;
+    case TILEP_MONS_EXECUTIONER:
+        *ofs_x = -4;
+        *ofs_y = 4;
+        break;
+    case TILEP_MONS_ICE_FIEND:
+        *ofs_x = 1;
+        *ofs_y = 2;
+        break;
+    case TILEP_MONS_PANDEMONIUM_LORD:
+        *ofs_x = -2;
+        *ofs_y = 0;
+        break;
+    case TILEP_MONS_HELL_SENTINEL:
+        *ofs_x = -1;
+        *ofs_y = 4;
+        break;
+    case TILEP_MONS_DEMONIC_PLANT:
+        *ofs_x = -1;
+        *ofs_y = 2;
+        break;
+    case TILEP_MONS_TENTACLED_STARSPAWN:
+        *ofs_x = -1;
+        *ofs_y = 1;
+        break;
+    case TILEP_MONS_ABOMINATION_LARGE_1:
+        *ofs_x = -2;
+        *ofs_y = -8;
+        break;
+    case TILEP_MONS_ABOMINATION_LARGE_2:
+        *ofs_x = -3;
+        *ofs_y = 0;
+        break;
+    case TILEP_MONS_ABOMINATION_LARGE_3:
+        *ofs_x = -4;
+        *ofs_y = -5;
+        break;
+    case TILEP_MONS_ABOMINATION_LARGE_4:
+        *ofs_x = -3;
+        *ofs_y = -10;
+        break;
+    case TILEP_MONS_ABOMINATION_LARGE_6:
+        *ofs_x = -4;
+        *ofs_y = -11;
+        break;
+    case TILEP_MONS_CHAOS_SPAWN:
+        *ofs_x = 0;
+        *ofs_y = -5;
+        break;
+    case TILEP_MONS_CHAOS_SPAWN_2:
+        *ofs_x = 2;
+        *ofs_y = -3;
+        break;
+    case TILEP_MONS_CHAOS_SPAWN_3:
+        *ofs_x = -2;
+        *ofs_y = -1;
+        break;
+    case TILEP_MONS_GREAT_ORB_OF_EYES:
+        *ofs_x = -2;
+        *ofs_y = -2;
+        break;
+    case TILEP_MONS_ILSUIW_WATER:
+        *ofs_x = 3;
+        *ofs_y = 2;
+        break;
+    case TILEP_MONS_MERMAID_WATER:
+    case TILEP_MONS_SIREN_WATER:
+        *ofs_x = 5;
+        *ofs_y = 2;
+        break;
+    case TILEP_MONS_ORB_GUARDIAN:
+        *ofs_x = -1;
+        *ofs_y = 2;
+        break;
+    case TILEP_MONS_ORB_GUARDIAN_FETUS:
+        *ofs_x = 4;
+        *ofs_y = -7;
+        break;
     default:
         // This monster cannot be displayed with a weapon.
         return false;
@@ -616,6 +777,14 @@ bool mcache_monster::get_shield_offset(tileidx_t mon_tile,
     case TILEP_MONS_ORC_PRIEST:
     case TILEP_MONS_ORC_WARRIOR:
     case TILEP_MONS_ORC_KNIGHT:
+    case TILEP_MONS_KIRKE:
+    case TILEP_MONS_MERMAID:
+    case TILEP_MONS_MERMAID_WATER:
+    case TILEP_MONS_SIREN:
+    case TILEP_MONS_SIREN_WATER:
+    case TILEP_MONS_ILSUIW:
+    case TILEP_MONS_ILSUIW_WATER:
+    case TILEP_MONS_DIMME:
         *ofs_x = 1;
         *ofs_y = 0;
         break;
@@ -734,6 +903,235 @@ bool mcache_monster::get_shield_offset(tileidx_t mon_tile,
         *ofs_y = 2;
         break;
 
+    case TILEP_MONS_KOBOLD:
+    case TILEP_MONS_SONJA:
+        *ofs_x = 3;
+        *ofs_y = -10;
+        break;
+
+    case TILEP_MONS_MUMMY:
+        *ofs_x = -6;
+        *ofs_y = 0;
+        break;
+
+    case TILEP_MONS_TROLL:
+        *ofs_x = 2;
+        *ofs_y = 7;
+        break;
+
+    case TILEP_MONS_GHOUL:
+    case TILEP_MONS_OGRE:
+        *ofs_x = 2;
+        *ofs_y = 1;
+        break;
+
+    case TILEP_MONS_GARGOYLE:
+        *ofs_x = -8;
+        *ofs_y = 1;
+        break;
+
+    case TILEP_MONS_CENTAUR_MELEE:
+        *ofs_x = -8;
+        *ofs_y = -4;
+        break;
+
+    case TILEP_MONS_HALFLING:
+        *ofs_x = -2;
+        *ofs_y = 5;
+        break;
+
+    case TILEP_MONS_DEEP_ELF_SUMMONER:
+    case TILEP_MONS_DEEP_ELF_DEMONOLOGIST:
+    case TILEP_MONS_DEEP_ELF_MAGE:
+    case TILEP_MONS_DEEP_ELF_CONJURER:
+        *ofs_x = 3;
+        *ofs_y = -7;
+        break;
+
+    case TILEP_MONS_ORB_OF_FIRE:
+        *ofs_x = -4;
+        *ofs_y = 2;
+        break;
+
+    case TILEP_MONS_TENTACLED_MONSTROSITY:
+    case TILEP_MONS_CIGOTUVIS_MONSTER:
+    case TILEP_MONS_SERPENT_OF_HELL_GEHENNA:
+    case TILEP_MONS_SERPENT_OF_HELL_COCYTUS:
+    case TILEP_MONS_SERPENT_OF_HELL_DIS:
+    case TILEP_MONS_SERPENT_OF_HELL_TARTARUS:
+        *ofs_x = 4;
+        *ofs_y = -1;
+        break;
+
+    case TILEP_MONS_UNSEEN_HORROR:
+        *ofs_x = 5;
+        *ofs_y = -1;
+        break;
+
+    case TILEP_MONS_UGLY_THING:
+    case TILEP_MONS_UGLY_THING_1:
+    case TILEP_MONS_UGLY_THING_2:
+    case TILEP_MONS_UGLY_THING_3:
+    case TILEP_MONS_UGLY_THING_4:
+    case TILEP_MONS_UGLY_THING_5:
+        *ofs_x = 4;
+        *ofs_y = -1;
+        break;
+
+    case TILEP_MONS_VERY_UGLY_THING:
+    case TILEP_MONS_VERY_UGLY_THING_1:
+    case TILEP_MONS_VERY_UGLY_THING_2:
+    case TILEP_MONS_VERY_UGLY_THING_3:
+    case TILEP_MONS_VERY_UGLY_THING_4:
+    case TILEP_MONS_VERY_UGLY_THING_5:
+        *ofs_x = 4;
+        *ofs_y = 5;
+        break;
+
+    case TILEP_MONS_ORANGE_STATUE:
+        *ofs_x = -2;
+        *ofs_y = -3;
+        break;
+
+    case TILEP_MONS_LOROCYPROCA:
+        *ofs_x = -3;
+        *ofs_y = 0;
+        break;
+
+    case TILEP_MONS_HELLION:
+        *ofs_x = 0;
+        *ofs_y = 4;
+        break;
+
+    case TILEP_MONS_CACODEMON:
+        *ofs_x = 4;
+        *ofs_y = -13;
+        break;
+
+    case TILEP_MONS_STARCURSED_MASS:
+        *ofs_x = -3;
+        *ofs_y = 2;
+        break;
+
+    case TILEP_MONS_WRETCHED_STAR:
+        *ofs_x = 1;
+        *ofs_y = -4;
+        break;
+
+    case TILEP_MONS_ELDRITCH_TENTACLE_PORTAL_9:
+        *ofs_x = 3;
+        *ofs_y = 0;
+        break;
+
+    case TILEP_MONS_EXECUTIONER:
+        *ofs_x = 2;
+        *ofs_y = 4;
+        break;
+
+    case TILEP_MONS_ICE_FIEND:
+        *ofs_x = -2;
+        *ofs_y = 2;
+        break;
+
+    case TILEP_MONS_PANDEMONIUM_LORD:
+        *ofs_x = 1;
+        *ofs_y = 1;
+        break;
+
+    case TILEP_MONS_HELL_SENTINEL:
+        *ofs_x = 4;
+        *ofs_y = -5;
+        break;
+
+    case TILEP_MONS_DEMONIC_PLANT:
+        *ofs_x = 5;
+        *ofs_y = 2;
+        break;
+
+    case TILEP_MONS_TENTACLED_STARSPAWN:
+        *ofs_x = 1;
+        *ofs_y = 1;
+        break;
+
+    case TILEP_MONS_GOBLIN:
+    case TILEP_MONS_IJYB:
+        *ofs_x = 1;
+        *ofs_y = 4;
+        break;
+
+    case TILEP_MONS_ABOMINATION_LARGE_1:
+        *ofs_x = 2;
+        *ofs_y = -8;
+        break;
+
+    case TILEP_MONS_ABOMINATION_LARGE_2:
+        *ofs_x = 2;
+        *ofs_y = 0;
+        break;
+
+    case TILEP_MONS_ABOMINATION_LARGE_3:
+        *ofs_x = -2;
+        *ofs_y = -2;
+        break;
+
+    case TILEP_MONS_ABOMINATION_LARGE_4:
+        *ofs_x = 2;
+        *ofs_y = -7;
+        break;
+
+    case TILEP_MONS_ABOMINATION_LARGE_6:
+        *ofs_x = 3;
+        *ofs_y = -10;
+        break;
+
+    case TILEP_MONS_CHAOS_SPAWN:
+        *ofs_x = 0;
+        *ofs_y = -5;
+        break;
+
+    case TILEP_MONS_CHAOS_SPAWN_2:
+        *ofs_x = 0;
+        *ofs_y = -2;
+        break;
+
+    case TILEP_MONS_CHAOS_SPAWN_3:
+        *ofs_x = 2;
+        *ofs_y = -1;
+        break;
+
+    case TILEP_MONS_GREAT_ORB_OF_EYES:
+    case TILEP_MONS_GHOST:
+        *ofs_x = 2;
+        *ofs_y = -2;
+        break;
+
+    case TILEP_MONS_MERFOLK_WATER:
+    case TILEP_MONS_MERFOLK_JAVELINEER_WATER:
+    case TILEP_MONS_MERFOLK_AQUAMANCER_WATER:
+        *ofs_x = 1;
+        *ofs_y = 3;
+        break;
+
+    case TILEP_MONS_MERFOLK_IMPALER_WATER:
+        *ofs_x = 0;
+        *ofs_y = 3;
+        break;
+
+    case TILEP_MONS_FRANCES: // left-handed - shield goes in right hand
+        *ofs_x = -20;
+        *ofs_y = -1;
+        break;
+
+    case TILEP_MONS_ORB_GUARDIAN:
+        *ofs_x = 1;
+        *ofs_y = 0;
+        break;
+
+    case TILEP_MONS_ORB_GUARDIAN_FETUS:
+        *ofs_x = -8;
+        *ofs_y = 5;
+        break;
+
     case TILEP_MONS_SPRIGGAN_RIDER: // shield covered, out of picture
     default:
         // This monster cannot be displayed with a shield.
@@ -749,12 +1147,40 @@ int mcache_monster::info(tile_draw_info *dinfo) const
     dinfo[count++].set(m_mon_tile);
 
     int ofs_x, ofs_y;
-    if (m_equ_tile && get_weapon_offset(m_mon_tile, &ofs_x, &ofs_y))
-        dinfo[count++].set(m_equ_tile, ofs_x, ofs_y);
 
-    if (m_shd_tile && get_shield_offset(m_mon_tile, &ofs_x, &ofs_y))
-        dinfo[count++].set(m_shd_tile, ofs_x, ofs_y);
+    if (m_equ_tile)
+    {
+        bool have_offs = false;
+        // This mcache is for the player using a custom tile.
+        if (mtype == MONS_PLAYER
+            && Options.tile_weapon_offsets.first != INT_MAX)
+        {
+            ofs_x = Options.tile_weapon_offsets.first;
+            ofs_y = Options.tile_weapon_offsets.second;
+            have_offs = true;
+        }
+        else if (get_weapon_offset(m_mon_tile, &ofs_x, &ofs_y))
+            have_offs = true;
 
+        if (have_offs)
+            dinfo[count++].set(m_equ_tile, ofs_x, ofs_y);
+    }
+    if (m_shd_tile)
+    {
+        bool have_offs = false;
+        if (mtype == MONS_PLAYER
+            && Options.tile_shield_offsets.first != INT_MAX)
+        {
+            ofs_x = Options.tile_shield_offsets.first;
+            ofs_y = Options.tile_shield_offsets.second;
+            have_offs = true;
+        }
+        else if (get_shield_offset(m_mon_tile, &ofs_x, &ofs_y))
+            have_offs = true;
+
+        if (have_offs)
+            dinfo[count++].set(m_shd_tile, ofs_x, ofs_y);
+    }
     return count;
 }
 
@@ -763,10 +1189,14 @@ bool mcache_monster::valid(const monster_info& mon)
     tileidx_t mon_tile = tileidx_monster(mon) & TILE_FLAG_MASK;
 
     int ox, oy;
-    return (mon.inv[MSLOT_WEAPON].get() != NULL
-            && get_weapon_offset(mon_tile, &ox, &oy))
-        || (mon.inv[MSLOT_SHIELD].get() != NULL
-            && get_shield_offset(mon_tile, &ox, &oy));
+    bool have_weapon_offs = (mon.type == MONS_PLAYER 
+                             && Options.tile_weapon_offsets.first != INT_MAX)
+        || get_weapon_offset(mon_tile, &ox, &oy);
+    bool have_shield_offs = (mon.type == MONS_PLAYER 
+                             && Options.tile_shield_offsets.first != INT_MAX)
+        || get_shield_offset(mon_tile, &ox, &oy);
+    return (mon.inv[MSLOT_WEAPON].get() != NULL && have_weapon_offs)
+        || (mon.inv[MSLOT_SHIELD].get() != NULL && have_shield_offs);
 }
 
 /////////////////////////////////////////////////////////////////////////////

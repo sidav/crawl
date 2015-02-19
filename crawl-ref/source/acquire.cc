@@ -455,11 +455,14 @@ static int _acquirement_weapon_subtype(bool divine, int & /*quantity*/)
     item_def item_considered;
     item_considered.base_type = OBJ_WEAPONS;
     // Let's guess the percentage of shield use the player did, this is
-    // based on empirical data where pure-shield MDs get skills like 17 sh 25 m&f
-    // and pure-shield Spriggans 7 sh 18 m&f.
-    int shield_sk = you.skills[SK_SHIELDS] * species_apt_factor(SK_SHIELDS);
-    int want_shield = min(2 * shield_sk, best_sk) + 10;
-    int dont_shield = max(best_sk - shield_sk, 0) + 10;
+    // based on empirical data where pure-shield MDs get skills like 17 sh
+    // 25 m&f and pure-shield Spriggans 7 sh 18 m&f.  Pretend formicid
+    // shield skill is 0 so they always weight towards 2H.
+    const int shield_sk = you.species == SP_FORMICID
+        ? 0
+        : you.skills[SK_SHIELDS] * species_apt_factor(SK_SHIELDS);
+    const int want_shield = min(2 * shield_sk, best_sk) + 10;
+    const int dont_shield = max(best_sk - shield_sk, 0) + 10;
     // At XL 10, weapons of the handedness you want get weight *2, those of
     // opposite handedness 1/2, assuming your shields usage is respectively
     // 0% or 100% in the above formula.  At skill 25 that's *3.5 .
@@ -712,7 +715,9 @@ static int _acquirement_wand_subtype(bool /*divine*/, int & /*quantity*/)
         case WAND_HASTING:          // each 17.9%, group unknown each 26.3%
             w = (you.species == SP_FORMICID ? 5 : 25); break;
         case WAND_TELEPORTATION:    // each 10.7%, group unknown each 17.6%
-            w = (you.species == SP_FORMICID ? 1 : 15); break;
+            w = you.species == SP_FORMICID || crawl_state.game_is_sprint()
+                ? 1 : 15;
+            break;
         case WAND_FIRE:             // each 5.7%, group unknown each 9.3%
         case WAND_COLD:
         case WAND_LIGHTNING:
@@ -1258,7 +1263,8 @@ int acquirement_create_item(object_class_type class_wanted,
             if (brand == SPWPN_PAIN
                 || is_unrandom_artefact(acq_item)
                    && (acq_item.special == UNRAND_TROG
-                       || acq_item.special == UNRAND_WUCAD_MU))
+                       || acq_item.special == UNRAND_WUCAD_MU
+                       || acq_item.special == UNRAND_MAJIN))
             {
                 destroy_item(thing_created, true);
                 thing_created = NON_ITEM;

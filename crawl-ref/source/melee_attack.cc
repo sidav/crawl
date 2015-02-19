@@ -3074,7 +3074,7 @@ void melee_attack::mons_apply_attack_flavour()
 
             monster *attkmon = attacker->as_monster();
             attkmon->set_hit_dice(attkmon->get_experience_level() - 1);
-            if (attkmon->get_hit_dice() <= 0)
+            if (attkmon->get_experience_level() <= 0)
                 attacker->as_monster()->suicide();
 
             if (defender_visible)
@@ -3364,6 +3364,7 @@ void melee_attack::mons_apply_attack_flavour()
             special_damage = attacker->get_hit_dice() * 3 / 4
                             + random2(attacker->get_hit_dice() * 3 / 4);
             special_damage_flavour = BEAM_WATER;
+            kill_type = KILLED_BY_WATER;
 
             if (needs_message)
             {

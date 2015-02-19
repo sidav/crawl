@@ -453,8 +453,11 @@ public:
     bool        tile_show_demon_tier;
     bool        tile_water_anim;
     bool        tile_misc_anim;
-    bool        tile_show_player_species;
     vector<string> tile_layout_priority;
+    monster_type tile_use_monster;
+    tileidx_t   tile_player_tile;
+    pair<int, int> tile_weapon_offsets;
+    pair<int, int> tile_shield_offsets;
 #ifdef USE_TILE_WEB
     bool        tile_realtime_anim;
     string      tile_display_mode;
@@ -519,12 +522,13 @@ private:
 
     void split_parse(const string &s, const string &separator,
                      void (game_options::*add)(const string &));
-    void add_mon_glyph_overrides(const string &mons, cglyph_t &mdisp);
     void add_mon_glyph_override(const string &);
     cglyph_t parse_mon_glyph(const string &s) const;
     void add_item_glyph_override(const string &);
     void set_option_fragment(const string &s);
     bool set_lang(const char *s);
+    void set_player_tile(const string &s);
+    void set_tile_offsets(const string &s, bool set_shield);
 
     static const string interrupt_prefix;
 };
