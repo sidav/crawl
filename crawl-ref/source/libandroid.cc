@@ -229,11 +229,6 @@ void sendTerminalToScreen()
 	dirtyTerminalChars.clear();
 }
 
-static inline short macro_colour(short col)
-{
-    return (Options.colour[ col ]);
-}
-
 int getchk()
 {
 	sendTerminalToScreen();
