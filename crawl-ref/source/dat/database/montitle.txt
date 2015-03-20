@@ -97,7 +97,7 @@ Frances, Duchess of Pandemonium
 %%%%
 Frederick title
 
-Frederick the Vigilant
+Frederick the Flawless
 %%%%
 Gastronok title
 
@@ -239,6 +239,10 @@ Purgy title
 
 Purgy the Meek
 %%%%
+Robin title
+
+Robin of the Strong Arm
+%%%%
 Roxanne title
 
 Roxanne, Geomancer Emeritus
@@ -285,7 +289,7 @@ Vashnia the Elite Marksnaga
 %%%%
 Wiglaf title
 
-Wiglaf the dwarf
+Wiglaf the Dwarf
 %%%%
 Xtahua title
 

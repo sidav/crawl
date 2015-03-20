@@ -6,18 +6,16 @@
 #ifndef __MENU_H__
 #define __MENU_H__
 
+#include <algorithm>
+#include <cstdio>
+#include <ctime>
 #include <string>
 #include <vector>
-#include <algorithm>
-#include <stdio.h>
-#include <time.h>
-#include "externs.h"
-#include "format.h"
 
+#include "format.h"
 #ifdef USE_TILE
  #include "tiledoll.h"
 #endif
-
 #ifdef USE_TILE_LOCAL
  #include "tilebuf.h"
 #endif
@@ -97,7 +95,7 @@ public:
     string tag;
     string text;
     int quantity, selected_qty;
-    int colour;
+    colour_t colour;
     vector<int> hotkeys;
     MenuEntryLevel level;
     bool preselected;
@@ -114,7 +112,7 @@ public:
                int hotk = 0,
                bool preselect = false) :
         text(txt), quantity(qty), selected_qty(0), colour(-1),
-        hotkeys(), level(lev), preselected(preselect), data(NULL)
+        hotkeys(), level(lev), preselected(preselect), data(nullptr)
     {
         colour = (lev == MEL_ITEM     ?  MENU_ITEM_STOCK_COLOUR :
                   lev == MEL_SUBTITLE ?  BLUE  :
@@ -513,7 +511,7 @@ public:
             const string &tagged_text,
             bool  add_separator = true,
             bool  eol_ends_format = true,
-            bool (*text_filter)(const string &tag) = NULL,
+            bool (*text_filter)(const string &tag) = nullptr,
             int   margin = -1);
 
     vector<formatted_string> formatted_lines() const;
@@ -555,10 +553,14 @@ public:
     formatted_scroller(int flags, const string& s);
     virtual void add_item_formatted_string(const formatted_string& s,
                                            int hotkey = 0);
+    virtual void wrap_formatted_string(const formatted_string& s,
+                                       int width = get_number_of_cols()-1);
     virtual void add_item_string(const string& s, int hotkey = 0);
-    virtual void add_text(const string& s, bool new_line = false);
+    virtual void add_text(const string& s, bool new_line = false,
+                          int wrap_col = 0);
     virtual bool jump_to_hotkey(int keyin);
     virtual vector<MenuEntry *> show(bool reuse_selections = false);
+    int get_lastch() { return lastch; }
     virtual ~formatted_scroller();
 protected:
     virtual bool page_down();
@@ -612,12 +614,12 @@ public:
     virtual bool selected() const;
     virtual void allow_highlight(bool toggle);
     virtual bool can_be_highlighted() const;
-    virtual void set_highlight_colour(COLORS colour);
-    virtual COLORS get_highlight_colour() const;
-    virtual void set_fg_colour(COLORS colour);
-    virtual void set_bg_colour(COLORS colour);
-    virtual COLORS get_fg_colour() const;
-    virtual COLORS get_bg_colour() const;
+    virtual void set_highlight_colour(COLOURS colour);
+    virtual COLOURS get_highlight_colour() const;
+    virtual void set_fg_colour(COLOURS colour);
+    virtual void set_bg_colour(COLOURS colour);
+    virtual COLOURS get_fg_colour() const;
+    virtual COLOURS get_bg_colour() const;
 
     virtual void set_visible(bool flag);
     virtual bool is_visible() const;
@@ -648,8 +650,8 @@ protected:
     vector<int> m_hotkeys;
     string m_description;
 
-    COLORS m_fg_colour;
-    COLORS m_highlight_colour;
+    COLOURS m_fg_colour;
+    COLOURS m_highlight_colour;
     int m_bg_colour;
 
     MenuItem* m_link_left;
@@ -929,7 +931,7 @@ protected:
     virtual MenuItem* _find_item_by_direction(int start_index,
                                               MenuObject::Direction dir);
     virtual MenuItem* _find_item_by_direction(const MenuItem* start,
-                                              MenuObject::Direction dir) { return NULL; }
+                                              MenuObject::Direction dir) { return nullptr; }
 
     int m_topmost_visible;
     int m_currently_active;
@@ -962,7 +964,7 @@ public:
 
     // these are not used, clear them
     virtual vector<MenuItem*> get_selected_items();
-    virtual MenuItem* get_active_item() { return NULL; }
+    virtual MenuItem* get_active_item() { return nullptr; }
     virtual bool attach_item(MenuItem* item) { return false; }
     virtual void set_active_item(int index) {}
     virtual void set_active_item(MenuItem* item) {}
@@ -971,7 +973,7 @@ public:
 
     virtual bool select_item(int index) { return false; }
     virtual bool select_item(MenuItem* item) { return false;}
-    virtual MenuItem* select_item_by_hotkey(int key) { return NULL; }
+    virtual MenuItem* select_item_by_hotkey(int key) { return nullptr; }
     virtual void clear_selections() {}
 
     // Do not allow focus
@@ -980,9 +982,9 @@ public:
 
 protected:
     virtual void _place_items();
-    virtual MenuItem* _find_item_by_mouse_coords(const coord_def& pos) { return NULL; }
+    virtual MenuItem* _find_item_by_mouse_coords(const coord_def& pos) { return nullptr; }
     virtual MenuItem* _find_item_by_direction(const MenuItem* start,
-                                              MenuObject::Direction dir) { return NULL; }
+                                              MenuObject::Direction dir) { return nullptr; }
 
     // Used to pull out currently active item
     PrecisionMenu* m_parent;
@@ -1033,7 +1035,7 @@ public:
 
     // these are not used, clear them
     virtual vector<MenuItem*> get_selected_items();
-    virtual MenuItem* get_active_item() { return NULL; }
+    virtual MenuItem* get_active_item() { return nullptr; }
     virtual bool attach_item(MenuItem* item) { return false; }
     virtual void set_active_item(int index) {}
     virtual void set_active_item(MenuItem* item) {}
@@ -1042,7 +1044,7 @@ public:
 
     virtual bool select_item(int index) { return false; }
     virtual bool select_item(MenuItem* item) { return false;}
-    virtual MenuItem* select_item_by_hotkey(int key) { return NULL; }
+    virtual MenuItem* select_item_by_hotkey(int key) { return nullptr; }
     virtual void clear_selections() {}
 
     // Do not allow focus
@@ -1051,9 +1053,9 @@ public:
 
 protected:
     virtual void _place_items();
-    virtual MenuItem* _find_item_by_mouse_coords(const coord_def& pos) { return NULL; }
+    virtual MenuItem* _find_item_by_mouse_coords(const coord_def& pos) { return nullptr; }
     virtual MenuItem* _find_item_by_direction(const MenuItem* start,
-                                              MenuObject::Direction dir) { return NULL; }
+                                              MenuObject::Direction dir) { return nullptr; }
 
     // Used to pull out currently active item
     PrecisionMenu* m_parent;
@@ -1062,7 +1064,7 @@ protected:
 #ifdef USE_TILE_LOCAL
     LineBuffer m_line_buf;
 #else
-    COLORS m_old_bg_colour;
+    COLOURS m_old_bg_colour;
 #endif
 };
 
@@ -1080,8 +1082,8 @@ protected:
     // Tiles does not seem to support background colors
     ShapeBuffer m_shape_buf;
 #endif
-    COLORS m_old_bg_colour;
-    COLORS m_old_fg_colour;
+    COLOURS m_old_bg_colour;
+    COLOURS m_old_fg_colour;
 };
 
 /**

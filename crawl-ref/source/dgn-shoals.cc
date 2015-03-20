@@ -1,34 +1,30 @@
 #include "AppHdr.h"
 
+#include "dgn-shoals.h"
+
+#include <algorithm>
+#include <cmath>
+#include <vector>
+
 #include "act-iter.h"
-#include "cio.h"
 #include "colour.h"
 #include "coordit.h"
-#include "dungeon.h"
-#include "dgn-shoals.h"
 #include "dgn-height.h"
-#include "env.h"
+#include "dungeon.h"
+#include "english.h"
 #include "flood_find.h"
-#include "fprop.h"
-#include "items.h"
 #include "itemprop.h"
+#include "items.h"
 #include "libutil.h"
 #include "mapmark.h"
 #include "maps.h"
 #include "message.h"
 #include "mgen_data.h"
 #include "mon-place.h"
-#include "mon-util.h"
-#include "random.h"
 #include "state.h"
 #include "stringutil.h"
-#include "terrain.h"
 #include "traps.h"
 #include "view.h"
-
-#include <algorithm>
-#include <vector>
-#include <cmath>
 
 static const char *PROPS_SHOALS_TIDE_KEY = "shoals-tide-height";
 static const char *PROPS_SHOALS_TIDE_VEL = "shoals-tide-velocity";
@@ -41,7 +37,7 @@ static const int SHOALS_ISLAND_COLLIDE_DIST2 = 5 * 5;
 // The raw tide height / TIDE_MULTIPLIER is the actual tide height. The higher
 // the tide multiplier, the slower the tide advances and recedes. A multiplier
 // of X implies that the tide will advance visibly about once in X turns.
-static int TIDE_MULTIPLIER = 30;
+static int TIDE_MULTIPLIER = 2;
 
 static int LOW_TIDE = -18 * TIDE_MULTIPLIER;
 static int HIGH_TIDE = 25 * TIDE_MULTIPLIER;
@@ -75,7 +71,7 @@ enum tide_direction
 };
 
 static tide_direction _shoals_tide_direction;
-static monster* tide_caller = NULL;
+static monster* tide_caller = nullptr;
 static coord_def tide_caller_pos;
 static int tide_called_turns = 0;
 static int tide_called_peak = 0;
@@ -113,24 +109,10 @@ static int _shoals_feature_height(dungeon_feature_type feat)
     }
 }
 
-static int _shoals_feature_sequence_number(dungeon_feature_type feat)
-{
-    switch (feat)
-    {
-    case DNGN_SHALLOW_WATER:
-        return 1;
-    case DNGN_DEEP_WATER:
-        return 2;
-    default:
-    case DNGN_FLOOR:
-        return 0;
-    }
-}
-
 // Returns true if the given feature can be affected by Shoals tides.
 static inline bool _shoals_tide_susceptible_feat(dungeon_feature_type feat)
 {
-    return feat_is_water(feat) || feat == DNGN_FLOOR;
+    return feat == DNGN_SHALLOW_WATER || feat == DNGN_FLOOR;
 }
 
 // Return true if tide effects can propagate through this square.
@@ -335,8 +317,7 @@ static int _shoals_contiguous_feature_flood(
     int nregion,
     int size_limit)
 {
-    vector<coord_def> visit;
-    visit.push_back(c);
+    vector<coord_def> visit(1, c);
     int npoints = 1;
     for (size_t i = 0; i < visit.size() && npoints < size_limit; ++i)
     {
@@ -369,8 +350,7 @@ static coord_def _shoals_region_center(
     int nseen = 0;
 
     double cx = 0.0, cy = 0.0;
-    vector<coord_def> visit;
-    visit.push_back(c);
+    vector<coord_def> visit(1, c);
     FixedArray<bool, GXM, GYM> visited(false);
     for (size_t i = 0; i < visit.size(); ++i)
     {
@@ -446,7 +426,7 @@ _shoals_point_feat_cluster(dungeon_feature_type feat,
                                                  region++,
                                                  wanted_count * 3 / 2);
             if (featcount >= wanted_count)
-                regions.push_back(weighted_region(featcount, c));
+                regions.emplace_back(featcount, c);
         }
     }
     return regions;
@@ -516,7 +496,7 @@ static void _shoals_plant_cluster(coord_def c, int nplants, int radius,
 
 static void _shoals_plant_supercluster(coord_def c,
                                        dungeon_feature_type favoured_feat,
-                                       grid_bool *verboten = NULL)
+                                       grid_bool *verboten = nullptr)
 {
     _shoals_plant_cluster(c, random_range(10, 17, 2),
                           random_range(3, 9), favoured_feat,
@@ -576,12 +556,12 @@ static vector<coord_def> _shoals_windshadows(grid_bool &windy)
     if (wi.x > epsilon || wi.x < -epsilon)
     {
         for (int y = 1; y < GYM - 1; ++y)
-            wind_points.push_back(coord_dbl(wi.x > epsilon ? 1 : GXM - 2, y));
+            wind_points.emplace_back(wi.x > epsilon ? 1 : GXM - 2, y);
     }
     if (wi.y > epsilon || wi.y < -epsilon)
     {
         for (int x = 1; x < GXM - 1; ++x)
-            wind_points.push_back(coord_dbl(x, wi.y > epsilon ? 1 : GYM - 2));
+            wind_points.emplace_back(x, wi.y > epsilon ? 1 : GYM - 2);
     }
 
     for (size_t i = 0; i < wind_points.size(); ++i)
@@ -673,11 +653,13 @@ void dgn_shoals_generate_flora()
 
 void dgn_build_shoals_level()
 {
-    env.level_build_method += make_stringf(" shoals+ [%d]", you.depth);
-    env.level_layout_types.insert("shoals");
+        // TODO: Attach this information to the vault name string
+        //       instead of the build method string.
+    env.level_build_method += make_stringf(" [depth %d]", you.depth);
 
     const int shoals_depth = you.depth - 1;
-    dgn_replace_area(0, 0, GXM-1, GYM-1, DNGN_ROCK_WALL, DNGN_OPEN_SEA);
+    dgn_replace_area(0, 0, GXM-1, GYM-1, DNGN_ROCK_WALL, DNGN_OPEN_SEA,
+                     MMT_VAULT);
     _shoals_init_heights();
     _shoals_init_islands(shoals_depth);
     _shoals_cliffs();
@@ -791,11 +773,10 @@ bool dgn_shoals_connect_point(const coord_def &point,
         const int n_points = 15;
         const int radius = 4;
 
-        for (vector<coord_def>::const_iterator i = track.begin();
-             i != track.end(); ++i)
+        for (auto tc : track)
         {
             int height = 0, npoints = 0;
-            for (radius_iterator ri(*i, radius, C_POINTY); ri; ++ri)
+            for (radius_iterator ri(tc, radius, C_POINTY); ri; ++ri)
             {
                 if (in_bounds(*ri))
                 {
@@ -811,7 +792,7 @@ bool dgn_shoals_connect_point(const coord_def &point,
                 const int elevation_change_per_dot =
                     max(1, elevation_change / n_points + 1);
 
-                dgn_island_centred_at(*i, n_points, radius,
+                dgn_island_centred_at(tc, n_points, radius,
                                       int_range(elevation_change_per_dot,
                                                 elevation_change_per_dot + 20),
                                       3);
@@ -855,173 +836,24 @@ static void _shoals_run_tide(int &tide, int &acc)
         acc = in_decel_margin? acc / 2 : acc * 2;
 }
 
-static coord_def _shoals_escape_place_from(coord_def bad_place,
-                                           actor *act, item_def *it)
-{
-    int best_height = -1000;
-    coord_def chosen;
-    for (adjacent_iterator ai(bad_place); ai; ++ai)
-    {
-        coord_def p(*ai);
-        const dungeon_feature_type feat(grd(p));
-        if (!feat_has_solid_floor(feat))
-            continue;
-
-        if (!act || !actor_at(p))
-        {
-            if (best_height == -1000 || dgn_height_at(p) > best_height)
-            {
-                best_height = dgn_height_at(p);
-                chosen = p;
-            }
-        }
-    }
-    return chosen;
-}
-
-static void _clear_net_trapping_status(coord_def c)
-{
-    actor *victim = actor_at(c);
-    if (!victim)
-        return;
-
-    if (victim->is_monster())
-    {
-        monster* mvictim = victim->as_monster();
-        if (you.can_see(mvictim))
-            mprf("The net is swept off %s.", mvictim->name(DESC_THE).c_str());
-        mons_clear_trapping_net(mvictim);
-    }
-    else
-    {
-        mpr("The tide washes the net away!");
-        clear_trapping_net();
-    }
-}
-
-/**
- * Have the shoals tides sometimes move items at a location to a higher spot
- * with a solid floor.
- *
- * @param c The location.
-*/
-static void _shoals_tide_sweep_items_clear(coord_def c)
-{
-    if (igrd(c) == NON_ITEM)
-        return;
-
-    for (stack_iterator si(c); si; ++si)
-    {
-        // Don't abort tide entry because of items. If we can't sweep the
-        // item clear here, let dungeon_terrain_changed teleport the item
-        // to the nearest safe square.
-        item_def &item(*si);
-
-        // Let the tide break up stacks
-        if (!item_is_rune(item) && coinflip())
-            continue;
-
-        if (item_is_stationary(item) && !one_chance_in(5))
-            continue;
-
-        const coord_def target(_shoals_escape_place_from(c, NULL, &item));
-        if (!target.origin())
-        {
-            if (item_is_stationary_net(item))
-                _clear_net_trapping_status(c);
-
-            int id = si.link();
-            move_item_to_grid(&id, target);
-        }
-    }
-}
-
-/**
- * Have the shoals tides sometimes move non-water-capable actors a location to
- * an adjacent spot.
- *
- * @param c The location.
- * @return  False if there was a drownable actor at the location that couldn't
- *          be moved, true otherwise.
-*/
-static bool _shoals_tide_sweep_actors_clear(coord_def c)
-{
-    actor *victim = actor_at(c);
-    if (!victim
-        || (victim->swimming() || !victim->ground_level())
-            && (!victim->is_player()
-                || !need_expiration_warning(DNGN_DEEP_WATER)))
-    {
-        return true;
-    }
-
-    if (victim->is_monster())
-    {
-        const monster* mvictim = victim->as_monster();
-        // Plants and statues cannot be moved away; the tide cannot
-        // drown them.
-        if (mons_class_is_stationary(mvictim->type))
-            return false;
-
-        // If the monster doesn't need help, move along.
-        if (monster_habitable_grid(mvictim, DNGN_DEEP_WATER))
-            return true;
-    }
-    coord_def evacuation_point(_shoals_escape_place_from(c, victim, NULL));
-    // The tide no longer drowns monster/player if it cannot push them
-    // out of the way.
-    if (evacuation_point.origin())
-        return false;
-
-    bool clear_net = false;
-    if (victim->caught())
-    {
-        int net = get_trapping_net(c);
-        if (net != NON_ITEM)
-            clear_net = !move_item_to_grid(&net, evacuation_point);
-    }
-    victim->move_to_pos(evacuation_point, clear_net);
-    return true;
-}
-
-/**
- * Have the shoals tides sometimes move items and non-water-capable actors a
- * location to an adjacent spot.
- *
- * @param c The location.
- * @return  False if there was a drownable actor at the location that couldn't
- *          be moved, true otherwise.
-*/
-static bool _shoals_tide_sweep_clear(coord_def c)
-{
-    _shoals_tide_sweep_items_clear(c);
-    return _shoals_tide_sweep_actors_clear(c);
-}
-
 static void _shoals_tide_wash_blood_away_at(coord_def c)
 {
     env.pgrid(c) &= ~FPROP_BLOODY;
 }
 
-static dungeon_feature_type _shoals_apply_tide_feature_at(
+static void _shoals_apply_tide_feature_at(
     coord_def c,
     dungeon_feature_type feat)
 {
-    if (feat == DNGN_DEEP_WATER && !_shoals_tide_sweep_clear(c))
-        feat = DNGN_SHALLOW_WATER;
-
     const dungeon_feature_type current_feat = grd(c);
 
-    // Return DNGN_UNSEEN if the feature isn't changed.
     if (feat == current_feat)
-        return DNGN_UNSEEN;
+        return;
 
     if (crawl_state.generating_level)
         grd(c) = feat;
     else
         dungeon_terrain_changed(c, feat, true, false, true);
-
-    return feat;
 }
 
 // Determines if the tide is rising or falling based on before and
@@ -1045,21 +877,13 @@ static void _shoals_apply_tide_at(coord_def c, int tide, bool incremental_tide)
     const int effective_height = dgn_height_at(c) - tide;
     dungeon_feature_type newfeat =
         _shoals_feature_by_height(effective_height);
-    // Make sure we're not sprouting new walls.
+    // Make sure we're not sprouting new walls, or deep water.
     if (feat_is_wall(newfeat))
         newfeat = DNGN_FLOOR;
+    if (feat_is_water(newfeat))
+        newfeat = DNGN_SHALLOW_WATER;
     const dungeon_feature_type oldfeat = grd(c);
 
-    // If the tide is affecting squares incrementally, never go
-    // straight from floor -> deep water or vice versa, always force
-    // an intermediate shallow water step.
-    if (incremental_tide)
-    {
-        const int oldfeat_seq = _shoals_feature_sequence_number(oldfeat);
-        const int newfeat_seq = _shoals_feature_sequence_number(newfeat);
-        if (abs(oldfeat_seq - newfeat_seq) >= 2)
-            newfeat = DNGN_SHALLOW_WATER;
-    }
 
     if (oldfeat == newfeat
         || (_shoals_feature_tide_height_change(oldfeat, newfeat) !=
@@ -1068,17 +892,7 @@ static void _shoals_apply_tide_at(coord_def c, int tide, bool incremental_tide)
         return;
     }
 
-    const dungeon_feature_type final_feature =
-        _shoals_apply_tide_feature_at(c, newfeat);
-
-    if (incremental_tide
-        && final_feature == DNGN_DEEP_WATER
-        && c == you.pos()
-        && !you.ground_level()
-        && !you.permanent_flight())
-    {
-        mprf(MSGCH_WARN, "The tide rushes in under you.");
-    }
+    _shoals_apply_tide_feature_at(c, newfeat);
 }
 
 static int _shoals_tide_at(coord_def pos, int base_tide)
@@ -1104,10 +918,10 @@ static void _shoals_apply_tide(int tide, bool incremental_tide)
     int current_page = 0;
 
     // Start from corners of the map.
-    pages[current_page].push_back(coord_def(1,1));
-    pages[current_page].push_back(coord_def(GXM - 2, 1));
-    pages[current_page].push_back(coord_def(1, GYM - 2));
-    pages[current_page].push_back(coord_def(GXM - 2, GYM - 2));
+    pages[current_page].emplace_back(1,1);
+    pages[current_page].emplace_back(GXM - 2, 1);
+    pages[current_page].emplace_back(1, GYM - 2);
+    pages[current_page].emplace_back(GXM - 2, GYM - 2);
 
     // Find any extra seeds -- markers with tide_seed="y".
     const vector<coord_def> extra_seeds(_shoals_extra_tide_seeds());
@@ -1193,7 +1007,7 @@ static monster* _shoals_find_tide_caller()
     for (monster_iterator mi; mi; ++mi)
         if (mi->has_ench(ENCH_TIDE))
             return *mi;
-    return NULL;
+    return nullptr;
 }
 
 void shoals_apply_tides(int turns_elapsed, bool force, bool incremental_tide)
@@ -1265,7 +1079,7 @@ void shoals_release_tide(monster* mons)
             mprf(MSGCH_SOUND, "The tide is released from %s call.",
                  apostrophise(mons->name(DESC_YOUR, true)).c_str());
             if (you.see_cell(mons->pos()))
-                flash_view_delay(ETC_WATER, 150);
+                flash_view_delay(UA_MONSTER, ETC_WATER, 150);
         }
         shoals_apply_tides(0, true, true);
     }
@@ -1311,7 +1125,7 @@ void wizard_mod_tide()
              TIDE_MULTIPLIER);
         mpr("");
         const int res =
-            cancellable_get_line(buf, sizeof buf, NULL, _tidemod_keyfilter);
+            cancellable_get_line(buf, sizeof buf, nullptr, _tidemod_keyfilter);
         clear_messages(true);
         if (key_is_escape(res))
             break;

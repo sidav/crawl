@@ -8,19 +8,15 @@
 #include "dbg-util.h"
 
 #include "artefact.h"
-#include "cio.h"
-#include "coord.h"
 #include "directn.h"
 #include "dungeon.h"
-#include "env.h"
 #include "libutil.h"
 #include "macro.h"
 #include "message.h"
-#include "mon-util.h"
 #include "options.h"
 #include "religion.h"
 #include "shopping.h"
-#include "skills2.h"
+#include "skills.h"
 #include "spl-util.h"
 #include "state.h"
 #include "stringutil.h"
@@ -85,9 +81,8 @@ void debug_dump_levgen()
     if (!env.level_vaults.empty())
     {
         mpr("Level vaults:");
-        for (size_t i = 0; i < env.level_vaults.size(); ++i)
+        for (const vault_placement* vault : env.level_vaults)
         {
-            const vault_placement* vault = env.level_vaults[i];
             string vault_name = vault->map.name.c_str();
             if (vault->map.subvault_places.size())
             {
@@ -146,12 +141,11 @@ void debug_dump_constriction(const actor *act)
 {
     if (act->constricting)
     {
-        actor::constricting_t::const_iterator i;
-        for (i = act->constricting->begin(); i != act->constricting->end(); ++i)
+        for (const auto &entry : *act->constricting)
         {
             fprintf(stderr, "Constricting ");
-            _debug_mid_name(i->first);
-            fprintf(stderr, " for %d ticks\n", i->second);
+            _debug_mid_name(entry.first);
+            fprintf(stderr, " for %d ticks\n", entry.second);
         }
     }
 
@@ -301,23 +295,23 @@ void debug_dump_mon(const monster* mon, bool recurse)
     }
     fprintf(stderr, "\n");
 
-    if (mon->can_use_spells())
+
+    bool found_spells = false;
+    for (unsigned i = 0; i < mon->spells.size(); ++i)
     {
-        fprintf(stderr, "Spells:\n");
+        spell_type spell = mon->spells[i].spell;
 
-        for (int i = 0; i < NUM_MONSTER_SPELL_SLOTS; ++i)
+        if (!found_spells)
         {
-            spell_type spell = mon->spells[i];
-
-            if (spell == SPELL_NO_SPELL)
-                continue;
-
-            fprintf(stderr, "    slot #%d: ", i);
-            if (!is_valid_spell(spell))
-                fprintf(stderr, "Invalid spell #%d\n", (int) spell);
-            else
-                fprintf(stderr, "%s\n", spell_title(spell));
+            fprintf(stderr, "Spells:\n");
+            found_spells = true;
         }
+
+        fprintf(stderr, "    slot #%d: ", i);
+        if (!is_valid_spell(spell))
+            fprintf(stderr, "Invalid spell #%d\n", (int) spell);
+        else
+            fprintf(stderr, "%s\n", spell_title(spell));
         fprintf(stderr, "\n");
     }
 
@@ -326,8 +320,7 @@ void debug_dump_mon(const monster* mon, bool recurse)
 
     fprintf(stderr, "colour: %d, foe_memory: %d, shield_blocks:%d, "
                   "experience: %u\n",
-            mon->colour, mon->foe_memory, mon->shield_blocks,
-            mon->experience);
+            mon->colour, mon->foe_memory, mon->shield_blocks, mon->experience);
 
     fprintf(stderr, "god: %s, seen_context: %d\n",
             god_name(mon->god).c_str(), mon->seen_context);
@@ -367,10 +360,8 @@ skill_type skill_from_name(const char *name)
 {
     skill_type skill = SK_NONE;
 
-    for (int i = SK_FIRST_SKILL; i < NUM_SKILLS; ++i)
+    for (skill_type sk = SK_FIRST_SKILL; sk < NUM_SKILLS; ++sk)
     {
-        skill_type sk = static_cast<skill_type>(i);
-
         string sk_name = lowercase_string(skill_name(sk));
 
         size_t pos = sk_name.find(name);
@@ -427,15 +418,22 @@ void wizard_toggle_dprf()
     mpr("Diagnostic messages are available only in debug builds.");
 }
 #else
+// Be sure to change enum diag_type in mpr.h to match.
 static const char* diag_names[] =
 {
     "normal",
+    "level builder",
+    "skill",
     "combat",
     "beam",
+    "noise",
     "abyss",
     "monplace",
 #ifdef DEBUG_MONSPEAK
     "speech",
+#endif
+#ifdef DEBUG_MONINDEX
+    "monster index",
 #endif
 };
 
@@ -476,7 +474,7 @@ void wizard_toggle_dprf()
         int diag = keyin - '0';
         Options.quiet_debug_messages.set(diag, !Options.quiet_debug_messages[diag]);
         mprf("%s messages will be %s.", diag_names[diag],
-             Options.quiet_debug_messages[diag] ? "quiet" : "printed");
+             Options.quiet_debug_messages[diag] ? "suppressed" : "printed");
         return;
     }
 }

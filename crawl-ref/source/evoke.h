@@ -13,15 +13,19 @@ void get_all_manual_charges(vector<int> &charges);
 void set_all_manual_charges(const vector<int> &charges);
 string manual_skill_names(bool short_text=false);
 
-void wind_blast(actor* agent, int pow, coord_def target);
+int recharge_wand(bool known = true, const string &pre_msg = "");
 
-void tome_of_power(int slot);
+void wind_blast(actor* agent, int pow, coord_def target, bool card = false);
 
 bool can_flood_feature(dungeon_feature_type feat);
 
 bool evoke_item(int slot = -1, bool check_range = false);
+int wand_mp_cost();
+void zap_wand(int slot = -1);
 
 void shadow_lantern_effect();
-bool disc_of_storms(bool drac_breath = false);
+void expire_lantern_shadows();
+bool disc_of_storms();
+void black_drac_breath();
 
 #endif

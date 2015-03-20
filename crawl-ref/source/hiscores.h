@@ -61,7 +61,7 @@ private:
     uint8_t     tiles;
     int         points;
     string      name;
-    species_type race;
+    int         race;               // species_type + legacy values
     int         job;                // job_type + legacy values
     string      race_class_name;    // overrides race & cls if non-empty.
     uint8_t     lvl;                // player level.
@@ -69,12 +69,14 @@ private:
     uint8_t     best_skill_lvl;     // best skill level
     string      title;              // title
     int         death_type;
-    int         death_source;       // NON_MONSTER or monster type
+    mid_t       death_source;       // killer (maybe be MID_NOBODY)
     string      death_source_name;  // overrides death_source
     set<string> death_source_flags; // misc flags about killer
     string      auxkilldata;        // weapon wielded, spell cast, etc
     string      indirectkiller;     // the effect or real monster that summoned
     string      killerpath;         // colon-separated intermediate killers
+    string      last_banisher;      // the name of the last thing that banished
+                                    // the player
     uint8_t     dlvl;               // dungeon level (relative)
     short       absdepth;           // 1-based absolute depth
     branch_type branch;             // dungeon branch
@@ -84,6 +86,9 @@ private:
     int         final_hp;           // actual current HPs (probably <= 0)
     int         final_max_hp;       // net HPs after rot
     int         final_max_max_hp;   // gross HPs before rot
+    int         final_mp;           // actual current MP
+    int         final_max_mp;       // max MP
+    int         final_base_max_mp;  // max MP ignoring equipped items
     int         damage;             // damage of final attack
     int         source_damage;      // total damage done by death_source
     int         turn_damage;        // total damage done last turn
@@ -97,6 +102,7 @@ private:
     int         piety;              // piety
     int         penance;            // penance
     uint8_t     wiz_mode;           // character used wiz mode
+    uint8_t     explore_mode;       // character used explore mode
     time_t      birth_time;         // start time of character
     time_t      death_time;         // end time of character
     time_t      real_time;          // real playing time in seconds
@@ -120,19 +126,19 @@ private:
     int         scrolls_used;       // Number of scrolls used.
     int         potions_used;       // Number of potions used.
 
-    mutable Unique_ptr<xlog_fields> fields;
+    mutable unique_ptr<xlog_fields> fields;
 
 public:
     scorefile_entry();
-    scorefile_entry(int damage, int death_source, int death_type,
+    scorefile_entry(int damage, mid_t death_source, int death_type,
                     const char *aux, bool death_cause_only = false,
-                    const char *death_source_name = NULL,
+                    const char *death_source_name = nullptr,
                     time_t death_time = 0);
     scorefile_entry(const scorefile_entry &se);
 
     scorefile_entry &operator = (const scorefile_entry &other);
 
-    void init_death_cause(int damage, int death_source, int death_type,
+    void init_death_cause(int damage, mid_t death_source, int death_type,
                           const char *aux, const char *death_source_name);
     void init(time_t death_time = 0);
     void reset();

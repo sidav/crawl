@@ -6,15 +6,15 @@
 #include "AppHdr.h"
 
 #include "view.h"
-#include "shout.h"
 
-#include <string.h>
-#include <cmath>
-#include <sstream>
 #include <algorithm>
+#include <cmath>
+#include <cstring>
 #include <memory>
+#include <sstream>
 
 #include "act-iter.h"
+#include "artefact.h"
 #include "attitude-change.h"
 #include "cio.h"
 #include "cloud.h"
@@ -26,7 +26,7 @@
 #include "delay.h"
 #include "dgn-overview.h"
 #include "directn.h"
-#include "effects.h"
+#include "english.h"
 #include "env.h"
 #include "exclude.h"
 #include "feature.h"
@@ -38,36 +38,38 @@
 #include "godwrath.h"
 #include "hints.h"
 #include "libutil.h"
+#include "macro.h"
 #include "message.h"
 #include "misc.h"
 #include "mon-behv.h"
 #include "mon-death.h"
 #include "mon-poly.h"
+#include "mon-tentacle.h"
 #include "mon-util.h"
-#include "options.h"
 #include "notes.h"
+#include "options.h"
 #include "output.h"
 #include "player.h"
 #include "random.h"
 #include "religion.h"
+#include "shout.h"
 #include "showsymb.h"
 #include "state.h"
 #include "stringutil.h"
 #include "target.h"
 #include "terrain.h"
 #include "tilemcache.h"
+#ifdef USE_TILE
+ #include "tilepick.h"
+ #include "tilepick-p.h"
+ #include "tileview.h"
+#endif
 #include "traps.h"
 #include "travel.h"
 #include "unicode.h"
 #include "viewchar.h"
 #include "viewmap.h"
 #include "xom.h"
-
-#ifdef USE_TILE
- #include "tilepick.h"
- #include "tilepick-p.h"
- #include "tileview.h"
-#endif
 
 //#define DEBUG_PANE_BOUNDS
 
@@ -91,7 +93,7 @@ bool handle_seen_interrupt(monster* mons, vector<string>* msgs_buf)
 
     if (!mons_is_safe(mons)
         && !mons_class_flag(mons->type, M_NO_EXP_GAIN)
-           || mons->type == MONS_BALLISTOMYCETE && mons->number > 0)
+           || mons->type == MONS_BALLISTOMYCETE && mons->ballisto_activity)
     {
         return interrupt_activity(AI_SEE_MONSTER, aid, msgs_buf);
     }
@@ -120,7 +122,7 @@ void flush_comes_into_view()
     handle_seen_interrupt(mon);
 }
 
-void seen_monsters_react()
+void seen_monsters_react(int stealth)
 {
     if (you.duration[DUR_TIME_STEP] || crawl_state.game_is_arena())
         return;
@@ -128,10 +130,10 @@ void seen_monsters_react()
     for (monster_near_iterator mi(you.pos()); mi; ++mi)
     {
         if ((mi->asleep() || mons_is_wandering(*mi))
-            && check_awaken(*mi)
+            && check_awaken(*mi, stealth)
 #ifdef EUCLIDEAN
                || you.prev_move.abs() == 2 && x_chance_in_y(2, 5)
-                  && check_awaken(*mi)
+                  && check_awaken(*mi, stealth)
 #endif
            )
         {
@@ -151,24 +153,27 @@ void seen_monsters_react()
         gozag_check_bribe(*mi);
         slime_convert(*mi);
 
-        // Trigger Duvessa & Dowan upgrades
-        if (mi->props.exists(ELVEN_ENERGIZE_KEY))
+        if (!mi->has_ench(ENCH_INSANE))
         {
-            mi->props.erase(ELVEN_ENERGIZE_KEY);
-            elven_twin_energize(*mi);
-        }
+            // Trigger Duvessa & Dowan upgrades
+            if (mi->props.exists(ELVEN_ENERGIZE_KEY))
+            {
+                mi->props.erase(ELVEN_ENERGIZE_KEY);
+                elven_twin_energize(*mi);
+            }
 #if TAG_MAJOR_VERSION == 34
-        else if (mi->props.exists(OLD_DUVESSA_ENERGIZE_KEY))
-        {
-            mi->props.erase(OLD_DUVESSA_ENERGIZE_KEY);
-            elven_twin_energize(*mi);
-        }
-        else if (mi->props.exists(OLD_DOWAN_ENERGIZE_KEY))
-        {
-            mi->props.erase(OLD_DOWAN_ENERGIZE_KEY);
-            elven_twin_energize(*mi);
-        }
+            else if (mi->props.exists(OLD_DUVESSA_ENERGIZE_KEY))
+            {
+                mi->props.erase(OLD_DUVESSA_ENERGIZE_KEY);
+                elven_twin_energize(*mi);
+            }
+            else if (mi->props.exists(OLD_DOWAN_ENERGIZE_KEY))
+            {
+                mi->props.erase(OLD_DOWAN_ENERGIZE_KEY);
+                elven_twin_energize(*mi);
+            }
 #endif
+        }
     }
 }
 
@@ -176,20 +181,19 @@ static string _desc_mons_type_map(map<monster_type, int> types)
 {
     string message;
     unsigned int count = 1;
-    for (map<monster_type, int>::iterator it = types.begin();
-         it != types.end(); ++it)
+    for (const auto &entry : types)
     {
         string name;
         description_level_type desc;
-        if (it->second == 1)
+        if (entry.second == 1)
             desc = DESC_A;
         else
             desc = DESC_PLAIN;
 
-        name = mons_type_name(it->first, desc);
-        if (it->second > 1)
+        name = mons_type_name(entry.first, desc);
+        if (entry.second > 1)
         {
-            name = make_stringf("%d %s", it->second,
+            name = make_stringf("%d %s", entry.second,
                                 pluralise(name).c_str());
         }
 
@@ -222,13 +226,12 @@ static void _genus_factoring(map<monster_type, int> &types,
 {
     monster_type genus = MONS_NO_MONSTER;
     int num = 0;
-    map<monster_type, int>::iterator it;
     // Find the most represented genus.
-    for (it = genera.begin(); it != genera.end(); ++it)
-        if (it->second > num)
+    for (const auto &entry : genera)
+        if (entry.second > num)
         {
-            genus = it->first;
-            num = it->second;
+            genus = entry.first;
+            num = entry.second;
         }
 
     // The most represented genus has a single member.
@@ -240,7 +243,7 @@ static void _genus_factoring(map<monster_type, int> &types,
     }
 
     genera.erase(genus);
-    it = types.begin();
+    auto it = types.begin();
     do
     {
         if (_mons_genus_keep_uniques(it->first) != genus)
@@ -302,17 +305,17 @@ void update_monsters_in_view()
 
     if (!msgs.empty())
     {
-        unsigned int size = monsters.size();
         map<monster_type, int> types;
         map<monster_type, int> genera; // This is the plural for genus!
-        const monster* target = NULL;
-        for (unsigned int i = 0; i < size; ++i)
+        const monster* target = nullptr;
+        for (const monster *mon : monsters)
         {
-            const monster_type type = monsters[i]->type;
+            const monster_type type = mon->type;
             types[type]++;
             genera[_mons_genus_keep_uniques(type)]++;
         }
 
+        unsigned int size = monsters.size();
         if (size == 1)
             mprf(MSGCH_MONSTER_WARNING, "%s", msgs[0].c_str());
         else
@@ -327,9 +330,8 @@ void update_monsters_in_view()
         string warning_msg = you_worship(GOD_ZIN) ? "Zin warns you:"
                                                   : "Ashenzari warns you:";
         warning_msg += " ";
-        for (unsigned int i = 0; i < size; ++i)
+        for (const monster* mon : monsters)
         {
-            const monster* mon = monsters[i];
             if (!target
                 && player_mutation_level(MUT_SCREAM)
                 && x_chance_in_y(3 + player_mutation_level(MUT_SCREAM) * 3,
@@ -368,8 +370,9 @@ void update_monsters_in_view()
             }
             else
             {
-                warning_msg += get_monster_equipment_desc(mi, DESC_IDENTIFIED,
-                                                          DESC_NONE);
+                warning_msg += " "
+                               + get_monster_equipment_desc(mi, DESC_IDENTIFIED,
+                                                            DESC_NONE);
             }
             warning_msg += ".";
         }
@@ -389,15 +392,19 @@ void update_monsters_in_view()
         {
             counted_monster_list mon_count;
             vector<monster *> mons;
-            for (unsigned int i = 0; i < monsters.size(); i++)
+            for (monster *mon : monsters)
             {
-                monster *mon = monsters[i];
-                if (mon->wont_attack())
+                if (mon->wont_attack()
+                    || mon->is_stationary()
+                    || mons_is_object(mon->type)
+                    || mons_is_tentacle_or_tentacle_segment(mon->type))
+                {
                     continue;
+                }
 
-                int bribability = gozag_type_bribable(mon->type, true);
-                if (bribability
-                    && x_chance_in_y(bribability, GOZAG_MAX_BRIBABILITY))
+                if (coinflip()
+                    && mon->get_experience_level() >=
+                       random2(you.experience_level))
                 {
                     mon_count.add(mon);
                     mons.push_back(mon);
@@ -410,10 +417,8 @@ void update_monsters_in_view()
                 if (strwidth(msg) >= get_number_of_cols() - 2)
                     msg = "Gozag incites your enemies against you.";
                 mprf(MSGCH_GOD, GOD_GOZAG, "%s", msg.c_str());
-                for (unsigned int i = 0; i < mons.size(); i++)
-                    gozag_incite(mons[i]);
-
-                dec_penance(GOD_GOZAG, mons.size());
+                for (monster *mon : mons)
+                    gozag_incite(mon);
             }
         }
     }
@@ -432,6 +437,32 @@ void update_monsters_in_view()
         xom_is_stimulated(12 * num_hostile);
     }
 }
+
+void mark_mon_equipment_seen(const monster *mons)
+{
+    // mark items as seen.
+    for (int slot = MSLOT_WEAPON; slot <= MSLOT_LAST_VISIBLE_SLOT; slot++)
+    {
+        int item_id = mons->inv[slot];
+        if (item_id == NON_ITEM)
+            continue;
+
+        item_def &item = mitm[item_id];
+
+        item.flags |= ISFLAG_SEEN;
+
+        // ID brands of non-randart weapons held by enemies.
+        if (is_artefact(item))
+            continue;
+
+        if (slot == MSLOT_WEAPON
+            || slot == MSLOT_ALT_WEAPON && mons_wields_two_weapons(mons))
+        {
+            item.flags |= ISFLAG_KNOW_TYPE;
+        }
+    }
+}
+
 
 // We logically associate a difficulty parameter with each tile on each level,
 // to make deterministic magic mapping work.  This function returns the
@@ -459,8 +490,8 @@ static const FixedArray<uint8_t, GXM, GYM>& _tile_difficulties(bool random)
     }
 
     // must not produce the magic value (-1)
-    int seed = (static_cast<int>(you.where_are_you) << 8) + you.depth
-             ^ you.game_seeds[SEED_PASSIVE_MAP] & 0x7fffffff;
+    int seed = ((static_cast<int>(you.where_are_you) << 8) + you.depth)
+             ^ (you.game_seeds[SEED_PASSIVE_MAP] & 0x7fffffff);
 
     if (seed == cache_seed)
         return cache;
@@ -526,8 +557,19 @@ bool magic_mapping(int map_radius, int proportion, bool suppress_msg,
 
         if (env.map_knowledge(*ri).changed())
         {
-            env.map_knowledge(*ri).clear();
-            env.map_seen.set(*ri, false);
+            // If the player has already seen the square, update map
+            // knowledge with the new terrain. Otherwise clear what we had
+            // before.
+            if (env.map_knowledge(*ri).seen())
+            {
+                dungeon_feature_type newfeat = grd(*ri);
+                if (newfeat == DNGN_UNDISCOVERED_TRAP)
+                    newfeat = DNGN_FLOOR;
+                trap_type tr = feat_is_trap(newfeat) ? get_trap_type(*ri) : TRAP_UNASSIGNED;
+                env.map_knowledge(*ri).set_feature(newfeat, env.grid_colours(*ri), tr);
+            }
+            else
+                env.map_knowledge(*ri).clear();
         }
 
         if (!wizard_map && (env.map_knowledge(*ri).seen() || env.map_knowledge(*ri).mapped()))
@@ -623,7 +665,7 @@ void fully_map_level()
     {
         bool ok = false;
         for (adjacent_iterator ai(*ri, false); ai; ++ai)
-            if (grd(*ai) >= DNGN_MINSEE)
+            if (!feat_is_opaque(grd(*ai)))
                 ok = true;
         if (!ok)
             continue;
@@ -711,8 +753,8 @@ string screenshot()
         lines[y] = line;
     }
 
-    for (unsigned int y = 0; y < lines.size(); y++)
-        lines[y].erase(0, lsp); // actually trim from the left
+    for (string &line : lines)
+        line.erase(0, lsp);     // actually trim from the left
     while (!lines.empty() && lines.back().empty())
         lines.pop_back();       // then from the bottom
 
@@ -729,8 +771,6 @@ int viewmap_flash_colour()
 {
     if (_show_terrain)
         return BLACK;
-    else if (you.attribute[ATTR_SHADOWS])
-        return LIGHTGREY;
     else if (you.berserk())
         return RED;
 
@@ -771,7 +811,7 @@ void view_update_at(const coord_def &pos)
 
     // Force colour back to normal, else clrscr() will flood screen
     // with this colour on DOS.
-    textcolor(LIGHTGREY);
+    textcolour(LIGHTGREY);
 
 #endif
 #ifdef USE_TILE_WEB
@@ -783,7 +823,7 @@ void view_update_at(const coord_def &pos)
 void flash_monster_colour(const monster* mon, colour_t fmc_colour,
                           int fmc_delay)
 {
-    if (you.can_see(mon))
+    if ((Options.use_animations & UA_PLAYER) && you.can_see(mon))
     {
         colour_t old_flash_colour = you.flash_colour;
         coord_def c(mon->pos());
@@ -811,18 +851,25 @@ bool view_update()
     return false;
 }
 
-void flash_view(colour_t colour, targetter *where)
+void flash_view(use_animation_type a, colour_t colour, targetter *where)
 {
-    you.flash_colour = colour;
-    you.flash_where = where;
-    viewwindow(false);
+    if (Options.use_animations & a)
+    {
+        you.flash_colour = colour;
+        you.flash_where = where;
+        viewwindow(false);
+    }
 }
 
-void flash_view_delay(colour_t colour, int flash_delay, targetter *where)
+void flash_view_delay(use_animation_type a, colour_t colour, int flash_delay,
+                      targetter *where)
 {
-    flash_view(colour, where);
-    scaled_delay(flash_delay);
-    flash_view(0);
+    if (Options.use_animations & a)
+    {
+        flash_view(a, colour, where);
+        scaled_delay(flash_delay);
+        flash_view(a, 0);
+    }
 }
 
 static void _debug_pane_bounds()
@@ -832,7 +879,7 @@ static void _debug_pane_bounds()
 
     if (crawl_view.mlistsz.y > 0)
     {
-        textcolor(WHITE);
+        textcolour(WHITE);
         cgotoxy(1,1, GOTO_MLIST);
         cprintf("+   L");
         cgotoxy(crawl_view.mlistsz.x-4, crawl_view.mlistsz.y, GOTO_MLIST);
@@ -854,7 +901,7 @@ static void _debug_pane_bounds()
     cgotoxy(crawl_view.viewp.x+crawl_view.viewsz.x-2,
             crawl_view.viewp.y+crawl_view.viewsz.y-1);
     cprintf("V+");
-    textcolor(LIGHTGREY);
+    textcolour(LIGHTGREY);
 #endif
 }
 
@@ -912,8 +959,8 @@ static int player_view_update_at(const coord_def &gc)
         env.pgrid(gc) |= FPROP_SEEN_OR_NOEXP;
         if (!crawl_state.game_is_arena())
         {
+            did_god_conduct(DID_EXPLORATION, 2500);
             const int density = env.density ? env.density : 2000;
-            did_god_conduct(DID_EXPLORATION, density);
             you.exploration += div_rand_round(1<<16, density);
         }
     }
@@ -1030,6 +1077,194 @@ static void _draw_los(screen_cell_t *cell,
 #endif
 }
 
+class shake_viewport_animation: public animation
+{
+public:
+    shake_viewport_animation() { frames = 5; frame_delay = 40; }
+
+    void init_frame(int frame)
+    {
+        offset = coord_def(random2(3) - 1, random2(3) - 1);
+    }
+
+    coord_def cell_cb(const coord_def &pos, int &colour)
+    {
+        return pos + offset;
+    }
+
+private:
+    coord_def offset;
+};
+
+class checkerboard_animation: public animation
+{
+public:
+    checkerboard_animation() { frame_delay = 100; frames = 5; }
+    void init_frame(int frame)
+    {
+        current_frame = frame;
+    }
+
+    coord_def cell_cb(const coord_def &pos, int &colour)
+    {
+        if (current_frame % 2 == (pos.x + pos.y) % 2 && pos != you.pos())
+            return coord_def(-1, -1);
+        else
+            return pos;
+    }
+
+    int current_frame;
+};
+
+class banish_animation: public animation
+{
+public:
+    banish_animation(): remaining(false) { }
+
+    void init_frame(int frame)
+    {
+        current_frame = frame;
+
+        if (!frame)
+        {
+            frames = 10;
+            hidden.clear();
+            remaining = true;
+        }
+
+        if (remaining)
+            frames = frame + 2;
+        else
+            frames = frame;
+
+        remaining = false;
+    }
+
+    coord_def cell_cb(const coord_def &pos, int &colour)
+    {
+        if (pos == you.pos())
+            return pos;
+
+        if (bool *found = map_find(hidden, pos))
+        {
+            if (*found)
+                return coord_def(-1, -1);
+        }
+
+        if (!random2(10 - current_frame))
+        {
+            hidden.insert(make_pair(pos, true));
+            return coord_def(-1, -1);
+        }
+
+        remaining = true;
+        return pos;
+    }
+
+    bool remaining;
+    map<coord_def, bool> hidden;
+    int current_frame;
+};
+
+class slideout_animation: public animation
+{
+public:
+    void init_frame(int frame)
+    {
+        current_frame = frame;
+    }
+
+    coord_def cell_cb(const coord_def &pos, int &colour)
+    {
+        coord_def ret;
+        if (pos.y % 2)
+            ret = coord_def(pos.x + current_frame * 4, pos.y);
+        else
+            ret = coord_def(pos.x - current_frame * 4, pos.y);
+
+        coord_def view = grid2view(ret);
+        const coord_def max = crawl_view.viewsz;
+        if (view.x < 1 || view.y < 1 || view.x > max.x || view.y > max.y)
+            return coord_def(-1, -1);
+        else
+            return ret;
+    }
+
+    int current_frame;
+};
+
+class orb_animation: public animation
+{
+public:
+    void init_frame(int frame)
+    {
+        current_frame = frame;
+        range = current_frame > 5
+            ? (10 - current_frame)
+            : current_frame;
+        frame_delay = 3 * (6 - range) * (6 - range);
+    }
+
+    coord_def cell_cb(const coord_def &pos, int &colour)
+    {
+        const coord_def diff = pos - you.pos();
+        const int dist = diff.x * diff.x * 4 / 9 + diff.y * diff.y;
+        const int min = range * range;
+        const int max = (range + 2) * (range  + 2);
+        if (dist >= min && dist < max)
+            if (is_tiles())
+                colour = MAGENTA;
+            else
+                colour = DARKGREY;
+        else
+            colour = 0;
+
+        return pos;
+    }
+
+    int range;
+    int current_frame;
+};
+
+static shake_viewport_animation shake_viewport;
+static checkerboard_animation checkerboard;
+static banish_animation banish;
+static slideout_animation slideout;
+static orb_animation orb;
+
+static animation *animations[NUM_ANIMATIONS] = {
+    &shake_viewport,
+    &checkerboard,
+    &banish,
+    &slideout,
+    &orb
+};
+
+void run_animation(animation_type anim, use_animation_type type, bool cleanup)
+{
+#ifdef USE_TILE_WEB
+    // XXX this doesn't work in webtiles yet
+    if (is_tiles())
+        return;
+#endif
+    if (Options.use_animations & type)
+    {
+        animation *a = animations[anim];
+
+        viewwindow();
+
+        for (int i = 0; i < a->frames; ++i)
+        {
+            a->init_frame(i);
+            viewwindow(false, false, a);
+            delay(a->frame_delay);
+        }
+
+        if (cleanup)
+            viewwindow();
+    }
+}
+
 //---------------------------------------------------------------
 //
 // Draws the main window using the character set returned
@@ -1041,7 +1276,7 @@ static void _draw_los(screen_cell_t *cell,
 // If tiles_only is set, only the tile view will be updated. This
 // is only relevant for Webtiles.
 //---------------------------------------------------------------
-void viewwindow(bool show_updates, bool tiles_only)
+void viewwindow(bool show_updates, bool tiles_only, animation *a)
 {
     // The player could be at (0,0) if we are called during level-gen; this can
     // happen via mpr -> interrupt_activity -> stop_delay -> runrest::stop
@@ -1105,7 +1340,9 @@ void viewwindow(bool show_updates, bool tiles_only)
     for (rectangle_iterator ri(tl, br); ri; ++ri)
     {
         // in grid coords
-        const coord_def gc = view2grid(*ri);
+        const coord_def gc = a
+            ? a->cell_cb(view2grid(*ri), flash_colour)
+            : view2grid(*ri);
 
         if (you.flash_where && you.flash_where->is_affected(gc) <= 0)
             draw_cell(cell, gc, anim_updates, 0);
@@ -1199,6 +1436,23 @@ void draw_cell(screen_cell_t *cell, const coord_def &gc,
 #endif
         }
     }
+    else if (crawl_state.flash_monsters)
+    {
+        bool found = gc == you.pos();
+
+        if (!found)
+            for (auto mon : *crawl_state.flash_monsters)
+            {
+                if (gc == mon->pos())
+                {
+                    found = true;
+                    break;
+                }
+            }
+
+        if (!found)
+            cell->colour = DARKGREY;
+    }
 #ifdef USE_TILE_LOCAL
     // Grey out grids that cannot be reached due to beholders.
     else if (you.get_beholder(gc))
@@ -1218,13 +1472,29 @@ void draw_cell(screen_cell_t *cell, const coord_def &gc,
 
     tile_apply_properties(gc, cell->tile);
 #endif
+#ifndef USE_TILE_LOCAL
+    if ((_show_terrain || Options.always_show_exclusions)
+        && you.on_current_level
+        && map_bounds(gc)
+        && (_show_terrain || gc != you.pos())
+        && travel_colour_override(gc))
+    {
+        if (is_exclude_root(gc))
+            cell->colour = Options.tc_excluded;
+        else if (is_excluded(gc))
+            cell->colour = Options.tc_exclude_circle;
+    }
+#endif
 }
 
 void toggle_show_terrain()
 {
     _show_terrain = !_show_terrain;
     if (_show_terrain)
-        mpr("Showing terrain only.");
+    {
+        mprf("Showing terrain only. Press <w>%s</w> to return to normal view.",
+             command_to_string(CMD_SHOW_TERRAIN).c_str());
+    }
     else
         mpr("Returning to normal view.");
 }

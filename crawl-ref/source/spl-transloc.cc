@@ -5,58 +5,60 @@
 
 #include "AppHdr.h"
 
+#include "spl-transloc.h"
+
+#include <algorithm>
 #include <cmath>
 #include <vector>
-#include <algorithm>
-
-#include "spl-transloc.h"
-#include "externs.h"
 
 #include "abyss.h"
 #include "act-iter.h"
 #include "areas.h"
 #include "cloud.h"
-#include "coord.h"
 #include "coordit.h"
 #include "delay.h"
 #include "directn.h"
 #include "dungeon.h"
-#include "env.h"
-#include "fprop.h"
-#include "invent.h"
 #include "itemprop.h"
 #include "items.h"
 #include "libutil.h"
+#include "los.h"
 #include "losglobal.h"
+#include "losparam.h"
 #include "message.h"
+#include "mgen_data.h"
 #include "misc.h"
 #include "mon-behv.h"
+#include "mon-death.h"
+#include "mon-place.h"
 #include "mon-util.h"
 #include "orb.h"
 #include "output.h"
 #include "prompt.h"
-#include "random.h"
 #include "shout.h"
 #include "spl-util.h"
 #include "stash.h"
 #include "state.h"
-
+#include "stringutil.h"
 #include "teleport.h"
 #include "terrain.h"
-#include "throw.h"
-#include "transform.h"
 #include "traps.h"
 #include "view.h"
 #include "viewmap.h"
 #include "xom.h"
 
-// XXX: can miscast before cancelling.
-spret_type cast_controlled_blink(int pow, bool fail)
+static void _quadrant_blink(coord_def dir, int pow);
+
+/**
+ * Place a cloud of translocational energy at a player's previous location,
+ * to make it easier for players to tell what just happened.
+ *
+ * @param origin    The player's previous location.
+ */
+static void _place_tloc_cloud(const coord_def &origin)
 {
-    fail_check();
-    if (blink(pow, true) == -1)
-        return SPRET_ABORT;
-    return SPRET_SUCCESS;
+    if (!cell_is_solid(origin))
+        place_cloud(CLOUD_TLOC_ENERGY, origin, 1 + random2(3), &you);
 }
 
 spret_type cast_disjunction(int pow, bool fail)
@@ -89,10 +91,8 @@ void disjunction()
             return;
         // blink should be isotropic
         shuffle_array(mvec);
-        for (vector<monster*>::iterator mitr = mvec.begin();
-            mitr != mvec.end(); mitr++)
+        for (auto mons : mvec)
         {
-            monster* mons = *mitr;
             if (!mons->alive() || mons->no_tele())
                 continue;
             coord_def p = mons->pos();
@@ -108,254 +108,386 @@ void disjunction()
     }
 }
 
-// If wizard_blink is set, all restriction are ignored (except for
-// a monster being at the target spot), and the player gains no
-// contamination.
-int blink(int pow, bool high_level_controlled_blink, bool wizard_blink,
-          string *pre_msg, bool safely_cancellable)
+/**
+ * Attempt to blink the player to a random nearby tile.
+ *
+ * @param override_stasis       Whether to blink even if the player is under
+ *                              stasis (& thus normally unable to).
+ */
+void uncontrolled_blink(bool override_stasis)
 {
-    ASSERT(!crawl_state.game_is_arena());
+    if (you.no_tele(true, true, true) && !override_stasis)
+    {
+        canned_msg(MSG_STRANGE_STASIS);
+        return;
+    }
 
+    coord_def target;
+    // First try to find a random square not adjacent to the player,
+    // then one adjacent if that fails.
+    if (!random_near_space(&you, you.pos(), target)
+             && !random_near_space(&you, you.pos(), target, true))
+    {
+        mpr("You feel jittery for a moment.");
+        return;
+    }
+
+    if (!you.attempt_escape(2)) // prints its own messages
+        return;
+
+    canned_msg(MSG_YOU_BLINK);
+    const coord_def origin = you.pos();
+    move_player_to_grid(target, false);
+    _place_tloc_cloud(origin);
+}
+
+/**
+ * Attempt to blink the player to a random nearby tile, in a direction of
+ * the player's choosing.
+ *
+ * @param pow           Determines the number of iterations to run for (1-21),
+ *                      which increases the odds of actually getting a blink in
+ *                      the right direction.
+ * @param fail          Whether this came from a miscast spell (& should
+ *                      therefore fail after selecting a direction)
+ * @param safe_cancel   Whether it's OK to let the player cancel the control
+ *                      of the blink (or whether there should be a prompt -
+ *                      for e.g. cblink under the ORB, in which a recast could
+ *                      turn into random blink instead)
+ * @param end_ctele     Whether to end cTele.
+ * @return              Whether the blink succeed, aborted, or was miscast.
+ */
+spret_type semicontrolled_blink(int pow, bool fail, bool safe_cancel,
+                                bool end_ctele)
+{
+    dist bmove;
+    direction_chooser_args args;
+    args.restricts = DIR_DIR;
+    args.mode = TARG_ANY;
+
+    while (true)
+    {
+        mprf(MSGCH_PROMPT, "Which direction? [ESC to cancel]");
+        direction(bmove, args);
+
+        if (crawl_state.seen_hups)
+        {
+            mpr("Cancelling blink due to HUP.");
+            return SPRET_ABORT;
+        }
+
+        if (bmove.isValid && !bmove.delta.origin())
+            break;
+
+        if (safe_cancel
+            || yesno("Are you sure you want to cancel this blink?", false ,'n'))
+        {
+            canned_msg(MSG_OK);
+            return SPRET_ABORT;
+        }
+    }
+
+    fail_check();
+
+    if (you.no_tele(true, true, true))
+    {
+        canned_msg(MSG_STRANGE_STASIS);
+        return SPRET_SUCCESS; // of a sort
+    }
+
+    if (!you.attempt_escape(2)) // prints its own messages
+        return SPRET_SUCCESS; // of a sort
+
+    _quadrant_blink(bmove.delta, pow);
+    // Controlled blink causes glowing.
+    contaminate_player(1000, true);
+    // End teleport control if this was a random blink upgraded by cTele.
+    if (end_ctele && you.duration[DUR_CONTROL_TELEPORT])
+    {
+        mprf(MSGCH_DURATION, "You feel uncertain.");
+        you.duration[DUR_CONTROL_TELEPORT] = 0;
+    }
+    return SPRET_SUCCESS;
+}
+
+
+/**
+ * Let the player choose a destination for their controlled blink.
+ *
+ * @param target[out]   The target found, if any.
+ * @param safe_cancel   Whether it's OK to let the player cancel the control
+ *                      of the blink (or whether there should be a prompt -
+ *                      for e.g. ?blink with blurryvis)
+ * @return              True if a target was found; false if the player aborted.
+ */
+static bool _find_cblink_target(coord_def &target, bool safe_cancel)
+{
+    // query for location {dlb}:
+    direction_chooser_args args;
+    args.restricts = DIR_TARGET;
+    args.needs_path = false;
+    args.may_target_monster = false;
+    args.top_prompt = "Blink to where?";
     dist beam;
+    direction(beam, args);
+
+    if (crawl_state.seen_hups)
+    {
+        mpr("Cancelling blink due to HUP.");
+        return false;
+    }
+
+    if (!beam.isValid || beam.target == you.pos())
+    {
+        if (!safe_cancel
+            && !yesno("Are you sure you want to cancel this blink?",
+                      false, 'n'))
+        {
+            clear_messages();
+            return _find_cblink_target(target, safe_cancel);
+        }
+
+        canned_msg(MSG_OK);
+        return false;
+    }
+
+    const monster* beholder = you.get_beholder(beam.target);
+    if (beholder)
+    {
+        mprf("You cannot blink away from %s!",
+             beholder->name(DESC_THE, true).c_str());
+        return _find_cblink_target(target, safe_cancel);
+    }
+
+    const monster* fearmonger = you.get_fearmonger(beam.target);
+    if (fearmonger)
+    {
+        mprf("You cannot blink closer to %s!",
+             fearmonger->name(DESC_THE, true).c_str());
+        return _find_cblink_target(target, safe_cancel);
+    }
+
+    if (cell_is_solid(beam.target))
+    {
+        clear_messages();
+        mpr("You can't blink into that!");
+        return _find_cblink_target(target, safe_cancel);
+    }
+
+    if (!check_moveto(beam.target, "blink"))
+    {
+        return _find_cblink_target(target, safe_cancel);
+        // try again (messages handled by check_moveto)
+    }
+
+    if (you.see_cell_no_trans(beam.target))
+    {
+        target = beam.target; // Grid in los, no problem.
+        return true;
+    }
+
+    clear_messages();
+    if (you.trans_wall_blocking(beam.target))
+        mpr("There's something in the way!");
+    else
+        mpr("You can only blink to visible locations.");
+    return _find_cblink_target(target, safe_cancel);
+}
+
+void wizard_blink()
+{
+    // query for location {dlb}:
+    direction_chooser_args args;
+    args.restricts = DIR_TARGET;
+    args.needs_path = false;
+    args.may_target_monster = false;
+    args.top_prompt = "Blink to where?";
+    dist beam;
+    direction(beam, args);
+
+    if (!beam.isValid || beam.target == you.pos())
+    {
+        canned_msg(MSG_OK);
+        return;
+    }
+
+    if (!in_bounds(beam.target))
+    {
+        clear_messages();
+        mpr("Please don't blink into the map border.");
+        return wizard_blink();
+    }
+
+    if (monster_at(beam.target))
+    {
+        clear_messages();
+        mpr("Please don't try to blink into monsters.");
+        return wizard_blink();
+    }
+
+    if (!check_moveto(beam.target, "blink"))
+    {
+        return wizard_blink();
+        // try again (messages handled by check_moveto)
+    }
+
+    // Allow wizard blink to send player into walls, in case the
+    // user wants to alter that grid to something else.
+    if (cell_is_solid(beam.target))
+        grd(beam.target) = DNGN_FLOOR;
+
+    move_player_to_grid(beam.target, false);
+}
+
+/**
+ * Attempt to blink the player to a nearby tile of their choosing.
+ *
+ * @param fail          Whether this came from a miscast spell (& should
+ *                      therefore fail after selecting a target)
+ * @param safe_cancel   Whether it's OK to let the player cancel the control
+ *                      of the blink (or whether there should be a prompt -
+ *                      for e.g. ?blink with blurryvis)
+ * @return              Whether the blink succeeded, aborted, or was miscast.
+ */
+spret_type controlled_blink(bool fail, bool safe_cancel)
+{
+    coord_def target;
+    if (!_find_cblink_target(target, safe_cancel))
+        return SPRET_ABORT;
+
+    fail_check();
+
+    if (you.no_tele(true, true, true))
+    {
+        canned_msg(MSG_STRANGE_STASIS);
+        return SPRET_SUCCESS; // of a sort
+    }
+
+    if (!you.attempt_escape(2))
+        return SPRET_SUCCESS; // of a sort
+
+    if (cell_is_solid(target) || monster_at(target))
+    {
+        mpr("Oops! There was something there already!");
+        uncontrolled_blink();
+        return SPRET_SUCCESS; // of a sort
+    }
+
+    _place_tloc_cloud(you.pos());
+    move_player_to_grid(target, false);
+    // Controlling teleport contaminates the player. -- bwr
+    contaminate_player(1000, true);
+
+    crawl_state.cancel_cmd_again();
+    crawl_state.cancel_cmd_repeat();
+
+    return SPRET_SUCCESS;
+}
+
+/**
+ * Cast the player spell Blink.
+ *
+ * @param allow_control     Whether cTele can be used to transform the blink
+ *                          into a semicontrolled blink. (False for e.g. Xom.)
+ * @param fail              Whether the player miscast the spell.
+ * @return                  Whether the spell was successfully cast, aborted,
+ *                          or miscast.
+ */
+spret_type cast_blink(bool allow_control, bool fail)
+{
+    // effects that cast the spell through the player, I guess (e.g. xom)
+    if (you.no_tele(false, false, true))
+        return fail ? SPRET_FAIL : SPRET_SUCCESS; // probably always SUCCESS
+
+    if (allow_control && player_control_teleport()
+        && allow_control_teleport(true))
+    {
+        if (!you.confused())
+            return semicontrolled_blink(100, fail);
+
+        // can't put this in allow_control_teleport(), since that's called for
+        // status lights, etc (and we don't want those to flip on and off
+        // whenever you're confused... probably?)
+        mpr("You're too confused to control your translocation!");
+        // anyway, fallthrough to random blink
+    }
+
+    fail_check();
+    allow_control_teleport(); // print messages only after successfully casting
+    uncontrolled_blink();
+    return SPRET_SUCCESS;
+}
+
+/**
+ * Cast the player spell Controlled Blink.
+ *
+ * @param pow     The power with which the spell is being cast.
+ *                Only used when the blink is degraded to semicontrolled.
+ * @param fail    Whether the player miscast the spell.
+ * @param safe    Whether it's safe to abort (not e.g. unknown ?blink)
+ * @return        Whether the spell was successfully cast, aborted, or miscast.
+ */
+spret_type cast_controlled_blink(int pow, bool fail, bool safe)
+{
+    // don't prompt if it's useless
+    if (you.no_tele(true, true))
+    {
+        canned_msg(MSG_STRANGE_STASIS);
+        return SPRET_ABORT;
+    }
 
     if (crawl_state.is_repeating_cmd())
     {
         crawl_state.cant_cmd_repeat("You can't repeat controlled blinks.");
         crawl_state.cancel_cmd_again();
         crawl_state.cancel_cmd_repeat();
-        return -1;
+        return SPRET_ABORT;
     }
 
-    // yes, there is a logic to this ordering {dlb}:
-    if (you.no_tele(true, true, true) && !wizard_blink)
-    {
-        if (pre_msg)
-            mpr(pre_msg->c_str());
-        canned_msg(MSG_STRANGE_STASIS);
-    }
-    else if (you.confused() && !wizard_blink)
-    {
-        if (pre_msg)
-            mpr(pre_msg->c_str());
-        random_blink(false);
-    }
-    // The orb sometimes degrades controlled blinks to completely uncontrolled.
-    else if (orb_haloed(you.pos()) && !wizard_blink)
-    {
-        if (safely_cancellable && !high_level_controlled_blink
-            && !yesno("Your blink will be uncontrolled - continue anyway?",
-                      false, 'n'))
-        {
-            canned_msg(MSG_OK);
-            return -1;
-        }
+    if (!allow_control_teleport())
+        return semicontrolled_blink(pow, fail, safe, false);
 
-        if (pre_msg)
-            mpr(pre_msg->c_str());
-        mprf(MSGCH_ORB, "The orb interferes with your control of the blink!");
-        // abort still wastes the turn
-        if (high_level_controlled_blink && coinflip())
-            return cast_semi_controlled_blink(pow, false, false) ? 1 : 0;
-        random_blink(false);
-    }
-    else if (!allow_control_teleport(true) && !wizard_blink)
-    {
-        if (safely_cancellable && !high_level_controlled_blink
-            && !yesno("Your blink will be uncontrolled - continue anyway?",
-                      false, 'n'))
-        {
-            canned_msg(MSG_OK);
-            return -1;
-        }
-
-        if (pre_msg)
-            mpr(pre_msg->c_str());
-        mpr("A powerful magic interferes with your control of the blink.");
-        // FIXME: cancel shouldn't waste a turn here -- need to rework Abyss handling
-        if (high_level_controlled_blink)
-            return cast_semi_controlled_blink(pow, false/*true*/, false) ? 1 : -1;
-        random_blink(false);
-    }
-    else
-    {
-        // query for location {dlb}:
-        while (1)
-        {
-            direction_chooser_args args;
-            args.restricts = DIR_TARGET;
-            args.needs_path = false;
-            args.may_target_monster = false;
-            args.top_prompt = "Blink to where?";
-            direction(beam, args);
-
-            if (crawl_state.seen_hups)
-            {
-                mpr("Cancelling blink due to HUP.");
-                return -1;
-            }
-
-            if (!beam.isValid || beam.target == you.pos())
-            {
-                if (!wizard_blink && !safely_cancellable
-                    && !yesno("Are you sure you want to cancel this blink?",
-                              false, 'n'))
-                {
-                    clear_messages();
-                    continue;
-                }
-                canned_msg(MSG_OK);
-                return -1;         // early return {dlb}
-            }
-
-            monster* beholder = you.get_beholder(beam.target);
-            if (!wizard_blink && beholder)
-            {
-                mprf("You cannot blink away from %s!",
-                    beholder->name(DESC_THE, true).c_str());
-                continue;
-            }
-
-            monster* fearmonger = you.get_fearmonger(beam.target);
-            if (!wizard_blink && fearmonger)
-            {
-                mprf("You cannot blink closer to %s!",
-                    fearmonger->name(DESC_THE, true).c_str());
-                continue;
-            }
-
-            if (grd(beam.target) == DNGN_OPEN_SEA)
-            {
-                clear_messages();
-                mpr("You can't blink into the sea!");
-            }
-            else if (grd(beam.target) == DNGN_LAVA_SEA)
-            {
-                clear_messages();
-                mpr("You can't blink into the sea of lava!");
-            }
-            else if (!check_moveto(beam.target, "blink"))
-            {
-                // try again (messages handled by check_moveto)
-            }
-            else if (you.see_cell_no_trans(beam.target))
-            {
-                // Grid in los, no problem.
-                break;
-            }
-            else if (you.trans_wall_blocking(beam.target))
-            {
-                // Wizard blink can move past translucent walls.
-                if (wizard_blink)
-                    break;
-
-                clear_messages();
-                mpr("There's something in the way!");
-            }
-            else
-            {
-                clear_messages();
-                mpr("You can only blink to visible locations.");
-            }
-        }
-
-        if (!you.attempt_escape(2))
-            return false;
-
-        if (pre_msg)
-            mpr(pre_msg->c_str());
-
-        // Allow wizard blink to send player into walls, in case the
-        // user wants to alter that grid to something else.
-        if (wizard_blink && cell_is_solid(beam.target))
-            grd(beam.target) = DNGN_FLOOR;
-
-        if (cell_is_solid(beam.target) || monster_at(beam.target))
-        {
-            mpr("Oops! Maybe something was there already.");
-            random_blink(false);
-        }
-        else
-        {
-            // Leave a purple cloud.
-            if (!wizard_blink)
-                place_cloud(CLOUD_TLOC_ENERGY, you.pos(), 1 + random2(3), &you);
-
-            move_player_to_grid(beam.target, false);
-
-            // Controlling teleport contaminates the player. -- bwr
-            if (!wizard_blink)
-                contaminate_player(1000, true);
-        }
-    }
-
-    crawl_state.cancel_cmd_again();
-    crawl_state.cancel_cmd_repeat();
-
-    return 1;
+    return controlled_blink(fail, safe);
 }
 
-spret_type cast_blink(bool allow_partial_control, bool fail)
-{
-    fail_check();
-    random_blink(allow_partial_control);
-    return SPRET_SUCCESS;
-}
-
-void random_blink(bool allow_partial_control, bool override_abyss, bool override_stasis)
-{
-    ASSERT(!crawl_state.game_is_arena());
-
-    coord_def target;
-
-    if (you.no_tele(true, true, true) && !override_stasis)
-        canned_msg(MSG_STRANGE_STASIS);
-    // First try to find a random square not adjacent to the player,
-    // then one adjacent if that fails.
-    else if (!random_near_space(&you, you.pos(), target)
-             && !random_near_space(&you, you.pos(), target, true))
-    {
-        mpr("You feel jittery for a moment.");
-    }
-
-    //jmf: Add back control, but effect is cast_semi_controlled_blink(pow).
-    else if (player_control_teleport() && !you.confused() && allow_partial_control
-             && allow_control_teleport())
-    {
-        mpr("You may select the general direction of your translocation.");
-        // FIXME: handle aborts here, don't waste the turn
-        cast_semi_controlled_blink(100, false, true);
-    }
-    else if (you.attempt_escape(2))
-    {
-        canned_msg(MSG_YOU_BLINK);
-        coord_def origin = you.pos();
-        move_player_to_grid(target, false);
-
-        // Leave a purple cloud.
-        if (!cell_is_solid(origin))
-            place_cloud(CLOUD_TLOC_ENERGY, origin, 1 + random2(3), &you);
-    }
-}
-
-// This function returns true if the player can use controlled teleport
-// here.
+/**
+ * Can the player control their teleportation?
+ *
+ * Doesn't guaranteed that they *can*, just that there aren't any effects
+ * preventing them from doing so.
+ *
+ * @param quiet     Whether to suppress messages.
+ * @return          Whether the player can currently control their blinks/
+ *                  teleports.
+ */
 bool allow_control_teleport(bool quiet)
 {
-    const bool retval = !(testbits(env.level_flags, LFLAG_NO_TELE_CONTROL)
-                          || orb_haloed(you.pos()) || you.beheld());
-
-    // Tell the player why if they have teleport control.
-    if (!quiet && !retval && player_control_teleport())
+    // Attempt to order from most to least permanent.
+    if (orb_haloed(you.pos()))
     {
-        if (orb_haloed(you.pos()))
+        if (!quiet)
             mprf(MSGCH_ORB, "The orb prevents control of your teleportation!");
-        else if (you.beheld())
-            mpr("It is impossible to concentrate on your destination whilst mesmerised.");
-        else
-            mpr("A powerful magic prevents control of your teleportation.");
+        return false;
     }
 
-    return retval;
+    if (testbits(env.level_flags, LFLAG_NO_TELE_CONTROL))
+    {
+        if (!quiet)
+            mpr("A powerful magic prevents control of your teleportation.");
+        return false;
+    }
+
+    if (you.beheld())
+    {
+        if (!quiet)
+        {
+            mpr("It is impossible to concentrate on your destination while "
+                "mesmerised.");
+        }
+        return false;
+    }
+
+    return true;
 }
 
 spret_type cast_teleport_self(bool fail)
@@ -611,8 +743,8 @@ static bool _teleport_player(bool allow_control, bool wizard_tele,
             else
             {
                 // Leave a purple cloud.
-                if (!wizard_tele && !cell_is_solid(old_pos))
-                    place_cloud(CLOUD_TLOC_ENERGY, old_pos, 1 + random2(3), &you);
+                if (!wizard_tele)
+                    _place_tloc_cloud(old_pos);
 
                 move_player_to_grid(pos, false);
 
@@ -662,7 +794,9 @@ static bool _teleport_player(bool allow_control, bool wizard_tele,
 
         int tries = 500;
         do
+        {
             newpos = random_in_bounds();
+        }
         while (--tries > 0
                && (_cell_vetoes_teleport(newpos)
                    || (newpos - old_pos).abs() > dist_range(range)
@@ -686,8 +820,7 @@ static bool _teleport_player(bool allow_control, bool wizard_tele,
         }
 
         // Leave a purple cloud.
-        if (!cell_is_solid(old_pos))
-            place_cloud(CLOUD_TLOC_ENERGY, old_pos, 1 + random2(3), &you);
+        _place_tloc_cloud(old_pos);
 
         move_player_to_grid(newpos, false);
     }
@@ -753,9 +886,7 @@ bool you_teleport_to(const coord_def where_to, bool move_monsters)
     }
 
     // If we got this far, we're teleporting the player.
-    // Leave a purple cloud.
-    if (!cell_is_solid(old_pos))
-        place_cloud(CLOUD_TLOC_ENERGY, old_pos, 1 + random2(3), &you);
+    _place_tloc_cloud(old_pos);
 
     bool large_change = you.see_cell(where);
 
@@ -933,10 +1064,16 @@ spret_type cast_apportation(int pow, bolt& beam, bool fail)
     return SPRET_SUCCESS;
 }
 
-static bool _quadrant_blink(coord_def dir, int pow)
+/**
+ * Attempt to blink in the given direction.
+ *
+ * @param dir   A direction to blink in.
+ * @param pow   Determines number of iterations.
+ *              (pow^2 / 500 + 1, where pow is 0-100; so 1-21 iterations)
+ */
+static void _quadrant_blink(coord_def dir, int pow)
 {
-    if (pow > 100)
-        pow = 100;
+    pow = min(100, max(0, pow));
 
     const int dist = random2(6) + 2;  // 2-7
 
@@ -955,8 +1092,9 @@ static bool _quadrant_blink(coord_def dir, int pow)
         if (!random_near_space(&you, base, target)
             && !random_near_space(&you, base, target, true))
         {
-            // Uh oh, WHY should this fail the blink?
-            return false;
+
+            continue; // could probably 'break;' random_near_space uses quite
+                      // a lot of iterations...
         }
 
         // ... which is close enough, but also far enough from us.
@@ -971,67 +1109,11 @@ static bool _quadrant_blink(coord_def dir, int pow)
     }
 
     if (!found)
-    {
-        // We've already succeeded at blinking, so the Abyss shouldn't block it.
-        random_blink(false, true);
-        return true;
-    }
+        return uncontrolled_blink();
 
     coord_def origin = you.pos();
     move_player_to_grid(target, false);
-
-    // Leave a purple cloud.
-    if (!cell_is_solid(origin))
-        place_cloud(CLOUD_TLOC_ENERGY, origin, 1 + random2(3), &you);
-
-    return true;
-}
-
-spret_type cast_semi_controlled_blink(int pow, bool cheap_cancel, bool end_ctele, bool fail)
-{
-    dist bmove;
-    direction_chooser_args args;
-    args.restricts = DIR_DIR;
-    args.mode = TARG_ANY;
-
-    while (1)
-    {
-        mprf(MSGCH_PROMPT, "Which direction? [ESC to cancel]");
-        direction(bmove, args);
-
-        if (crawl_state.seen_hups)
-        {
-            mpr("Cancelling blink due to HUP.");
-            return SPRET_ABORT;
-        }
-
-        if (bmove.isValid && !bmove.delta.origin())
-            break;
-
-        if (cheap_cancel
-            || yesno("Are you sure you want to cancel this blink?", false ,'n'))
-        {
-            canned_msg(MSG_OK);
-            return SPRET_ABORT;
-        }
-    }
-
-    fail_check();
-
-    // Note: this can silently fail, eating the blink -- WHY?
-    if (you.attempt_escape(2) && _quadrant_blink(bmove.delta, pow))
-    {
-        // Controlled blink causes glowing.
-        contaminate_player(1000, true);
-        // End teleport control if this was a random blink upgraded by cTele.
-        if (end_ctele && you.duration[DUR_CONTROL_TELEPORT])
-        {
-            mprf(MSGCH_DURATION, "You feel uncertain.");
-            you.duration[DUR_CONTROL_TELEPORT] = 0;
-        }
-    }
-
-    return SPRET_SUCCESS;
+    _place_tloc_cloud(origin);
 }
 
 spret_type cast_golubrias_passage(const coord_def& where, bool fail)
@@ -1106,4 +1188,238 @@ spret_type cast_golubrias_passage(const coord_def& where, bool fail)
     trap2->reveal();
 
     return SPRET_SUCCESS;
+}
+
+static int _disperse_monster(monster* mon, int pow)
+{
+    if (!mon)
+        return 0;
+
+    if (mon->no_tele())
+        return 0;
+
+    if (mon->check_res_magic(pow) > 0)
+        monster_blink(mon);
+    else
+        monster_teleport(mon, true);
+
+    if (mon->check_res_magic(pow) <= 0)
+        mon->confuse(&you, 1 + random2avg(pow / 10, 2));
+
+    return 1;
+}
+
+spret_type cast_dispersal(int pow, bool fail)
+{
+    fail_check();
+    const int radius = spell_range(SPELL_DISPERSAL, pow);
+    if (!apply_monsters_around_square(_disperse_monster, you.pos(), pow,
+                                      radius))
+    {
+        mpr("The air shimmers briefly around you.");
+    }
+    return SPRET_SUCCESS;
+}
+
+int singularity_range(int pow, int strength)
+{
+    // XXX: unify some of this functionality.
+    // A singularity is HD (pow / 10) + 1; its strength is
+    // (HD / (range^2)) for a given range, so for a given strength the
+    // range is sqrt(pow/10 + 1) / strength.
+
+    return max(0, min(LOS_RADIUS, (int)isqrt((pow/10 + 1) / strength)));
+}
+
+spret_type cast_singularity(actor* agent, int pow, const coord_def& where,
+                            bool fail)
+{
+    if (cell_is_solid(where))
+    {
+        if (agent->is_player())
+            mpr("You can't place that within a solid object!");
+        return SPRET_ABORT;
+    }
+
+    actor* victim = actor_at(where);
+    if (victim)
+    {
+        if (you.can_see(victim))
+        {
+            if (agent->is_player())
+                mpr("You can't place the singularity on a creature.");
+            return SPRET_ABORT;
+        }
+
+        fail_check();
+
+        if (agent->is_player())
+            canned_msg(MSG_GHOSTLY_OUTLINE);
+        else if (you.can_see(victim))
+        {
+            mprf("%s %s for a moment.",
+                 victim->name(DESC_THE).c_str(),
+                 victim->conj_verb("distort").c_str());
+        }
+        return SPRET_SUCCESS;
+    }
+
+    fail_check();
+
+    for (monster_iterator mi; mi; ++mi)
+        if (mi->type == MONS_SINGULARITY && mi->summoner == agent->mid)
+        {
+            simple_monster_message(*mi, " implodes!");
+            monster_die(*mi, KILL_RESET, NON_MONSTER);
+        }
+
+    monster* singularity = create_monster(
+                                mgen_data(MONS_SINGULARITY,
+                                          agent->is_player()
+                                          ? BEH_FRIENDLY
+                                          : SAME_ATTITUDE(agent->as_monster()),
+                                          agent,
+                                          // It's summoned, but it uses
+                                          // its own mechanic to time out.
+                                          0, SPELL_SINGULARITY,
+                                          where, MHITNOT, MG_FORCE_PLACE,
+                                          GOD_NO_GOD, MONS_NO_MONSTER,
+                                          pow / 20, COLOUR_INHERIT,
+                                          PROX_ANYWHERE,
+                                          level_id::current(),
+                                          (pow / 10) + 1));
+
+    if (singularity)
+    {
+        if (you.can_see(singularity))
+        {
+            const bool friendly = singularity->wont_attack();
+            mprf("Space collapses on itself with a %s crunch%s",
+                 friendly ? "satisfying" : "horrifying",
+                 friendly ? "." : "!");
+        }
+        invalidate_agrid(true);
+    }
+    else
+        canned_msg(MSG_NOTHING_HAPPENS);
+
+    return SPRET_SUCCESS;
+}
+
+#define GRAVITY "by gravitational forces"
+
+void attract_actor(const actor* agent, actor* victim, const coord_def pos,
+                   int pow, int strength)
+{
+    ray_def ray;
+    if (!find_ray(victim->pos(), pos, ray, opc_solid))
+    {
+        // This probably shouldn't ever happen, but just in case:
+        if (you.can_see(victim))
+        {
+            mprf("%s violently %s moving!",
+                 victim->name(DESC_THE).c_str(),
+                 victim->conj_verb("stop").c_str());
+        }
+        victim->hurt(agent, roll_dice(strength / 2, pow / 20),
+                     BEAM_MMISSILE, KILLED_BY_BEAM, "", GRAVITY);
+        return;
+    }
+
+    for (int i = 0; i < strength; i++)
+    {
+        ray.advance();
+        const coord_def newpos = ray.pos();
+
+        if (!victim->can_pass_through_feat(grd(newpos)))
+        {
+            victim->collide(newpos, agent, pow);
+            break;
+        }
+        else if (actor* act_at_space = actor_at(newpos))
+        {
+            if (victim != act_at_space
+                && act_at_space->type != MONS_SINGULARITY)
+            {
+                victim->collide(newpos, agent, pow);
+            }
+            break;
+        }
+        else
+            victim->move_to_pos(newpos, false);
+    }
+}
+
+void singularity_pull(const monster *singularity)
+{
+    actor *agent = actor_by_mid(singularity->summoner);
+
+    for (actor_near_iterator ai(singularity->pos(), LOS_NO_TRANS); ai; ++ai)
+    {
+        if (*ai == singularity
+            || agent && mons_aligned(*ai, agent))
+        {
+            continue;
+        }
+
+        const int range = isqrt((singularity->pos() - ai->pos()).abs());
+        const int strength =
+            min(4, (singularity->get_hit_dice()) / (range*range));
+        if (strength <= 0)
+            continue;
+
+        static const char *messages[] =
+        {
+            "%s pulls at %s.",
+            "%s crushes %s!",
+            "%s violently warps %s!",
+            "%s twists %s apart!",
+        };
+
+        if (ai->is_monster())
+            behaviour_event(ai->as_monster(), ME_ANNOY, singularity);
+
+        if (you.can_see(*ai))
+        {
+            // Note that we don't care if you see the singularity if
+            // you can see its impact on the monster; "Something
+            // violently warps Sigmund!" is perfectly acceptable,
+            // after all.
+            mprf(messages[strength - 1],
+                 singularity->name(DESC_THE).c_str(),
+                 ai->name(DESC_THE).c_str());
+        }
+        ai->hurt(singularity, roll_dice(strength, 12), BEAM_MMISSILE,
+                 KILLED_BY_BEAM, "", GRAVITY);
+
+        if (ai->alive() && !ai->is_stationary())
+        {
+            attract_actor(singularity, *ai, singularity->pos(),
+                          10 * singularity->get_hit_dice(), strength);
+        }
+    }
+}
+
+bool fatal_attraction(actor *victim, actor *agent, int pow)
+{
+    bool affected = false;
+    for (actor_near_iterator ai(victim->pos(), LOS_NO_TRANS); ai; ++ai)
+    {
+        if (*ai == victim || *ai == agent || ai->is_stationary())
+            continue;
+
+        const int range = isqrt((victim->pos() - ai->pos()).abs());
+        const int strength =
+            min(4, (pow / 10) / (range*range));
+        if (strength <= 0)
+            continue;
+
+        affected = true;
+        attract_actor(agent, *ai, victim->pos(), pow, strength);
+
+        if (ai->alive() && ai->check_res_magic(pow / 2) <= 0)
+            ai->confuse(agent, 1 + random2avg(pow / 10, 2));
+    }
+
+    return affected;
 }

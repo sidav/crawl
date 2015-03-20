@@ -8,7 +8,9 @@
 
 #include <string>
 #include <vector>
-#include <stdio.h>
+#include <cstdio>
+
+#include "player.h"
 
 #define MAX_NOTE_PLACE_LEN 8
 
@@ -53,14 +55,17 @@ enum NOTE_TYPES
     NOTE_FEAT_MIMIC,            /* needs: mimiced feature (string) */
     NOTE_OFFERED_SPELL,         /* needs: spell idx */
     NOTE_PERM_MUTATION,         /* needs: mutation idx, reason (string) */
+    NOTE_FOCUS_CARD,            /* needs: increased stat value, decreased stat value,
+                                   increased stat name (string), decreased stat name (string) */
     NOTE_NUM_TYPES
 };
 
 struct Note
 {
-    Note();
-    Note(NOTE_TYPES t, int f = 0, int s = 0, const char* n = 0,
-          const char* d = 0);
+    Note() {}
+    Note(NOTE_TYPES t, int f = 0, int s = 0, const string& n = "",
+                                             const string& d = "") :
+        type(t), first(f), second(s), name(n), desc(d) {}
     void save(writer& outf) const;
     void load(reader& inf);
     string describe(bool when = true, bool where = true, bool what = true) const;
@@ -68,8 +73,8 @@ struct Note
 
     NOTE_TYPES type;
     int first, second;
-    int turn;
-    unsigned short packed_place;
+    int turn = you.num_turns;
+    level_id place = level_id::current();
 
     string name;
     string desc;

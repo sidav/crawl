@@ -4,4 +4,4 @@
 
 int main(int argc, const char *argv[]);
 
-#endif MAIN_H
+#endif //MAIN_H

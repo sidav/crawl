@@ -6,13 +6,11 @@
 
 #include "AppHdr.h"
 
-#include <algorithm>
-
 #include "exercise.h"
 
+#include <algorithm>
+
 #include "itemprop.h"
-#include "player.h"
-#include "random.h"
 #include "skills.h"
 #include "spl-util.h"
 
@@ -27,11 +25,8 @@ skill_type abil_skill(ability_type abil)
     case ABIL_EVOKE_FLIGHT:
     case ABIL_EVOKE_FOG:
     case ABIL_EVOKE_TELEPORT_CONTROL:
-    case ABIL_EVOKE_JUMP:
         return SK_EVOCATIONS;
 
-    case ABIL_NEMELEX_DRAW_ONE:
-    case ABIL_NEMELEX_PEEK_TWO:
     case ABIL_NEMELEX_TRIPLE_DRAW:
     case ABIL_NEMELEX_DEAL_FOUR:
     case ABIL_NEMELEX_STACK_FIVE:
@@ -39,8 +34,7 @@ skill_type abil_skill(ability_type abil)
 
     case ABIL_YRED_RECALL_UNDEAD_SLAVES:
     case ABIL_MAKHLEB_MINOR_DESTRUCTION:
-    case ABIL_ELYVILON_LESSER_HEALING_SELF:
-    case ABIL_ELYVILON_LESSER_HEALING_OTHERS:
+    case ABIL_ELYVILON_LESSER_HEALING:
     case ABIL_BEOGH_RECALL_ORCISH_FOLLOWERS:
     case ABIL_ZIN_RECITE:
     case ABIL_SIF_MUNA_CHANNEL_ENERGY:
@@ -63,8 +57,8 @@ skill_type abil_skill(ability_type abil)
     case ABIL_YRED_DRAIN_LIFE:
     case ABIL_ZIN_IMPRISON:
     case ABIL_MAKHLEB_MAJOR_DESTRUCTION:
-    case ABIL_ELYVILON_GREATER_HEALING_SELF:
-    case ABIL_ELYVILON_GREATER_HEALING_OTHERS:
+    case ABIL_ELYVILON_GREATER_HEALING:
+    case ABIL_ELYVILON_HEAL_OTHER:
     case ABIL_LUGONU_BANISH:
     case ABIL_TSO_CLEANSING_FLAME:
     case ABIL_OKAWARU_FINESSE:
@@ -105,13 +99,8 @@ static int _abil_degree(ability_type abil)
     case ABIL_EVOKE_FLIGHT:
     case ABIL_EVOKE_FOG:
     case ABIL_EVOKE_TELEPORT_CONTROL:
-    case ABIL_EVOKE_JUMP:
         return 1;
 
-    case ABIL_NEMELEX_DRAW_ONE:
-        return 1 + random2(2);
-    case ABIL_NEMELEX_PEEK_TWO:
-        return 2 + random2(2);
     case ABIL_NEMELEX_TRIPLE_DRAW:
         return 3 + random2(3);
     case ABIL_NEMELEX_DEAL_FOUR:
@@ -121,8 +110,7 @@ static int _abil_degree(ability_type abil)
 
     case ABIL_YRED_RECALL_UNDEAD_SLAVES:
     case ABIL_MAKHLEB_MINOR_DESTRUCTION:
-    case ABIL_ELYVILON_LESSER_HEALING_SELF:
-    case ABIL_ELYVILON_LESSER_HEALING_OTHERS:
+    case ABIL_ELYVILON_LESSER_HEALING:
     case ABIL_BEOGH_RECALL_ORCISH_FOLLOWERS:
         return 1;
     case ABIL_SIF_MUNA_CHANNEL_ENERGY:
@@ -154,8 +142,8 @@ static int _abil_degree(ability_type abil)
 
     case ABIL_ZIN_IMPRISON:
     case ABIL_MAKHLEB_MAJOR_DESTRUCTION:
-    case ABIL_ELYVILON_GREATER_HEALING_SELF:
-    case ABIL_ELYVILON_GREATER_HEALING_OTHERS:
+    case ABIL_ELYVILON_GREATER_HEALING:
+    case ABIL_ELYVILON_HEAL_OTHER:
     case ABIL_LUGONU_BANISH:
     case ABIL_CHEIBRIADOS_DISTORTION:
     case ABIL_QAZLAL_ELEMENTAL_FORCE:
@@ -197,10 +185,9 @@ static int _abil_degree(ability_type abil)
 static void _exercise_spell(spell_type spell, bool success)
 {
     // (!success) reduces skill increase for miscast spells
-    skill_type skill;
     int workout = 0;
 
-    unsigned int disciplines = get_spell_disciplines(spell);
+    spschools_type disciplines = get_spell_disciplines(spell);
 
     int skillcount = count_bits(disciplines);
 
@@ -216,10 +203,11 @@ static void _exercise_spell(spell_type spell, bool success)
     vector<skill_type> disc;
     for (int ndx = 0; ndx <= SPTYP_LAST_EXPONENT; ndx++)
     {
-        if (!spell_typematch(spell, 1 << ndx))
+        const auto bit = spschools_type::exponent(ndx);
+        if (!spell_typematch(spell, bit))
             continue;
 
-        skill = spell_type2skill(1 << ndx);
+        skill_type skill = spell_type2skill(bit);
         if (skill == SK_CONJURATIONS)
             conj = true;
 
@@ -232,9 +220,8 @@ static void _exercise_spell(spell_type spell, bool success)
 
     shuffle_array(disc);
 
-    for (unsigned int k = 0; k < disc.size(); ++k)
+    for (const skill_type skill : disc)
     {
-        skill = disc[k];
         workout = (random2(1 + diff) / skillcount);
 
         if (!one_chance_in(5))
@@ -258,27 +245,32 @@ static void _exercise_spell(spell_type spell, bool success)
     exercise(SK_SPELLCASTING, 1 + random2(1 + diff) / skillcount);
 }
 
+/**
+ * A best-fit linear approximation of the old item mass equation for armour.
+ *
+ * @return 42 * EVP - 13, if the player is wearing body armour; else 0.
+ */
+static int _armour_mass()
+{
+    const int evp = you.unadjusted_body_armour_penalty();
+    return max(0, 42 * evp - 13);
+}
+
 static bool _check_train_armour(int amount)
 {
-    if (const item_def *armour = you.slot_item(EQ_BODY_ARMOUR, false))
+    const int mass_base = 100; // old animal skin mass
+    if (x_chance_in_y(_armour_mass() - mass_base,
+                      you.skill(SK_ARMOUR, 50)))
     {
-        // XXX: animal skin; should be a better way to get at that.
-        const int mass_base = 100;
-        const int mass = max(item_mass(*armour) - mass_base, 0);
-        if (x_chance_in_y(mass, you.skill(SK_ARMOUR, 50)))
-        {
-            exercise(SK_ARMOUR, amount);
-            return true;
-        }
+        exercise(SK_ARMOUR, amount);
+        return true;
     }
     return false;
 }
 
 static bool _check_train_dodging(int amount)
 {
-    const item_def *armour = you.slot_item(EQ_BODY_ARMOUR, false);
-    const int mass = armour? item_mass(*armour) : 0;
-    if (!x_chance_in_y(mass, 800))
+    if (!x_chance_in_y(_armour_mass(), 800))
     {
         exercise(SK_DODGING, amount);
         return true;
@@ -288,9 +280,7 @@ static bool _check_train_dodging(int amount)
 
 static void _check_train_sneak(bool invis)
 {
-    const item_def *body_armour = you.slot_item(EQ_BODY_ARMOUR, false);
-    const int armour_mass = body_armour? item_mass(*body_armour) : 0;
-    if (!x_chance_in_y(armour_mass, 1000)
+    if (!x_chance_in_y(_armour_mass(), 1000)
         && !you.attribute[ATTR_SHADOWS]
             // If invisible, training happens much more rarely.
         && (!invis && one_chance_in(25) || one_chance_in(100)))
@@ -302,21 +292,18 @@ static void _check_train_sneak(bool invis)
 static void _exercise_passive()
 {
     if (one_chance_in(6) && _check_train_armour(1))
-    {
-        // Armour trained in check_train_armour
-    }
+        return; // Armour trained in check_train_armour
+
+    if (you.berserk() || you.attribute[ATTR_SHADOWS])
+        return;
+
     // Exercise stealth skill:
-    else if (!you.berserk() && !you.attribute[ATTR_SHADOWS])
+    if (!x_chance_in_y(_armour_mass(), 1000)
+        // Diminishing returns for stealth training by waiting.
+        && you.skills[SK_STEALTH] <= 2 + random2(3)
+        && one_chance_in(15))
     {
-        const item_def *body_armour = you.slot_item(EQ_BODY_ARMOUR, false);
-        const int armour_mass = body_armour? item_mass(*body_armour) : 0;
-        if (!x_chance_in_y(armour_mass, 1000)
-            // Diminishing returns for stealth training by waiting.
-            && you.skills[SK_STEALTH] <= 2 + random2(3)
-            && one_chance_in(15))
-        {
-            exercise(SK_STEALTH, 1);
-        }
+        exercise(SK_STEALTH, 1);
     }
 }
 

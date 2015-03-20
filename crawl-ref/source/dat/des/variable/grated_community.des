@@ -60,12 +60,11 @@ KFEAT:  j = fountain_sparkling
 KFEAT:  ~ = closed_door
 KFEAT:  7 = tree
 KFEAT:  A = general shop type:Slaves suffix:and_Accessories count:10 ; \
-            w:45 whip | wand of enslavement | w:1 wand of hasting | \
-            w:5 potion of porridge
+            w:50 whip | wand of enslavement | w:1 wand of hasting
 KFEAT:  B = food shop name:Jack type:Jerk-a-riffic suffix:Jerky count:10 ; \
             q:5 beef jerky
 KFEAT:  C = distillery shop type:Miraculous suffix:Elixirs count:10 \
-            greed:50 ; potion of confusion
+            greed:50 ; potion of mutation
 : local smithy = string.gsub(crawl.make_name(), " ", "_")
 : kfeat("D = armour shop name:The_Legendary_" .. smithy .. " \
 :        type:Legendary suffix:Smithy count:10 greed:40 ;\
@@ -308,9 +307,9 @@ NAME: grated_community_mu_troll_home
 TAGS: grated_community_mu_home grated_community_mu_home5 unrand
 MONS: patrolling iron troll / patrolling deep troll
 FTILE:   1.c~+#$%& = floor_dirt
-: dgn.delayed_decay_extra(_G, '%', 'w:20 any skeleton / w:5 any chunk', 'any / nothing')
 KITEM:   $ = animal skin
 NSUBST:  . = 7:% / 2:$ / *:.
+: dgn.delayed_decay_extra(_G, '%', 'w:20 any skeleton / w:5 any chunk', 'any / nothing')
 KFEAT:   ~ = floor
 MARKER:  # = lua:fog_machine { cloud_type = "flame", \
                  pow_min = 10, pow_max = 10, delay = 10, \

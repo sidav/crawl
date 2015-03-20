@@ -2,20 +2,21 @@
 
 #include "clua.h"
 
+#include <algorithm>
+
 #include "cluautil.h"
 #include "dlua.h"
-#include "l_libs.h"
-
 #include "end.h"
 #include "files.h"
 #include "libutil.h"
+#include "l_libs.h"
+#include "misc.h" // erase_val
+#include "options.h"
 #include "state.h"
 #include "stringutil.h"
-
 #include "syscalls.h"
 #include "unicode.h"
-
-#include <algorithm>
+#include "version.h"
 
 #define BUGGY_PCALL_ERROR  "667: Malformed response to guarded pcall."
 #define BUGGY_SCRIPT_ERROR "666: Killing badly-behaved Lua script."
@@ -46,6 +47,7 @@ static int  _clua_guarded_pcall(lua_State *);
 static int  _clua_require(lua_State *);
 static int  _clua_dofile(lua_State *);
 static int  _clua_loadfile(lua_State *);
+static string _get_persist_file();
 
 CLua::CLua(bool managed)
     : error(), managed_vm(managed), shutting_down(false),
@@ -54,7 +56,7 @@ CLua::CLua(bool managed)
       throttle_sleep_end(800), n_throttle_sleeps(0), mixed_call_depth(0),
       lua_call_depth(0), max_mixed_call_depth(8),
       max_lua_call_depth(100), memory_used(0),
-      _state(NULL), sourced_files(), uniqindex(0)
+      _state(nullptr), sourced_files(), uniqindex(0)
 {
 }
 
@@ -133,6 +135,48 @@ void CLua::save(writer &outf)
     outf.write(res.c_str(), res.size());
 }
 
+void CLua::save_persist()
+{
+    string persist;
+    // We load persist.lua immediately before calling c_save_persist so
+    // that we know that it hasn't been overwritten by a player version.
+    execfile("dlua/persist.lua", true, true);
+    callfn("c_save_persist", ">s", &persist);
+    FILE *f;
+    const string persistfile = _get_persist_file();
+
+    // Don't create the file if there's no need to do so.
+    if (persist.empty() && !file_exists(persistfile))
+        return;
+
+    f = fopen_u(persistfile.c_str(), "w");
+    if (!f)
+    {
+        mprf(MSGCH_ERROR, "Couldn't open %s for writing!", persistfile.c_str());
+        return;
+    }
+
+    fprintf(f, "-- %s %s persistent clua file\n"
+               "-- WARNING: This file is entirely auto-generated.\n"
+            "\n",
+            OUTS(CRAWL), // ok, localizing the game name is not likely
+            OUTS(Version::Long)); // nor the version string
+    fprintf(f, "%s", persist.c_str());
+    fclose(f);
+}
+
+void CLua::load_persist()
+{
+    string persistfile = _get_persist_file();
+    if (!file_exists(persistfile))
+        return;
+    FileLineInput f(persistfile.c_str());
+    string script;
+    while (!f.eof())
+        script += f.get_line() + "\n";
+    execstring(script.c_str());
+}
+
 int CLua::file_write(lua_State *ls)
 {
     if (!lua_islightuserdata(ls, 1))
@@ -182,6 +226,9 @@ void CLua::set_error(int err, lua_State *ls)
 void CLua::init_throttle()
 {
     if (!managed_vm)
+        return;
+
+    if (!crawl_state.throttle)
         return;
 
     if (throttle_unit_lines <= 0)
@@ -471,7 +518,7 @@ int CLua::return_count(lua_State *ls, const char *format)
     const char *cs = strchr(format, ':');
     if (cs && isdigit(*format))
     {
-        char *es = NULL;
+        char *es = nullptr;
         int ci = strtol(format, &es, 10);
         // We're capping return at 10 here, which is arbitrary, but avoids
         // blowing the stack.
@@ -534,6 +581,38 @@ maybe_bool CLua::callmbooleanfn(const char *fn, const char *params, ...)
     return callmbooleanfn(fn, params, args);
 }
 
+maybe_bool CLua::callmaybefn(const char *fn, const char *params, va_list args)
+{
+    error.clear();
+    lua_State *ls = state();
+    if (!ls)
+        return MB_MAYBE;
+
+    int stacktop = lua_gettop(ls);
+
+    pushglobal(fn);
+    if (!lua_isfunction(ls, -1))
+    {
+        lua_pop(ls, 1);
+        CL_RESETSTACK_RETURN(ls, stacktop, MB_MAYBE);
+    }
+
+    bool ret = calltopfn(ls, params, args, 1);
+    if (!ret)
+        CL_RESETSTACK_RETURN(ls, stacktop, MB_MAYBE);
+
+    maybe_bool r = lua_isboolean(ls, -1) ? _frombool(lua_toboolean(ls, -1))
+                                         : MB_MAYBE;
+    CL_RESETSTACK_RETURN(ls, stacktop, r);
+}
+
+maybe_bool CLua::callmaybefn(const char *fn, const char *params, ...)
+{
+    va_list args;
+    va_start(args, params);
+    return callmaybefn(fn, params, args);
+}
+
 static bool _tobool(maybe_bool mb, bool def)
 {
     switch (mb)
@@ -558,7 +637,7 @@ bool CLua::callbooleanfn(bool def, const char *fn, const char *params, ...)
 
 bool CLua::proc_returns(const char *par) const
 {
-    return strchr(par, '>') != NULL;
+    return strchr(par, '>') != nullptr;
 }
 
 // Identical to lua_getglobal for simple names, but will look up
@@ -719,6 +798,7 @@ void CLua::init_lua()
     {
         lua_register(_state, "pcall", _clua_guarded_pcall);
         execfile("dlua/userbase.lua", true, true);
+        execfile("dlua/persist.lua", true, true);
     }
 
     lua_pushboolean(_state, managed_vm);
@@ -771,10 +851,7 @@ void CLua::add_shutdown_listener(lua_shutdown_listener *listener)
 
 void CLua::remove_shutdown_listener(lua_shutdown_listener *listener)
 {
-    vector<lua_shutdown_listener*>::iterator i =
-        find(shutdown_listeners.begin(), shutdown_listeners.end(), listener);
-    if (i != shutdown_listeners.end())
-        shutdown_listeners.erase(i);
+    erase_val(shutdown_listeners, listener);
 }
 
 // Can be called from within a debugger to look at the current Lua
@@ -791,7 +868,7 @@ void CLua::print_stack()
         lua_getinfo(L, "lnuS", &dbg);
 
         char* file = strrchr(dbg.short_src, '/');
-        if (file == NULL)
+        if (file == nullptr)
             file = dbg.short_src;
         else
             file++;
@@ -833,12 +910,9 @@ unsigned int lua_text_pattern::lfndx = 0;
 
 bool lua_text_pattern::is_lua_pattern(const string &s)
 {
-    for (int i = 0, size = ARRAYSZ(pat_ops); i < size; ++i)
-    {
-        if (s.find(pat_ops[i].token) != string::npos)
-            return true;
-    }
-    return false;
+    return any_of(begin(pat_ops), end(pat_ops),
+            [&s] (const lua_pat_op &op)
+            { return s.find(op.token) != string::npos; });
 }
 
 lua_text_pattern::lua_text_pattern(const string &_pattern)
@@ -914,7 +988,7 @@ bool lua_text_pattern::translate() const
 
     string textp;
     string luafn;
-    const lua_pat_op *currop = NULL;
+    const lua_pat_op *currop = nullptr;
     for (string::size_type i = 0; i < pattern.length(); ++i)
     {
         bool match = false;
@@ -1000,13 +1074,13 @@ static void *_clua_allocator(void *ud, void *ptr, size_t osize, size_t nsize)
     if (nsize > osize && cl->memory_used >= CLUA_MAX_MEMORY_USE * 1024
         && cl->mixed_call_depth)
     {
-        return NULL;
+        return nullptr;
     }
 
     if (!nsize)
     {
         free(ptr);
-        return NULL;
+        return nullptr;
     }
     else
         return realloc(ptr, nsize);
@@ -1058,8 +1132,7 @@ lua_call_throttle::~lua_call_throttle()
 
 CLua *lua_call_throttle::find_clua(lua_State *ls)
 {
-    lua_clua_map::iterator i = lua_map.find(ls);
-    return i != lua_map.end()? i->second : NULL;
+    return lookup(lua_map, ls, nullptr);
 }
 
 // This function is a replacement for Lua's in-built pcall function. It behaves
@@ -1146,6 +1219,11 @@ static int _clua_dofile(lua_State *ls)
 string quote_lua_string(const string &s)
 {
     return replace_all_of(replace_all_of(s, "\\", "\\\\"), "\"", "\\\"");
+}
+
+static string _get_persist_file()
+{
+    return Options.filename + ".persist";
 }
 
 /////////////////////////////////////////////////////////////////////

@@ -12,17 +12,13 @@
 #include "command.h"
 #include "describe.h"
 #include "evoke.h"
-#include "fontwrapper-ft.h"
 #include "hints.h"
 #include "options.h"
 #include "output.h"
-#include "player.h"
 #include "religion.h"
-#include "skills.h"
-#include "skills2.h"
 #include "state.h"
 #include "stringutil.h"
-
+#include "tilefont.h"
 #ifdef USE_TILE
  #include "tilepick.h"
  #include "tilereg-crt.h"
@@ -268,7 +264,7 @@ void SkillMenuEntry::_clear()
         m_name->clear_tile();
 #endif
 }
-COLORS SkillMenuEntry::get_colour() const
+COLOURS SkillMenuEntry::get_colour() const
 {
     if (is_set(SKMF_HELP))
         return DARKGREY;
@@ -351,7 +347,7 @@ void SkillMenuEntry::set_aptitude()
         if (manual_bonus < 10)
             text += make_stringf("+%d", manual_bonus);
         else
-            text += make_stringf("%d", manual_bonus);
+            text += to_string(manual_bonus);
 
         text += "</lightgreen>";
     }
@@ -370,7 +366,7 @@ void SkillMenuEntry::set_level()
         level = you.skill(m_sk, 10, real);
 
     if (mastered() && !you.attribute[ATTR_XP_DRAIN])
-        m_level->set_text(make_stringf("%d", level / 10));
+        m_level->set_text(to_string(level / 10));
     else
         m_level->set_text(make_stringf("%4.1f", level / 10.0));
     m_level->set_fg_colour(get_colour());
@@ -508,29 +504,29 @@ string SkillMenuSwitch::get_help()
     switch (m_state)
     {
     case SKM_MODE_AUTO:
-        return "In automatic mode, skills are trained as you use them.";
+        return "In automatic mode, skills are trained as you use them. ";
     case SKM_MODE_MANUAL:
         return "In manual mode, experience is spread evenly across all "
-                "activated skills.";
+                "activated skills. ";
     case SKM_DO_PRACTISE:
         if (skm.is_set(SKMF_SIMPLE))
             return hints_skills_info();
         else
         {
             return "Press the letter of a skill to choose whether you want to "
-                   "practise it. Skills marked with '-' will not be trained.";
+                   "practise it. Skills marked with '-' will not be trained. ";
         }
     case SKM_DO_FOCUS:
         return "Press the letter of a skill to cycle between "
                "<darkgrey>disabled</darkgrey> (-), enabled (+) and "
                "<white>focused</white> (*). Focused skills train twice as "
-               "fast as others.";
+               "fast as others. ";
     case SKM_LEVEL_ENHANCED:
         if (skm.is_set(SKMF_ENHANCED))
-            return make_stringf("Enhanced skills are in <blue>blue</blue>.");
+            return make_stringf("Enhanced skills are in <blue>blue</blue>. ");
         else
         {
-            vector<string> causes;
+            vector<const char *> causes;
             if (you.attribute[ATTR_XP_DRAIN])
                 causes.push_back("draining");
             if (player_under_penance(GOD_ASHENZARI))
@@ -553,7 +549,7 @@ string SkillMenuSwitch::get_help()
     case SKM_VIEW_TRANSFER:
         return "The progress of the knowledge transfer is displayed in "
                "<cyan>cyan</cyan> in front of the skill receiving the "
-               "knowledge. The donating skill is marked with '*'.";
+               "knowledge. The donating skill is marked with '*'. ";
     default: return "";
     }
 }
@@ -587,10 +583,9 @@ string SkillMenuSwitch::get_name(skill_menu_state state)
 void SkillMenuSwitch::set_state(skill_menu_state state)
 {
     // We only set it if it's a valid state.
-    for (vector<skill_menu_state>::iterator it = m_states.begin();
-         it != m_states.end(); ++it)
+    for (auto candidate : m_states)
     {
-        if (*it == state)
+        if (candidate == state)
         {
             m_state = state;
             return;
@@ -611,10 +606,8 @@ bool SkillMenuSwitch::toggle()
     if (m_states.size() <= 1)
         return false;
 
-    vector<skill_menu_state>::iterator it = m_states.begin();
-    while (*it != m_state)
-        ++it;
-
+    auto it = find(begin(m_states), end(m_states), m_state);
+    ASSERT(it != m_states.end());
     ++it;
     if (it == m_states.end())
         it = m_states.begin();
@@ -636,8 +629,7 @@ void SkillMenuSwitch::update()
     ASSERT(hotkeys.size());
     string text = make_stringf("[%s(<yellow>%c</yellow>): ",
                                m_name.c_str(), hotkeys[0]);
-    for (vector<skill_menu_state>::iterator it = m_states.begin();
-         it != m_states.end(); ++it)
+    for (auto it = m_states.begin(); it != m_states.end(); ++it)
     {
         if (it != m_states.begin())
             text += '|';
@@ -652,7 +644,7 @@ void SkillMenuSwitch::update()
 
 #define TILES_COL 6
 SkillMenu::SkillMenu() : PrecisionMenu(), m_min_coord(), m_max_coord(),
-                         m_help_button(NULL)
+                         m_help_button(nullptr)
 {
 }
 
@@ -960,7 +952,7 @@ void SkillMenu::toggle(skill_menu_switch sw)
     case SKM_DO:
         you.skill_menu_do = get_state(SKM_DO);
         refresh_names();
-        if (m_ff->get_active_item() != NULL
+        if (m_ff->get_active_item() != nullptr
             && !m_ff->get_active_item()->can_be_highlighted())
         {
             m_ff->activate_default_item();
@@ -986,7 +978,7 @@ SkillMenuEntry* SkillMenu::find_entry(skill_type sk)
             if (m_skills[ln][col].get_skill() == sk)
                 return &m_skills[ln][col];
 
-    return NULL;
+    return nullptr;
 }
 
 void SkillMenu::init_flags()
@@ -1162,7 +1154,7 @@ void SkillMenu::refresh_names()
             skme.set_name(false);
         }
     set_links();
-    if (m_ff->get_active_item() != NULL
+    if (m_ff->get_active_item() != nullptr
         && !m_ff->get_active_item()->can_be_highlighted())
     {
         m_ff->activate_default_item();
@@ -1227,7 +1219,7 @@ void SkillMenu::set_help(string msg)
 void SkillMenu::set_skills()
 {
     int previous_active;
-    if (m_ff->get_active_item() != NULL)
+    if (m_ff->get_active_item() != nullptr)
         previous_active = m_ff->get_active_item()->get_id();
     else
         previous_active = -1;
@@ -1294,9 +1286,9 @@ void SkillMenu::toggle_practise(skill_type sk, int keyn)
         int letter;
         letter = hotkeys[0];
         MenuItem* next_item = m_ff->find_item_by_hotkey(++letter);
-        if (next_item != NULL)
+        if (next_item != nullptr)
         {
-            if (m_ff->get_active_item() != NULL && keyn == CK_ENTER)
+            if (m_ff->get_active_item() != nullptr && keyn == CK_ENTER)
                 m_ff->set_active_item(next_item);
             else
                 m_ff->set_default_item(next_item);
@@ -1328,11 +1320,9 @@ void SkillMenu::shift_bottom_down()
 {
     const coord_def down(0, 1);
     m_help->move(down);
-    for (map<skill_menu_switch, SkillMenuSwitch*>::iterator it
-         = m_switches.begin(); it != m_switches.end(); ++it)
-    {
-        it->second->move(down);
-    }
+    for (auto &entry : m_switches)
+        entry.second->move(down);
+
     if (m_help_button)
         m_help_button->move(down);
 }
@@ -1358,7 +1348,7 @@ TextItem* SkillMenu::find_closest_selectable(int start_ln, int col)
         else if (m_skills[ln_down][col].is_selectable())
             return m_skills[ln_down][col].get_name_item();
         else if (ln_up == 0 && ln_down == SK_ARR_LN)
-            return NULL;
+            return nullptr;
 
         ++delta;
     }
@@ -1366,40 +1356,40 @@ TextItem* SkillMenu::find_closest_selectable(int start_ln, int col)
 
 void SkillMenu::set_links()
 {
-    TextItem* top_left = NULL;
-    TextItem* top_right = NULL;
-    TextItem* bottom_left = NULL;
-    TextItem* bottom_right = NULL;
+    TextItem* top_left = nullptr;
+    TextItem* top_right = nullptr;
+    TextItem* bottom_left = nullptr;
+    TextItem* bottom_right = nullptr;
 
     for (int ln = 0; ln < SK_ARR_LN; ++ln)
     {
         if (m_skills[ln][0].is_selectable())
         {
             TextItem* left = m_skills[ln][0].get_name_item();
-            left->set_link_up(NULL);
-            left->set_link_down(NULL);
+            left->set_link_up(nullptr);
+            left->set_link_down(nullptr);
             left->set_link_right(find_closest_selectable(ln, 1));
-            if (top_left == NULL)
+            if (top_left == nullptr)
                 top_left = left;
             bottom_left = left;
         }
         if (m_skills[ln][1].is_selectable())
         {
             TextItem* right = m_skills[ln][1].get_name_item();
-            right->set_link_up(NULL);
-            right->set_link_down(NULL);
+            right->set_link_up(nullptr);
+            right->set_link_down(nullptr);
             right->set_link_left(find_closest_selectable(ln, 0));
-            if (top_right == NULL)
+            if (top_right == nullptr)
                 top_right = right;
             bottom_right = right;
         }
     }
-    if (top_left != NULL)
+    if (top_left != nullptr)
     {
         top_left->set_link_up(bottom_right);
         bottom_left->set_link_down(top_right);
     }
-    if (top_right != NULL)
+    if (top_right != nullptr)
     {
         top_right->set_link_up(bottom_left);
         bottom_right->set_link_down(top_left);
@@ -1431,7 +1421,7 @@ void skill_menu(int flag, int exp)
     // Calling a user lua function here to let players automatically accept
     // the given skill distribution for a potion of experience.
     if (skm.is_set(SKMF_EXPERIENCE)
-        && clua.callbooleanfn(false, "auto_experience", NULL)
+        && clua.callbooleanfn(false, "auto_experience", nullptr)
         && skm.exit())
     {
         return;
@@ -1446,6 +1436,10 @@ void skill_menu(int flag, int exp)
         {
             switch (keyn)
             {
+            case CK_REDRAW:
+                skm.exit();
+                skm.init(flag);
+                continue;
             case CK_UP:
             case CK_DOWN:
             case CK_LEFT:

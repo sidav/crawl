@@ -6,17 +6,21 @@
 #include "AppHdr.h"
 
 #include "cio.h"
-#include "externs.h"
+
+#include <queue>
+
 #include "libutil.h"
 #include "macro.h"
 #include "message.h"
 #include "options.h"
+#include "output.h"
 #include "state.h"
 #include "stringutil.h"
 #include "unicode.h"
 #include "viewgeom.h"
-
-#include <queue>
+#if defined(USE_TILE_LOCAL) && defined(TOUCH_UI)
+#include "windowmanager.h"
+#endif
 
 static keycode_type _numpad2vi(keycode_type key)
 {
@@ -147,18 +151,26 @@ static void wrapcprintf(int wrapcol, const char *s, ...)
 
     const GotoRegion region = get_cursor_region();
     const int max_y = cgetsize(region).y;
-    while (!buf.empty())
+
+    size_t linestart = 0;
+    size_t len = buf.length();
+
+    while (linestart < len)
     {
         const coord_def pos = cgetpos(region);
 
         const int avail = wrapcol - pos.x + 1;
         if (avail > 0)
-            cprintf("%s", wordwrap_line(buf, avail).c_str());
+        {
+            const string line = chop_string(buf.c_str() + linestart, avail, false);
+            cprintf("%s", line.c_str());
+            linestart += line.length();
+        }
 
         // No room for more lines, quit now.
         if (pos.y >= max_y)
             break;
-        if (!buf.empty())
+        if (linestart < len)
             cgotoxy(1, pos.y + 1, region);
     }
 }
@@ -209,7 +221,7 @@ void input_history::new_input(const string &s)
 const string *input_history::prev()
 {
     if (history.empty())
-        return NULL;
+        return nullptr;
 
     if (pos == history.begin())
         pos = history.end();
@@ -220,7 +232,7 @@ const string *input_history::prev()
 const string *input_history::next()
 {
     if (history.empty())
-        return NULL;
+        return nullptr;
 
     if (pos == history.end() || ++pos == history.end())
         pos = history.begin();
@@ -243,9 +255,9 @@ void input_history::clear()
 // line_reader
 
 line_reader::line_reader(char *buf, size_t sz, int wrap)
-    : buffer(buf), bufsz(sz), history(NULL), region(GOTO_CRT),
-      start(coord_def(0,0)), keyfn(NULL), wrapcol(wrap),
-      cur(NULL), length(0), pos(-1)
+    : buffer(buf), bufsz(sz), history(nullptr), region(GOTO_CRT),
+      start(coord_def(0,0)), keyfn(nullptr), wrapcol(wrap),
+      cur(nullptr), length(0), pos(-1)
 {
 }
 
@@ -319,6 +331,11 @@ int line_reader::read_line(bool clear_previous)
     if (clear_previous)
         *buffer = 0;
 
+#if defined(USE_TILE_LOCAL) && defined(TOUCH_UI)
+    if (wm)
+        wm->show_keyboard();
+#endif
+
 #ifdef USE_TILE_WEB
     if (!tiles.is_in_crt_menu())
     {
@@ -328,7 +345,10 @@ int line_reader::read_line(bool clear_previous)
         if (!tag.empty())
             tiles.json_write_string("tag", tag);
         if (history)
-            tiles.json_write_string("historyId", make_stringf("%p", history));
+        {
+            tiles.json_write_string("historyId",
+                                    make_stringf("%p", (void *)history));
+        }
         tiles.json_write_string("prefill", buffer);
         tiles.json_write_int("maxlen", (int) bufsz - 1);
         tiles.json_write_int("size", (int) min(bufsz - 1, strlen(buffer) + 15));
@@ -563,15 +583,15 @@ int line_reader::process_key(int ch)
     case CK_DELETE:
         if (*cur)
         {
-            char *np = next_glyph(cur);
+            const char *np = next_glyph(cur);
             ASSERT(np);
-            char *c = cur;
-            while (*np)
-                *c++ = *np++;
-            length = np - buffer;
+            const size_t del_bytes = np - cur;
+            const size_t follow_bytes = (buffer + length) - np;
+            // Copy the NUL too.
+            memmove(cur, np, follow_bytes + 1);
+            length -= del_bytes;
 
             cursorto(pos);
-            buffer[length-1] = 0;
             wrapcprintf(wrapcol, "%s ", cur);
             cursorto(pos);
         }
@@ -619,6 +639,9 @@ int line_reader::process_key(int ch)
         break;
     case CK_MOUSE_CLICK:
         // FIXME: ought to move cursor to click location, if it's within the input
+        return -1;
+    case CK_REDRAW:
+        redraw_screen();
         return -1;
     default:
         if (wcwidth(ch) >= 0 && length + wclen(ch) < static_cast<int>(bufsz))

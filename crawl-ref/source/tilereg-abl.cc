@@ -3,7 +3,6 @@
 #ifdef USE_TILE_LOCAL
 
 #include "tilereg-abl.h"
-#include "process_desc.h"
 
 #include "ability.h"
 #include "cio.h"
@@ -11,7 +10,7 @@
 #include "macro.h"
 #include "message.h"
 #include "output.h"
-
+#include "process_desc.h"
 #include "tiledef-dngn.h"
 #include "tiledef-icons.h"
 #include "tilepick.h"
@@ -43,9 +42,10 @@ void AbilityRegion::draw_tag()
         return;
 
     const ability_type ability = (ability_type) idx;
-    char* failure = failure_rate_to_string(get_talent(ability, false).fail);
-    string desc = make_stringf("%s    (%s)", ability_name(ability), failure);
-    free(failure);
+    const string failure = failure_rate_to_string(get_talent(ability,
+                                                             false).fail);
+    string desc = make_stringf("%s    (%s)",
+                               ability_name(ability), failure.c_str());
     draw_desc(desc.c_str());
 }
 
@@ -197,7 +197,7 @@ void AbilityRegion::pack_buffers()
             if (item.flag & TILEI_FLAG_CURSOR)
                 m_buf.add_icons_tile(TILEI_CURSOR, x, y);
 
-            if (item.quantity != -1)
+            if (item.quantity > 0) // mp cost
                 draw_number(x, y, item.quantity);
 
             if (item.tile)
@@ -236,31 +236,29 @@ void AbilityRegion::update()
     vector<InventoryTile> m_zotdef;
     vector<InventoryTile> m_invoc;
 
-    for (unsigned int i = 0; i < talents.size(); ++i)
+    for (const auto &talent : talents)
     {
-        if (talents[i].is_invocation)
-            m_invoc.push_back(_tile_for_ability(talents[i].which));
-        else if (talents[i].is_zotdef)
-            m_zotdef.push_back(_tile_for_ability(talents[i].which));
+        if (talent.is_invocation)
+            m_invoc.push_back(_tile_for_ability(talent.which));
+        else if (talent.is_zotdef)
+            m_zotdef.push_back(_tile_for_ability(talent.which));
         else
-            m_items.push_back(_tile_for_ability(talents[i].which));
+            m_items.push_back(_tile_for_ability(talent.which));
 
         if (m_items.size() >= max_abilities)
             return;
     }
 
-    for (vector<InventoryTile>::iterator it = m_zotdef.begin();
-         it != m_zotdef.end(); it++)
+    for (const auto &tile : m_zotdef)
     {
-        m_items.push_back(*it);
+        m_items.push_back(tile);
         if (m_items.size() >= max_abilities)
             return;
     }
 
-    for (vector<InventoryTile>::iterator it = m_invoc.begin();
-         it != m_invoc.end(); it++)
+    for (const auto &tile : m_invoc)
     {
-        m_items.push_back(*it);
+        m_items.push_back(tile);
         if (m_items.size() >= max_abilities)
             return;
     }

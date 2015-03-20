@@ -5,12 +5,12 @@
 
 #include "AppHdr.h"
 
+#include "dlua.h"
+
 #include <sstream>
 
-#include "dlua.h"
 #include "l_libs.h"
 #include "stringutil.h"
-#include "tags.h"
 
 static int dlua_compiled_chunk_writer(lua_State *ls, const void *p,
                                       size_t sz, void *ud)
@@ -183,7 +183,7 @@ int dlua_chunk::run(CLua &interp)
     if (err)
         return err;
     // callfn returns true on success, but we want to return 0 on success.
-    return check_op(interp, !interp.callfn(NULL, 0, 0));
+    return check_op(interp, !interp.callfn(nullptr, 0, 0));
 }
 
 int dlua_chunk::load_call(CLua &interp, const char *fn)
@@ -258,7 +258,7 @@ string dlua_chunk::rewrite_chunk_prefix(const string &line, bool skip_body) cons
     {
         const string line_num = s.substr(lns, pe - lns);
         const int lnum = atoi(line_num.c_str());
-        const string newlnum = make_stringf("%d", lnum + first - 1);
+        const string newlnum = to_string(lnum + first - 1);
         s = s.substr(0, lns) + newlnum + s.substr(pe);
         pe = lns + newlnum.length();
     }

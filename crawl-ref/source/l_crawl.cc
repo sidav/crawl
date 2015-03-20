@@ -11,18 +11,15 @@ module "crawl"
 
 #include "AppHdr.h"
 
-#include "dlua.h"
-#include "cluautil.h"
 #include "l_libs.h"
 
 #include "chardump.h"
-#include "cio.h"
+#include "cluautil.h"
 #include "command.h"
 #include "delay.h"
-#include "directn.h"
+#include "dlua.h"
 #include "end.h"
-#include "format.h"
-#include "hiscores.h"
+#include "english.h"
 #include "hints.h"
 #include "initfile.h"
 #include "itemname.h"
@@ -31,17 +28,14 @@ module "crawl"
 #include "menu.h"
 #include "message.h"
 #include "notes.h"
-#include "options.h"
-#include "ouch.h"
 #include "output.h"
 #include "perlin.h"
-#include "player.h"
 #include "prompt.h"
-#include "random.h"
 #include "religion.h"
 #include "state.h"
 #include "stringutil.h"
 #include "tutorial.h"
+#include "version.h"
 #include "view.h"
 #include "worley.h"
 
@@ -288,8 +282,12 @@ static void crawl_sendkeys_proc(lua_State *ls, int argi)
         if (!keys)
             return;
 
-        for (; *keys; ++keys)
-            macro_sendkeys_end_add_expanded(*keys);
+        ucs_t wc;
+        while (int len = utf8towc(&wc, keys))
+        {
+            macro_sendkeys_end_add_expanded(wc);
+            keys += len;
+        }
     }
     else if (lua_istable(ls, argi))
     {
@@ -388,6 +386,7 @@ static int crawl_process_keys(lua_State *ls)
     return 0;
 }
 
+#ifdef USE_SOUND
 /*
 --- Play a sound.
 -- @param sf filename of sound to play
@@ -400,6 +399,7 @@ static int crawl_playsound(lua_State *ls)
     play_sound(sf);
     return 0;
 }
+#endif
 
 /*
 --- Run a macro.
@@ -449,7 +449,7 @@ static int crawl_read_options(lua_State *ls)
 
 static int crawl_bindkey(lua_State *ls)
 {
-    const char *s = NULL;
+    const char *s = nullptr;
     if (lua_isstring(ls, 1))
         s = lua_tostring(ls, 1);
 
@@ -550,7 +550,7 @@ static const luaL_reg crawl_regex_ops[] =
 {
     { "matches",        crawl_regex_find },
     { "equals",         crawl_regex_equals },
-    { NULL, NULL }
+    { nullptr, nullptr }
 };
 
 static int crawl_message_filter(lua_State *ls)
@@ -602,7 +602,7 @@ static const luaL_reg crawl_messf_ops[] =
 {
     { "matches",        crawl_messf_matches },
     { "equals",         crawl_messf_equals },
-    { NULL, NULL }
+    { nullptr, nullptr }
 };
 
 static int crawl_trim(lua_State *ls)
@@ -840,6 +840,16 @@ LUAWRAP(crawl_tutorial_skill, set_tutorial_skill(luaL_checkstring(ls, 1), luaL_c
 LUAWRAP(crawl_tutorial_hint, tutorial_init_hint(luaL_checkstring(ls, 1)))
 LUAWRAP(crawl_print_hint, print_hint(luaL_checkstring(ls, 1)))
 
+/**
+ * A random choice function crawl.random_element for clua.
+ *
+ * @param[in] list A lua array or table of elements to choose from. If list is
+ * an array, a random element is chosen from list. If list is a table, the
+ * values should be numeric or convertible to numeric and give the weights for
+ * their corresponding keys. A value with no key will default to a weight of
+ * 1. A random key is then returned based on these weights.
+ * @returns A random element from list.
+*/
 static int crawl_random_element(lua_State *ls)
 {
     const int table_idx = 1;
@@ -954,7 +964,7 @@ static int crawl_call_dlua(lua_State *ls)
         if (!lua_isnil(dlua, -1))
         {
             const char *msg = lua_tostring(dlua, -1);
-            if (msg == NULL)
+            if (msg == nullptr)
                 msg = "(error object is not a string)";
             mprf(MSGCH_ERROR, "%s", msg);
         }
@@ -987,6 +997,38 @@ static int crawl_call_dlua(lua_State *ls)
     return 0;
 }
 #endif
+
+/**
+ Implements the clua function crawl.version()
+
+ The optional lua argument is a string from "long", "major", or "short" to
+ determine which version type to return. The default is "long", and argument
+ check is case-insensitive.
+ */
+static int crawl_version(lua_State *ls)
+{
+    string type = "long";
+    if (lua_gettop(ls) > 0)
+    {
+        const char *ltype = luaL_checkstring(ls, 1);
+        if (ltype)
+            type = lowercase_string(ltype);
+    }
+
+    if (type == "long")
+        lua_pushstring(ls, Version::Long);
+    else if (type == "short")
+        lua_pushstring(ls, Version::Short);
+    else if (type == "major")
+        lua_pushstring(ls, Version::Major);
+    else
+    {
+        luaL_argerror(ls, 1,
+                      "must be a string \"long\", \"short\", or \"major\"");
+        return 0;
+    }
+    return 1;
+}
 
 static const struct luaL_reg crawl_clib[] =
 {
@@ -1025,7 +1067,9 @@ static const struct luaL_reg crawl_clib[] =
     { "sendkeys",           crawl_sendkeys },
     { "process_command",    crawl_process_command },
     { "process_keys",       crawl_process_keys },
+#ifdef USE_SOUND
     { "playsound",          crawl_playsound },
+#endif
     { "runmacro",           crawl_runmacro },
     { "bindkey",            crawl_bindkey },
     { "setopt",             crawl_setopt },
@@ -1034,7 +1078,6 @@ static const struct luaL_reg crawl_clib[] =
     { "msgch_name",         crawl_msgch_name },
     { "take_note",          crawl_take_note },
     { "messages",           crawl_messages },
-
     { "regex",              crawl_regex },
     { "message_filter",     crawl_message_filter },
     { "trim",               crawl_trim },
@@ -1054,8 +1097,8 @@ static const struct luaL_reg crawl_clib[] =
 #ifdef WIZARD
     { "call_dlua",          crawl_call_dlua },
 #endif
-
-    { NULL, NULL },
+    { "version",            crawl_version },
+    { nullptr, nullptr },
 };
 
 void cluaopen_crawl(lua_State *ls)
@@ -1151,43 +1194,51 @@ static string _crawl_make_name(lua_State *ls)
 
 LUARET1(crawl_make_name, string, _crawl_make_name(ls).c_str())
 
-// FIXME: factor out the duplicated code in the next two functions.
+/** Check that a Lua argument is a god name, and store that god's enum in
+ *  a variable.
+ *
+ *  @param argno  The Lua argument number of the god name. Evaluated once.
+ *  @param godvar An existing writable lvalue to hold the enumeration value
+ *                of the god. Evaluated zero or one times.
+ *  @param fn     The identifier to use as the function name in an error
+ *                message. Should generally be the Lua name of the calling
+ *                function. Stringified, not evaluated.
+ *
+ *  @post If argument (argno) was not a string containing a valid god name,
+ *        we returned from the calling function with a Lua argument error.
+ *        godvar may or may not have been evaluated and/or assigned to.
+ *  @post If argument (argno) was a valid god name, godvar was evaluated
+ *        exactly once and assigned that god's enum value.
+ */
+#define CHECK_GOD_ARG(argno, godvar, fn) do                              \
+    {                                                                    \
+        int _cg_arg = (argno);                                           \
+        const char *_cg_name = luaL_checkstring(ls, _cg_arg);            \
+        if (!_cg_name)                                                   \
+            return luaL_argerror(ls, _cg_arg, #fn " requires a god!");   \
+        if (((godvar) = str_to_god(_cg_name)) == GOD_NO_GOD)             \
+        {                                                                \
+            return luaL_argerror(ls, _cg_arg,                            \
+                       make_stringf("'%s' matches no god.",              \
+                                    _cg_name).c_str());                  \
+        }                                                                \
+    } while (0)
+
 LUAFN(_crawl_unavailable_god)
 {
-    const char *god_name = luaL_checkstring(ls, 1);
-    if (!god_name)
-    {
-        string err = "unavailable_god requires a god!";
-        return luaL_argerror(ls, 1, err.c_str());
-    }
-    god_type god = str_to_god(god_name);
-    if (god == GOD_NO_GOD)
-    {
-        string err = make_stringf("'%s' matches no god.", god_name);
-        return luaL_argerror(ls, 1, err.c_str());
-    }
+    god_type god = GOD_NO_GOD;
+    CHECK_GOD_ARG(1, god, unavailable_god);
     lua_pushboolean(ls, is_unavailable_god(god));
     return 1;
 }
 
-static int _crawl_god_speaks(lua_State *ls)
+LUAFN(_crawl_god_speaks)
 {
     if (!crawl_state.io_inited)
         return 0;
 
-    const char *god_name = luaL_checkstring(ls, 1);
-    if (!god_name)
-    {
-        string err = "god_speaks requires a god!";
-        return luaL_argerror(ls, 1, err.c_str());
-    }
-
-    god_type god = str_to_god(god_name);
-    if (god == GOD_NO_GOD)
-    {
-        string err = make_stringf("'%s' matches no god.", god_name);
-        return luaL_argerror(ls, 1, err.c_str());
-    }
+    god_type god = GOD_NO_GOD;
+    CHECK_GOD_ARG(1, god, god_speaks);
 
     const char *message = luaL_checkstring(ls, 2);
     if (!message)
@@ -1251,7 +1302,7 @@ static const struct luaL_reg crawl_dlib[] =
 { "hints_type", crawl_hints_type },
 { "unavailable_god", _crawl_unavailable_god },
 
-{ NULL, NULL }
+{ nullptr, nullptr }
 };
 
 void dluaopen_crawl(lua_State *ls)

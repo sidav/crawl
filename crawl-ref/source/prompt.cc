@@ -4,22 +4,23 @@
  **/
 
 #include "AppHdr.h"
+
 #include "prompt.h"
 
-#include "cio.h"
 #include "delay.h"
 #include "libutil.h"
 #include "macro.h"
+#ifdef TOUCH_UI
+#include "menu.h"
+#endif
 #include "message.h"
 #include "options.h"
 #include "state.h"
 #include "stringutil.h"
-#include "viewchar.h"
-
 #ifdef TOUCH_UI
-#include "menu.h"
 #include "tiledef-gui.h"
 #endif
+#include "viewchar.h"
 
 // Like yesno, but requires a full typed answer.
 // Unlike yesno, prompt should have no trailing space.
@@ -121,16 +122,17 @@ bool yesno(const char *str, bool safe, int safeanswer, bool clear_after,
             return true;
         else if (!noprompt)
         {
-            bool upper = (!safe && crawl_state.game_is_hints_tutorial());
+            bool upper = !safe && (tmp == 'n' || tmp == 'y'
+                                   || crawl_state.game_is_hints_tutorial());
             const string pr = make_stringf("%s[Y]es or [N]o only, please.",
                                            upper ? "Uppercase " : "");
 #ifdef TOUCH_UI
             status->text = pr;
 #else
             if (message)
-                mpr(pr.c_str());
+                mpr(pr);
             else
-                cprintf("\n%s\n", pr.c_str());
+                cprintf("%s\n", pr.c_str());
 #endif
         }
     }
@@ -237,7 +239,8 @@ int yesnoquit(const char* str, bool safe, int safeanswer, bool allow_all,
                 return 2;
             else
             {
-                bool upper = (!safe && crawl_state.game_is_hints_tutorial());
+                bool upper = !safe && (tmp == 'n' || tmp == 'y' || tmp == 'a'
+                                       || crawl_state.game_is_hints_tutorial());
                 mprf("Choose %s[Y]es%s, [N]o, [Q]uit, or [A]ll!",
                      upper ? "uppercase " : "",
                      _list_alternative_yes(alt_yes, alt_yes2, false, true).c_str());
@@ -245,7 +248,8 @@ int yesnoquit(const char* str, bool safe, int safeanswer, bool allow_all,
         }
         else
         {
-            bool upper = (!safe && crawl_state.game_is_hints_tutorial());
+            bool upper = !safe && (tmp == 'n' || tmp == 'y'
+                                   || crawl_state.game_is_hints_tutorial());
             mprf("%s[Y]es%s, [N]o or [Q]uit only, please.",
                  upper ? "Uppercase " : "",
                  _list_alternative_yes(alt_yes, alt_yes2, false, true).c_str());
@@ -267,7 +271,7 @@ int prompt_for_quantity(const char *prompt)
     int ch = getch_ck();
     if (ch == CK_ENTER || ch == ';')
         return -1;
-    else if (ch == CK_ESCAPE)
+    else if (ch == CK_ESCAPE || ch == CK_REDRAW)
         return 0;
 
     macro_buf_add(ch);

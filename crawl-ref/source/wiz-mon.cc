@@ -4,21 +4,20 @@
 **/
 
 #include "AppHdr.h"
-#include <sstream>
 
 #include "wiz-mon.h"
+
+#include <sstream>
 
 #include "abyss.h"
 #include "act-iter.h"
 #include "areas.h"
-#include "artefact.h"
-#include "cio.h"
 #include "colour.h"
 #include "dbg-util.h"
 #include "delay.h"
 #include "directn.h"
 #include "dungeon.h"
-#include "env.h"
+#include "english.h"
 #include "files.h"
 #include "ghost.h"
 #include "godblessing.h"
@@ -28,28 +27,22 @@
 #include "jobs.h"
 #include "libutil.h"
 #include "macro.h"
-#include "mapdef.h"
 #include "message.h"
-#include "mgen_data.h"
 #include "mon-death.h"
 #include "mon-pathfind.h"
-#include "mon-poly.h"
 #include "mon-place.h"
+#include "mon-poly.h"
 #include "mon-speak.h"
-#include "mon-util.h"
 #include "output.h"
 #include "prompt.h"
 #include "religion.h"
 #include "shout.h"
 #include "spl-miscast.h"
-#include "spl-util.h"
 #include "state.h"
 #include "stringutil.h"
-#include "terrain.h"
 #include "unwind.h"
 #include "view.h"
 #include "viewmap.h"
-#include "wiz-dgn.h"
 
 #ifdef WIZARD
 // Creates a specific monster by mon type number.
@@ -72,93 +65,6 @@ void wizard_create_spec_monster()
             mgen_data::sleeper_at(
                 static_cast<monster_type>(mon), you.pos()));
     }
-}
-
-static int _make_mimic_item(object_class_type type)
-{
-    int it = items(0, OBJ_RANDOM, OBJ_RANDOM, true, 0, 0);
-
-    if (it == NON_ITEM)
-        return NON_ITEM;
-
-    item_def &item = mitm[it];
-
-    item.base_type = type;
-    item.sub_type  = 0;
-    item.special   = 0;
-    item.colour    = 0;
-    item.flags     = 0;
-    item.quantity  = 1;
-    item.plus      = 0;
-    item.plus2     = 0;
-    item.link      = NON_ITEM;
-
-    int prop;
-    switch (type)
-    {
-    case OBJ_WEAPONS:
-        do
-            item.sub_type = random2(NUM_WEAPONS);
-        while (is_blessed(item));
-
-        prop = random2(100);
-
-        if (prop < 20)
-            make_item_randart(item);
-        else if (prop < 50)
-            set_equip_desc(item, ISFLAG_GLOWING);
-        else if (prop < 80)
-            set_equip_desc(item, ISFLAG_RUNED);
-        break;
-
-    case OBJ_ARMOUR:
-        do
-            item.sub_type = random2(NUM_ARMOURS);
-        while (armour_is_hide(item));
-
-        prop = random2(100);
-
-        if (prop < 20)
-            make_item_randart(item);
-        else if (prop < 40)
-            set_equip_desc(item, ISFLAG_GLOWING);
-        else if (prop < 65)
-            set_equip_desc(item, ISFLAG_RUNED);
-        else if (prop < 90)
-            set_equip_desc(item, ISFLAG_EMBROIDERED_SHINY);
-        break;
-
-    case OBJ_SCROLLS:
-        item.sub_type = random2(NUM_SCROLLS);
-        break;
-
-    case OBJ_POTIONS:
-        do
-            item.sub_type = random2(NUM_POTIONS);
-        while (is_blood_potion(item));
-        break;
-
-    case OBJ_BOOKS:
-        item.sub_type = random2(MAX_NORMAL_BOOK);
-        break;
-
-    case OBJ_STAVES:
-        item.sub_type = random2(NUM_STAVES);
-        break;
-
-    case OBJ_RODS:
-        item.sub_type = random2(NUM_RODS);
-        break;
-
-    case OBJ_GOLD:
-    default:
-        item.quantity = 5 + random2(1000);
-        break;
-    }
-
-    item_colour(item); // also sets special vals for scrolls/potions
-
-    return it;
 }
 
 // Creates a specific monster by name. Uses the same patterns as
@@ -190,7 +96,7 @@ void wizard_create_spec_monster_name()
 
         if (!newerr.empty())
         {
-            mpr(err.c_str());
+            mpr(err);
             return;
         }
     }
@@ -217,32 +123,6 @@ void wizard_create_spec_monster_name()
     if (!in_bounds(place))
     {
         mprf(MSGCH_DIAGNOSTICS, "Found no space to place monster.");
-        return;
-    }
-
-    if (mons_is_feat_mimic(type))
-    {
-        if (wizard_create_feature(place))
-            env.level_map_mask(place) |= MMT_MIMIC;
-        return;
-    }
-
-    if (mons_is_item_mimic(type))
-    {
-        object_class_type item_type = get_item_mimic_type();
-        if (item_type == OBJ_UNASSIGNED)
-        {
-            canned_msg(MSG_OK);
-            return;
-        }
-        int it = _make_mimic_item(item_type);
-        if (it == NON_ITEM)
-        {
-            mprf(MSGCH_DIAGNOSTICS, "Cannot create item.");
-            return;
-        }
-        move_item_to_grid(&it, place);
-        mitm[it].flags |= ISFLAG_MIMIC;
         return;
     }
 
@@ -439,7 +319,7 @@ void debug_list_monsters()
         snprintf(buf, sizeof(buf), "%d %s", count, pluralise(prev_name).c_str());
     else
         snprintf(buf, sizeof(buf), "%s", prev_name.c_str());
-    mons.push_back(buf);
+    mons.emplace_back(buf);
 
     mpr_comma_separated_list("Monsters: ", mons);
 
@@ -583,14 +463,14 @@ void debug_stethoscope(int mon)
 
     // Print stats and other info.
     mprf(MSGCH_DIAGNOSTICS,
-         "HD=%d/%d (%u) HP=%d/%d AC=%d(%d) EV=%d MR=%d XP=%d SP=%d "
+         "HD=%d/%d (%u) HP=%d/%d AC=%d(%d) EV=%d(%d) MR=%d XP=%d SP=%d "
          "energy=%d%s%s mid=%u num=%d stealth=%d flags=%04" PRIx64,
          mons.get_hit_dice(),
          mons.get_experience_level(),
          mons.experience,
          mons.hit_points, mons.max_hit_points,
-         mons.ac, mons.armour_class(),
-         mons.ev,
+         mons.base_armour_class(), mons.armour_class(),
+         mons.base_evasion(), mons.evasion(),
          mons.res_magic(),
          exper_value(&mons),
          mons.speed, mons.speed_increment,
@@ -662,24 +542,23 @@ void debug_stethoscope(int mon)
     ostringstream spl;
     const monster_spells &hspell_pass = mons.spells;
     bool found_spell = false;
-    for (int k = 0; k < NUM_MONSTER_SPELL_SLOTS; ++k)
+    for (unsigned int k = 0; k < hspell_pass.size(); ++k)
     {
-        if (hspell_pass[k] != SPELL_NO_SPELL)
-        {
-            if (found_spell)
-                spl << ", ";
+        if (found_spell)
+            spl << ", ";
 
-            found_spell = true;
+        found_spell = true;
 
-            spl << k << ": ";
+        spl << k << ": ";
 
-            if (hspell_pass[k] >= NUM_SPELLS)
-                spl << "buggy spell";
-            else
-                spl << spell_title(hspell_pass[k]);
+        if (hspell_pass[k].spell >= NUM_SPELLS)
+            spl << "buggy spell";
+        else
+            spl << spell_title(hspell_pass[k].spell);
 
-            spl << " (" << static_cast<int>(hspell_pass[k]) << ")";
-        }
+        spl << "." << (int)hspell_pass[k].freq;
+
+        spl << " (" << static_cast<int>(hspell_pass[k].spell) << ")";
     }
     if (found_spell)
         mprf(MSGCH_DIAGNOSTICS, "spells: %s", spl.str().c_str());
@@ -725,6 +604,9 @@ void wizard_detect_creatures()
     {
         env.map_knowledge(mi->pos()).set_monster(monster_info(*mi));
         env.map_knowledge(mi->pos()).set_detected_monster(mi->type);
+#ifdef USE_TILE
+        tiles.update_minimap(mi->pos());
+#endif
     }
 }
 
@@ -1101,7 +983,7 @@ static void _move_monster(const coord_def& where, int idx1)
 
     mgrd(where) = idx2;
 
-    if (mon2 != NULL)
+    if (mon2 != nullptr)
     {
         mon2->moveto(where);
         mon1->check_redraw(where);
@@ -1144,7 +1026,7 @@ void wizard_move_player_or_monster(const coord_def& where)
 void wizard_make_monster_summoned(monster* mon)
 {
     int summon_type = 0;
-    if (mon->is_summoned(NULL, &summon_type) || summon_type != 0)
+    if (mon->is_summoned(nullptr, &summon_type) || summon_type != 0)
     {
         mprf(MSGCH_PROMPT, "Monster is already summoned.");
         return;
@@ -1159,13 +1041,13 @@ void wizard_make_monster_summoned(monster* mon)
     }
 
     mprf(MSGCH_PROMPT, "[a] clone [b] animated [c] chaos [d] miscast [e] zot");
-    mprf(MSGCH_PROMPT, "[f] wrath [g] aid                [m] misc    [s] spell");
+    mprf(MSGCH_PROMPT, "[f] wrath [g] lantern  [h] aid   [m] misc    [s] spell");
 
     mprf(MSGCH_PROMPT, "Which summon type? ");
 
     char choice = toalower(getchm());
 
-    if (!(choice >= 'a' && choice <= 'g') && choice != 'm' && choice != 's')
+    if (!(choice >= 'a' && choice <= 'h') && choice != 'm' && choice != 's')
     {
         canned_msg(MSG_OK);
         return;
@@ -1181,7 +1063,8 @@ void wizard_make_monster_summoned(monster* mon)
         case 'd': type = MON_SUMM_MISCAST; break;
         case 'e': type = MON_SUMM_ZOT; break;
         case 'f': type = MON_SUMM_WRATH; break;
-        case 'g': type = MON_SUMM_AID; break;
+        case 'g': type = MON_SUMM_LANTERN; break;
+        case 'h': type = MON_SUMM_AID; break;
         case 'm': type = 0; break;
 
         case 's':
@@ -1304,17 +1187,14 @@ void debug_pathfind(int idx)
         vector<coord_def> path = mp.backtrack();
         env.travel_trail = path;
 #ifdef USE_TILE_WEB
-        for (unsigned int i = 0; i < env.travel_trail.size(); ++i)
-            tiles.update_minimap(env.travel_trail[i]);
+        for (coord_def pos : env.travel_trail)
+            tiles.update_minimap(pos);
 #endif
         string path_str;
         mpr("Here's the shortest path: ");
-        for (unsigned int i = 0; i < path.size(); ++i)
-        {
-            snprintf(info, INFO_SIZE, "(%d, %d)  ", path[i].x, path[i].y);
-            path_str += info;
-        }
-        mpr(path_str.c_str());
+        for (coord_def pos : path)
+            path_str += make_stringf("(%d, %d)  ", pos.x, pos.y);
+        mpr(path_str);
         mprf("-> path length: %u", (unsigned int)path.size());
 
         mpr("");
@@ -1322,12 +1202,9 @@ void debug_pathfind(int idx)
         path_str = "";
         mpr("");
         mpr("And here are the needed waypoints: ");
-        for (unsigned int i = 0; i < path.size(); ++i)
-        {
-            snprintf(info, INFO_SIZE, "(%d, %d)  ", path[i].x, path[i].y);
-            path_str += info;
-        }
-        mpr(path_str.c_str());
+        for (coord_def pos : path)
+            path_str += make_stringf("(%d, %d)  ", pos.x, pos.y);
+        mpr(path_str);
         mprf("-> #waypoints: %u", (unsigned int)path.size());
     }
 }
@@ -1393,12 +1270,12 @@ void debug_miscast(int target_index)
         return;
     }
 
-    int disciplines = 0;
+    spschools_type disciplines = SPTYP_NONE;
     if (spell != SPELL_NO_SPELL)
     {
         disciplines = get_spell_disciplines(spell);
 
-        if (disciplines == 0)
+        if (!disciplines)
         {
             mprf("Spell '%s' has no disciplines.", spell_title(spell));
             return;
@@ -1411,9 +1288,9 @@ void debug_miscast(int target_index)
         mprf("Miscasting school %s.", spelltype_long_name(school));
 
     if (spell != SPELL_NO_SPELL)
-        mprf(MSGCH_PROMPT, "Enter spell_power,spell_failure: ");
+        mprf(MSGCH_PROMPT, "Enter spell_power,raw_spell_failure: ");
     else
-        mprf(MSGCH_PROMPT, "Enter miscast_level or spell_power,spell_failure: ");
+        mprf(MSGCH_PROMPT, "Enter miscast_level or spell_power,raw_spell_failure: ");
 
     if (cancellable_get_line_autohist(specs, sizeof specs) || !*specs)
     {
@@ -1476,20 +1353,20 @@ void debug_miscast(int target_index)
 
     if (spell != SPELL_NO_SPELL)
     {
-        miscast = new MiscastEffect(target, target_index, spell, pow, fail,
-                                    "", nothing);
+        miscast = new MiscastEffect(target, target, WIZARD_MISCAST, spell, pow,
+                                    fail, "", nothing);
     }
     else
     {
         if (level != -1)
         {
-            miscast = new MiscastEffect(target, target_index, school,
+            miscast = new MiscastEffect(target, target, WIZARD_MISCAST, school,
                                         level, "wizard testing miscast",
                                         nothing);
         }
         else
         {
-            miscast = new MiscastEffect(target, target_index, school,
+            miscast = new MiscastEffect(target, target, WIZARD_MISCAST, school,
                                         pow, fail, "wizard testing miscast",
                                         nothing);
         }

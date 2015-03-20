@@ -6,13 +6,12 @@
 #ifndef DUNGEON_H
 #define DUNGEON_H
 
-#include "env.h"
-#include "externs.h"
-#include "mapdef.h"
-
-#include <vector>
-#include <set>
 #include <algorithm>
+#include <set>
+#include <vector>
+
+#include "env.h"
+#include "mapdef.h"
 
 #define BUILD_METHOD_KEY "build_method_key"
 #define LAYOUT_TYPE_KEY  "layout_type_key"
@@ -24,8 +23,6 @@
 #define TEMPLE_MAP_KEY       "temple_map_key"
 #define TEMPLE_SIZE_KEY      "temple_size_key"
 
-const int MAKE_GIFT_ITEM = 350; // worse than the next one
-const int MAKE_GOOD_ITEM = 351;
 const unsigned short INVALID_MAP_INDEX = 10000;
 
 // Should be the larger of GXM/GYM
@@ -33,6 +30,7 @@ const unsigned short INVALID_MAP_INDEX = 10000;
 
 // Map mask constants.
 
+// Be sure to change flag_list in keyed_mapspec::set_mask to match!
 enum map_mask_type
 {
     MMT_NONE            = 0x0,
@@ -40,6 +38,7 @@ enum map_mask_type
     MMT_NO_ITEM         = 0x02,  // Random items should not be placed here.
     MMT_NO_MONS         = 0x04,  // Random monsters should not be placed here.
     MMT_NO_POOL         = 0x08,  // Pool fixup should not be applied here.
+                       // 0x10,  // Unused
     MMT_NO_WALL         = 0x20,  // Wall fixup should not be applied here.
     MMT_OPAQUE          = 0x40,  // Vault may impede connectivity.
     MMT_NO_TRAP         = 0x80,  // No trap generation
@@ -193,7 +192,6 @@ void write_level_connectivity(writer &th);
 
 bool builder(bool enable_random_maps = true,
              dungeon_feature_type dest_stairs_type = NUM_FEATURES);
-void dgn_veto_level();
 
 void dgn_clear_vault_placements(vault_placement_refv &vps);
 void dgn_erase_unused_vault_placements();
@@ -223,15 +221,12 @@ const vault_placement *dgn_safe_place_map(const map_def *map,
 void level_clear_vault_memory();
 void run_map_epilogues();
 
-struct trap_spec;
 bool place_specific_trap(const coord_def& where, trap_type trap_spec, int charges = 0);
 
 struct shop_spec;
-void place_spec_shop(const coord_def& where,
-                     int force_s_type, bool representative = false);
+void place_spec_shop(const coord_def& where, shop_type force_type);
+void place_spec_shop(const coord_def& where, shop_spec &spec);
 int greed_for_shop_type(shop_type shop, int level_number);
-void place_spec_shop(const coord_def& where,
-                     shop_spec* spec, bool representative = false);
 object_class_type item_in_shop(shop_type shop_type);
 bool seen_replace_feat(dungeon_feature_type replace,
                        dungeon_feature_type feature);
@@ -297,7 +292,7 @@ vector<coord_def> dgn_join_the_dots_pathfind(const coord_def &from,
 
 bool join_the_dots(const coord_def &from, const coord_def &to,
                    unsigned mmask,
-                   bool (*overwriteable)(dungeon_feature_type) = NULL);
+                   bool (*overwriteable)(dungeon_feature_type) = nullptr);
 int count_feature_in_box(int x0, int y0, int x1, int y1,
                          dungeon_feature_type feat);
 bool door_vetoed(const coord_def pos);

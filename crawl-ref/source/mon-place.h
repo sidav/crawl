@@ -35,7 +35,8 @@ monster_type resolve_monster_type(monster_type mon_type,
                                   unsigned mmask = 0,
                                   dungeon_char_type *stair_type = nullptr,
                                   level_id *place = nullptr,
-                                  bool *want_band = nullptr);
+                                  bool *want_band = nullptr,
+                                  bool allow_ood = true);
 
 const monster_type fixup_zombie_type(const monster_type cls,
                                      const monster_type base_type);
@@ -56,10 +57,16 @@ monster_type pick_random_zombie();
  * cs:         Restrict to monster types that fit this zombie type
  *             (e.g. monsters with skeletons for MONS_SKELETON_SMALL)
  * pos:        Check habitat at position.
+ * for_corpse: Whether this monster is intended only for use as a potentially
+ *             zombifiable corpse. (I.e., whether we care about its speed when
+ *             placing in D...)
  * *********************************************************************** */
 monster_type pick_local_zombifiable_monster(level_id place,
                                             monster_type cs = MONS_NO_MONSTER,
-                                            const coord_def& pos = coord_def());
+                                            const coord_def& pos = coord_def(),
+                                            bool for_corpse = false);
+
+monster_type pick_local_corpsey_monster(level_id place);
 
 void roll_zombie_hp(monster* mon);
 
@@ -71,7 +78,8 @@ class level_id;
 
 monster_type pick_random_monster(level_id place,
                                  monster_type kind = RANDOM_MONSTER,
-                                 level_id *final_place = nullptr);
+                                 level_id *final_place = nullptr,
+                                 bool allow_ood = true);
 
 conduct_type player_will_anger_monster(monster_type type);
 conduct_type player_will_anger_monster(monster* mon);
@@ -122,5 +130,13 @@ void mons_add_blame(monster* mon, const string &blame_string);
 
 // Active monster band may influence gear generation on band followers.
 extern band_type active_monster_band;
+
+#if TAG_MAJOR_VERSION == 34
+#define VAULT_MON_TYPES_KEY   "vault_mon_types"
+#define VAULT_MON_BASES_KEY   "vault_mon_bases"
+#define VAULT_MON_PLACES_KEY  "vault_mon_places"
+#define VAULT_MON_WEIGHTS_KEY "vault_mon_weights"
+#define VAULT_MON_BANDS_KEY   "vault_mon_bands"
+#endif
 
 #endif  // MONPLACE_H

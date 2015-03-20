@@ -7,30 +7,24 @@
 
 #include "dgn-overview.h"
 
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
 #include <algorithm>
-
-#include "externs.h"
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 #include "branch.h"
-#include "colour.h"
-#include "coord.h"
 #include "describe.h"
-#include "directn.h"
 #include "env.h"
 #include "feature.h"
 #include "files.h"
 #include "libutil.h"
 #include "menu.h"
 #include "message.h"
+#include "mon-poly.h"
 #include "output.h"
 #include "prompt.h"
 #include "religion.h"
-#include "shopping.h"
 #include "stairs.h"
-#include "state.h"
 #include "stringutil.h"
 #include "terrain.h"
 #include "travel.h"
@@ -90,7 +84,7 @@ void seen_notable_thing(dungeon_feature_type which_thing, const coord_def& pos)
     const god_type god = feat_altar_god(which_thing);
     if (god != GOD_NO_GOD)
         _seen_altar(god, pos);
-    else if (feat_is_branch_stairs(which_thing))
+    else if (feat_is_branch_entrance(which_thing))
         _seen_staircase(pos);
     else if (which_thing == DNGN_ENTER_SHOP)
         _seen_shop(pos);
@@ -155,12 +149,10 @@ static string shoptype_to_string(shop_type s)
 
 bool overview_knows_portal(branch_type portal)
 {
-    for (portal_map_type::const_iterator pl_iter = portals_present.begin();
-          pl_iter != portals_present.end(); ++pl_iter)
-    {
-        if (pl_iter->second == portal)
+    for (const auto &entry : portals_present)
+        if (entry.second == portal)
             return true;
-    }
+
     return false;
 }
 
@@ -168,10 +160,9 @@ bool overview_knows_portal(branch_type portal)
 int overview_knows_num_portals(dungeon_feature_type portal)
 {
     int num = 0;
-    for (portal_map_type::const_iterator pl_iter = portals_present.begin();
-          pl_iter != portals_present.end(); ++pl_iter)
+    for (const auto &entry : portals_present)
     {
-        if (branches[pl_iter->second].entry_stairs == portal)
+        if (branches[entry.second].entry_stairs == portal)
             num++;
     }
 
@@ -185,30 +176,27 @@ static string _portals_description_string()
     for (branch_iterator it; it; ++it)
     {
         last_id.depth = 10000;
-        portal_map_type::const_iterator ci_portals;
-        for (ci_portals = portals_present.begin();
-              ci_portals != portals_present.end();
-              ++ci_portals)
+        for (const auto &entry : portals_present)
         {
             // one line per region should be enough, they're all of
             // the form D:XX, except for labyrinth portals, of which
             // you would need 11 (at least) to have a problem.
-            if (ci_portals->second == it->id)
+            if (entry.second == it->id)
             {
                 if (last_id.depth == 10000)
-                    disp += coloured_branch(ci_portals->second)+ ":";
+                    disp += coloured_branch(entry.second)+ ":";
 
-                if (ci_portals->first.id == last_id)
+                if (entry.first.id == last_id)
                     disp += '*';
                 else
                 {
                     disp += ' ';
-                    disp += ci_portals->first.id.describe(false, true);
+                    disp += entry.first.id.describe(false, true);
                 }
-                last_id = ci_portals->first.id;
+                last_id = entry.first.id;
 
                 // Portals notes (Zig/Trovel price).
-                const string note = portal_notes[ci_portals->first];
+                const string note = portal_notes[entry.first];
                 if (!note.empty())
                     disp += " (" + note + ")";
             }
@@ -266,11 +254,8 @@ static string _get_seen_branches(bool display)
             lid = find_deepest_explored(lid);
 
             string entry_desc;
-            for (set<level_id>::iterator lit = stair_level[branch].begin();
-                 lit != stair_level[branch].end(); ++lit)
-            {
-                entry_desc += " " + lit->describe(false, true);
-            }
+            for (auto lvl : stair_level[branch])
+                entry_desc += " " + lvl.describe(false, true);
 
             // "D" is a little too short here.
             const char *brname = (branch == BRANCH_DUNGEON
@@ -404,16 +389,13 @@ static string _print_altars_for_gods(const vector<god_type>& gods,
     char const *colour;
     const int columns = 4;
 
-    for (unsigned int cur_god = 0; cur_god < gods.size(); cur_god++)
+    for (const god_type god : gods)
     {
-        const god_type god = gods[cur_god];
-
         // for each god, look through the notable altars list for a match
         bool has_altar_been_seen = false;
-        for (altar_map_type::const_iterator na_iter = altars_present.begin();
-             na_iter != altars_present.end(); ++na_iter)
+        for (const auto &entry : altars_present)
         {
-            if (na_iter->second == god)
+            if (entry.second == god)
             {
                 has_altar_been_seen = true;
                 break;
@@ -433,7 +415,7 @@ static string _print_altars_for_gods(const vector<god_type>& gods,
             colour = "white";
         // Good gods don't inflict penance unless they hate your god.
         if (player_under_penance(god)
-            && (god == GOD_ASHENZARI || active_penance(god)))
+            && (xp_penance(god) || active_penance(god)))
         {
             // Active Nemelex penance starts at 101, not 1.
             colour = (you.penance[god] > (god == GOD_NEMELEX_XOBEH ? 110 : 10))
@@ -496,7 +478,6 @@ static string _get_shops(bool display)
         disp += "\n";
     }
     last_id.depth = 10000;
-    map<level_pos, shop_type>::const_iterator ci_shops;
 
     // There are at most 5 shops per level, plus up to 8 chars for the
     // level name, plus 4 for the spacing (3 as padding + 1 separating
@@ -506,12 +487,11 @@ static string _get_shops(bool display)
     const int maxcolumn = get_number_of_cols() - 17;
     int column_count = 0;
 
-    for (ci_shops = shops_present.begin();
-         ci_shops != shops_present.end(); ++ci_shops)
+    for (const auto &entry : shops_present)
     {
-        if (ci_shops->first.id != last_id)
+        if (entry.first.id != last_id)
         {
-            const bool existing = is_existing_level(ci_shops->first.id);
+            const bool existing = is_existing_level(entry.first.id);
             if (column_count > maxcolumn)
             {
                 disp += "\n";
@@ -524,7 +504,7 @@ static string _get_shops(bool display)
             }
             disp += existing ? "<lightgrey>" : "<darkgrey>";
 
-            const string loc = ci_shops->first.id.describe(false, true);
+            const string loc = entry.first.id.describe(false, true);
             disp += loc;
             column_count += strwidth(loc);
 
@@ -532,9 +512,9 @@ static string _get_shops(bool display)
             disp += existing ? "</lightgrey>" : "</darkgrey>";
             column_count += 1;
 
-            last_id = ci_shops->first.id;
+            last_id = entry.first.id;
         }
-        disp += shoptype_to_string(ci_shops->second);
+        disp += shoptype_to_string(entry.second);
         ++column_count;
     }
 
@@ -604,7 +584,7 @@ static bool _unnotice_shop(const level_pos &pos)
 static bool _unnotice_stair(const level_pos &pos)
 {
     const dungeon_feature_type feat = grd(pos.pos);
-    if (!feat_is_branch_stairs(feat))
+    if (!feat_is_branch_entrance(feat))
         return false;
 
     for (branch_iterator it; it; ++it)
@@ -675,36 +655,69 @@ static void _seen_shop(const coord_def& pos)
 
 static void _seen_portal(dungeon_feature_type which_thing, const coord_def& pos)
 {
-    switch (which_thing)
-    {
-    case DNGN_ENTER_HELL:
-        // hell upstairs are never interesting
-        if (player_in_hell())
-            break;
-#if TAG_MAJOR_VERSION == 34
-    case DNGN_ENTER_PORTAL_VAULT:
-#endif
-    case DNGN_ENTER_LABYRINTH:
-    case DNGN_ENTER_ABYSS:
-    case DNGN_ENTER_PANDEMONIUM:
-    case DNGN_ENTER_ZIGGURAT:
-    case DNGN_ENTER_BAZAAR:
-    case DNGN_ENTER_TROVE:
-    case DNGN_ENTER_SEWER:
-    case DNGN_ENTER_OSSUARY:
-    case DNGN_ENTER_BAILEY:
-    case DNGN_ENTER_ICE_CAVE:
-    case DNGN_ENTER_VOLCANO:
-    case DNGN_ENTER_WIZLAB:
+    if (feat_is_portal_entrance(which_thing)
+        || which_thing == DNGN_ENTER_ABYSS
+        || which_thing == DNGN_ENTER_PANDEMONIUM
+        || which_thing == DNGN_ENTER_HELL && !player_in_hell())
     {
         level_pos where(level_id::current(), pos);
         portals_present[where] = stair_destination(pos).branch;
         portal_notes[where] =
             env.markers.property_at(pos, MAT_ANY, "overview_note");
-        break;
     }
-    default:;
+}
+
+#define SEEN_RUNED_DOOR_KEY "num_runed_doors"
+
+static void _update_runed_door_count(int old_num)
+{
+    const level_id li = level_id::current();
+    const int new_num = env.properties[SEEN_RUNED_DOOR_KEY];
+    const string new_string = make_stringf("%d runed door%s", new_num,
+                                           new_num == 1 ? "" : "s");
+    const string old_string = make_stringf("%d runed door%s", old_num,
+                                           old_num == 1 ? "" : "s");
+
+    //TODO: regexes
+    if (old_num > 0 && new_num > 0)
+    {
+       level_annotations[li] = replace_all(level_annotations[li],
+                                           old_string, new_string);
     }
+    else if (old_num == 0)
+    {
+        if (!level_annotations[li].empty())
+            level_annotations[li] += ", ";
+        level_annotations[li] += new_string;
+    }
+    else if (new_num == 0)
+    {
+        level_annotations[li] = replace_all(level_annotations[li],
+                                            ", " + old_string, "");
+        level_annotations[li] = replace_all(level_annotations[li],
+                                            old_string, "");
+    }
+}
+
+void seen_runed_door()
+{
+    if (!env.properties.exists(SEEN_RUNED_DOOR_KEY))
+        env.properties[SEEN_RUNED_DOOR_KEY] = 0;
+
+    _update_runed_door_count(env.properties[SEEN_RUNED_DOOR_KEY].get_int()++);
+}
+
+void opened_runed_door()
+{
+#if TAG_MAJOR_VERSION > 34
+    ASSERT(env.properties.exists(SEEN_RUNED_DOOR_KEY));
+#endif
+
+    // Opening a runed door we haven't seen (because of door_vault, probably).
+    if (env.properties[SEEN_RUNED_DOOR_KEY].get_int() == 0)
+        return;
+
+    _update_runed_door_count(env.properties[SEEN_RUNED_DOOR_KEY].get_int()--);
 }
 
 void enter_branch(branch_type branch, level_id from)
@@ -731,26 +744,32 @@ void unmark_offlevel_shop(level_id lid)
     shops_present.erase(level_pos(lid, coord_def()));
 }
 
+// Add an annotation on a level if we corrupt with Lugonu's ability
+void mark_corrupted_level(level_id li)
+{
+    if (!level_annotations[li].empty())
+        level_annotations[li] += ", ";
+    level_annotations[li] += "corrupted";
+}
+
 ////////////////////////////////////////////////////////////////////////
 
 static void _update_unique_annotation(level_id level)
 {
     string note = "";
     string sep = ", ";
-    for (set<monster_annotation>::iterator i = auto_unique_annotations.begin();
-         i != auto_unique_annotations.end(); ++i)
-    {
-        if (i->first.find(',') != string::npos)
+
+    for (const auto &annot : auto_unique_annotations)
+        if (annot.first.find(',') != string::npos)
             sep = "; ";
-    }
-    for (set<monster_annotation>::iterator i = auto_unique_annotations.begin();
-         i != auto_unique_annotations.end(); ++i)
+
+    for (const auto &annot : auto_unique_annotations)
     {
-        if (i->second == level)
+        if (annot.second == level)
         {
             if (note.length() > 0)
                 note += sep;
-            note += i->first;
+            note += annot.first;
         }
     }
     if (note.empty())
@@ -783,10 +802,12 @@ static string unique_name(monster* mons)
 
 void set_unique_annotation(monster* mons, const level_id level)
 {
-    if (!mons_is_unique(mons->type)
-        && !(mons->props.exists("original_was_unique")
-            && mons->props["original_was_unique"].get_bool())
-        && mons->type != MONS_PLAYER_GHOST)
+    if (!mons_is_or_was_unique(*mons)
+        && mons->type != MONS_PLAYER_GHOST
+        || testbits(mons->flags, MF_SPECTRALISED)
+        || mons->props.exists("no_annotate")
+            && mons->props["no_annotate"].get_bool())
+
     {
         return;
     }
@@ -800,7 +821,7 @@ void remove_unique_annotation(monster* mons)
 {
     set<level_id> affected_levels;
     string name = unique_name(mons);
-    for (set<monster_annotation>::iterator i = auto_unique_annotations.begin();
+    for (auto i = auto_unique_annotations.begin();
          i != auto_unique_annotations.end();)
     {
         if (i->first == name)
@@ -812,11 +833,8 @@ void remove_unique_annotation(monster* mons)
             ++i;
     }
 
-    for (set<level_id>::iterator i = affected_levels.begin();
-         i != affected_levels.end(); ++i)
-    {
-        _update_unique_annotation(*i);
-    }
+    for (auto lvl : affected_levels)
+        _update_unique_annotation(lvl);
 }
 
 void set_level_exclusion_annotation(string str, level_id li)
@@ -838,33 +856,26 @@ void clear_level_exclusion_annotation(level_id li)
 string get_level_annotation(level_id li, bool skip_excl, bool skip_uniq,
                             bool use_colour, int colour)
 {
-    annotation_map_type::const_iterator i = level_annotations.find(li);
-    annotation_map_type::const_iterator j = level_exclusions.find(li);
-    annotation_map_type::const_iterator k = level_uniques.find(li);
-
     string note = "";
 
-    if (i != level_annotations.end())
-    {
-        if (use_colour)
-            note += colour_string(i->second, colour);
-        else
-            note += i->second;
-    }
+    if (string *ann = map_find(level_annotations, li))
+        note += use_colour ? colour_string(*ann, colour) : *ann;
 
-    if (!skip_excl && j != level_exclusions.end())
-    {
-        if (note.length() > 0)
-            note += ", ";
-        note += j->second;
-    }
+    if (!skip_excl)
+        if (string *excl = map_find(level_exclusions, li))
+        {
+            if (note.length() > 0)
+                note += ", ";
+            note += *excl;
+        }
 
-    if (!skip_uniq && k != level_uniques.end())
-    {
-        if (note.length() > 0)
-            note += ", ";
-        note += k->second;
-    }
+    if (!skip_uniq)
+        if (string *uniq = map_find(level_uniques, li))
+        {
+            if (note.length() > 0)
+                note += ", ";
+            note += *uniq;
+        }
 
     return note;
 }
@@ -939,8 +950,7 @@ void clear_level_annotations(level_id li)
     if (li == BRANCH_ABYSS)
         return;
 
-    set<monster_annotation>::iterator next;
-    for (set<monster_annotation>::iterator i = auto_unique_annotations.begin();
+    for (auto i = auto_unique_annotations.begin(), next = i;
          i != auto_unique_annotations.end(); i = next)
     {
         next = i;
@@ -954,11 +964,10 @@ void clear_level_annotations(level_id li)
 void marshallUniqueAnnotations(writer& outf)
 {
     marshallShort(outf, auto_unique_annotations.size());
-    for (set<monster_annotation>::iterator i = auto_unique_annotations.begin();
-         i != auto_unique_annotations.end(); ++i)
+    for (const auto &annot : auto_unique_annotations)
     {
-        marshallString(outf, i->first);
-        i->second.save(outf);
+        marshallString(outf, annot.first);
+        annot.second.save(outf);
     }
 }
 

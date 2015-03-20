@@ -5,54 +5,40 @@
 
 #include "AppHdr.h"
 
-#include "cio.h"
+#include "hints.h"
 
 #include <cstring>
 #include <sstream>
-
-#include "hints.h"
 
 #include "ability.h"
 #include "artefact.h"
 #include "cloud.h"
 #include "colour.h"
-#include "command.h"
 #include "database.h"
 #include "decks.h"
 #include "describe.h"
 #include "end.h"
-#include "files.h"
-#include "food.h"
-#include "format.h"
+#include "english.h"
+#include "env.h"
 #include "fprop.h"
 #include "invent.h"
-#include "itemname.h"
 #include "itemprop.h"
 #include "items.h"
+#include "jobs.h"
 #include "libutil.h"
 #include "macro.h"
-#include "menu.h"
 #include "message.h"
 #include "misc.h"
-#include "mon-behv.h"
-#include "mon-util.h"
 #include "mutation.h"
 #include "options.h"
-#include "ouch.h"
 #include "output.h"
-#include "jobs.h"
-#include "player.h"
-#include "random.h"
 #include "religion.h"
 #include "shopping.h"
 #include "showsymb.h"
-#include "skills2.h"
-#include "species.h"
+#include "skills.h"
 #include "spl-book.h"
 #include "state.h"
 #include "stringutil.h"
-#include "env.h"
-#include "tags.h"
 #include "terrain.h"
 #include "travel.h"
 #include "viewchar.h"
@@ -176,6 +162,7 @@ static void _print_hints_menu(hints_types type)
 // Hints mode selection screen and choice.
 void pick_hints(newgame_def* choice)
 {
+again:
     clrscr();
 
     cgotoxy(1,1);
@@ -185,7 +172,7 @@ void pick_hints(newgame_def* choice)
         "<cyan>You can be:</cyan>"
         "\n").display();
 
-    textcolor(LIGHTGREY);
+    textcolour(LIGHTGREY);
 
     for (int i = 0; i < HINT_TYPES_NUM; i++)
         _print_hints_menu((hints_types)i);
@@ -198,6 +185,8 @@ void pick_hints(newgame_def* choice)
     while (true)
     {
         int keyn = getch_ck();
+        if (keyn == CK_REDRAW)
+            goto again;
 
         // Random choice.
         if (keyn == '*' || keyn == '+' || keyn == '!' || keyn == '#')
@@ -453,9 +442,8 @@ void print_hint(string key, const string arg1, const string arg2)
 
     // "\n" to preserve indented parts, the rest is unwrapped, or split into
     // paragraphs by "\n\n", split_string() will ignore the empty line.
-    vector<string> chunks = split_string("\n", text);
-    for (size_t i = 0; i < chunks.size(); i++)
-        mprf(MSGCH_TUTORIAL, "%s", chunks[i].c_str());
+    for (const string &chunk : split_string("\n", text))
+        mprf(MSGCH_TUTORIAL, "%s", chunk.c_str());
 
     stop_running();
 }
@@ -526,7 +514,7 @@ void hints_death_screen()
     Hints.hints_events.init(false);
 }
 
-// If a character survives until Xp 7, the hints mode is declared finished
+// If a character survives until XL 7, the hints mode is declared finished
 // and they get a more advanced playing hint, depending on what they might
 // know by now.
 void hints_finished()
@@ -827,11 +815,8 @@ static bool _advise_use_wand()
             return true;
 
         // Empty wands are no good.
-        if (obj.plus2 == ZAPCOUNT_EMPTY
-            || item_ident(obj, ISFLAG_KNOW_PLUSES) && obj.plus <= 0)
-        {
+        if (is_known_empty_wand(obj))
             continue;
-        }
 
         // Can it be used to fight?
         switch (obj.sub_type)
@@ -932,7 +917,7 @@ void hints_monster_seen(const monster& mon)
                     "list of monsters somewhere on the screen.\n";
         }
         text += "You can gain information about it by pressing <w>x</w> and "
-                "moving the cursor on the monster, and read the monster "
+                "moving the cursor over the monster, and read the monster "
                 "description by then pressing <w>v</w>. ";
     }
 
@@ -1079,7 +1064,6 @@ static bool _rare_hints_event(hints_event_type event)
     case HINT_KILLED_MONSTER:
     case HINT_NEW_LEVEL:
     case HINT_YOU_ENCHANTED:
-    case HINT_YOU_SICK:
     case HINT_YOU_POISON:
     case HINT_YOU_ROTTING:
     case HINT_YOU_CURSED:
@@ -1120,7 +1104,6 @@ static bool _tutorial_interesting(hints_event_type event)
     case HINT_AUTOPICKUP_THROWN:
     case HINT_TARGET_NO_FOE:
     case HINT_YOU_POISON:
-    case HINT_YOU_SICK:
     case HINT_NEW_ABILITY_ITEM:
     case HINT_ITEM_RESISTANCES:
     case HINT_FLYING:
@@ -1351,7 +1334,7 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
         // NOTE: This is called when a corpse is first seen as well as when
         //       first picked up, since a new player might not think to pick
         //       up a corpse.
-        // TODO: Specialcase skeletons and rotten corpses!
+        // TODO: Specialcase skeletons!
 
         if (gc.x <= 0 || gc.y <= 0)
             text << "Ah, a corpse!";
@@ -1392,8 +1375,7 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
         {
             text << "\nYou can also offer corpses to "
                  << god_name(you.religion)
-                 << " by <w>%</w>raying over them. Note that the gods will not "
-                    "accept rotting flesh.";
+                 << " by <w>%</w>raying over them.";
             cmd.push_back(CMD_PRAY);
         }
         text << "\nIn hint mode you can reread this information at "
@@ -1426,9 +1408,8 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
                 "it to find out what it does by "
                 "<tiles>clicking on it to e<w>%</w>oke </tiles>"
                 "<console>e<w>%</w>oking </console>"
-                "it. Some items need to be <w>%</w>ielded first before you can "
-                "e<w>%</w>oke them. As usual, selecting it from your "
-                "<w>%</w>nventory might give you more information.";
+                "it. As usual, selecting it from your <w>%</w>nventory "
+                "might give you more information.";
         cmd.push_back(CMD_EVOKE);
         cmd.push_back(CMD_WIELD_WEAPON);
         cmd.push_back(CMD_EVOKE_WIELDED);
@@ -1438,12 +1419,13 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
     case HINT_SEEN_ROD:
         text << "You have picked up a magical rod"
                 "<console> ('<w>";
-        text << stringize_glyph(get_item_symbol(SHOW_ITEM_STAVE))
-             << "</w>', like staves)</console>"
+        text << stringize_glyph(get_item_symbol(SHOW_ITEM_ROD))
+             << "</w>')</console>"
                 ". It must be <w>%</w>ielded to be of use. "
-                "A rod allows the casting of "
-                "certain spells even without magic knowledge simply by "
-                "e<w>%</w>oking it. The power depends on "
+                "A rod allows the casting of the unique spell it contains "
+                "even without magic knowledge simply by "
+                "e<w>%</w>oking it. It has a limited pool of magic which"
+                "recharges over time, and its power depends on "
                 "your Evocations skill. It can also be used as a cudgel, "
                 "with its combat value increasing with its recharge rate.";
         cmd.push_back(CMD_WIELD_WEAPON);
@@ -1461,8 +1443,8 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
         text << "You have picked up a magic staff"
                 "<console> ('<w>";
 
-        text << stringize_glyph(get_item_symbol(SHOW_ITEM_STAVE))
-             << "</w>', like rods)</console>"
+        text << stringize_glyph(get_item_symbol(SHOW_ITEM_STAFF))
+             << "</w>')</console>"
                 ". It must be <w>%</w>ielded to be of use. "
                 "Magicians use staves to increase their power in certain "
                 "spell schools. It can also be used as a weapon."
@@ -1480,7 +1462,7 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
                 "<console> ('<yellow>"
              << stringize_glyph(get_item_symbol(SHOW_ITEM_GOLD))
              << "</yellow>')</console>"
-                ". Unlike all other objects in Crawl it doesn't show up in "
+                ". Unlike most other objects in Crawl it doesn't show up in "
                 "your inventory, takes up no space in your inventory, weighs "
                 "nothing and can't be dropped. Gold can be used to buy "
                 "items from shops, and can also be sacrificed to some gods. ";
@@ -1540,8 +1522,7 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
         tiles.add_text_tag(TAG_TUTORIAL, "Escape hatch", gc);
 #endif
         text << "are some kind of escape hatch. You can use them to "
-                "quickly leave a level with <w>%</w> and <w>%</w>, "
-                "respectively"
+                "leave a level with <w>%</w> and <w>%</w> respectively"
 #ifdef USE_TILE
                 " (or by using your <w>left mouse button</w>)"
 #endif
@@ -1557,7 +1538,7 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
         if (monster_at(gc))
             DELAY_EVENT;
 
-        // FIXME: Branch entrance character is not being colored yellow.
+        // FIXME: Branch entrance character is not being coloured yellow.
         text << glyph_to_tagstr(get_cell_glyph(gc)) << " ";
 #else
         tiles.place_cursor(CURSOR_TUTORIAL, gc);
@@ -1571,8 +1552,8 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
                 "branches."
 
                 "\n\nThe first three branches you'll encounter are the "
-                "Temple, the Orcish Mines and the Lair. While the Mines "
-                "and the Lair can be dangerous for the new adventurer, "
+                "Temple, the Lair and the Orcish Mines. While the Lair"
+                "and the Mines can be dangerous for the new adventurer, "
                 "the Temple is completely safe and contains a number of "
                 "altars at which you might convert to a new god.";
         break;
@@ -1889,8 +1870,8 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
     case HINT_CHOOSE_STAT:
         text << "Every third level you get to choose a stat to raise: "
                 "Strength, Intelligence, or Dexterity. "
-                "<w>Strength</w> affects the amount you can carry and makes it "
-                "easier to wear heavy armour. "
+                "<w>Strength</w> affects your effectiveness in combat "
+                "and makes it easier to wear heavy armour. "
                 "<w>Intelligence</w> makes it easier to cast spells and "
                 "reduces the amount by which you hunger when you do so. "
                 "<w>Dexterity</w> increases your evasion "
@@ -1904,21 +1885,6 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
                 "possible enchantments is in the manual (<w>%5</w>).";
         cmd.push_back(CMD_DISPLAY_CHARACTER_STATUS);
         cmd.push_back(CMD_DISPLAY_COMMANDS);
-        break;
-
-    case HINT_YOU_SICK:
-        if (crawl_state.game_is_hints())
-        {
-            // Hack: reset hints_just_triggered, to force recursive calling of
-            // learned_something_new(). Don't do this for the tutorial!
-            Hints.hints_just_triggered = false;
-            learned_something_new(HINT_YOU_ENCHANTED);
-            Hints.hints_just_triggered = true;
-        }
-        text << "While sick, your health won't regenerate and your attributes "
-                "may decrease. Sickness wears off with time, so you should wait it "
-                "out with %.";
-        cmd.push_back(CMD_REST);
         break;
 
     case HINT_YOU_POISON:
@@ -1962,9 +1928,8 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
         break;
 
     case HINT_REMOVED_CURSE:
-        text << "All the curses on your worn equipment just got cancelled. "
-                "Since cursed items are more likely to have bad properties, "
-                "the game makes a note of this, so you don't forget about it.";
+        text << "The curses on your worn equipment have been removed, so you "
+                "can now unequip any previously cursed items.";
         break;
 
     case HINT_YOU_HUNGRY:
@@ -2025,22 +1990,6 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
             cmd.push_back(CMD_SEARCH_STASHES);
             cmd.push_back(CMD_SEARCH_STASHES);
         }
-        break;
-
-    case HINT_ROTTEN_FOOD:
-        if (!crawl_state.game_is_hints())
-        {
-            text << "One or more of the chunks you carry has started to rot. "
-                    "While some species can eat rotten meat, you can't.";
-            break;
-        }
-        text << "One or more of the chunks you carry has started to rot. Few "
-                "species can digest these, so you might just as well "
-                "<w>%</w>rop them now. "
-                "When selecting items from a menu, there's a shortcut "
-                "(<w>,</w>) to select all items in your inventory at once "
-                "that are useless to you.";
-        cmd.push_back(CMD_DROP);
         break;
 
     case HINT_MAKE_CHUNKS:
@@ -2512,8 +2461,7 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
         }
 
         if (Hints.hints_type == HINT_RANGER_CHAR && wpn != -1
-            && you.inv[wpn].base_type == OBJ_WEAPONS
-            && you.inv[wpn].sub_type == WPN_SHORTBOW)
+            && you.inv[wpn].is_type(OBJ_WEAPONS, WPN_SHORTBOW))
         {
             text << "You can easily switch between weapons in slots a and "
                     "b by pressing <w>%</w>.";
@@ -2621,9 +2569,9 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
         {
             text << "Uh-oh, that monster noticed you! Fortunately, it "
                     "didn't make any noise, but many monsters do make "
-                    "noise when they notice you, which alerts other monsters "
-                    "in the area, who will come to check out what the "
-                    "commotion was about.";
+                    "noise when they notice you. This will alert other "
+                    "monsters in the area, who will come to check out what "
+                    "the commotion was about.";
         }
         else
         {
@@ -2713,7 +2661,7 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
 #ifdef USE_TILE
                     "or mouse over the spell tiles "
 #endif
-                    "to check your current success rates.";
+                    "to check your current failure rates.";
             cmd.push_back(CMD_DISPLAY_SPELLS);
             break;
         }
@@ -2725,7 +2673,7 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
             text << "Wearing heavy body armour or using a shield, especially a "
                     "large one, can severely hamper your spellcasting "
                     "abilities. You can check the effect of this by comparing "
-                    "the success rates on the <w>%\?</w> screen with and "
+                    "the failure rates on the <w>%\?</w> screen with and "
                     "without the item being worn.\n\n";
             cmd.push_back(CMD_CAST_SPELL);
         }
@@ -2734,12 +2682,13 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
                 "checked by entering <w>%\?</w> or <w>%</w>) then a miscast "
                 "merely means the spell is not working, along with a harmless "
                 "side effect. "
-                "However, for spells with a low success rate, there's a chance "
-                "of contaminating yourself with magical energy, plus a chance "
-                "of an additional harmful side effect. Normally this isn't a "
-                "problem, since magical contamination bleeds off over time, "
-                "but if you're repeatedly contaminated in a short amount of "
-                "time you'll mutate or suffer from other ill side effects.\n\n";
+                "However, for spells with a high failure rate, there's a "
+                "chance of contaminating yourself with magical energy, plus a "
+                "chance of an additional harmful side effect. Normally this "
+                "isn't a problem, since magical contamination bleeds off over "
+                "time, but if you're repeatedly contaminated in a short amount "
+                "of time you'll mutate or suffer from other ill side effects."
+                "\n\n";
         cmd.push_back(CMD_CAST_SPELL);
         cmd.push_back(CMD_DISPLAY_SPELLS);
 
@@ -2765,8 +2714,8 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
     case HINT_GLOWING:
         text << "You've accumulated so much magical contamination that you're "
                 "glowing! You usually acquire magical contamination from using "
-                "some powerful magics, like invisibility, haste or potions of "
-                "resistance. ";
+                "some powerful magics, like invisibility or haste, or from "
+                "miscasting spells. ";
 
         if (get_contamination_level() < 2)
         {
@@ -2792,7 +2741,7 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
                 "(at least partially) resist some of them, if you are "
                 "fortunate enough to find them. There are two basic variants "
                 "of resistances: the innate magic resistance that depends on "
-                "your species, grows with the experience level, and protects "
+                "your species, grows with experience level, and protects "
                 "against hostile enchantments; and the specific resistances "
                 "against certain types of magic and also other effects, e.g. "
                 "fire or draining.\n"
@@ -2850,14 +2799,11 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
 
     case HINT_LOAD_SAVED_GAME:
     {
-        text << "Welcome back! If it's been a while since you last played this "
-                "character, you should take some time to refresh your memory "
-                "of your character's progress. It is recommended to at least "
-                "have a look through your <w>%</w>nventory, but you should "
-                "also check ";
+        text << "Welcome back! If it's been a while, you may want to refresh "
+                "your memory.\nYour <w>%</w>nventory, ";
         cmd.push_back(CMD_DISPLAY_INVENTORY);
 
-        vector<string> listed;
+        vector<const char *> listed;
         if (you.spell_no > 0)
         {
             listed.push_back("your spells (<w>%?</w>)");
@@ -2882,19 +2828,11 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
         listed.push_back("the message history (<w>%</w>)");
         listed.push_back("the character overview screen (<w>%</w>)");
         listed.push_back("the dungeon overview screen (<w>%</w>)");
-        text << comma_separated_line(listed.begin(), listed.end()) << ".";
+        text << comma_separated_line(listed.begin(), listed.end())
+             << " are good things to check.";
         cmd.push_back(CMD_REPLAY_MESSAGES);
         cmd.push_back(CMD_RESISTS_SCREEN);
         cmd.push_back(CMD_DISPLAY_OVERMAP);
-
-        text << "\nAlternatively, you can dump all information pertaining to "
-                "your character into a text file with the <w>%</w> command. "
-                "You can then find said file in the <w>morgue/</w> directory (<w>"
-             << you.your_name << ".txt</w>) and read it at your leisure. Also, "
-                "such a file will automatically be created upon death (the "
-                "filename will then also contain the date) but that won't be "
-                "of much use to you now.";
-        cmd.push_back(CMD_CHARACTER_DUMP);
         break;
     }
     case HINT_AUTOPICKUP_THROWN:
@@ -2925,9 +2863,9 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
         break;
     case HINT_CLOUD_WARNING:
         text << "Rather than step into this cloud and hurt yourself, you should "
-                "try to step around it or wait it out with <w>%</w> or <w>%</w>.";
-        cmd.push_back(CMD_MOVE_NOWHERE);
-        cmd.push_back(CMD_REST);
+                "say <w>N</w>o and either wait for a few turns to see if it "
+                "vanishes (with <w>%</w>), or just step around it.";
+        cmd.push_back(CMD_WAIT);
         break;
     case HINT_ANIMATE_CORPSE_SKELETON:
         text << "As long as a monster has a skeleton, Animate Skeleton also "
@@ -2969,7 +2907,7 @@ formatted_string hints_abilities_info()
 // aptitude information.
 string hints_skills_info()
 {
-    textcolor(channel_to_colour(MSGCH_TUTORIAL));
+    textcolour(channel_to_colour(MSGCH_TUTORIAL));
     ostringstream text;
     text << "<" << colour_to_str(channel_to_colour(MSGCH_TUTORIAL)) << ">";
     string broken = "This screen shows the skill set of your character. "
@@ -2988,7 +2926,7 @@ string hints_skills_info()
 
 string hints_skill_training_info()
 {
-    textcolor(channel_to_colour(MSGCH_TUTORIAL));
+    textcolour(channel_to_colour(MSGCH_TUTORIAL));
     ostringstream text;
     text << "<" << colour_to_str(channel_to_colour(MSGCH_TUTORIAL)) << ">";
     string broken = "The training percentage (in <brown>brown</brown>) "
@@ -3004,7 +2942,7 @@ string hints_skill_training_info()
 
 string hints_skills_description_info()
 {
-    textcolor(channel_to_colour(MSGCH_TUTORIAL));
+    textcolour(channel_to_colour(MSGCH_TUTORIAL));
     ostringstream text;
     text << "<" << colour_to_str(channel_to_colour(MSGCH_TUTORIAL)) << ">";
     string broken = "This screen shows the skill set of your character. "
@@ -3166,7 +3104,7 @@ void hints_describe_item(const item_def &item)
             }
 
             item_def *weap = you.slot_item(EQ_WEAPON, false);
-            bool wielded = (weap && (*weap).slot == item.slot);
+            bool wielded = (weap && weap->slot == item.slot);
             bool long_text = false;
 
             if (!wielded)
@@ -3179,24 +3117,18 @@ void hints_describe_item(const item_def &item)
                 cmd.push_back(CMD_ADJUST_INVENTORY);
 
                 // Weapon skill used by this weapon and the best weapon skill.
-                skill_type curr_wpskill, best_wpskill;
+                skill_type curr_wpskill = item_attack_skill(item);
+                skill_type best_wpskill;
 
                 // Maybe this is a launching weapon?
                 if (is_range_weapon(item))
-                {
-                    // Then only compare with other launcher skills.
-                    curr_wpskill = range_skill(item);
                     best_wpskill = best_skill(SK_SLINGS, SK_THROWING);
-                }
                 else
-                {
-                    // Compare with other melee weapons.
-                    curr_wpskill = melee_skill(item);
                     best_wpskill = best_skill(SK_SHORT_BLADES, SK_STAVES);
-                    // Maybe unarmed is better.
-                    if (you.skills[SK_UNARMED_COMBAT] > you.skills[best_wpskill])
-                        best_wpskill = SK_UNARMED_COMBAT;
-                }
+
+                // Maybe unarmed is better.
+                if (you.skills[SK_UNARMED_COMBAT] > you.skills[best_wpskill])
+                    best_wpskill = SK_UNARMED_COMBAT;
 
                 if (you.skills[curr_wpskill] + 2 < you.skills[best_wpskill])
                 {
@@ -3248,8 +3180,8 @@ void hints_describe_item(const item_def &item)
             }
             if (item_known_cursed(item) && !long_text)
             {
-                ostr << "\n\nOnce wielded, a cursed weapon won't leave your "
-                        "hands again until the curse has been lifted by "
+                ostr << "\n\nOnce wielded, a cursed weapon can't be "
+                        "unwielded until the curse has been lifted by "
                         "reading a scroll of remove curse or one of the "
                         "enchantment scrolls.";
 
@@ -3364,8 +3296,8 @@ void hints_describe_item(const item_def &item)
             else if (Hints.hints_type == HINT_RANGER_CHAR
                      && is_shield(item))
             {
-                ostr << "\nNote that wearing a shield will greatly decrease "
-                        "the speed at which you can shoot arrows.";
+                ostr << "\nNote that many ranged weapons are two handed and so "
+                        "cannot be used with a shield.";
             }
 
             if (!item_type_known(item)
@@ -3437,41 +3369,18 @@ void hints_describe_item(const item_def &item)
             break;
 
         case OBJ_FOOD:
-            if (food_is_rotten(item) && !player_mutation_level(MUT_SAPROVOROUS))
-            {
-                ostr << "You can't eat rotten chunks, so you might just as "
-                        "well ";
-                if (!in_inventory(item))
-                    ostr << "ignore them. ";
-                else
-                {
-                    ostr << "<w>%</w>rop this. Use <w>%&</w> to select all "
-                            "rotten chunks in your inventory. ";
-                    cmd.push_back(CMD_DROP);
-                    cmd.push_back(CMD_DROP);
-                }
-            }
-            else
-            {
-                ostr << "Food can simply be <w>%</w>aten"
+            ostr << "Food can simply be <w>%</w>aten"
 #ifdef USE_TILE
-                        ", something you can also do by <w>left clicking</w> "
-                        "on it"
+                    ", something you can also do by <w>left clicking</w> "
+                    "on it"
 #endif
-                        ". ";
-                cmd.push_back(CMD_EAT);
+                    ". ";
+            cmd.push_back(CMD_EAT);
 
-                if (item.sub_type == FOOD_CHUNK)
-                {
-                    ostr << "Note that most species refuse to eat raw meat "
-                            "unless hungry. ";
-
-                    if (food_is_rotten(item))
-                    {
-                        ostr << "Even fewer can safely digest rotten meat, and "
-                             "you're probably not part of that group.";
-                    }
-                }
+            if (item.sub_type == FOOD_CHUNK)
+            {
+                ostr << "Note that most species refuse to eat raw meat "
+                        "unless hungry. ";
             }
             Hints.hints_events[HINT_SEEN_FOOD] = false;
             break;
@@ -3551,9 +3460,7 @@ void hints_describe_item(const item_def &item)
             }
             else // It's a spellbook!
             {
-                if (you_worship(GOD_TROG)
-                    && (item.sub_type != BOOK_DESTRUCTION
-                        || !item_ident(item, ISFLAG_KNOW_TYPE)))
+                if (you_worship(GOD_TROG))
                 {
                     if (!item_ident(item, ISFLAG_KNOW_TYPE))
                     {
@@ -3585,11 +3492,6 @@ void hints_describe_item(const item_def &item)
 #endif
                             ".";
                     cmd.push_back(CMD_READ);
-                }
-                else if (item.sub_type == BOOK_DESTRUCTION)
-                {
-                    ostr << "This magical item can cause great destruction "
-                            "- to you, or your surroundings. Use with care!";
                 }
                 else
                 {
@@ -3642,14 +3544,6 @@ void hints_describe_item(const item_def &item)
                 ostr << "Skeletons can be used as components for certain "
                         "necromantic spells. Apart from that, they are "
                         "largely useless.";
-
-                if (in_inventory(item))
-                {
-                    ostr << " In the drop menu you can select all rotten "
-                            " chunks in your inventory at once with "
-                            "<w>%&</w>.";
-                    cmd.push_back(CMD_DROP);
-                }
                 break;
             }
 
@@ -3657,7 +3551,7 @@ void hints_describe_item(const item_def &item)
                     "produce chunks for food (though they may be unhealthy)";
             cmd.push_back(CMD_BUTCHER);
 
-            if (!food_is_rotten(item) && god_likes_fresh_corpses(you.religion))
+            if (god_likes_fresh_corpses(you.religion))
             {
                 ostr << ", or offered as a sacrifice to "
                      << god_name(you.religion)
@@ -3666,21 +3560,6 @@ void hints_describe_item(const item_def &item)
             }
             ostr << ". ";
 
-            if (food_is_rotten(item))
-            {
-                ostr << "Rotten corpses won't be of any use to you, though, so "
-                        "you might just as well ";
-                if (!in_inventory(item))
-                    ostr << "ignore them. ";
-                else
-                {
-                    ostr << "<w>%</w>rop this. Use <w>%&</w> to select all "
-                            "rotten chunks in your inventory. ";
-                    cmd.push_back(CMD_DROP);
-                    cmd.push_back(CMD_DROP);
-                }
-                ostr << "No god will accept such rotten sacrifice, either.";
-            }
             if (!in_inventory(item))
                 break;
 
@@ -3755,17 +3634,16 @@ void hints_describe_item(const item_def &item)
             if (is_deck(item))
             {
                 ostr << "Decks of cards are powerful but dangerous magical "
-                        "items. Try <w>%</w>ielding and e<w>%</w>oking it"
+                        "items. Try e<w>%</w>oking it"
 #ifdef USE_TILE
-                        ", either of which can be done by clicking on it"
+                        ", which can be done by clicking on it"
 #endif
                         ". If you use a scroll of identify on the deck you "
                         "can discover the name of the top card, making the "
                         "deck less risky to draw from. You can read about the "
                         "effect of a card by searching the game's database "
                         "with <w>%/c</w>.";
-                cmd.push_back(CMD_WIELD_WEAPON);
-                cmd.push_back(CMD_EVOKE_WIELDED);
+                cmd.push_back(CMD_EVOKE);
                 cmd.push_back(CMD_DISPLAY_COMMANDS);
             }
             else
@@ -3838,37 +3716,12 @@ bool hints_pos_interesting(int x, int y)
 static bool _hints_feat_interesting(dungeon_feature_type feat)
 {
     // Altars and branch entrances are always interesting.
-    if (feat_is_altar(feat))
-        return true;
-    if (feat >= DNGN_ENTER_FIRST_BRANCH && feat <= DNGN_ENTER_LAST_BRANCH)
-        return true;
-
-    switch (feat)
-    {
-    // So are statues, traps, and stairs.
-    case DNGN_ORCISH_IDOL:
-    case DNGN_GRANITE_STATUE:
-    case DNGN_TRAP_TELEPORT:
-    case DNGN_TRAP_ALARM:
-    case DNGN_TRAP_ZOT:
-    case DNGN_TRAP_MECHANICAL:
-    case DNGN_TRAP_SHAFT:
-    case DNGN_TRAP_WEB:
-    case DNGN_STONE_STAIRS_DOWN_I:
-    case DNGN_STONE_STAIRS_DOWN_II:
-    case DNGN_STONE_STAIRS_DOWN_III:
-    case DNGN_STONE_STAIRS_UP_I:
-    case DNGN_STONE_STAIRS_UP_II:
-    case DNGN_STONE_STAIRS_UP_III:
-    case DNGN_ESCAPE_HATCH_DOWN:
-    case DNGN_ESCAPE_HATCH_UP:
-#if TAG_MAJOR_VERSION == 34
-    case DNGN_ENTER_PORTAL_VAULT:
-#endif
-        return true;
-    default:
-        return false;
-    }
+    return feat_is_altar(feat)
+           || feat_is_branch_entrance(feat)
+           || feat_is_stone_stair(feat)
+           || feat_is_escape_hatch(feat)
+           || feat_is_trap(feat)
+           || feat_is_statuelike(feat);
 }
 
 void hints_describe_pos(int x, int y)
@@ -3899,36 +3752,21 @@ static void _hints_describe_feature(int x, int y)
          break;
 
     case DNGN_TRAP_TELEPORT:
+    case DNGN_TRAP_SHADOW:
     case DNGN_TRAP_ALARM:
     case DNGN_TRAP_ZOT:
     case DNGN_TRAP_MECHANICAL:
          ostr << "These nasty constructions can cause a range of "
-                 "unpleasant effects. ";
-
-         if (feat == DNGN_TRAP_MECHANICAL)
-         {
-             ostr << "You can attempt to deactivate a mechanical trap by "
-                     "standing next to it and then pressing <w>Ctrl</w> "
-                     "and the direction of the trap. Note that this usually "
-                     "causes the trap to go off, so it can be quite a "
-                     "dangerous task.\n\n"
-
-                     "You can safely pass over a mechanical trap if "
-                     "you're flying.";
-         }
-         else
-         {
-             ostr << "Magical traps can't be disarmed, and you can't "
-                     "avoid tripping them by flying over them.";
-         }
+                 "unpleasant effects. You won't be able to avoid "
+                 "tripping traps by flying over them; their magic "
+                 "construction will cause them to be triggered anyway.";
          Hints.hints_events[HINT_SEEN_TRAP] = false;
          break;
 
     case DNGN_TRAP_SHAFT:
          ostr << "The dungeon contains a number of natural obstacles such "
-                 "as shafts, which lead one to three levels down. They "
-                 "can't be disarmed, but once you know the shaft is there, "
-                 "you can safely step over it.\n"
+                 "as shafts, which lead one to three levels down. Once you "
+                 "know the shaft is there, you can safely step over it.\n"
                  "If you want to jump down there, use <w>></w> to do so. "
                  "Be warned that getting back here might be difficult.";
          Hints.hints_events[HINT_SEEN_TRAP] = false;
@@ -3938,12 +3776,6 @@ static void _hints_describe_feature(int x, int y)
          ostr << "Some areas of the dungeon, such as the Spider Nest, may "
                  "be strewn with giant webs that may ensnare you for a short "
                  "time and notify nearby spiders of your location. "
-                 "You can attempt to clear away the web by "
-                 "standing next to it and then pressing <w>Ctrl</w> "
-                 "and the direction of the web. Note that this often "
-                 "results in just getting entangled anyway, so it can be "
-                 "quite a dangerous task.\n\n"
-
                  "Players in Spider Form can safely navigate the webs (as "
                  "can incorporeal entities and various oozes). ";
          Hints.hints_events[HINT_SEEN_WEB] = false;
@@ -4088,8 +3920,7 @@ static void _hints_describe_feature(int x, int y)
              Hints.hints_events[HINT_SEEN_ALTAR] = false;
              break;
          }
-         else if (feat >= DNGN_ENTER_FIRST_BRANCH
-                  && feat <= DNGN_ENTER_LAST_BRANCH)
+         else if (feat_is_branch_entrance(feat))
          {
              ostr << "An entryway into one of the many dungeon branches in "
                      "Crawl. ";
@@ -4234,7 +4065,7 @@ bool hints_monster_interesting(const monster* mons)
     return mons_threat_level(mons) == MTHRT_NASTY;
 }
 
-void hints_describe_monster(const monster_info& mi, bool has_stat_desc)
+string hints_describe_monster(const monster_info& mi, bool has_stat_desc)
 {
     cgotoxy(1, wherey());
     ostringstream ostr;
@@ -4356,14 +4187,14 @@ void hints_describe_monster(const monster_info& mi, bool has_stat_desc)
 
     string broken = ostr.str();
     linebreak_string(broken, _get_hints_cols());
-    display_tagged_block(broken);
+    return broken;
 }
 
 void hints_observe_cell(const coord_def& gc)
 {
     if (feat_is_escape_hatch(grd(gc)))
         learned_something_new(HINT_SEEN_ESCAPE_HATCH, gc);
-    else if (feat_is_branch_stairs(grd(gc)))
+    else if (feat_is_branch_entrance(grd(gc)))
         learned_something_new(HINT_SEEN_BRANCH, gc);
     else if (is_feature('>', gc))
         learned_something_new(HINT_SEEN_STAIRS, gc);
@@ -4377,11 +4208,7 @@ void hints_observe_cell(const coord_def& gc)
         learned_something_new(HINT_SEEN_RUNED_DOOR, gc);
     else if (grd(gc) == DNGN_ENTER_SHOP)
         learned_something_new(HINT_SEEN_SHOP, gc);
-#if TAG_MAJOR_VERSION == 34
-    else if (grd(gc) == DNGN_ENTER_PORTAL_VAULT)
-        learned_something_new(HINT_SEEN_PORTAL, gc);
-#endif
-    else if (grd(gc) >= DNGN_ENTER_FIRST_PORTAL && grd(gc) <= DNGN_ENTER_LAST_PORTAL)
+    else if (feat_is_portal_entrance(grd(gc)))
         learned_something_new(HINT_SEEN_PORTAL, gc);
 
     const int it = you.visible_igrd(gc);
@@ -4418,9 +4245,8 @@ void tutorial_msg(const char *key, bool end)
 
     // "\n" to preserve indented parts, the rest is unwrapped, or split into
     // paragraphs by "\n\n", split_string() will ignore the empty line.
-    vector<string> chunks = split_string("\n", text, false);
-    for (size_t i = 0; i < chunks.size(); i++)
-        mprf(MSGCH_TUTORIAL, "%s", chunks[i].c_str());
+    for (const string &chunk : split_string("\n", text, false))
+        mprf(MSGCH_TUTORIAL, "%s", chunk.c_str());
 
     stop_running();
 }

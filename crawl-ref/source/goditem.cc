@@ -8,11 +8,11 @@
 #include "goditem.h"
 
 #include <algorithm>
-#include <sstream>
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <sstream>
 
 #include "artefact.h"
 #include "art-enum.h"
@@ -20,15 +20,14 @@
 #include "itemprop.h"
 #include "items.h"
 #include "religion.h"
-#include "skills2.h"
+#include "skills.h"
 #include "spl-book.h"
-#include "spl-cast.h"
 #include "spl-util.h"
 
 static bool _is_bookrod_type(const item_def& item,
                              bool (*suitable)(spell_type spell))
 {
-    if (!item_is_spellbook(item) && item.base_type != OBJ_RODS)
+    if (!item.defined())
         return false;
 
     // Return false for item_infos of unknown subtype
@@ -39,22 +38,24 @@ static bool _is_bookrod_type(const item_def& item,
         return false;
     }
 
+    if (item.base_type == OBJ_RODS)
+        return suitable(spell_in_rod(static_cast<rod_type>(item.sub_type)));
+
+    if (!item_is_spellbook(item))
+        return false;
+
     int total       = 0;
     int total_liked = 0;
 
-    for (int i = 0; i < SPELLBOOK_SIZE; ++i)
+    for (spell_type spell : spells_in_book(item))
     {
-        spell_type spell = which_spell_in_book(item, i);
-        if (spell == SPELL_NO_SPELL)
-            continue;
-
         total++;
         if (suitable(spell))
             total_liked++;
     }
 
     // If at least half of the available spells are suitable, the whole
-    // spellbook or rod is, too.
+    // spellbook is, too.
     return total_liked >= (total / 2) + 1;
 }
 
@@ -291,7 +292,7 @@ bool is_chaotic_item(const item_def& item)
     }
 
     if (is_artefact(item) && item.base_type != OBJ_BOOKS
-        && artefact_wpn_property(item, ARTP_MUTAGENIC))
+        && artefact_property(item, ARTP_MUTAGENIC))
     {
         retval = true;
     }
@@ -397,25 +398,6 @@ bool is_poisoned_item(const item_def& item)
     return false;
 }
 
-bool is_illuminating_item(const item_def& item)
-{
-    // No halo for you!
-    if (is_unrandom_artefact(item) && item.special == UNRAND_BRILLIANCE)
-        return true;
-
-    switch (item.base_type)
-    {
-    case OBJ_BOOKS:
-    case OBJ_RODS:
-        return _is_bookrod_type(item, is_illuminating_spell);
-        break;
-    default:
-        break;
-    }
-
-    return false;
-}
-
 static bool _is_potentially_fiery_item(const item_def& item)
 {
     switch (item.base_type)
@@ -448,7 +430,7 @@ static bool _is_potentially_fiery_item(const item_def& item)
 bool is_fiery_item(const item_def& item)
 {
     // Flaming Death is handled through its fire brand.
-    if (is_unrandom_artefact(item) && item.special == UNRAND_HELLFIRE)
+    if (is_unrandom_artefact(item, UNRAND_HELLFIRE))
         return true;
 
     switch (item.base_type)
@@ -514,42 +496,37 @@ bool is_corpse_violating_spell(spell_type spell)
 
 bool is_evil_spell(spell_type spell)
 {
-    unsigned int disciplines = get_spell_disciplines(spell);
+    const spschools_type disciplines = get_spell_disciplines(spell);
 
-    return disciplines & SPTYP_NECROMANCY;
+    return bool(disciplines & SPTYP_NECROMANCY);
 }
 
 bool is_unclean_spell(spell_type spell)
 {
     unsigned int flags = get_spell_flags(spell);
 
-    return flags & SPFLAG_UNCLEAN;
+    return bool(flags & SPFLAG_UNCLEAN);
 }
 
 bool is_chaotic_spell(spell_type spell)
 {
     unsigned int flags = get_spell_flags(spell);
 
-    return flags & SPFLAG_CHAOTIC;
+    return bool(flags & SPFLAG_CHAOTIC);
 }
 
 bool is_hasty_spell(spell_type spell)
 {
     unsigned int flags = get_spell_flags(spell);
 
-    return flags & SPFLAG_HASTY;
-}
-
-bool is_illuminating_spell(spell_type spell)
-{
-    return spell == SPELL_CORONA;
+    return bool(flags & SPFLAG_HASTY);
 }
 
 bool is_fiery_spell(spell_type spell)
 {
-    unsigned int disciplines = get_spell_disciplines(spell);
+    const spschools_type disciplines = get_spell_disciplines(spell);
 
-    return disciplines & SPTYP_FIRE;
+    return bool(disciplines & SPTYP_FIRE);
 }
 
 static bool _your_god_hates_spell(spell_type spell)
@@ -623,20 +600,18 @@ conduct_type god_hates_item_handling(const item_def &item)
         break;
 
     case GOD_CHEIBRIADOS:
-        if (item_type_known(item)
-            && (_is_potentially_hasty_item(item) || is_hasty_item(item)))
+        if (item_type_known(item) && (_is_potentially_hasty_item(item)
+                                      || is_hasty_item(item))
+            // Don't need item_type_known for quick blades.
+            || item.is_type(OBJ_WEAPONS, WPN_QUICK_BLADE))
         {
             return DID_HASTY;
         }
         break;
 
     case GOD_DITHMENOS:
-        if (item_type_known(item) && is_illuminating_item(item))
-            return DID_ILLUMINATE;
-
         if (item_type_known(item)
-            && (_is_potentially_fiery_item(item)
-                || is_fiery_item(item)))
+            && (_is_potentially_fiery_item(item) || is_fiery_item(item)))
         {
             return DID_FIRE;
         }
@@ -678,7 +653,7 @@ bool god_dislikes_spell_type(spell_type spell, god_type god)
         return true;
 
     unsigned int flags       = get_spell_flags(spell);
-    unsigned int disciplines = get_spell_disciplines(spell);
+    spschools_type disciplines = get_spell_disciplines(spell);
 
     switch (god)
     {
@@ -732,23 +707,21 @@ bool god_dislikes_spell_type(spell_type spell, god_type god)
     return false;
 }
 
-bool god_dislikes_spell_discipline(int discipline, god_type god)
+bool god_dislikes_spell_discipline(spschools_type discipline, god_type god)
 {
-    ASSERT(discipline < (1 << (SPTYP_LAST_EXPONENT + 1)));
-
     if (is_good_god(god) && (discipline & SPTYP_NECROMANCY))
         return true;
 
     switch (god)
     {
     case GOD_SHINING_ONE:
-        return discipline & SPTYP_POISON;
+        return bool(discipline & SPTYP_POISON);
 
     case GOD_ELYVILON:
-        return discipline & (SPTYP_CONJURATION | SPTYP_SUMMONING);
+        return bool(discipline & (SPTYP_CONJURATION | SPTYP_SUMMONING));
 
     case GOD_DITHMENOS:
-        return discipline & SPTYP_FIRE;
+        return bool(discipline & SPTYP_FIRE);
 
     default:
         break;

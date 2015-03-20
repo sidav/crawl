@@ -1,33 +1,31 @@
 #include "AppHdr.h"
-#include <math.h>
 
 #include "godpassive.h"
 
-#include "art-enum.h"
+#include <cmath>
+
 #include "artefact.h"
+#include "art-enum.h"
 #include "branch.h"
 #include "cloud.h"
-#include "coord.h"
 #include "coordit.h"
-#include "defines.h"
 #include "env.h"
 #include "files.h"
 #include "food.h"
 #include "fprop.h"
 #include "goditem.h"
 #include "godprayer.h"
-#include "items.h"
+#include "invent.h" // in_inventory
 #include "itemname.h"
 #include "itemprop.h"
-#include "libutil.h"    // testbits
-#include "player.h"
+#include "items.h"
+#include "libutil.h"
 #include "religion.h"
 #include "shout.h"
-#include "skills2.h"
+#include "skills.h"
 #include "state.h"
 #include "stringutil.h"
 #include "terrain.h"
-#include "travel.h"
 
 int chei_stat_boost(int piety)
 {
@@ -98,7 +96,7 @@ void jiyva_eat_offlevel_items()
                 mpr("You hear a distant slurping noise.");
                 sacrifice_item_stack(*si, &js);
                 item_was_destroyed(*si);
-                destroy_item(si.link());
+                destroy_item(si.index());
                 jiyva_slurp_message(js);
             }
             return;
@@ -184,18 +182,32 @@ void ash_check_bondage(bool msg)
             s = ET_SHIELD;
         else if (i <= EQ_MAX_ARMOUR)
             s = ET_ARMOUR;
+        // Missing hands mean fewer rings
+        else if (you.species != SP_OCTOPODE && i == EQ_LEFT_RING
+                 && player_mutation_level(MUT_MISSING_HAND))
+        {
+            continue;
+        }
         // Octopodes don't count these slots:
-        else if (you.species == SP_OCTOPODE &&
-                 (i == EQ_LEFT_RING || i == EQ_RIGHT_RING))
+        else if (you.species == SP_OCTOPODE
+                 && ((i == EQ_LEFT_RING || i == EQ_RIGHT_RING)
+                     || (i == EQ_RING_EIGHT
+                         && player_mutation_level(MUT_MISSING_HAND))))
         {
             continue;
         }
         // *Only* octopodes count these slots:
-        else if (you.species != SP_OCTOPODE && i > EQ_AMULET)
+        else if (you.species != SP_OCTOPODE
+                 && i >= EQ_RING_ONE && i <= EQ_RING_EIGHT)
+        {
             continue;
-        // Never count the macabre finger necklace's extra ring slot.
-        else if (i == EQ_RING_AMULET)
+        }
+        // The macabre finger necklace's extra slot does count if equipped.
+        else if (!player_equip_unrand(UNRAND_FINGER_AMULET)
+                 && i == EQ_RING_AMULET)
+        {
             continue;
+        }
         else
             s = ET_JEWELS;
 
@@ -208,7 +220,9 @@ void ash_check_bondage(bool msg)
                 const item_def& item = you.inv[you.equip[i]];
                 if (item.cursed() && (i != EQ_WEAPON || is_weapon(item)))
                 {
-                    if (s == ET_WEAPON && _two_handed())
+                    if (s == ET_WEAPON
+                        && (_two_handed()
+                            || player_mutation_level(MUT_MISSING_HAND)))
                     {
                         cursed[ET_WEAPON] = 3;
                         cursed[ET_SHIELD] = 3;
@@ -216,11 +230,8 @@ void ash_check_bondage(bool msg)
                     else
                     {
                         cursed[s]++;
-                        if (i == EQ_BODY_ARMOUR && is_unrandom_artefact(item)
-                            && item.special == UNRAND_LEAR)
-                        {
+                        if (i == EQ_BODY_ARMOUR && is_unrandom_artefact(item, UNRAND_LEAR))
                             cursed[s] += 3;
-                        }
                     }
                 }
             }
@@ -274,12 +285,11 @@ void ash_check_bondage(bool msg)
     {
         you.bondage[s] = new_bondage[s];
         map<skill_type, int8_t> boosted_skills = ash_get_boosted_skills(eq_type(s));
-        for (map<skill_type, int8_t>::iterator it = boosted_skills.begin();
-             it != boosted_skills.end(); ++it)
+        for (const auto &entry : boosted_skills)
         {
-            you.skill_boost[it->first] += it->second;
-            if (you.skill_boost[it->first] > 3)
-                you.skill_boost[it->first] = 3;
+            you.skill_boost[entry.first] += entry.second;
+            if (you.skill_boost[entry.first] > 3)
+                you.skill_boost[entry.first] = 3;
         }
 
     }
@@ -299,13 +309,10 @@ string ash_describe_bondage(int flags, bool level)
         && you.bondage[ET_WEAPON] != -1)
     {
         if (you.bondage[ET_WEAPON] == you.bondage[ET_SHIELD])
-        {
-            desc = make_stringf("Your %s are %sbound.\n",
-                                you.hand_name(true).c_str(),
-                                you.bondage[ET_WEAPON] ? "" : "not ");
-        }
+            desc = you.hands_act("are", "bound.\n");
         else
         {
+            // FIXME: what if you sacrificed a hand?
             desc = make_stringf("Your %s %s is bound but not your %s %s.\n",
                                 you.bondage[ET_WEAPON] ? "weapon" : "shield",
                                 you.hand_name(false).c_str(),
@@ -417,26 +424,6 @@ bool god_id_item(item_def& item, bool silent)
             ided |= ISFLAG_KNOW_PLUSES;
         }
     }
-    else if (you_worship(GOD_ELYVILON))
-    {
-        if ((item.base_type == OBJ_STAVES || item.base_type == OBJ_RODS)
-            && (is_evil_item(item) || is_unholy_item(item)))
-        {
-            // staff of death, evil rods
-            ided |= ISFLAG_KNOW_TYPE;
-        }
-
-        // Don't use is_{evil,unholy}_item() for weapons -- on demonic weapons
-        // the brand is irrelevant, unrands may have an innocuous brand; let's
-        // still show evil brands on unholy weapons for consistency even if this
-        // gives more information than absolutely needed.
-        brand_type brand = get_weapon_brand(item);
-        if (brand == SPWPN_DRAINING || brand == SPWPN_PAIN
-            || brand == SPWPN_VAMPIRISM || brand == SPWPN_REAPING)
-        {
-            ided |= ISFLAG_KNOW_TYPE;
-        }
-    }
 
     if (ided & ~old_ided)
     {
@@ -454,6 +441,8 @@ bool god_id_item(item_def& item, bool silent)
             mprf_nocap("%s", item.name(DESC_INVENTORY_EQUIP).c_str());
 
         seen_item(item);
+        if (in_inventory(item))
+            auto_assign_item_slot(item);
         return true;
     }
 
@@ -470,6 +459,9 @@ void ash_id_monster_equipment(monster* mon)
 
     for (unsigned int i = 0; i <= MSLOT_LAST_VISIBLE_SLOT; ++i)
     {
+        // Wielded weapon brands are IDed for everyone already.
+        if (i == MSLOT_WEAPON)
+            continue;
         if (mon->inv[i] == NON_ITEM)
             continue;
 
@@ -480,7 +472,7 @@ void ash_id_monster_equipment(monster* mon)
             continue;
         }
 
-        if (x_chance_in_y(you.bondage_level, 4))
+        if (x_chance_in_y(piety_rank() - 1, 6))
         {
             if (i == MSLOT_WAND)
             {
@@ -500,21 +492,17 @@ void ash_id_monster_equipment(monster* mon)
 
 static bool is_ash_portal(dungeon_feature_type feat)
 {
-    if (feat >= DNGN_ENTER_FIRST_PORTAL && feat <= DNGN_ENTER_LAST_PORTAL)
+    if (feat_is_portal_entrance(feat))
         return true;
     switch (feat)
     {
     case DNGN_ENTER_HELL:
-    case DNGN_ENTER_LABYRINTH:
     case DNGN_ENTER_ABYSS: // for completeness
     case DNGN_EXIT_THROUGH_ABYSS:
     case DNGN_EXIT_ABYSS:
     case DNGN_ENTER_PANDEMONIUM:
     case DNGN_EXIT_PANDEMONIUM:
     // DNGN_TRANSIT_PANDEMONIUM is too mundane
-#if TAG_MAJOR_VERSION == 34
-    case DNGN_ENTER_PORTAL_VAULT:
-#endif
         return true;
     default:
         return false;
@@ -528,7 +516,7 @@ static bool _check_portal(coord_def where)
     if (feat != env.map_knowledge(where).feat() && is_ash_portal(feat))
     {
         env.map_knowledge(where).set_feature(feat);
-        env.map_knowledge(where).flags |= MAP_MAGIC_MAPPED_FLAG;
+        set_terrain_mapped(where);
 
         if (!testbits(env.pgrid(where), FPROP_SEEN_OR_NOEXP))
         {
@@ -584,36 +572,49 @@ map<skill_type, int8_t> ash_get_boosted_skills(eq_type type)
     // Include melded.
     const item_def* wpn = you.slot_item(EQ_WEAPON, true);
     const item_def* armour = you.slot_item(EQ_BODY_ARMOUR, true);
-    const int evp = armour ? -property(*armour, PARM_EVASION) : 0;
+    const int evp = armour ? -property(*armour, PARM_EVASION) / 10 : 0;
     switch (type)
     {
     case (ET_WEAPON):
         ASSERT(wpn);
 
-        // Boost weapon skill.
-        if (wpn->base_type == OBJ_WEAPONS)
+        // Boost weapon skill. Plain "staff" means an unrand magical staff,
+        // boosted later.
+        if (wpn->base_type == OBJ_WEAPONS
+            && wpn->sub_type != WPN_STAFF)
+        {
             boost[item_attack_skill(*wpn)] = bondage;
+        }
 
         // Those staves don't benefit from evocation.
         // Boost spellcasting instead.
         if (wpn->base_type == OBJ_STAVES
             && (wpn->sub_type == STAFF_POWER
                 || wpn->sub_type == STAFF_CONJURATION
-                || wpn->sub_type == STAFF_ENERGY
                 || wpn->sub_type == STAFF_WIZARDRY))
         {
             boost[SK_SPELLCASTING] = 2;
         }
-        // Other staves use evocation.
-        else if (wpn->base_type == OBJ_STAVES)
+        // Rods, and staves that are evokable but with no melee effect.
+        else if (wpn->base_type == OBJ_RODS
+                 || wpn->is_type(OBJ_STAVES, STAFF_ENERGY)
+                 || wpn->base_type == OBJ_WEAPONS
+                    && (is_unrandom_artefact(*wpn, UNRAND_WUCAD_MU)
+                        || is_unrandom_artefact(*wpn, UNRAND_DISPATER)
+                        || is_unrandom_artefact(*wpn, UNRAND_ASMODEUS)))
+        {
+            boost[SK_EVOCATIONS] = 2;
+        }
+        // Staves that use evocations to power a melee effect.
+        else if (wpn->base_type == OBJ_STAVES
+                 || wpn->base_type == OBJ_WEAPONS
+                    && (is_unrandom_artefact(*wpn, UNRAND_OLGREB)
+                        || is_unrandom_artefact(*wpn, UNRAND_ELEMENTAL_STAFF)))
         {
             boost[SK_EVOCATIONS] = 1;
             boost[SK_STAVES] = 1;
 
         }
-        else if (wpn->base_type == OBJ_RODS)
-            boost[SK_EVOCATIONS] = 2;
-
         break;
 
     case (ET_SHIELD):
@@ -639,8 +640,8 @@ map<skill_type, int8_t> ash_get_boosted_skills(eq_type type)
 
     // Boost all spell schools and evoc (to give some appeal to melee).
     case (ET_JEWELS):
-        for (int i = SK_FIRST_MAGIC_SCHOOL; i <= SK_LAST_MAGIC; ++i)
-            boost[skill_type(i)] = bondage;
+        for (skill_type sk = SK_FIRST_MAGIC_SCHOOL; sk <= SK_LAST_MAGIC; ++sk)
+            boost[sk] = bondage;
         boost[SK_EVOCATIONS] = bondage;
         break;
 
@@ -660,9 +661,10 @@ int ash_skill_boost(skill_type sk, int scale)
     // high bonus   -> factor = 7
 
     unsigned int skill_points = you.skill_points[sk];
-    vector<skill_type> cross_skills = get_crosstrain_skills(sk);
-    for (size_t i = 0; i < cross_skills.size(); ++i)
-        skill_points += you.skill_points[cross_skills[i]] * 2 / 5;
+
+    for (skill_type cross : get_crosstrain_skills(sk))
+        skill_points += you.skill_points[cross] * 2 / 5;
+
     skill_points += (you.skill_boost[sk] * 2 + 1) * piety_rank()
                     * max(you.skill(sk, 10, true), 1) * species_apt_factor(sk);
 
@@ -677,7 +679,7 @@ int ash_skill_boost(skill_type sk, int scale)
 
 int gozag_gold_in_los(actor *who)
 {
-    if (!you_worship(GOD_GOZAG) || player_under_penance())
+    if (!in_good_standing(GOD_GOZAG))
         return 0;
 
     int gold_count = 0;
@@ -697,24 +699,27 @@ int gozag_gold_in_los(actor *who)
 
 int qazlal_sh_boost(int piety)
 {
-    if (!you_worship(GOD_QAZLAL)
-        || player_under_penance(GOD_QAZLAL)
-        || piety < piety_breakpoint(0))
-    {
+    if (!in_good_standing(GOD_QAZLAL, 0))
         return 0;
-    }
 
     return min(piety, piety_breakpoint(5)) / 10;
 }
 
+// Not actually passive, but placing it here so that it can be easily compared
+// with Qazlal's boost. Here you.attribute[ATTR_DIVINE_SHIELD] was set
+// to 3 + you.skill_rdiv(SK_INVOCATIONS, 1, 5) (and decreases at end of dur).
+int tso_sh_boost()
+{
+    if (!you.duration[DUR_DIVINE_SHIELD])
+        return 0;
+
+    return you.attribute[ATTR_DIVINE_SHIELD] * 4;
+}
+
 void qazlal_storm_clouds()
 {
-    if (!you_worship(GOD_QAZLAL)
-        || player_under_penance(GOD_QAZLAL)
-        || you.piety < piety_breakpoint(0))
-    {
+    if (!in_good_standing(GOD_QAZLAL, 0))
         return;
-    }
 
     // You are a *storm*. You are pretty loud!
     noisy(min((int)you.piety, piety_breakpoint(5)) / 10, you.pos());
@@ -759,7 +764,7 @@ void qazlal_storm_clouds()
         do
         {
             ctype = random_choose(CLOUD_FIRE, CLOUD_COLD, CLOUD_STORM,
-                                       CLOUD_DUST_TRAIL, -1);
+                                       CLOUD_DUST_TRAIL);
         } while (water && ctype == CLOUD_FIRE);
 
         place_cloud(ctype, candidates[i], random_range(3, 5), &you);
@@ -770,9 +775,7 @@ void qazlal_storm_clouds()
 void qazlal_element_adapt(beam_type flavour, int strength)
 {
     if (strength <= 0
-        || !you_worship(GOD_QAZLAL)
-        || player_under_penance(GOD_QAZLAL)
-        || you.piety < piety_breakpoint(4)
+        || !in_good_standing(GOD_QAZLAL, 4)
         || !x_chance_in_y(strength, 12 - piety_rank()))
     {
         return;
@@ -844,4 +847,43 @@ void qazlal_element_adapt(beam_type flavour, int strength)
 
     if (what == BEAM_MISSILE)
         you.redraw_armour_class = true;
+}
+
+/**
+ * Determine whether a Ru worshipper will attempt to interfere with an attack
+ * against the player.
+ *
+ * @return bool Whether or not whether the worshipper will attempt to interfere.
+ */
+bool does_ru_wanna_redirect(monster* mon)
+{
+    return you_worship(GOD_RU)
+            && you.piety >= piety_breakpoint(0)
+            && !mon->friendly()
+            && you.see_cell(mon->pos())
+            && !mons_is_firewood(mon)
+            && !mon->submerged()
+            && !mons_is_projectile(mon->type);
+}
+
+/**
+ * Determine which, if any, action Ru takes on a possible attack.
+ *
+ * @return ru_interference
+ */
+ru_interference get_ru_attack_interference_level()
+{
+    int r = random2(100);
+    int chance = div_rand_round(you.piety, 16);
+
+    // 10% chance of stopping any attack at max piety
+    if (r < chance)
+        return DO_BLOCK_ATTACK;
+
+    // 5% chance of redirect at max piety
+    else if (r < chance + div_rand_round(chance, 2))
+        return DO_REDIRECT_ATTACK;
+
+    else
+        return DO_NOTHING;
 }

@@ -6,12 +6,10 @@
 #ifndef HINTS_H
 #define HINTS_H
 
+#include <cstdio>
+#include <cstdlib>
 #include <string>
 #include <vector>
-#include <stdio.h>
-#include <stdlib.h>
-
-#include "externs.h"
 
 class formatted_string;
 class writer;
@@ -94,8 +92,8 @@ enum hints_event_type
     HINT_YOU_ENCHANTED,
 #if TAG_MAJOR_VERSION == 34
     HINT_CONTAMINATED_CHUNK,
-#endif
     HINT_YOU_SICK,
+#endif
     HINT_YOU_POISON,
     HINT_YOU_ROTTING,
     HINT_YOU_CURSED,
@@ -154,7 +152,6 @@ void tutorial_init_hints();
 void pick_hints(newgame_def* choice);
 void hints_load_game();
 
-formatted_string hints_starting_info2();
 void hints_starting_screen();
 void hints_new_turn();
 void print_hint(string key, const string arg1 = "", const string arg2 = "");
@@ -182,7 +179,7 @@ void hints_inscription_info(string prompt);
 bool hints_pos_interesting(int x, int y);
 void hints_describe_pos(int x, int y);
 bool hints_monster_interesting(const monster* mons);
-void hints_describe_monster(const monster_info& mi, bool has_stat_desc);
+string hints_describe_monster(const monster_info& mi, bool has_stat_desc);
 
 void hints_observe_cell(const coord_def& gc);
 

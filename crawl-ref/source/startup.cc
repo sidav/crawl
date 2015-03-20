@@ -5,26 +5,24 @@
 
 #include "AppHdr.h"
 
+#include "startup.h"
+
 #include "abyss.h"
 #include "arena.h"
 #include "branch.h"
-#include "cio.h"
 #include "command.h"
 #include "coordit.h"
 #include "ctest.h"
 #include "database.h"
 #include "dbg-maps.h"
 #include "dbg-scan.h"
-#include "defines.h"
-#include "dlua.h"
 #include "dungeon.h"
 #include "end.h"
-#include "env.h"
 #include "exclude.h"
 #include "files.h"
 #include "food.h"
+#include "godabil.h"
 #include "godpassive.h"
-#include "hiscores.h"
 #include "hints.h"
 #include "initfile.h"
 #include "itemname.h"
@@ -38,33 +36,32 @@
 #include "misc.h"
 #include "mon-cast.h"
 #include "mon-death.h"
-#include "mon-util.h"
 #include "mutation.h"
 #include "newgame.h"
 #include "ng-input.h"
 #include "ng-setup.h"
 #include "notes.h"
-#include "options.h"
 #include "output.h"
 #include "shopping.h"
-#include "skills2.h"
+#include "skills.h"
 #include "spl-book.h"
 #include "spl-util.h"
 #include "stairs.h"
-#include "startup.h"
 #include "state.h"
 #include "status.h"
 #include "stringutil.h"
 #include "terrain.h"
-#include "tileview.h"
-#include "view.h"
-#include "viewchar.h"
-
 #ifdef USE_TILE
  #include "tilepick.h"
 #endif
 #ifdef USE_TILE_LOCAL
  #include "tilereg-crt.h"
+#endif
+#include "tileview.h"
+#include "viewchar.h"
+#include "view.h"
+#ifdef USE_TILE_LOCAL
+ #include "windowmanager.h"
 #endif
 
 static void _cio_init();
@@ -76,16 +73,15 @@ static void _initialize()
 
     you.symbol = MONS_PLAYER;
 
-    if (Options.seed)
-        seed_rng(Options.seed);
-    else
-        seed_rng();
+    seed_rng();
+
     init_char_table(Options.char_set);
     init_show_table();
     init_monster_symbols();
     init_spell_descs();        // This needs to be way up top. {dlb}
     init_zap_index();
     init_mut_index();
+    init_sac_index();
     init_duration_index();
     init_mon_name_cache();
     init_mons_spells();
@@ -100,9 +96,6 @@ static void _initialize()
     // Init item array.
     for (int i = 0; i < MAX_ITEMS; ++i)
         init_item(i);
-
-    // Empty messaging string.
-    info[0] = 0;
 
     reset_all_monsters();
     init_anon();
@@ -122,8 +115,7 @@ static void _initialize()
     // Draw the splash screen before the database gets initialised as that
     // may take awhile and it's better if the player can look at a pretty
     // screen while this happens.
-    if (!crawl_state.map_stat_gen && !crawl_state.obj_stat_gen
-        && !crawl_state.test && crawl_state.title_screen)
+    if (!crawl_state.tiles_disabled && crawl_state.title_screen)
     {
         tiles.draw_title();
         tiles.update_title_msg("Loading databases...");
@@ -133,7 +125,7 @@ static void _initialize()
     // Initialise internal databases.
     databaseSystemInit();
 #ifdef USE_TILE_LOCAL
-    if (crawl_state.title_screen)
+    if (!crawl_state.tiles_disabled && crawl_state.title_screen)
         tiles.update_title_msg("Loading spells and features...");
 #endif
 
@@ -141,7 +133,7 @@ static void _initialize()
     init_spell_name_cache();
     init_spell_rarities();
 #ifdef USE_TILE_LOCAL
-    if (crawl_state.title_screen)
+    if (!crawl_state.tiles_disabled && crawl_state.title_screen)
         tiles.update_title_msg("Loading maps...");
 #endif
 
@@ -153,12 +145,17 @@ static void _initialize()
         end(0);
 
 #ifdef USE_TILE_LOCAL
-    if (!Options.tile_skip_title && crawl_state.title_screen)
+    if (!crawl_state.tiles_disabled
+        && !Options.tile_skip_title
+        && crawl_state.title_screen)
     {
         tiles.update_title_msg("Loading complete, press any key to start.");
         tiles.hide_title();
     }
 #endif
+
+    if (Options.seed)
+        seed_rng(Options.seed);
 
 #ifdef DEBUG_DIAGNOSTICS
     if (crawl_state.map_stat_gen)
@@ -226,7 +223,7 @@ static void _zap_los_monsters(bool items_also)
         // If we ever allow starting with a friendly monster,
         // we'll have to check here.
         monster* mon = monster_at(*ri);
-        if (mon == NULL || mons_class_flag(mon->type, M_NO_EXP_GAIN))
+        if (mon == nullptr || mons_class_flag(mon->type, M_NO_EXP_GAIN))
             continue;
 
         dprf("Dismissing %s",
@@ -244,8 +241,7 @@ static void _post_init(bool newc)
 {
     ASSERT(strwidth(you.your_name) <= kNameLen);
 
-    // Sanitize skills, init can_train[].
-    fixup_skills();
+    clua.load_persist();
 
     // Load macros
     macro_init();
@@ -311,7 +307,7 @@ static void _post_init(bool newc)
     you.wield_change        = true;
 
     // Start timer on session.
-    you.last_keypress_time = time(NULL);
+    you.last_keypress_time = time(nullptr);
 
 #ifdef CLUA_BINDINGS
     clua.runhook("chk_startgame", "b", newc);
@@ -359,7 +355,7 @@ static void _post_init(bool newc)
 
     // This just puts the view up for the first turn.
     you.redraw_title = true;
-    textcolor(LIGHTGREY);
+    textcolour(LIGHTGREY);
     set_redraw_status(REDRAW_LINE_2_MASK | REDRAW_LINE_3_MASK);
     print_stats();
     viewwindow();
@@ -370,6 +366,9 @@ static void _post_init(bool newc)
     // be here.
     if (newc)
         run_map_epilogues();
+
+    // Sanitize skills, init can_train[].
+    fixup_skills();
 }
 
 #ifndef DGAMELAUNCH
@@ -380,9 +379,9 @@ static void _post_init(bool newc)
 static void _construct_game_modes_menu(MenuScroller* menu)
 {
 #ifdef USE_TILE_LOCAL
-    TextTileItem* tmp = NULL;
+    TextTileItem* tmp = nullptr;
 #else
-    TextItem* tmp = NULL;
+    TextItem* tmp = nullptr;
 #endif
     string text;
 
@@ -458,24 +457,6 @@ static void _construct_game_modes_menu(MenuScroller* menu)
     // item height obtained from max.y - min.y
     tmp->set_bounds(coord_def(1, 1), coord_def(1, 2));
     tmp->set_description_text("Hard, fixed single level game mode.");
-    menu->attach_item(tmp);
-    tmp->set_visible(true);
-
-#ifdef USE_TILE_LOCAL
-    tmp = new TextTileItem();
-    tmp->add_tile(tile_def(tileidx_gametype(GAME_TYPE_ZOTDEF), TEX_GUI));
-#else
-    tmp = new TextItem();
-#endif
-    text = "Zot Defence";
-    tmp->set_text(text);
-    tmp->set_fg_colour(WHITE);
-    tmp->set_highlight_colour(WHITE);
-    tmp->set_id(GAME_TYPE_ZOTDEF);
-    // Scroller does not care about x-coordinates and only cares about
-    // item height obtained from max.y - min.y
-    tmp->set_bounds(coord_def(1, 1), coord_def(1, 2));
-    tmp->set_description_text("Defend the Orb of Zot against waves of critters.");
     menu->attach_item(tmp);
     tmp->set_visible(true);
 
@@ -609,6 +590,9 @@ static void _show_startup_menu(newgame_def* ng_choice,
                                const newgame_def& defaults)
 {
 again:
+#if defined(USE_TILE_LOCAL) && defined(TOUCH_UI)
+    wm->show_keyboard();
+#endif
     vector<player_save_info> chars = find_all_saved_characters();
     const int num_saves = chars.size();
     const int num_modes = NUM_GAME_TYPE;
@@ -763,13 +747,16 @@ again:
     while (true)
     {
         menu.draw_menu();
-        textcolor(WHITE);
+        textcolour(WHITE);
         cgotoxy(SCROLLER_MARGIN_X, NAME_START_Y);
         clear_to_end_of_line();
         cgotoxy(SCROLLER_MARGIN_X, NAME_START_Y);
         cprintf("%s", input_string.c_str());
 
         const int keyn = getch_ck();
+
+        if (keyn == CK_REDRAW)
+            goto again;
 
         if (key_is_escape(keyn))
         {
@@ -897,7 +884,7 @@ again:
             else
             {
                 // bad name
-                textcolor(RED);
+                textcolour(RED);
                 cgotoxy(SCROLLER_MARGIN_X ,GAME_MODES_START_Y - 1);
                 clear_to_end_of_line();
                 cprintf("That's a silly name");

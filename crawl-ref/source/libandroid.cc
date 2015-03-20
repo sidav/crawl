@@ -129,7 +129,7 @@ public:
 	}
 };
 
-std::map<COLORS, int> colorMap;
+std::map<COLOURS, int> colourMap;
 TerminalChar terminalWindow[LINES][COLS];
 std::set<TerminalChar *> dirtyTerminalChars;
 int x = 0;
@@ -308,29 +308,28 @@ int unixcurses_get_vi_key(int keyin) //INPUT
     return keyin;
 }
 
-int start_color() 
+int start_colour() 
 {
-	//~ colorMap.insert(std::pair<COLORS, int>(BLACK, 0xFF000000));
-	colorMap[BLACK] = 0xFF000000; // This really should be global, or loaded in the onload, or whatever
-	colorMap[BLUE] = 0xFF0040FF;
-	colorMap[GREEN] = 0xFF008040;
-	colorMap[CYAN] = 0xFF00A0A0;
-	colorMap[RED] = 0xFFFF4040;
-	colorMap[MAGENTA] = 0xFF9020FF;
-	colorMap[BROWN] = 0xFFA64800;
-	colorMap[LIGHTGRAY] = 0xFFC0C0C0;
-	colorMap[DARKGRAY] = 0xFF606060;
-	colorMap[LIGHTBLUE] = 0xFF00FFFF;
-	colorMap[LIGHTGREEN] = 0xFF00FF00;
-	colorMap[LIGHTCYAN] = 0xFF20FFDC;
-	colorMap[LIGHTRED] = 0xFFFF5050;
-	colorMap[LIGHTMAGENTA] = 0xFFFA4FFD;
-	colorMap[YELLOW] = 0xFFFFFF00;
-	colorMap[WHITE] = 0xFFFFFFFF;
-	colorMap[MAX_TERM_COLOUR] = 0xFF008040;
+	colourMap[BLACK] = 0xFF000000; // This really should be global, or loaded in the onload, or whatever
+	colourMap[BLUE] = 0xFF0040FF;
+	colourMap[GREEN] = 0xFF008040;
+	colourMap[CYAN] = 0xFF00A0A0;
+	colourMap[RED] = 0xFFFF4040;
+	colourMap[MAGENTA] = 0xFF9020FF;
+	colourMap[BROWN] = 0xFFA64800;
+	colourMap[LIGHTGRAY] = 0xFFC0C0C0;
+	colourMap[DARKGRAY] = 0xFF606060;
+	colourMap[LIGHTBLUE] = 0xFF00FFFF;
+	colourMap[LIGHTGREEN] = 0xFF00FF00;
+	colourMap[LIGHTCYAN] = 0xFF20FFDC;
+	colourMap[LIGHTRED] = 0xFFFF5050;
+	colourMap[LIGHTMAGENTA] = 0xFFFA4FFD;
+	colourMap[YELLOW] = 0xFFFFFF00;
+	colourMap[WHITE] = 0xFFFFFFFF;
+	colourMap[MAX_TERM_COLOUR] = 0xFF008040;
 
-	foregroundColour = colorMap[WHITE];
-	backgroundColour = colorMap[BLACK];
+	foregroundColour = colourMap[WHITE];
+	backgroundColour = colourMap[BLACK];
 
 	return 0;
 }
@@ -344,14 +343,14 @@ void setUpTerminalCharacters()
 			terminalWindow[i][j].x = j;
 			terminalWindow[i][j].y = i;
 			terminalWindow[i][j].character = ' ';
-			terminalWindow[i][j].foregroundColour = colorMap[WHITE];
-			terminalWindow[i][j].backgroundColour = colorMap[BLACK];
+			terminalWindow[i][j].foregroundColour = colourMap[WHITE];
+			terminalWindow[i][j].backgroundColour = colourMap[BLACK];
 		}
 	}
 }
 void console_startup(void)
 {
-    start_color();
+    start_colour();
     
     setUpTerminalCharacters();
 
@@ -390,64 +389,65 @@ void advanceLine()
 }
 
 void clear_to_end_of_line();
-void addChar(char c)
+void addChar(wchar_t c)
 {
-	if (c == '\n')
-	{
-		// On a newline character, clear to the end of the line and 
-		// advance a row
-		clear_to_end_of_line();
-		return;
-	}
-	
-	// Need to determine colours depending on brand
-	int fg = foregroundColour;
-	int bg = backgroundColour;
-	if (brand != CHATTR_NORMAL)
-	{
-		if ((brand & CHATTR_ATTRMASK) == CHATTR_HILITE)
-		{
-			COLORS bgcolor = (COLORS) macro_colour((brand & CHATTR_COLMASK) >> 8);
-			bg = colorMap[bgcolor];
-		}
+ 	if (c == '\n')
+ 	{
+ 		// On a newline character, clear to the end of the line and
+ 		// advance a row
+ 		clear_to_end_of_line();
+ 		return;
+ 	}
 
-		if ((brand & CHATTR_ATTRMASK) == CHATTR_REVERSE)
-		{
-			int temp = fg;
-			fg = bg;
-			bg = temp;
-		}
-		
-		if (fg == bg)
-		{
-			fg = colorMap[BLACK];
-		}
-	}
-	
-	// Apply changes to terminalChar, if they apply
-	bool isDirty = false;
-	TerminalChar * terminalChar = getCurrentTerminalChar();
-	if (terminalChar->foregroundColour != fg)
-	{
-		terminalChar->foregroundColour = fg;
-		isDirty = true;
-	}
-	if (terminalChar->backgroundColour != bg)
-	{
-		terminalChar->backgroundColour = bg;
-		isDirty = true;
-	}
-	if (terminalChar->character != c)
-	{
-		terminalChar->character = c;
-		isDirty = true;
-	}
-	
-	if (isDirty)
-	{
-		dirtyTerminalChars.insert(terminalChar);
-	}
-	advance();
+ 	// Need to determine colours depending on brand
+ 	int fg = foregroundColour;
+ 	int bg = backgroundColour;
+ 	if (brand != CHATTR_NORMAL)
+ 	{
+ 		if ((brand & CHATTR_ATTRMASK) == CHATTR_HILITE)
+ 		{
+ 			COLOURS bgcolour = (COLOURS) macro_colour((brand & CHATTR_COLMASK) >> 8);
+ 			bg = colourMap[bgcolour];
+ 		}
+
+ 		if ((brand & CHATTR_ATTRMASK) == CHATTR_REVERSE)
+ 		{
+ 			int temp = fg;
+ 			fg = bg;
+ 			bg = temp;
+ 		}
+
+ 		if (fg == bg)
+ 		{
+ 			fg = colourMap[BLACK];
+ 		}
+ 	}
+
+ 	// Apply changes to terminalChar, if they apply
+ 	bool isDirty = false;
+ 	TerminalChar * terminalChar = getCurrentTerminalChar();
+ 	if (terminalChar->foregroundColour != fg)
+ 	{
+ 		terminalChar->foregroundColour = fg;
+ 		isDirty = true;
+ 	}
+ 	if (terminalChar->backgroundColour != bg)
+ 	{
+ 		terminalChar->backgroundColour = bg;
+ 		isDirty = true;
+ 	}
+ 	if (terminalChar->character != c)
+ 	{
+ 		terminalChar->character = c;
+ 		isDirty = true;
+ 	}
+
+ 	if (isDirty)
+ 	{
+ 		dirtyTerminalChars.insert(terminalChar);
+ 	}
+ 	advance();
+
 }
 
 int addnstr(int n, const char *s) 
@@ -489,10 +489,7 @@ void putwch(ucs_t chr)
     {
 		c = ' ';
 	}
-	char printstr;
-	sprintf(&printstr, "%c", chr);
-
-    addnstr(1, &printstr);
+    addChar(c);
 }
 
 void puttext(int x1, int y1, const crawl_view_buffer &vbuf)
@@ -523,7 +520,7 @@ void update_screen(void)
 
 void clear_to_end_of_line(void)
 {
-    textcolor(LIGHTGREY);
+    textcolour(LIGHTGREY);
     textbackground(BLACK);
     do
     {
@@ -543,7 +540,7 @@ int get_number_of_cols(void)
 
 void clrscr()
 {
-    textcolor(LIGHTGREY);
+    textcolour(LIGHTGREY);
     textbackground(BLACK);
     x = 0;
     y = 0;
@@ -589,18 +586,18 @@ inline unsigned get_brand(int col)
                                             : CHATTR_NORMAL;
 }
 
-void textcolor(int col)
+void textcolour(int col)
 {
-	COLORS fgcolor = (COLORS) macro_colour(col & 0x00ff);
+	COLOURS fgcolour = (COLOURS) macro_colour(col & 0x00ff);
 	brand = get_brand(col);
-	foregroundColour = colorMap[fgcolor];
+	foregroundColour = colourMap[fgcolour];
 }
 
 void textbackground(int col)
 {
-	COLORS bgcolor = (COLORS) macro_colour(col & 0x00ff);
+	COLOURS bgcolour = (COLOURS) macro_colour(col & 0x00ff);
 	brand = get_brand(col);
-	backgroundColour = colorMap[bgcolor];
+	backgroundColour = colourMap[bgcolour];
 }
 
 
@@ -628,9 +625,9 @@ void fakecursorxy(int px, int py)
 {
 	gotoxy_sys(px, py);
 	TerminalChar * flippingChar = getCurrentTerminalChar();
-	int tempColor = flippingChar->foregroundColour;
+	int tempcolour = flippingChar->foregroundColour;
 	flippingChar->foregroundColour = flippingChar->backgroundColour;
-	flippingChar->backgroundColour = tempColor;
+	flippingChar->backgroundColour = tempcolour;
 	dirtyTerminalChars.insert(flippingChar);
 }
 

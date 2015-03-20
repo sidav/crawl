@@ -4,9 +4,10 @@
  **/
 
 #include "AppHdr.h"
+
 #include "end.h"
 
-#include <errno.h>
+#include <cerrno>
 
 #include "abyss.h"
 #include "chardump.h"
@@ -15,17 +16,12 @@
 #include "database.h"
 #include "describe.h"
 #include "dungeon.h"
-#include "env.h"
 #include "hints.h"
-#include "hiscores.h"
 #include "invent.h"
-#include "itemname.h"
 #include "itemprop.h"
-#include "libutil.h"
 #include "los.h"
 #include "macro.h"
 #include "message.h"
-#include "ouch.h"
 #include "prompt.h"
 #include "religion.h"
 #include "state.h"
@@ -227,13 +223,7 @@ NORETURN void end_game(scorefile_entry &se)
         if (you.inv[i].defined() && item_type_unknown(you.inv[i]))
             add_inscription(you.inv[i], "unknown");
 
-    for (int i = 0; i < ENDOFPACK; i++)
-    {
-        if (!you.inv[i].defined())
-            continue;
-        set_ident_flags(you.inv[i], ISFLAG_IDENT_MASK);
-        set_ident_type(you.inv[i], ID_KNOWN_TYPE);
-    }
+    identify_inventory();
 
     _delete_files();
 
@@ -274,7 +264,7 @@ NORETURN void end_game(scorefile_entry &se)
             }
 
             case GOD_YREDELEMNUL:
-                if (you.is_undead)
+                if (you.undead_state() != US_ALIVE)
                     simple_god_message(" claims you as an undead slave.");
                 else if (se.get_death_type() != KILLED_BY_DISINT
                          && se.get_death_type() != KILLED_BY_LAVA)
@@ -331,7 +321,9 @@ NORETURN void end_game(scorefile_entry &se)
 
     if (!crawl_state.disables[DIS_CONFIRMATIONS])
         get_invent(OSEL_ANY);
-    textcolor(LIGHTGREY);
+    textcolour(LIGHTGREY);
+
+    clua.save_persist();
 
     // Prompt for saving macros.
     if (crawl_state.unsaved_macros && yesno("Save macros?", true, 'n'))

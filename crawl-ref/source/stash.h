@@ -6,13 +6,11 @@
 #ifndef STASH_H
 #define STASH_H
 
-#include "shopping.h"
-#include <string>
-
 #include <map>
+#include <string>
 #include <vector>
 
-#include "externs.h"
+#include "shopping.h"
 
 class input_history;
 class reader;
@@ -26,8 +24,6 @@ public:
     Stash(int xp = -1, int yp = -1);
     Stash(const Stash &other) { *this = other; };
 
-    static bool is_boring_feature(dungeon_feature_type feat);
-
     static string stash_item_name(const item_def &item);
     void update();
     bool unmark_trapping_nets();
@@ -39,7 +35,7 @@ public:
     vector<item_def> get_items() const;
 
     bool show_menu(const level_pos &place, bool can_travel,
-                   const vector<item_def>* matching_items = NULL) const;
+                   const vector<item_def>* matching_items = nullptr) const;
 
     // Returns true if this Stash contains items that are eligible for
     // autopickup.
@@ -190,7 +186,7 @@ struct stash_search_result
     vector<item_def> matching_items;
 
     stash_search_result() : pos(), player_distance(0), matches(0),
-                            count(0), match(), stash(NULL), shop(NULL),
+                            count(0), match(), stash(nullptr), shop(nullptr),
                             matching_items()
     {
     }

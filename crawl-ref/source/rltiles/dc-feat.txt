@@ -65,7 +65,7 @@ mangrove2
 mangrove3
 
 ## doors
-%sdir dngn
+%sdir dngn/doors
 closed_door DNGN_CLOSED_DOOR
 gate_closed_left DNGN_GATE_CLOSED_LEFT
 gate_closed_middle DNGN_GATE_CLOSED_MIDDLE
@@ -114,7 +114,6 @@ vgate_open_down_crypt DNGN_VGATE_OPEN_DOWN_CRYPT
 ## Alternate doors for vaults, etc. Should be in the order listed above for
 ## doors which also provide gateways; otherwise detected, closed, open, or
 ## closed, open.
-%sdir dngn/gateways
 fleshy_orifice_closed DNGN_FLESHY_ORIFICE
 fleshy_orifice_open
 
@@ -134,6 +133,7 @@ statue_tengu
 statue_centaur
 %syn DNGN_STATUE_CENTAUR
 statue_snail
+%syn DNGN_STATUE_SNAIL
 statue_cat
 %syn DNGN_STATUE_CAT
 statue_princess
@@ -237,6 +237,8 @@ alarm DNGN_TRAP_ALARM
 shaft DNGN_TRAP_SHAFT
 teleport DNGN_TRAP_TELEPORT
 teleport_permanent DNGN_TRAP_TELEPORT_PERMANENT
+shadow DNGN_TRAP_SHADOW
+shadow_dormant DNGN_TRAP_SHADOW_DORMANT
 zot DNGN_TRAP_ZOT
 passage_of_golubria DNGN_TRAP_GOLUBRIA
 pressure_plate DNGN_TRAP_PLATE
@@ -458,6 +460,7 @@ gozag2
 qazlal0 DNGN_ALTAR_QAZLAL
 qazlal1
 qazlal2
+ru DNGN_ALTAR_RU
 unknown DNGN_UNKNOWN_ALTAR
 
 %sdir dngn

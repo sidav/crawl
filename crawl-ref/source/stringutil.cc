@@ -4,10 +4,12 @@
  **/
 
 #include "AppHdr.h"
+
+#include "stringutil.h"
+
 #include <cwctype>
 
 #include "random.h"
-#include "stringutil.h"
 #include "unicode.h"
 
 #ifndef CRAWL_HAVE_STRLCPY
@@ -34,7 +36,7 @@ size_t strlcpy(char *dst, const char *src, size_t n)
 #endif
 
 
-string lowercase_string(string s)
+string lowercase_string(const string s)
 {
     string res;
     ucs_t c;
@@ -52,13 +54,16 @@ string &lowercase(string &s)
 
 string &uppercase(string &s)
 {
-    for (unsigned i = 0, sz = s.size(); i < sz; ++i)
-        s[i] = toupper(s[i]);
+    for (char &ch : s)
+        ch = toupper(ch);
 
     return s;
 }
 
-
+string uppercase_string(string s)
+{
+    return uppercase(s);
+}
 
 // Warning: this (and uppercase_first()) relies on no libc (glibc, BSD libc,
 // MSVC crt) supporting letters that expand or contract, like German ß (-> SS)

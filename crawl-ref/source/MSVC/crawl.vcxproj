@@ -221,6 +221,7 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClCompile Include="..\act-iter.cc" />
     <ClCompile Include="..\actor-los.cc" />
     <ClCompile Include="..\actor.cc" />
+    <ClCompile Include="..\adjust.cc" />
     <ClCompile Include="..\AppHdr.cc">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug Tiles|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug Tiles|x64'">Create</PrecompiledHeader>
@@ -269,6 +270,8 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClCompile Include="..\decks.cc" />
     <ClCompile Include="..\delay.cc" />
     <ClCompile Include="..\describe.cc" />
+    <ClCompile Include="..\describe-god.cc" />
+    <ClCompile Include="..\describe-spells.cc" />
     <ClCompile Include="..\dgl-message.cc" />
     <ClCompile Include="..\dgn-delve.cc" />
     <ClCompile Include="..\dgn-height.cc" />
@@ -283,8 +286,8 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClCompile Include="..\directn.cc" />
     <ClCompile Include="..\dlua.cc" />
     <ClCompile Include="..\dungeon.cc" />
-    <ClCompile Include="..\effects.cc" />
     <ClCompile Include="..\end.cc" />
+    <ClCompile Include="..\english.cc" />
     <ClCompile Include="..\errors.cc" />
     <ClCompile Include="..\evoke.cc" />
     <ClCompile Include="..\exclude.cc" />
@@ -358,6 +361,7 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClCompile Include="..\l_view.cc" />
     <ClCompile Include="..\l_you.cc" />
     <ClCompile Include="..\lev-pand.cc" />
+    <ClCompile Include="..\lookup_help.cc" />
     <ClCompile Include="..\melee_attack.cc" />
     <ClCompile Include="..\mon-chimera.cc" />
     <ClCompile Include="..\mon-death.cc" />
@@ -426,7 +430,6 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClCompile Include="..\mon-gear.cc" />
     <ClCompile Include="..\mon-grow.cc" />
     <ClCompile Include="..\mon-info.cc" />
-    <ClCompile Include="..\mon-message.cc" />
     <ClCompile Include="..\mon-movetarget.cc" />
     <ClCompile Include="..\mon-pathfind.cc" />
     <ClCompile Include="..\mon-pick.cc" />
@@ -434,6 +437,7 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClCompile Include="..\mon-poly.cc" />
     <ClCompile Include="..\mon-project.cc" />
     <ClCompile Include="..\mon-speak.cc" />
+    <ClCompile Include="..\mon-tentacle.cc" />
     <ClCompile Include="..\mon-transit.cc" />
     <ClCompile Include="..\mon-util.cc" />
     <ClCompile Include="..\monster.cc" />
@@ -447,6 +451,7 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClCompile Include="..\output.cc" />
     <ClCompile Include="..\pattern.cc" />
     <ClCompile Include="..\place.cc" />
+    <ClCompile Include="..\playable.cc" />
     <ClCompile Include="..\player.cc" />
     <ClCompile Include="..\quiver.cc" />
     <ClCompile Include="..\random-var.cc" />
@@ -464,7 +469,6 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClCompile Include="..\show.cc" />
     <ClCompile Include="..\showsymb.cc" />
     <ClCompile Include="..\skills.cc" />
-    <ClCompile Include="..\skills2.cc" />
     <ClCompile Include="..\skill_menu.cc" />
     <ClCompile Include="..\species.cc" />
     <ClCompile Include="..\spl-book.cc" />
@@ -498,6 +502,7 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClCompile Include="..\target.cc" />
     <ClCompile Include="..\teleport.cc" />
     <ClCompile Include="..\terrain.cc" />
+    <ClCompile Include="..\timed_effects.cc" />
     <ClCompile Include="..\throw.cc" />
     <ClCompile Include="..\tilebuf.cc" />
     <ClCompile Include="..\rltiles\tiledef-dngn.cc">
@@ -596,6 +601,7 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClCompile Include="..\wcwidth.cc" />
     <ClCompile Include="..\windowmanager-sdl.cc" />
     <ClCompile Include="..\wiz-dgn.cc" />
+    <ClCompile Include="..\wiz-dump.cc" />
     <ClCompile Include="..\wiz-fsim.cc" />
     <ClCompile Include="..\wiz-item.cc" />
     <ClCompile Include="..\wiz-mon.cc" />
@@ -610,6 +616,7 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClInclude Include="..\acquire.h" />
     <ClInclude Include="..\act-iter.h" />
     <ClInclude Include="..\actor.h" />
+    <ClInclude Include="..\adjust.h" />
     <ClInclude Include="..\AppHdr.h" />
     <ClInclude Include="..\aptitudes.h" />
     <ClInclude Include="..\areas.h" />
@@ -645,7 +652,6 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClInclude Include="..\crash.h" />
     <ClInclude Include="..\ctest.h" />
     <ClInclude Include="..\dactions.h" />
-    <ClInclude Include="..\data-index.h" />
     <ClInclude Include="..\database.h" />
     <ClInclude Include="..\dbg-maps.h" />
     <ClInclude Include="..\dbg-scan.h" />
@@ -655,6 +661,8 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClInclude Include="..\defines.h" />
     <ClInclude Include="..\delay.h" />
     <ClInclude Include="..\describe.h" />
+    <ClInclude Include="..\describe-god.h" />
+    <ClInclude Include="..\describe-spells.h" />
     <ClInclude Include="..\dgl-message.h" />
     <ClInclude Include="..\dgn-delve.h" />
     <ClInclude Include="..\dgn-height.h" />
@@ -670,9 +678,9 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClInclude Include="..\dlua.h" />
     <ClInclude Include="..\dungeon.h" />
     <ClInclude Include="..\duration-data.h" />
-    <ClInclude Include="..\effects.h" />
     <ClInclude Include="..\end.h" />
     <ClInclude Include="..\endianness.h" />
+    <ClInclude Include="..\english.h" />
     <ClInclude Include="..\enum.h" />
     <ClInclude Include="..\env.h" />
     <ClInclude Include="..\errors.h" />
@@ -690,6 +698,7 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClInclude Include="..\flood_find.h" />
     <ClInclude Include="..\fontwrapper-ft.h" />
     <ClInclude Include="..\food.h" />
+    <ClInclude Include="..\form-data.h" />
     <ClInclude Include="..\format.h" />
     <ClInclude Include="..\fprop.h" />
     <ClInclude Include="..\geom2d.h" />
@@ -725,6 +734,7 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClInclude Include="..\l_defs.h" />
     <ClInclude Include="..\l_libs.h" />
     <ClInclude Include="..\lev-pand.h" />
+    <ClInclude Include="..\lookup_help.h" />
     <ClInclude Include="..\matrix.h" />
     <ClInclude Include="..\melee_attack.h" />
     <ClInclude Include="..\mi-enum.h" />
@@ -780,7 +790,6 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClInclude Include="..\mon-gear.h" />
     <ClInclude Include="..\mon-grow.h" />
     <ClInclude Include="..\mon-info.h" />
-    <ClInclude Include="..\mon-message.h" />
     <ClInclude Include="..\mon-movetarget.h" />
     <ClInclude Include="..\mon-pathfind.h" />
     <ClInclude Include="..\mon-pick.h" />
@@ -788,7 +797,8 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClInclude Include="..\mon-poly.h" />
     <ClInclude Include="..\mon-project.h" />
     <ClInclude Include="..\mon-speak.h" />
-    <ClInclude Include="..\mon-spll.h" />
+    <ClInclude Include="..\mon-spell.h" />
+    <ClInclude Include="..\mon-tentacle.h" />
     <ClInclude Include="..\mon-transit.h" />
     <ClInclude Include="..\mon-util.h" />
     <ClInclude Include="..\monster.h" />
@@ -804,6 +814,7 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClInclude Include="..\output.h" />
     <ClInclude Include="..\pattern.h" />
     <ClInclude Include="..\place.h" />
+    <ClInclude Include="..\playable.h" />
     <ClInclude Include="..\player.h" />
     <ClInclude Include="..\process_desc.h" />
     <ClInclude Include="..\props.h" />
@@ -823,12 +834,12 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClInclude Include="..\rltiles\tiledef_defines.h" />
     <ClInclude Include="..\rot.h" />
     <ClInclude Include="..\SDLMain.h" />
+    <ClInclude Include="..\sacrifice-data.h" />
     <ClInclude Include="..\shopping.h" />
     <ClInclude Include="..\shout.h" />
     <ClInclude Include="..\show.h" />
     <ClInclude Include="..\showsymb.h" />
     <ClInclude Include="..\skills.h" />
-    <ClInclude Include="..\skills2.h" />
     <ClInclude Include="..\skill_menu.h" />
     <ClInclude Include="..\species.h" />
     <ClInclude Include="..\spl-book.h" />
@@ -863,6 +874,7 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClInclude Include="..\target.h" />
     <ClInclude Include="..\teleport.h" />
     <ClInclude Include="..\terrain.h" />
+    <ClInclude Include="..\timed_effects.h" />
     <ClInclude Include="..\threads.h" />
     <ClInclude Include="..\throw.h" />
     <ClInclude Include="..\tilebuf.h" />
@@ -921,6 +933,7 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClInclude Include="..\windowmanager-sdl.h" />
     <ClInclude Include="..\windowmanager.h" />
     <ClInclude Include="..\wiz-dgn.h" />
+    <ClInclude Include="..\wiz-dump.h" />
     <ClInclude Include="..\wiz-fsim.h" />
     <ClInclude Include="..\wiz-item.h" />
     <ClInclude Include="..\wiz-mon.h" />

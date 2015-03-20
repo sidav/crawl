@@ -6,8 +6,6 @@
 #ifndef ABYSS_H
 #define ABYSS_H
 
-#include "externs.h"
-
 // When shifting areas in the abyss, shift the square containing player LOS
 // plus a little extra so that the player won't be disoriented by taking a
 // step backward after an abyss shift.
@@ -27,6 +25,8 @@ struct abyss_state
 extern abyss_state abyssal_state;
 
 void abyss_morph();
+
+void banished(const string &who = "");
 void push_features_to_abyss();
 
 void generate_abyss();

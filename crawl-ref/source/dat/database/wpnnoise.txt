@@ -267,8 +267,6 @@ a loud, deep croak!
 
 an angry buzzing noise.
 
-an irritating high-pitched whine.
-
 a splashing noise.
 
 a sizzling sound.
@@ -1265,7 +1263,7 @@ _real_song_low_tension_
 # Buddy Holly and the Crickets
 @The_weapon@ sings, "This'll be the day that I die..."
 
-# R.E.M.
+# H.I.M.
 @The_weapon@ rasps, "@player_name@, join me in death!"
 
 # Bonnie Tyler

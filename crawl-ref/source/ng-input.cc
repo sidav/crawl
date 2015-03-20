@@ -1,7 +1,8 @@
 #include "AppHdr.h"
 
-#include <wctype.h>
 #include "ng-input.h"
+
+#include <cwctype>
 
 #include "cio.h"
 #include "end.h"
@@ -53,17 +54,17 @@ void opening_screen()
     msg += "\n";
 
     formatted_string::parse_string(msg).display();
-    textcolor(LIGHTGREY);
+    textcolour(LIGHTGREY);
 }
 
 static void _show_name_prompt(int where)
 {
     cgotoxy(1, where);
-    textcolor(CYAN);
+    textcolour(CYAN);
 
     cprintf("\nWhat is your name today? ");
 
-    textcolor(LIGHTGREY);
+    textcolour(LIGHTGREY);
 }
 
 bool is_good_name(const string& name, bool blankOK, bool verbose)

@@ -2,22 +2,16 @@
 
 #include "colour.h"
 
+#include <cmath>
+#include <utility>
+
 #include "areas.h"
 #include "branch.h"
 #include "cloud.h"
 #include "dgn-height.h"
-#include "env.h"
-#include "libutil.h"
-#include "mon-info.h"
-#include "mon-info.h"
-#include "mon-util.h"
 #include "options.h"
-#include "player.h"
-#include "random.h"
 #include "stringutil.h"
-
-#include <utility>
-#include <math.h>
+#include "libutil.h" // map_find
 
 static element_colour_calc* element_colours[NUM_COLOURS] = {};
 static map<string, element_colour_calc*> element_colours_str;
@@ -66,9 +60,14 @@ int random_element_colour_calc::get(const coord_def& loc, bool non_random)
     return (*real_calc)(rand(non_random), loc, rand_vals);
 }
 
-colour_t random_colour()
+colour_t random_colour(bool ui_rand)
 {
-    return 1 + random2(15);
+    return 1 + (ui_rand ? ui_random : random2)(15);
+}
+
+static bool _ui_coinflip()
+{
+    return static_cast<bool>(ui_random(2));
 }
 
 colour_t random_uncommon_colour()
@@ -76,7 +75,9 @@ colour_t random_uncommon_colour()
     colour_t result;
 
     do
+    {
         result = random_colour();
+    }
     while (result == LIGHTCYAN || result == CYAN || result == BROWN);
 
     return result;
@@ -121,13 +122,9 @@ static int _randomized_element_colour(int rand, const coord_def&,
                                       random_colour_map rand_vals)
 {
     int accum = 0;
-    for (random_colour_map::const_iterator it = rand_vals.begin();
-         it != rand_vals.end();
-         ++it)
-    {
-        if ((accum += it->first) > rand)
-            return it->second;
-    }
+    for (const auto &entry : rand_vals)
+        if ((accum += entry.first) > rand)
+            return entry.second;
 
     return BLACK;
 }
@@ -180,13 +177,13 @@ static int _etc_elemental(int, const coord_def& loc)
         case 0:
             return element_colour(ETC_EARTH, false, loc);
         case 1:
-            return element_colour(coinflip() ? ETC_AIR : ETC_ELECTRICITY,
+            return element_colour(_ui_coinflip() ? ETC_AIR : ETC_ELECTRICITY,
                                   false, loc);
         case 2:
             // Not ETC_FIRE, which is Makhleb; instead do magma-y colours.
-            if (coinflip())
+            if (_ui_coinflip())
                 return RED;
-            return coinflip() ? BROWN : LIGHTRED;
+            return _ui_coinflip() ? BROWN : LIGHTRED;
         case 3:
             return element_colour(ETC_ICE, false, loc);
     }
@@ -263,14 +260,14 @@ static int _etc_tree(int, const coord_def& loc)
     h+=h<<10; h^=h>>6;
     h+=h<<3; h^=h>>11; h+=h<<15;
     return (h>>30) ? GREEN :
-        you.where_are_you == BRANCH_SWAMP ? BROWN : LIGHTGREEN; // Swamp trees are mangroves.
+        player_in_branch(BRANCH_SWAMP) ? BROWN : LIGHTGREEN; // Swamp trees are mangroves.
 }
 
 bool get_tornado_phase(const coord_def& loc)
 {
     coord_def center = get_cloud_originator(loc);
     if (center.origin())
-        return coinflip(); // source died/went away
+        return _ui_coinflip(); // source died/went away
     else
     {
         int x = loc.x - center.x;
@@ -353,7 +350,7 @@ colour_t rune_colour(int type)
 
 static int _etc_random(int, const coord_def&)
 {
-    return random_colour();
+    return random_colour(true);
 }
 
 static element_colour_calc *_create_random_element_colour_calc(element_type type,
@@ -372,7 +369,7 @@ static element_colour_calc *_create_random_element_colour_calc(element_type type
 
         int colour = va_arg(ap, int);
 
-        rand_vals.push_back(make_pair(prob, colour));
+        rand_vals.emplace_back(prob, colour);
     }
 
     va_end(ap);
@@ -650,6 +647,17 @@ void init_element_colours()
     add_element_colour(new element_colour_calc(
                             ETC_ELEMENTAL, "elemental", _etc_elemental
                        ));
+    add_element_colour(_create_random_element_colour_calc(
+                            ETC_INCARNADINE, "incarnadine",
+                            60,  MAGENTA,
+                            60,  RED,
+                        0));
+    add_element_colour(_create_random_element_colour_calc(
+                            ETC_SHINING, "shining",
+                            // no YELLOW - always make this visually distinct
+                            60,  WHITE,
+                            60,  BROWN,
+                        0));
     // redefined by Lua later
     add_element_colour(new element_colour_calc(
                             ETC_DISCO, "disco", _etc_random
@@ -762,8 +770,9 @@ const string colour_to_str(colour_t colour)
         return cols[colour];
 }
 
-// Returns -1 if unmatched else returns 0-15.
-int str_to_colour(const string &str, int default_colour, bool accept_number)
+// Returns default_colour (default -1) if unmatched else returns 0-15.
+int str_to_colour(const string &str, int default_colour, bool accept_number,
+                  bool accept_elemental)
 {
     int ret;
 
@@ -782,15 +791,13 @@ int str_to_colour(const string &str, int default_colour, bool accept_number)
             ret = 8;
     }
 
-    if (ret == 16)
+    if (ret == 16 && accept_elemental)
     {
         // Maybe we have an element colour attribute.
-        map<string, element_colour_calc*>::const_iterator it
-            = element_colours_str.find(str);
-        if (it != element_colours_str.end())
+        if (element_colour_calc **calc = map_find(element_colours_str, str))
         {
-            ASSERT(it->second);
-            ret = it->second->type;
+            ASSERT(*calc);
+            ret = (*calc)->type;
         }
     }
 
@@ -798,7 +805,7 @@ int str_to_colour(const string &str, int default_colour, bool accept_number)
     {
         // Check if we have a direct colour index.
         const char *s = str.c_str();
-        char *es = NULL;
+        char *es = nullptr;
         const int ci = static_cast<int>(strtol(s, &es, 10));
         if (s != es && es && ci >= 0 && ci < 16)
             ret = ci;

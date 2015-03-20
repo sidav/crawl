@@ -31,7 +31,7 @@
 
 typedef enum
 {
-    JSON_NULL,
+    JSON_nullptr,
     JSON_BOOL,
     JSON_STRING,
     JSON_NUMBER,
@@ -43,14 +43,18 @@ typedef struct JsonNode JsonNode;
 
 struct JsonNode
 {
-    /* only if parent is an object or array (NULL otherwise) */
+    /* only if parent is an object or array (nullptr otherwise) */
     JsonNode *parent;
     JsonNode *prev, *next;
 
-    /* only if parent is an object (NULL otherwise) */
+    /* only if parent is an object (nullptr otherwise) */
     char *key; /* Must be valid UTF-8. */
 
     JsonTag tag;
+    struct JsonChildren
+    {
+        JsonNode *head, *tail;
+    };
     union
     {
         /* JSON_BOOL */
@@ -64,10 +68,7 @@ struct JsonNode
 
         /* JSON_ARRAY */
         /* JSON_OBJECT */
-        struct
-        {
-            JsonNode *head, *tail;
-        } children;
+        JsonChildren children;
     };
 };
 
@@ -90,7 +91,7 @@ JsonNode   *json_first_child    (const JsonNode *node);
 
 #define json_foreach(i, object_or_array)            \
         for ((i) = json_first_child(object_or_array);   \
-                 (i) != NULL;                               \
+                 (i) != nullptr;                               \
                  (i) = (i)->next)
 
 /*** Construction and manipulation ***/
@@ -115,7 +116,7 @@ void json_remove_from_parent(JsonNode *node);
  * Look for structure and encoding problems in a JsonNode or its descendents.
  *
  * If a problem is detected, return false, writing a description of the problem
- * to errmsg (unless errmsg is NULL).
+ * to errmsg (unless errmsg is nullptr).
  */
 bool json_check(const JsonNode *node, char errmsg[256]);
 

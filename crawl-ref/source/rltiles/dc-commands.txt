@@ -18,6 +18,7 @@ known_items CMD_KNOWN_ITEMS
 quicksave CMD_SAVE_GAME_NOW
 doll_editor CMD_EDIT_PLAYER_TILE
 help CMD_DISPLAY_COMMANDS
+lookup_help CMD_LOOKUP_HELP
 chardump CMD_CHARACTER_DUMP
 inventory CMD_DISPLAY_INVENTORY
 cast_spell CMD_CAST_SPELL
@@ -41,3 +42,4 @@ find_portal CMD_MAP_FIND_PORTAL
 find_traps CMD_MAP_FIND_TRAP
 find_altar CMD_MAP_FIND_ALTAR
 find_stash CMD_MAP_FIND_STASH
+keyboard CMD_KEYBOARD

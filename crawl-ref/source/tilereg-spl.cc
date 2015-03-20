@@ -3,17 +3,16 @@
 #ifdef USE_TILE_LOCAL
 
 #include "tilereg-spl.h"
-#include "process_desc.h"
 
 #include "cio.h"
 #include "libutil.h"
 #include "macro.h"
 #include "message.h"
 #include "output.h"
+#include "process_desc.h"
 #include "prompt.h"
 #include "spl-cast.h"
 #include "spl-util.h"
-
 #include "tiledef-dngn.h"
 #include "tiledef-icons.h"
 #include "tiledef-main.h"
@@ -46,10 +45,9 @@ void SpellRegion::draw_tag()
         return;
 
     const spell_type spell = (spell_type) idx;
-    char* failure = failure_rate_to_string(spell_fail(spell));
+    const string failure = failure_rate_to_string(raw_spell_fail(spell));
     string desc = make_stringf("%d MP    %s    (%s)", spell_mana(spell),
-                               spell_title(spell), failure);
-    free(failure);
+                               spell_title(spell), failure.c_str());
     draw_desc(desc.c_str());
 }
 
@@ -231,7 +229,8 @@ void SpellRegion::update()
         desc.quantity = spell_mana(spell);
 
         string temp;
-        if (is_prevented_teleport(spell)
+        if ((spell == SPELL_BLINK || spell == SPELL_CONTROLLED_BLINK)
+             && you.no_tele(false, false, true)
             || spell_is_uncastable(spell, temp)
             || spell_mana(spell) > you.magic_points)
         {

@@ -9,10 +9,13 @@ enum band_type
     BAND_ORC_WARRIOR,
     BAND_ORC_KNIGHT,
     BAND_KILLER_BEES,
+    BAND_CAUSTIC_SHRIKE,
+    BAND_SHARD_SHRIKE,
     BAND_FLYING_SKULLS,
     BAND_SLIME_CREATURES,
     BAND_YAKS,
     BAND_UGLY_THINGS,
+    BAND_VERY_UGLY_THINGS,
     BAND_HELL_HOUNDS,
     BAND_JACKALS,
     BAND_HELL_KNIGHTS,
@@ -38,7 +41,7 @@ enum band_type
     BAND_GUARDIAN_SERPENT,
     BAND_WOLVES,
     BAND_GREEN_RATS,
-    BAND_ORANGE_RATS,
+    BAND_HELL_RATS,
     BAND_SHEEP,
     BAND_GHOULS,
     BAND_DEEP_TROLLS,
@@ -103,7 +106,16 @@ enum band_type
     BAND_CORRUPTER,
     BAND_BLACK_SUN,
     BAND_VASHNIA,
+    BAND_CEREBOV,
+    BAND_GLOORX_VLOQ,
+    BAND_LOM_LOBON,
+    BAND_MNOLEG,
+    BAND_DEATH_SCARABS,
+    BAND_ANUBIS_GUARD,
+    BAND_HOLIES,
+    BAND_ROBIN,
     BAND_RANDOM_SINGLE,
+    BAND_JOSEPHINE,
     NUM_BANDS                   // always last
 };
 
@@ -124,14 +136,16 @@ enum proximity_type   // proximity to player to create monster
 
 enum mgen_flag_type
 {
-    MG_PERMIT_BANDS = 0x01,
-    MG_FORCE_PLACE  = 0x02,
-    MG_FORCE_BEH    = 0x04,
-    MG_AUTOFOE      = 0x08, // will automatically choose in-sight foe (if friendly)
-    MG_PATROLLING   = 0x10,
-    MG_BAND_MINION  = 0x20,
-    MG_DONT_COME    = 0x40, // suppress the "comes into view" spam
-    MG_DONT_CAP     = 0x80, // don't automatically apply the summon cap to this monster
+    MG_PERMIT_BANDS = 0x001, ///< allow placing band members too
+    MG_FORCE_PLACE  = 0x002,
+    MG_FORCE_BEH    = 0x004,
+    MG_AUTOFOE      = 0x008, ///< will automatically choose in-sight foe (if friendly)
+    MG_PATROLLING   = 0x010,
+    MG_BAND_MINION  = 0x020,
+    MG_DONT_COME    = 0x040, ///< suppress the "comes into view" spam
+    MG_DONT_CAP     = 0x080, ///< don't automatically apply the summon cap to this monster
+    MG_FORBID_BANDS = 0x100, ///< override MG_PERMIT_BANDS
+    MG_NO_OOD       = 0x200, ///< don't choose out-of-depth random monsters
 };
 
 #endif

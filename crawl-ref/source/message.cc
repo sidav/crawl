@@ -7,44 +7,36 @@
 
 #include "message.h"
 
+#include <sstream>
+
 #include "areas.h"
-#include "cio.h"
 #include "colour.h"
 #include "delay.h"
-#include "format.h"
+#include "english.h"
 #include "hints.h"
 #include "initfile.h"
 #include "libutil.h"
+#ifdef WIZARD
+ #include "luaterp.h"
+#endif
 #include "menu.h"
-#include "mon-message.h"
+#include "monster.h"
+#include "mon-util.h"
 #include "notes.h"
-#include "options.h"
-#include "player.h"
+#include "output.h"
 #include "religion.h"
-#include "stash.h"
 #include "state.h"
-#include "tags.h"
-#include "travel.h"
-#include "shout.h"
 #include "stringutil.h"
+#ifdef USE_TILE_WEB
+ #include "tileweb.h"
+#endif
 #include "unwind.h"
 #include "view.h"
-#include "viewgeom.h"
-
-#include <sstream>
-
-#ifdef WIZARD
-#include "luaterp.h"
-#endif
-
-#ifdef USE_TILE_WEB
-#include "tileweb.h"
-#endif
 
 static void _mpr(string text, msg_channel_type channel=MSGCH_PLAIN, int param=0,
                  bool nojoin=false, bool cap=true);
 
-void mpr(const char *text)
+void mpr(const string &text)
 {
     _mpr(text);
 }
@@ -453,7 +445,7 @@ public:
 
     bool first_col_more() const
     {
-        return use_first_col() && Options.small_more;
+        return Options.small_more;
     }
 
     bool use_first_col() const
@@ -494,7 +486,7 @@ public:
     {
         // XXX: this should not be necessary as formatted_string should
         //      already do it
-        textcolor(LIGHTGREY);
+        textcolour(LIGHTGREY);
 
         // XXX: the screen may have resized since the last time we
         //  called lines.resize().  We can't actually resize lines
@@ -521,13 +513,13 @@ public:
         linebreak_string(text, out_width());
         formatted_string::parse_string_to_multiple(text, newlines);
 
-        for (size_t i = 0; i < newlines.size(); ++i)
+        for (const formatted_string &nl : newlines)
         {
             make_space(1);
             formatted_string line;
             if (use_first_col())
                 line.add_glyph(_prefix_glyph(first_col));
-            line += newlines[i];
+            line += nl;
             add_line(line);
         }
 
@@ -594,7 +586,7 @@ public:
         else
         {
             cgotoxy(use_first_col() ? 2 : 1, last_row, GOTO_MSG);
-            textcolor(channel_to_colour(MSGCH_PROMPT));
+            textcolour(channel_to_colour(MSGCH_PROMPT));
             if (crawl_state.game_is_hints())
             {
                 string more_str = "--more-- Press Space ";
@@ -695,6 +687,7 @@ public:
     {
 #ifdef USE_TILE_WEB
         client_rollback = max(0, temp - unsent);
+        unsent = max(0, unsent - temp);
 #endif
         msgs.roll_back(temp);
         temp = 0;
@@ -804,7 +797,7 @@ void webtiles_send_last_messages(int n)
 }
 #endif
 
-static FILE* _msg_dump_file = NULL;
+static FILE* _msg_dump_file = nullptr;
 
 static bool suppress_messages = false;
 static msg_colour_type prepare_message(const string& imsg,
@@ -1087,10 +1080,10 @@ static bool _updating_view = false;
 
 static bool check_more(const string& line, msg_channel_type channel)
 {
-    for (unsigned i = 0; i < Options.force_more_message.size(); ++i)
-        if (Options.force_more_message[i].is_filtered(channel, line))
-            return true;
-    return false;
+    return any_of(begin(Options.force_more_message),
+                  end(Options.force_more_message),
+                  bind(mem_fn(&message_filter::is_filtered),
+                       placeholders::_1, channel, line));
 }
 
 static bool check_join(const string& line, msg_channel_type channel)
@@ -1194,9 +1187,10 @@ void msgwin_clear_temporary()
 
 static int _last_msg_turn = -1; // Turn of last message.
 
-static void _mpr(string text, msg_channel_type channel, int param, bool nojoin, bool cap)
+static void _mpr(string text, msg_channel_type channel, int param, bool nojoin,
+                 bool cap)
 {
-    if (_msg_dump_file != NULL)
+    if (_msg_dump_file != nullptr)
         fprintf(_msg_dump_file, "%s\n", text.c_str());
 
     if (crawl_state.game_crashed)
@@ -1309,7 +1303,7 @@ int msgwin_get_line(string prompt, char *buf, int len,
     if (prompt != "")
         msgwin_prompt(prompt);
 
-    int ret = cancellable_get_line(buf, len, mh, NULL, fill);
+    int ret = cancellable_get_line(buf, len, mh, nullptr, fill);
     msgwin_reply(buf);
     return ret;
 }
@@ -1367,7 +1361,7 @@ static void mpr_check_patterns(const string& message,
                                msg_channel_type channel,
                                int param)
 {
-    for (unsigned i = 0; i < Options.note_messages.size(); ++i)
+    for (const text_pattern &pat : Options.note_messages)
     {
         if (channel == MSGCH_EQUIPMENT || channel == MSGCH_FLOOR_ITEMS
             || channel == MSGCH_MULTITURN_ACTION
@@ -1377,7 +1371,7 @@ static void mpr_check_patterns(const string& message,
             continue;
         }
 
-        if (Options.note_messages[i].matches(message))
+        if (pat.matches(message))
         {
             take_note(Note(NOTE_MESSAGE, channel, param, message.c_str()));
             break;
@@ -1387,17 +1381,18 @@ static void mpr_check_patterns(const string& message,
     if (channel != MSGCH_DIAGNOSTICS && channel != MSGCH_EQUIPMENT)
         interrupt_activity(AI_MESSAGE, channel_to_str(channel) + ":" + message);
 
-    if (!Options.sound_mappings.empty())
-        for (unsigned i = 0; i < Options.sound_mappings.size(); i++)
+#ifdef USE_SOUND
+    for (const sound_mapping &sound : Options.sound_mappings)
+    {
+        // Maybe we should allow message channel matching as for
+        // force_more_message?
+        if (sound.pattern.matches(message))
         {
-            // Maybe we should allow message channel matching as for
-            // force_more_message?
-            if (Options.sound_mappings[i].pattern.matches(message))
-            {
-                play_sound(Options.sound_mappings[i].soundfile.c_str());
-                break;
-            }
+            play_sound(sound.soundfile.c_str());
+            break;
         }
+    }
+#endif
 }
 
 static bool channel_message_history(msg_channel_type channel)
@@ -1433,15 +1428,11 @@ static msg_colour_type prepare_message(const string& imsg,
     if (colour != MSGCOL_MUTED)
         mpr_check_patterns(imsg, channel, param);
 
-    const vector<message_colour_mapping>& mcm
-               = Options.message_colour_mappings;
-    typedef vector<message_colour_mapping>::const_iterator mcmci;
-
-    for (mcmci ci = mcm.begin(); ci != mcm.end(); ++ci)
+    for (const message_colour_mapping &mcm : Options.message_colour_mappings)
     {
-        if (ci->message.is_filtered(channel, imsg))
+        if (mcm.message.is_filtered(channel, imsg))
         {
-            colour = ci->colour;
+            colour = mcm.colour;
             break;
         }
     }
@@ -1484,14 +1475,21 @@ static void readkey_more(bool user_forced)
 {
     if (autoclear_more)
         return;
-    int keypress;
+    int keypress = 0;
 #ifdef USE_TILE_WEB
     unwind_bool unwind_more(_more, true);
 #endif
     mouse_control mc(MOUSE_MODE_MORE);
 
     do
+    {
         keypress = getch_ck();
+        if (keypress == CK_REDRAW)
+        {
+            redraw_screen();
+            continue;
+        }
+    }
     while (keypress != ' ' && keypress != '\r' && keypress != '\n'
            && !key_is_escape(keypress)
 #ifdef TOUCH_UI
@@ -1663,16 +1661,51 @@ void canned_msg(canned_message_type which_message)
         case MSG_DECK_EXHAUSTED:
             mpr("The deck of cards disappears in a puff of smoke.");
             break;
-        case MSG_BEING_WATCHED:
-            mpr("You feel you are being watched by something.");
-            break;
         case MSG_CANNOT_MOVE:
             mpr("You cannot move.");
             break;
         case MSG_YOU_DIE:
             mpr_nojoin(MSGCH_PLAIN, "You die...");
             break;
+        case MSG_GHOSTLY_OUTLINE:
+            mpr("You see a ghostly outline there, and the spell fizzles.");
+            break;
     }
+}
+
+// Note that this function *completely* blocks messaging for monsters
+// distant or invisible to the player ... look elsewhere for a function
+// permitting output of "It" messages for the invisible {dlb}
+// Intentionally avoids info and str_pass now. - bwr
+bool simple_monster_message(const monster* mons, const char *event,
+                            msg_channel_type channel,
+                            int param,
+                            description_level_type descrip)
+{
+    if (mons_near(mons)
+        && (channel == MSGCH_MONSTER_SPELL || channel == MSGCH_FRIEND_SPELL
+            || mons->visible_to(&you)))
+    {
+        string msg = mons->name(descrip);
+        msg += event;
+        msg = apostrophise_fixup(msg);
+
+        if (channel == MSGCH_PLAIN && mons->wont_attack())
+            channel = MSGCH_FRIEND_ACTION;
+
+        mprf(channel, param, "%s", msg.c_str());
+        return true;
+    }
+
+    return false;
+}
+
+// yet another wrapper for mpr() {dlb}:
+void simple_god_message(const char *event, god_type which_deity)
+{
+    string msg = uppercase_first(god_name(which_deity)) + event;
+    msg = apostrophise_fixup(msg);
+    god_speaks(which_deity, msg.c_str());
 }
 
 static bool is_channel_dumpworthy(msg_channel_type channel)

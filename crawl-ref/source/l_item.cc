@@ -5,30 +5,32 @@
 
 #include "AppHdr.h"
 
-#include <sstream>
-
-#include "cluautil.h"
 #include "l_libs.h"
 
+#include <sstream>
+
+#include "adjust.h"
 #include "artefact.h"
+#include "cluautil.h"
 #include "cluautil.h"
 #include "colour.h"
 #include "coord.h"
-#include "command.h"
-#include "env.h"
 #include "enum.h"
+#include "env.h"
 #include "food.h"
 #include "invent.h"
-#include "item_use.h"
 #include "itemprop.h"
 #include "items.h"
+#include "item_use.h"
 #include "l_defs.h"
 #include "libutil.h"
 #include "output.h"
 #include "player.h"
 #include "prompt.h"
-#include "skills2.h"
+#include "skills.h"
+#include "spl-book.h"
 #include "spl-summoning.h"
+#include "spl-util.h"
 #include "stash.h"
 #include "stringutil.h"
 #include "throw.h"
@@ -83,17 +85,17 @@ void lua_push_floor_items(lua_State *ls, int link)
     }
 }
 
-static void _lua_push_inv_items(lua_State *ls = NULL)
+static void _lua_push_inv_items(lua_State *ls = nullptr)
 {
     if (!ls)
         ls = clua.state();
     lua_newtable(ls);
     int index = 0;
-    for (unsigned slot = 0; slot < ENDOFPACK; ++slot)
+    for (item_def &item : you.inv)
     {
-        if (you.inv[slot].defined())
+        if (item.defined())
         {
-            clua_push_item(ls, &you.inv[slot]);
+            clua_push_item(ls, &item);
             lua_rawseti(ls, -2, ++index);
         }
     }
@@ -267,7 +269,6 @@ static int l_item_do_class(lua_State *ls)
 
 IDEFN(class, do_class)
 
-// XXX: I really doubt most of this function needs to exist
 static int l_item_do_subtype(lua_State *ls)
 {
     UDATA_ITEM(item);
@@ -278,42 +279,14 @@ static int l_item_do_subtype(lua_State *ls)
         return 1;
     }
 
-    const char *s = NULL;
+    const char *s = nullptr;
+
+    // Special-case OBJ_ARMOUR behavior to maintain compatibility with
+    // existing scripts.
     if (item->base_type == OBJ_ARMOUR)
-        s = item_slot_name(get_armour_slot(*item), true);
-    if (item_type_known(*item))
-    {
-        if (item->base_type == OBJ_JEWELLERY)
-            s = jewellery_effect_name(item->sub_type);
-        else if (item->base_type == OBJ_POTIONS)
-        {
-            if (item->sub_type == POT_BLOOD)
-                s = "blood";
-            else if (item->sub_type == POT_BLOOD_COAGULATED)
-                s = "coagulated blood";
-            else if (item->sub_type == POT_PORRIDGE)
-                s = "porridge";
-            else if (item->sub_type == POT_BERSERK_RAGE)
-                s = "berserk";
-#if TAG_MAJOR_VERSION == 34
-            else if (item->sub_type == POT_GAIN_STRENGTH
-                        || item->sub_type == POT_GAIN_DEXTERITY
-                        || item->sub_type == POT_GAIN_INTELLIGENCE)
-            {
-                s = "gain ability";
-            }
-#endif
-            else if (item->sub_type == POT_CURE_MUTATION)
-                s = "cure mutation";
-        }
-        else if (item->base_type == OBJ_BOOKS)
-        {
-            if (item->sub_type == BOOK_MANUAL)
-                s = "manual";
-            else
-                s = "spellbook";
-        }
-    }
+        s = item_slot_name(get_armour_slot(*item));
+    else if (item_type_known(*item))
+        s = sub_type_string(*item).c_str();
 
     if (s)
         lua_pushstring(ls, s);
@@ -323,7 +296,38 @@ static int l_item_do_subtype(lua_State *ls)
     return 1;
 }
 
-IDEFN(subtype, do_subtype);
+IDEFN(subtype, do_subtype)
+
+static int l_item_do_ego(lua_State *ls)
+{
+    UDATA_ITEM(item);
+    if (!item)
+    {
+        lua_pushnil(ls);
+        return 1;
+    }
+
+    bool terse = false;
+    if (lua_isboolean(ls, 1))
+        terse = lua_toboolean(ls, 1);
+
+    const char *s = nullptr;
+
+    if ((item->base_type == OBJ_WEAPONS || item->base_type == OBJ_ARMOUR
+         || item->base_type == OBJ_MISSILES) && item_ident(*item, ISFLAG_KNOW_TYPE))
+    {
+        s = ego_type_string(*item, terse).c_str();
+    }
+
+    if (s && *s)
+        lua_pushstring(ls, s);
+    else
+        lua_pushnil(ls);
+
+    return 1;
+}
+
+IDEFN(ego, do_ego)
 
 IDEF(cursed)
 {
@@ -576,6 +580,17 @@ IDEF(branded)
     return 1;
 }
 
+IDEF(hands)
+{
+    if (!item || !item->defined())
+        return 0;
+
+    int hands = you.hands_reqd(*item) == HANDS_TWO ? 2 : 1;
+    lua_pushnumber(ls, hands);
+
+    return 1;
+}
+
 IDEF(snakable)
 {
     if (!item || !item->defined())
@@ -636,6 +651,121 @@ IDEF(plus2)
         return 0;
 
     lua_pushnil(ls);
+
+    return 1;
+}
+
+IDEF(spells)
+{
+    if (!item || !item->defined() || !item->has_spells())
+        return 0;
+
+    int index = 0;
+    lua_newtable(ls);
+
+    for (spell_type stype : spells_in_book(*item))
+    {
+        lua_pushstring(ls, spell_title(stype));
+        lua_rawseti(ls, -2, ++index);
+    }
+
+    return 1;
+}
+
+IDEF(artprops)
+{
+    if (!item || !item->defined() || !is_artefact(*item)
+        || !item_ident(*item, ISFLAG_KNOW_PROPERTIES))
+    {
+        return 0;
+    }
+
+    lua_newtable(ls);
+
+    for (int i = 0; i < ARTP_NUM_PROPERTIES; ++i)
+    {
+        int value = artefact_property(*item, (artefact_prop_type)i);
+        if (value)
+        {
+            lua_pushstring(ls, artp_name((artefact_prop_type)i));
+            lua_pushnumber(ls, value);
+            lua_settable(ls, -3);
+        }
+    }
+
+    return 1;
+}
+
+IDEF(damage)
+{
+    if (!item || !item->defined())
+        return 0;
+
+    if (item->base_type == OBJ_WEAPONS || item->base_type == OBJ_STAVES
+        || item->base_type == OBJ_RODS || item->base_type == OBJ_MISSILES)
+    {
+        lua_pushnumber(ls, property(*item, PWPN_DAMAGE));
+    }
+    else
+        lua_pushnil(ls);
+
+    return 1;
+}
+
+IDEF(accuracy)
+{
+    if (!item || !item->defined())
+        return 0;
+
+    if (item->base_type == OBJ_WEAPONS || item->base_type == OBJ_STAVES
+        || item->base_type == OBJ_RODS)
+    {
+        lua_pushnumber(ls, property(*item, PWPN_HIT));
+    }
+    else
+        lua_pushnil(ls);
+
+    return 1;
+}
+
+IDEF(delay)
+{
+    if (!item || !item->defined())
+        return 0;
+
+    if (item->base_type == OBJ_WEAPONS || item->base_type == OBJ_STAVES
+        || item->base_type == OBJ_RODS)
+    {
+        lua_pushnumber(ls, property(*item, PWPN_SPEED));
+    }
+    else
+        lua_pushnil(ls);
+
+    return 1;
+}
+
+IDEF(ac)
+{
+    if (!item || !item->defined())
+        return 0;
+
+    if (item->base_type == OBJ_ARMOUR)
+        lua_pushnumber(ls, property(*item, PARM_AC));
+    else
+        lua_pushnil(ls);
+
+    return 1;
+}
+
+IDEF(encumbrance)
+{
+    if (!item || !item->defined())
+        return 0;
+
+    if (item->base_type == OBJ_ARMOUR)
+        lua_pushnumber(ls, -property(*item, PARM_EVASION) / 10);
+    else
+        lua_pushnil(ls);
 
     return 1;
 }
@@ -793,7 +923,7 @@ IDEF(base_type)
 {
     ASSERT_DLUA;
 
-    lua_pushstring(ls, base_type_string(*item).c_str());
+    lua_pushstring(ls, base_type_string(*item));
     return 1;
 }
 
@@ -1046,10 +1176,9 @@ static int l_item_get_items_at(lua_State *ls)
 
     const vector<item_def> items = item_list_in_stash(p);
     int index = 0;
-    for (vector<item_def>::const_iterator i = items.begin();
-         i != items.end(); ++i)
+    for (const auto &item : items)
     {
-        _clua_push_item_temp(ls, *i);
+        _clua_push_item_temp(ls, item);
         lua_rawseti(ls, -2, ++index);
     }
 
@@ -1073,6 +1202,7 @@ static ItemAccessor item_attrs[] =
     { "plus2",             l_item_plus2 },
     { "class",             l_item_class },
     { "subtype",           l_item_subtype },
+    { "ego",               l_item_ego },
     { "cursed",            l_item_cursed },
     { "tried",             l_item_tried },
     { "worn",              l_item_worn },
@@ -1098,6 +1228,15 @@ static ItemAccessor item_attrs[] =
     { "is_preferred_food", l_item_is_preferred_food },
     { "is_bad_food",       l_item_is_bad_food },
     { "is_useless",        l_item_is_useless },
+    { "spells",            l_item_spells },
+    { "artprops",          l_item_artprops },
+    { "damage",            l_item_damage },
+    { "accuracy",          l_item_accuracy },
+    { "delay",             l_item_delay },
+    { "ac",                l_item_ac },
+    { "encumbrance",       l_item_encumbrance },
+
+    // dlua only past this point
     { "pluses",            l_item_pluses },
     { "destroy",           l_item_destroy },
     { "dec_quantity",      l_item_dec_quantity },
@@ -1109,6 +1248,7 @@ static ItemAccessor item_attrs[] =
     { "ego_type_terse",    l_item_ego_type_terse },
     { "artefact_name",     l_item_artefact_name },
     { "is_cursed",         l_item_is_cursed },
+    { "hands",             l_item_hands },
 };
 
 static int item_get(lua_State *ls)
@@ -1121,9 +1261,9 @@ static int item_get(lua_State *ls)
     if (!attr)
         return 0;
 
-    for (unsigned i = 0; i < ARRAYSZ(item_attrs); ++i)
-        if (!strcmp(attr, item_attrs[i].attribute))
-            return item_attrs[i].accessor(ls, iw, attr);
+    for (const ItemAccessor &ia : item_attrs)
+        if (!strcmp(attr, ia.attribute))
+            return ia.accessor(ls, iw, attr);
 
     return 0;
 }
@@ -1139,7 +1279,7 @@ static const struct luaL_reg item_lib[] =
     { "fired_item",        l_item_fired_item },
     { "inslot",            l_item_inslot },
     { "get_items_at",      l_item_get_items_at },
-    { NULL, NULL },
+    { nullptr, nullptr },
 };
 
 static int _delete_wrapped_item(lua_State *ls)

@@ -7,96 +7,53 @@
 
 #include "misc.h"
 
-#include <string.h>
 #include <algorithm>
-
+#include <cfloat>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #if !defined(__IBMCPP__) && !defined(TARGET_COMPILER_VC)
 #include <unistd.h>
 #endif
 
-#include <cstdlib>
-#include <cstdio>
-#include <cmath>
-#include <cfloat>
-
-#include "externs.h"
-#include "misc.h"
-
 #include "abyss.h"
 #include "act-iter.h"
 #include "areas.h"
-#include "art-enum.h"
-#include "artefact.h"
-#include "clua.h"
 #include "cloud.h"
 #include "coordit.h"
 #include "database.h"
 #include "delay.h"
 #include "dgn-shoals.h"
-#include "dgnevent.h"
+#include "directn.h"
+#include "english.h"
 #include "env.h"
-#include "feature.h"
 #include "fight.h"
-#include "files.h"
-#include "fprop.h"
 #include "food.h"
-#include "ghost.h"
-#include "godabil.h"
+#include "fprop.h"
 #include "godpassive.h"
-#include "itemname.h"
-#include "itemprop.h"
 #include "items.h"
 #include "item_use.h"
 #include "libutil.h"
-#include "losglobal.h"
-#include "makeitem.h"
 #include "mapmark.h"
 #include "message.h"
-#include "mgen_data.h"
-#include "mon-death.h"
-#include "mon-place.h"
 #include "mon-pathfind.h"
-#include "mon-info.h"
+#include "mon-place.h"
+#include "mon-tentacle.h"
 #include "ng-setup.h"
-#include "notes.h"
-#include "ouch.h"
-#include "player.h"
 #include "player-stats.h"
 #include "prompt.h"
-#include "random.h"
 #include "religion.h"
-#include "rot.h"
-#include "godconduct.h"
-#include "shopping.h"
-#include "skills.h"
-#include "skills2.h"
 #include "spl-clouds.h"
 #include "state.h"
 #include "stringutil.h"
-#include "target.h"
 #include "terrain.h"
 #include "tileview.h"
 #include "transform.h"
 #include "traps.h"
 #include "travel.h"
-#include "hints.h"
 #include "view.h"
-#include "shout.h"
 #include "xom.h"
-
-string get_desc_quantity(const int quant, const int total, string whose)
-{
-    if (total == quant)
-        return uppercase_first(whose);
-    else if (quant == 1)
-        return "One of " + whose;
-    else if (quant == 2)
-        return "Two of " + whose;
-    else if (quant >= total * 3 / 4)
-        return "Most of " + whose;
-    else
-        return "Some of " + whose;
-}
 
 // Update the trackers after the player changed level.
 void trackers_init_new_level(bool transit)
@@ -158,9 +115,12 @@ static bool _mons_has_path_to_player(const monster* mon, bool want_move = false)
     // known to the player and assuming unknown terrain to be traversable.
     monster_pathfind mp;
     const int range = mons_tracking_range(mon);
-    // Use a large safety margin.  x4 should be ok.
+    // At the very least, we shouldn't consider a visible monster with a
+    // direct path to you "safe" just because it would be too stupid to
+    // track you that far out-of-sight. Use a factor of 2 for smarter
+    // creatures as a safety margin.
     if (range > 0)
-        mp.set_range(range * 4);
+        mp.set_range(max(LOS_RADIUS, range * 2));
 
     if (mp.init_pathfind(mon, you.pos(), true, false, true))
         return true;
@@ -198,7 +158,7 @@ static bool _mons_is_always_safe(const monster *mon)
     return mon->wont_attack()
            || mon->type == MONS_BUTTERFLY
            || mon->withdrawn()
-           || mon->type == MONS_BALLISTOMYCETE && mon->number == 0;
+           || mon->type == MONS_BALLISTOMYCETE && !mon->ballisto_activity;
 }
 
 bool mons_is_safe(const monster* mon, const bool want_move,
@@ -304,23 +264,19 @@ bool i_feel_safe(bool announce, bool want_move, bool just_monsters,
     if (!just_monsters)
     {
         // check clouds
-        if (in_bounds(you.pos()) && env.cgrid(you.pos()) != EMPTY_CLOUD)
+        if (in_bounds(you.pos()))
         {
-            const int cloudidx = env.cgrid(you.pos());
-            const cloud_type type = env.cloud[cloudidx].type;
+            const cloud_type type = cloud_type_at(you.pos());
 
             // Temporary immunity allows travelling through a cloud but not
             // resting in it.
             // Qazlal immunity will allow for it, however.
-            if (is_damaging_cloud(type, want_move)
-                && (env.cloud[cloudidx].whose != KC_YOU
-                    || !you_worship(GOD_QAZLAL)
-                    || player_under_penance()))
+            if (is_damaging_cloud(type, want_move, cloud_is_yours_at(you.pos())))
             {
                 if (announce)
                 {
                     mprf(MSGCH_WARN, "You're standing in a cloud of %s!",
-                         cloud_name_at_index(cloudidx).c_str());
+                         cloud_type_name(type).c_str());
                 }
                 return false;
             }
@@ -350,9 +306,7 @@ bool i_feel_safe(bool announce, bool want_move, bool just_monsters,
     if (visible.size() == 1)
     {
         const monster& m = *visible[0];
-        const string monname = mons_is_mimic(m.type) ? "A mimic"
-                                                     : m.name(DESC_A);
-        msg = make_stringf("%s is nearby!", monname.c_str());
+        msg = make_stringf("%s is nearby!", m.name(DESC_A).c_str());
     }
     else if (visible.size() > 1)
         msg = "There are monsters nearby!";
@@ -362,7 +316,24 @@ bool i_feel_safe(bool announce, bool want_move, bool just_monsters,
         return true;
 
     if (announce)
+    {
         mprf(MSGCH_WARN, "%s", msg.c_str());
+
+        if (Options.use_animations & UA_MONSTER_IN_SIGHT)
+        {
+            static bool tried = false;
+
+            if (visible.size() && tried)
+            {
+                monster_view_annotator flasher(&visible);
+                delay(100);
+            }
+            else if (visible.size())
+                tried = true;
+            else
+                tried = false;
+        }
+    }
 
     return false;
 }
@@ -377,15 +348,15 @@ bool there_are_monsters_nearby(bool dangerous_only, bool require_visible,
 
 // General threat = sum_of_logexpervalues_of_nearby_unfriendly_monsters.
 // Highest threat = highest_logexpervalue_of_nearby_unfriendly_monsters.
-static void monster_threat_values(double *general, double *highest,
-                                  bool *invis)
+static void _monster_threat_values(double *general, double *highest,
+                                   bool *invis, coord_def pos = you.pos())
 {
     *invis = false;
 
     double sum = 0;
     int highest_xp = -1;
 
-    for (monster_near_iterator mi(you.pos()); mi; ++mi)
+    for (monster_near_iterator mi(pos); mi; ++mi)
     {
         if (mi->friendly())
             continue;
@@ -408,248 +379,14 @@ static void monster_threat_values(double *general, double *highest,
 bool player_in_a_dangerous_place(bool *invis)
 {
     bool junk;
-    if (invis == NULL)
+    if (invis == nullptr)
         invis = &junk;
 
     const double logexp = log((double)you.experience);
     double gen_threat = 0.0, hi_threat = 0.0;
-    monster_threat_values(&gen_threat, &hi_threat, invis);
+    _monster_threat_values(&gen_threat, &hi_threat, invis);
 
     return gen_threat > logexp * 1.3 || hi_threat > logexp / 2;
-}
-
-static void _drop_tomb(const coord_def& pos, bool premature, bool zin)
-{
-    int count = 0;
-    monster* mon = monster_at(pos);
-
-    // Don't wander on duty!
-    if (mon)
-        mon->behaviour = BEH_SEEK;
-
-    bool seen_change = false;
-    for (adjacent_iterator ai(pos); ai; ++ai)
-    {
-        // "Normal" tomb (card or monster spell)
-        if (!zin && revert_terrain_change(*ai, TERRAIN_CHANGE_TOMB))
-        {
-            count++;
-            if (you.see_cell(*ai))
-                seen_change = true;
-        }
-        // Zin's Imprison.
-        else if (zin && revert_terrain_change(*ai, TERRAIN_CHANGE_IMPRISON))
-        {
-            vector<map_marker*> markers = env.markers.get_markers_at(*ai);
-            for (int i = 0, size = markers.size(); i < size; ++i)
-            {
-                map_marker *mark = markers[i];
-                if (mark->property("feature_description")
-                    == "a gleaming silver wall")
-                {
-                    env.markers.remove(mark);
-                }
-            }
-
-            env.grid_colours(*ai) = 0;
-            tile_clear_flavour(*ai);
-            tile_init_flavour(*ai);
-            count++;
-            if (you.see_cell(*ai))
-                seen_change = true;
-        }
-    }
-
-    if (count)
-    {
-        if (seen_change && !zin)
-            mprf("The walls disappear%s!", premature ? " prematurely" : "");
-        else if (seen_change && zin)
-        {
-            mprf("Zin %s %s %s.",
-                 (mon) ? "releases"
-                       : "dismisses",
-                 (mon) ? mon->name(DESC_THE).c_str()
-                       : "the silver walls,",
-                 (mon) ? make_stringf("from %s prison",
-                             mon->pronoun(PRONOUN_POSSESSIVE).c_str()).c_str()
-                       : "but there is nothing inside them");
-        }
-        else
-        {
-            if (!silenced(you.pos()))
-                mprf(MSGCH_SOUND, "You hear a deep rumble.");
-            else
-                mpr("You feel the ground shudder.");
-        }
-    }
-}
-
-static vector<map_malign_gateway_marker*> _get_malign_gateways()
-{
-    vector<map_malign_gateway_marker*> mm_markers;
-
-    vector<map_marker*> markers = env.markers.get_all(MAT_MALIGN);
-    for (int i = 0, size = markers.size(); i < size; ++i)
-    {
-        map_marker *mark = markers[i];
-        if (mark->get_type() != MAT_MALIGN)
-            continue;
-
-        map_malign_gateway_marker *mmark = dynamic_cast<map_malign_gateway_marker*>(mark);
-
-        mm_markers.push_back(mmark);
-    }
-
-    return mm_markers;
-}
-
-int count_malign_gateways()
-{
-    return _get_malign_gateways().size();
-}
-
-void timeout_malign_gateways(int duration)
-{
-    // Passing 0 should allow us to just touch the gateway and see
-    // if it should decay. This, in theory, should resolve the one
-    // turn delay between it timing out and being recastable. -due
-    vector<map_malign_gateway_marker*> markers = _get_malign_gateways();
-
-    for (int i = 0, size = markers.size(); i < size; ++i)
-    {
-        map_malign_gateway_marker *mmark = markers[i];
-
-        if (duration)
-            mmark->duration -= duration;
-
-        if (mmark->duration > 0)
-            big_cloud(CLOUD_TLOC_ENERGY, 0, mmark->pos, 3+random2(10), 2+random2(5));
-        else
-        {
-            monster* mons = monster_at(mmark->pos);
-            if (mmark->monster_summoned && !mons)
-            {
-                // The marker hangs around until later.
-                if (env.grid(mmark->pos) == DNGN_MALIGN_GATEWAY)
-                    env.grid(mmark->pos) = DNGN_FLOOR;
-
-                env.markers.remove(mmark);
-            }
-            else if (!mmark->monster_summoned && !mons)
-            {
-                bool is_player = mmark->is_player;
-                actor* caster = 0;
-                if (is_player)
-                    caster = &you;
-
-                mgen_data mg = mgen_data(MONS_ELDRITCH_TENTACLE,
-                                         mmark->behaviour,
-                                         caster,
-                                         0,
-                                         0,
-                                         mmark->pos,
-                                         MHITNOT,
-                                         MG_FORCE_PLACE,
-                                         mmark->god);
-                if (!is_player)
-                    mg.non_actor_summoner = mmark->summoner_string;
-
-                if (monster *tentacle = create_monster(mg))
-                {
-                    tentacle->flags |= MF_NO_REWARD;
-                    tentacle->add_ench(ENCH_PORTAL_TIMER);
-                    mon_enchant kduration = mon_enchant(ENCH_PORTAL_PACIFIED, 4,
-                        caster, (random2avg(mmark->power, 6)-random2(4))*10);
-                    tentacle->props["base_position"].get_coord()
-                                        = tentacle->pos();
-                    tentacle->add_ench(kduration);
-
-                    mmark->monster_summoned = true;
-                }
-            }
-        }
-    }
-}
-
-void timeout_tombs(int duration)
-{
-    if (!duration)
-        return;
-
-    vector<map_marker*> markers = env.markers.get_all(MAT_TOMB);
-
-    for (int i = 0, size = markers.size(); i < size; ++i)
-    {
-        map_marker *mark = markers[i];
-        if (mark->get_type() != MAT_TOMB)
-            continue;
-
-        map_tomb_marker *cmark = dynamic_cast<map_tomb_marker*>(mark);
-        cmark->duration -= duration;
-
-        // Empty tombs disappear early.
-        monster* mon_entombed = monster_at(cmark->pos);
-        bool empty_tomb = !(mon_entombed || you.pos() == cmark->pos);
-        bool zin = (cmark->source == -GOD_ZIN);
-
-        if (cmark->duration <= 0 || empty_tomb)
-        {
-            _drop_tomb(cmark->pos, empty_tomb, zin);
-
-            monster* mon_src =
-                !invalid_monster_index(cmark->source) ? &menv[cmark->source]
-                                                      : NULL;
-            // A monster's Tomb of Doroklohe spell.
-            if (mon_src
-                && mon_src == mon_entombed)
-            {
-                mon_src->lose_energy(EUT_SPELL);
-            }
-
-            env.markers.remove(cmark);
-        }
-    }
-}
-
-void timeout_terrain_changes(int duration, bool force)
-{
-    if (!duration && !force)
-        return;
-
-    int num_seen[NUM_TERRAIN_CHANGE_TYPES] = {0};
-
-    vector<map_marker*> markers = env.markers.get_all(MAT_TERRAIN_CHANGE);
-
-    for (int i = 0, size = markers.size(); i < size; ++i)
-    {
-        map_terrain_change_marker *marker =
-                dynamic_cast<map_terrain_change_marker*>(markers[i]);
-
-        if (marker->duration != INFINITE_DURATION)
-            marker->duration -= duration;
-
-        if (marker->change_type == TERRAIN_CHANGE_DOOR_SEAL
-            && !feat_is_sealed(grd(marker->pos)))
-        {
-            continue;
-        }
-
-        monster* mon_src = monster_by_mid(marker->mon_num);
-        if (marker->duration <= 0
-            || (marker->mon_num != 0
-                && (!mon_src || !mon_src->alive() || mon_src->pacified())))
-        {
-            if (you.see_cell(marker->pos))
-                num_seen[marker->change_type]++;
-            revert_terrain_change(marker->pos, marker->change_type);
-        }
-    }
-
-    if (num_seen[TERRAIN_CHANGE_DOOR_SEAL] > 1)
-        mpr("The runic seals fade away.");
-    else if (num_seen[TERRAIN_CHANGE_DOOR_SEAL] > 0)
-        mpr("The runic seal fades away.");
 }
 
 void bring_to_safety()
@@ -700,7 +437,7 @@ void bring_to_safety()
 
         bool junk;
         double gen_threat = 0.0, hi_threat = 0.0;
-        monster_threat_values(&gen_threat, &hi_threat, &junk);
+        _monster_threat_values(&gen_threat, &hi_threat, &junk, pos);
         const double threat = gen_threat * hi_threat;
 
         if (threat < min_threat)
@@ -769,115 +506,11 @@ void revive()
         you.lives = 0;
         mpr("You are too frail to live.");
         // possible only with an extreme abuse of Borgnjor's
-        ouch(INSTANT_DEATH, NON_MONSTER, KILLED_BY_DRAINING);
+        ouch(INSTANT_DEATH, KILLED_BY_DRAINING);
     }
 
     mpr("You rejoin the land of the living...");
     more();
-}
-
-////////////////////////////////////////////////////////////////////////////
-// Living breathing dungeon stuff.
-//
-
-static vector<coord_def> sfx_seeds;
-
-void setup_environment_effects()
-{
-    sfx_seeds.clear();
-
-    for (int x = X_BOUND_1; x <= X_BOUND_2; ++x)
-    {
-        for (int y = Y_BOUND_1; y <= Y_BOUND_2; ++y)
-        {
-            if (!in_bounds(x, y))
-                continue;
-
-            const int grid = grd[x][y];
-            if (grid == DNGN_LAVA
-                    || (grid == DNGN_SHALLOW_WATER
-                        && player_in_branch(BRANCH_SWAMP)))
-            {
-                const coord_def c(x, y);
-                sfx_seeds.push_back(c);
-            }
-        }
-    }
-    dprf("%u environment effect seeds", (unsigned int)sfx_seeds.size());
-}
-
-static void apply_environment_effect(const coord_def &c)
-{
-    const dungeon_feature_type grid = grd(c);
-    // Don't apply if if the feature doesn't want it.
-    if (testbits(env.pgrid(c), FPROP_NO_CLOUD_GEN))
-        return;
-    if (grid == DNGN_LAVA)
-        check_place_cloud(CLOUD_BLACK_SMOKE, c, random_range(4, 8), 0);
-    else if (one_chance_in(3) && grid == DNGN_SHALLOW_WATER)
-        check_place_cloud(CLOUD_MIST,        c, random_range(2, 5), 0);
-}
-
-static const int Base_Sfx_Chance = 5;
-void run_environment_effects()
-{
-    if (!you.time_taken)
-        return;
-
-    dungeon_events.fire_event(DET_TURN_ELAPSED);
-
-    // Each square in sfx_seeds has this chance of doing something special
-    // per turn.
-    const int sfx_chance = Base_Sfx_Chance * you.time_taken / 10;
-    const int nseeds = sfx_seeds.size();
-
-    // If there are a large number of seeds, speed things up by fudging the
-    // numbers.
-    if (nseeds > 50)
-    {
-        int nsels = div_rand_round(sfx_seeds.size() * sfx_chance, 100);
-        if (one_chance_in(5))
-            nsels += random2(nsels * 3);
-
-        for (int i = 0; i < nsels; ++i)
-            apply_environment_effect(sfx_seeds[ random2(nseeds) ]);
-    }
-    else
-    {
-        for (int i = 0; i < nseeds; ++i)
-        {
-            if (random2(100) >= sfx_chance)
-                continue;
-
-            apply_environment_effect(sfx_seeds[i]);
-        }
-    }
-
-    run_corruption_effects(you.time_taken);
-    shoals_apply_tides(div_rand_round(you.time_taken, BASELINE_DELAY),
-                       false, true);
-    timeout_tombs(you.time_taken);
-    timeout_malign_gateways(you.time_taken);
-    timeout_terrain_changes(you.time_taken);
-    run_cloud_spreaders(you.time_taken);
-}
-
-// Converts a movement speed to a duration. i.e., answers the
-// question: if the monster is so fast, how much time has it spent in
-// its last movement?
-//
-// If speed is 10 (normal),    one movement is a duration of 10.
-// If speed is 1  (very slow), each movement is a duration of 100.
-// If speed is 15 (50% faster than normal), each movement is a duration of
-// 6.6667.
-int speed_to_duration(int speed)
-{
-    if (speed < 1)
-        speed = 10;
-    else if (speed > 100)
-        speed = 100;
-
-    return div_rand_round(100, speed);
 }
 
 bool bad_attack(const monster *mon, string& adj, string& suffix,
@@ -919,19 +552,25 @@ bool bad_attack(const monster *mon, string& adj, string& suffix,
 
     if (mon->friendly())
     {
-        if (you_worship(GOD_OKAWARU))
+        if (god_hates_attacking_friend(you.religion, mon))
         {
             adj = "your ally ";
 
             monster_info mi(mon, MILEV_NAME);
             if (!mi.is(MB_NAME_UNQUALIFIED))
                 adj += "the ";
+
+            would_cause_penance = true;
+
         }
         else
+        {
             adj = "your ";
 
-        if (god_hates_attacking_friend(you.religion, mon))
-            would_cause_penance = true;
+            monster_info mi(mon, MILEV_NAME);
+            if (mi.is(MB_NAME_UNQUALIFIED))
+                adj += "ally ";
+        }
 
         return true;
     }
@@ -1008,14 +647,14 @@ bool stop_attack_prompt(const monster* mon, bool beam_attack,
     else
         verb = "attack ";
 
-    snprintf(info, INFO_SIZE, "Really %s%s%s?%s",
+    const string prompt = make_stringf("Really %s%s%s?%s",
              verb.c_str(), mon_name.c_str(), suffix.c_str(),
              penance ? " This attack would place you under penance!" : "");
 
     if (prompted)
         *prompted = true;
 
-    if (yesno(info, false, 'n'))
+    if (yesno(prompt.c_str(), false, 'n'))
         return false;
     else
     {
@@ -1071,14 +710,14 @@ bool stop_attack_prompt(targetter &hitfunc, const char* verb,
         adj = "the " + adj;
     mon_name = adj + mon_name;
 
-    snprintf(info, INFO_SIZE, "Really %s %s%s?%s",
+    const string prompt = make_stringf("Really %s %s%s?%s",
              verb, mon_name.c_str(), suffix.c_str(),
              penance ? " This attack would place you under penance!" : "");
 
     if (prompted)
         *prompted = true;
 
-    if (yesno(info, false, 'n'))
+    if (yesno(prompt.c_str(), false, 'n'))
         return false;
     else
     {
@@ -1115,12 +754,7 @@ void swap_with_monster(monster* mon_to_swap)
 
     mprf("You swap places with %s.", mon.name(DESC_THE).c_str());
 
-    // Pick the monster up.
-    mgrd(newpos) = NON_MONSTER;
-    mon.moveto(you.pos());
-
-    // Plunk it down.
-    mgrd(mon.pos()) = mon_to_swap->mindex();
+    mon.move_to_pos(you.pos(), true, true);
 
     if (you_caught)
     {
@@ -1204,15 +838,13 @@ void entered_malign_portal(actor* act)
 {
     if (you.can_see(act))
     {
-        mprf("The portal repels %s, its terrible forces doing untold damage!",
-             act->is_player() ? "you" : act->name(DESC_THE).c_str());
+        mprf("%s %s twisted violently and ejected from the portal!",
+             act->name(DESC_THE).c_str(), act->conj_verb("be").c_str());
     }
 
     act->blink(false);
-    if (act->is_player())
-        ouch(roll_dice(2, 4), NON_MONSTER, KILLED_BY_WILD_MAGIC, "a malign gateway");
-    else
-        act->hurt(NULL, roll_dice(2, 4));
+    act->hurt(nullptr, roll_dice(2, 4), BEAM_MISSILE, KILLED_BY_WILD_MAGIC,
+              "", "entering a malign gateway");
 }
 
 void handle_real_time(time_t t)
@@ -1226,8 +858,8 @@ string part_stack_string(const int num, const int total)
     if (num == total)
         return "Your";
 
-    string ret  = uppercase_first(number_in_words(num));
-           ret += " of your";
+    string ret  = uppercase_first(number_in_words(num))
+                + " of your";
 
     return ret;
 }
@@ -1245,30 +877,31 @@ unsigned int breakpoint_rank(int val, const int breakpoints[],
 void counted_monster_list::add(const monster* mons)
 {
     const string name = mons->name(DESC_PLAIN);
-    for (counted_list::iterator i = list.begin(); i != list.end(); ++i)
+    for (auto &entry : list)
     {
-        if (i->first->name(DESC_PLAIN) == name)
+        if (entry.first->name(DESC_PLAIN) == name)
         {
-            i->second++;
+            entry.second++;
             return;
         }
     }
-    list.push_back(counted_monster(mons, 1));
+    list.emplace_back(mons, 1);
 }
 
 int counted_monster_list::count()
 {
     int nmons = 0;
-    for (counted_list::const_iterator i = list.begin(); i != list.end(); ++i)
-        nmons += i->second;
+    for (const auto &entry : list)
+        nmons += entry.second;
     return nmons;
 }
 
-string counted_monster_list::describe(description_level_type desc)
+string counted_monster_list::describe(description_level_type desc,
+                                      bool force_article)
 {
     string out;
 
-    for (counted_list::const_iterator i = list.begin(); i != list.end();)
+    for (auto i = list.begin(); i != list.end();)
     {
         const counted_monster &cm(*i);
         if (i != list.begin())
@@ -1279,8 +912,34 @@ string counted_monster_list::describe(description_level_type desc)
         else
             ++i;
 
-        out += cm.second > 1 ? pluralise(cm.first->name(desc))
+        out += cm.second > 1 ? pluralise(cm.first->name(desc, false, true))
                              : cm.first->name(desc);
     }
     return out;
+}
+
+/**
+ * Halloween or Hallowe'en (/ˌhæləˈwiːn, -oʊˈiːn, ˌhɑːl-/; a contraction of
+ * "All Hallows' Evening"),[6] also known as Allhalloween,[7] All Hallows' Eve,
+ * [8] or All Saints' Eve,[9] is a yearly celebration observed in a number of
+ * countries on 31 October, the eve of the Western Christian feast of All
+ * Hallows' Day... Within Allhallowtide, the traditional focus of All Hallows'
+ * Eve revolves around the theme of using "humor and ridicule to confront the
+ * power of death."[12]
+ *
+ * Typical festive Halloween activities include trick-or-treating (or the
+ * related "guising"), attending costume parties, decorating, carving pumpkins
+ * into jack-o'-lanterns, lighting bonfires, apple bobbing, visiting haunted
+ * house attractions, playing pranks, telling scary stories, and watching
+ * horror films.
+ *
+ * @return  Whether the current day is Halloween. (Cunning players may reset
+ *          their system clocks to manipulate this. That's fine.)
+ */
+bool today_is_halloween()
+{
+    const time_t curr_time = time(nullptr);
+    const struct tm *date = TIME_FN(&curr_time);
+    // tm_mon is zero-based in case you are wondering
+    return date->tm_mon == 9 && date->tm_mday == 31;
 }

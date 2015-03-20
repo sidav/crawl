@@ -17,7 +17,7 @@ default-depth: Depths
 # In case there is an encompass vault on the level.
 NAME:   ziggurat_fallback
 TAGS:   zig_entry
-KFEAT:  O = enter_ziggurat
+KFEAT:  O = enter_ziggurat no_mimic
 TAGS:   overwrite_floor_cell no_exits transparent
 WEIGHT: 1
 MAP
@@ -26,7 +26,7 @@ ENDMAP
 
 NAME:   enter_ziggurat_a
 TAGS:   zig_entry transparent
-KFEAT:  O = enter_ziggurat
+KFEAT:  O = enter_ziggurat no_mimic
 COLOUR: ; : cyan / lightblue
 COLOUR: ' = blue
 FTILE:  ; = floor_hall
@@ -45,7 +45,7 @@ ENDMAP
 NAME:    enter_ziggurat_b
 TAGS:    zig_entry transparent
 KMASK:   O = opaque
-KFEAT:   O = enter_ziggurat
+KFEAT:   O = enter_ziggurat no_mimic
 TAGS:    no_pool_fixup
 SHUFFLE: wW' / l;_
 COLOUR:  ; = red
@@ -67,7 +67,7 @@ ENDMAP
 
 NAME:    enter_ziggurat_c
 TAGS:    zig_entry no_trap_gen transparent
-KFEAT:   O = enter_ziggurat
+KFEAT:   O = enter_ziggurat no_mimic
 MONS:    lich / ancient lich
 MONS:    angel / daeva
 MONS:    eye of draining / eye of devastation / giant eyeball / \
@@ -92,7 +92,7 @@ ENDMAP
 
 NAME:    enter_ziggurat_d
 TAGS:    zig_entry no_trap_gen transparent
-KFEAT:   O = enter_ziggurat
+KFEAT:   O = enter_ziggurat no_mimic
 MONS:    lich / ancient lich
 MONS:    angel / daeva
 MONS:    eye of draining / eye of devastation / giant eyeball / \
@@ -118,7 +118,7 @@ ENDMAP
 
 NAME:   enter_ziggurat_e
 TAGS:   zig_entry transparent
-KFEAT:  O = enter_ziggurat
+KFEAT:  O = enter_ziggurat no_mimic
 COLOUR: ; : cyan / lightblue
 COLOUR: ' = blue
 FTILE:  ; = floor_hall
@@ -136,7 +136,7 @@ ENDMAP
 
 NAME:   enter_ziggurat_f
 TAGS:   zig_entry no_trap_gen transparent
-KFEAT:  O = enter_ziggurat
+KFEAT:  O = enter_ziggurat no_mimic
 MONS:   angel / nothing w:20
 KPROP:  1Om; = no_rtele_into
 KFEAT:  ; = floor
@@ -155,7 +155,7 @@ ENDMAP
 
 ### Pan entry vaults to ziggurats #############################################
 #
-# These can occur more than once, so no luniq_zig here.
+# These can occur more than once.
 
 default-depth: Pan
 
@@ -315,27 +315,29 @@ ENDMAP
 
 NAME: ziggurat_pillar_centre_c
 TAGS: ziggurat_pillar centered unrand no_exits
-# This is evil. Monster sets are: summoners (1), stares (2), harmless (3).
+# This is evil. Monster sets are: summoners (1), smites (2), harmless (3).
 # This pillar has tactical implications: you will have to stay away from it,
 # and teleports are more risky.
-MONS: ancient lich / shadow demon / ironbrand convoker / curse skull
-MONS: eye of draining / eye of devastation / giant eyeball / ghost moth
+MONS: ancient lich / shadow demon / curse skull / \
+      ironbrand convoker / corrupter / deep elf demonologist
+MONS: eye of draining / eye of devastation / \
+      giant eyeball / ghost moth / black sun
 MONS: plant
 : if you.depth() > 21 then
 SUBST: 3 = 12222
 : elseif you.depth() > 15 or you.depth() > 8 and crawl.coinflip() then
 SUBST: 3 = 12
 : end
-KFEAT: n = iron_grate
+KFEAT: m = iron_grate
 MAP
-nnn
-n3n
-nnn
+mmm
+m3m
+mmm
 ENDMAP
 
 NAME: ziggurat_pillar_centre_monster
 TAGS: ziggurat_pillar centered no_dump unrand no_exits
-MONS: curse skull / ice statue / orange crystal statue / silver statue
+MONS: curse skull / ice statue / orange crystal statue / obsidian statue
 MAP
 1
 ENDMAP
@@ -356,10 +358,11 @@ ENDMAP
 
 NAME: ziggurat_pillar_centre_h
 TAGS: ziggurat_pillar centered no_dump unrand no_exits
+MONS: crimson imp
 MAP
 ccncc
 c...c
-n...n
+n.1.n
 c...c
 ccncc
 ENDMAP
@@ -383,8 +386,8 @@ ENDMAP
 
 NAME: ziggurat_pillar_centre_k
 TAGS: ziggurat_pillar centered unrand no_exits
-MONS: boring beetle, boulder beetle, orb spider
-SUBST: 2 : 2:19 3:1
+MONS: boring beetle, boulder beetle, torpor snail, orb spider
+SUBST: 2 : 2:14 3:5 4:1
 MAP
 xxxxx
 xx2xx
@@ -515,11 +518,11 @@ NAME:    ziggurat_pillar_centre_drop
 TAGS:    ziggurat_pillar centered generate_awake unrand no_exits
 DEPTH:   Zig:10-
 WEIGHT:  5
-MONS:    lost soul
+MONS:    lost soul, rakshasa
 KFEAT:   ~ = known permanent teleport trap
 SUBST:   9 : 00., x : bcvx, X : bcnv
 : if you.depth() > 18 then
-SUBST:   0 : 011
+SUBST:   0 : 0112
 : end
 MAP
   xxx

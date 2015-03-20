@@ -76,14 +76,14 @@ LOCAL_LDLIBS := -lz -llog
 LOCAL_CFLAGS += -DCLUA_BINDINGS -DWIZARD
 
 # This is basically all the .cc files in the 'source' folder
-CRAWLSRC = ability.cc abyss.cc acquire.cc act-iter.cc actor.cc actor-los.cc \
+CRAWLSRC = ability.cc abyss.cc acquire.cc act-iter.cc actor.cc actor-los.cc adjust.cc \
 AppHdr.cc areas.cc arena.cc artefact.cc asg.cc attack.cc attitude-change.cc beam.cc \
 behold.cc bitary.cc bloodspatter.cc branch.cc butcher.cc chardump.cc cio.cc cloud.cc clua.cc cluautil.cc \
 colour.cc command.cc coord.cc coord-circle.cc coordit.cc crash.cc ctest.cc dactions.cc \
 database.cc dbg-asrt.cc dbg-maps.cc dbg-scan.cc dbg-util.cc decks.cc delay.cc describe.cc \
-dgl-message.cc dgn-delve.cc dgnevent.cc dgn-height.cc dgn-labyrinth.cc dgn-layouts.cc \
-dgn-overview.cc dgn-proclayouts.cc dgn-shoals.cc dgn-swamp.cc directn.cc dlua.cc dungeon.cc effects.cc \
-end.cc errors.cc evoke.cc exclude.cc exercise.cc fearmonger.cc feature.cc fight.cc files.cc \
+describe-god.cc describe-spells.cc dgl-message.cc dgn-delve.cc dgnevent.cc dgn-height.cc dgn-labyrinth.cc dgn-layouts.cc \
+dgn-overview.cc dgn-proclayouts.cc dgn-shoals.cc dgn-swamp.cc directn.cc dlua.cc dungeon.cc \
+end.cc english.cc errors.cc evoke.cc exclude.cc exercise.cc fearmonger.cc feature.cc fight.cc files.cc \
 fineff.cc fontwrapper-ft.cc food.cc format.cc fprop.cc geom2d.cc ghost.cc glwrapper.cc \
 glwrapper-ogl.cc godabil.cc godblessing.cc godconduct.cc godcompanions.cc goditem.cc godmenu.cc godpassive.cc \
 godprayer.cc godwrath.cc hash.cc hints.cc hiscores.cc initfile.cc invent.cc itemname.cc \
@@ -93,25 +93,25 @@ l_dgnmon.cc l_dgntil.cc lev-pand.cc l_feat.cc l_file.cc l_food.cc l_global.cc \
 libgui.cc libutil.cc libandroid.cc libw32c.cc l_item.cc l_los.cc l_mapgrd.cc \
 l_mapmrk.cc l_moninf.cc l_mons.cc l_option.cc lang-fake.cc los.cc los_def.cc losglobal.cc \
 losparam.cc l_spells.cc l_subvault.cc l_travel.cc luaterp.cc l_view.cc \
-l_you.cc macro.cc main.cc makeitem.cc mapdef.cc map_knowledge.cc mapmark.cc \
+l_you.cc lookup_help.cc macro.cc main.cc makeitem.cc mapdef.cc map_knowledge.cc mapmark.cc \
 maps.cc melee_attack.cc menu.cc message.cc message-stream.cc misc.cc \
 mon-abil.cc mon-act.cc mon-behv.cc mon-cast.cc mon-clone.cc \
-mon-death.cc mon-ench.cc mon-gear.cc mon-grow.cc mon-info.cc  mon-message.cc \
+mon-death.cc mon-ench.cc mon-gear.cc mon-grow.cc mon-info.cc   \
 mon-movetarget.cc mon-pathfind.cc mon-pick.cc mon-place.cc mon-poly.cc mon-project.cc \
-mon-speak.cc mon-stealth.cc monster.cc mon-transit.cc \
+mon-speak.cc mon-stealth.cc mon-tentacle.cc monster.cc mon-transit.cc \
 mon-util.cc mutation.cc newgame.cc ng-init.cc ng-input.cc ng-restr.cc ng-setup.cc \
 ng-wanderer.cc notes.cc orb.cc ouch.cc output.cc package.cc pattern.cc perlin.cc\
-place.cc place-info.cc player-act.cc player.cc player-equip.cc player-reacts.cc player-stats.cc \
+place.cc place-info.cc playable.cc player-act.cc player.cc player-equip.cc player-reacts.cc player-stats.cc \
 potion.cc prompt.cc quiver.cc random.cc random-var.cc ranged_attack.cc ray.cc religion.cc rot.cc shopping.cc \
-shout.cc show.cc showsymb.cc skill_menu.cc skills2.cc skills.cc species.cc spl-book.cc \
+shout.cc show.cc showsymb.cc skill_menu.cc skills.cc species.cc spl-book.cc \
 spl-cast.cc spl-clouds.cc spl-damage.cc spl-goditem.cc spl-miscast.cc spl-monench.cc \
 spl-other.cc spl-selfench.cc spl-summoning.cc spl-tornado.cc spl-transloc.cc \
 spl-util.cc spl-wpnench.cc spl-zap.cc sprint.cc sqldbm.cc stairs.cc startup.cc \
 stash.cc state.cc status.cc stepdown.cc store.cc stringutil.cc syscalls.cc tags.cc \
 target.cc teleport.cc terrain.cc throw.cc tilebuf.cc tilefont.cc tilepick.cc \
-tiletex.cc tileview.cc tileweb.cc tileweb-text.cc \
+tiletex.cc tileview.cc tileweb.cc tileweb-text.cc timed_effects.cc \
 transform.cc traps.cc travel.cc tutorial.cc uncancel.cc unicode.cc version.cc view.cc \
-viewchar.cc viewgeom.cc viewmap.cc wcwidth.cc windowmanager-sdl.cc wiz-dgn.cc \
+viewchar.cc viewgeom.cc viewmap.cc wcwidth.cc windowmanager-sdl.cc wiz-dgn.cc wiz-dump.cc \
 wiz-fsim.cc wiz-item.cc wiz-mon.cc wiz-you.cc worley.cc xom.cc zotdef.cc \
 dgn-irregular-box.cc mon-chimera.cc spl-pick.cc \
 \

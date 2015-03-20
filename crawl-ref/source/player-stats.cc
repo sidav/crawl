@@ -5,28 +5,30 @@
 #include "artefact.h"
 #include "clua.h"
 #include "delay.h"
-#include "godpassive.h"
 #include "files.h"
+#include "godpassive.h"
+#include "hints.h"
 #include "item_use.h"
 #include "libutil.h"
 #include "macro.h"
+#ifdef TOUCH_UI
+#include "menu.h"
+#endif
+#include "message.h"
 #include "misc.h"
-#include "mon-util.h"
 #include "monster.h"
+#include "mon-util.h"
 #include "notes.h"
 #include "ouch.h"
 #include "player.h"
 #include "religion.h"
 #include "state.h"
 #include "stringutil.h"
-#include "transform.h"
-#include "hints.h"
-
 #ifdef TOUCH_UI
-#include "menu.h"
 #include "tiledef-gui.h"
 #include "tilepick.h"
 #endif
+#include "transform.h"
 
 // Don't make this larger than 255 without changing the type of you.stat_zero
 // in player.h as well as the associated marshalling code in tags.cc
@@ -53,11 +55,11 @@ int player::dex(bool nonneg) const
     return stat(STAT_DEX, nonneg);
 }
 
-static int _stat_modifier(stat_type stat);
+static int _stat_modifier(stat_type stat, bool innate_only);
 
 int player::max_stat(stat_type s) const
 {
-    return min(base_stats[s] + _stat_modifier(s), 72);
+    return min(base_stats[s] + _stat_modifier(s, false), 72);
 }
 
 int player::max_strength() const
@@ -75,10 +77,22 @@ int player::max_dex() const
     return max_stat(STAT_DEX);
 }
 
-static void _handle_stat_change(stat_type stat, const char *aux = NULL,
-                                bool see_source = true);
-static void _handle_stat_change(const char *aux = NULL, bool see_source = true);
+// Base stat including innate mutations (which base_stats does not)
+static int _base_stat(stat_type s)
+{
+    return min(you.base_stats[s] + _stat_modifier(s, true), 72);
+}
 
+
+static void _handle_stat_change(stat_type stat, bool see_source = true);
+static void _handle_stat_change(bool see_source = true);
+
+/**
+ * Handle manual, permanent character stat increases. (Usually from every third
+ * XL.
+ *
+ * @return Whether the stat was actually increased (HUPs can interrupt this).
+ */
 bool attribute_increase()
 {
     crawl_state.stat_gain_prompt = true;
@@ -101,9 +115,20 @@ bool attribute_increase()
 #else
     mprf(MSGCH_INTRINSIC_GAIN, "Your experience leads to an increase in your attributes!");
     learned_something_new(HINT_CHOOSE_STAT);
+    if (_base_stat(STAT_STR) != you.strength()
+        || _base_stat(STAT_INT) != you.intel()
+        || _base_stat(STAT_DEX) != you.dex())
+    {
+        mprf(MSGCH_PROMPT, "Your base attributes are Str %d, Int %d, Dex %d.",
+             _base_stat(STAT_STR),
+             _base_stat(STAT_INT),
+             _base_stat(STAT_DEX));
+    }
     mprf(MSGCH_PROMPT, "Increase (S)trength, (I)ntelligence, or (D)exterity? ");
 #endif
     mouse_control mc(MOUSE_MODE_PROMPT);
+
+    const int statgain = you.species == SP_DEMIGOD ? 2 : 1;
 
     bool tried_lua = false;
     int keyin;
@@ -140,17 +165,20 @@ bool attribute_increase()
 
         case 's':
         case 'S':
-            modify_stat(STAT_STR, 1, false, "level gain");
+            for (int i = 0; i < statgain; i++)
+                modify_stat(STAT_STR, 1, false, "level gain");
             return true;
 
         case 'i':
         case 'I':
-            modify_stat(STAT_INT, 1, false, "level gain");
+            for (int i = 0; i < statgain; i++)
+                modify_stat(STAT_INT, 1, false, "level gain");
             return true;
 
         case 'd':
         case 'D':
-            modify_stat(STAT_DEX, 1, false, "level gain");
+            for (int i = 0; i < statgain; i++)
+                modify_stat(STAT_DEX, 1, false, "level gain");
             return true;
 #ifdef TOUCH_UI
         default:
@@ -192,10 +220,8 @@ void jiyva_stat_action()
     {
         int magic_weights = 0;
         int other_weights = 0;
-        for (int i = SK_FIRST_SKILL; i < NUM_SKILLS; i++)
+        for (skill_type sk = SK_FIRST_SKILL; sk < NUM_SKILLS; ++sk)
         {
-            skill_type sk = static_cast<skill_type>(i);
-
             int weight = you.skills[sk];
 
             if (sk >= SK_SPELLCASTING && sk < SK_INVOCATIONS)
@@ -203,25 +229,23 @@ void jiyva_stat_action()
             else
                 other_weights += weight;
         }
+        // We give pure Int weighting if the player is sufficiently
+        // focused on magic skills.
+        other_weights = max(other_weights - magic_weights / 2, 0);
 
-        // Heavy armour weights towards strength, Dodging skill towards
-        // dexterity.  EVP 15 (chain) is enough to weight towards pure Str in
-        // the absence of dodging skill, but 15 dodging will will push that
-        // back to pure Dex.
-        int str_weight = (10 * evp - you.skill(SK_DODGING, 10)) / 15;
-        // Clip weight between 0 (pure dex) and 10 (pure strength).
-        str_weight = min(10, max(0, str_weight));
-
-        // If you are in really heavy armour, then you already are getting a
-        // lot of Str and more won't help much, so weight magic more.
-        other_weights = max(other_weights - (evp >= 15 ? 4 : 1)
-                            * magic_weights / 2, 0);
+        // Now scale appropriately and apply the Int weighting
         magic_weights = div_rand_round(remaining * magic_weights,
                                        magic_weights + other_weights);
         other_weights = remaining - magic_weights;
         target_stat[1] += magic_weights;
 
-        const int str_adj = div_rand_round(other_weights * str_weight, 10);
+        // Heavy armour weights towards Str, Dodging skill towards Dex.
+        int str_weight = 10 * evp;
+        int dex_weight = 10 + you.skill(SK_DODGING, 10);
+
+        // Now apply the Str and Dex weighting.
+        const int str_adj = div_rand_round(other_weights * str_weight,
+                                           str_weight + dex_weight);
         target_stat[0] += str_adj;
         target_stat[2] += (other_weights - str_adj);
     }
@@ -251,11 +275,8 @@ void jiyva_stat_action()
     if (choices)
     {
         simple_god_message("'s power touches on your attributes.");
-        const string cause = "the 'helpfulness' of " + god_name(you.religion);
-        modify_stat(static_cast<stat_type>(stat_up_choice), 1, true,
-                    cause.c_str());
-        modify_stat(static_cast<stat_type>(stat_down_choice), -1, true,
-                    cause.c_str());
+        modify_stat(static_cast<stat_type>(stat_up_choice), 1, true);
+        modify_stat(static_cast<stat_type>(stat_down_choice), -1, true);
     }
 }
 
@@ -287,7 +308,7 @@ const char* stat_desc(stat_type stat, stat_desc_type desc)
 }
 
 void modify_stat(stat_type which_stat, int amount, bool suppress_msg,
-                 const char *cause, bool see_source)
+                 bool see_source)
 {
     ASSERT(!crawl_state.game_is_arena());
 
@@ -311,11 +332,11 @@ void modify_stat(stat_type which_stat, int amount, bool suppress_msg,
 
     you.base_stats[which_stat] += amount;
 
-    _handle_stat_change(which_stat, cause, see_source);
+    _handle_stat_change(which_stat, see_source);
 }
 
 void notify_stat_change(stat_type which_stat, int amount, bool suppress_msg,
-                        const char *cause, bool see_source)
+                        bool see_source)
 {
     ASSERT(!crawl_state.game_is_arena());
 
@@ -337,173 +358,138 @@ void notify_stat_change(stat_type which_stat, int amount, bool suppress_msg,
              stat_desc(which_stat, (amount > 0) ? SD_INCREASE : SD_DECREASE));
     }
 
-    _handle_stat_change(which_stat, cause, see_source);
+    _handle_stat_change(which_stat, see_source);
 }
 
-void notify_stat_change(stat_type which_stat, int amount, bool suppress_msg,
-                        const item_def &cause, bool removed)
+void notify_stat_change()
 {
-    string name = cause.name(DESC_THE, false, true, false, false,
-                             ISFLAG_KNOW_CURSE | ISFLAG_KNOW_PLUSES);
-    string verb;
-
-    switch (cause.base_type)
-    {
-    case OBJ_ARMOUR:
-    case OBJ_JEWELLERY:
-        if (removed)
-            verb = "removing";
-        else
-            verb = "wearing";
-        break;
-
-    case OBJ_WEAPONS:
-    case OBJ_STAVES:
-    case OBJ_RODS:
-        if (removed)
-            verb = "unwielding";
-        else
-            verb = "wielding";
-        break;
-
-    case OBJ_WANDS:   verb = "zapping";  break;
-    case OBJ_FOOD:    verb = "eating";   break;
-    case OBJ_SCROLLS: verb = "reading";  break;
-    case OBJ_POTIONS: verb = "drinking"; break;
-    default:          verb = "using";
-    }
-
-    notify_stat_change(which_stat, amount, suppress_msg,
-                       (verb + " " + name).c_str(), true);
+    _handle_stat_change();
 }
 
-void notify_stat_change(const char* cause)
+static int _mut_level(mutation_type mut, bool innate)
 {
-    _handle_stat_change(cause);
+    return innate ? you.innate_mutation[mut] : player_mutation_level(mut);
 }
 
-static int _strength_modifier()
+static int _strength_modifier(bool innate_only)
 {
     int result = 0;
 
-    if (you.duration[DUR_MIGHT] || you.duration[DUR_BERSERK])
-        result += 5;
+    if (!innate_only)
+    {
+        if (you.duration[DUR_MIGHT] || you.duration[DUR_BERSERK])
+            result += 5;
 
-    if (you.duration[DUR_FORTITUDE])
-        result += 10;
+        if (you.duration[DUR_FORTITUDE])
+            result += 10;
 
-    if (you.duration[DUR_DIVINE_STAMINA])
-        result += you.attribute[ATTR_DIVINE_STAMINA];
+        if (you.duration[DUR_DIVINE_STAMINA])
+            result += you.attribute[ATTR_DIVINE_STAMINA];
 
-    result += chei_stat_boost();
+        result += chei_stat_boost();
 
-    // ego items of strength
-    result += 3 * count_worn_ego(SPARM_STRENGTH);
+        // ego items of strength
+        result += 3 * count_worn_ego(SPARM_STRENGTH);
 
-    // rings of strength
-    result += you.wearing(EQ_RINGS_PLUS, RING_STRENGTH);
+        // rings of strength
+        result += you.wearing(EQ_RINGS_PLUS, RING_STRENGTH);
 
-    // randarts of strength
-    result += you.scan_artefacts(ARTP_STRENGTH);
+        // randarts of strength
+        result += you.scan_artefacts(ARTP_STRENGTH);
+
+        // form
+        result += get_form()->str_mod;
+    }
 
     // mutations
-    result += 2 * (player_mutation_level(MUT_STRONG)
-                  - player_mutation_level(MUT_WEAK));
+    result += 2 * (_mut_level(MUT_STRONG, innate_only)
+                   - _mut_level(MUT_WEAK, innate_only));
 #if TAG_MAJOR_VERSION == 34
-    result += player_mutation_level(MUT_STRONG_STIFF)
-              - player_mutation_level(MUT_FLEXIBLE_WEAK);
+    result += _mut_level(MUT_STRONG_STIFF, innate_only)
+              - _mut_level(MUT_FLEXIBLE_WEAK, innate_only);
 #endif
 
-    // transformations
-    switch (you.form)
+    return result;
+}
+
+static int _int_modifier(bool innate_only)
+{
+    int result = 0;
+
+    if (!innate_only)
     {
-    case TRAN_STATUE:          result +=  2; break;
-    case TRAN_DRAGON:          result += 10; break;
-    case TRAN_BAT:             result -=  5; break;
-    default:                                 break;
+        if (you.duration[DUR_BRILLIANCE])
+            result += 5;
+
+        if (you.duration[DUR_DIVINE_STAMINA])
+            result += you.attribute[ATTR_DIVINE_STAMINA];
+
+        result += chei_stat_boost();
+
+        // ego items of intelligence
+        result += 3 * count_worn_ego(SPARM_INTELLIGENCE);
+
+        // rings of intelligence
+        result += you.wearing(EQ_RINGS_PLUS, RING_INTELLIGENCE);
+
+        // randarts of intelligence
+        result += you.scan_artefacts(ARTP_INTELLIGENCE);
     }
 
-    return result;
-}
-
-static int _int_modifier()
-{
-    int result = 0;
-
-    if (you.duration[DUR_BRILLIANCE])
-        result += 5;
-
-    if (you.duration[DUR_DIVINE_STAMINA])
-        result += you.attribute[ATTR_DIVINE_STAMINA];
-
-    result += chei_stat_boost();
-
-    // ego items of intelligence
-    result += 3 * count_worn_ego(SPARM_INTELLIGENCE);
-
-    // rings of intelligence
-    result += you.wearing(EQ_RINGS_PLUS, RING_INTELLIGENCE);
-
-    // randarts of intelligence
-    result += you.scan_artefacts(ARTP_INTELLIGENCE);
-
     // mutations
-    result += 2 * (player_mutation_level(MUT_CLEVER)
-                  - player_mutation_level(MUT_DOPEY));
+    result += 2 * (_mut_level(MUT_CLEVER, innate_only)
+                   - _mut_level(MUT_DOPEY, innate_only));
 
     return result;
 }
 
-static int _dex_modifier()
+static int _dex_modifier(bool innate_only)
 {
     int result = 0;
 
-    if (you.duration[DUR_AGILITY])
-        result += 5;
+    if (!innate_only)
+    {
+        if (you.duration[DUR_AGILITY])
+            result += 5;
 
-    if (you.duration[DUR_DIVINE_STAMINA])
-        result += you.attribute[ATTR_DIVINE_STAMINA];
+        if (you.duration[DUR_DIVINE_STAMINA])
+            result += you.attribute[ATTR_DIVINE_STAMINA];
 
-    result += chei_stat_boost();
+        result += chei_stat_boost();
 
-    // ego items of dexterity
-    result += 3 * count_worn_ego(SPARM_DEXTERITY);
+        // ego items of dexterity
+        result += 3 * count_worn_ego(SPARM_DEXTERITY);
 
-    // rings of dexterity
-    result += you.wearing(EQ_RINGS_PLUS, RING_DEXTERITY);
+        // rings of dexterity
+        result += you.wearing(EQ_RINGS_PLUS, RING_DEXTERITY);
 
-    // randarts of dexterity
-    result += you.scan_artefacts(ARTP_DEXTERITY);
+        // randarts of dexterity
+        result += you.scan_artefacts(ARTP_DEXTERITY);
+
+        // form
+        result += get_form()->dex_mod;
+    }
 
     // mutations
-    result += 2 * (player_mutation_level(MUT_AGILE)
-                  - player_mutation_level(MUT_CLUMSY));
+    result += 2 * (_mut_level(MUT_AGILE, innate_only)
+                  - _mut_level(MUT_CLUMSY, innate_only));
 #if TAG_MAJOR_VERSION == 34
-    result += player_mutation_level(MUT_FLEXIBLE_WEAK)
-              - player_mutation_level(MUT_STRONG_STIFF);
+    result += _mut_level(MUT_FLEXIBLE_WEAK, innate_only)
+              - _mut_level(MUT_STRONG_STIFF, innate_only);
 #endif
-    result += 2 * player_mutation_level(MUT_THIN_SKELETAL_STRUCTURE);
-    result -= player_mutation_level(MUT_ROUGH_BLACK_SCALES);
-
-    // transformations
-    switch (you.form)
-    {
-    case TRAN_SPIDER: result +=  5; break;
-    case TRAN_STATUE: result -=  2; break;
-    case TRAN_BAT:    result +=  5; break;
-    default:                        break;
-    }
+    result += 2 * _mut_level(MUT_THIN_SKELETAL_STRUCTURE, innate_only);
+    result -= _mut_level(MUT_ROUGH_BLACK_SCALES, innate_only);
 
     return result;
 }
 
-static int _stat_modifier(stat_type stat)
+static int _stat_modifier(stat_type stat, bool innate_only)
 {
     switch (stat)
     {
-    case STAT_STR: return _strength_modifier();
-    case STAT_INT: return _int_modifier();
-    case STAT_DEX: return _dex_modifier();
+    case STAT_STR: return _strength_modifier(innate_only);
+    case STAT_INT: return _int_modifier(innate_only);
+    case STAT_DEX: return _dex_modifier(innate_only);
     default:
         mprf(MSGCH_ERROR, "Bad stat: %d", stat);
         return 0;
@@ -559,15 +545,14 @@ bool lose_stat(stat_type which_stat, int stat_loss, bool force,
         if (you.stat_zero[which_stat])
         {
             mprf(MSGCH_DANGER, "You convulse from lack of %s!", stat_desc(which_stat, SD_NAME));
-            ouch(5 + random2(you.hp_max / 10), NON_MONSTER, _statloss_killtype(which_stat), cause);
+            ouch(5 + random2(you.hp_max / 10), _statloss_killtype(which_stat), MID_NOBODY, cause);
         }
-        _handle_stat_change(which_stat, cause, see_source);
+        _handle_stat_change(which_stat, see_source);
         return true;
     }
     else
         return false;
 }
-
 bool lose_stat(stat_type which_stat, int stat_loss, bool force,
                const string cause, bool see_source)
 {
@@ -577,8 +562,8 @@ bool lose_stat(stat_type which_stat, int stat_loss, bool force,
 bool lose_stat(stat_type which_stat, int stat_loss,
                const monster* cause, bool force)
 {
-    if (cause == NULL || invalid_monster(cause))
-        return lose_stat(which_stat, stat_loss, force, NULL, true);
+    if (cause == nullptr || invalid_monster(cause))
+        return lose_stat(which_stat, stat_loss, force, nullptr, true);
 
     bool   vis  = you.can_see(cause);
     string name = cause->name(DESC_A, true);
@@ -652,7 +637,7 @@ static void _normalize_stat(stat_type stat)
     you.base_stats[stat] = min<int8_t>(you.base_stats[stat], 72);
 }
 
-static void _handle_stat_change(stat_type stat, const char* cause, bool see_source)
+static void _handle_stat_change(stat_type stat, bool see_source)
 {
     ASSERT_RANGE(stat, 0, NUM_STATS);
 
@@ -690,10 +675,10 @@ static void _handle_stat_change(stat_type stat, const char* cause, bool see_sour
     }
 }
 
-static void _handle_stat_change(const char* aux, bool see_source)
+static void _handle_stat_change(bool see_source)
 {
     for (int i = 0; i < NUM_STATS; ++i)
-        _handle_stat_change(static_cast<stat_type>(i), aux, see_source);
+        _handle_stat_change(static_cast<stat_type>(i), see_source);
 }
 
 // Called once per turn.

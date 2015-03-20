@@ -3,33 +3,116 @@
 #include "feature.h"
 
 #include "colour.h"
+#include "libutil.h"
 #include "options.h"
-#include "show.h"
-#include "terrain.h"
+#include "viewchar.h"
 
 #include "feature-data.h"
+
 static FixedVector<feature_def, NUM_SHOW_ITEMS> item_defs;
 static int feat_index[NUM_FEATURES];
 static feature_def invis_fd, cloud_fd;
 
-/** Give a feature_def some reasonable defaults.
+/** What symbol should be used for this feature?
  *
- *  XXX: This is kind of what a default constructor is for, but until
- *  we allow C++11-only features we can't have aggregate initialisation
- *  (in feature-data.h) as well as a constructor.
- *
- *  @param[out] fd The new feature_def to be given values.
+ *  @returns The symbol from the 'feature' option if given, otherwise the
+ *           character corresponding to ::dchar.
  */
-void init_fd(feature_def &fd)
+ucs_t feature_def::symbol() const
 {
-    fd.feat = DNGN_UNSEEN;
-    fd.name = fd.vaultname = "";
-    fd.dchar = fd.magic_dchar = NUM_DCHAR_TYPES;
-    fd.symbol = fd.magic_symbol = 0;
-    fd.colour = fd.seen_colour = fd.em_colour = fd.seen_em_colour = BLACK;
-    fd.map_colour = DARKGREY;
-    fd.flags = FFT_NONE;
-    fd.minimap = MF_UNSEEN;
+    auto over = map_find(Options.feature_symbol_overrides, feat);
+    if (over && (*over)[0])
+        return get_glyph_override((*over)[0]);
+
+    return dchar_glyph(dchar);
+}
+
+/** What symbol should be used for this feature when magic mapped?
+ *
+ *  @returns The symbol from the 'feature' option if given, otherwise the
+ *           character corresponding to ::magic_dchar if set, otherwise
+ *           the normal symbol.
+ */
+ucs_t feature_def::magic_symbol() const
+{
+    auto over = map_find(Options.feature_symbol_overrides, feat);
+    if (over && (*over)[1])
+        return get_glyph_override((*over)[1]);
+
+    if (magic_dchar != NUM_DCHAR_TYPES)
+        return dchar_glyph(magic_dchar);
+    else
+        return symbol();
+}
+
+/** What colour should be used for this feature?
+ *
+ *  @returns The colour from the feature option if given, otherwise
+ *           the normal colour.
+ */
+colour_t feature_def::colour() const
+{
+    auto ofeat = map_find(Options.feature_colour_overrides, feat);
+    if (ofeat && ofeat->dcolour)
+        return ofeat->dcolour;
+
+    return dcolour;
+}
+
+/** What colour should be used for this feature when out of LOS?
+ *
+ *  @returns The map_colour from the feature option if given, otherwise
+ *           the normal map_colour.
+ */
+colour_t feature_def::map_colour() const
+{
+    auto ofeat = map_find(Options.feature_colour_overrides, feat);
+    if (ofeat && ofeat->map_dcolour)
+        return ofeat->map_dcolour;
+
+    return map_dcolour;
+}
+
+/** What colour should be used for this feature when we have knowledge of it?
+ *
+ *  @returns The seen_colour from the feature option if given, otherwise
+ *           the normal seen_colour.
+ */
+colour_t feature_def::seen_colour() const
+{
+    auto ofeat = map_find(Options.feature_colour_overrides, feat);
+    if (ofeat && ofeat->seen_dcolour)
+        return ofeat->seen_dcolour;
+
+    return seen_dcolour;
+}
+
+/** Emphasised colour when out of LoS?
+ *
+ *  @returns The seen_em_colour from the feature option if given, otherwise
+ *           the normal seen_em_colour.
+ */
+colour_t feature_def::seen_em_colour() const
+{
+    auto ofeat = map_find(Options.feature_colour_overrides, feat);
+    if (ofeat && ofeat->seen_em_dcolour)
+        return ofeat->seen_em_dcolour;
+
+    return seen_em_dcolour;
+}
+
+/** Emphasised colour in LOS?
+ *
+ *  @returns The em_colour from the feature option if given, otherwise
+*            the normal em_colour.
+ */
+colour_t feature_def::em_colour() const
+{
+    auto ofeat = map_find(Options.feature_colour_overrides, feat);
+    if (ofeat && ofeat->em_dcolour)
+        return ofeat->em_dcolour;
+
+    return em_dcolour;
 }
 
 /** Do the default colour relations on a feature_def.
@@ -38,61 +121,14 @@ void init_fd(feature_def &fd)
  */
 static void _create_colours(feature_def &f)
 {
-    if (f.seen_colour == BLACK)
-        f.seen_colour = f.map_colour;
+    if (f.seen_dcolour == BLACK)
+        f.seen_dcolour = f.map_dcolour;
 
-    if (f.seen_em_colour == BLACK)
-        f.seen_em_colour = f.seen_colour;
+    if (f.seen_em_dcolour == BLACK)
+        f.seen_em_dcolour = f.seen_dcolour;
 
-    if (f.em_colour == BLACK)
-        f.em_colour = f.colour;
-}
-
-/** Create the symbol/magic_symbol based on the dchar.
- *
- *  @param[out] f The feature_def to be filled out.
- */
-static void _create_symbols(feature_def &f)
-{
-    if (!f.symbol && f.dchar != NUM_DCHAR_TYPES)
-        f.symbol = Options.char_table[f.dchar];
-
-    if (f.magic_dchar == NUM_DCHAR_TYPES)
-        f.magic_symbol = f.symbol;
-    else
-        f.magic_symbol = Options.char_table[f.magic_dchar];
-}
-
-/** Put the feature overrides from the 'feature' option, stored in
- *  Options.feature_overrides, into feat_defs.
- */
-static void _apply_feature_overrides()
-{
-    for (map<dungeon_feature_type, feature_def>::const_iterator fo
-         = Options.feature_overrides.begin();
-         fo != Options.feature_overrides.end();
-         ++fo)
-    {
-        const feature_def           &ofeat  = fo->second;
-        // Replicating get_feature_def since we need not-const.
-        feature_def                 &feat   = feat_defs[feat_index[fo->first]];
-        ucs_t c;
-
-        if (ofeat.symbol && (c = get_glyph_override(ofeat.symbol)))
-            feat.symbol = c;
-        if (ofeat.magic_symbol && (c = get_glyph_override(ofeat.magic_symbol)))
-            feat.magic_symbol = c;
-        if (ofeat.colour)
-            feat.colour = ofeat.colour;
-        if (ofeat.map_colour)
-            feat.map_colour = ofeat.map_colour;
-        if (ofeat.seen_colour)
-            feat.seen_colour = ofeat.seen_colour;
-        if (ofeat.seen_em_colour)
-            feat.seen_em_colour = ofeat.seen_em_colour;
-        if (ofeat.em_colour)
-            feat.em_colour = ofeat.em_colour;
-    }
+    if (f.em_dcolour == BLACK)
+        f.em_dcolour = f.dcolour;
 }
 
 static void _init_feature_index()
@@ -115,33 +151,24 @@ static void _init_feature_index()
 void init_show_table()
 {
     _init_feature_index();
-    _apply_feature_overrides();
-    for (int i = 0; i < (int) ARRAYSZ(feat_defs); i++)
-        _create_symbols(feat_defs[i]);
 
     for (int i = 0; i < NUM_SHOW_ITEMS; i++)
     {
         show_item_type si = static_cast<show_item_type>(i);
         // SHOW_ITEM_NONE is bogus, but "invis exposed" is an ok placeholder
         COMPILE_CHECK(DCHAR_ITEM_AMULET - DCHAR_ITEM_DETECTED + 2 == NUM_SHOW_ITEMS);
-        init_fd(item_defs[si]);
         item_defs[si].minimap = MF_ITEM;
         item_defs[si].dchar = static_cast<dungeon_char_type>(i
             + DCHAR_ITEM_DETECTED - SHOW_ITEM_DETECTED);
-        _create_symbols(item_defs[si]);
         _create_colours(item_defs[si]);
     }
 
-    init_fd(invis_fd);
     invis_fd.dchar = DCHAR_INVIS_EXPOSED;
     invis_fd.minimap = MF_MONS_HOSTILE;
-    _create_symbols(invis_fd);
     _create_colours(invis_fd);
 
-    init_fd(cloud_fd);
     cloud_fd.dchar = DCHAR_CLOUD;
     cloud_fd.minimap = MF_SKIP;
-    _create_symbols(cloud_fd);
     _create_colours(cloud_fd);
 }
 

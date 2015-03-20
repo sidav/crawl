@@ -6,11 +6,9 @@
 #ifndef PROC_LAYOUTS_H
 #define PROC_LAYOUTS_H
 
-#include "fixedvector.h"
-
 #include "dungeon.h"
 #include "enum.h"
-#include "externs.h"
+#include "fixedvector.h"
 #include "worley.h"
 
 dungeon_feature_type sanitize_feature(dungeon_feature_type feature,
@@ -201,15 +199,6 @@ class ClampLayout : public ProceduralLayout
         const ProceduralLayout &layout;
         const int clamp;
         const bool bursty;
-};
-
-class CityLayout : public ProceduralLayout
-{
-    public:
-        CityLayout() {}
-        ProceduralSample operator()(const coord_def &p,
-            const uint32_t offset = 0) const;
-    private:
 };
 
 // Base class is only needed for a couple of support functions

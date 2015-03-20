@@ -4,18 +4,15 @@
  **/
 #include "AppHdr.h"
 
+#include "dgn-proclayouts.h"
+
 #include <cmath>
 
-#include "dgn-proclayouts.h"
 #include "coord.h"
 #include "coordit.h"
 #include "files.h"
-#include "hash.h"
 #include "perlin.h"
 #include "terrain.h"
-#include "worley.h"
-
-#include "mpr.h"
 
 static dungeon_feature_type _pick_pseudorandom_wall(uint64_t val)
 {
@@ -341,23 +338,6 @@ ClampLayout::operator()(const coord_def &p, const uint32_t offset) const
 }
 
 ProceduralSample
-CityLayout::operator()(const coord_def &p, const uint32_t offset) const
-{
-    const double scale = 9.0;
-    double x = p.x / scale;
-    double y = p.y / scale;
-    double z = 12.0;
-    worley::noise_datum n = worley::noise(x, y, z + 0xF00);
-    int size = 3 + (n.id[0] % 5) & (n.id[0] / 5) % 5;
-    int x_off = ceil(n.pos[0][0] * scale);
-    int y_off = ceil(n.pos[0][1] * scale);
-    int dist = coord_def(x_off, y_off).rdist();
-    if (dist == size)
-        return ProceduralSample(p, DNGN_ROCK_WALL, offset + 4096);
-    return ProceduralSample(p, DNGN_FLOOR, offset + 4096);
-}
-
-ProceduralSample
 UnderworldLayout::operator()(const coord_def &p, const uint32_t offset) const
 {
     // Define various environmental functions based on noise. These factors
@@ -591,7 +571,7 @@ double WorleyFunction::operator()(const coord_def &p, const uint32_t offset) con
 
 double WorleyFunction::operator()(double x, double y, double z) const
 {
-    worley::noise_datum d = this->datum(x,y,z);
+    worley::noise_datum d = datum(x,y,z);
     return d.distance[1]-d.distance[0];
 }
 

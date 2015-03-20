@@ -14,9 +14,9 @@ function ($, comm, enums, map_knowledge, messages, options) {
     };
 
     var defense_boosters = {
-        "ac": "icy armour|stone skin|protected from physical damage",
+        "ac": "icy armour|corpse armour|stone skin|protected from physical damage",
         "ev": "phasing|agile",
-        "sh": "shielded",
+        "sh": "shielded|corpse armour",
     }
 
     /**
@@ -268,7 +268,7 @@ function ($, comm, enums, map_knowledge, messages, options) {
      */
     function update_stats_pane()
     {
-        $("#stats_titleline").text(player.name + " the " + player.title);
+        $("#stats_titleline").text(player.name + " " + player.title);
         $("#stats_wizmode").text(player.wizard ? "*WIZARD*" : "");
 
         var do_temperature = false;
@@ -309,12 +309,13 @@ function ($, comm, enums, map_knowledge, messages, options) {
             species_god += " of " + player.god;
         if (player.god == "Xom")
         {
-            if (player.piety_rank == 1)
-                $("#stats_piety").text("- getting BORED");
-            else if (player.piety_rank == 2)
-                $("#stats_piety").text("- BORED");
+            if (player.piety_rank >=0)
+            {
+                $("#stats_piety").text(repeat_string(".",player.piety_rank) + "*"
+                                       + repeat_string(".",5-player.piety_rank));
+            }
             else
-                $("#stats_piety").text("");
+                $("#stats_piety").text("......"); // very special plaything
         }
         else if ((player.piety_rank > 0 || player.god != "")
                  && player.god != "Gozag")
@@ -462,6 +463,7 @@ function ($, comm, enums, map_knowledge, messages, options) {
                 ac: 0, ev: 0, sh: 0,
                 xl: 0, progress: 0,
                 zp: null,
+                time: 0, time_delta: 0,
                 gold: 0,
                 str: 0, int: 0, dex: 0,
                 str_max: 0, int_max: 0, dex_max: 0,

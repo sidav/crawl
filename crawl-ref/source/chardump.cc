@@ -6,63 +6,52 @@
 #include "AppHdr.h"
 
 #include "chardump.h"
-#include "clua.h"
 
 #include <string>
-#include <stdio.h>
-#include <string.h>
+#include <cctype>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <fcntl.h>
-#include <stdlib.h>
 #if !defined(__IBMCPP__) && !defined(TARGET_COMPILER_VC)
 #include <unistd.h>
 #endif
-#include <ctype.h>
-
-#include "externs.h"
-#include "options.h"
 
 #include "ability.h"
-#include "art-enum.h"
 #include "artefact.h"
+#include "art-enum.h"
 #include "branch.h"
 #include "describe.h"
 #include "dgn-overview.h"
 #include "dungeon.h"
-#include "env.h"
 #include "fight.h"
 #include "files.h"
 #include "godprayer.h"
 #include "hiscores.h"
 #include "initfile.h"
+#include "invent.h"
 #include "itemprop.h"
-#include "itemname.h"
 #include "items.h"
 #include "kills.h"
 #include "libutil.h"
 #include "message.h"
-#include "menu.h"
 #include "mutation.h"
 #include "notes.h"
 #include "output.h"
 #include "place.h"
-#include "player.h"
 #include "prompt.h"
 #include "religion.h"
-#include "shopping.h"
 #include "showsymb.h"
-#include "skills2.h"
-#include "spl-book.h"
-#include "spl-cast.h"
+#include "skills.h"
 #include "spl-util.h"
-#include "stash.h"
 #include "state.h"
 #include "stringutil.h"
 #include "transform.h"
 #include "travel.h"
 #include "unicode.h"
 #include "version.h"
-#include "view.h"
 #include "viewchar.h"
+#include "view.h"
 #include "xom.h"
 
 struct dump_params;
@@ -113,7 +102,7 @@ struct dump_params
     const scorefile_entry *se;
 
     dump_params(string &_text, const string &sec = "",
-                bool id = false, const scorefile_entry *s = NULL)
+                bool id = false, const scorefile_entry *s = nullptr)
         : text(_text), section(sec), full_id(id), se(s)
     {
     }
@@ -152,9 +141,9 @@ static dump_section_handler dump_handlers[] =
     { "-",              _sdump_separator     },
 
 #ifdef CLUA_BINDINGS
-    { NULL,             _sdump_lua           }
+    { nullptr,          _sdump_lua           }
 #else
-    { NULL,             NULL                }
+    { nullptr,          nullptr              }
 #endif
 };
 
@@ -232,78 +221,7 @@ static void _sdump_transform(dump_params &par)
 {
     string &text(par.text);
     if (you.form)
-    {
-        string verb = par.se? "were" : "are";
-
-        switch (you.form)
-        {
-        case TRAN_SPIDER:
-            text += "You " + verb + " in spider-form.";
-            break;
-        case TRAN_BAT:
-            text += "You " + verb + " in ";
-            if (you.species == SP_VAMPIRE)
-                text += "vampire ";
-            text += "bat-form.";
-            break;
-        case TRAN_BLADE_HANDS:
-            text += "Your " + blade_parts() + " " + verb + " blades.";
-            break;
-        case TRAN_STATUE:
-            text += "You " + verb + " a stone statue.";
-            break;
-        case TRAN_ICE_BEAST:
-            text += "You " + verb + " a creature of crystalline ice.";
-            break;
-        case TRAN_DRAGON:
-            text += "You " + verb + " a fearsome dragon!";
-            break;
-        case TRAN_LICH:
-            text += "You " + verb + " in lich-form.";
-            break;
-        case TRAN_PIG:
-            text += "You " + verb + " a filthy swine.";
-            break;
-        case TRAN_APPENDAGE:
-            if (you.attribute[ATTR_APPENDAGE] == MUT_TENTACLE_SPIKE)
-            {
-                text += make_stringf("One of your tentacles %s a temporary spike.",
-                                     par.se ? "had" : "has");
-            }
-            else
-            {
-                text += make_stringf("You %s grown temporary %s.",
-                                     par.se ? "had" : "have",
-                                     mutation_name((mutation_type) you.attribute[ATTR_APPENDAGE]));
-            }
-            break;
-        case TRAN_FUNGUS:
-            text += "You " + verb + " a sentient fungus.";
-            break;
-        case TRAN_TREE:
-            text += "You " + verb + " an animated tree.";
-            break;
-#if TAG_MAJOR_VERSION == 34
-        case TRAN_JELLY:
-            text += "You " + verb + " an acidic jelly.";
-            break;
-#endif
-        case TRAN_PORCUPINE:
-            text += "You " + verb + " a porcupine.";
-            break;
-        case TRAN_WISP:
-            text += "You " + verb + " a barely coherent strand of gas.";
-            break;
-        case TRAN_SHADOW:
-            text += "You " + verb + " a swirling mass of dark shadows.";
-            break;
-        case TRAN_NONE:
-            break;
-        }
-
-        text += "\n\n";
-    }
-}
+        text += get_form()->get_description(par.se) + "\n\n";}
 
 static branch_type single_portals[] =
 {
@@ -332,8 +250,8 @@ static void _sdump_visits(dump_params &par)
     vector<PlaceInfo> branches_visited = you.get_all_place_info(true, true);
 
     PlaceInfo branches_total;
-    for (unsigned int i = 0; i < branches_visited.size(); i++)
-        branches_total += branches_visited[i];
+    for (const PlaceInfo &branch : branches_visited)
+        branches_total += branch;
 
     text += make_stringf("You %svisited %d branch",
                          have.c_str(), (int)branches_visited.size());
@@ -380,7 +298,7 @@ static void _sdump_visits(dump_params &par)
     if (place_info.num_visits > 0)
     {
         int num_zigs = place_info.num_visits;
-        text += make_stringf("You %s%s %d Ziggurat",
+        text += make_stringf("You %s%s %d ziggurat",
                              have.c_str(),
                              (num_zigs == you.zigs_completed) ? "completed"
                                                               : "visited",
@@ -398,9 +316,8 @@ static void _sdump_visits(dump_params &par)
     }
 
     vector<string> misc_portals;
-    for (unsigned int i = 0; i < ARRAYSZ(single_portals); i++)
+    for (branch_type br : single_portals)
     {
-        branch_type br = single_portals[i];
         place_info = you.get_place_info(br);
         if (!place_info.num_visits)
             continue;
@@ -541,11 +458,8 @@ static void _sdump_turns_by_place(dump_params &par)
 
     text += _sdump_turns_place_info(you.global_info, "Total");
 
-    for (unsigned int i = 0; i < all_visited.size(); i++)
-    {
-        PlaceInfo pi = all_visited[i];
+    for (const PlaceInfo &pi : all_visited)
         text += _sdump_turns_place_info(pi);
-    }
 
     text += "               ";
     text += "+-------+-------+-------+-------+-------+----------------------\n";
@@ -632,9 +546,9 @@ static void _sdump_notes(dump_params &par)
 
     text += "\nNotes\nTurn   | Place    | Note\n";
     text += "--------------------------------------------------------------\n";
-    for (unsigned i = 0; i < note_list.size(); ++i)
+    for (const Note &note : note_list)
     {
-        text += note_list[i].describe();
+        text += note.describe();
         text += "\n";
     }
     text += "\n";
@@ -725,11 +639,8 @@ static bool _dump_item_origin(const item_def &item)
     if (fs(IODS_JEWELLERY) && item.base_type == OBJ_JEWELLERY)
         return true;
 
-    if (fs(IODS_RUNES) && item.base_type == OBJ_MISCELLANY
-        && item.sub_type == MISC_RUNE_OF_ZOT)
-    {
+    if (fs(IODS_RUNES) && item_is_rune(item))
         return true;
-    }
 
     if (fs(IODS_RODS) && item.base_type == OBJ_RODS)
         return true;
@@ -784,61 +695,57 @@ static void _sdump_inventory(dump_params &par)
     {
         text += "Inventory:\n\n";
 
-        for (i = 0; i < NUM_OBJECT_CLASSES; i++)
+        for (int obj = 0; obj < NUM_OBJECT_CLASSES; obj++)
         {
-            if (inv_class2[i] != 0)
+            i = inv_order[obj];
+
+            if (inv_class2[i] == 0)
+                continue;
+
+            switch (i)
             {
-                switch (i)
+            case OBJ_WEAPONS:    text += "Hand weapons";    break;
+            case OBJ_MISSILES:   text += "Missiles";        break;
+            case OBJ_ARMOUR:     text += "Armour";          break;
+            case OBJ_WANDS:      text += "Magical devices"; break;
+            case OBJ_FOOD:       text += "Comestibles";     break;
+            case OBJ_SCROLLS:    text += "Scrolls";         break;
+            case OBJ_JEWELLERY:  text += "Jewellery";       break;
+            case OBJ_POTIONS:    text += "Potions";         break;
+            case OBJ_BOOKS:      text += "Books";           break;
+            case OBJ_STAVES:     text += "Magical staves";  break;
+            case OBJ_RODS:       text += "Rods";            break;
+            case OBJ_ORBS:       text += "Orbs of Power";   break;
+            case OBJ_MISCELLANY: text += "Miscellaneous";   break;
+            case OBJ_CORPSES:    text += "Carrion";         break;
+
+            default:
+                die("Bad item class");
+            }
+            text += "\n";
+
+            for (j = 0; j < ENDOFPACK; j++)
+            {
+                if (!you.inv[j].defined() || you.inv[j].base_type != i)
+                    continue;
+
+                text += " ";
+                text += you.inv[j].name(DESC_INVENTORY_EQUIP);
+
+                inv_count--;
+
+                if (origin_describable(you.inv[j]) && _dump_item_origin(you.inv[j]))
+                    text += "\n" "   (" + origin_desc(you.inv[j]) + ")";
+
+                if (is_dumpable_artefact(you.inv[j])
+                    || Options.dump_book_spells
+                       && you.inv[j].base_type == OBJ_BOOKS)
                 {
-                case OBJ_WEAPONS:    text += "Hand weapons";    break;
-                case OBJ_MISSILES:   text += "Missiles";        break;
-                case OBJ_ARMOUR:     text += "Armour";          break;
-                case OBJ_WANDS:      text += "Magical devices"; break;
-                case OBJ_FOOD:       text += "Comestibles";     break;
-                case OBJ_SCROLLS:    text += "Scrolls";         break;
-                case OBJ_JEWELLERY:  text += "Jewellery";       break;
-                case OBJ_POTIONS:    text += "Potions";         break;
-                case OBJ_BOOKS:      text += "Books";           break;
-                case OBJ_STAVES:     text += "Magical staves";  break;
-                case OBJ_RODS:       text += "Rods";            break;
-                case OBJ_ORBS:       text += "Orbs of Power";   break;
-                case OBJ_MISCELLANY: text += "Miscellaneous";   break;
-                case OBJ_CORPSES:    text += "Carrion";         break;
-
-                default:
-                    die("Bad item class");
+                    text2 = get_item_description(you.inv[j], false, true);
+                    text += munge_description(text2);
                 }
-                text += "\n";
-
-                for (j = 0; j < ENDOFPACK; j++)
-                {
-                    if (you.inv[j].defined() && you.inv[j].base_type == i)
-                    {
-                        text += " ";
-                        text += you.inv[j].name(DESC_INVENTORY_EQUIP);
-
-                        inv_count--;
-
-                        if (origin_describable(you.inv[j])
-                            && _dump_item_origin(you.inv[j]))
-                        {
-                            text += "\n" "   (" + origin_desc(you.inv[j]) + ")";
-                        }
-
-                        if (is_dumpable_artefact(you.inv[j], false)
-                            || Options.dump_book_spells
-                               && you.inv[j].base_type == OBJ_BOOKS)
-                        {
-                            text2 = get_item_description(you.inv[j],
-                                                          false,
-                                                          true);
-
-                            text += munge_description(text2);
-                        }
-                        else
-                            text += "\n";
-                    }
-                }
+                else
+                    text += "\n";
             }
         }
     }
@@ -866,7 +773,7 @@ static void _sdump_skills(dump_params &par)
 // Return string of the i-th spell type, with slash if required
 //
 //---------------------------------------------------------------
-static string spell_type_shortname(int spell_class, bool slash)
+static string spell_type_shortname(spschool_flag_type spell_class, bool slash)
 {
     string ret;
 
@@ -944,9 +851,10 @@ static void _sdump_spells(dump_params &par)
 
                 for (int i = 0; i <= SPTYP_LAST_EXPONENT; i++)
                 {
-                    if (spell_typematch(spell, 1 << i))
+                    const auto bit = spschools_type::exponent(i);
+                    if (spell_typematch(spell, bit))
                     {
-                        spell_line += spell_type_shortname(1 << i, already);
+                        spell_line += spell_type_shortname(bit, already);
                         already = true;
                     }
                 }
@@ -957,9 +865,7 @@ static void _sdump_spells(dump_params &par)
 
                 spell_line = chop_string(spell_line, 54);
 
-                char* failure = failure_rate_to_string(spell_fail(spell));
-                spell_line += failure;
-                free(failure);
+                spell_line += failure_rate_to_string(raw_spell_fail(spell));
 
                 spell_line = chop_string(spell_line, 66);
 
@@ -1055,11 +961,8 @@ static void _sdump_kills_by_place(dump_params &par)
 
     result += _sdump_kills_place_info(you.global_info, "Total");
 
-    for (unsigned int i = 0; i < all_visited.size(); i++)
-    {
-        PlaceInfo pi = all_visited[i];
+    for (const PlaceInfo &pi : all_visited)
         result += _sdump_kills_place_info(pi);
-    }
 
     if (!result.empty())
         text += header + result + footer + "\n";
@@ -1207,7 +1110,7 @@ static string _describe_action_subtype(caction_type type, int subtype)
             dummy.base_type = (object_class_type)(subtype >> 16);
             dummy.sub_type  = subtype & 0xffff;
             dummy.quantity  = 1;
-            return uppercase_first(dummy.name(DESC_PLAIN, true));
+            return uppercase_first(dummy.name(DESC_DBNAME, true));
         }
 
         switch ((evoc_type)subtype)
@@ -1221,9 +1124,9 @@ static string _describe_action_subtype(caction_type type, int subtype)
 #if TAG_MAJOR_VERSION == 34
         case EVOC_MISC:
             return "Miscellaneous";
-#endif
-        case EVOC_TOME:
+        case EVOC_BUGGY_TOME:
             return "tome";
+#endif
         default:
             return "Error";
         }
@@ -1263,24 +1166,22 @@ static void _sdump_action_counts(dump_params &par)
     for (int cact = 0; cact < NUM_CACTIONS; cact++)
     {
         vector<pair<int, FixedVector<int, 28> > > action_vec;
-        for (map<pair<caction_type, int>, FixedVector<int, 27> >::const_iterator
-              ac = you.action_count.begin(); ac != you.action_count.end(); ++ac)
+        for (const auto &entry : you.action_count)
         {
-            if (ac->first.first != cact)
+            if (entry.first.first != cact)
                 continue;
             FixedVector<int, 28> v;
             v[27] = 0;
             for (int i = 0; i < 27; i++)
             {
-                v[i] = ac->second[i];
+                v[i] = entry.second[i];
                 v[27] += v[i];
             }
-            action_vec.push_back(pair<int, FixedVector<int, 28> >(ac->first.second, v));
+            action_vec.emplace_back(entry.first.second, v);
         }
         sort(action_vec.begin(), action_vec.end(), _sort_by_first);
 
-        for (vector<pair<int, FixedVector<int, 28> > >::const_iterator ac =
-                action_vec.begin(); ac != action_vec.end(); ++ac)
+        for (auto ac = action_vec.begin(); ac != action_vec.end(); ++ac)
         {
             if (ac == action_vec.begin())
             {
@@ -1400,12 +1301,10 @@ void dump_map(FILE *fp, bool debug, bool dist)
             {
 #ifdef COLOURED_DUMPS
                 size_t nv = 0;
-                for (size_t i = 0; i < env.level_vaults.size(); ++i)
-                    if (env.level_vaults[i]->map.in_map(coord_def(x, y)
-                           - env.level_vaults[i]->pos))
-                    {
+                for (const vault_placement *vault : env.level_vaults)
+                    if (vault->map.in_map(coord_def(x, y) - vault->pos))
                         nv++;
-                    }
+
                 int v = env.level_map_ids[x][y];
                 if (v == INVALID_MAP_INDEX)
                     v = -1;
@@ -1434,7 +1333,7 @@ void dump_map(FILE *fp, bool debug, bool dist)
                 else
                 {
                     fputs(OUTS(stringize_glyph(
-                               get_feature_def(grd[x][y]).symbol)), fp);
+                               get_feature_def(grd[x][y]).symbol())), fp);
                 }
             }
             fputc('\n', fp);
@@ -1507,7 +1406,7 @@ static bool _write_dump(const string &fname, dump_params &par, bool quiet)
 
     dprf("File name: %s", file_name.c_str());
 
-    if (handle != NULL)
+    if (handle != nullptr)
     {
         fputs(OUTS(par.text), handle);
         fclose(handle);
@@ -1533,10 +1432,10 @@ void display_notes()
     scr.set_tag("notes");
     scr.set_highlighter(new MenuHighlighter);
     scr.set_title(new MenuEntry("Turn   | Place    | Note"));
-    for (unsigned int i = 0; i < note_list.size(); ++i)
+    for (const Note &note : note_list)
     {
-        string prefix = note_list[i].describe(true, true, false);
-        string suffix = note_list[i].describe(false, false, true);
+        string prefix = note.describe(true, true, false);
+        string suffix = note.describe(false, false, true);
         if (suffix.empty())
             continue;
 
@@ -1629,7 +1528,7 @@ static bool _dgl_unknown_timestamp_file(const string &filename)
     return false;
 }
 
-// Returns a filehandle to use to write turn timestamps, NULL if
+// Returns a filehandle to use to write turn timestamps, nullptr if
 // timestamps should not be written.
 static FILE *_dgl_timestamp_filehandle()
 {
@@ -1699,7 +1598,7 @@ static void _dgl_record_timestamp(int turn)
 {
     if (turn && turn < TIMESTAMP_TURN_MAX && !(turn % TIMESTAMP_TURN_INTERVAL))
     {
-        const time_t now = time(NULL);
+        const time_t now = time(nullptr);
         const unsigned long offset =
             (VERSION_SIZE +
              (turn / TIMESTAMP_TURN_INTERVAL - 1) * TIMESTAMP_SIZE);

@@ -6,10 +6,6 @@
 #ifndef RANDART_H
 #define RANDART_H
 
-#include "externs.h"
-
-struct bolt;
-
 #define ART_PROPERTIES ARTP_NUM_PROPERTIES
 
 #define KNOWN_PROPS_KEY     "artefact_known_props"
@@ -18,6 +14,8 @@ struct bolt;
 #define ARTEFACT_APPEAR_KEY "artefact_appearance"
 
 #define HELLFIRE_BOLT_KEY "hellfire_bolt"
+
+struct bolt;
 
 enum unrand_flag_type
 {
@@ -74,7 +72,7 @@ struct unrandart_entry
 bool is_known_artefact(const item_def &item);
 bool is_artefact(const item_def &item);
 bool is_random_artefact(const item_def &item);
-bool is_unrandom_artefact(const item_def &item);
+bool is_unrandom_artefact(const item_def &item, int which = 0);
 bool is_special_unrandom_artefact(const item_def &item);
 bool is_randapp_artefact(const item_def &item);
 void autoid_unrand(item_def &item);
@@ -85,6 +83,7 @@ unique_item_status_type get_unique_item_status(int unrand_index);
 void set_unique_item_status(const item_def& item,
                             unique_item_status_type status);
 
+string get_artefact_base_name(const item_def &item, bool terse = false);
 string get_artefact_name(const item_def &item, bool force_known = false);
 
 void set_artefact_name(item_def &item, const string &name);
@@ -100,30 +99,27 @@ typedef FixedVector< bool, ART_PROPERTIES > artefact_known_props_t;
 
 void artefact_desc_properties(const item_def        &item,
                               artefact_properties_t &proprt,
-                              artefact_known_props_t &known,
-                              bool force_fake_props = false);
+                              artefact_known_props_t &known);
 
-void artefact_wpn_properties(const item_def       &item,
-                             artefact_properties_t &proprt,
-                             artefact_known_props_t &known);
+void artefact_properties(const item_def       &item,
+                         artefact_properties_t &proprt,
+                         artefact_known_props_t &known);
 
-void artefact_wpn_properties(const item_def &item,
-                             artefact_properties_t &proprt);
+void artefact_properties(const item_def &item,
+                         artefact_properties_t &proprt);
 
-int artefact_wpn_property(const item_def &item, artefact_prop_type prop,
-                          bool &known);
+int artefact_property(const item_def &item, artefact_prop_type prop,
+                      bool &known);
 
-int artefact_wpn_property(const item_def &item, artefact_prop_type prop);
+int artefact_property(const item_def &item, artefact_prop_type prop);
 
-int artefact_known_wpn_property(const item_def &item,
-                                 artefact_prop_type prop);
+int artefact_known_property(const item_def &item, artefact_prop_type prop);
 
-void artefact_wpn_learn_prop(item_def &item, artefact_prop_type prop);
-void reveal_randapp_artefact(item_def &item);
+void artefact_learn_prop(item_def &item, artefact_prop_type prop);
 
 bool make_item_randart(item_def &item, bool force_mundane = false);
 bool make_item_unrandart(item_def &item, int unrand_index);
-void setup_unrandart(item_def &item);
+void setup_unrandart(item_def &item, bool creating = true);
 
 bool randart_is_bad(const item_def &item);
 bool randart_is_bad(const item_def &item, artefact_properties_t &proprt);
@@ -135,6 +131,18 @@ const unrandart_entry* get_unrand_entry(int unrand_index);
 void artefact_set_property(item_def           &item,
                            artefact_prop_type  prop,
                            int                 val);
+
+enum artp_value_type
+{
+    ARTP_VAL_BOOL,
+    ARTP_VAL_POS,
+    ARTP_VAL_ANY,
+};
+artp_value_type artp_potential_value_types(artefact_prop_type prop);
+
+const char *artp_name(artefact_prop_type prop);
+bool artp_potentially_good(artefact_prop_type prop);
+bool artp_potentially_bad(artefact_prop_type prop);
 
 int get_unrandart_num(const char *name);
 

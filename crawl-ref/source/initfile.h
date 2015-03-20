@@ -6,8 +6,8 @@
 #ifndef INITFILE_H
 #define INITFILE_H
 
-#include <string>
 #include <cstdio>
+#include <string>
 
 #include "enum.h"
 #include "itemprop-enum.h"
@@ -15,6 +15,8 @@
 
 int str_to_summon_type(const string &str);
 string gametype_to_str(game_type type);
+
+job_type str_to_job(const string &str);
 
 string read_init_file(bool runscript = false);
 
@@ -54,7 +56,7 @@ public:
     vector<string> cmd_args;
 
     int map_gen_iters;
-    Unique_ptr<depth_ranges> map_gen_range;
+    unique_ptr<depth_ranges> map_gen_range;
 
     vector<string> extra_opts_first;
     vector<string> extra_opts_last;

@@ -104,6 +104,7 @@ sublimation_of_blood SUBLIMATION_OF_BLOOD
 symbol_of_torment SYMBOL_OF_TORMENT
 twisted_resurrection TWISTED_RESURRECTION
 vampiric_draining VAMPIRIC_DRAINING
+cigotuvis_embrace CIGOTUVIS_EMBRACE
 
 %sdir gui/spells/poison
 alistairs_intoxication ALISTAIRS_INTOXICATION
@@ -138,7 +139,6 @@ summon_guardian_golem SUMMON_GUARDIAN_GOLEM
 summon_forest SUMMON_FOREST
 monstrous_menagerie MONSTROUS_MENAGERIE
 summon_mana_viper SUMMON_MANA_VIPER
-forceful_dismissal FORCEFUL_DISMISSAL
 spellforged_servitor SPELLFORGED_SERVITOR
 
 %sdir gui/spells/translocation
@@ -154,10 +154,14 @@ portal_projectile PORTAL_PROJECTILE
 teleport_other TELEPORT_OTHER
 warp_weapon WARP_WEAPON
 shroud_of_golubria SHROUD_OF_GOLUBRIA
+singularity SINGULARITY
+gravitas GRAVITAS
 
 %sdir gui/spells/transmutation
 blade_hands BLADE_HANDS
 beastly_appendage BEASTLY_APPENDAGE
+irradiate IRRADIATE
+hydra_form HYDRA_FORM
 dragon_form DRAGON_FORM
 
 # rod spells
@@ -210,9 +214,9 @@ error CONTROL_WINDS
 error CORRUPT_BODY
 error CREATE_TENTACLES
 error CRYSTAL_BOLT
+error DEATH_RATTLE
 error DIMENSION_ANCHOR
 error DISINTEGRATE
-error DRACONIAN_BREATH
 error DRUIDS_CALL
 %sdir gui/spells/monster
 earth_elementals EARTH_ELEMENTALS
@@ -321,9 +325,9 @@ hellfire HELLFIRE
 # spells mimicking divine abilities
 %sdir gui/invocations
 beogh_smite SMITING
-elyvilon_lesser_healing HEAL_OTHER
-elyvilon_lesser_self_healing MINOR_HEALING
-elyvilon_greater_self_healing MAJOR_HEALING
+elyvilon_heal_other HEAL_OTHER
+elyvilon_lesser_healing MINOR_HEALING
+elyvilon_greater_healing MAJOR_HEALING
 makhleb_major_destruction MAJOR_DESTRUCTION
 lugonu_banish BANISHMENT
 trog_hand TROGS_HAND

@@ -7,28 +7,22 @@
 
 #include "mon-speak.h"
 
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
 #include <algorithm>
-
-#include "externs.h"
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 #include "areas.h"
-#include "beam.h"
 #include "branch.h"
-#include "cluautil.h"
 #include "database.h"
-#include "dlua.h"
 #include "ghost.h"
 #include "libutil.h"
 #include "message.h"
 #include "mon-death.h"
-#include "mon-util.h"
 #include "monster.h"
-#include "player.h"
+#include "mon-util.h"
 #include "religion.h"
-#include "skills2.h"
+#include "skills.h"
 #include "state.h"
 #include "stringutil.h"
 #include "view.h"
@@ -83,8 +77,7 @@ static string __try_exact_string(const vector<string> &prefixes,
                 continue;
             religion = true;
         }
-        else if (str_to_branch(prefixes[i]) != NUM_BRANCHES
-                 || prefixes[i] == "Dungeon")
+        else if (str_to_branch(prefixes[i]) != NUM_BRANCHES)
         {
             if (ignore_branch)
                 continue;
@@ -141,15 +134,9 @@ static bool _invalid_msg(const string &msg, bool no_player, bool no_foe,
 
     if (no_player)
     {
-        vector<string> lines = split_string("\n", msg);
-        for (unsigned int i = 0; i < lines.size(); i++)
-        {
-            if (starts_with(lines[i], "You")
-                || ends_with(lines[i], "you."))
-            {
+        for (const string &line : split_string("\n", msg))
+            if (starts_with(line, "You") || ends_with(line, "you."))
                 return true;
-            }
-        }
     }
 
     if (no_foe && (msg.find("@foe") != string::npos
@@ -297,9 +284,14 @@ static string _get_speak_string(const vector<string> &prefixes,
     int duration = 1;
     if (mons->hit_points <= 0)
     {
-        //let her have separate death/permadeath lines
-        if (mons_is_natasha(mons) && !mons_felid_can_revive(mons))
+        //separate death/permadeath lines for resurrection monsters
+        if (mons_is_mons_class(mons, MONS_NATASHA)
+               && !mons_felid_can_revive(mons)
+            || mons->type == MONS_BENNU
+               && !mons_bennu_can_revive(mons))
+        {
             key += " permanently";
+        }
         key += " killed";
     }
     else if ((mons->flags & MF_BANISHED) && !player_in_branch(BRANCH_ABYSS))
@@ -344,26 +336,46 @@ static string _get_speak_string(const vector<string> &prefixes,
 // Maybe monsters will speak!
 void maybe_mons_speaks(monster* mons)
 {
-#define MON_SPEAK_CHANCE 21
+    // Very fast wandering/patrolling monsters might, in one monster turn,
+    // move into the player's LOS and then back out (or the player
+    // might move into their LOS and the monster move back out before
+    // the player's view has a chance to update) so prevent them
+    // from speaking.
+    if (mons->is_patrolling() || mons_is_wandering(mons))
+        return;
 
-    if (mons->is_patrolling() || mons_is_wandering(mons)
-        || mons->attitude == ATT_NEUTRAL)
+    // per ef44f8a14, this seems to be handled elsewhere?
+    if (mons->attitude == ATT_NEUTRAL)
+        return;
+
+    int chance = 21; // this is a very old number; no idea why it was chosen
+
+    // allies stick around longer, so should probably have longer to say
+    // their piece; no need for them to chatter as much.
+    if (mons->wont_attack())
+        chance *= 15;
+    else if (!mons_is_unique(mons->type)
+             && testbits(mons->flags, MF_BAND_MEMBER))
     {
-        // Very fast wandering/patrolling monsters might, in one monster turn,
-        // move into the player's LOS and then back out (or the player
-        // might move into their LOS and the monster move back out before
-        // the player's view has a chance to update) so prevent them
-        // from speaking.
-        ;
+        // Band members are a lot less likely to speak, since there's
+        // a lot of them. Except for uniques.
+        chance *= 10;
     }
-    else if ((mons_class_flag(mons->type, M_SPEAKS)
+
+    // Confused and fleeing monsters are more interesting.
+    if (mons_is_fleeing(mons))
+        chance /= 2;
+    if (mons->has_ench(ENCH_CONFUSION))
+        chance /= 2;
+
+    if ((mons_class_flag(mons->type, M_SPEAKS)
                     || !mons->mname.empty())
-                && one_chance_in(MON_SPEAK_CHANCE))
+                && one_chance_in(chance))
     {
         mons_speaks(mons);
     }
     else if ((mons->type == MONS_CRAZY_YIUF || mons->type == MONS_DONALD)
-        && one_chance_in(MON_SPEAK_CHANCE / 3))
+        && one_chance_in(7))
     {
         // Yiuf gets an extra chance to speak!
         // So does Donald.
@@ -374,23 +386,7 @@ void maybe_mons_speaks(monster* mons)
         // Non-humanoid-ish monsters have a low chance of speaking
         // without the M_SPEAKS flag, to give the dungeon some
         // atmosphere/flavour.
-        int chance = MON_SPEAK_CHANCE * 4;
-
-        // Band members are a lot less likely to speak, since there's
-        // a lot of them.  Except for uniques.
-        if (testbits(mons->flags, MF_BAND_MEMBER)
-            && !mons_is_unique(mons->type))
-        {
-            chance *= 10;
-        }
-
-        // However, confused and fleeing monsters are more interesting.
-        if (mons_is_fleeing(mons))
-            chance /= 2;
-        if (mons->has_ench(ENCH_CONFUSION))
-            chance /= 2;
-
-        if (one_chance_in(chance))
+        if (one_chance_in(chance * 4))
             mons_speaks(mons);
     }
     // Okay then, don't speak.
@@ -459,25 +455,25 @@ bool mons_speaks(monster* mons)
         if (!force_speak && coinflip()) // Neutrals speak half as often.
             return false;
 
-        prefixes.push_back("neutral");
+        prefixes.emplace_back("neutral");
     }
     else if (mons->friendly() && !crawl_state.game_is_arena())
-        prefixes.push_back("friendly");
+        prefixes.emplace_back("friendly");
     else
-        prefixes.push_back("hostile");
+        prefixes.emplace_back("hostile");
 
     if (mons_is_fleeing(mons))
-        prefixes.push_back("fleeing");
+        prefixes.emplace_back("fleeing");
 
     bool silence = silenced(you.pos());
     if (silenced(mons->pos()) || mons->has_ench(ENCH_MUTE))
     {
         silence = true;
-        prefixes.push_back("silenced");
+        prefixes.emplace_back("silenced");
     }
 
     if (confused)
-        prefixes.push_back("confused");
+        prefixes.emplace_back("confused");
 
     // Allows monster speech to be altered slightly on-the-fly.
     if (mons->props.exists("speech_prefix"))
@@ -486,24 +482,21 @@ bool mons_speaks(monster* mons)
     const actor*    foe   = (!crawl_state.game_is_arena() && mons->wont_attack()
                                 && invalid_monster_index(mons->foe)) ?
                                     &you : mons->get_foe();
-    const monster* m_foe = foe ? foe->as_monster() : NULL;
+    const monster* m_foe = foe ? foe->as_monster() : nullptr;
 
     if (!foe || foe->is_player() || mons->wont_attack())
     {
         // Animals only look at the current player form, smart monsters at the
         // actual player genus.
-        if (is_player_same_genus(mons->type,
-                                 mons_intel(mons) <= I_ANIMAL))
-        {
-            prefixes.push_back("related"); // maybe overkill for Beogh?
-        }
+        if (is_player_same_genus(mons->type))
+            prefixes.emplace_back("related"); // maybe overkill for Beogh?
     }
     else
     {
         if (mons_genus(mons->mons_species()) ==
             mons_genus(foe->mons_species()))
         {
-            prefixes.push_back("related");
+            prefixes.emplace_back("related");
         }
     }
 
@@ -519,9 +512,9 @@ bool mons_speaks(monster* mons)
         if (!mons->has_ench(ENCH_CHARM) && !mons->is_summoned())
         {
             if (mons->god == GOD_BEOGH)
-                prefixes.push_back("Beogh");
+                prefixes.emplace_back("Beogh");
             else
-                prefixes.push_back("unbeliever");
+                prefixes.emplace_back("unbeliever");
         }
     }
     else if (mons->type == MONS_PLAYER_GHOST)
@@ -536,14 +529,14 @@ bool mons_speaks(monster* mons)
         // Include our current god's name, too. This means that uniques
         // can have speech that is tailored to your specific god.
         if (is_good_god(god) && coinflip())
-            prefixes.push_back("good god");
+            prefixes.emplace_back("good god");
         else
             prefixes.push_back(god_name(you.religion));
     }
 
     // Include our current branch, too. It can make speech vary by branch for
     // uniques and other monsters! Specifically, Donald.
-    prefixes.push_back(string(branches[you.where_are_you].shortname));
+    prefixes.emplace_back(branches[you.where_are_you].abbrevname);
 
 #ifdef DEBUG_MONSPEAK
     {
@@ -559,11 +552,11 @@ bool mons_speaks(monster* mons)
     }
 #endif
 
-    const bool no_foe      = (foe == NULL);
+    const bool no_foe      = (foe == nullptr);
     const bool no_player   = crawl_state.game_is_arena()
                              || (!mons->wont_attack()
                                  && (!foe || !foe->is_player()));
-    const bool mon_foe     = (m_foe != NULL);
+    const bool mon_foe     = (m_foe != nullptr);
     const bool no_god      = no_foe || (mon_foe && foe->deity() == GOD_NO_GOD);
     const bool named_foe   = !no_foe && (!mon_foe || (m_foe->is_named()
                                 && m_foe->type != MONS_ROYAL_JELLY));

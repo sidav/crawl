@@ -24,7 +24,7 @@ tutorial_cursor TUTORIAL_CURSOR
 %alpha 128
 cobweb_none_0 TRAP_WEB
 %resetcol
-%rim 1
+%rim 0
 %sdir misc/icons
 heart HEART
 good_neutral GOOD_NEUTRAL
@@ -32,12 +32,7 @@ neutral NEUTRAL
 animated_weapon ANIMATED_WEAPON
 summoned SUMMONED
 summoned_durable PERM_SUMMON
-mimic MIMIC
-inept_mimic INEPT_MIMIC
-ravenous_mimic RAVENOUS_MIMIC
-%rim 0
 poison POISON
-%rim 1
 sticky_flame STICKY_FLAME
 inner_flame INNER_FLAME
 constricted CONSTRICTED
@@ -49,7 +44,6 @@ might MIGHT
 petrifying PETRIFYING
 petrified PETRIFIED
 blind BLIND
-%rim 0
 fleeing FLEEING
 may_stab_brand MAY_STAB_BRAND
 sleeping STAB_BRAND
@@ -60,9 +54,7 @@ drain DRAIN
 
 something_under SOMETHING_UNDER
 tried TRIED
-%rim 1
 new_stair NEW_STAIR
-%rim 0
 
 %sdir misc
 out_of_sight MESH
@@ -82,18 +74,6 @@ num6 NUM6
 num7 NUM7
 num8 NUM8
 num9 NUM9
-
-%rim 1
-num0 NUM0_OUTLINE
-num1 NUM1_OUTLINE
-num2 NUM2_OUTLINE
-num3 NUM3_OUTLINE
-num4 NUM4_OUTLINE
-num5 NUM5_OUTLINE
-num6 NUM6_OUTLINE
-num7 NUM7_OUTLINE
-num8 NUM8_OUTLINE
-num9 NUM9_OUTLINE
 
 minus5 NUM_MINUS5
 minus4 NUM_MINUS4
@@ -141,3 +121,7 @@ travel_path_to5
 travel_path_to6
 travel_path_to7
 travel_path_to8
+
+gold_sparkles1 GOLD_SPARKLES
+gold_sparkles2
+gold_sparkles3

@@ -53,8 +53,6 @@ epilogue{{
   -- Make the tutoree hungry for the chopping tutorial.
   crawl.tutorial_hunger(2700)
   crawl.tutorial_hint("HINT_NEW_LEVEL")
-  -- TODO: Replace this with a hint on trying to _eat_ rotten food.
-  crawl.tutorial_hint("HINT_ROTTEN_FOOD")
   crawl.clear_messages(true)
   crawl.tutorial_msg("tutorial2 start")
   tutorial_intro()
@@ -63,10 +61,10 @@ MAP
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 xxxxxxx...xxxxxxxxxxxxx...xxx
 xxxxxx.2...xxxxxxxxxxx.....xx
-xxxxxx2.....ED.2...C+B.....xx
+xxxxxx2.....E..2..C.+B.....xx
 xxxxxx.....xxxxxxxxxxx.....xx
-xxxxxxx...xxxxxxxxxxxxx...xxx
-xxxxxxxx2xxxxxxxxxxxxxxx1xxxx
+xxxxxxx2..xxxxxxxxxxxxx...xxx
+xxxxxxxxDxxxxxxxxxxxxxxx1xxxx
 xxxxxxxx.xxxxxxxxxxxxxxx.xxxx
 xccccccc.cccccccxxxxxxxx.xxxx
 xc3..n..F..n..4cxxxxxxxxAxxxx

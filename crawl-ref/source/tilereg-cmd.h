@@ -2,9 +2,9 @@
 #ifndef TILEREG_CMD_H
 #define TILEREG_CMD_H
 
-#include "tilereg-grid.h"
-
 #include <vector>
+
+#include "tilereg-grid.h"
 
 static const command_type ct_system_commands[] =
 {
@@ -14,7 +14,7 @@ static const command_type ct_system_commands[] =
     CMD_DISPLAY_CHARACTER_STATUS, CMD_DISPLAY_KNOWN_OBJECTS,
 
     // meta commands
-    CMD_SAVE_GAME_NOW, CMD_EDIT_PLAYER_TILE, CMD_DISPLAY_COMMANDS
+    CMD_SAVE_GAME_NOW, CMD_EDIT_PLAYER_TILE, CMD_DISPLAY_COMMANDS,
 };
 
 static const command_type ct_map_commands[] =
@@ -46,18 +46,17 @@ static const command_type ct_map_commands[] =
 
 static const command_type ct_action_commands[] =
 {
-    // action commands
     CMD_EXPLORE,
-# ifdef CLUA_BINDINGS
-    CMD_AUTOFIGHT,
-# endif
-    CMD_REST,
-    CMD_DISPLAY_INVENTORY, CMD_CAST_SPELL, CMD_USE_ABILITY,
-    CMD_PRAY, CMD_BUTCHER, CMD_DROP,
-    CMD_INTERLEVEL_TRAVEL, CMD_WAIT, CMD_SEARCH_STASHES,
-
-    // commonly used screens
-    CMD_DISPLAY_SKILLS, CMD_MEMORISE_SPELL
+    CMD_REST, CMD_WAIT,
+    CMD_PRAY, CMD_BUTCHER,
+    CMD_DISPLAY_INVENTORY, CMD_DROP,
+    CMD_CAST_SPELL, CMD_USE_ABILITY,
+    CMD_DISPLAY_SKILLS, CMD_MEMORISE_SPELL,
+    CMD_INTERLEVEL_TRAVEL, CMD_SEARCH_STASHES,
+    CMD_LOOKUP_HELP,
+#ifdef TOUCH_UI
+    CMD_SHOW_KEYBOARD,
+#endif
 };
 
 class CommandRegion : public GridRegion

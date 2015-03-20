@@ -5,6 +5,7 @@ acquire.o \
 act-iter.o \
 actor-los.o \
 actor.o \
+adjust.o \
 areas.o \
 arena.o \
 artefact.o \
@@ -38,6 +39,8 @@ dbg-util.o \
 decks.o \
 delay.o \
 describe.o \
+describe-god.o \
+describe-spells.o \
 dgl-message.o \
 dgn-delve.o \
 dgn-height.o \
@@ -52,8 +55,8 @@ dgnevent.o \
 directn.o \
 dlua.o \
 dungeon.o \
-effects.o \
 end.o \
+english.o \
 errors.o \
 evoke.o \
 exclude.o \
@@ -118,6 +121,7 @@ l_you.o \
 lang-fake.o \
 lev-pand.o \
 libutil.o \
+lookup_help.o \
 los.o \
 los_def.o \
 losglobal.o \
@@ -146,7 +150,6 @@ mon-ench.o \
 mon-gear.o \
 mon-grow.o \
 mon-info.o \
-mon-message.o \
 mon-movetarget.o \
 mon-pathfind.o \
 mon-pick.o \
@@ -155,6 +158,7 @@ mon-poly.o \
 mon-project.o \
 mon-speak.o \
 mon-stealth.o \
+mon-tentacle.o \
 mon-transit.o \
 mon-util.o \
 monster.o \
@@ -174,6 +178,7 @@ pattern.o \
 perlin.o \
 place-info.o \
 place.o \
+playable.o \
 player-act.o \
 player-equip.o \
 player-reacts.o \
@@ -194,7 +199,6 @@ show.o \
 showsymb.o \
 skill_menu.o \
 skills.o \
-skills2.o \
 species.o \
 spl-book.o \
 spl-cast.o \
@@ -228,6 +232,7 @@ target.o \
 teleport.o \
 terrain.o \
 throw.o \
+timed_effects.o \
 transform.o \
 traps.o \
 travel.o \
@@ -240,6 +245,7 @@ viewgeom.o \
 viewmap.o \
 wcwidth.o \
 wiz-dgn.o \
+wiz-dump.o \
 wiz-fsim.o \
 wiz-item.o \
 wiz-mon.o \

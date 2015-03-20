@@ -4,47 +4,41 @@
 **/
 
 #include "AppHdr.h"
-#include "mon-behv.h"
 
-#include "externs.h"
+#include "mon-behv.h"
 
 #include "ability.h"
 #include "act-iter.h"
 #include "areas.h"
 #include "attitude-change.h"
-#include "coord.h"
 #include "coordit.h"
 #include "database.h"
 #include "dgn-overview.h"
 #include "dungeon.h"
-#include "env.h"
-#include "fprop.h"
 #include "exclude.h"
+#include "hints.h"
 #include "itemprop.h"
-#include "libutil.h"
 #include "losglobal.h"
 #include "macro.h"
+#include "message.h"
 #include "mon-act.h"
 #include "mon-death.h"
 #include "mon-movetarget.h"
-#include "mon-pathfind.h"
 #include "mon-speak.h"
 #include "ouch.h"
-#include "random.h"
 #include "religion.h"
+#include "shout.h"
 #include "spl-summoning.h"
 #include "state.h"
 #include "stringutil.h"
 #include "terrain.h"
 #include "traps.h"
-#include "hints.h"
 #include "view.h"
-#include "shout.h"
 
 static void _guess_invis_foe_pos(monster* mon)
 {
     const actor* foe          = mon->get_foe();
-    const int    guess_radius = mons_sense_invis(mon) ? 3 : 2;
+    const int    guess_radius = 2;
 
     vector<coord_def> possibilities;
 
@@ -169,8 +163,8 @@ static void _decide_monster_firing_position(monster* mon, actor* owner)
                 // Get to firing range even if we are close.
                 _set_firing_pos(mon, you.pos());
             }
-        else if (mon->type == MONS_SIREN && !ignore_special_firing_AI)
-            find_siren_water_target(mon);
+        else if (mon->type == MONS_MERFOLK_AVATAR && !ignore_special_firing_AI)
+            find_merfolk_avatar_water_target(mon);
         else if (!mon->firing_pos.zero()
                  && mon->see_cell_no_trans(mon->target))
         {
@@ -218,12 +212,6 @@ static void _decide_monster_firing_position(monster* mon, actor* owner)
 //
 // 1. Evaluates current AI state
 // 2. Sets monster target x,y based on current foe
-//
-// XXX: Monsters of I_NORMAL or above should select a new target
-// if their current target is another monster which is sitting in
-// a wall and is immune to most attacks while in a wall, unless
-// the monster has a spell or special/nearby ability which isn't
-// affected by the wall.
 //---------------------------------------------------------------
 void handle_behaviour(monster* mon)
 {
@@ -287,7 +275,7 @@ void handle_behaviour(monster* mon)
                 // If the rot would reduce us to <= 0 max HP, attribute the
                 // kill to the monster.
                 if (loss >= you.hp_max)
-                    ouch(loss, mon->mindex(), KILLED_BY_ROTTING);
+                    ouch(loss, KILLED_BY_ROTTING, mon->mid);
 
                 rot_hp(loss);
             }
@@ -530,7 +518,7 @@ void handle_behaviour(monster* mon)
 
         if (mon->foe == MHITYOU)
         {
-            // monster::get_foe returns NULL for friendly monsters with
+            // monster::get_foe returns nullptr for friendly monsters with
             // foe == MHITYOU, so make afoe point to the player here.
             // -cao
             afoe = &you;
@@ -628,7 +616,7 @@ void handle_behaviour(monster* mon)
                     }
                 }
 
-                if (mon->travel_target == MTRAV_SIREN)
+                if (mon->travel_target == MTRAV_MERFOLK_AVATAR)
                     mon->travel_target = MTRAV_NONE;
 
                 // Spectral weapons simply seek back to their owner if
@@ -1125,9 +1113,13 @@ void behaviour_event(monster* mon, mon_event_type event, const actor *src,
     bool isSmart          = (mons_intel(mon) > I_ANIMAL);
     bool setTarget        = false;
     bool breakCharm       = false;
-    bool was_sleeping     = mon->asleep();
+    bool was_unaware      = mon->asleep() || mon->foe == MHITNOT;
     string msg;
     int src_idx           = src ? src->mindex() : MHITNOT; // AXE ME
+
+    // Monsters know to blame you for reflecting things at them.
+    if (src_idx == YOU_FAULTLESS)
+        src_idx = MHITYOU;
 
     if (is_sanctuary(mon->pos()) && mons_is_fleeing_sanctuary(mon))
     {
@@ -1205,6 +1197,10 @@ void behaviour_event(monster* mon, mon_event_type event, const actor *src,
         }
         else if (mon->has_ench(ENCH_FEAR))
         {
+            // self-attacks probably shouldn't break fear.
+            if (src == mon)
+                break;
+
             if (you.can_see(mon))
             {
                 mprf("%s attack snaps %s out of %s fear.",
@@ -1405,6 +1401,11 @@ void behaviour_event(monster* mon, mon_event_type event, const actor *src,
         {
             // Why only attacks by the player change attitude? -- 1KB
             mon->attitude = ATT_HOSTILE;
+            // Non-hostile uniques might be removed from dungeon annotation
+            // so we add them back.
+            if (mon->props.exists("no_annotate"))
+                mon->props["no_annotate"] = false;
+            set_unique_annotation(mon);
             mons_att_changed(mon);
         }
     }
@@ -1426,8 +1427,8 @@ void behaviour_event(monster* mon, mon_event_type event, const actor *src,
 
     ASSERT_IN_BOUNDS_OR_ORIGIN(mon->target);
 
-    // If it woke up and you're its new foe, it might shout.
-    if (was_sleeping && !mon->asleep() && allow_shout
+    // If it was unaware of you and you're its new foe, it might shout.
+    if (was_unaware && !mon->asleep() && allow_shout
         && mon->foe == MHITYOU && !mon->wont_attack())
     {
         handle_monster_shouts(mon);
@@ -1572,10 +1573,7 @@ void make_mons_leave_level(monster* mon)
     if (mon->pacified())
     {
         if (you.can_see(mon))
-        {
             _mons_indicate_level_exit(mon);
-            remove_unique_annotation(mon);
-        }
 
         // Pacified monsters leaving the level take their stuff with
         // them.
@@ -1600,7 +1598,7 @@ bool monster_can_hit_monster(monster* mons, const monster* targ)
         return false;
 
     const item_def *weapon = mons->weapon();
-    return weapon && melee_skill(*weapon) == SK_POLEARMS;
+    return weapon && item_attack_skill(*weapon) == SK_POLEARMS;
 }
 
 // Friendly summons can't attack out of the player's LOS, it's too abusable.

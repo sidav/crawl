@@ -21,33 +21,30 @@
 #include "AppHdr.h"
 
 #include "macro.h"
-#include "state.h"
 
-#include <string>
-#include <sstream>
-#include <map>
+#include <cctype>
+#include <cstdio>
+#include <cstdlib>
 #include <deque>
+#include <map>
+#include <sstream>
+#include <string>
 #include <vector>
 
-#include <cstdio>      // for snprintf
-#include <cctype>      // for tolower
-#include <cstdlib>
-
 #include "cio.h"
-#include "externs.h"
 #include "files.h"
+#include "initfile.h"
 #include "libutil.h"
+#include "message.h"
+#include "misc.h" // erase_val
 #include "options.h"
 #include "output.h"
-#include "message.h"
+#include "state.h"
 #include "state.h"
 #include "stringutil.h"
 #include "syscalls.h"
 #include "unicode.h"
 #include "version.h"
-
-// for trim_string:
-#include "initfile.h"
 
 typedef deque<int> keybuf;
 typedef map<keyseq,keyseq> macromap;
@@ -136,33 +133,30 @@ static bool is_userfunction(const keyseq &seq)
 string get_userfunction(int key)
 {
     int index = userfunc_index(key);
-    return index == -1 ? NULL : userfunctions[index];
+    return index == -1 ? nullptr : userfunctions[index];
 }
 
 static string get_userfunction(const keyseq &seq)
 {
     int index = userfunc_index(seq);
-    return index == -1 ? NULL : userfunctions[index];
+    return index == -1 ? nullptr : userfunctions[index];
 }
 
 static bool userfunc_referenced(int index, const macromap &mm)
 {
-    for (macromap::const_iterator i = mm.begin(); i != mm.end(); ++i)
-    {
-        if (userfunc_index(i->second) == index)
+    for (const auto &entry : mm)
+        if (userfunc_index(entry.second) == index)
             return true;
-    }
+
     return false;
 }
 
 static bool userfunc_referenced(int index)
 {
-    for (unsigned i = 0; i < ARRAYSZ(all_maps); ++i)
-    {
-        macromap *m = all_maps[i];
+    for (auto m : all_maps)
         if (userfunc_referenced(index, *m))
             return true;
-    }
+
     return false;
 }
 
@@ -369,23 +363,23 @@ static string vtostr(const keyseq &seq)
         v = &dummy;
     }
 
-    for (keyseq::const_iterator i = v->begin(); i != v->end(); ++i)
+    for (auto key : *v)
     {
-        if (*i <= 32 || *i > 127)
+        if (key <= 32 || key > 127)
         {
-            if (*i == KEY_MACRO_MORE_PROTECT)
+            if (key == KEY_MACRO_MORE_PROTECT)
                 s << "\\{!more}";
             else
             {
                 char buff[20];
-                snprintf(buff, sizeof(buff), "\\{%d}", *i);
+                snprintf(buff, sizeof(buff), "\\{%d}", key);
                 s << buff;
             }
         }
-        else if (*i == '\\')
+        else if (key == '\\')
             s << "\\\\";
         else
-            s << static_cast<char>(*i);
+            s << static_cast<char>(key);
     }
 
     return s.str();
@@ -437,10 +431,8 @@ void macro_buf_add(const keyseq &actions, bool reverse, bool expanded)
 {
     keyseq act;
     bool need_more_reset = false;
-    for (keyseq::const_iterator i = actions.begin(); i != actions.end();
-         ++i)
+    for (auto key : actions)
     {
-        int key = *i;
         if (key == KEY_MACRO_MORE_PROTECT)
         {
             key = KEY_MACRO_DISABLE_MORE;
@@ -508,7 +500,7 @@ static void macro_buf_add_long(keyseq actions,
 
         while (!tmp.empty())
         {
-            macromap::const_iterator subst = keymap.find(tmp);
+            auto subst = keymap.find(tmp);
             // Found a macro. Add the expansion (action) of the
             // macro into the buffer.
             if (subst != keymap.end() && !subst->second.empty())
@@ -576,7 +568,7 @@ bool is_processing_macro()
 
 bool has_pending_input()
 {
-    return !Buffer.empty() && !SendKeysBuffer.empty();
+    return !Buffer.empty() || !SendKeysBuffer.empty();
 }
 
 /*
@@ -593,7 +585,7 @@ static void macro_buf_apply_command_macro()
     // find the longest match from the start of the buffer and replace it
     while (!tmp.empty())
     {
-        macromap::const_iterator expansion = Macros.find(tmp);
+        auto expansion = Macros.find(tmp);
 
         if (expansion != Macros.end() && !expansion->second.empty())
         {
@@ -651,14 +643,14 @@ int macro_buf_get()
 
 static void write_map(FILE *f, const macromap &mp, const char *key)
 {
-    for (macromap::const_iterator i = mp.begin(); i != mp.end(); ++i)
+    for (const auto &entry : mp)
     {
         // Need this check, since empty values are added into the
         // macro struct for all used keyboard commands.
-        if (i->second.size())
+        if (entry.second.size())
         {
             fprintf(f, "%s%s\nA:%s\n\n", OUTS(key),
-                OUTS(vtostr((*i).first)), OUTS(vtostr((*i).second)));
+                OUTS(vtostr(entry.first)), OUTS(vtostr(entry.second)));
         }
     }
 }
@@ -702,7 +694,7 @@ void macro_save()
  * Reads as many keypresses as are available (waiting for at least one),
  * and returns them as a single keyseq.
  */
-static keyseq _getch_mul(int (*rgetch)() = NULL)
+static keyseq _getch_mul(int (*rgetch)() = nullptr)
 {
     keyseq keys;
     int    a;
@@ -1076,13 +1068,8 @@ static void _read_macros_from(const char* filename)
 
 void macro_init()
 {
-    const vector<string>& files = Options.additional_macro_files;
-    for (vector<string>::const_iterator it = files.begin();
-         it != files.end();
-         ++it)
-    {
-        _read_macros_from(it->c_str());
-    }
+    for (const auto &fn : Options.additional_macro_files)
+        _read_macros_from(fn.c_str());
 
     _read_macros_from(get_macro_file().c_str());
 }
@@ -1104,6 +1091,7 @@ bool is_synthetic_key(int key)
     case KEY_MACRO_MORE_PROTECT:
 #ifdef USE_TILE
     case CK_MOUSE_CMD:
+    case CK_REDRAW:
 #endif
         return true;
     default:
@@ -1135,10 +1123,10 @@ void key_recorder::clear()
 
 pause_all_key_recorders::pause_all_key_recorders()
 {
-    for (unsigned int i = 0; i < recorders.size(); i++)
+    for (key_recorder *rec : recorders)
     {
-        prev_pause_status.push_back(recorders[i]->paused);
-        recorders[i]->paused = true;
+        prev_pause_status.push_back(rec->paused);
+        rec->paused = true;
     }
 }
 
@@ -1150,22 +1138,13 @@ pause_all_key_recorders::~pause_all_key_recorders()
 
 void add_key_recorder(key_recorder* recorder)
 {
-    for (int i = 0, size = recorders.size(); i < size; i++)
-        ASSERT(recorders[i] != recorder);
-
+    ASSERT(find(begin(recorders), end(recorders), recorder) == end(recorders));
     recorders.push_back(recorder);
 }
 
 void remove_key_recorder(key_recorder* recorder)
 {
-    vector<key_recorder*>::iterator i;
-
-    for (i = recorders.begin(); i != recorders.end(); ++i)
-        if (*i == recorder)
-        {
-            recorders.erase(i);
-            return;
-        }
+    erase_val(recorders, recorder);
 }
 
 int get_macro_buf_size()
@@ -1183,7 +1162,7 @@ void init_keybindings()
     int i;
 
     for (i = 0; _command_name_list[i].cmd != CMD_NO_CMD
-                && _command_name_list[i].name != NULL; i++)
+                && _command_name_list[i].name != nullptr; i++)
     {
         command_name &data = _command_name_list[i];
 
@@ -1223,22 +1202,12 @@ void init_keybindings()
 
 command_type name_to_command(string name)
 {
-    name_to_cmd_map::iterator it = _names_to_cmds.find(name);
-
-    if (it == _names_to_cmds.end())
-        return CMD_NO_CMD;
-
-    return static_cast<command_type>(it->second);
+    return static_cast<command_type>(lookup(_names_to_cmds, name, CMD_NO_CMD));
 }
 
 string command_to_name(command_type cmd)
 {
-    cmd_to_name_map::iterator it = _cmds_to_names.find(cmd);
-
-    if (it == _cmds_to_names.end())
-        return "CMD_NO_CMD";
-
-    return it->second;
+    return lookup(_cmds_to_names, cmd, "CMD_NO_CMD");
 }
 
 command_type key_to_command(int key, KeymapContext context)
@@ -1273,14 +1242,10 @@ command_type key_to_command(int key, KeymapContext context)
         return cmd;
     }
 
-    key_to_cmd_map           &key_map = _keys_to_cmds[context];
-    key_to_cmd_map::iterator it       = key_map.find(key);
+    const auto cmd = static_cast<command_type>(lookup(_keys_to_cmds[context],
+                                                      key, CMD_NO_CMD));
 
-    if (it == key_map.end())
-        return CMD_NO_CMD;
-
-    const command_type cmd = static_cast<command_type>(it->second);
-    ASSERT(_context_for_command(cmd) == context);
+    ASSERT(cmd == CMD_NO_CMD || _context_for_command(cmd) == context);
 
     return cmd;
 }
@@ -1292,13 +1257,7 @@ int command_to_key(command_type cmd)
     if (context == KMC_NONE)
         return '\0';
 
-    cmd_to_key_map           &cmd_map = _cmds_to_keys[context];
-    cmd_to_key_map::iterator it       = cmd_map.find(cmd);
-
-    if (it == cmd_map.end())
-        return '\0';
-
-    return it->second;
+    return lookup(_cmds_to_keys[context], cmd, '\0');
 }
 
 static KeymapContext _context_for_command(command_type cmd)
@@ -1407,41 +1366,41 @@ string command_to_string(command_type cmd, bool tutorial)
     if (!desc.empty())
         return desc;
 
+    string result;
     if (key >= 32 && key < 256)
     {
         if (tutorial && key >= 'A' && key <= 'Z')
-            snprintf(info, INFO_SIZE, "uppercase %c", (char) key);
+            result = make_stringf("uppercase %c", (char) key);
         else
-            snprintf(info, INFO_SIZE, "%c", (char) key);
+            result = string(1, (char) key);
     }
     else if (key > 1000 && key <= 1009)
     {
         const int numpad = (key - 1000);
-        snprintf(info, INFO_SIZE, "Numpad %d", numpad);
+        result = make_stringf("Numpad %d", numpad);
     }
     else
     {
         const int ch = key + 'A' - 1;
         if (ch >= 'A' && ch <= 'Z')
-            snprintf(info, INFO_SIZE, "Ctrl-%c", (char) ch);
+            result = make_stringf("Ctrl-%c", (char) ch);
         else
-            snprintf(info, INFO_SIZE, "%d", key);
+            result = to_string(key);
     }
 
-    string result = info;
     return result;
 }
 
 void insert_commands(string &desc, vector<command_type> cmds, bool formatted)
 {
     desc = untag_tiles_console(desc);
-    for (unsigned int i = 0; i < cmds.size(); ++i)
+    for (command_type cmd : cmds)
     {
         const string::size_type found = desc.find("%");
         if (found == string::npos)
             break;
 
-        string command_name = command_to_string(cmds[i]);
+        string command_name = command_to_string(cmd);
         if (formatted && command_name == "<")
             command_name += "<";
         else if (command_name == "%")
@@ -1490,9 +1449,7 @@ static void _list_all_commands(string &commands)
         if (_context_for_command(cmd) != KMC_DEFAULT)
             continue;
 
-        snprintf(info, INFO_SIZE, "%s: %s\n",
-                 command_name.c_str(), command_to_string(cmd).c_str());
-        commands += info;
+        commands += command_name + ": " + command_to_string(cmd) + "\n";
     }
     commands += "\n";
 }

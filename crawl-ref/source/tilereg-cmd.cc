@@ -3,26 +3,26 @@
 #ifdef USE_TILE_LOCAL
 
 #include "tilereg-cmd.h"
-#include "process_desc.h"
 
 #include "ability.h"
+#include "areas.h"
 #include "cio.h"
 #include "command.h"
-#include "process_desc.h"
 #include "enum.h"
 #include "env.h"
+#include "items.h"
 #include "libutil.h"
 #include "macro.h"
 #include "misc.h"
+#include "process_desc.h"
+#include "process_desc.h"
 #include "religion.h"
+#include "spl-cast.h"
 #include "terrain.h"
 #include "tiledef-dngn.h"
 #include "tiledef-icons.h"
 #include "tilepick.h"
 #include "viewgeom.h"
-#include "spl-cast.h"
-#include "items.h"
-#include "areas.h"
 
 CommandRegion::CommandRegion(const TileRegionInit &init,
                              const command_type commands[],
@@ -196,7 +196,7 @@ static bool _command_not_applicable(const command_type cmd, bool safe)
     case CMD_BUTCHER:
         // this logic is enormously simplistic compared to food.cc
         for (stack_iterator si(you.pos(), true); si; ++si)
-            if (si->base_type == OBJ_CORPSES && si->sub_type == CORPSE_BODY)
+            if (si->is_type(OBJ_CORPSES, CORPSE_BODY))
                 return false;
         if (you.species == SP_VAMPIRE)
             return false;

@@ -38,11 +38,6 @@ Conjurer
 
 Conjurers confront problems with damaging spells from the book of Conjurations.
 %%%%
-Death Knight
-
-Death Knights are melee fighters who command the undead in the name of
-Yredelemnul the Dark.
-%%%%
 Earth Elementalist
 
 Earth Elementalists know the Sandblast spell, and carry stones to increase the
@@ -67,11 +62,6 @@ Gladiator
 
 Gladiators are ready for the arena with light armour, nets, and a weapon of
 their choice.
-%%%%
-Healer
-
-Healers are followers of Elyvilon, ready to heal themselves and others. Such
-healing will possibly pacify beasts and brutes, yielding experience.
 %%%%
 Hunter
 

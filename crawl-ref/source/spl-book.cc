@@ -6,46 +6,37 @@
 #include "AppHdr.h"
 
 #include "spl-book.h"
+#include "book-data.h"
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 #include <algorithm>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <iomanip>
+#include <map>
 
 #include "artefact.h"
-#include "cio.h"
 #include "colour.h"
 #include "database.h"
 #include "delay.h"
 #include "describe.h"
-#include "directn.h"
-#include "effects.h"
+#include "describe-spells.h"
 #include "end.h"
-#include "externs.h"
-#include "food.h"
-#include "format.h"
+#include "english.h"
 #include "godconduct.h"
 #include "goditem.h"
-#include "hints.h"
 #include "invent.h"
-#include "itemname.h"
 #include "itemprop.h"
 #include "items.h"
 #include "libutil.h"
 #include "macro.h"
 #include "message.h"
-#include "options.h"
 #include "output.h"
-#include "player.h"
 #include "prompt.h"
 #include "religion.h"
-#include "species.h"
-#include "spl-cast.h"
 #include "spl-util.h"
 #include "state.h"
 #include "stringutil.h"
-#include "target.h"
 #ifdef USE_TILE
  #include "tilepick.h"
 #endif
@@ -60,164 +51,66 @@
 #define RANDART_BOOK_TYPE_LEVEL "level"
 #define RANDART_BOOK_TYPE_THEME "theme"
 
-// The list of spells in spellbooks:
-#include "book-data.h"
+static const map<rod_type, spell_type> _rod_spells =
+{
+    { ROD_LIGHTNING,   SPELL_THUNDERBOLT },
+    { ROD_SWARM,       SPELL_SUMMON_SWARM },
+    { ROD_IGNITION,    SPELL_EXPLOSIVE_BOLT },
+    { ROD_CLOUDS,      SPELL_CLOUD_CONE  },
+    { ROD_DESTRUCTION, SPELL_RANDOM_BOLT },
+    { ROD_INACCURACY,  SPELL_BOLT_OF_INACCURACY },
+    { ROD_SHADOWS,     SPELL_WEAVE_SHADOWS },
+    { ROD_IRON,        SPELL_SCATTERSHOT },
+#if TAG_MAJOR_VERSION == 34
+    { ROD_WARDING,     SPELL_NO_SPELL },
+    { ROD_VENOM,       SPELL_NO_SPELL },
+#endif
+};
 
-spell_type which_spell_in_book(const item_def &book, int spl)
+spell_type spell_in_rod(rod_type rod)
+{
+    if (const spell_type* const spl = map_find(_rod_spells, rod))
+        return *spl;
+    die("unknown rod type %d", rod);
+}
+
+vector<spell_type> spells_in_book(const item_def &book)
 {
     ASSERT(book.base_type == OBJ_BOOKS || book.base_type == OBJ_RODS);
 
+    vector<spell_type> ret;
+    if (book.base_type == OBJ_RODS)
+    {
+        if (item_type_known(book))
+            ret.emplace_back(spell_in_rod(static_cast<rod_type>(book.sub_type)));
+        return ret;
+    }
+
     const CrawlHashTable &props = book.props;
     if (!props.exists(SPELL_LIST_KEY))
-        return which_spell_in_book(book.book_number(), spl);
+        return spellbook_template(static_cast<book_type>(book.sub_type));
 
     const CrawlVector &spells = props[SPELL_LIST_KEY].get_vector();
 
     ASSERT(spells.get_type() == SV_INT);
-    ASSERT(spells.size() == SPELLBOOK_SIZE);
+    ASSERT(spells.size() == RANDBOOK_SIZE);
 
-    return static_cast<spell_type>(spells[spl].get_int());
+    for (int spell : spells)
+        //TODO: don't put SPELL_NO_SPELL in them in the first place.
+        if (spell != SPELL_NO_SPELL)
+            ret.emplace_back(static_cast<spell_type>(spell));
+
+    return ret;
 }
 
-spell_type which_spell_in_book(int sbook_type, int spl)
+vector<spell_type> spellbook_template(book_type book)
 {
-    ASSERT_RANGE(sbook_type, 0, (int)ARRAYSZ(spellbook_template_array));
-    return spellbook_template_array[sbook_type][spl];
-}
-
-// If fs is not NULL, updates will be to the formatted_string instead of
-// the display.
-int spellbook_contents(item_def &book, read_book_action_type action,
-                        formatted_string *fs)
-{
-    int spelcount = 0;
-    int i, j;
-    bool update_screen = !fs;
-
-    const int spell_levels = player_spell_levels();
-
-    formatted_string out;
-    out.textcolor(LIGHTGREY);
-
-    out.cprintf("%s", book.name(DESC_THE).c_str());
-
-    out.cprintf("\n\n Spells                             Type                      Level\n");
-
-    for (j = 0; j < SPELLBOOK_SIZE; j++)
-    {
-        spell_type stype = which_spell_in_book(book, j);
-        if (stype == SPELL_NO_SPELL)
-            continue;
-
-        out.cprintf(" ");
-
-        const int level_diff = spell_difficulty(stype);
-        const int levels_req = spell_levels_required(stype);
-
-        int colour = DARKGREY;
-        if (action == RBOOK_USE_ROD)
-        {
-            ASSERT(book.base_type == OBJ_RODS);
-            if (book.plus >= level_diff * ROD_CHARGE_MULT)
-                colour = spell_highlight_by_utility(stype, COL_UNKNOWN, false, true);
-            else
-                colour = COL_USELESS;
-        }
-        else
-        {
-            if (you.has_spell(stype))
-                colour = COL_MEMORIZED;
-            else if (you_cannot_memorise(stype)
-                || you.experience_level < level_diff
-                || spell_levels < levels_req
-                || book.base_type == OBJ_BOOKS
-                   && !player_can_memorise_from_spellbook(book))
-            {
-                colour = COL_USELESS;
-            }
-            else if (!you.has_spell(stype))
-                colour = COL_UNMEMORIZED;
-            else
-                colour = spell_highlight_by_utility(stype);
-        }
-
-        out.textcolor(colour);
-
-        char strng[2];
-        strng[0] = index_to_letter(spelcount);
-        strng[1] = 0;
-
-        out.cprintf("%s", strng);
-        out.cprintf(" - ");
-
-        out.cprintf("%s", chop_string(spell_title(stype), 29).c_str());
-
-        string schools;
-        if (action == RBOOK_USE_ROD)
-            schools = "Evocations";
-        else
-        {
-            bool first = true;
-            for (i = 0; i <= SPTYP_LAST_EXPONENT; i++)
-            {
-                if (spell_typematch(stype, 1 << i))
-                {
-                    if (!first)
-                        schools += "/";
-                    schools += spelltype_long_name(1 << i);
-                    first = false;
-                }
-            }
-        }
-        out.cprintf("%s%d\n", chop_string(schools, 30).c_str(), level_diff);
-        spelcount++;
-    }
-
-    out.textcolor(LIGHTGREY);
-    out.cprintf("\n");
-
-    switch (action)
-    {
-    case RBOOK_USE_ROD:
-        out.cprintf("Select a spell to cast.\n");
-        break;
-
-    case RBOOK_READ_SPELL:
-        if (book.base_type == OBJ_BOOKS && in_inventory(book)
-            && item_type_known(book)
-            && player_can_memorise_from_spellbook(book))
-        {
-            out.cprintf("Select a spell to read its description, to "
-                         "memorise it or to forget it.\n");
-        }
-        else
-            out.cprintf("Select a spell to read its description.\n");
-        break;
-
-    default:
-        break;
-    }
-
-    if (fs)
-        *fs = out;
-
-    int keyn = 0;
-    if (update_screen && !crawl_state.is_replaying_keys())
-    {
-        cursor_control coff(false);
-        clrscr();
-
-        out.display();
-    }
-
-    if (update_screen)
-        keyn = toalower(getchm(KMC_MENU));
-
-    return keyn;     // either ignored or spell letter
+    ASSERT_RANGE(book, 0, (int)ARRAYSZ(spellbook_templates));
+    return spellbook_templates[book];
 }
 
 // Rarity 100 is reserved for unused books.
-int book_rarity(uint8_t which_book)
+int book_rarity(book_type which_book)
 {
     switch (which_book)
     {
@@ -233,7 +126,6 @@ int book_rarity(uint8_t which_book)
     case BOOK_CONJURATIONS:
     case BOOK_NECROMANCY:
     case BOOK_CALLINGS:
-    case BOOK_WIZARDRY:
         return 3;
 
     case BOOK_FLAMES:
@@ -276,6 +168,7 @@ int book_rarity(uint8_t which_book)
     case BOOK_BURGLARY:
     case BOOK_ALCHEMY:
     case BOOK_DREAMS:
+    case BOOK_FEN:
         return 12;
 
     case BOOK_ENVENOMATIONS:
@@ -286,15 +179,13 @@ int book_rarity(uint8_t which_book)
     case BOOK_ANNIHILATIONS:
     case BOOK_GRAND_GRIMOIRE:
     case BOOK_NECRONOMICON:  // Kikubaaqudgha special
+    case BOOK_AKASHIC_RECORD:
     case BOOK_MANUAL:
         return 20;
 
-    case BOOK_DESTRUCTION:
-        return 30;
-
 #if TAG_MAJOR_VERSION == 34
-    case BOOK_STALKING:
-    case BOOK_WAR_CHANTS:
+    case BOOK_WIZARDRY:
+    case BOOK_BUGGY_DESTRUCTION:
         return 100;
 #endif
 
@@ -305,6 +196,31 @@ int book_rarity(uint8_t which_book)
 
 static uint8_t _lowest_rarity[NUM_SPELLS];
 
+/**
+ * Rare books require 6 spellcasting and 10 in a specific skill to
+ * memorise from, or worshipping a specific god (usually one who gifts that
+ * spellbook).
+ */
+
+struct rare_book_specs
+{
+    skill_type skill;
+    god_type   god;
+};
+
+static const map<book_type, rare_book_specs> rare_books =
+{
+    { BOOK_ANNIHILATIONS,  { SK_CONJURATIONS,   GOD_NO_GOD } },
+    { BOOK_GRAND_GRIMOIRE, { SK_SUMMONINGS,     GOD_NO_GOD } },
+    { BOOK_NECRONOMICON,   { SK_NECROMANCY,     GOD_KIKUBAAQUDGHA } },
+    { BOOK_AKASHIC_RECORD,  { SK_TRANSLOCATIONS, GOD_NO_GOD } },
+};
+
+bool is_rare_book(book_type type)
+{
+    return rare_books.find(type) != rare_books.end();
+}
+
 void init_spell_rarities()
 {
     for (int i = 0; i < NUM_SPELLS; ++i)
@@ -312,16 +228,13 @@ void init_spell_rarities()
 
     for (int i = 0; i < NUM_FIXED_BOOKS; ++i)
     {
+        const book_type book = static_cast<book_type>(i);
         // Manuals and books of destruction are not even part of this loop.
-        if (i >= MIN_RARE_BOOK && i <= MAX_RARE_BOOK)
+        if (is_rare_book(book))
             continue;
 
-        for (int j = 0; j < SPELLBOOK_SIZE; ++j)
+        for (spell_type spell : spellbook_template(book))
         {
-            spell_type spell = which_spell_in_book(i, j);
-            if (spell == SPELL_NO_SPELL)
-                continue;
-
 #ifdef DEBUG
             unsigned int flags = get_spell_flags(spell);
 
@@ -338,7 +251,7 @@ void init_spell_rarities()
             }
 #endif
 
-            const int rarity = book_rarity(i);
+            const int rarity = book_rarity(book);
             if (rarity < _lowest_rarity[spell])
                 _lowest_rarity[spell] = rarity;
         }
@@ -348,13 +261,9 @@ void init_spell_rarities()
 bool is_player_spell(spell_type which_spell)
 {
     for (int i = 0; i < NUM_FIXED_BOOKS; ++i)
-    {
-        for (int j = 0; j < SPELLBOOK_SIZE; ++j)
-        {
-            if (which_spell_in_book(i, j) == which_spell)
+        for (spell_type spell : spellbook_template(static_cast<book_type>(i)))
+            if (spell == which_spell)
                 return true;
-        }
-    }
     return false;
 }
 
@@ -368,11 +277,6 @@ int spell_rarity(spell_type which_spell)
     return rarity;
 }
 
-static bool _is_valid_spell_in_book(const item_def &book, int spell)
-{
-    return which_spell_in_book(book, spell) != SPELL_NO_SPELL;
-}
-
 // Returns false if the player cannot memorise from the book,
 // and true otherwise. -- bwr
 bool player_can_memorise_from_spellbook(const item_def &book)
@@ -383,16 +287,11 @@ bool player_can_memorise_from_spellbook(const item_def &book)
     if (book.props.exists(SPELL_LIST_KEY))
         return true;
 
-    if ((book.sub_type == BOOK_ANNIHILATIONS
-         && (you.skill(SK_CONJURATIONS) < 10
-             || you.skill(SK_SPELLCASTING) < 6))
-        || (book.sub_type == BOOK_GRAND_GRIMOIRE
-            && (you.skill(SK_SUMMONINGS) < 10
-                || you.skill(SK_SPELLCASTING) < 6))
-        || (book.sub_type == BOOK_NECRONOMICON
-            && !you_worship(GOD_KIKUBAAQUDGHA)
-            && (you.skill(SK_NECROMANCY) < 10
-                || you.skill(SK_SPELLCASTING) < 6)))
+    auto it = rare_books.find(static_cast<book_type>(book.sub_type));
+
+    if (it != rare_books.end()
+        && (you.skill(SK_SPELLCASTING) < 6 || you.skill(it->second.skill) < 10)
+        && (it->second.god == GOD_NO_GOD || !you_worship(it->second.god)))
     {
         return false;
     }
@@ -407,23 +306,17 @@ void mark_had_book(const item_def &book)
     if (!item_is_spellbook(book))
         return;
 
-    for (int i = 0; i < SPELLBOOK_SIZE; i++)
-    {
-        spell_type stype = which_spell_in_book(book, i);
-        if (stype == SPELL_NO_SPELL)
-            continue;
-
+    for (spell_type stype : spells_in_book(book))
         you.seen_spell.set(stype);
-    }
 
     if (book.sub_type == BOOK_RANDART_LEVEL)
-        ASSERT_RANGE(book.plus, 1, 10); // book's level
+        ASSERT_RANGE(book.book_param, 1, 10); // book's level
 
     if (!book.props.exists(SPELL_LIST_KEY))
-        mark_had_book(book.book_number());
+        mark_had_book(static_cast<book_type>(book.sub_type));
 }
 
-void mark_had_book(int booktype)
+void mark_had_book(book_type booktype)
 {
     ASSERT_RANGE(booktype, 0, MAX_FIXED_BOOK + 1);
 
@@ -448,13 +341,15 @@ bool maybe_id_book(item_def &book, bool silent)
     if (book.base_type != OBJ_BOOKS && book.base_type != OBJ_RODS)
         return false;
 
-    if (book.base_type == OBJ_BOOKS && book.sub_type == BOOK_DESTRUCTION)
+#if TAG_MAJOR_VERSION == 34
+    if (book.is_type(OBJ_BOOKS, BOOK_BUGGY_DESTRUCTION))
     {
         ASSERT(fully_identified(book));
         return false;
     }
+#endif
 
-    if (book.base_type == OBJ_BOOKS && book.sub_type == BOOK_MANUAL)
+    if (book.is_type(OBJ_BOOKS, BOOK_MANUAL))
     {
         set_ident_flags(book, ISFLAG_IDENT_MASK);
         return false;
@@ -481,137 +376,26 @@ bool maybe_id_book(item_def &book, bool silent)
     return true;
 }
 
-int read_book(item_def &book, read_book_action_type action)
+void read_book(item_def &book)
 {
-    if (!maybe_id_book(book))
-        return 0;
-
-#ifdef USE_TILE_WEB
-    tiles_crt_control show_as_menu(CRT_MENU, "read_book");
-#endif
-
-    // Remember that this function is called for rods as well.
-    const int keyin = spellbook_contents(book, action);
-
-    if (!crawl_state.is_replaying_keys())
+    if (maybe_id_book(book))
+    {
+        clrscr();
+        describe_item(book);
         redraw_screen();
-
-    return keyin;
+    }
 }
 
-bool you_cannot_memorise(spell_type spell)
+/**
+ * Is the player ever allowed to memorise the given spell? (Based on race, not
+ * spell slot restrictions, etc)
+ *
+ * @param spell     The type of spell in question.
+ * @return          Whether the the player is allowed to memorise the spell.
+ */
+bool you_can_memorise(spell_type spell)
 {
-    bool temp;
-    return you_cannot_memorise(spell, temp);
-}
-
-// form is set to true if a form (lich) prevents us from
-// memorising the spell.
-bool you_cannot_memorise(spell_type spell, bool &form)
-{
-    bool rc = false;
-
-    if (you.is_undead)
-    {
-        switch (spell)
-        {
-        case SPELL_BORGNJORS_REVIVIFICATION:
-        case SPELL_DEATHS_DOOR:
-        case SPELL_NECROMUTATION:
-            // Prohibited to all undead.
-            rc = true;
-            break;
-
-        case SPELL_CURE_POISON:
-        case SPELL_STONESKIN:
-        case SPELL_BEASTLY_APPENDAGE:
-        case SPELL_BLADE_HANDS:
-        case SPELL_DRAGON_FORM:
-        case SPELL_ICE_FORM:
-        case SPELL_SPIDER_FORM:
-        case SPELL_STATUE_FORM:
-            // Allowed for vampires (depending on hunger).
-            rc = (you.is_undead != US_SEMI_UNDEAD);
-            break;
-
-        case SPELL_INTOXICATE:
-        case SPELL_REGENERATION:
-            // Only prohibited for liches and mummies.
-            rc = (you.is_undead == US_UNDEAD);
-            break;
-
-        default:
-            break;
-        }
-
-        // If our undeath is only temporary, mark that fact. This
-        // assumes that the already undead cannot enter lich form.
-        if (rc && you.form == TRAN_LICH)
-            form = true;
-    }
-
-    if (you.species == SP_GARGOYLE && spell == SPELL_CURE_POISON)
-        rc = true, form = false;
-
-    if (you.species == SP_DEEP_DWARF && spell == SPELL_REGENERATION)
-        rc = true, form = false;
-
-    if (you.species == SP_FELID
-        && (spell == SPELL_PORTAL_PROJECTILE
-         // weapon branding is useless
-         || spell == SPELL_WARP_BRAND
-         || spell == SPELL_EXCRUCIATING_WOUNDS
-         || spell == SPELL_SURE_BLADE
-         // could be useful if it didn't require wielding
-         || spell == SPELL_SPECTRAL_WEAPON))
-    {
-        rc = true, form = false;
-    }
-#if TAG_MAJOR_VERSION == 34
-
-    if (you.species == SP_DJINNI
-        && (spell == SPELL_ICE_FORM
-         || spell == SPELL_OZOCUBUS_ARMOUR
-         || spell == SPELL_LEDAS_LIQUEFACTION))
-    {
-        rc = true, form = false;
-    }
-
-    if (you.species == SP_LAVA_ORC
-        && (spell == SPELL_STONESKIN
-         || spell == SPELL_OZOCUBUS_ARMOUR))
-    {
-        rc = true, form = false;
-    }
-#endif
-
-    if (you.species == SP_FORMICID
-        && (spell == SPELL_BLINK
-         || spell == SPELL_CONTROL_TELEPORT
-         || spell == SPELL_CONTROLLED_BLINK))
-    {
-        rc = true, form = false;
-    }
-
-    if (spell == SPELL_SUBLIMATION_OF_BLOOD)
-    {
-        // XXX: Using player::cannot_bleed will incorrectly
-        // catch statue- or lich-formed players.
-        if (you.species == SP_GARGOYLE
-            || you.species == SP_GHOUL
-            || you.species == SP_MUMMY)
-        {
-            rc = true;
-            form = false;
-        }
-        else if (!form_can_bleed(you.form))
-        {
-            rc = true;
-            form = true;
-        }
-    }
-
-    return rc;
+    return !spell_is_useless(spell, false, true);
 }
 
 bool player_can_memorise(const item_def &book)
@@ -619,13 +403,8 @@ bool player_can_memorise(const item_def &book)
     if (!item_is_spellbook(book) || !player_spell_levels())
         return false;
 
-    for (int j = 0; j < SPELLBOOK_SIZE; j++)
+    for (spell_type stype : spells_in_book(book))
     {
-        const spell_type stype = which_spell_in_book(book, j);
-
-        if (stype == SPELL_NO_SPELL)
-            continue;
-
         // Easiest spell already too difficult?
         if (spell_difficulty(stype) > you.experience_level
             || player_spell_levels() < spell_levels_required(stype))
@@ -633,12 +412,7 @@ bool player_can_memorise(const item_def &book)
             return false;
         }
 
-        bool knows_spell = false;
-        for (int i = 0; i < MAX_KNOWN_SPELLS && !knows_spell; i++)
-            knows_spell = (you.spells[i] == stype);
-
-        // You don't already know this spell.
-        if (!knows_spell)
+        if (!you.has_spell(stype))
             return true;
     }
     return false;
@@ -661,22 +435,17 @@ static void _index_book(item_def& book, spells_to_books &book_hash,
     set_ident_flags(book, ISFLAG_KNOW_TYPE);
     set_ident_flags(book, ISFLAG_IDENT_MASK);
 
-    int spells_in_book = 0;
-    for (int j = 0; j < SPELLBOOK_SIZE; j++)
+    int num_spells = 0;
+    for (spell_type spell : spells_in_book(book))
     {
-        if (!_is_valid_spell_in_book(book, j))
-            continue;
+        num_spells++;
 
-        const spell_type spell = which_spell_in_book(book, j);
-
-        spells_in_book++;
-
-        spells_to_books::iterator it = book_hash.find(spell);
+        auto it = book_hash.find(spell);
         if (it == book_hash.end())
             book_hash[spell] = book.sub_type;
     }
 
-    if (spells_in_book == 0)
+    if (num_spells == 0)
     {
         mprf(MSGCH_ERROR, "Spellbook \"%s\" contains no spells! Please "
              "file a bug report.", book.name(DESC_PLAIN).c_str());
@@ -713,9 +482,9 @@ static bool _get_mem_list(spell_list &mem_spells,
     vector<const item_def*> items;
     item_list_on_square(items, you.visible_igrd(you.pos()));
 
-    for (unsigned int i = 0; i < items.size(); ++i)
+    for (const item_def *bptr : items)
     {
-        item_def book(*items[i]);
+        item_def book(*bptr); // Copy
         if (!item_is_spellbook(book))
             continue;
 
@@ -731,7 +500,7 @@ static bool _get_mem_list(spell_list &mem_spells,
     }
 
     // Handle Vehumet gifts
-    set<spell_type>::iterator gift_iterator = you.vehumet_gifts.begin();
+    auto gift_iterator = you.vehumet_gifts.begin();
     if (gift_iterator != you.vehumet_gifts.end())
     {
         num_books++;
@@ -774,20 +543,25 @@ static bool _get_mem_list(spell_list &mem_spells,
 
     unsigned int num_known      = 0;
                  num_race       = 0;
+    unsigned int num_restricted = 0;
     unsigned int num_low_xl     = 0;
     unsigned int num_low_levels = 0;
     unsigned int num_memable    = 0;
     bool         form           = false;
 
-    for (spells_to_books::iterator i = book_hash.begin();
-         i != book_hash.end(); ++i)
+    for (const auto &entry : book_hash)
     {
-        const spell_type spell = i->first;
+        const spell_type spell = entry.first;
 
         if (spell == current_spell || you.has_spell(spell))
             num_known++;
-        else if (you_cannot_memorise(spell, form))
-            num_race++;
+        else if (!you_can_memorise(spell))
+        {
+            if (cannot_use_schools(get_spell_disciplines(spell)))
+                num_restricted++;
+            else
+                num_race++;
+        }
         else
         {
             mem_spells.push_back(spell);
@@ -812,11 +586,18 @@ static bool _get_mem_list(spell_list &mem_spells,
     if (just_check)
         return num_low_levels > 0 || num_low_xl > 0;
 
-    unsigned int total = num_known + num_race + num_low_xl + num_low_levels;
+    unsigned int total = num_known + num_race + num_low_xl + num_low_levels
+            + num_restricted;
 
     if (num_known == total)
         mprf(MSGCH_PROMPT, "You already know all available spells.");
-    else if (num_race == total || (num_known + num_race) == total)
+    else if (num_restricted == total || num_restricted + num_known == total)
+    {
+        mpr("You cannot currently memorise any of the available "
+             "spells because you cannot use those schools of magic.");
+    }
+    else if (num_race == total || (num_known + num_race) == total
+            || num_race + num_known + num_restricted == total)
     {
         if (form)
         {
@@ -855,7 +636,7 @@ static bool _get_mem_list(spell_list &mem_spells,
 
 // If current_spell is a valid spell, returns whether you'll be able to
 // memorise any further spells once this one is committed to memory.
-bool has_spells_to_memorise(bool silent, int current_spell)
+bool has_spells_to_memorise(bool silent, spell_type current_spell)
 {
     spell_list      mem_spells;
     spells_to_books book_hash;
@@ -888,8 +669,8 @@ static bool _sort_mem_spells(spell_type a, spell_type b)
 
     // Don't sort by failure rate beyond what the player can see in the
     // success descriptions.
-    const int fail_rate_a = failure_rate_to_int(spell_fail(a));
-    const int fail_rate_b = failure_rate_to_int(spell_fail(b));
+    const int fail_rate_a = failure_rate_to_int(raw_spell_fail(a));
+    const int fail_rate_b = failure_rate_to_int(raw_spell_fail(b));
     if (fail_rate_a != fail_rate_b)
         return fail_rate_a < fail_rate_b;
 
@@ -913,13 +694,10 @@ vector<spell_type> get_mem_spell_list(vector<int> &books)
 
     sort(mem_spells.begin(), mem_spells.end(), _sort_mem_spells);
 
-    for (unsigned int i = 0; i < mem_spells.size(); i++)
+    for (spell_type spell : mem_spells)
     {
-        spell_type spell = mem_spells[i];
         spells.push_back(spell);
-
-        spells_to_books::iterator it = book_hash.find(spell);
-        books.push_back(it->second);
+        books.push_back(*map_find(book_hash, spell));
     }
 
     return spells;
@@ -971,7 +749,7 @@ static spell_type _choose_mem_spell(spell_list &spells,
             MEL_TITLE), false);
 #endif
 
-    spell_menu.set_highlighter(NULL);
+    spell_menu.set_highlighter(nullptr);
     spell_menu.set_tag("spell");
 
     spell_menu.action_cycle = Menu::CYCLE_TOGGLE;
@@ -1047,9 +825,7 @@ static spell_type _choose_mem_spell(spell_list &spells,
 
         colour = failure_rate_colour(spell);
         desc << "<" << colour_to_str(colour) << ">";
-        char* failure = failure_rate_to_string(spell_fail(spell));
-        desc << chop_string(failure, 12);
-        free(failure);
+        desc << chop_string(failure_rate_to_string(raw_spell_fail(spell)), 12);
         desc << "</" << colour_to_str(colour) << ">";
         desc << spell_difficulty(spell);
 
@@ -1081,7 +857,7 @@ static spell_type _choose_mem_spell(spell_list &spells,
         ASSERT(is_valid_spell(spell));
 
         if (spell_menu.menu_action == Menu::ACT_EXAMINE)
-            describe_spell(spell);
+            describe_spell(spell, nullptr);
         else
             return spell;
     }
@@ -1089,13 +865,6 @@ static spell_type _choose_mem_spell(spell_list &spells,
 
 bool can_learn_spell(bool silent)
 {
-    if (you.form == TRAN_BAT)
-    {
-        if (!silent)
-            canned_msg(MSG_PRESENT_FORM);
-        return false;
-    }
-
     if (you.stat_zero[STAT_INT])
     {
         if (!silent)
@@ -1145,22 +914,16 @@ bool learn_spell()
     return learn_spell(specspell);
 }
 
-// Returns a string about why a character can't memorise a spell.
-string desc_cannot_memorise_reason(bool form)
+/**
+ * Why can't the player memorize the given spell?
+ *
+ * @param spell     The spell in question.
+ * @return          A string describing (one of) the reason(s) the player
+ *                  can't memorize this spell.
+ */
+string desc_cannot_memorise_reason(spell_type spell)
 {
-    string desc = "You cannot ";
-    if (form)
-        desc += "currently ";
-    desc += "memorise or cast this spell because you are ";
-
-    if (form)
-        desc += "in " + uppercase_first(transform_name()) + " form";
-    else
-        desc += article_a(species_name(you.species));
-
-    desc += ".";
-
-    return desc;
+    return spell_uselessness_reason(spell, false, true);
 }
 
 /**
@@ -1178,10 +941,9 @@ static bool _learn_spell_checks(spell_type specspell)
     if (already_learning_spell((int) specspell))
         return false;
 
-    bool form = false;
-    if (you_cannot_memorise(specspell, form))
+    if (!you_can_memorise(specspell))
     {
-        mpr(desc_cannot_memorise_reason(form).c_str());
+        mpr(desc_cannot_memorise_reason(specspell));
         return false;
     }
 
@@ -1224,18 +986,18 @@ bool learn_spell(spell_type specspell)
     if (!_learn_spell_checks(specspell))
         return false;
 
-    double chance = get_miscast_chance(specspell);
+    int severity = fail_severity(specspell);
 
-    if (spell_fail(specspell) >= 100 && !vehumet_is_offering(specspell))
+    if (raw_spell_fail(specspell) >= 100 && !vehumet_is_offering(specspell))
         mprf(MSGCH_WARN, "This spell is impossible to cast!");
-    else if (chance >= 0.025)
-        mprf(MSGCH_WARN, "This spell is very dangerous to cast!");
-    else if (chance >= 0.005)
-        mprf(MSGCH_WARN, "This spell is quite dangerous to cast!");
-    else if (chance >= 0.001)
-        mprf(MSGCH_WARN, "This spell is slightly dangerous to cast.");
+    else if (severity > 0)
+    {
+        mprf(MSGCH_WARN, "This spell is %s to cast%s",
+                         fail_severity_adjs[severity],
+                         severity > 1 ? "!" : ".");
+    }
 
-    snprintf(info, INFO_SIZE,
+    const string prompt = make_stringf(
              "Memorise %s, consuming %d spell level%s and leaving %d?",
              spell_title(specspell), spell_levels_required(specspell),
              spell_levels_required(specspell) != 1 ? "s" : "",
@@ -1243,7 +1005,7 @@ bool learn_spell(spell_type specspell)
 
     // Deactivate choice from tile inventory.
     mouse_control mc(MOUSE_MODE_MORE);
-    if (!yesno(info, true, 'n', false))
+    if (!yesno(prompt.c_str(), true, 'n', false))
     {
         canned_msg(MSG_OK);
         return false;
@@ -1261,10 +1023,12 @@ bool forget_spell_from_book(spell_type spell, const item_def* book)
 {
     string prompt;
 
-    prompt += make_stringf("Forgetting %s from %s will destroy the book! "
+    prompt += make_stringf("Forgetting %s from %s will destroy the book%s! "
                            "Are you sure?",
                            spell_title(spell),
-                           book->name(DESC_THE).c_str());
+                           book->name(DESC_THE).c_str(),
+                           you_worship(GOD_SIF_MUNA)
+                               ? " and put you under penance" : "");
 
     // Deactivate choice from tile inventory.
     mouse_control mc(MOUSE_MODE_MORE);
@@ -1292,156 +1056,6 @@ bool forget_spell_from_book(spell_type spell, const item_def* book)
     }
 }
 
-int count_rod_spells(const item_def &item, bool need_id)
-{
-    if (item.base_type != OBJ_RODS)
-        return -1;
-
-    if (need_id && !item_type_known(item))
-        return 0;
-
-    const int type = item.book_number();
-    if (type == -1)
-        return 0;
-
-    int nspel = 0;
-    while (nspel < SPELLBOOK_SIZE && _is_valid_spell_in_book(item, nspel))
-        ++nspel;
-
-    return nspel;
-}
-
-int rod_spell(int rod, bool check_range)
-{
-    item_def& irod(you.inv[rod]);
-
-    if (irod.base_type != OBJ_RODS)
-    {
-        canned_msg(MSG_NOTHING_HAPPENS);
-        return -1;
-    }
-
-    // ID code got moved to item_use::wield_effects. {due}
-
-    const int num_spells = count_rod_spells(irod, false);
-
-    int keyin = 0;
-    if (num_spells == 0)
-    {
-        canned_msg(MSG_NOTHING_HAPPENS);  // shouldn't happen
-        return 0;
-    }
-    else if (num_spells == 1)
-        keyin = 'a';  // automatically selected if it's the only option
-    else
-    {
-        mprf(MSGCH_PROMPT,
-             "Evoke which spell from the rod ([a-%c] spell [?*] list)? ",
-             'a' + num_spells - 1);
-
-        // Note that the list of spells is not presented here.
-        keyin = get_ch();
-
-        if (keyin == '?' || keyin == '*')
-        {
-            keyin = read_book(you.inv[rod], RBOOK_USE_ROD);
-            // [ds] read_book sets turn_is_over.
-            you.turn_is_over = false;
-        }
-    }
-
-    if (key_is_escape(keyin) || keyin == ' ' || keyin == '\r' || keyin == '\n')
-    {
-        canned_msg(MSG_OK);
-        return -1;
-    }
-
-    if (!isaalpha(keyin))
-    {
-        canned_msg(MSG_HUH);
-        return -1;
-    }
-
-    const int idx = letter_to_index(keyin);
-
-    if (idx >= SPELLBOOK_SIZE || !_is_valid_spell_in_book(irod, idx))
-    {
-        canned_msg(MSG_HUH);
-        return -1;
-    }
-
-    const spell_type spell = which_spell_in_book(irod, idx);
-    int mana = spell_mana(spell) * ROD_CHARGE_MULT;
-    int power = calc_spell_power(spell, false, false, true, true);
-
-    int food = spell_hunger(spell, true);
-
-    if (you.is_undead == US_UNDEAD)
-        food = 0;
-
-    if (food && (you.hunger_state == HS_STARVING || you.hunger <= food)
-        && !you.is_undead)
-    {
-        canned_msg(MSG_NO_ENERGY);
-        crawl_state.zero_turns_taken();
-        return -1;
-    }
-
-    if (spell == SPELL_THUNDERBOLT && you.props.exists("thunderbolt_last")
-        && you.props["thunderbolt_last"].get_int() + 1 == you.num_turns)
-    {
-        // Starting it up takes 2 mana, continuing any amount up to 5.
-        // You don't get to expend less (other than stopping the zap completely).
-        mana = min(5 * ROD_CHARGE_MULT, (int)irod.plus);
-        // Never allow using less than a whole point of charge.
-        mana = max(mana, ROD_CHARGE_MULT);
-        you.props["thunderbolt_mana"].get_int() = mana;
-    }
-
-    if (irod.plus < mana)
-    {
-        mpr("The rod doesn't have enough magic points.");
-        crawl_state.zero_turns_taken();
-        // Don't lose a turn for trying to evoke without enough MP - that's
-        // needlessly cruel for an honest error.
-        return -1;
-    }
-
-    if (check_range && spell_no_hostile_in_range(spell, true))
-    {
-        // Abort if there are no hostiles within range, but flash the range
-        // markers for a short while.
-        mpr("You can't see any susceptible monsters within range! "
-            "(Use <w>V</w> to cast anyway.)");
-
-        if (Options.darken_beyond_range)
-        {
-            targetter_smite range(&you, calc_spell_range(spell, 0, true), 0, 0, true);
-            range_view_annotator show_range(&range);
-            delay(50);
-        }
-        crawl_state.zero_turns_taken();
-        return -1;
-    }
-
-    // All checks passed, we can cast the spell.
-    if (you.confused())
-        random_uselessness();
-    else if (your_spells(spell, power, false)
-                == SPRET_ABORT)
-    {
-        crawl_state.zero_turns_taken();
-        return -1;
-    }
-
-    make_hungry(food, true, true);
-    irod.plus -= mana;
-    you.wield_change = true;
-    you.turn_is_over = true;
-
-    return roll_dice(1, 1 + spell_difficulty(spell) / 2);
-}
-
 static bool _compare_spells(spell_type a, spell_type b)
 {
     if (a == SPELL_NO_SPELL && b == SPELL_NO_SPELL)
@@ -1457,42 +1071,34 @@ static bool _compare_spells(spell_type a, spell_type b)
     if (level_a != level_b)
         return level_a < level_b;
 
-    unsigned int schools_a = get_spell_disciplines(a);
-    unsigned int schools_b = get_spell_disciplines(b);
+    spschools_type schools_a = get_spell_disciplines(a);
+    spschools_type schools_b = get_spell_disciplines(b);
 
-    if (schools_a != schools_b && schools_a != 0 && schools_b != 0)
+    if (schools_a != schools_b && schools_a != SPTYP_NONE
+                               && schools_b != SPTYP_NONE)
     {
-        const char* a_type = NULL;
-        const char* b_type = NULL;
+        const char* a_type = nullptr;
+        const char* b_type = nullptr;
 
         // Find lowest/earliest school for each spell.
         for (int i = 0; i <= SPTYP_LAST_EXPONENT; i++)
         {
-            int mask = 1 << i;
-            if (a_type == NULL && (schools_a & mask))
+            const auto mask = spschools_type::exponent(i);
+            if (a_type == nullptr && (schools_a & mask))
                 a_type = spelltype_long_name(mask);
-            if (b_type == NULL && (schools_b & mask))
+            if (b_type == nullptr && (schools_b & mask))
                 b_type = spelltype_long_name(mask);
         }
-        ASSERT(a_type != NULL);
-        ASSERT(b_type != NULL);
+        ASSERT(a_type != nullptr);
+        ASSERT(b_type != nullptr);
         return strcmp(a_type, b_type) < 0;
     }
 
     return strcmp(spell_title(a), spell_title(b)) < 0;
 }
 
-bool is_memorised(spell_type spell)
-{
-    for (int i = 0; i < MAX_KNOWN_SPELLS; i++)
-        if (you.spells[i] == spell)
-            return true;
-
-    return false;
-}
-
 static void _get_spell_list(vector<spell_type> &spells, int level,
-                            unsigned int disc1, unsigned int disc2,
+                            spschool_flag_type disc1, spschool_flag_type disc2,
                             god_type god, bool avoid_uncastable,
                             int &god_discard, int &uncastable_discard,
                             bool avoid_known = false)
@@ -1505,13 +1111,9 @@ static void _get_spell_list(vector<spell_type> &spells, int level,
     vector<spell_type> special_spells;
     if (god == GOD_SIF_MUNA)
     {
-        for (int i = MIN_RARE_BOOK; i <= MAX_RARE_BOOK; ++i)
-            for (int j = 0; j < SPELLBOOK_SIZE; ++j)
+        for (auto i : rare_books)
+            for (spell_type spell : spellbook_template(i.first))
             {
-                spell_type spell = which_spell_in_book(i, j);
-                if (spell == SPELL_NO_SPELL)
-                    continue;
-
                 if (spell_rarity(spell) != -1)
                     continue;
 
@@ -1557,7 +1159,7 @@ static void _get_spell_list(vector<spell_type> &spells, int level,
         else
         {
             // themed randart: only include spells of the given disciplines
-            const unsigned int disciplines = get_spell_disciplines(spell);
+            const spschools_type disciplines = get_spell_disciplines(spell);
             if ((!(disciplines & disc1) && !(disciplines & disc2))
                  || disciplines_conflict(disc1, disciplines)
                  || disciplines_conflict(disc2, disciplines))
@@ -1566,7 +1168,7 @@ static void _get_spell_list(vector<spell_type> &spells, int level,
             }
         }
 
-        if (avoid_uncastable && you_cannot_memorise(spell))
+        if (avoid_uncastable && !you_can_memorise(spell))
         {
             uncastable_discard++;
             continue;
@@ -1584,7 +1186,7 @@ static void _get_spell_list(vector<spell_type> &spells, int level,
 }
 
 static void _get_spell_list(vector<spell_type> &spells,
-                            unsigned int disc1, unsigned int disc2,
+                            spschool_flag_type disc1, spschool_flag_type disc2,
                             god_type god, bool avoid_uncastable,
                             int &god_discard, int &uncastable_discard,
                             bool avoid_known = false)
@@ -1617,8 +1219,17 @@ static void _make_book_randart(item_def &book)
     }
 }
 
-bool make_book_level_randart(item_def &book, int level, int num_spells,
-                             string owner)
+/**
+ * Turn the given book into a randomly-generated spellbook ("randbook"),
+ * containing only spells of a given level.
+ *
+ * @param book[out]    The book in question.
+ * @param level        The level of the spells. If -1, choose a level randomly.
+ * @param owner        An "owner" for the book; used for naming. If the empty
+ *                     string, choose randomly (may choose no owner).
+ * @return             Whether the book was successfully transformed.
+ */
+bool make_book_level_randart(item_def &book, int level, string owner)
 {
     ASSERT(book.base_type == OBJ_BOOKS);
 
@@ -1638,17 +1249,13 @@ bool make_book_level_randart(item_def &book, int level, int num_spells,
     }
     ASSERT_RANGE(level, 0 + 1, 9 + 1);
 
-    if (num_spells == -1)
-    {
-        // Book level:       1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
-        // Number of spells: 5 | 5 | 5 | 6 | 6 | 6 | 4 | 2 | 1
-        num_spells = min(5 + (level - 1)/3, 18 - 2*level);
-        num_spells = max(1, num_spells);
-    }
-    ASSERT_RANGE(num_spells, 0 + 1, SPELLBOOK_SIZE + 1);
+    // Book level:       1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+    // Number of spells: 5 | 5 | 5 | 6 | 6 | 6 | 4 | 2 | 1
+    int num_spells = max(1, min(5 + (level - 1)/3,
+                                18 - 2*level));
+    ASSERT_RANGE(num_spells, 0 + 1, RANDBOOK_SIZE + 1);
 
-    book.plus  = level;
-    book.plus2 = num_spells;
+    book.book_param = level;
 
     book.sub_type = BOOK_RANDART_LEVEL;
     _make_book_randart(book);
@@ -1657,6 +1264,7 @@ bool make_book_level_randart(item_def &book, int level, int num_spells,
     int uncastable_discard = 0;
 
     vector<spell_type> spells;
+    // Which spells are valid choices?
     _get_spell_list(spells, level, god, !completely_random,
                     god_discard, uncastable_discard);
 
@@ -1707,8 +1315,8 @@ bool make_book_level_randart(item_def &book, int level, int num_spells,
     vector<bool> avoid_memorised(spells.size(), !completely_random);
     vector<bool> avoid_seen(spells.size(), !completely_random);
 
-    spell_type chosen_spells[SPELLBOOK_SIZE];
-    for (int i = 0; i < SPELLBOOK_SIZE; i++)
+    spell_type chosen_spells[RANDBOOK_SIZE];
+    for (int i = 0; i < RANDBOOK_SIZE; i++)
         chosen_spells[i] = SPELL_NO_SPELL;
 
     int book_pos = 0;
@@ -1722,7 +1330,7 @@ bool make_book_level_randart(item_def &book, int level, int num_spells,
         spell_type spell = spells[spell_pos];
         ASSERT(spell != SPELL_NO_SPELL);
 
-        if (avoid_memorised[spell_pos] && is_memorised(spell))
+        if (avoid_memorised[spell_pos] && you.has_spell(spell))
         {
             // Only once.
             avoid_memorised[spell_pos] = false;
@@ -1739,17 +1347,17 @@ bool make_book_level_randart(item_def &book, int level, int num_spells,
         spell_used[spell_pos]     = true;
         chosen_spells[book_pos++] = spell;
     }
-    sort(chosen_spells, chosen_spells + SPELLBOOK_SIZE, _compare_spells);
+    sort(chosen_spells, chosen_spells + RANDBOOK_SIZE, _compare_spells);
     ASSERT(chosen_spells[0] != SPELL_NO_SPELL);
 
     CrawlHashTable &props = book.props;
     props.erase(SPELL_LIST_KEY);
-    props[SPELL_LIST_KEY].new_vector(SV_INT).resize(SPELLBOOK_SIZE);
+    props[SPELL_LIST_KEY].new_vector(SV_INT).resize(RANDBOOK_SIZE);
 
     CrawlVector &spell_vec = props[SPELL_LIST_KEY].get_vector();
-    spell_vec.set_max_size(SPELLBOOK_SIZE);
+    spell_vec.set_max_size(RANDBOOK_SIZE);
 
-    for (int i = 0; i < SPELLBOOK_SIZE; i++)
+    for (int i = 0; i < RANDBOOK_SIZE; i++)
         spell_vec[i].get_int() = chosen_spells[i];
 
     bool has_owner = true;
@@ -1813,22 +1421,8 @@ bool make_book_level_randart(item_def &book, int level, int num_spells,
 
         if (bookname.find("@level@", 0) != string::npos)
         {
-            string number;
-            switch (level)
-            {
-            case 1: number = "One"; break;
-            case 2: number = "Two"; break;
-            case 3: number = "Three"; break;
-            case 4: number = "Four"; break;
-            case 5: number = "Five"; break;
-            case 6: number = "Six"; break;
-            case 7: number = "Seven"; break;
-            case 8: number = "Eight"; break;
-            case 9: number = "Nine"; break;
-            default:
-                number = ""; break;
-            }
-            bookname = replace_all(bookname, "@level@", number);
+            const string level_name = uppercase_first(number_in_words(level));
+            bookname = replace_all(bookname, "@level@", level_name);
         }
     }
 
@@ -1843,16 +1437,17 @@ bool make_book_level_randart(item_def &book, int level, int num_spells,
 }
 
 static bool _get_weighted_discs(bool completely_random, god_type god,
-                                int &disc1, int &disc2)
+                                spschool_flag_type &disc1,
+                                spschool_flag_type &disc2)
 {
     // Eliminate disciplines that the god dislikes or from which all
     // spells are discarded.
-    vector<int> ok_discs;
+    vector<spschool_flag_type> ok_discs;
     vector<skill_type> skills;
     vector<int> spellcount;
     for (int i = 0; i <= SPTYP_LAST_EXPONENT; i++)
     {
-        int disc = 1 << i;
+        const spschool_flag_type disc = spschools_type::exponent(i);
         if (disc & SPTYP_DIVINATION)
             continue;
 
@@ -1929,13 +1524,14 @@ static bool _get_weighted_discs(bool completely_random, god_type god,
 }
 
 static bool _get_weighted_spells(bool completely_random, god_type god,
-                                 int disc1, int disc2,
+                                 spschool_flag_type disc1,
+                                 spschool_flag_type disc2,
                                  int num_spells, int max_levels,
                                  const vector<spell_type> &spells,
-                                 spell_type chosen_spells[])
+                                 spell_type chosen_spells[], bool exact_level)
 {
     ASSERT(num_spells <= (int) spells.size());
-    ASSERT(num_spells <= SPELLBOOK_SIZE);
+    ASSERT(num_spells <= RANDBOOK_SIZE);
     ASSERT(num_spells > 0);
     ASSERT(max_levels > 0);
 
@@ -1944,9 +1540,8 @@ static bool _get_weighted_spells(bool completely_random, god_type god,
 
     if (completely_random)
     {
-        for (unsigned int i = 0; i < spells.size(); i++)
+        for (spell_type spl : spells)
         {
-            spell_type spl = spells[i];
             if (god == GOD_XOM)
                 spell_weights[spl] = count_bits(get_spell_disciplines(spl));
             else
@@ -1956,10 +1551,9 @@ static bool _get_weighted_spells(bool completely_random, god_type god,
     else
     {
         const int Spc = you.skills[SK_SPELLCASTING];
-        for (unsigned int i = 0; i < spells.size(); i++)
+        for (spell_type spell : spells)
         {
-            spell_type spell = spells[i];
-            unsigned int disciplines = get_spell_disciplines(spell);
+            const spschools_type disciplines = get_spell_disciplines(spell);
 
             int d = 1;
             if ((disciplines & disc1) && (disciplines & disc2))
@@ -1968,14 +1562,14 @@ static bool _get_weighted_spells(bool completely_random, god_type god,
             int c = 1;
             if (!you.seen_spell[spell])
                 c = 4;
-            else if (!is_memorised(spell))
+            else if (!you.has_spell(spell))
                 c = 2;
 
             int total_skill = 0;
             int num_skills  = 0;
             for (int j = 0; j <= SPTYP_LAST_EXPONENT; j++)
             {
-                int disc = 1 << j;
+                const auto disc = spschools_type::exponent(j);
 
                 if (disciplines & disc)
                 {
@@ -1997,8 +1591,9 @@ static bool _get_weighted_spells(bool completely_random, god_type god,
         }
     }
 
-    int book_pos    = 0;
-    int spells_left = spells.size();
+    int spells_needed = num_spells;
+    int book_pos      = 0;
+    int spells_left   = spells.size();
     while (book_pos < num_spells && max_levels > 0 && spells_left > 0)
     {
         if (chosen_spells[book_pos] != SPELL_NO_SPELL)
@@ -2019,7 +1614,7 @@ static bool _get_weighted_spells(bool completely_random, god_type god,
 
         int levels = spell_difficulty(spell);
 
-        if (levels > max_levels)
+        if (levels > max_levels - (exact_level ? spells_needed - 1 : 0))
         {
             spell_weights[spell] = 0;
             spells_left--;
@@ -2029,6 +1624,7 @@ static bool _get_weighted_spells(bool completely_random, god_type god,
         spell_weights[spell]      = 0;
         max_levels               -= levels;
         spells_left--;
+        spells_needed--;
     }
     ASSERT(max_levels >= 0);
 
@@ -2036,11 +1632,12 @@ static bool _get_weighted_spells(bool completely_random, god_type god,
 }
 
 static void _remove_nondiscipline_spells(spell_type chosen_spells[],
-                                         int d1, int d2,
+                                         spschool_flag_type d1,
+                                         spschool_flag_type d2,
                                          spell_type exclude = SPELL_NO_SPELL)
 {
     int replace = -1;
-    for (int i = 0; i < SPELLBOOK_SIZE; i++)
+    for (int i = 0; i < RANDBOOK_SIZE; i++)
     {
         if (chosen_spells[i] == SPELL_NO_SPELL)
             break;
@@ -2066,26 +1663,24 @@ static void _remove_nondiscipline_spells(spell_type chosen_spells[],
     }
 }
 
-static void _add_included_spells(spell_type chosen_spells[SPELLBOOK_SIZE],
+static void _add_included_spells(spell_type (&chosen_spells)[RANDBOOK_SIZE],
                                  vector<spell_type> incl_spells)
 {
-    for (unsigned int i = 0; i < incl_spells.size(); ++i)
+    for (spell_type incl_spell : incl_spells)
     {
-        spell_type incl_spell = incl_spells[i];
-
         if (incl_spell == SPELL_NO_SPELL)
             continue;
 
-        for (int j = 0; j < SPELLBOOK_SIZE; ++j)
+        for (spell_type &chosen : chosen_spells)
         {
             // Already included.
-            if (chosen_spells[j] == incl_spell)
+            if (chosen == incl_spell)
                 break;
 
-            if (chosen_spells[j] == SPELL_NO_SPELL)
+            if (chosen == SPELL_NO_SPELL)
             {
                 // Add to spells.
-                chosen_spells[j] = incl_spell;
+                chosen = incl_spell;
                 break;
             }
         }
@@ -2097,23 +1692,25 @@ static void _add_included_spells(spell_type chosen_spells[SPELLBOOK_SIZE],
 // has to be included, and the name of whomever the book should be named after.
 // With all that information the book is turned into a random artefact
 // containing random spells of the given disciplines (random if none set).
-bool make_book_theme_randart(item_def &book, int disc1, int disc2,
+bool make_book_theme_randart(item_def &book,
+                             spschool_flag_type disc1, spschool_flag_type disc2,
                              int num_spells, int max_levels,
                              spell_type incl_spell, string owner,
-                             string title)
+                             string title, bool exact_level)
 {
     vector<spell_type> spells;
     if (incl_spell != SPELL_NO_SPELL)
         spells.push_back(incl_spell);
     return make_book_theme_randart(book, spells, disc1, disc2,
-                                   num_spells, max_levels, owner, title);
+                                   num_spells, max_levels, owner, title,
+                                   exact_level);
 }
 
 bool make_book_theme_randart(item_def &book,
                              vector<spell_type> incl_spells,
-                             int disc1, int disc2,
+                             spschool_flag_type disc1, spschool_flag_type disc2,
                              int num_spells, int max_levels,
-                             string owner, string title)
+                             string owner, string title, bool exact_level)
 {
     ASSERT(book.base_type == OBJ_BOOKS);
 
@@ -2124,13 +1721,13 @@ bool make_book_theme_randart(item_def &book,
         god == GOD_XOM || (god == GOD_NO_GOD && !origin_is_acquirement(book));
 
     if (num_spells == -1)
-        num_spells = SPELLBOOK_SIZE;
-    ASSERT_RANGE(num_spells, 0 + 1, SPELLBOOK_SIZE + 1);
+        num_spells = RANDBOOK_SIZE;
+    ASSERT_RANGE(num_spells, 0 + 1, RANDBOOK_SIZE + 1);
 
     if (max_levels == -1)
         max_levels = 255;
 
-    if (disc1 == 0 && disc2 == 0)
+    if (disc1 == SPTYP_NONE && disc2 == SPTYP_NONE)
     {
         if (!_get_weighted_discs(completely_random, god, disc1, disc2))
         {
@@ -2152,33 +1749,23 @@ bool make_book_theme_randart(item_def &book,
     ASSERT(count_bits(disc1) == 1);
     ASSERT(count_bits(disc2) == 1);
 
-    int disc1_pos = 0, disc2_pos = 0;
-    for (int i = 0; i <= SPTYP_LAST_EXPONENT; i++)
-    {
-        if (disc1 & (1 << i))
-            disc1_pos = i;
-        if (disc2 & (1 << i))
-            disc2_pos = i;
-    }
-
-    book.plus  = num_spells | (max_levels << 8);
-    book.plus2 = disc1_pos  | (disc2_pos  << 8);
+    book.book_param = num_spells | (max_levels << 8); // NOTE: What's this do?
 
     book.sub_type = BOOK_RANDART_THEME;
-    _make_book_randart(book);
+    _make_book_randart(book);   // NOTE: have any spells been set here?
 
     int god_discard        = 0;
     int uncastable_discard = 0;
 
     vector<spell_type> spells;
     _get_spell_list(spells, disc1, disc2, god, !completely_random,
-                    god_discard, uncastable_discard);
+                    god_discard, uncastable_discard); // NOTE: what's in this spell list?
 
     if (num_spells > (int) spells.size())
         num_spells = spells.size();
 
-    spell_type chosen_spells[SPELLBOOK_SIZE];
-    for (int i = 0; i < SPELLBOOK_SIZE; i++)
+    spell_type chosen_spells[RANDBOOK_SIZE];
+    for (int i = 0; i < RANDBOOK_SIZE; i++)
         chosen_spells[i] = SPELL_NO_SPELL;
 
     _add_included_spells(chosen_spells, incl_spells);
@@ -2187,7 +1774,7 @@ bool make_book_theme_randart(item_def &book,
     // example, in Charms).  Try one more time with max_levels = 2.
     while (!_get_weighted_spells(completely_random, god, disc1, disc2,
                                  num_spells, max_levels, spells,
-                                 chosen_spells))
+                                 chosen_spells, exact_level))
     {
         if (max_levels != 1)
             die("_get_weighted_spells() failed");
@@ -2195,28 +1782,28 @@ bool make_book_theme_randart(item_def &book,
         ++max_levels;
     }
 
-    sort(chosen_spells, chosen_spells + SPELLBOOK_SIZE, _compare_spells);
+    sort(chosen_spells, chosen_spells + RANDBOOK_SIZE, _compare_spells);
     ASSERT(chosen_spells[0] != SPELL_NO_SPELL);
 
     CrawlHashTable &props = book.props;
     props.erase(SPELL_LIST_KEY);
-    props[SPELL_LIST_KEY].new_vector(SV_INT).resize(SPELLBOOK_SIZE);
+    props[SPELL_LIST_KEY].new_vector(SV_INT).resize(RANDBOOK_SIZE);
 
     CrawlVector &spell_vec = props[SPELL_LIST_KEY].get_vector();
-    spell_vec.set_max_size(SPELLBOOK_SIZE);
+    spell_vec.set_max_size(RANDBOOK_SIZE);
 
     // Count how often each spell school appears in the book.
     int count[SPTYP_LAST_EXPONENT+1];
     for (int k = 0; k <= SPTYP_LAST_EXPONENT; k++)
         count[k] = 0;
 
-    for (int i = 0; i < SPELLBOOK_SIZE; i++)
+    for (int i = 0; i < RANDBOOK_SIZE; i++)
     {
         if (chosen_spells[i] == SPELL_NO_SPELL)
             continue;
 
         for (int k = 0; k <= SPTYP_LAST_EXPONENT; k++)
-            if (spell_typematch(chosen_spells[i], 1 << k))
+            if (spell_typematch(chosen_spells[i], spschools_type::exponent(k)))
                 count[k]++;
     }
 
@@ -2258,27 +1845,23 @@ bool make_book_theme_randart(item_def &book,
         max2 = max1;
 
     // Remove spells that don't fit either discipline.
-    _remove_nondiscipline_spells(chosen_spells, 1 << max1, 1 << max2);
+    // ... and change disc1 and disc2 accordingly.
+    disc1 = spschools_type::exponent(max1);
+    disc2 = spschools_type::exponent(max2);
+    _remove_nondiscipline_spells(chosen_spells, disc1, disc2);
     _add_included_spells(chosen_spells, incl_spells);
 
     // Resort spells.
     if (!incl_spells.empty())
-        sort(chosen_spells, chosen_spells + SPELLBOOK_SIZE, _compare_spells);
+        sort(chosen_spells, chosen_spells + RANDBOOK_SIZE, _compare_spells);
     ASSERT(chosen_spells[0] != SPELL_NO_SPELL);
-
-    // ... and change disc1 and disc2 accordingly.
-    disc1 = 1 << max1;
-    if (max1 == max2)
-        disc2 = disc1;
-    else
-        disc2 = 1 << max2;
 
     int highest_level = 0;
     int lowest_level  = 10;
     bool all_spells_disc1 = true;
 
     // Finally fill the spell vector.
-    for (int i = 0; i < SPELLBOOK_SIZE; i++)
+    for (int i = 0; i < RANDBOOK_SIZE; i++)
     {
         spell_vec[i].get_int() = chosen_spells[i];
         int diff = spell_difficulty(chosen_spells[i]);
@@ -2456,8 +2039,7 @@ bool make_book_theme_randart(item_def &book,
     set_artefact_name(book, name);
 
     // Save primary/secondary disciplines back into the book.
-    book.plus  = max1;
-    book.plus2 = max2;
+    book.book_param = max1;
 
     return true;
 }
@@ -2466,8 +2048,8 @@ bool make_book_theme_randart(item_def &book,
 // that includes Statue Form and is named after her.
 void make_book_Roxanne_special(item_def *book)
 {
-    int disc =  coinflip() ? SPTYP_TRANSMUTATION : SPTYP_EARTH;
-    make_book_theme_randart(*book, disc, 0, 5, 19,
+    spschool_flag_type disc = coinflip() ? SPTYP_TRANSMUTATION : SPTYP_EARTH;
+    make_book_theme_randart(*book, disc, SPTYP_NONE, 5, 19,
                             SPELL_STATUE_FORM, "Roxanne");
 }
 
@@ -2476,8 +2058,8 @@ void make_book_Kiku_gift(item_def &book, bool first)
     book.sub_type = BOOK_RANDART_THEME;
     _make_book_randart(book);
 
-    spell_type chosen_spells[SPELLBOOK_SIZE];
-    for (int i = 0; i < SPELLBOOK_SIZE; i++)
+    spell_type chosen_spells[RANDBOOK_SIZE];
+    for (int i = 0; i < RANDBOOK_SIZE; i++)
         chosen_spells[i] = SPELL_NO_SPELL;
 
     if (first)
@@ -2501,24 +2083,23 @@ void make_book_Kiku_gift(item_def &book, bool first)
     }
     else
     {
-        chosen_spells[0] = coinflip() ? SPELL_ANIMATE_DEAD : SPELL_TWISTED_RESURRECTION;
+        chosen_spells[0] = coinflip() ? SPELL_ANIMATE_DEAD
+                                      : SPELL_CIGOTUVIS_EMBRACE;
         chosen_spells[1] = (you.species == SP_FELID || coinflip())
                            ? SPELL_AGONY : SPELL_EXCRUCIATING_WOUNDS;
         chosen_spells[2] = random_choose(SPELL_BOLT_OF_DRAINING,
                                          SPELL_SIMULACRUM,
-                                         SPELL_DEATH_CHANNEL,
-                                         -1);
+                                         SPELL_DEATH_CHANNEL);
         spell_type extra_spell;
         do
         {
             extra_spell = random_choose(SPELL_ANIMATE_DEAD,
-                                        SPELL_TWISTED_RESURRECTION,
+                                        SPELL_CIGOTUVIS_EMBRACE,
                                         SPELL_AGONY,
                                         SPELL_EXCRUCIATING_WOUNDS,
                                         SPELL_BOLT_OF_DRAINING,
                                         SPELL_SIMULACRUM,
-                                        SPELL_DEATH_CHANNEL,
-                                        -1);
+                                        SPELL_DEATH_CHANNEL);
             if (you.species == SP_FELID && extra_spell == SPELL_EXCRUCIATING_WOUNDS)
                 extra_spell = SPELL_NO_SPELL;
             for (int i = 0; i < 3; i++)
@@ -2530,16 +2111,16 @@ void make_book_Kiku_gift(item_def &book, bool first)
         chosen_spells[4] = SPELL_DISPEL_UNDEAD;
     }
 
-    sort(chosen_spells, chosen_spells + SPELLBOOK_SIZE, _compare_spells);
+    sort(chosen_spells, chosen_spells + RANDBOOK_SIZE, _compare_spells);
 
     CrawlHashTable &props = book.props;
     props.erase(SPELL_LIST_KEY);
-    props[SPELL_LIST_KEY].new_vector(SV_INT).resize(SPELLBOOK_SIZE);
+    props[SPELL_LIST_KEY].new_vector(SV_INT).resize(RANDBOOK_SIZE);
 
     CrawlVector &spell_vec = props[SPELL_LIST_KEY].get_vector();
-    spell_vec.set_max_size(SPELLBOOK_SIZE);
+    spell_vec.set_max_size(RANDBOOK_SIZE);
 
-    for (int i = 0; i < SPELLBOOK_SIZE; i++)
+    for (int i = 0; i < RANDBOOK_SIZE; i++)
         spell_vec[i].get_int() = chosen_spells[i];
 
     string name = "Kikubaaqudgha's ";
@@ -2566,14 +2147,9 @@ bool book_has_title(const item_def &book)
 
 void destroy_spellbook(const item_def &book)
 {
-    int j, maxlevel = 0;
-    for (j = 0; j < SPELLBOOK_SIZE; j++)
-    {
-        spell_type stype = which_spell_in_book(book, j);
-        if (stype == SPELL_NO_SPELL)
-            continue;
+    int maxlevel = 0;
+    for (spell_type stype : spells_in_book(book))
         maxlevel = max(maxlevel, spell_difficulty(stype));
-    }
 
     did_god_conduct(DID_DESTROY_SPELLBOOK, maxlevel + 5);
 }

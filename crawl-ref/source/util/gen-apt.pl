@@ -1,7 +1,7 @@
 #! /usr/bin/env perl
 
-# Generates aptitude table from skills2.cc and the aptitude template file.
-# All species names are discovered from skills2.cc and all skill abbreviations
+# Generates aptitude table from skills.cc and the aptitude template file.
+# All species names are discovered from skills.cc and all skill abbreviations
 # are discovered from the apt template file, so this script should be
 # reasonably insulated from skill and species changes.
 #
@@ -10,7 +10,7 @@ use strict;
 use warnings;
 
 my ($target, $template, $modfile, $skillfile) = @ARGV;
-die "Usage: $0 <target> <template> player.cc skills2.cc\n"
+die "Usage: $0 <target> <template> player.cc skills.cc\n"
   unless ($modfile && $skillfile && $template && $target && -r $template
           && -r $skillfile && -r $modfile);
 
@@ -146,11 +146,11 @@ sub aptitude_table
             my $fmt = "%+3d";
             $fmt = "%3d" if $skill == 0;
             $fmt = " NA" if $skill == -99;
-	    if ($abbr eq 'HP' || $abbr eq 'MP')
-	    {
-	        $skill = $skill * 10;
+            if ($abbr eq 'HP' || $abbr eq 'MP')
+            {
+                $skill = $skill * 10;
                 $fmt = "%+3d%%";
-	    }
+            }
             $line .= sprintf($fmt, $skill);
         }
         $text .= "$line\n";
