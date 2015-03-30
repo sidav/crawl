@@ -1707,14 +1707,25 @@ bool needs_handle_warning(const item_def &item, operation_types oper,
         }
 
         if (is_artefact(item) && artefact_property(item, ARTP_MUTAGENIC))
+        {
+            if (_is_wielded(item) && you_worship(GOD_ZIN))
+                penance = true;
             return true;
+        }
     }
 
     if (oper == OPER_PUTON || oper == OPER_WEAR || oper == OPER_TAKEOFF
         || oper == OPER_REMOVE)
     {
         if (is_artefact(item) && artefact_property(item, ARTP_MUTAGENIC))
+        {
+            if ((oper == OPER_TAKEOFF || oper == OPER_REMOVE)
+                 && you_worship(GOD_ZIN))
+            {
+                penance = true;
+            }
             return true;
+        }
     }
 
     return false;
@@ -1788,10 +1799,12 @@ bool check_warning_inscriptions(const item_def& item,
                 return true;
         }
 
+        // XXX: duplicates a check in delay.cc:_finish_delay()
         string prompt = "Really " + _operation_verb(oper) + " ";
         prompt += (in_inventory(item) ? item.name(DESC_INVENTORY)
                                       : item.name(DESC_A));
-        if (nasty_stasis(item, oper))
+        if (nasty_stasis(item, oper)
+            && item_ident(item, ISFLAG_KNOW_TYPE))
         {
             prompt += string(" while ")
                       + (you.duration[DUR_TELEPORT] ? "about to teleport" :
