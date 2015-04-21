@@ -10,28 +10,6 @@
 
    Aug 2012 Michael Barlow <michaelbarlow7@gmail.com>                 */
 
-/** Workaround for bug in CrystaX's toolchain version r7-crystax-5.beta2.
- *  This bug was fixed in r7-crystax-5.beta3, but unfortunately this version
- *  introduced a regressive bug which does not allow native code to access
- *  internal storage used by the application.
- *  So, we're using the beta2 release and the following bit of workaround
- *  code until this gets fixed (http://www.crystax.net/trac/ndk/ticket/126).
- *
- */
-// COMMENTING THIS OUT COS I DON'T THINK WE NEED THIS 
-// IF WE'RE USING version r8 of CrystaX's toolchain
-/*
-#ifdef __cplusplus
-extern "C" {
-#endif
-void __exidx_start() {}
-void __exidx_end() {}
-#ifdef __cplusplus
-}
-#endif
-*/
-// WORKAROUND CODE ENDS HERE
-
 #include "AppHdr.h"
 
 #include <stdio.h>
@@ -157,14 +135,10 @@ TerminalChar * getCurrentTerminalChar()
 	return &terminalWindow[y][x];
 }
 
-void init_java_methods( JNIEnv* env1, jobject obj1 )
+void init_java_methods( JNIEnv* env1, jobject object )
 {
 	env = env1;
-
-	/* Save objects */
-	NativeWrapperObj = obj1;
-
-	/* Get NativeWrapper class */
+	NativeWrapperObj = object;
 	NativeWrapperClass = env->GetObjectClass(NativeWrapperObj);
 
 	/* NativeWrapper Methods */
@@ -198,15 +172,16 @@ void Java_com_crawlmb_NativeWrapper_initGame( JNIEnv* env, jobject object , jstr
 
 void Java_com_crawlmb_NativeWrapper_refreshTerminal( JNIEnv* env, jobject object)
 {
+	// This needs to use the passed-in JNIEnv and jobject, since this is run from the UI thread
 	for (int i = 0; i < LINES; ++i)
 	{
 		for (int j = 0; j < COLS; ++j)
 		{
 			TerminalChar * terminalChar = &terminalWindow[i][j];
-			JAVA_CALL(NativeWrapper_printTerminalChar, terminalChar->y, terminalChar->x, terminalChar->character, terminalChar->foregroundColour, terminalChar->backgroundColour);
+			env->CallVoidMethod(object, NativeWrapper_printTerminalChar, terminalChar->y, terminalChar->x, terminalChar->character, terminalChar->foregroundColour, terminalChar->backgroundColour);
 		}
 	}
-	JAVA_CALL(NativeWrapper_invalidateTerminal);
+	env->CallVoidMethod(object, NativeWrapper_invalidateTerminal);
 }
 
 void set_mouse_enabled(bool enabled)
