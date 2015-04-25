@@ -72,8 +72,8 @@ LOCAL_STATIC_LIBRARIES:=libsqlite3 liblua
 # loading zlib and logging functions
 LOCAL_LDLIBS := -lz -llog
 
-# These flags are on by default in the original Makefile
-LOCAL_CFLAGS += -DCLUA_BINDINGS -DWIZARD
+# These flags are on by default in the original Makefile (-fsigned-char needed to guard against segfaults)
+LOCAL_CFLAGS += -DCLUA_BINDINGS -DWIZARD -fsigned-char
 
 # This is basically all the .cc files in the 'source' folder
 CRAWLSRC = ability.cc abyss.cc acquire.cc act-iter.cc actor.cc actor-los.cc adjust.cc \
