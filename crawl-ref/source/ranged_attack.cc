@@ -7,8 +7,11 @@
 
 #include "ranged_attack.h"
 
+#include "areas.h"
 #include "coord.h"
 #include "english.h"
+#include "env.h"
+#include "fprop.h"
 #include "godconduct.h"
 #include "itemprop.h"
 #include "message.h"
@@ -130,7 +133,13 @@ bool ranged_attack::attack()
             handle_phase_dodged();
     }
 
-    // TODO: sanctuary
+    if (env.sanctuary_time > 0 && attack_occurred
+        && (is_sanctuary(attacker->pos()) || is_sanctuary(defender->pos()))
+        && (attacker->is_player() || attacker->as_monster()->friendly()
+                                     && !attacker->confused()))
+    {
+        remove_sanctuary(true);
+    }
 
     if (should_alert_defender)
         alert_defender();
@@ -263,14 +272,14 @@ bool ranged_attack::handle_phase_hit()
     if (projectile->is_type(OBJ_MISSILES, MI_NEEDLE))
     {
         int dur = blowgun_duration_roll(get_ammo_brand(*projectile));
-        set_attack_verb();
+        set_attack_verb(0);
         int stab = player_stab(dur);
         damage_done = dur + (stab - dur) / 10;
         announce_hit();
     }
     else if (projectile->is_type(OBJ_MISSILES, MI_THROWING_NET))
     {
-        set_attack_verb();
+        set_attack_verb(0);
         announce_hit();
         if (defender->is_player())
             player_caught_in_net();
@@ -828,7 +837,7 @@ bool ranged_attack::player_good_stab()
            && projectile->is_type(OBJ_MISSILES, MI_NEEDLE);
 }
 
-void ranged_attack::set_attack_verb()
+void ranged_attack::set_attack_verb(int/* damage*/)
 {
     attack_verb = attack_ignores_shield(false) ? "pierces through" : "hits";
 }

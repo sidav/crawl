@@ -3440,10 +3440,12 @@ bool is_useless_item(const item_def &item, bool temp)
              || !you.num_turns
                 && you.char_class == JOB_TRANSMUTER)
             && item_is_snakable(item)
-            || you.has_spell(SPELL_SANDBLAST)
-               && (item.sub_type == MI_STONE
-                || item.sub_type == MI_LARGE_ROCK
-                   && you.could_wield(item, true, true)))
+            || (you.has_spell(SPELL_SANDBLAST)
+                || !you.num_turns
+                   && you.char_class == JOB_EARTH_ELEMENTALIST)
+                && (item.sub_type == MI_STONE
+                    || item.sub_type == MI_LARGE_ROCK
+                       && you.could_wield(item, true, true)))
         {
             return false;
         }
@@ -3604,7 +3606,7 @@ bool is_useless_item(const item_def &item, bool temp)
             return you.res_rotting(temp) > 0;
         case POT_POISON:
             // If you're poison resistant, poison is only useless.
-            return player_res_poison(false, temp) > 0;
+            return !is_bad_item(item, temp);
 #if TAG_MAJOR_VERSION == 34
         case POT_SLOWING:
             return you.species == SP_FORMICID;

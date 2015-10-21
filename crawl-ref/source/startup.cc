@@ -15,7 +15,7 @@
 #include "ctest.h"
 #include "database.h"
 #include "dbg-maps.h"
-#include "dbg-scan.h"
+#include "dbg-objstat.h"
 #include "dungeon.h"
 #include "end.h"
 #include "exclude.h"
@@ -157,7 +157,7 @@ static void _initialize()
     if (Options.seed)
         seed_rng(Options.seed);
 
-#ifdef DEBUG_DIAGNOSTICS
+#ifdef DEBUG_STATISTICS
     if (crawl_state.map_stat_gen)
     {
         release_cli_signals();

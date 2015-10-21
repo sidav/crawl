@@ -373,9 +373,11 @@ static string _describe_ash_skill_boost()
     static const char* bonus_level[3] = { "Low", "Medium", "High" };
     ostringstream desc;
     desc.setf(ios::left);
+    desc << "<white>";
     desc << setw(18) << "Bound part";
     desc << setw(30) << "Boosted skills";
     desc << "Bonus\n";
+    desc << "</white>";
 
     for (int i = ET_WEAPON; i < NUM_ET; i++)
     {
@@ -957,6 +959,9 @@ static void _describe_god_powers(god_type which_god, int numcols)
         if (!player_under_penance())
         {
             have_any = true;
+            cprintf("%s supports your attributes (+%d).\n",
+                    uppercase_first(god_name(which_god)).c_str(),
+                    chei_stat_boost(you.piety));
             _print_final_god_abil_desc(which_god,
                                        "You can bend time to slow others.",
                                        ABIL_CHEIBRIADOS_TIME_BEND);

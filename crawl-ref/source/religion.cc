@@ -685,7 +685,7 @@ string get_god_likes(god_type which_god, bool verbose)
     {
         string like = "you bless dead orcs";
         if (verbose)
-            like += " (by standing over their remains and <w>p</w>raying";
+            like += " (by standing over their remains and <w>p</w>raying)";
         likes.push_back(like);
         break;
     }
@@ -702,7 +702,7 @@ string get_god_likes(god_type which_god, bool verbose)
     {
         string like = "you sacrifice fresh corpses";
         if (verbose)
-            like += " (by standing over them and <w>p</w>raying";
+            like += " (by standing over them and <w>p</w>raying)";
         likes.push_back(like);
     }
 
@@ -3013,6 +3013,12 @@ void excommunication(god_type new_god, bool immediate)
         break;
 
     case GOD_CHEIBRIADOS:
+        simple_god_message(" continues to slow your movements.", old_god);
+        _set_penance(old_god, 25);
+        redraw_screen();
+        notify_stat_change();
+        break;
+
     default:
         _set_penance(old_god, 25);
         break;

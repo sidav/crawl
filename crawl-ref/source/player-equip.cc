@@ -21,6 +21,7 @@
 #include "items.h"
 #include "item_use.h"
 #include "libutil.h"
+#include "macro.h" // command_to_string
 #include "message.h"
 #include "misc.h"
 #include "notes.h"
@@ -862,19 +863,27 @@ static void _equip_armour_effect(item_def& arm, bool unmeld,
 
         case SPARM_FLYING:
             // If you weren't flying when you took off the boots, don't restart.
-            if (you.attribute[ATTR_LAST_FLIGHT_STATUS] == 0)
-                break;
+            if (you.attribute[ATTR_LAST_FLIGHT_STATUS])
+            {
+                if (you.airborne())
+                {
+                    you.attribute[ATTR_PERM_FLIGHT] = 1;
+                    mpr("You feel rather light.");
+                }
+                else
+                {
+                    you.attribute[ATTR_PERM_FLIGHT] = 1;
+                    float_player();
+                }
+            }
+            if (!unmeld)
+            {
+                mprf("(use the <w>%s</w>bility menu to %s flying)",
+                     command_to_string(CMD_USE_ABILITY).c_str(),
+                     you.attribute[ATTR_LAST_FLIGHT_STATUS]
+                         ? "stop or start" : "start or stop");
+            }
 
-            if (you.airborne())
-            {
-                you.attribute[ATTR_PERM_FLIGHT] = 1;
-                mpr("You feel rather light.");
-            }
-            else
-            {
-                you.attribute[ATTR_PERM_FLIGHT] = 1;
-                float_player();
-            }
             break;
 
         case SPARM_MAGIC_RESISTANCE:
@@ -942,6 +951,32 @@ static void _equip_armour_effect(item_def& arm, bool unmeld,
     you.redraw_evasion = true;
 }
 
+/**
+ * The player lost a source of permafly. End their flight if there was
+ * no other source, evoking a ring of flight "for free" if possible.
+ */
+void lose_permafly_source()
+{
+    const bool had_perm_flight = you.attribute[ATTR_PERM_FLIGHT];
+
+    if (had_perm_flight
+        && !you.wearing_ego(EQ_ALL_ARMOUR, SPARM_FLYING)
+        && !you.racial_permanent_flight())
+    {
+        you.attribute[ATTR_PERM_FLIGHT] = 0;
+        if (you.evokable_flight())
+            fly_player(you.skill(SK_EVOCATIONS, 2) + 30, true);
+    }
+
+    // since a permflight item can keep tempflight evocations going
+    // we should check tempflight here too
+    if (you.cancellable_flight() && !you.evokable_flight())
+        you.duration[DUR_FLIGHT] = 0;
+
+    if (had_perm_flight)
+        land_player(); // land_player() has a check for airborne()
+}
+
 static void _unequip_armour_effect(item_def& item, bool meld,
                                    equipment_type slot)
 {
@@ -1006,23 +1041,7 @@ static void _unequip_armour_effect(item_def& item, bool meld,
         you.attribute[ATTR_LAST_FLIGHT_STATUS] =
             you.attribute[ATTR_PERM_FLIGHT];
 
-        if (you.attribute[ATTR_PERM_FLIGHT]
-            && !you.wearing_ego(EQ_ALL_ARMOUR, SPARM_FLYING)
-            && !you.racial_permanent_flight())
-        {
-            you.attribute[ATTR_PERM_FLIGHT] = 0;
-            if (you.evokable_flight())
-                fly_player(you.skill(SK_EVOCATIONS, 2) + 30, true);
-        }
-
-        // since a permflight item can keep tempflight evocations going
-        // we should check tempflight here too
-        if (you.cancellable_flight() && !you.evokable_flight())
-            you.duration[DUR_FLIGHT] = 0;
-
-        if (you.attribute[ATTR_LAST_FLIGHT_STATUS] == 1)
-            land_player(); // land_player() has a check for airborne()
-
+        lose_permafly_source();
         break;
 
     case SPARM_MAGIC_RESISTANCE:
