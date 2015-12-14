@@ -7,6 +7,7 @@
 
 #include "l_libs.h"
 
+#include <algorithm>
 #include <sstream>
 
 #include "adjust.h"
@@ -24,6 +25,7 @@
 #include "item_use.h"
 #include "l_defs.h"
 #include "libutil.h"
+#include "mon-util.h"
 #include "output.h"
 #include "player.h"
 #include "prompt.h"
@@ -55,7 +57,7 @@ void clua_push_item(lua_State *ls, item_def *item)
     iw->turn = you.num_turns;
 }
 
-// Push a (wrapped) temporary item_def.  A copy of the item will be allocated,
+// Push a (wrapped) temporary item_def. A copy of the item will be allocated,
 // then deleted when the wrapper is GCed.
 static void _clua_push_item_temp(lua_State *ls, const item_def &item)
 {
@@ -318,11 +320,8 @@ static int l_item_do_ego(lua_State *ls)
 
     const char *s = nullptr;
 
-    if ((item->base_type == OBJ_WEAPONS || item->base_type == OBJ_ARMOUR
-         || item->base_type == OBJ_MISSILES) && item_ident(*item, ISFLAG_KNOW_TYPE))
-    {
+    if (item_type_known(*item) || item->base_type == OBJ_MISSILES)
         s = ego_type_string(*item, terse).c_str();
-    }
 
     if (s && *s)
         lua_pushstring(ls, s);
@@ -339,13 +338,6 @@ IDEF(cursed)
     bool cursed = item && item_ident(*item, ISFLAG_KNOW_CURSE)
                        && item->cursed();
     lua_pushboolean(ls, cursed);
-    return 1;
-}
-
-IDEF(tried)
-{
-    bool tried = item && item_type_tried(*item);
-    lua_pushboolean(ls, tried);
     return 1;
 }
 
@@ -409,6 +401,32 @@ static int l_item_do_name_coloured(lua_State *ls)
 }
 
 IDEFN(name_coloured, do_name_coloured)
+
+static int l_item_do_stacks(lua_State *ls)
+{
+    UDATA_ITEM(first);
+
+    if (!first)
+        lua_pushnil(ls);
+    else if (lua_gettop(ls) == 0 || lua_isnil(ls, 1))
+    {
+        const bool any_stack =
+            is_stackable_item(*first)
+            && any_of(begin(you.inv), end(you.inv),
+                      [&] (const item_def &item) -> bool
+                      {
+                          return items_stack(*first, item);
+                      });
+        lua_pushboolean(ls, any_stack);
+    }
+    else if (ITEM(second, 1))
+        lua_pushboolean(ls, items_stack(*first, *second));
+    else
+        lua_pushnil(ls);
+    return 1;
+}
+
+IDEFN(stacks, do_stacks)
 
 IDEF(quantity)
 {
@@ -530,6 +548,49 @@ IDEF(can_cut_meat)
     return 1;
 }
 
+IDEF(is_corpse)
+{
+    if (!item || !item->defined())
+        return 0;
+
+    lua_pushboolean(ls, item->is_type(OBJ_CORPSES, CORPSE_BODY));
+
+    return 1;
+}
+
+IDEF(is_skeleton)
+{
+    if (!item || !item->defined())
+        return 0;
+
+    lua_pushboolean(ls, item->is_type(OBJ_CORPSES, CORPSE_SKELETON));
+
+    return 1;
+}
+
+IDEF(has_skeleton)
+{
+    if (!item || !item->defined())
+        return 0;
+
+    lua_pushboolean(ls, item->is_type(OBJ_CORPSES, CORPSE_BODY)
+                         && mons_skeleton(item->mon_type)
+                        || item->is_type(OBJ_CORPSES, CORPSE_SKELETON));
+
+    return 1;
+}
+
+IDEF(can_zombify)
+{
+    if (!item || !item->defined())
+        return 0;
+
+    lua_pushboolean(ls, item->is_type(OBJ_CORPSES, CORPSE_BODY)
+                        && mons_zombifiable(item->mon_type));
+
+    return 1;
+}
+
 IDEF(is_preferred_food)
 {
     if (!item || !item->defined())
@@ -588,16 +649,6 @@ IDEF(hands)
 
     int hands = you.hands_reqd(*item) == HANDS_TWO ? 2 : 1;
     lua_pushnumber(ls, hands);
-
-    return 1;
-}
-
-IDEF(snakable)
-{
-    if (!item || !item->defined())
-        return 0;
-
-    lua_pushboolean(ls, item_is_snakable(*item));
 
     return 1;
 }
@@ -938,7 +989,8 @@ IDEF(sub_type)
 
 IDEF(ego_type)
 {
-    if (CLua::get_vm(ls).managed_vm && !item_ident(*item, ISFLAG_KNOW_TYPE))
+    if (CLua::get_vm(ls).managed_vm && !item_type_known(*item)
+        && item->base_type != OBJ_MISSILES)
     {
         lua_pushstring(ls, "unknown");
         return 1;
@@ -950,7 +1002,8 @@ IDEF(ego_type)
 
 IDEF(ego_type_terse)
 {
-    if (CLua::get_vm(ls).managed_vm && !item_ident(*item, ISFLAG_KNOW_TYPE))
+    if (CLua::get_vm(ls).managed_vm && !item_type_known(*item)
+        && item->base_type != OBJ_MISSILES)
     {
         lua_pushstring(ls, "unknown");
         return 1;
@@ -1137,7 +1190,7 @@ static int l_item_equipped_at(lua_State *ls)
 
 static int l_item_fired_item(lua_State *ls)
 {
-    int q = you.m_quiver->get_fire_item();
+    int q = you.m_quiver.get_fire_item();
 
     if (q < 0 || q >= ENDOFPACK)
         return 0;
@@ -1196,7 +1249,6 @@ static ItemAccessor item_attrs[] =
 {
     { "artefact",          l_item_artefact },
     { "branded",           l_item_branded },
-    { "snakable",          l_item_snakable },
     { "god_gift",          l_item_god_gift },
     { "fully_identified",  l_item_fully_identified },
     { "plus",              l_item_plus },
@@ -1205,10 +1257,10 @@ static ItemAccessor item_attrs[] =
     { "subtype",           l_item_subtype },
     { "ego",               l_item_ego },
     { "cursed",            l_item_cursed },
-    { "tried",             l_item_tried },
     { "worn",              l_item_worn },
     { "name",              l_item_name },
     { "name_coloured",     l_item_name_coloured },
+    { "stacks",            l_item_stacks },
     { "quantity",          l_item_quantity },
     { "slot",              l_item_slot },
     { "ininventory",       l_item_ininventory },
@@ -1226,6 +1278,10 @@ static ItemAccessor item_attrs[] =
     { "dropped",           l_item_dropped },
     { "is_melded",         l_item_is_melded },
     { "can_cut_meat",      l_item_can_cut_meat },
+    { "is_skeleton",       l_item_is_skeleton },
+    { "is_corpse",         l_item_is_corpse },
+    { "has_skeleton",      l_item_has_skeleton },
+    { "can_zombify",       l_item_can_zombify },
     { "is_preferred_food", l_item_is_preferred_food },
     { "is_bad_food",       l_item_is_bad_food },
     { "is_useless",        l_item_is_useless },

@@ -72,12 +72,14 @@ struct bolt
     string name = "";
     string short_name = "";
     string hit_verb = "";         // The verb to use when this beam hits
-                                  // something.  If not set, will use
+                                  // something. If not set, will use
                                   // "engulfs" if an explosion or cloud
                                   // and "hits" otherwise.
     int    loudness = 0;          // Noise level on hitting or exploding.
-    string noise_msg = "";        // Message to give player if the hit
-                                  // or explosion isn't in view.
+    string hit_noise_msg = "";    // Message to give player for each hit
+                                  // monster that isn't in view.
+    string explode_noise_msg = "";  // Message to give player if the explosion
+                                    // isn't in view.
     bool   pierce = false;        // Can the beam pass through a target and
                                   // hit another target behind the first?
     bool   is_explosion = false;
@@ -98,7 +100,10 @@ struct bolt
                                         // itself.
     bool   was_missile = false;   // For determining if this was SPMSL_FLAME /
                                   // FROST etc so that we can change mulch rate
-    bool   animate = Options.use_animations & UA_BEAM; // Do we draw animations?
+    bool   evoked = false;        // Was this beam evoked from a wand?
+
+    // Do we draw animations?
+    bool   animate = bool(Options.use_animations & UA_BEAM);
     ac_type ac_rule = AC_NORMAL;   // How defender's AC affects damage.
 #ifdef DEBUG_DIAGNOSTICS
     bool   quiet_debug = false;    // Disable any debug spam.
@@ -121,7 +126,6 @@ struct bolt
     bool noise_generated = false; // a noise has already been generated at this pos
     bool passed_target = false;   // Beam progressed beyond target.
     bool in_explosion_phase = false; // explosion phase (as opposed to beam phase)
-    bool smart_monster = false;  // tracer firer can guess at resists
     mon_attitude_type attitude = ATT_HOSTILE; // attitude of whoever fired tracer
     int foe_ratio = 0;   // 100* foe ratio (see mons_should_fire())
     map<mid_t, int> hit_count;   // how many times targets were affected
@@ -335,4 +339,6 @@ void zappy(zap_type z_type, int power, bolt &pbolt);
 void bolt_parent_init(const bolt &parent, bolt &child);
 
 int explosion_noise(int rad);
+
+bool shoot_through_monster(const bolt& beam, const monster* victim);
 #endif

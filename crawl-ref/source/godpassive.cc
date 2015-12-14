@@ -20,6 +20,7 @@
 #include "itemprop.h"
 #include "items.h"
 #include "libutil.h"
+#include "message.h"
 #include "religion.h"
 #include "shout.h"
 #include "skills.h"
@@ -143,9 +144,9 @@ void jiyva_slurp_message(int js)
         if (js & JS_FOOD)
             mpr("You feel a little less hungry.");
         if (js & JS_MP)
-            mpr("You feel your power returning.");
+            canned_msg(MSG_GAIN_MAGIC);
         if (js & JS_HP)
-            mpr("You feel a little better.");
+            canned_msg(MSG_GAIN_HEALTH);
     }
 }
 
@@ -173,8 +174,9 @@ void ash_check_bondage(bool msg)
 
     int cursed[NUM_ET] = {0}, slots[NUM_ET] = {0};
 
-    for (int i = EQ_WEAPON; i < NUM_EQUIP; i++)
+    for (int j = EQ_WEAPON; j < NUM_EQUIP; j++)
     {
+        const equipment_type i = static_cast<equipment_type>(j);
         eq_type s;
         if (i == EQ_WEAPON)
             s = ET_WEAPON;
@@ -212,7 +214,7 @@ void ash_check_bondage(bool msg)
             s = ET_JEWELS;
 
         // transformed away slots are still considered to be possibly bound
-        if (you_can_wear(i, true))
+        if (you_can_wear(i))
         {
             slots[s]++;
             if (you.equip[i] != -1)
@@ -400,7 +402,7 @@ bool god_id_item(item_def& item, bool silent)
     {
         // Don't identify runes or the orb, since this has no gameplay purpose
         // and might mess up other things.
-        if (item_is_rune(item) || item_is_orb(item))
+        if (item.base_type == OBJ_RUNES || item_is_orb(item))
             return false;
 
         ided = ISFLAG_KNOW_CURSE;
@@ -433,7 +435,7 @@ bool god_id_item(item_def& item, bool silent)
     if (ided & ~old_ided)
     {
         if (ided & ISFLAG_KNOW_TYPE)
-            set_ident_type(item, ID_KNOWN_TYPE);
+            set_ident_type(item, true);
         set_ident_flags(item, ided);
 
         if (item.props.exists("needs_autopickup") && is_useless_item(item))
@@ -477,11 +479,11 @@ void ash_id_monster_equipment(monster* mon)
             continue;
         }
 
-        if (x_chance_in_y(piety_rank() - 1, 6))
+        if (x_chance_in_y(piety_rank(), 6))
         {
             if (i == MSLOT_WAND)
             {
-                set_ident_type(OBJ_WANDS, item.sub_type, ID_KNOWN_TYPE);
+                set_ident_type(OBJ_WANDS, item.sub_type, true);
                 mon->props["wand_known"] = true;
             }
             else
@@ -551,7 +553,7 @@ int ash_detect_portals(bool all)
     }
     else
     {
-        for (radius_iterator ri(you.pos(), map_radius, C_ROUND); ri; ++ri)
+        for (radius_iterator ri(you.pos(), map_radius, C_SQUARE); ri; ++ri)
         {
             if (_check_portal(*ri))
                 portals_found++;
@@ -590,36 +592,22 @@ map<skill_type, int8_t> ash_get_boosted_skills(eq_type type)
         {
             boost[item_attack_skill(*wpn)] = bondage;
         }
-
-        // Those staves don't benefit from evocation.
-        // Boost spellcasting instead.
-        if (wpn->base_type == OBJ_STAVES
-            && (wpn->sub_type == STAFF_POWER
-                || wpn->sub_type == STAFF_CONJURATION
-                || wpn->sub_type == STAFF_WIZARDRY))
-        {
-            boost[SK_SPELLCASTING] = 2;
-        }
-        // Rods, and staves that are evokable but with no melee effect.
-        else if (wpn->base_type == OBJ_RODS
-                 || wpn->is_type(OBJ_STAVES, STAFF_ENERGY)
-                 || wpn->base_type == OBJ_WEAPONS
-                    && (is_unrandom_artefact(*wpn, UNRAND_WUCAD_MU)
-                        || is_unrandom_artefact(*wpn, UNRAND_DISPATER)
-                        || is_unrandom_artefact(*wpn, UNRAND_ASMODEUS)))
-        {
-            boost[SK_EVOCATIONS] = 2;
-        }
-        // Staves that use evocations to power a melee effect.
-        else if (wpn->base_type == OBJ_STAVES
-                 || wpn->base_type == OBJ_WEAPONS
-                    && (is_unrandom_artefact(*wpn, UNRAND_OLGREB)
-                        || is_unrandom_artefact(*wpn, UNRAND_ELEMENTAL_STAFF)))
+        // Staves that have a melee effect, powered by evocations.
+        if (staff_uses_evocations(*wpn))
         {
             boost[SK_EVOCATIONS] = 1;
             boost[SK_STAVES] = 1;
 
         }
+        // Rods and staves with an evokable ability but no melee effect.
+        else if (is_weapon(*wpn)
+                 && item_is_evokable(*wpn, false, false, false, false, false))
+        {
+            boost[SK_EVOCATIONS] = 2;
+        }
+        // Other magical staves.
+        else if (wpn->base_type == OBJ_STAVES)
+            boost[SK_SPELLCASTING] = 2;
         break;
 
     case (ET_SHIELD):
@@ -660,7 +648,7 @@ map<skill_type, int8_t> ash_get_boosted_skills(eq_type type)
 int ash_skill_boost(skill_type sk, int scale)
 {
     // It gives a bonus to skill points. The formula is:
-    // factor * piety_rank * skill_level
+    // factor * (piety_rank + 1) * skill_level
     // low bonus    -> factor = 3
     // medium bonus -> factor = 5
     // high bonus   -> factor = 7
@@ -670,7 +658,7 @@ int ash_skill_boost(skill_type sk, int scale)
     for (skill_type cross : get_crosstrain_skills(sk))
         skill_points += you.skill_points[cross] * 2 / 5;
 
-    skill_points += (you.skill_boost[sk] * 2 + 1) * piety_rank()
+    skill_points += (you.skill_boost[sk] * 2 + 1) * (piety_rank() + 1)
                     * max(you.skill(sk, 10, true), 1) * species_apt_factor(sk);
 
     int level = you.skills[sk];
@@ -689,12 +677,12 @@ int gozag_gold_in_los(actor *who)
 
     int gold_count = 0;
 
-    for (radius_iterator ri(who->pos(), LOS_RADIUS, C_ROUND, LOS_DEFAULT);
+    for (radius_iterator ri(who->pos(), LOS_RADIUS, C_SQUARE, LOS_DEFAULT);
          ri; ++ri)
     {
         for (stack_iterator j(*ri); j; ++j)
         {
-            if (j->base_type == OBJ_GOLD && j->special > 0)
+            if (j->base_type == OBJ_GOLD)
                 ++gold_count;
         }
     }
@@ -732,7 +720,7 @@ void qazlal_storm_clouds()
     const int radius = you.piety >= piety_breakpoint(3) ? 2 : 1;
 
     vector<coord_def> candidates;
-    for (radius_iterator ri(you.pos(), radius, C_ROUND, LOS_SOLID, true);
+    for (radius_iterator ri(you.pos(), radius, C_SQUARE, LOS_SOLID, true);
          ri; ++ri)
     {
         int count = 0;
@@ -781,7 +769,7 @@ void qazlal_element_adapt(beam_type flavour, int strength)
 {
     if (strength <= 0
         || !in_good_standing(GOD_QAZLAL, 4)
-        || !x_chance_in_y(strength, 12 - piety_rank()))
+        || !x_chance_in_y(strength, 11 - piety_rank()))
     {
         return;
     }

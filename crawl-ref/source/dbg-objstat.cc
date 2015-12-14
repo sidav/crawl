@@ -191,11 +191,8 @@ static void _init_monsters()
     for (int i = 0; i < NUM_MONSTERS; i++)
     {
         monster_type mc = static_cast<monster_type>(i);
-        if (!mons_class_flag(mc, M_NO_EXP_GAIN)
-            && !mons_class_flag(mc, M_CANT_SPAWN))
-        {
+        if (mons_class_gives_xp(mc) && !mons_class_flag(mc, M_CANT_SPAWN))
             valid_monsters[mc] = num_mons++;
-        }
     }
     // For the all-monster summary
     valid_monsters[NUM_MONSTERS] = num_mons;
@@ -797,9 +794,6 @@ void objstat_record_monster(const monster *mons)
         return;
 
     int mons_ind = valid_monsters[type];
-    corpse_effect_type chunk_effect = mons_corpse_effect(type);
-    bool is_clean = chunk_effect == CE_CLEAN || chunk_effect == CE_POISONOUS;
-
     level_id lev = level_id::current();
 
     _record_monster_stat(lev, mons_ind, "Num", 1);
@@ -809,14 +803,15 @@ void objstat_record_monster(const monster *mons)
     _record_monster_stat(lev, mons_ind, "MonsHP", mons->max_hit_points);
     _record_monster_stat(lev, mons_ind, "MonsHD", mons->get_experience_level());
 
+    const corpse_effect_type chunk_effect = mons_corpse_effect(type);
     // Record chunks/nutrition if monster leaves a corpse.
     if (chunk_effect != CE_NOCORPSE && mons_class_can_leave_corpse(type))
     {
         // copied from turn_corpse_into_chunks()
-        double chunks = (1 + stepdown_value(get_max_corpse_chunks(type),
+        double chunks = (1 + stepdown_value(max_corpse_chunks(type),
                                             4, 4, 12, 12)) / 2.0;
         _record_monster_stat(lev, mons_ind, "MonsNumChunks", chunks);
-        if (is_clean)
+        if (chunk_effect == CE_CLEAN)
         {
             _record_monster_stat(lev, mons_ind, "TotalNutr",
                                     chunks * CHUNK_BASE_NUTRITION);
@@ -1121,7 +1116,7 @@ static void _write_branch_monster_stats(branch_type br, monster_type mons_type,
 
 static FILE * _open_stat_file(string stat_file)
 {
-    FILE *stat_fh = NULL;
+    FILE *stat_fh = nullptr;
     stat_fh = fopen(stat_file.c_str(), "w");
     if (!stat_fh)
     {

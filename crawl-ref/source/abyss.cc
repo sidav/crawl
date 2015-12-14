@@ -56,7 +56,6 @@
 const coord_def ABYSS_CENTRE(GXM / 2, GYM / 2);
 
 static const int ABYSSAL_RUNE_MAX_ROLL = 200;
-static const int ABYSSAL_RUNE_MIN_LEVEL = 3;
 
 abyss_state abyssal_state;
 
@@ -73,7 +72,7 @@ static void _push_items();
 static void _push_displaced_monster(monster* mon);
 
 // If not_seen is true, don't place the feature where it can be seen from
-// the centre.  Returns the chosen location, or INVALID_COORD if it
+// the centre. Returns the chosen location, or INVALID_COORD if it
 // could not be placed.
 static coord_def _place_feature_near(const coord_def &centre,
                                      int radius,
@@ -82,13 +81,12 @@ static coord_def _place_feature_near(const coord_def &centre,
                                      int tries, bool not_seen = false)
 {
     coord_def cp = INVALID_COORD;
-    const int radius2 = radius * radius + 1;
     for (int i = 0; i < tries; ++i)
     {
         cp = centre + coord_def(random_range(-radius, radius),
                                 random_range(-radius, radius));
 
-        if (cp == centre || (cp - centre).abs() > radius2 || !in_bounds(cp))
+        if (cp == centre || !in_bounds(cp))
             continue;
 
         if (not_seen && cell_see_cell_nocache(cp, centre))
@@ -124,7 +122,7 @@ static void _write_abyssal_features()
 
     dprf(DIAG_ABYSS, "Writing a mock-up of old level.");
     const int count = abyssal_features.size();
-    ASSERT(count == 213);
+    ASSERT(count == sqr(2 * LOS_RADIUS + 1));
     const int scalar = 0xFF;
     int index = 0;
     for (int x = -LOS_RADIUS; x <= LOS_RADIUS; x++)
@@ -132,15 +130,13 @@ static void _write_abyssal_features()
         for (int y = -LOS_RADIUS; y <= LOS_RADIUS; y++)
         {
             coord_def p(x, y);
-            const int dist = p.abs();
-            if (dist > LOS_RADIUS * LOS_RADIUS + 1)
-                continue;
+            const int dist = p.rdist();
             p += ABYSS_CENTRE;
 
-            int chance = pow(0.98, dist) * scalar;
+            int chance = pow(0.98, dist * dist) * scalar;
             if (!map_masked(p, MMT_VAULT))
             {
-                if (dist < 4 || x_chance_in_y(chance, scalar))
+                if (dist < 2 || x_chance_in_y(chance, scalar))
                 {
                     if (abyssal_features[index] != DNGN_UNSEEN)
                     {
@@ -207,7 +203,7 @@ static bool _abyss_place_map(const map_def *mdef)
     {
         if (dgn_safe_place_map(mdef, true, false, INVALID_COORD))
         {
-            _abyss_fixup_vault(env.level_vaults.back());
+            _abyss_fixup_vault(env.level_vaults.back().get());
             return true;
         }
     }
@@ -284,12 +280,9 @@ static bool _abyss_place_rune(const map_bitmask &abyss_genlevel_mask)
     {
         dprf(DIAG_ABYSS, "Placing abyssal rune at (%d,%d)",
              chosen_spot.x, chosen_spot.y);
-        int item_ind  = items(true, OBJ_MISCELLANY, MISC_RUNE_OF_ZOT, 0);
+        int item_ind  = items(true, OBJ_RUNES, RUNE_ABYSSAL, 0);
         if (item_ind != NON_ITEM)
-        {
-            mitm[item_ind].plus = RUNE_ABYSSAL;
             item_colour(mitm[item_ind]);
-        }
         move_item_to_grid(&item_ind, chosen_spot);
         return item_ind != NON_ITEM;
     }
@@ -356,20 +349,15 @@ static int _abyss_create_items(const map_bitmask &abyss_genlevel_mask,
             ++items_placed;
     }
 
-    for (int i = 0, size = chosen_item_places.size(); i < size; ++i)
+    for (const coord_def place : chosen_item_places)
     {
-        const coord_def place(chosen_item_places[i]);
         if (_abyss_square_accepts_items(abyss_genlevel_mask, place))
         {
             int thing_created = items(true, OBJ_RANDOM, OBJ_RANDOM,
                                       items_level);
             move_item_to_grid(&thing_created, place);
             if (thing_created != NON_ITEM)
-            {
                 items_placed++;
-                if (one_chance_in(ITEM_MIMIC_CHANCE))
-                    mitm[thing_created].flags |= ISFLAG_MIMIC;
-            }
         }
     }
 
@@ -408,7 +396,7 @@ void banished(const string &who)
     }
 
     const string what = "Cast into the Abyss" + _who_banished(who);
-    take_note(Note(NOTE_MESSAGE, 0, 0, what.c_str()), true);
+    take_note(Note(NOTE_MESSAGE, 0, 0, what), true);
 
     stop_delay(true);
     run_animation(ANIMATION_BANISH, UA_BRANCH_ENTRY, false);
@@ -431,8 +419,6 @@ void push_features_to_abyss()
         for (int y = -LOS_RADIUS; y <= LOS_RADIUS; y++)
         {
             coord_def p(x, y);
-            if (p.abs() > LOS_RADIUS * LOS_RADIUS + 1)
-                continue;
 
             p += you.pos();
 
@@ -515,7 +501,7 @@ static dungeon_feature_type _abyss_pick_altar()
 static bool _abyssal_rune_at(const coord_def p)
 {
     for (stack_iterator si(p); si; ++si)
-        if (item_is_rune(*si, RUNE_ABYSSAL))
+        if (si->is_type(OBJ_RUNES, RUNE_ABYSSAL))
             return true;
     return false;
 }
@@ -615,7 +601,7 @@ static void _place_displaced_monsters()
         if (mon->alive() && !mon->find_home_near_place(mon->pos()))
         {
             maybe_bloodify_square(mon->pos());
-            if (you.can_see(mon))
+            if (you.can_see(*mon))
             {
                 simple_monster_message(mon, " is pulled into the Abyss.",
                         MSGCH_BANISHMENT);
@@ -635,7 +621,7 @@ static bool _pushy_feature(dungeon_feature_type feat)
     // will eventually become accessible again through abyss morphing.
 
     // Perhaps this should instead be merged with (the complement of)
-    // _item_safe_square() in terrain.cc.  Unlike this function, that
+    // _item_safe_square() in terrain.cc. Unlike this function, that
     // one treats traps as unsafe, but closed doors as safe.
     return feat_is_solid(feat) || feat == DNGN_LAVA;
 }
@@ -968,10 +954,7 @@ void maybe_shift_abyss_around_player()
         you.pet_target = MHITNOT;
 
 #ifdef DEBUG_DIAGNOSTICS
-    int j = 0;
-    for (int i = 0; i < MAX_ITEMS; ++i)
-        if (mitm[i].defined())
-            ++j;
+    int j = count_if(begin(mitm), end(mitm), mem_fn(&item_def::defined));
 
     dprf(DIAG_ABYSS, "Number of items present: %d", j);
 
@@ -1091,7 +1074,7 @@ static cloud_type _cloud_from_feat(const dungeon_feature_type &ft)
         case DNGN_CLOSED_DOOR:
         case DNGN_METAL_WALL:
             return CLOUD_GREY_SMOKE;
-        case DNGN_GREEN_CRYSTAL_WALL:
+        case DNGN_CRYSTAL_WALL:
         case DNGN_ROCK_WALL:
         case DNGN_SLIMY_WALL:
         case DNGN_STONE_WALL:
@@ -1354,8 +1337,7 @@ static int _abyss_place_vaults(const map_bitmask &abyss_genlevel_mask)
 static void _generate_area(const map_bitmask &abyss_genlevel_mask)
 {
     // Any rune on the floor prevents the abyssal rune from being generated.
-    const bool placed_abyssal_rune =
-        find_floor_item(OBJ_MISCELLANY, MISC_RUNE_OF_ZOT);
+    const bool placed_abyssal_rune = find_floor_item(OBJ_RUNES);
 
     dprf(DIAG_ABYSS, "_generate_area(). turns_on_level: %d, rune_on_floor: %s",
          env.turns_on_level, placed_abyssal_rune? "yes" : "no");
@@ -1380,11 +1362,11 @@ static void _generate_area(const map_bitmask &abyss_genlevel_mask)
 
 static void _initialize_abyss_state()
 {
-    abyssal_state.major_coord.x = random_int() & 0x7FFFFFFF;
-    abyssal_state.major_coord.y = random_int() & 0x7FFFFFFF;
-    abyssal_state.seed = random_int() & 0x7FFFFFFF;
+    abyssal_state.major_coord.x = get_uint32() & 0x7FFFFFFF;
+    abyssal_state.major_coord.y = get_uint32() & 0x7FFFFFFF;
+    abyssal_state.seed = get_uint32() & 0x7FFFFFFF;
     abyssal_state.phase = 0.0;
-    abyssal_state.depth = random_int() & 0x7FFFFFFF;
+    abyssal_state.depth = get_uint32() & 0x7FFFFFFF;
     abyssal_state.destroy_all_terrain = false;
     abyssal_state.level = _get_random_level();
     abyss_sample_queue = sample_queue(ProceduralSamplePQCompare());
@@ -1394,7 +1376,7 @@ void set_abyss_state(coord_def coord, uint32_t depth)
 {
     abyssal_state.major_coord = coord;
     abyssal_state.depth = depth;
-    abyssal_state.seed = random_int() & 0x7FFFFFFF;
+    abyssal_state.seed = get_uint32() & 0x7FFFFFFF;
     abyssal_state.phase = 0.0;
     abyssal_state.destroy_all_terrain = true;
     abyss_sample_queue = sample_queue(ProceduralSamplePQCompare());
@@ -1412,7 +1394,7 @@ static void abyss_area_shift()
         xom_abyss_feature_amusement_check xomcheck;
 
         // A teleport may move you back to the center, resulting in a (0,0)
-        // shift.  The code can't handle those.  We still to forget the map,
+        // shift. The code can't handle those. We still to forget the map,
         // spawn new monsters or allow return from transit, though.
         if (you.pos() != ABYSS_CENTRE)
         {
@@ -1707,14 +1689,13 @@ static bool _spawn_corrupted_servant_near(const coord_def &pos)
         const int offsetY = random2avg(4, 3) + random2(3);
         const coord_def p(pos.x + (coinflip()? offsetX : -offsetX),
                           pos.y + (coinflip()? offsetY : -offsetY));
-        if (!in_bounds(p) || actor_at(p)
-            || !feat_compatible(DNGN_FLOOR, grd(p)))
-        {
+        if (!in_bounds(p) || actor_at(p))
             continue;
-        }
 
         monster_type mons = pick_monster(level_id(BRANCH_ABYSS), _incorruptible);
         ASSERT(mons);
+        if (!monster_habitable_grid(mons, grd(p)))
+            continue;
         mgen_data mg(mons, beh, 0, 5, 0, p);
         mg.non_actor_summoner = "Lugonu's corruption";
         mg.place = BRANCH_ABYSS;
@@ -1748,11 +1729,8 @@ static void _apply_corruption_effect(map_marker *marker, int duration)
 
 void run_corruption_effects(int duration)
 {
-    vector<map_marker*> markers = env.markers.get_all(MAT_CORRUPTION_NEXUS);
-
-    for (int i = 0, size = markers.size(); i < size; ++i)
+    for (map_marker *mark : env.markers.get_all(MAT_CORRUPTION_NEXUS))
     {
-        map_marker *mark = markers[i];
         if (mark->get_type() != MAT_CORRUPTION_NEXUS)
             continue;
 
@@ -1780,7 +1758,7 @@ static bool _is_grid_corruptible(const coord_def &c)
         return false;
 
     case DNGN_METAL_WALL:
-    case DNGN_GREEN_CRYSTAL_WALL:
+    case DNGN_CRYSTAL_WALL:
         return one_chance_in(4);
 
     case DNGN_STONE_WALL:
@@ -1912,30 +1890,24 @@ static void _corrupt_square(const corrupt_env &cenv, const coord_def &c)
 static void _corrupt_level_features(const corrupt_env &cenv)
 {
     vector<coord_def> corrupt_seeds;
-    vector<map_marker*> corrupt_markers =
-        env.markers.get_all(MAT_CORRUPTION_NEXUS);
 
-    for (int i = 0, size = corrupt_markers.size(); i < size; ++i)
-        corrupt_seeds.push_back(corrupt_markers[i]->pos);
+    for (const map_marker *mark : env.markers.get_all(MAT_CORRUPTION_NEXUS))
+        corrupt_seeds.push_back(mark->pos);
 
     for (rectangle_iterator ri(MAPGEN_BORDER); ri; ++ri)
     {
-        int idistance2 = GXM * GXM + GYM * GYM;
-        for (int i = 0, size = corrupt_seeds.size(); i < size; ++i)
-        {
-            const int idist2 = (*ri - corrupt_seeds[i]).abs();
-            if (idist2 < idistance2)
-                idistance2 = idist2;
-        }
+        int idistance = GXM + GYM;
+        for (const coord_def seed : corrupt_seeds)
+            idistance = min(idistance, (*ri - seed).rdist());
 
-        const int ground_zero_radius2 = 7;
+        const int ground_zero_radius = 2;
 
-        // Corruption odds are 100% within about 2 squares, decaying to 30%
-        // at LOS range (radius 8). Even if the corruption roll is made,
+        // Corruption odds are 100% within 2 squares, decaying to 30%
+        // at LOS range (radius 7). Even if the corruption roll is made,
         // the feature still gets a chance to resist if it's a wall.
         const int corrupt_perc_chance =
-            idistance2 <= ground_zero_radius2 ? 100 :
-            max(1, 100 - (idistance2 - ground_zero_radius2) * 70 / 57);
+            (idistance <= ground_zero_radius) ? 100 :
+            max(1, 100 - (sqr(idistance) - sqr(ground_zero_radius)) * 70 / 45);
 
         if (random2(100) < corrupt_perc_chance && _is_grid_corruptible(*ri))
             _corrupt_square(cenv, *ri);

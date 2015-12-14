@@ -77,12 +77,12 @@ LOCAL_CFLAGS += -DCLUA_BINDINGS -DWIZARD -DASSERTS -fsigned-char
 
 # This is basically all the .cc files in the 'source' folder
 CRAWLSRC = ability.cc abyss.cc acquire.cc act-iter.cc actor.cc actor-los.cc adjust.cc \
-AppHdr.cc areas.cc arena.cc artefact.cc asg.cc attack.cc attitude-change.cc beam.cc \
+AppHdr.cc areas.cc arena.cc artefact.cc attack.cc attitude-change.cc beam.cc \
 behold.cc bitary.cc bloodspatter.cc branch.cc butcher.cc chardump.cc cio.cc cloud.cc clua.cc cluautil.cc \
 colour.cc command.cc coord.cc coord-circle.cc coordit.cc crash.cc ctest.cc dactions.cc \
 database.cc dbg-asrt.cc dbg-maps.cc dbg-scan.cc dbg-util.cc decks.cc delay.cc describe.cc \
 describe-god.cc describe-spells.cc dgl-message.cc dgn-delve.cc dgnevent.cc dgn-height.cc dgn-labyrinth.cc dgn-layouts.cc \
-dgn-overview.cc dgn-proclayouts.cc dgn-shoals.cc dgn-swamp.cc directn.cc dlua.cc dungeon.cc \
+dgn-overview.cc dgn-proclayouts.cc dgn-shoals.cc dgn-swamp.cc directn.cc dlua.cc domino.cc dungeon.cc \
 end.cc english.cc errors.cc evoke.cc exclude.cc exercise.cc fearmonger.cc feature.cc fight.cc files.cc \
 fineff.cc fontwrapper-ft.cc food.cc format.cc fprop.cc geom2d.cc ghost.cc glwrapper.cc \
 glwrapper-ogl.cc godabil.cc godblessing.cc godconduct.cc godcompanions.cc goditem.cc godmenu.cc godpassive.cc \
@@ -100,7 +100,7 @@ mon-death.cc mon-ench.cc mon-gear.cc mon-grow.cc mon-info.cc   \
 mon-movetarget.cc mon-pathfind.cc mon-pick.cc mon-place.cc mon-poly.cc mon-project.cc \
 mon-speak.cc mon-stealth.cc mon-tentacle.cc monster.cc mon-transit.cc \
 mon-util.cc mutation.cc newgame.cc ng-init.cc ng-input.cc ng-restr.cc ng-setup.cc \
-ng-wanderer.cc notes.cc orb.cc ouch.cc output.cc package.cc pattern.cc perlin.cc\
+ng-wanderer.cc notes.cc orb.cc ouch.cc output.cc package.cc pattern.cc pcg.cc perlin.cc\
 place.cc place-info.cc playable.cc player-act.cc player.cc player-equip.cc player-reacts.cc player-stats.cc \
 potion.cc prompt.cc quiver.cc random.cc random-var.cc ranged_attack.cc ray.cc religion.cc rot.cc shopping.cc \
 shout.cc show.cc showsymb.cc skill_menu.cc skills.cc species.cc spl-book.cc \
@@ -112,8 +112,8 @@ target.cc teleport.cc terrain.cc throw.cc tilebuf.cc tilefont.cc tilepick.cc \
 tiletex.cc tileview.cc tileweb.cc tileweb-text.cc timed_effects.cc \
 transform.cc traps.cc travel.cc tutorial.cc uncancel.cc unicode.cc version.cc view.cc \
 viewchar.cc viewgeom.cc viewmap.cc wcwidth.cc windowmanager-sdl.cc wiz-dgn.cc wiz-dump.cc \
-wiz-fsim.cc wiz-item.cc wiz-mon.cc wiz-you.cc worley.cc xom.cc zotdef.cc \
-dgn-irregular-box.cc mon-chimera.cc spl-pick.cc \
+wiz-fsim.cc wiz-item.cc wiz-mon.cc wiz-you.cc worley.cc xom.cc \
+dgn-irregular-box.cc spl-pick.cc \
 \
 $(RLTILES_DIR)/tiledef-dngn.cc  $(RLTILES_DIR)/tiledef-feat.cc  $(RLTILES_DIR)/tiledef-floor.cc  \
 $(RLTILES_DIR)/tiledef-gui.cc  $(RLTILES_DIR)/tiledef-icons.cc  $(RLTILES_DIR)/tiledef-main.cc  \

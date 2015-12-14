@@ -49,8 +49,7 @@ attack::attack(actor *attk, actor *defn, actor *blame)
       perceived_attack(false), obvious_effect(false), to_hit(0),
       damage_done(0), special_damage(0), aux_damage(0), min_delay(0),
       final_attack_delay(0), special_damage_flavour(BEAM_NONE),
-      stab_attempt(false), stab_bonus(0), apply_bleeding(false),
-      ev_margin(0), weapon(nullptr),
+      stab_attempt(false), stab_bonus(0), ev_margin(0), weapon(nullptr),
       damage_brand(SPWPN_NORMAL), wpn_skill(SK_UNARMED_COMBAT),
       shield(nullptr), art_props(0), unrand_entry(nullptr),
       attacker_to_hit_penalty(0), attack_verb("bug"), verb_degree(),
@@ -103,21 +102,6 @@ bool attack::handle_phase_damaged()
     {
         if (damage_done)
             player_exercise_combat_skills();
-
-        if (defender->alive())
-        {
-            // Actually apply the bleeding effect, this can come from an
-            // aux claw or a main hand claw attack and up to now has not
-            // actually happened.
-            const int degree = you.has_usable_claws();
-            if (apply_bleeding && defender->can_bleed()
-                && degree > 0 && damage_done > 0)
-            {
-                defender->as_monster()->bleed(attacker,
-                                              3 + roll_dice(degree, 3),
-                                              degree);
-            }
-        }
     }
     else
     {
@@ -187,13 +171,10 @@ int attack::calc_to_hit(bool random)
         else if (you.form_uses_xl())
             mhit += maybe_random_div(you.experience_level * 100, 100, random);
         else
-        {                       // ...you must be unarmed or throwing
-            // Members of clawed species have presumably been using the claws,
-            // making them more practiced and thus more accurate in unarmed
-            // combat. They keep this benefit even when the claws are covered
-            // (or missing because of a change in form).
-            mhit += species_has_claws(you.species)
-                    && wpn_skill == SK_UNARMED_COMBAT ? 4 : 2;
+        {
+            // Claws give a slight bonus to accuracy when active
+            mhit += (player_mutation_level(MUT_CLAWS) > 0
+                     && wpn_skill == SK_UNARMED_COMBAT) ? 4 : 2;
 
             mhit += maybe_random_div(you.skill(wpn_skill, 100), 100,
                                      random);
@@ -226,7 +207,7 @@ int attack::calc_to_hit(bool random)
             mhit -= you.props[HORROR_PENALTY_KEY].get_int();
 
         // hunger penalty
-        if (you.hunger_state == HS_STARVING)
+        if (you.hunger_state <= HS_STARVING)
             mhit -= 3;
 
         // armour penalty
@@ -238,15 +219,6 @@ int attack::calc_to_hit(bool random)
 
         // hit roll
         mhit = maybe_random2(mhit, random);
-
-        if (using_weapon() && wpn_skill == SK_SHORT_BLADES
-            && you.duration[DUR_SURE_BLADE])
-        {
-            int turn_duration = you.duration[DUR_SURE_BLADE] / BASELINE_DELAY;
-            mhit += 5 +
-                (random ? random2limit(turn_duration, 10) :
-                 turn_duration / 2);
-        }
     }
     else    // Monster to-hit.
     {
@@ -267,9 +239,7 @@ int attack::calc_to_hit(bool random)
     }
 
     // Penalties for both players and monsters:
-
-    if (attacker->inaccuracy())
-        mhit -= 5;
+    mhit -= 5 * attacker->inaccuracy();
 
     // If you can't see yourself, you're a little less accurate.
     if (!attacker->visible_to(attacker))
@@ -448,7 +418,7 @@ void attack::init_attack(skill_type unarmed_skill, int attack_number)
 
 void attack::alert_defender()
 {
-    // Allow monster attacks to draw the ire of the defender.  Player
+    // Allow monster attacks to draw the ire of the defender. Player
     // attacks are handled elsewhere.
     if (perceived_attack
         && defender->is_monster()
@@ -547,20 +517,7 @@ bool attack::distortion_affects_defender()
 
     if (!player_in_branch(BRANCH_ABYSS) && coinflip())
     {
-        if (defender->is_player() && attacker_visible
-            && using_weapon()
-            && !is_unrandom_artefact(*weapon))
-        {
-            // If the player is being sent to the Abyss by being attacked
-            // with a distortion weapon, then we have to ID it before
-            // the player goes to Abyss, while the weapon object is
-            // still in memory.
-            if (is_artefact(*weapon))
-                artefact_learn_prop(*weapon, ARTP_BRAND);
-            else
-                set_ident_flags(*weapon, ISFLAG_KNOW_TYPE);
-        }
-        else if (defender_visible)
+        if (defender_visible)
             obvious_effect = true;
 
         defender->banish(attacker, attacker->name(DESC_PLAIN, true));
@@ -659,7 +616,7 @@ void attack::chaos_affects_defender()
         {
             if (defender->is_player())
                 mpr("You give off a flash of multicoloured light!");
-            else if (you.can_see(defender))
+            else if (you.can_see(*defender))
             {
                 simple_monster_message(mon, " gives off a flash of"
                                             " multicoloured light!");
@@ -711,7 +668,7 @@ void attack::chaos_affects_defender()
     default:                    chaos_effect += "(other)"; break;
     }
 
-    take_note(Note(NOTE_MESSAGE, 0, 0, chaos_effect.c_str()), true);
+    take_note(Note(NOTE_MESSAGE, 0, 0, chaos_effect), true);
 #endif
 
     switch (static_cast<chaos_type>(choice))
@@ -752,7 +709,7 @@ void attack::chaos_affects_defender()
         ASSERT(poly_up_chance > 0);
         ASSERT(defender->is_monster());
 
-        obvious_effect = you.can_see(defender);
+        obvious_effect = you.can_see(*defender);
         monster_polymorph(mon, RANDOM_MONSTER, PPT_MORE);
         break;
 
@@ -763,7 +720,7 @@ void attack::chaos_affects_defender()
         ASSERT(!is_shifter);
         ASSERT(defender->is_monster());
 
-        obvious_effect = you.can_see(defender);
+        obvious_effect = you.can_see(*defender);
         mon->add_ench(one_chance_in(3) ? ENCH_GLOWING_SHAPESHIFTER
                                        : ENCH_SHAPESHIFTER);
         // Immediately polymorph monster, just to make the effect obvious.
@@ -802,7 +759,7 @@ void attack::chaos_affects_defender()
         ASSERT(can_rage);
         ASSERT(rage_chance > 0);
         defender->go_berserk(false);
-        obvious_effect = you.can_see(defender);
+        obvious_effect = you.can_see(*defender);
         break;
 
     // For these, obvious_effect is computed during beam.fire() below.
@@ -840,7 +797,7 @@ void attack::chaos_affects_defender()
         // to chaos_affect_actor.
         beam.effect_wanton = !fake_chaos_attack;
 
-        if (using_weapon() && you.can_see(attacker))
+        if (using_weapon() && you.can_see(*attacker))
         {
             beam.name = wep_name(DESC_YOUR);
             beam.item = weapon;
@@ -865,14 +822,14 @@ void attack::chaos_affects_defender()
 
         beam.ench_power = beam.damage.num;
 
-        const bool you_could_see = you.can_see(defender);
+        const bool you_could_see = you.can_see(*defender);
         beam.fire();
 
         if (you_could_see)
             obvious_effect = beam.obvious_effect;
     }
 
-    if (!you.can_see(attacker))
+    if (!you.can_see(*attacker))
         obvious_effect = false;
 }
 
@@ -979,7 +936,7 @@ brand_type attack::random_chaos_brand()
     // Pretty much duplicated by the chaos effect note,
     // which will be much more informative.
     if (brand != SPWPN_CHAOS)
-        take_note(Note(NOTE_MESSAGE, 0, 0, brand_name.c_str()), true);
+        take_note(Note(NOTE_MESSAGE, 0, 0, brand_name), true);
 #endif
     return brand;
 }
@@ -1028,7 +985,7 @@ void attack::do_miscast()
     else
     {
         if (chaos_brand && miscast_target == attacker
-            && you.can_see(attacker))
+            && you.can_see(*attacker))
         {
             hand_str = wep_name(DESC_PLAIN, ignore_mask);
         }
@@ -1325,7 +1282,7 @@ int attack::player_apply_slaying_bonuses(int damage, bool aux)
     {
         damage_plus = get_weapon_plus();
         if (you.duration[DUR_CORROSION])
-            damage_plus -= 3 * you.props["corrosion_amount"].get_int();
+            damage_plus -= 4 * you.props["corrosion_amount"].get_int();
     }
     damage_plus += slaying_bonus(!weapon && wpn_skill == SK_THROWING
                                  || (weapon && is_range_weapon(*weapon)
@@ -1367,12 +1324,9 @@ int attack::calc_base_unarmed_damage()
 
     int damage = get_form()->get_base_unarmed_damage();
 
+    // Claw damage only applies for bare hands.
     if (you.has_usable_claws())
-    {
-        // Claw damage only applies for bare hands.
-        damage += you.has_claws(false) * 2;
-        apply_bleeding = true;
-    }
+        damage += you.has_claws() * 2;
 
     if (you.form_uses_xl())
         damage += you.experience_level;
@@ -1444,11 +1398,10 @@ int attack::calc_damage()
         damage_max += attk_damage;
         damage     += 1 + random2(attk_damage);
 
-        bool half_ac = false;
-        damage = apply_damage_modifiers(damage, damage_max, half_ac);
+        damage = apply_damage_modifiers(damage, damage_max);
 
         set_attack_verb(damage);
-        return apply_defender_ac(damage, damage_max, half_ac);
+        return apply_defender_ac(damage, damage_max);
     }
     else
     {
@@ -1468,7 +1421,7 @@ int attack::calc_damage()
         damage = player_stab(damage);
         // A failed stab may have awakened monsters, but that could have
         // caused the defender to cease to exist (spectral weapons with
-        // missing summoners; or pacified monsters on a stair).  FIXME:
+        // missing summoners; or pacified monsters on a stair). FIXME:
         // The correct thing to do would be either to delay the call to
         // alert_nearby_monsters (currently in player_stab) until later
         // in the attack; or to avoid removing monsters in handle_behaviour.
@@ -1506,7 +1459,7 @@ int attack::test_hit(int to_land, int ev, bool randomise_ev)
     return margin;
 }
 
-int attack::apply_defender_ac(int damage, int damage_max, bool half_ac)
+int attack::apply_defender_ac(int damage, int damage_max) const
 {
     ASSERT(defender);
     int stab_bypass = 0;
@@ -1516,8 +1469,7 @@ int attack::apply_defender_ac(int damage, int damage_max, bool half_ac)
         stab_bypass = random2(div_rand_round(stab_bypass, 100 * stab_bonus));
     }
     int after_ac = defender->apply_ac(damage, damage_max,
-                                      half_ac ? AC_HALF : AC_NORMAL,
-                                      stab_bypass);
+                                      AC_NORMAL, stab_bypass);
     dprf(DIAG_COMBAT, "AC: att: %s, def: %s, ac: %d, gdr: %d, dam: %d -> %d",
                  attacker->name(DESC_PLAIN, true).c_str(),
                  defender->name(DESC_PLAIN, true).c_str(),
@@ -1527,6 +1479,25 @@ int attack::apply_defender_ac(int damage, int damage_max, bool half_ac)
                  after_ac);
 
     return after_ac;
+}
+
+bool attack::attack_warded_off()
+{
+    const int WARDING_CHECK = 60;
+
+    if (defender->warding()
+        && attacker->is_summoned()
+        && attacker->as_monster()->check_res_magic(WARDING_CHECK) <= 0)
+    {
+        if (needs_message)
+        {
+            mprf("%s attack is warded away.",
+                 attacker->name(DESC_ITS).c_str());
+        }
+        return true;
+    }
+
+    return false;
 }
 
 /* Determine whether a block occurred
@@ -1726,7 +1697,7 @@ bool attack::apply_damage_brand(const char *what)
         // We only get here if we've done base damage, so no
         // worries on that score.
         if (attacker->is_player())
-            mpr("You feel better.");
+            canned_msg(MSG_GAIN_HEALTH);
         else if (attacker_visible)
         {
             if (defender->is_player())
@@ -1779,8 +1750,7 @@ bool attack::apply_damage_brand(const char *what)
         const int hdcheck =
             (defender->holiness() == MH_NATURAL ? random2(30) : random2(22));
 
-        if (!mons_class_is_confusable(defender->type)
-            || hdcheck < defender->get_hit_dice()
+        if (hdcheck < defender->get_hit_dice()
             || one_chance_in(5)
             || defender->as_monster()->check_clarity(false))
         {
@@ -1970,7 +1940,7 @@ int attack::player_stab(int damage)
  */
 void attack::player_stab_check()
 {
-    if (you.stat_zero[STAT_DEX] || you.confused())
+    if (you.duration[DUR_CLUMSY] || you.confused())
     {
         stab_attempt = false;
         stab_bonus = 0;

@@ -14,7 +14,7 @@
  * @param   choices  The collection of choice-weight pairs to choose from.
  *
  * @return  A pointer to the item in the chosen pair, or nullptr if all
- *          weights are zero.  The pointer is const only if necessary.
+ *          weights are zero. The pointer is const only if necessary.
  */
 template <typename V>
 auto random_choose_weighted(V &choices) -> decltype(&(begin(choices)->first))
@@ -47,9 +47,9 @@ template <typename T, int SIZE>
 int random_choose_weighted(const FixedVector<T, SIZE>& choices)
 {
     int total = 0;
-    for (int i = 0; i < SIZE; ++i)
-        if (choices[i] > 0)
-            total += choices[i];
+    for (auto weight : choices)
+        if (weight > 0)
+            total += weight;
 
     int r = random2(total);
     int sum = 0;

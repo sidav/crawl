@@ -24,23 +24,19 @@
     Haran Pilpel
     Johanna Ploog
     David Lawrence Ramsey
+    J. Van
     Robert Vollmert
     Enne Walker
 
-* Marc H. Thoben, for setting up and maintaining our current Mantis tracker,
-  Wiki, development blog and Windows trunk builds, as well as providing public
-  telnet access to development builds, all on crawl.develz.org.
-
-* Rax E. Dillon, for all the work done in running the public telnet server
-  crawl.akrasiac.org, its associated August tourney, and other great
-  contributions.
-
-* Other administrators of public crawl servers, both present:
-    Jan Anders Bremer (crawl.lantea.net)
-    Aleksi Miikkael Luukkonen (crawl.lantea.net)
+* The administrators of public crawl servers, both present:
     John Boyle (crawl.berotato.org)
+    Jan Anders Bremer (crawl.lantea.net)
+    Rax E. Dillon (crawl.akrasiac.org)
     Wongi Hong (webzook.net / kr.dobrazupa.org)
     Alex 'chequers' Jurkiewicz (crawl.project357.org)
+    Aleksi Miikkael Luukkonen (crawl.lantea.net)
+    Neil Moore (crawl.s-z.org)
+    Marc H. Thoben (crawl.develz.org)
     dplusplus (http://lazy-life.ddo.jp/)
   and past:
     sd1989 (kr.dobrazupa.org)
@@ -104,18 +100,25 @@
     Joe Buzzelli
     Policarpo Caballero
     Can of Worms
+    Edgar Carballo
     Cedor
     Rahul Chandra
+    Gregory Chereshnev
     Thom Chiovoloni
     Henry Cipolla
     Nicholas Connelly
+    Tom Conrad
     Vitor 'Baconkid' Costa
     Aaron Curtis
     Simon Curtis
+    Paul Dejean
     Denzi
     Lothar Dierkes
+    Mark 'Palyth' Donahue
+    Kevin Donnelly
     drachereborn
     Mike Drinen
+    DrKe
     Kieron Dunbar
     John 'Elwin' Edwards
     elliott
@@ -149,6 +152,7 @@
     Mitsuhiro Itakura
     Jeekaroose
     Mikko Juola
+    Kurt Kartaltepe
     Dominic 'dk' Kexel
     Jarmo Kielosto
     Brandon Kime
@@ -164,15 +168,18 @@
     Lorenzo Lami
     Lantier
     Maciej Lapinski
+    Lamil Lerran
     Jordan Lewis
     Sami Liedes
-    Dom Light
+    Dom 'Bodrick' Light
     Rob Lund
     Michael Lynn
     Peter McLarnan
     Lain I. W. Madreisz
     Markus Maier
+    MainiacJoe
     Arien Malec
+    Alan Malloy
     Paul Maloney
     Wille Mäntylä
     James 'Eronarn' Meickle
@@ -180,9 +187,11 @@
     Andrew Minton
     Shawn M Moore
     Akinori Musha
+    Mushboom
     Eva Myers
     nagdon
     Naruni
+    nicolae
     Erkki Nurmi
     Mattias Nyberg
     nyra
@@ -196,6 +205,7 @@
     Pedro
     Arlen Phillips
     Lemuel Pitkin
+    Iago Porto
     pubby
     Derek Ray
     Terence Reeves
@@ -213,6 +223,7 @@
     Brett Scarborough
     Roman Sêk
     ShadyAmish
+    Evan Shaw
     Robert Shimmin
     Sigurd
     Edgar Simo
@@ -223,6 +234,7 @@
     Solf
     Michael Spang
     David Speare
+    John Stahara
     Jan 'heftig' Steffens
     Timothy Stiles
     Johan Strandell
@@ -245,6 +257,7 @@
     Evan Williams
     Jeremey Wilson
     Yelve Yakut
+    Rob Young
     Zannick
     Zooko
 
@@ -259,6 +272,7 @@ The Dungeon Crawl Stone Soup development team is:
     Chris Campbell
     Matthew Cline
     Florian Diebold
+    Rax E. Dillon
     Nicholas Feinberg
     Michael Gagno
     gammafunk
@@ -276,14 +290,14 @@ The Dungeon Crawl Stone Soup development team is:
     John McCartney
     Steve Melenchuk
     Neil Middleton
+    Seve Monahan
     Neil Moore
     Steven Noonan
     Stefan O'Rear
     Charles Otto
     Aaron Pixton
     David Ploog
-    reaverb
     Sage
-    Jason Van
+    Marc H. Thoben
     Chris West
     Samuel Wilson

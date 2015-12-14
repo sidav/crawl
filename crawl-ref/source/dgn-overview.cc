@@ -295,14 +295,8 @@ static string _get_unseen_branches()
             continue;
 
         const branch_type branch = it->id;
-
-        if (branch == BRANCH_SPIDER && stair_level.count(BRANCH_SNAKE)
-            || branch == BRANCH_SNAKE && stair_level.count(BRANCH_SPIDER)
-            || branch == BRANCH_SWAMP && stair_level.count(BRANCH_SHOALS)
-            || branch == BRANCH_SHOALS && stair_level.count(BRANCH_SWAMP))
-        {
+        if (!connected_branch_can_exist(branch))
             continue;
-        }
 
         if (branch == BRANCH_VESTIBULE || !is_connected_branch(branch))
             continue;
@@ -620,8 +614,10 @@ void display_overview()
     clrscr();
     string disp = overview_description_string(true);
     linebreak_string(disp, get_number_of_cols());
-    formatted_scroller(MF_EASY_EXIT | MF_ANYPRINTABLE | MF_NOSELECT,
-                       disp).show();
+    int flags = MF_ANYPRINTABLE | MF_NOSELECT;
+    if (Options.easy_exit_menu)
+        flags |= MF_EASY_EXIT;
+    formatted_scroller(flags, disp).show();
     redraw_screen();
 }
 
@@ -729,21 +725,6 @@ void enter_branch(branch_type branch, level_id from)
         stair_level[branch].clear();
         stair_level[branch].insert(from);
     }
-}
-
-// Mark a shop guaranteed on this level if we haven't been there yet.
-// Used by Gozag's call merchant ability.
-// Only one per level!
-void mark_offlevel_shop(level_id lid, shop_type type)
-{
-    ASSERT(!shops_present.count(level_pos(lid, coord_def())));
-    shops_present[level_pos(lid, coord_def())] = type;
-}
-
-void unmark_offlevel_shop(level_id lid)
-{
-    ASSERT(shops_present.count(level_pos(lid, coord_def())));
-    shops_present.erase(level_pos(lid, coord_def()));
 }
 
 // Add an annotation on a level if we corrupt with Lugonu's ability
@@ -989,4 +970,23 @@ void unmarshallUniqueAnnotations(reader& inf)
         level.load(inf);
         auto_unique_annotations.insert(make_pair(name, level));
     }
+}
+
+/**
+ * Can the player encounter the given connected branch, given their
+ * knowledge of which have been seen so far?
+ * @param br A connected branch.
+ * @returns True if the branch can exist, false otherwise.
+*/
+bool connected_branch_can_exist(branch_type br)
+{
+    if (br == BRANCH_SPIDER && stair_level.count(BRANCH_SNAKE)
+        || br == BRANCH_SNAKE && stair_level.count(BRANCH_SPIDER)
+        || br == BRANCH_SWAMP && stair_level.count(BRANCH_SHOALS)
+        || br == BRANCH_SHOALS && stair_level.count(BRANCH_SWAMP))
+    {
+        return false;
+    }
+
+    return true;
 }

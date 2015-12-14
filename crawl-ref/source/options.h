@@ -79,6 +79,31 @@ struct flang_entry
     int value;
 };
 
+enum use_animation_type
+{
+    UA_NONE             = 0,
+    // projectile animations, from throwing weapons, fireball, etc
+    UA_BEAM             = (1 << 0),
+    // flashes the screen when trying to cast a spell beyond its range
+    UA_RANGE            = (1 << 1),
+    // flashes the screen on low hitpoint warning
+    UA_HP               = (1 << 2),
+    // flashes the screen on attempt to travel or rest with a monster in view
+    UA_MONSTER_IN_SIGHT = (1 << 3),
+    // various animations for picking up runes and the orb
+    UA_PICKUP           = (1 << 4),
+    // various monster spell/ability effects (slime creature merging, etc)
+    UA_MONSTER          = (1 << 5),
+    // various player spell/ability animation effects (shatter, etc)
+    UA_PLAYER           = (1 << 6),
+    // animation when entering certain branches (abyss, zot, etc)
+    UA_BRANCH_ENTRY     = (1 << 7),
+    // animations that can't be turned off (please don't use unless they can
+    // be turned off some other way)
+    UA_ALWAYS_ON        = (1 << 8),
+};
+DEF_BITFIELD(use_animations_type, use_animation_type);
+
 class LineInput;
 struct game_options
 {
@@ -123,7 +148,7 @@ public:
     string      morgue_dir;     // Directory where character dumps and morgue
                                 // dumps are saved. Overrides crawl_dir.
     string      shared_dir;     // Directory where the logfile, scores and bones
-                                // are stored.  On a multi-user system, this dir
+                                // are stored. On a multi-user system, this dir
                                 // should be accessible by different people.
     vector<string> additional_macro_files;
 
@@ -183,6 +208,8 @@ public:
     bool        equip_unequip;   // Make 'W' = 'T', and 'P' = 'R'.
     bool        jewellery_prompt; // Always prompt for slot when changing jewellery.
     bool        easy_door;       // 'O', 'C' don't prompt with just one door.
+    bool        warn_hatches;    // offer a y/n prompt when the player uses an escape hatch
+    bool        enable_recast_spell; // Allow recasting spells with 'z' Enter.
     int         confirm_butcher; // When to prompt for butchery
     bool        easy_eat_chunks; // make 'e' auto-eat the oldest safe chunk
     bool        auto_eat_chunks; // allow eating chunks while resting or travelling
@@ -202,7 +229,7 @@ public:
     int         colour[16];      // macro fg colours to other colours
     int         background_colour; // select default background colour
     msg_colour_type channels[NUM_MESSAGE_CHANNELS];  // msg channel colouring
-    int         use_animations; // which animations to show
+    use_animations_type use_animations; // which animations to show
 
     int         hp_warning;      // percentage hp for danger warning
     int         magic_point_warning;    // percentage mp for danger warning
@@ -251,9 +278,11 @@ public:
     vector<text_pattern> note_messages;  // Interesting messages
     vector<pair<text_pattern, string> > autoinscriptions;
     vector<text_pattern> note_items;     // Objects to note
-    FixedBitVector<27+1> note_skill_levels;   // Skill levels to note
+    // Skill levels to note
+    FixedBitVector<MAX_SKILL_LEVEL + 1> note_skill_levels;
     vector<pair<text_pattern, string>> auto_spell_letters;
     vector<pair<text_pattern, string>> auto_item_letters;
+    vector<pair<text_pattern, string>> auto_ability_letters;
 
     bool        pickup_thrown;  // Pickup thrown missiles
     int         travel_delay;   // How long to pause between travel moves
@@ -269,6 +298,7 @@ public:
     bool        arena_list_eq;
 
     vector<message_filter> force_more_message;
+    vector<message_filter> flash_screen_message;
 
     int         tc_reachable;   // Colour for squares that are reachable
     int         tc_excluded;    // Colour for excluded squares.
@@ -316,6 +346,9 @@ public:
     // How much autoexplore favors visiting squares next to walls.
     int         explore_wall_bias;
 
+    // Wait for rest wait percent HP and MP before exploring.
+    bool        explore_auto_rest;
+
     // Some experimental improvements to explore
     bool        explore_improved;
 
@@ -343,6 +376,7 @@ public:
     int         pickup_menu_limit;  // Over this number of items, menu for
                                     // pickup
     bool        easy_exit_menu;     // Menus are easier to get out of
+    bool        ability_menu;       // 'a'bility starts with a full-screen menu
 
     int         assign_item_slot;   // How free slots are assigned
     maybe_bool  show_god_gift;      // Show {god gift} in item names
@@ -376,6 +410,8 @@ public:
 
     bool        rest_wait_both; // Stop resting only when both HP and MP are
                                 // fully restored.
+    int         rest_wait_percent; // Stop resting after restoring this
+                                   // fraction of HP or MP
 
     lang_t              language;         // Translation to use.
     const char*         lang_name;        // Database name of the language.
@@ -539,7 +575,7 @@ private:
                          bool prepend = false);
     void do_kill_map(const string &from, const string &to);
     int  read_explore_stop_conditions(const string &) const;
-    int  read_use_animations(const string &) const;
+    use_animations_type read_use_animations(const string &) const;
 
     void split_parse(const string &s, const string &separator,
                      void (game_options::*add)(const string &, bool),
@@ -571,26 +607,5 @@ static inline short macro_colour(short col)
     ASSERT(col < MAX_TERM_COLOUR);
     return col < 0 ? col : Options.colour[ col ];
 }
-
-enum use_animation_type
-{
-    UA_NONE             = 0,
-    // projectile animations, from throwing weapons, fireball, etc
-    UA_BEAM             = (1 << 0),
-    // flashes the screen when trying to cast a spell beyond its range
-    UA_RANGE            = (1 << 1),
-    // flashes the screen on low hitpoint warning
-    UA_HP               = (1 << 2),
-    // flashes the screen on attempt to travel or rest with a monster in view
-    UA_MONSTER_IN_SIGHT = (1 << 3),
-    // various animations for picking up runes and the orb
-    UA_PICKUP           = (1 << 4),
-    // various monster spell/ability effects (slime creature merging, etc)
-    UA_MONSTER          = (1 << 5),
-    // various player spell/ability animation effects (shatter, etc)
-    UA_PLAYER           = (1 << 6),
-    // animation when entering certain branches (abyss, zot, etc)
-    UA_BRANCH_ENTRY     = (1 << 7),
-};
 
 #endif

@@ -77,7 +77,7 @@ void finish_butchering(item_def& corpse, bool bottling)
     ASSERT(corpse.base_type == OBJ_CORPSES);
     ASSERT(corpse.sub_type == CORPSE_BODY);
     const bool was_holy = mons_class_holiness(corpse.mon_type) == MH_HOLY;
-    const bool was_intelligent = corpse_intelligence(corpse) >= I_NORMAL;
+    const bool was_intelligent = corpse_intelligence(corpse) >= I_HUMAN;
     const bool was_same_genus = is_player_same_genus(corpse.mon_type);
 
     if (bottling)
@@ -126,11 +126,9 @@ static int _corpse_quality(const item_def &item, bool bottle_blood)
     const corpse_effect_type ce = determine_chunk_effect(item);
     // Being almost rotten away has 480 badness.
     int badness = 3 * item.freshness;
-    if (ce == CE_POISONOUS)
-        badness += 600;
-    else if (ce == CE_MUTAGEN)
+    if (ce == CE_MUTAGEN)
         badness += 1000;
-    else if (ce == CE_ROT)
+    else if (ce == CE_NOXIOUS)
         badness += 1000;
 
     // Bottleable corpses first, unless forbidden
@@ -191,7 +189,7 @@ void butchery(item_def* specific_corpse)
         if (Options.confirm_butcher == CONFIRM_NEVER
             && !_should_butcher(*corpses[0].first))
         {
-            mprf("There isn't anything suitable to %sbutcher here.",
+            mprf("It would be a sin to %sbutcher this!",
                  bottle_blood ? "bottle or " : "");
             return;
         }
@@ -340,11 +338,6 @@ void maybe_drop_monster_hide(const item_def corpse)
         _create_monster_hide(corpse);
 }
 
-int get_max_corpse_chunks(monster_type mons_class)
-{
-    return mons_weight(mons_class) / 150;
-}
-
 /** Skeletonise this corpse.
  *
  *  @param item the corpse to be turned into a skeleton.
@@ -372,7 +365,7 @@ static void _bleed_monster_corpse(const item_def corpse)
     const coord_def pos = item_pos(corpse);
     if (!pos.origin())
     {
-        const int max_chunks = get_max_corpse_chunks(corpse.mon_type);
+        const int max_chunks = max_corpse_chunks(corpse.mon_type);
         bleed_onto_floor(pos, corpse.mon_type, max_chunks, true);
     }
 }
@@ -383,7 +376,7 @@ void turn_corpse_into_chunks(item_def &item, bool bloodspatter,
     ASSERT(item.base_type == OBJ_CORPSES);
     ASSERT(item.sub_type == CORPSE_BODY);
     const item_def corpse = item;
-    const int max_chunks = get_max_corpse_chunks(item.mon_type);
+    const int max_chunks = max_corpse_chunks(item.mon_type);
 
     if (bloodspatter)
         _bleed_monster_corpse(corpse);
@@ -461,16 +454,13 @@ void butcher_corpse(item_def &item, maybe_bool skeleton, bool chunks)
 
 bool can_bottle_blood_from_corpse(monster_type mons_class)
 {
-    if (you.species != SP_VAMPIRE || !mons_has_blood(mons_class))
-        return false;
-
-    return mons_corpse_effect(mons_class) == CE_CLEAN;
+    return you.species == SP_VAMPIRE && mons_has_blood(mons_class);
 }
 
 int num_blood_potions_from_corpse(monster_type mons_class)
 {
     // Max. amount is about one third of the max. amount for chunks.
-    const int max_chunks = get_max_corpse_chunks(mons_class);
+    const int max_chunks = max_corpse_chunks(mons_class);
 
     // Max. amount is about one third of the max. amount for chunks.
     int pot_quantity = max_chunks / 3;

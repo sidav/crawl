@@ -31,14 +31,16 @@ int mons_spell_range(spell_type spell, int hd);
 bolt mons_spell_beam(monster* mons, spell_type spell_cast, int power,
                      bool check_validity = false);
 void mons_cast(monster* mons, bolt pbolt, spell_type spell_cast,
-               unsigned short slot_flags, bool do_noise = true);
+               mon_spell_slot_flags slot_flags, bool do_noise = true);
 void mons_cast_noise(monster* mons, const bolt &pbolt,
-                     spell_type spell_cast, unsigned short slot_flags);
+                     spell_type spell_cast, mon_spell_slot_flags slot_flags);
 bool setup_mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
                      bool check_validity = false);
 
 void mons_cast_haunt(monster* mons);
 bool mons_word_of_recall(monster* mons, int recall_target);
+void finish_chanting_fire_storm(monster* mons, coord_def foe_pos);
+void finish_chanting_word_of_entropy(monster* mons, actor *mons_foe);
 void mons_cast_spectral_orcs(monster* mons);
 void setup_breath_timeout(monster* mons);
 

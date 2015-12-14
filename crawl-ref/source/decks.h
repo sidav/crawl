@@ -8,12 +8,16 @@
 
 #include "enum.h"
 
-// DECK STRUCTURE: deck.initial_cards is the number of cards the deck started
+#define CARD_KEY "cards"
+#define CARD_FLAG_KEY "card_flags"
+#define DRAWN_CARD_KEY "drawn_cards"
+
+// DECK STRUCTURE: deck.initial_cards is the number of cards the deck *started*
 // with, deck.used_count is* the number of cards drawn, deck.rarity is the
-// deck rarity, deck.props["cards"] holds the list of cards (with the
+// deck rarity, deck.props[CARD_KEY] holds the list of cards (with the
 // highest index card being the top card, and index 0 being the bottom
-// card), deck.props["drawn_cards"] holds the list of drawn cards
-// (with index 0 being the first drawn), deck.props["card_flags"]
+// card), deck.props[DRAWN_CARD_KEY] holds the list of drawn cards
+// (with index 0 being the first drawn), deck.props[CARD_FLAG_KEY]
 // holds the flags for each card.
 //
 // *if deck.used_count is negative, it's actually -(cards_left). wtf.
@@ -135,7 +139,9 @@ enum card_type
     CARD_DEGEN,               // polymorph hostiles down hd, malmutate
     CARD_ELEMENTS,            // primal animals of the elements
     CARD_RANGERS,             // sharpshooting
+#if TAG_MAJOR_VERSION == 34
     CARD_PLACID_MAGIC,        // cancellation and antimagic
+#endif
 
     NUM_CARDS
 };

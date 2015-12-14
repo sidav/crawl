@@ -33,6 +33,7 @@
 #include "misc.h"
 #include "mutation.h"
 #include "notes.h"
+#include "player-stats.h"
 #include "prompt.h"
 #include "religion.h"
 #include "showsymb.h"
@@ -493,7 +494,7 @@ static bool _boosted_mp()
 static bool _boosted_ac()
 {
     return you.duration[DUR_ICY_ARMOUR]
-           || player_stoneskin()
+           || you.duration[DUR_STONESKIN]
            || player_icemail_armour_class()
            || you.duration[DUR_QAZLAL_AC]
            || you.attribute[ATTR_BONE_ARMOUR] > 0;
@@ -544,7 +545,7 @@ void update_turn_count()
         return;
     }
 
-    const int yhack = crawl_state.game_is_zotdef()
+    const int yhack = 0
 #if TAG_MAJOR_VERSION == 34
                     + (you.species == SP_LAVA_ORC)
 #endif
@@ -757,7 +758,7 @@ static void _print_stats_hp(int x, int y)
 
 static short _get_stat_colour(stat_type stat)
 {
-    if (you.stat_zero[stat])
+    if (you.duration[stat_zero_duration(stat)])
         return LIGHTRED;
 
     // Check the stat_colour option for warning thresholds.
@@ -832,7 +833,7 @@ static void _print_stats_ev(int x, int y)
               || you.cannot_move() ? RED :
               _boosted_ev()
               ? LIGHTBLUE : HUD_VALUE_COLOUR);
-    CPRINTF("%2d ", player_evasion());
+    CPRINTF("%2d ", you.evasion());
 }
 
 /**
@@ -875,9 +876,9 @@ static void _print_stats_wp(int y)
         if (you.duration[DUR_CORROSION])
         {
             if (wpn.base_type == OBJ_RODS)
-                wpn.special -= 3 * you.props["corrosion_amount"].get_int();
+                wpn.special -= 4 * you.props["corrosion_amount"].get_int();
             else
-                wpn.plus -= 3 * you.props["corrosion_amount"].get_int();
+                wpn.plus -= 4 * you.props["corrosion_amount"].get_int();
         }
         text = wpn.name(DESC_PLAIN, true, false, true);
     }
@@ -901,7 +902,7 @@ static void _print_stats_qv(int y)
     int col;
     string text;
 
-    int q = you.m_quiver->get_fire_item();
+    int q = you.m_quiver.get_fire_item();
     ASSERT_RANGE(q, -1, ENDOFPACK);
     char hud_letter = '-';
     if (q != -1 && !fire_warn_if_impossible(true))
@@ -977,7 +978,7 @@ static void _add_status_light_to_out(int i, vector<status_light>& out)
 //
 // Note the usage of bad_ench_colour() correspond to levels that
 // can be found in player.cc, ie those that the player can tell by
-// using the '@' command.  Things like confusion and sticky flame
+// using the '@' command. Things like confusion and sticky flame
 // hide their amounts and are thus always the same colour (so
 // we're not really exposing any new information). --bwr
 static void _get_status_lights(vector<status_light>& out)
@@ -1269,14 +1270,34 @@ void print_stats()
         you.redraw_title = false;
         _redraw_title();
     }
-    if (you.redraw_hit_points)   { you.redraw_hit_points = false;   _print_stats_hp (1, 3); }
-    if (you.redraw_magic_points) { you.redraw_magic_points = false; _print_stats_mp (1, 4); }
+    if (you.redraw_hit_points)
+    {
+        you.redraw_hit_points = false;
+        _print_stats_hp(1, 3);
+    }
+    if (you.redraw_magic_points)
+    {
+        you.redraw_magic_points = false;
+        _print_stats_mp(1, 4);
+    }
 #if TAG_MAJOR_VERSION == 34
     _print_stats_contam(1, 4);
-    if (you.redraw_temperature)  { you.redraw_temperature = false;  _print_stats_temperature (1, temp_pos); }
+    if (you.redraw_temperature)
+    {
+        you.redraw_temperature = false;
+        _print_stats_temperature(1, temp_pos);
+    }
 #endif
-    if (you.redraw_armour_class) { you.redraw_armour_class = false; _print_stats_ac (1, ac_pos); }
-    if (you.redraw_evasion)      { you.redraw_evasion = false;      _print_stats_ev (1, ev_pos); }
+    if (you.redraw_armour_class)
+    {
+        you.redraw_armour_class = false;
+        _print_stats_ac(1, ac_pos);
+    }
+    if (you.redraw_evasion)
+    {
+        you.redraw_evasion = false;
+        _print_stats_ev(1, ev_pos);
+    }
 
     for (int i = 0; i < NUM_STATS; ++i)
         if (you.redraw_stats[i])
@@ -1309,25 +1330,13 @@ void print_stats()
             textcolour(HUD_VALUE_COLOUR);
             CPRINTF("%2d%% ", get_exp_progress());
         }
-        if (crawl_state.game_is_zotdef())
-        {
-#if TAG_MAJOR_VERSION == 34
-            CGOTOXY(1, 9 + temp, GOTO_STAT);
-#else
-            CGOTOXY(1, 9, GOTO_STAT);
-#endif
-            textcolour(Options.status_caption_colour);
-            CPRINTF("ZP: ");
-            textcolour(HUD_VALUE_COLOUR);
-            CPRINTF("%d     ", you.zot_points);
-        }
         you.redraw_experience = false;
     }
 
 #if TAG_MAJOR_VERSION == 34
-    int yhack = crawl_state.game_is_zotdef() + temp;
+    int yhack = temp;
 #else
-    int yhack = crawl_state.game_is_zotdef();
+    int yhack = 0;
 #endif
 
     // Line 9 is Gold and Turns
@@ -1338,22 +1347,25 @@ void print_stats()
         // Increase y-value for all following lines.
         yhack++;
         CGOTOXY(1+6, 8 + yhack, GOTO_STAT);
-        textcolour(HUD_VALUE_COLOUR);
+        if (you.duration[DUR_GOZAG_GOLD_AURA])
+            textcolour(LIGHTBLUE);
+        else
+            textcolour(HUD_VALUE_COLOUR);
         CPRINTF("%-6d", you.gold);
     }
 
     if (you.wield_change)
     {
         // weapon_change is set in a billion places; probably not all
-        // of them actually mean the user changed their weapon.  Calling
+        // of them actually mean the user changed their weapon. Calling
         // on_weapon_changed redundantly is normally OK; but if the user
         // is wielding a bow and throwing javelins, the on_weapon_changed
         // will switch them back to arrows, which is annoying.
         // Perhaps there should be another bool besides wield_change
         // that's set in fewer places?
         // Also, it's a little bogus to change simulation state in
-        // render code.  We should find a better place for this.
-        you.m_quiver->on_weapon_changed();
+        // render code. We should find a better place for this.
+        you.m_quiver.on_weapon_changed();
         _print_stats_wp(9 + yhack);
     }
     you.wield_change  = false;
@@ -1361,7 +1373,7 @@ void print_stats()
     if (you.species == SP_FELID)
     {
         // There are no circumstances under which Felids could quiver something.
-        // Reduce line counter for status display.y
+        // Reduce line counter for status display.
         yhack -= 1;
     }
     else if (you.redraw_quiver || you.wield_change)
@@ -1457,9 +1469,9 @@ void draw_border()
     CGOTOXY(19, dex_pos, GOTO_STAT); CPRINTF("Dex:");
 
 #if TAG_MAJOR_VERSION == 34
-    int yhack = crawl_state.game_is_zotdef() + temp;
+    int yhack = temp;
 #else
-    int yhack = crawl_state.game_is_zotdef();
+    int yhack = 0;
 #endif
     CGOTOXY(1, 9 + yhack, GOTO_STAT); CPRINTF("Gold:");
     CGOTOXY(19, 9 + yhack, GOTO_STAT);
@@ -1506,14 +1518,14 @@ void redraw_screen()
 
     print_stats();
 
-    bool note_status = notes_are_active();
-    activate_notes(false);
-    print_stats_level();
+    {
+        no_notes nx;
+        print_stats_level();
 #ifdef DGL_SIMPLE_MESSAGING
-    update_message_status();
+        update_message_status();
 #endif
-    update_turn_count();
-    activate_notes(note_status);
+        update_turn_count();
+    }
 
     viewwindow();
 
@@ -1906,7 +1918,7 @@ static void _print_overview_screen_equip(column_composer& cols,
                                          vector<char>& equip_chars,
                                          int sw)
 {
-    const int e_order[] =
+    const equipment_type e_order[] =
     {
         EQ_WEAPON, EQ_BODY_ARMOUR, EQ_SHIELD, EQ_HELMET, EQ_CLOAK,
         EQ_GLOVES, EQ_BOOTS, EQ_AMULET, EQ_RIGHT_RING, EQ_LEFT_RING,
@@ -1917,20 +1929,11 @@ static void _print_overview_screen_equip(column_composer& cols,
 
     sw = min(max(sw, 79), 640);
 
-    char buf[641];
-    for (int i = 0; i < NUM_EQUIP; i++)
+    for (equipment_type eqslot : e_order)
     {
-        int eqslot = e_order[i];
-
         if (you.species == SP_OCTOPODE
-            && e_order[i] != EQ_WEAPON
-            && !you_can_wear(e_order[i], true))
-        {
-            continue;
-        }
-
-        if (you.species == SP_OCTOPODE && (eqslot == EQ_RIGHT_RING
-                                       || eqslot == EQ_LEFT_RING))
+            && eqslot != EQ_WEAPON
+            && !you_can_wear(eqslot))
         {
             continue;
         }
@@ -1946,14 +1949,13 @@ static void _print_overview_screen_equip(column_composer& cols,
 
         const string slot_name_lwr = lowercase_string(equip_slot_to_name(eqslot));
 
-        char slot[15] = "";
+        string str;
 
-        if (you.equip[ e_order[i] ] != -1)
+        if (you.slot_item(eqslot))
         {
             // The player has something equipped.
-            const int item_idx   = you.equip[e_order[i]];
-            const item_def& item = you.inv[item_idx];
-            const bool melded    = !player_wearing_slot(e_order[i]);
+            const item_def& item = *you.slot_item(eqslot);
+            const bool melded    = you.melded[eqslot];
             const string prefix = item_prefix(item);
             const int prefcol = menu_colour(item.name(DESC_INVENTORY), prefix);
             const int col = prefcol == -1 ? LIGHTGREY : prefcol;
@@ -1962,11 +1964,11 @@ static void _print_overview_screen_equip(column_composer& cols,
             const char* colname  = melded ? "darkgrey"
                                           : colour_to_str(col).c_str();
 
+            const int item_idx   = you.equip[eqslot];
             const char equip_char = index_to_letter(item_idx);
 
-            snprintf(buf, sizeof buf,
-                     "%s<w>%c</w> - <%s>%s%s</%s>",
-                     slot,
+            str = make_stringf(
+                     "<w>%c</w> - <%s>%s%s</%s>",
                      equip_char,
                      colname,
                      melded ? "melded " : "",
@@ -1975,46 +1977,34 @@ static void _print_overview_screen_equip(column_composer& cols,
                      colname);
             equip_chars.push_back(equip_char);
         }
-        else if (e_order[i] == EQ_WEAPON
+        else if (eqslot == EQ_WEAPON
                  && you.skill(SK_UNARMED_COMBAT))
         {
-            snprintf(buf, sizeof buf, "%s  - Unarmed", slot);
+            str = "  - Unarmed";
         }
-        else if (e_order[i] == EQ_WEAPON
+        else if (eqslot == EQ_WEAPON
                  && you.form == TRAN_BLADE_HANDS)
         {
             const bool plural = !player_mutation_level(MUT_MISSING_HAND);
-            snprintf(buf, sizeof buf, "%s  - Blade Hand%s", slot,
-                     plural ? "s" : "");
+            str = string("  - Blade Hand") + (plural ? "s" : "");
         }
-        else if (e_order[i] == EQ_BOOTS
+        else if (eqslot == EQ_BOOTS
                  && (you.species == SP_NAGA || you.species == SP_CENTAUR))
         {
-            snprintf(buf, sizeof buf,
-                     "<darkgrey>(no %s)</darkgrey>", slot_name_lwr.c_str());
+            str = "<darkgrey>(no " + slot_name_lwr + ")</darkgrey>";
         }
-        else if (!you_can_wear(e_order[i], true))
+        else if (!you_can_wear(eqslot))
+            str = "<darkgrey>(" + slot_name_lwr + " unavailable)</darkgrey>";
+        else if (!you_can_wear(eqslot, true))
         {
-            snprintf(buf, sizeof buf,
-                     "<darkgrey>(%s unavailable)</darkgrey>", slot_name_lwr.c_str());
+            str = "<darkgrey>(" + slot_name_lwr +
+                               " currently unavailable)</darkgrey>";
         }
-        else if (!you_tran_can_wear(e_order[i], true))
-        {
-            snprintf(buf, sizeof buf,
-                     "<darkgrey>(%s currently unavailable)</darkgrey>",
-                     slot_name_lwr.c_str());
-        }
-        else if (!you_can_wear(e_order[i]))
-        {
-            snprintf(buf, sizeof buf,
-                     "<darkgrey>(%s restricted)</darkgrey>", slot_name_lwr.c_str());
-        }
+        else if (you_can_wear(eqslot) == MB_MAYBE)
+            str = "<darkgrey>(" + slot_name_lwr + " restricted)</darkgrey>";
         else
-        {
-            snprintf(buf, sizeof buf,
-                     "<darkgrey>(no %s)</darkgrey>", slot_name_lwr.c_str());
-        }
-        cols.add_formatted(2, buf, false);
+            str = "<darkgrey>(no " + slot_name_lwr + ")</darkgrey>";
+        cols.add_formatted(2, str.c_str(), false);
     }
 }
 
@@ -2024,7 +2014,7 @@ static string _overview_screen_title(int sw)
 
     string species_job = make_stringf("(%s %s)",
                                       species_name(you.species).c_str(),
-                                      you.class_name.c_str());
+                                      get_job_name(you.char_class));
 
     handle_real_time();
     string time_turns = make_stringf(" Turns: %d, Time: ", you.num_turns)
@@ -2105,14 +2095,17 @@ static string _god_asterisks()
     {
         const int p_rank = xom_favour_rank() - 1;
         if (p_rank >= 0)
-            return string(p_rank, '.') + "*" + string(5 - p_rank, '.');
+        {
+            return string(p_rank, '.') + "*"
+                   + string(NUM_PIETY_STARS - 1 - p_rank, '.');
+        }
         else
-            return "......"; // very special plaything
+            return string(NUM_PIETY_STARS, '.'); // very special plaything
     }
     else
     {
-        const int prank = piety_rank() - 1;
-        return string(prank, '*') + string(6 - prank, '.');
+        const int prank = piety_rank();
+        return string(prank, '*') + string(NUM_PIETY_STARS - prank, '.');
     }
 }
 
@@ -2225,7 +2218,7 @@ static vector<formatted_string> _get_overview_stats()
     else
         entry.textcolour(HUD_VALUE_COLOUR);
 
-    entry.cprintf("%2d", player_evasion());
+    entry.cprintf("%2d", you.evasion());
 
     cols.add_formatted(1, entry.to_colour_string(), false);
     entry.clear();
@@ -2425,8 +2418,8 @@ static vector<formatted_string> _get_overview_resistances(
     out += show_angry ? _resist_composer("Rnd*Rage", cwidth, 1, 1, false) + "\n"
                       : _resist_composer("Clarity", cwidth, rclar) + "\n";
 
-    const int rsust = player_sust_abil(calc_unid);
-    out += _resist_composer("SustAb", cwidth, rsust) + "\n";
+    const int rsust = player_sust_attr(calc_unid);
+    out += _resist_composer("SustAt", cwidth, rsust) + "\n";
 
     const int gourmand = you.gourmand(calc_unid);
     out += _resist_composer("Gourm", cwidth, gourmand, 1) + "\n";
@@ -2483,7 +2476,7 @@ static char _get_overview_screen_results()
         for (unsigned int i = 0; i < blines.size(); ++i)
         {
             // Kind of a hack -- we don't really care what items these
-            // hotkeys go to.  So just pick the first few.
+            // hotkeys go to. So just pick the first few.
             const char hotkey = (i < equip_chars.size()) ? equip_chars[i] : 0;
             overview.add_item_formatted_string(blines[i], hotkey);
         }
@@ -2590,8 +2583,6 @@ static string _status_mut_abilities(int sw)
     string text = "<w>@:</w> ";
     vector<string> status;
 
-    // A hard-coded duration/status list used to be used here. This list is no
-    // longer hard-coded. May 2014. -reaverb
     status_info inf;
     for (unsigned i = 0; i <= STATUS_LAST_STATUS; ++i)
     {
@@ -2623,166 +2614,35 @@ static string _status_mut_abilities(int sw)
     //----------------------------
     text += "<w>A:</w> ";
 
-    int AC_change  = 0;
-
     vector<string> mutations;
 
-    switch (you.species)   //mv: following code shows innate abilities - if any
+    for (const string& str : fake_mutations(you.species, true))
     {
-    case SP_MERFOLK:
-        mutations.push_back(_annotate_form_based("change form in water",
-                                                 form_changed_physiology()));
-        mutations.push_back(_annotate_form_based("swift swim",
-                                                 form_changed_physiology()));
-        break;
-
-    case SP_MINOTAUR:
-        mutations.push_back(_annotate_form_based("retaliatory headbutt",
-                                                 !form_keeps_mutations()));
-        break;
-
-    case SP_NAGA:
-        // breathe poison replaces spit poison:
-        if (!player_mutation_level(MUT_BREATHE_POISON))
-            mutations.emplace_back("spit poison");
-
-        if (you.experience_level > 12)
+        if (species_is_draconian(you.species))
+            mutations.push_back(_dragon_abil(str));
+        else if (you.species == SP_MERFOLK)
         {
-            mutations.push_back(_annotate_form_based("constrict 1",
-                                                     !form_keeps_mutations()));
+            mutations.push_back(
+                _annotate_form_based(str, form_changed_physiology()));
         }
-        AC_change += you.experience_level / 3;
-        break;
-
-    case SP_GHOUL:
-        mutations.emplace_back("rotting body");
-        break;
-
-    case SP_TENGU:
-        if (you.experience_level > 4)
+        else if (you.species == SP_MINOTAUR)
         {
-            string help = "able to fly";
-            if (you.experience_level > 14)
-                help += " continuously";
-            mutations.push_back(help);
+            mutations.push_back(
+                _annotate_form_based(str, !form_keeps_mutations()));
         }
-        break;
-
-    case SP_MUMMY:
-        mutations.emplace_back("no food or potions");
-        mutations.emplace_back("fire vulnerability");
-        if (you.experience_level > 12)
-        {
-            string help = "in touch with death";
-            if (you.experience_level > 25)
-                help = "strongly " + help;
-            mutations.push_back(help);
-        }
-        mutations.emplace_back("restore body");
-        break;
-
-    case SP_VAMPIRE:
-        mutations.emplace_back("bottle blood");
-        break;
-
-    case SP_DEEP_DWARF:
-        mutations.emplace_back("damage resistance");
-        mutations.emplace_back("recharge devices");
-        break;
-
-    case SP_FELID:
-        mutations.emplace_back("paw claws");
-        break;
-
-    case SP_RED_DRACONIAN:
-        mutations.push_back(_dragon_abil("breathe fire"));
-        break;
-
-    case SP_WHITE_DRACONIAN:
-        mutations.push_back(_dragon_abil("breathe frost"));
-        break;
-
-    case SP_GREEN_DRACONIAN:
-        mutations.push_back(_dragon_abil("breathe noxious fumes"));
-        break;
-
-    case SP_YELLOW_DRACONIAN:
-        mutations.push_back(_dragon_abil("spit acid"));
-        mutations.push_back(_annotate_form_based("acid resistance",
-                                                 !form_keeps_mutations()
-                                                  && you.form != TRAN_DRAGON));
-        break;
-
-    case SP_GREY_DRACONIAN:
-        mutations.emplace_back("walk through water");
-        AC_change += 5;
-        break;
-
-    case SP_BLACK_DRACONIAN:
-        mutations.push_back(_dragon_abil("breathe lightning"));
-        if (you.experience_level >= 14)
-            mutations.emplace_back("able to fly continuously");
-        break;
-
-    case SP_PURPLE_DRACONIAN:
-        mutations.push_back(_dragon_abil("breathe power"));
-        break;
-
-    case SP_MOTTLED_DRACONIAN:
-        mutations.push_back(_dragon_abil("breathe sticky flames"));
-        break;
-
-    case SP_PALE_DRACONIAN:
-        mutations.push_back(_dragon_abil("breathe steam"));
-        break;
-
-    case SP_FORMICID:
-        mutations.emplace_back("permanent stasis");
-        mutations.emplace_back("dig shafts and tunnels");
-        mutations.emplace_back("four strong arms");
-        break;
-
-    case SP_GARGOYLE:
-        if (you.experience_level >= 14)
-            mutations.emplace_back("able to fly continuously");
-        AC_change += 2 + you.experience_level * 2 / 5
-                       + max(0, you.experience_level - 7) * 2 / 5;
-        break;
-
-#if TAG_MAJOR_VERSION == 34
-    case SP_DJINNI:
-        mutations.emplace_back("fire immunity");
-        mutations.emplace_back("cold vulnerability");
-        break;
-
-#endif
-    default:
-        break;
-    }                           //end switch - innate abilities
+        else
+            mutations.push_back(str);
+    }
 
     // a bit more stuff
     if (you.species == SP_OGRE || you.species == SP_TROLL
-        || player_genus(GENPC_DRACONIAN) || you.species == SP_SPRIGGAN)
+        || species_is_draconian(you.species) || you.species == SP_SPRIGGAN)
     {
         mutations.emplace_back("unfitting armour");
     }
 
-    if (player_genus(GENPC_DRACONIAN))
-    {
-        // The five extra points for grey draconians were handled above.
-        AC_change += 4 + you.experience_level / 3;
-    }
-
-    if (you.species == SP_FELID)
-    {
-        mutations.emplace_back("no armour");
-        mutations.emplace_back("no weapons or thrown items");
-    }
-
     if (you.species == SP_OCTOPODE)
     {
-        mutations.emplace_back("almost no armour");
-        mutations.emplace_back("amphibious");
         mutations.push_back(_annotate_form_based(
             make_stringf("%d rings", you.has_tentacles(false)),
             !get_form()->slot_available(EQ_RING_EIGHT)));
@@ -2824,18 +2684,11 @@ static string _status_mut_abilities(int sw)
         }
     }
 
-    // Statue form does not get AC benefits from scales etc.  It does
-    // get changes to EV and SH.
-    if (AC_change && you.form != TRAN_STATUE)
-    {
-        const string ac_mut = make_stringf("AC %s%d",
-                                           (AC_change > 0 ? "+" : ""),
-                                           AC_change);
-        mutations.push_back(ac_mut);
-    }
+    if (you.racial_ac(false))
+        mutations.push_back("AC +" + to_string(you.racial_ac(false) / 100));
 
     if (mutations.empty())
-        text +=  "no striking features";
+        text += "no striking features";
     else
     {
         text += comma_separated_line(mutations.begin(), mutations.end(),

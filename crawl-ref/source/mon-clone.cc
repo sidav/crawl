@@ -124,7 +124,7 @@ static void _mons_summon_monster_illusion(monster* caster,
 
         if (cloning_visible)
         {
-            if (!you.can_see(caster))
+            if (!you.can_see(*caster))
             {
                 mprf("%s seems to step out of %s!",
                      foe->name(DESC_THE).c_str(),
@@ -228,7 +228,7 @@ void mons_summon_illusion_from(monster* mons, actor *foe,
 
 bool mons_clonable(const monster* mon, bool needs_adjacent)
 {
-    // No uniques or ghost demon monsters.  Also, figuring out the name
+    // No uniques or ghost demon monsters. Also, figuring out the name
     // for the clone of a named monster isn't worth it, and duplicate
     // battlespheres with the same owner cause problems with the spell
     if (mons_is_unique(mon->type)
@@ -322,7 +322,7 @@ monster* clone_mons(const monster* orig, bool quiet, bool* obvious,
         const int new_index = get_mitm_slot(0);
         if (new_index == NON_ITEM)
         {
-            mons->unequip(mitm[old_index], i, 0, true);
+            mons->unequip(mitm[old_index], false, true);
             mons->inv[i] = NON_ITEM;
             continue;
         }
@@ -337,7 +337,7 @@ monster* clone_mons(const monster* orig, bool quiet, bool* obvious,
         obvious = &_obvious;
     *obvious = false;
 
-    if (you.can_see(orig) && you.can_see(mons))
+    if (you.can_see(*orig) && you.can_see(*mons))
     {
         if (!quiet)
             simple_monster_message(orig, " is duplicated!");
@@ -345,7 +345,7 @@ monster* clone_mons(const monster* orig, bool quiet, bool* obvious,
     }
 
     mark_interesting_monst(mons, mons->behaviour);
-    if (you.can_see(mons))
+    if (you.can_see(*mons))
     {
         handle_seen_interrupt(mons);
         viewwindow();

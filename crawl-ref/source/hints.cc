@@ -160,7 +160,7 @@ static void _print_hints_menu(hints_types type)
 }
 
 // Hints mode selection screen and choice.
-void pick_hints(newgame_def* choice)
+void pick_hints(newgame_def& choice)
 {
 again:
     clrscr();
@@ -196,11 +196,11 @@ again:
         if (keyn >= 'a' && keyn <= 'a' + HINT_TYPES_NUM - 1)
         {
             Hints.hints_type = keyn - 'a';
-            choice->species  = _get_hints_species(Hints.hints_type);
-            choice->job = _get_hints_job(Hints.hints_type);
+            choice.species  = _get_hints_species(Hints.hints_type);
+            choice.job = _get_hints_job(Hints.hints_type);
             // easiest choice for fighters
-            choice->weapon = choice->job == JOB_HUNTER ? WPN_SHORTBOW
-                                                       : WPN_HAND_AXE;
+            choice.weapon = choice.job == JOB_HUNTER ? WPN_SHORTBOW
+                                                     : WPN_HAND_AXE;
 
             return;
         }
@@ -542,8 +542,7 @@ void hints_finished()
     you.save->delete_chunk("tut");
 }
 
-// Occasionally remind religious characters of sacrifices.
-void hints_dissection_reminder(bool healthy)
+void hints_dissection_reminder()
 {
     if (!crawl_state.game_is_hints())
         return;
@@ -551,33 +550,15 @@ void hints_dissection_reminder(bool healthy)
     if (Hints.hints_just_triggered)
         return;
 
-    // When hungry, give appropriate message or at least don't suggest
-    // sacrifice.
-    if (you.hunger_state < HS_SATIATED && healthy)
-    {
+    // When hungry, give appropriate message
+    if (you.hunger_state < HS_SATIATED)
         learned_something_new(HINT_MAKE_CHUNKS);
-        return;
-    }
-
-    if (!god_likes_fresh_corpses(you.religion))
-        return;
-
-    if (Hints.hints_events[HINT_OFFER_CORPSE])
-        learned_something_new(HINT_OFFER_CORPSE);
-    else if (one_chance_in(8))
-    {
-        Hints.hints_just_triggered = true;
-
-        print_hint("dissection reminder");
-    }
 }
 
 static bool _advise_use_healing_potion()
 {
-    for (int i = 0; i < ENDOFPACK; i++)
+    for (auto &obj : you.inv)
     {
-        item_def &obj(you.inv[i]);
-
         if (!obj.defined())
             continue;
 
@@ -800,10 +781,8 @@ static bool _mons_is_highlighted(const monster* mons)
 
 static bool _advise_use_wand()
 {
-    for (int i = 0; i < ENDOFPACK; i++)
+    for (auto &obj : you.inv)
     {
-        item_def &obj(you.inv[i]);
-
         if (!obj.defined())
             continue;
 
@@ -845,7 +824,7 @@ static bool _advise_use_wand()
 
 void hints_monster_seen(const monster& mon)
 {
-    if (mons_class_flag(mon.type, M_NO_EXP_GAIN))
+    if (!mons_class_gives_xp(mon.type))
     {
         if (Hints.hints_events[HINT_SEEN_ZERO_EXP_MON])
         {
@@ -1371,13 +1350,6 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
                 "then eat the resulting chunks with <w>Shift + right mouse "
                 "click</w>.</tiles>";
 
-        if (god_likes_fresh_corpses(you.religion))
-        {
-            text << "\nYou can also offer corpses to "
-                 << god_name(you.religion)
-                 << " by <w>%</w>raying over them.";
-            cmd.push_back(CMD_PRAY);
-        }
         text << "\nIn hint mode you can reread this information at "
                 "any time by selecting the item in question in your "
                 "<w>%</w>nventory.";
@@ -1909,16 +1881,11 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
         learned_something_new(HINT_YOU_ENCHANTED);
         Hints.hints_just_triggered = true;
 
-        text << "Ugh, your flesh is rotting! Not only does this slowly "
-                "reduce your health, it also slowly reduces your <w>maximum</w> "
-                "health (your usual maximum health will be indicated by a "
-                "number in parentheses).\n"
-                "While you can wait it out, you'll probably want to stop the "
-                "rotting as soon as possible by <w>%</w>uaffing a potion of "
-                "curing, since the longer you wait the more your maximum "
-                "health will be reduced. Once you've stopped rotting you can "
-                "restore your maximum health to normal by drinking potions of "
-                "curing and heal wounds while fully healed.";
+        text << "Ugh, your flesh has been rotted away! This reduces your"
+                "<w>maximum</w> health (your usual maximum health will be "
+                "indicated by a number in parentheses).\n"
+                "You can restore your maximum health to normal by drinking "
+                "potions of curing and heal wounds.";
         cmd.push_back(CMD_QUAFF);
         break;
 
@@ -2007,20 +1974,6 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
                 "look at it in your <w>%</w>nventory.";
         cmd.push_back(CMD_DISPLAY_INVENTORY);
 #endif
-        break;
-
-    case HINT_OFFER_CORPSE:
-        if (!god_likes_fresh_corpses(you.religion)
-            || you.hunger_state < HS_SATIATED)
-        {
-            return;
-        }
-
-        text << "Hey, that monster left a corpse! If you don't need it for "
-                "food or other purposes, you can sacrifice it to "
-             << god_name(you.religion)
-             << " by <w>%</w>raying over it to offer it. ";
-        cmd.push_back(CMD_PRAY);
         break;
 
     case HINT_SHIFT_RUN:
@@ -2542,13 +2495,13 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
 
         // "Shouts" from zero experience monsters are boring, ignore
         // them.
-        if (mons_class_flag(m->type, M_NO_EXP_GAIN))
+        if (!mons_class_gives_xp(m->type))
         {
             Hints.hints_events[HINT_MONSTER_SHOUT] = true;
             return;
         }
 
-        const bool vis = you.can_see(m);
+        const bool vis = you.can_see(*m);
 
 #ifdef USE_TILE
         if (vis)
@@ -2587,7 +2540,7 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
     {
         const monster* m = monster_at(gc);
 
-        if (!m || !you.can_see(m))
+        if (!m || !you.can_see(*m))
             DELAY_EVENT;
 
         text << m->name(DESC_THE, true) << " didn't vanish, but merely "
@@ -2916,8 +2869,7 @@ string hints_skills_info()
         "experience is allocated to go towards that skill. "
         "You can toggle which skills to train by "
         "pressing their slot letters. A <darkgrey>grey</darkgrey> skill "
-        "will not be trained and ease the training of others. "
-        "Press <w>?</w> to read your skills' descriptions.";
+        "will not be trained and ease the training of others.";
     text << broken;
     text << "</" << colour_to_str(channel_to_colour(MSGCH_TUTORIAL)) << ">";
 
@@ -3551,13 +3503,6 @@ void hints_describe_item(const item_def &item)
                     "produce chunks for food (though they may be unhealthy)";
             cmd.push_back(CMD_BUTCHER);
 
-            if (god_likes_fresh_corpses(you.religion))
-            {
-                ostr << ", or offered as a sacrifice to "
-                     << god_name(you.religion)
-                     << " by <w>%</w>raying over them";
-                cmd.push_back(CMD_PRAY);
-            }
             ostr << ". ";
 
             if (!in_inventory(item))
@@ -3752,7 +3697,6 @@ static void _hints_describe_feature(int x, int y)
          break;
 
     case DNGN_TRAP_TELEPORT:
-    case DNGN_TRAP_SHADOW:
     case DNGN_TRAP_ALARM:
     case DNGN_TRAP_ZOT:
     case DNGN_TRAP_MECHANICAL:
@@ -4049,7 +3993,7 @@ static bool _water_is_disturbed(int x, int y)
     if (!mon || grd(c) != DNGN_SHALLOW_WATER || !you.see_cell(c))
         return false;
 
-    return !mon->visible_to(&you) && !mons_flies(mon);
+    return !mon->visible_to(&you) && !mon->airborne();
 }
 
 bool hints_monster_interesting(const monster* mons)

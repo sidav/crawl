@@ -41,7 +41,6 @@
 #include "mon-behv.h"
 #include "mon-book.h"
 #include "mon-cast.h"
-#include "mon-chimera.h"
 #include "mon-death.h"
 #include "mon-pathfind.h"
 #include "mon-place.h"
@@ -79,7 +78,6 @@ void draconian_change_colour(monster* drac)
                                        MONS_GREEN_DRACONIAN,
                                        MONS_PURPLE_DRACONIAN,
                                        MONS_MOTTLED_DRACONIAN,
-                                       MONS_PALE_DRACONIAN,
                                        MONS_YELLOW_DRACONIAN);
     drac->colour = mons_class_colour(drac->base_monster);
 
@@ -93,120 +91,43 @@ void draconian_change_colour(monster* drac)
     drac->spells.push_back(drac_breath(draco_or_demonspawn_subspecies(drac)));
 }
 
-bool ugly_thing_mutate(monster* ugly, bool proximity)
+bool ugly_thing_mutate(monster* ugly, bool force)
 {
-    bool success = false;
+    if (!(one_chance_in(9) || force))
+        return false;
 
-    string src = "";
+    const char* msg = nullptr;
+    // COLOUR_UNDEF means "pick a random colour".
+    colour_t new_colour = COLOUR_UNDEF;
 
-    colour_t mon_colour = BLACK;
-
-    if (!proximity)
-        success = true;
-    else if (one_chance_in(9))
+    for (fair_adjacent_iterator ai(ugly->pos()); ai && !msg; ++ai)
     {
-        int you_mutate_chance = 0;
-        int ugly_mutate_chance = 0;
-        int mon_mutate_chance = 0;
+        const actor* act = actor_at(*ai);
 
-        for (adjacent_iterator ri(ugly->pos()); ri; ++ri)
+        if (!act)
+            continue;
+
+        if (act->is_player() && get_contamination_level())
+            msg = " basks in your mutagenic energy and changes!";
+        else if (mons_genus(act->type) == MONS_UGLY_THING)
         {
-            if (you.pos() == *ri)
-                you_mutate_chance = get_contamination_level();
-            else
-            {
-                monster* mon_near = monster_at(*ri);
-
-                if (!mon_near
-                    || !mons_class_flag(mon_near->type, M_GLOWS_RADIATION))
-                {
-                    continue;
-                }
-
-                const bool ugly_type =
-                    mon_near->type == MONS_UGLY_THING
-                        || mon_near->type == MONS_VERY_UGLY_THING;
-
-                int i = mon_near->type == MONS_VERY_UGLY_THING ? 3 :
-                        mon_near->type == MONS_UGLY_THING      ? 2
-                                                               : 1;
-
-                for (; i > 0; --i)
-                {
-                    if (coinflip())
-                    {
-                        if (ugly_type)
-                        {
-                            ugly_mutate_chance++;
-
-                            if (coinflip())
-                            {
-                                const colour_t ugly_colour =
-                                    make_low_colour(ugly->colour);
-                                const colour_t ugly_near_colour =
-                                    make_low_colour(mon_near->colour);
-
-                                if (ugly_colour != ugly_near_colour)
-                                    mon_colour = ugly_near_colour;
-                            }
-                        }
-                        else
-                            mon_mutate_chance++;
-                    }
-                }
-            }
-        }
-
-        // The maximum number of monsters that can surround this monster
-        // is 8, and the maximum mutation chance from each surrounding
-        // monster is 3, so the maximum mutation value is 24.
-        you_mutate_chance = min(24, you_mutate_chance);
-        ugly_mutate_chance = min(24, ugly_mutate_chance);
-        mon_mutate_chance = min(24, mon_mutate_chance);
-
-        if (!one_chance_in(you_mutate_chance
-                           + ugly_mutate_chance
-                           + mon_mutate_chance
-                           + 1))
-        {
-            int proximity_chance = you_mutate_chance;
-            int proximity_type = 0;
-
-            if (ugly_mutate_chance > proximity_chance
-                || (ugly_mutate_chance == proximity_chance && coinflip()))
-            {
-                proximity_chance = ugly_mutate_chance;
-                proximity_type = 1;
-            }
-
-            if (mon_mutate_chance > proximity_chance
-                || (mon_mutate_chance == proximity_chance && coinflip()))
-            {
-                proximity_chance = mon_mutate_chance;
-                proximity_type = 2;
-            }
-
-            src  = " from ";
-            src += proximity_type == 0 ? "you" :
-                   proximity_type == 1 ? "its kin"
-                                       : "its neighbour";
-
-            success = true;
+            msg = " basks in the mutagenic energy from its kin and changes!";
+            const colour_t other_colour =
+                make_low_colour(act->as_monster()->colour);
+            if (make_low_colour(ugly->colour) != other_colour)
+                new_colour = other_colour;
         }
     }
 
-    if (success)
-    {
-        simple_monster_message(ugly,
-            make_stringf(" basks in the mutagenic energy%s and changes!",
-                         src.c_str()).c_str());
+    if (force)
+        msg = " basks in the mutagenic energy and changes!";
 
-        ugly->uglything_mutate(mon_colour);
+    if (!msg) // didn't find anything to mutate off of
+        return false;
 
-        return true;
-    }
-
-    return false;
+    simple_monster_message(ugly, msg);
+    ugly->uglything_mutate(new_colour);
+    return true;
 }
 
 // Inflict any enchantments the parent slime has on its offspring,
@@ -274,6 +195,7 @@ static void _stats_from_blob_count(monster* slime, float max_per_blob,
 // Now it returns index of new slime (-1 if it fails).
 static monster* _do_split(monster* thing, const coord_def & target)
 {
+    ASSERT(thing); // XXX: change to monster &thing
     ASSERT(thing->alive());
 
     // Create a new slime.
@@ -288,7 +210,7 @@ static monster* _do_split(monster* thing, const coord_def & target)
 
     // Don't explicitly announce the child slime coming into view if you
     // saw the split that created it
-    if (you.can_see(thing))
+    if (you.can_see(*thing))
         new_slime_data.extra_flags |= MF_WAS_IN_VIEW;
 
     monster *new_slime = create_monster(new_slime_data);
@@ -296,7 +218,7 @@ static monster* _do_split(monster* thing, const coord_def & target)
     if (!new_slime)
         return 0;
 
-    if (you.can_see(thing))
+    if (you.can_see(*thing))
         mprf("%s splits.", thing->name(DESC_A).c_str());
 
     // Inflict the new slime with any enchantments on the parent.
@@ -337,7 +259,7 @@ static void _lose_turn(monster* mons, bool has_gone)
     const monsterentry* entry = get_monster_data(mons->type);
 
     // We want to find out if mons will move next time it has a turn
-    // (assuming for the sake of argument the next delay is 10).  If it's
+    // (assuming for the sake of argument the next delay is 10). If it's
     // already going to lose a turn we don't need to do anything.
     mons->speed_increment += entry->speed;
     if (!mons->has_action_energy())
@@ -451,15 +373,15 @@ static bool _do_merge_crawlies(monster* crawlie, monster* merge_to)
     behaviour_event(merge_to, ME_EVAL);
 
     // Messaging.
-    if (you.can_see(merge_to))
+    if (you.can_see(*merge_to))
     {
         const bool changed = new_type != old_type;
-        if (you.can_see(crawlie))
+        if (you.can_see(*crawlie))
         {
             if (crawlie->type == old_type)
             {
                 mprf("Two %s merge%s%s.",
-                     pluralise(crawlie->name(DESC_PLAIN)).c_str(),
+                     pluralise_monster(crawlie->name(DESC_PLAIN)).c_str(),
                      changed ? " to form " : "",
                      changed ? merge_to->name(DESC_A).c_str() : "");
             }
@@ -481,7 +403,7 @@ static bool _do_merge_crawlies(monster* crawlie, monster* merge_to)
         else
             mprf("%s twists grotesquely.", merge_to->name(DESC_A).c_str());
     }
-    else if (you.can_see(crawlie))
+    else if (you.can_see(*crawlie))
         mprf("%s suddenly disappears!", crawlie->name(DESC_A).c_str());
 
     // Now kill the other monster.
@@ -502,14 +424,14 @@ static void _do_merge_slimes(monster* initial_slime, monster* merge_to)
     merge_to->hit_points += initial_slime->hit_points;
 
     // Merge monster flags (mostly so that MF_CREATED_NEUTRAL, etc. are
-    // passed on if the merged slime subsequently splits.  Hopefully
+    // passed on if the merged slime subsequently splits. Hopefully
     // this won't do anything weird.
     merge_to->flags |= initial_slime->flags;
 
-    // Merging costs the combined slime some energy.  The idea is that if 2
+    // Merging costs the combined slime some energy. The idea is that if 2
     // slimes merge you can gain a space by moving away the turn after (maybe
     // this is too nice but there will probably be a lot of complaints about
-    // the damage on higher level slimes).  We see if mons has gone already by
+    // the damage on higher level slimes). We see if mons has gone already by
     // checking its mindex (this works because handle_monsters just iterates
     // over env.mons in ascending order).
     _lose_turn(merge_to, merge_to->mindex() < initial_slime->mindex());
@@ -522,9 +444,9 @@ static void _do_merge_slimes(monster* initial_slime, monster* merge_to)
     behaviour_event(merge_to, ME_EVAL);
 
     // Messaging.
-    if (you.can_see(merge_to))
+    if (you.can_see(*merge_to))
     {
-        if (you.can_see(initial_slime))
+        if (you.can_see(*initial_slime))
         {
             mprf("Two slime creatures merge to form %s.",
                  merge_to->name(DESC_A).c_str());
@@ -537,7 +459,7 @@ static void _do_merge_slimes(monster* initial_slime, monster* merge_to)
 
         flash_view_delay(UA_MONSTER, LIGHTGREEN, 150);
     }
-    else if (you.can_see(initial_slime))
+    else if (you.can_see(*initial_slime))
         mpr("A slime creature suddenly disappears!");
 
     // Have to 'kill' the slime doing the merging.
@@ -561,7 +483,7 @@ static bool _disabled_merge(monster* thing)
 }
 
 // See if there are any appropriate adjacent slime creatures for 'thing'
-// to merge with.  If so, carry out the merge.
+// to merge with. If so, carry out the merge.
 //
 // A slime creature will merge if there is an adjacent slime, merging
 // onto that slime would reduce the distance to the original slime's
@@ -683,7 +605,7 @@ static monster *_slime_split(monster* thing, bool force_split)
     const coord_def origin  = thing->pos();
 
     const actor* foe        = thing->get_foe();
-    const bool has_foe      = (foe != nullptr && thing->can_see(foe));
+    const bool has_foe      = (foe != nullptr && thing->can_see(*foe));
     const coord_def foe_pos = (has_foe ? foe->position : coord_def(0,0));
     const int old_dist      = (has_foe ? grid_distance(origin, foe_pos) : 0);
 
@@ -713,7 +635,7 @@ static monster *_slime_split(monster* thing, bool force_split)
 
         if (_slime_can_spawn(*ai))
         {
-            // This can fail if placing a new monster fails.  That
+            // This can fail if placing a new monster fails. That
             // probably means we have too many monsters on the level,
             // so just return in that case.
             return _do_split(thing, *ai);
@@ -784,10 +706,6 @@ static bool _starcursed_split(monster* mon)
 static void _starcursed_scream(monster* mon, actor* target)
 {
     if (!target || !target->alive())
-        return;
-
-    // These monsters have too primitive a mind to be affected
-    if (!target->is_player() && mons_intel(target->as_monster()) <= I_INSECT)
         return;
 
     //Gather the chorus
@@ -899,7 +817,7 @@ static bool _lost_soul_affectable(const monster &mons)
     if (mons.is_summoned())
         return false;
 
-    if (mons_class_flag(mons.type, M_NO_EXP_GAIN))
+    if (!mons_class_gives_xp(mons.type))
         return false;
 
     return true;
@@ -907,7 +825,7 @@ static bool _lost_soul_affectable(const monster &mons)
 
 static bool _lost_soul_teleport(monster* mons)
 {
-    bool seen = you.can_see(mons);
+    bool seen = you.can_see(*mons);
 
     typedef pair<monster*, int> mon_quality;
     vector<mon_quality> candidates;
@@ -1034,7 +952,7 @@ bool lost_soul_revive(monster* mons, killer_type killer)
         }
 
         // check if you can see the monster *after* it maybe moved
-        if (you.can_see(mons))
+        if (you.can_see(*mons))
         {
             if (!was_alive)
             {
@@ -1066,17 +984,13 @@ void treant_release_fauna(monster* mons)
     int count = mons->mangrove_pests;
     bool created = false;
 
-    monster_type base_t = (one_chance_in(3) ? MONS_WASP
-                                            : MONS_RAVEN);
+    monster_type fauna_t = (one_chance_in(6) ? MONS_HORNET
+                                             : MONS_WASP);
 
     mon_enchant abj = mons->get_ench(ENCH_ABJ);
 
     for (int i = 0; i < count; ++i)
     {
-        monster_type fauna_t = (base_t == MONS_WASP && one_chance_in(3)
-                                                ? MONS_HORNET
-                                                : base_t);
-
         mgen_data fauna_data(fauna_t, SAME_ATTITUDE(mons),
                             mons, 0, SPELL_NO_SPELL, mons->pos(),
                             mons->foe);
@@ -1096,18 +1010,10 @@ void treant_release_fauna(monster* mons)
         }
     }
 
-    if (created && you.can_see(mons))
+    if (created && you.can_see(*mons))
     {
-        if (base_t == MONS_WASP)
-        {
-                mprf("Angry insects surge out from beneath %s foliage!",
-                        mons->name(DESC_ITS).c_str());
-        }
-        else if (base_t == MONS_RAVEN)
-        {
-                mprf("Agitated ravens fly out from beneath %s foliage!",
-                        mons->name(DESC_ITS).c_str());
-        }
+        mprf("Angry insects surge out from beneath %s foliage!",
+             mons->name(DESC_ITS).c_str());
     }
 }
 
@@ -1154,10 +1060,7 @@ bool mon_special_ability(monster* mons, bolt & beem)
 
     const monster_type mclass = (mons_genus(mons->type) == MONS_DRACONIAN)
                                   ? draco_or_demonspawn_subspecies(mons)
-                                  // Pick a random chimera component
-                                  : (mons->type == MONS_CHIMERA ?
-                                     get_chimera_part(mons, random2(3) + 1)
-                                     : mons->type);
+                                  : mons->type;
 
     // Slime creatures can split while out of sight.
     if ((!mons->near_foe() || mons->asleep() || mons->submerged())
@@ -1172,10 +1075,9 @@ bool mon_special_ability(monster* mons, bolt & beem)
     {
     case MONS_UGLY_THING:
     case MONS_VERY_UGLY_THING:
-        // A (very) ugly thing's proximity to you if you're glowing, or
-        // to others of its kind, or to other monsters glowing with
-        // radiation, can mutate it into a different (very) ugly thing.
-        used = ugly_thing_mutate(mons, true);
+        // A (very) ugly thing may mutate if it's next to other ones (or
+        // next to you if you're contaminated).
+        used = ugly_thing_mutate(mons, false);
         break;
 
     case MONS_SLIME_CREATURE:
@@ -1198,7 +1100,7 @@ bool mon_special_ability(monster* mons, bolt & beem)
             break;
 
         if (mons->attitude == ATT_HOSTILE
-            && distance2(you.pos(), mons->pos()) <= 5)
+            && grid_distance(you.pos(), mons->pos()) <= 2)
         {
             mons->suicide();
             used = true;
@@ -1207,7 +1109,7 @@ bool mon_special_ability(monster* mons, bolt & beem)
 
         for (monster_near_iterator targ(mons, LOS_NO_TRANS); targ; ++targ)
         {
-            if (mons_aligned(mons, *targ) || distance2(mons->pos(), targ->pos()) > 4)
+            if (mons_aligned(mons, *targ) || grid_distance(mons->pos(), targ->pos()) > 2)
                 continue;
 
             if (!cell_is_solid(targ->pos()))
@@ -1330,7 +1232,7 @@ bool mon_special_ability(monster* mons, bolt & beem)
             && !one_chance_in(3))
         {
             actor *foe = mons->get_foe();
-            if (foe && mons->can_see(foe))
+            if (foe && mons->can_see(*foe))
             {
                 beem.target = foe->pos();
                 setup_mons_cast(mons, beem, SPELL_THORN_VOLLEY);
@@ -1348,13 +1250,14 @@ bool mon_special_ability(monster* mons, bolt & beem)
         // defensive wall of brambles (use the number of brambles in the area
         // as some indication if we've already done this, and shouldn't repeat)
         else if (mons->props["foe_approaching"].get_bool() == true
+                 && !mons_is_confused(mons)
                  && coinflip())
         {
             int briar_count = 0;
             for (monster_near_iterator mi(mons, LOS_NO_TRANS); mi; ++mi)
             {
                 if (mi->type == MONS_BRIAR_PATCH
-                    && distance2(mons->pos(), mi->pos()) > 17)
+                    && grid_distance(mons->pos(), mi->pos()) > 3)
                 {
                     briar_count++;
                 }
@@ -1406,7 +1309,7 @@ bool mon_special_ability(monster* mons, bolt & beem)
             // Duration does not decay while there are hostiles around
             mons->add_ench(mon_enchant(ENCH_GRASPING_ROOTS_SOURCE, 1, mons,
                                        random_range(3, 7) * BASELINE_DELAY));
-            if (you.can_see(mons))
+            if (you.can_see(*mons))
             {
                 mprf(MSGCH_MONSTER_SPELL, "%s reaches out with a gnarled limb.",
                      mons->name(DESC_THE).c_str());

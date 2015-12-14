@@ -29,6 +29,7 @@
 #include "ghost.h"         // For is_dragonkind ghost_demon datas
 #include "godconduct.h"    // did_god_conduct
 #include "mgen_data.h"     // For Sceptre of Asmodeus evoke
+#include "mon-death.h"     // For demon axe's SAME_ATTITUDE
 #include "mon-place.h"     // For Sceptre of Asmodeus evoke
 #include "player.h"
 #include "spl-cast.h"      // For evokes
@@ -38,6 +39,9 @@
 #include "spl-summoning.h" // For Zonguldrok animating dead
 #include "terrain.h"       // For storm bow
 #include "view.h"          // For arc blade's discharge effect
+
+// prop recording whether the singing sword has said hello yet
+#define SS_WELCOME_KEY "ss_welcome"
 
 /*******************
  * Helper functions.
@@ -138,7 +142,7 @@ static void _CEREBOV_melee_effects(item_def* weapon, actor* attacker,
             && !defender->as_monster()->res_hellfire()
             && !defender->as_monster()->has_ench(ENCH_FIRE_VULN))
         {
-            if (you.can_see(attacker))
+            if (you.can_see(*attacker))
             {
                 mprf("The Sword of Cerebov burns away %s fire resistance.",
                      defender->name(DESC_ITS).c_str());
@@ -174,7 +178,7 @@ static void _CURSES_melee_effects(item_def* weapon, actor* attacker,
 {
     if (attacker->is_player())
         did_god_conduct(DID_NECROMANCY, 3);
-    if (!mondied && defender->has_lifeforce())
+    if (!mondied && defender->holiness() == MH_NATURAL)
     {
         MiscastEffect(defender, attacker, MELEE_MISCAST, SPTYP_NECROMANCY,
                       random2(9), random2(70), "the Scythe of Curses",
@@ -296,15 +300,8 @@ static bool _OLGREB_evoke(item_def *item, int* pract, bool* did_work,
 static void _OLGREB_melee_effects(item_def* weapon, actor* attacker,
                                   actor* defender, bool mondied, int dam)
 {
-    int skill = attacker->skill(SK_POISON_MAGIC, 100);
-    if (defender->alive()
-        && (coinflip() || x_chance_in_y(skill, 800)))
-    {
-        defender->poison(attacker, 2, defender->has_lifeforce()
-                                      && x_chance_in_y(skill, 800));
-        if (attacker->is_player())
-            did_god_conduct(DID_POISON, 3);
-    }
+    if (defender->alive())
+        defender->poison(attacker, 2);
 }
 
 ////////////////////////////////////////////////////
@@ -337,10 +334,10 @@ static void _SINGING_SWORD_equip(item_def *item, bool *show_msgs, bool unmeld)
     if (!*show_msgs)
         return;
 
-    if (!item->props.exists("ss_welcome"))
+    if (!item->props.exists(SS_WELCOME_KEY))
     {
         mprf(MSGCH_TALK, "The sword says, \"Hi! I'm the Singing Sword!\"");
-        item->props["ss_welcome"].get_bool() = true;
+        item->props[SS_WELCOME_KEY].get_bool() = true;
     }
     else
         mprf(MSGCH_TALK, "The Singing Sword hums in delight!");
@@ -500,7 +497,7 @@ static bool _WUCAD_MU_evoke(item_def *item, int* pract, bool* did_work,
 ///////////////////////////////////////////////////
 
 // XXX: Always getting maximal vampiric drain is hardcoded in
-// melee_attack::apply_damage_brand()
+// attack::apply_damage_brand()
 
 static void _VAMPIRES_TOOTH_equip(item_def *item, bool *show_msgs, bool unmeld)
 {
@@ -563,7 +560,7 @@ static void _STORM_BOW_world_reacts(item_def *item)
     if (!one_chance_in(300))
         return;
 
-    for (radius_iterator ri(you.pos(), 2, C_ROUND, LOS_SOLID); ri; ++ri)
+    for (radius_iterator ri(you.pos(), 2, C_SQUARE, LOS_SOLID); ri; ++ri)
         if (!cell_is_solid(*ri) && env.cgrid(*ri) == EMPTY_CLOUD && one_chance_in(5))
             place_cloud(CLOUD_RAIN, *ri, random2(20), &you, 3);
 }
@@ -594,7 +591,7 @@ static void _RCLOUDS_world_reacts(item_def *item)
     else
         cloud = CLOUD_MIST;
 
-    for (radius_iterator ri(you.pos(), 2, C_ROUND, LOS_SOLID); ri; ++ri)
+    for (radius_iterator ri(you.pos(), 2, C_SQUARE, LOS_SOLID); ri; ++ri)
         if (!cell_is_solid(*ri) && env.cgrid(*ri) == EMPTY_CLOUD
                 && one_chance_in(20))
         {
@@ -613,7 +610,17 @@ static void _DEMON_AXE_melee_effects(item_def* item, actor* attacker,
                                      actor* defender, bool mondied, int dam)
 {
     if (one_chance_in(10))
-        cast_summon_demon(50+random2(100));
+    {
+        if (monster* mons = attacker->as_monster())
+        {
+            create_monster(
+                mgen_data(summon_any_demon(RANDOM_DEMON_COMMON),
+                          SAME_ATTITUDE(mons), mons, 6, SPELL_SUMMON_DEMON,
+                          mons->pos(), mons->foe));
+        }
+        else
+            cast_summon_demon(50+random2(100));
+    }
 
     if (attacker->is_player())
         did_god_conduct(DID_UNHOLY, 3);
@@ -624,7 +631,7 @@ static monster* _find_nearest_possible_beholder()
     for (distance_iterator di(you.pos(), true, true, LOS_RADIUS); di; ++di)
     {
         monster *mon = monster_at(*di);
-        if (mon && you.can_see(mon)
+        if (mon && you.can_see(*mon)
             && you.possible_beholder(mon)
             && !mons_class_flag(mon->type, M_NO_EXP_GAIN))
         {
@@ -681,7 +688,7 @@ static void _DEMON_AXE_unequip(item_def *item, bool *show_msgs)
 
 static void _WYRMBANE_equip(item_def *item, bool *show_msgs, bool unmeld)
 {
-    _equip_mpr(show_msgs, player_genus(GENPC_DRACONIAN) || you.form == TRAN_DRAGON
+    _equip_mpr(show_msgs, species_is_draconian(you.species) || you.form == TRAN_DRAGON
                             ? "You feel an overwhelming desire to commit suicide."
                             : "You feel an overwhelming desire to slay dragons!");
 }
@@ -710,7 +717,7 @@ static bool is_dragonkind(const actor *act)
     }
 
     if (mons_is_ghost_demon(mon->type)
-        && species_genus(mon->ghost->species) == GENPC_DRACONIAN)
+        && species_is_draconian(mon->ghost->species))
     {
         return true;
     }
@@ -737,7 +744,9 @@ static void _WYRMBANE_melee_effects(item_def* weapon, actor* attacker,
 
         defender->hurt(attacker, 1 + random2(3*dam/2));
 
-        mondied = !defender->alive();
+        // Allow the lance to charge when killing dragonform felid players.
+        mondied = defender->is_player() ? defender->as_player()->dead
+                                        : !defender->alive();
     }
 
     if (!mondied || defender->is_summoned()
@@ -759,6 +768,7 @@ static void _WYRMBANE_melee_effects(item_def* weapon, actor* attacker,
     {
         weapon->plus++;
 
+        // Including you, if you were a dragonform felid with lives left.
         mprf("<green>The lance glows as it skewers %s.</green>",
               name.c_str());
 
@@ -831,7 +841,7 @@ static void _DRAGONSKIN_unequip(item_def *item, bool *show_msgs)
 static void _BLACK_KNIGHT_HORSE_world_reacts(item_def *item)
 {
     if (one_chance_in(10))
-        did_god_conduct(DID_UNHOLY, 1);
+        did_god_conduct(DID_NECROMANCY, 1);
 }
 
 ///////////////////////////////////////////////////
@@ -1032,12 +1042,12 @@ static void _ARC_BLADE_melee_effects(item_def* weapon, actor* attacker,
         const int num_targs = 1 + random2(random_range(1, 3) + pow / 20);
         int dam_dealt = 0;
         for (int i = 0; defender->alive() && i < num_targs; i++)
-            dam_dealt += discharge_monsters(defender->pos(), pow, 0, attacker);
+            dam_dealt += discharge_monsters(defender->pos(), pow, attacker);
         if (dam_dealt > 0)
             scaled_delay(100);
         else
         {
-            if (you.can_see(attacker))
+            if (you.can_see(*attacker))
                 mpr("The arc blade crackles.");
             else
                 mpr("You hear the crackle of electricity.");
@@ -1070,12 +1080,9 @@ static void _SPELLBINDER_melee_effects(item_def* weapon, actor* attacker,
         if (school != SPTYP_NONE)
         {
             vector<spschool_flag_type> schools;
-            for (int i = 0; i <= SPTYP_LAST_EXPONENT; i++)
-            {
-                const auto bit = spschools_type::exponent(i);
+            for (const auto bit : spschools_type::range())
                 if (testbits(school, bit))
                     schools.push_back(bit);
-            }
 
             ASSERT(schools.size() > 0);
             MiscastEffect(defender, attacker, MELEE_MISCAST,
@@ -1098,7 +1105,7 @@ static void _ORDER_melee_effects(item_def* item, actor* attacker,
         int silver_dam = silver_damages_victim(defender, dam, msg);
         if (silver_dam)
         {
-            if (you.can_see(defender))
+            if (you.can_see(*defender))
                 mpr(msg);
             defender->hurt(attacker, silver_dam);
         }
@@ -1273,4 +1280,98 @@ static void _CAPTAIN_melee_effects(item_def* weapon, actor* attacker,
         }
     }
 
+}
+
+///////////////////////////////////////////////////
+
+static void _FENCERS_equip(item_def *item, bool *show_msgs, bool unmeld)
+{
+    _equip_mpr(show_msgs, "En garde!");
+}
+
+///////////////////////////////////////////////////
+
+static void _ETHERIC_CAGE_equip(item_def *item, bool *show_msgs, bool unmeld)
+{
+    _equip_mpr(show_msgs, "You sense a greater flux of ambient magical fields.");
+}
+
+static void _ETHERIC_CAGE_world_reacts(item_def *item)
+{
+    const int delay = you.time_taken;
+    ASSERT(delay > 0);
+
+    // coinflip() chance of 1 MP per turn.
+    if (!(you.spirit_shield() && you.species == SP_DEEP_DWARF))
+        inc_mp(binomial(div_rand_round(delay, BASELINE_DELAY), 1, 2));
+    // It's more interesting to get a lump of contamination then to just add a
+    // small amount every turn, plus there's a small chance of rapid buildup.
+    if (one_chance_in(100))
+    {
+        // On average the player recovers 25 contam per turn, this should keep
+        // them in the gray a fair amount of time; be nicer if they're already
+        // in the yellow.
+        int contam = get_contamination_level() > 1 ? 300 : 1000;
+        contam = div_rand_round(contam * delay, BASELINE_DELAY);
+        contaminate_player(random_range(contam, contam * 2));
+    }
+}
+
+///////////////////////////////////////////////////
+
+static void _ETERNAL_TORMENT_equip(item_def *item, bool *show_msgs, bool unmeld)
+{
+    calc_hp();
+}
+
+static void _ETERNAL_TORMENT_world_reacts(item_def *item)
+{
+    if (one_chance_in(10))
+        did_god_conduct(DID_NECROMANCY, 1);
+}
+
+
+static void _ETERNAL_TORMENT_unequip(item_def *item, bool *show_msgs)
+{
+    calc_hp();
+}
+
+///////////////////////////////////////////////////
+
+static void _VINES_equip(item_def *item, bool *show_msgs, bool unmeld)
+{
+    _equip_mpr(show_msgs, "The vines latch onto your body!");
+}
+
+static void _VINES_unequip(item_def *item, bool *show_msgs)
+{
+    _equip_mpr(show_msgs, "The vines fall away from your body!");
+}
+
+///////////////////////////////////////////////////
+
+static void _KRYIAS_equip(item_def *item, bool *show_msgs, bool unmeld)
+{
+    if (you.species == SP_DEEP_DWARF)
+        _equip_mpr(show_msgs, "You feel no connection to the armour.");
+    else
+        _equip_mpr(show_msgs, "Your attunement to healing devices increases!");
+}
+
+static void _KRYIAS_unequip(item_def *item, bool *show_msgs)
+{
+        _equip_mpr(show_msgs, "Your attunement to healing devices decreases.");
+}
+
+///////////////////////////////////////////////////
+
+// Vampiric effect triggers on every hit, see attack::apply_damage_brand()
+
+static void _LEECH_equip(item_def *item, bool *show_msgs, bool unmeld)
+{
+    if (you.undead_state() == US_ALIVE && !you_foodless())
+        _equip_mpr(show_msgs, "You feel a powerful hunger.");
+    else if (you.species != SP_VAMPIRE)
+        _equip_mpr(show_msgs, "You feel very empty.");
+    // else let player-equip.cc handle message
 }

@@ -13,9 +13,6 @@ ln -sv ../android-crawl-console/crawl-ref/docs
 
 ln -sv ../android-crawl-console/crawl-ref/settings
 
-# README.txt is the only text file that needs to be in crawl's root directory (which we make assets)
-ln -sv ../android-crawl-console/crawl-ref/README.txt 
-
 echo "Making docs..."
 echo ""
 cd ../android-crawl-console/crawl-ref/source
@@ -56,7 +53,6 @@ make cmd-name.h
 echo "Running make in rltiles..."
 echo ""
 cd rltiles
-make
-
+make STDFLAG=-std=c++11
 
 echo "Setup complete. Run your NDK build tool (ndk-build) from within the project directory to build the project"

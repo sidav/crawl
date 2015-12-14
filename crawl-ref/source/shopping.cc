@@ -888,7 +888,7 @@ static bool _purchase(shop_struct& shop, int index, int cost, bool id)
     {
         // Identify the item and its type.
         // This also takes the ID note if necessary.
-        set_ident_type(item, ID_KNOWN_TYPE);
+        set_ident_type(item, true);
         set_ident_flags(item, ISFLAG_IDENT_MASK);
     }
 
@@ -902,10 +902,10 @@ static bool _purchase(shop_struct& shop, int index, int cost, bool id)
     return true;
 }
 
-// This probably still needs some work.  Rings used to be the only
+// This probably still needs some work. Rings used to be the only
 // artefacts which had a change in price, and that value corresponds
-// to returning 50 from this function.  Good artefacts will probably
-// be returning just over 30 right now.  Note that this isn't used
+// to returning 50 from this function. Good artefacts will probably
+// be returning just over 30 right now. Note that this isn't used
 // as a multiple, its used in the old ring way: 7 * ret is added to
 // the price of the artefact. -- bwr
 int artefact_value(const item_def &item)
@@ -935,9 +935,9 @@ int artefact_value(const item_def &item)
     else if (prop[ ARTP_COLD ] < 0)
         ret -= 10;
 
-    if (prop[ ARTP_MAGIC ] > 0)
-        ret += 4 + 4 * prop[ ARTP_MAGIC ];
-    else if (prop[ ARTP_MAGIC ] < 0)
+    if (prop[ ARTP_MAGIC_RESISTANCE ] > 0)
+        ret += 4 + 4 * prop[ ARTP_MAGIC_RESISTANCE ];
+    else if (prop[ ARTP_MAGIC_RESISTANCE ] < 0)
         ret -= 6;
 
     if (prop[ ARTP_NEGATIVE_ENERGY ] > 0)
@@ -965,7 +965,7 @@ int artefact_value(const item_def &item)
     if (prop[ ARTP_RMUT ])
         ret += 8;
 
-    if (prop[ ARTP_EYESIGHT ])
+    if (prop[ ARTP_SEE_INVISIBLE ])
         ret += 6;
 
     // abilities:
@@ -987,7 +987,7 @@ int artefact_value(const item_def &item)
     if (prop[ ARTP_CAUSE_TELEPORTATION ])
         ret -= 3;
 
-    if (prop[ ARTP_NOISES ])
+    if (prop[ ARTP_NOISE ])
         ret -= 5;
 
     if (prop[ ARTP_PREVENT_TELEPORTATION ])
@@ -996,7 +996,16 @@ int artefact_value(const item_def &item)
     if (prop[ ARTP_PREVENT_SPELLCASTING ])
         ret -= 10;
 
-    if (prop[ ARTP_MUTAGENIC ])
+    if (prop[ ARTP_CONTAM ])
+        ret -= 8;
+
+    if (prop[ ARTP_CORRODE ])
+        ret -= 8;
+
+    if (prop[ ARTP_DRAIN ])
+        ret -= 8;
+
+    if (prop[ ARTP_CONFUSE ])
         ret -= 8;
 
     // extremely good
@@ -1053,7 +1062,6 @@ unsigned int item_value(item_def item, bool ident)
             break;
 
         case WPN_BLOWGUN:
-        case WPN_HAMMER:
         case WPN_WHIP:
             valued += 25;
             break;
@@ -1137,6 +1145,7 @@ unsigned int item_value(item_def item, bool ident)
 
             case SPWPN_SPEED:
             case SPWPN_VAMPIRISM:
+            case SPWPN_ANTIMAGIC:
                 valued *= 30;
                 break;
 
@@ -1383,12 +1392,14 @@ unsigned int item_value(item_def item, bool ident)
             case SPARM_INVISIBILITY:
             case SPARM_MAGIC_RESISTANCE:
             case SPARM_PROTECTION:
+            case SPARM_ARCHERY:
                 valued += 50;
                 break;
 
             case SPARM_POSITIVE_ENERGY:
             case SPARM_POISON_RESISTANCE:
             case SPARM_REFLECTION:
+            case SPARM_SPIRIT_SHIELD:
                 valued += 20;
                 break;
 
@@ -1520,7 +1531,9 @@ unsigned int item_value(item_def item, bool ident)
 
             case POT_BERSERK_RAGE:
             case POT_HEAL_WOUNDS:
+#if TAG_MAJOR_VERSION == 34
             case POT_RESTORE_ABILITIES:
+#endif
                 valued += 50;
                 break;
 
@@ -1540,12 +1553,12 @@ unsigned int item_value(item_def item, bool ident)
                 valued += 25;
                 break;
 
-            case POT_DECAY:
             case POT_DEGENERATION:
 #if TAG_MAJOR_VERSION == 34
             case POT_STRONG_POISON:
             case POT_PORRIDGE:
             case POT_SLOWING:
+            case POT_DECAY:
 #endif
             case POT_BLOOD:
             case POT_POISON:
@@ -1586,7 +1599,7 @@ unsigned int item_value(item_def item, bool ident)
         break;
 
     case OBJ_CORPSES:
-        valued = get_max_corpse_chunks(item.mon_type) * 5;
+        valued = max_corpse_chunks(item.mon_type) * 5;
 
     case OBJ_SCROLLS:
         if (!item_type_known(item))
@@ -1697,10 +1710,6 @@ unsigned int item_value(item_def item, bool ident)
             {
                 switch (item.sub_type)
                 {
-                case RING_TELEPORT_CONTROL:
-                    valued += 500;
-                    break;
-
                 case AMU_FAITH:
                 case AMU_RESIST_MUTATION:
                 case AMU_RAGE:
@@ -1731,7 +1740,7 @@ unsigned int item_value(item_def item, bool ident)
                     valued += 200;
                     break;
 
-                case RING_SUSTAIN_ABILITIES:
+                case RING_SUSTAIN_ATTRIBUTES:
                 case RING_STEALTH:
                 case RING_TELEPORTATION:
                 case RING_FLIGHT:
@@ -1773,12 +1782,8 @@ unsigned int item_value(item_def item, bool ident)
     case OBJ_MISCELLANY:
         switch (item.sub_type)
         {
-        case MISC_RUNE_OF_ZOT:  // upped from 1200 to encourage collecting
-            valued += 10000;
-            break;
-
         case MISC_HORN_OF_GERYON:
-            valued += 5000;
+            valued += 600;
             break;
 
         case MISC_FAN_OF_GALES:
@@ -1864,6 +1869,10 @@ unsigned int item_value(item_def item, bool ident)
         valued = 250000;
         break;
 
+    case OBJ_RUNES:
+        valued = 10000;
+        break;
+
     default:
         break;
     }                           // end switch
@@ -1888,8 +1897,8 @@ bool is_worthless_consumable(const item_def &item)
 #if TAG_MAJOR_VERSION == 34
         case POT_BLOOD_COAGULATED:
         case POT_SLOWING:
-#endif
         case POT_DECAY:
+#endif
         case POT_DEGENERATION:
         case POT_POISON:
             return true;
@@ -2060,7 +2069,7 @@ string shop_name(const coord_def& where, bool add_stop)
             | (static_cast<uint32_t>(cshop->keeper_name[1]) << 8)
             | (static_cast<uint32_t>(cshop->keeper_name[1]) << 16);
 
-        sh_name += apostrophise(make_name(seed, false)) + " ";
+        sh_name += apostrophise(make_name(seed)) + " ";
     }
 
     if (!cshop->shop_type_name.empty())
@@ -2092,7 +2101,7 @@ bool shop_item_unknown(const item_def &item)
 {
     return item_type_has_ids(item.base_type)
            && item_type_known(item)
-           && get_ident_type(item) != ID_KNOWN_TYPE
+           && !get_ident_type(item)
            && !is_artefact(item);
 }
 
@@ -2336,7 +2345,7 @@ unsigned int ShoppingList::cull_identical_items(const item_def& item,
             continue;
 
         // Don't prompt to remove rings with strictly better pluses
-        // than the new one.  Also, don't prompt to remove rings with
+        // than the new one. Also, don't prompt to remove rings with
         // known pluses when the new ring's pluses are unknown.
         if (item.base_type == OBJ_JEWELLERY)
         {
@@ -2441,6 +2450,16 @@ void ShoppingList::item_type_identified(object_class_type base_type,
     // Only restore the excursion at the very end.
     level_excursion le;
 
+#if TAG_MAJOR_VERSION == 34
+    // Handle removed Gozag shops from old saves. Only do this once:
+    // future Gozag abandonment will call remove_dead_shops itself.
+    if (!you.props.exists(REMOVED_DEAD_SHOPS_KEY))
+    {
+        remove_dead_shops();
+        you.props[REMOVED_DEAD_SHOPS_KEY] = true;
+    }
+#endif
+
     for (CrawlHashTable &thing : *list)
     {
         if (!thing_is_item(thing))
@@ -2462,6 +2481,30 @@ void ShoppingList::item_type_identified(object_class_type base_type,
         thing[SHOPPING_THING_COST_KEY] =
             _shop_get_item_value(item, shop->greed, false);
     }
+
+    // Prices could have changed.
+    refresh();
+}
+
+void ShoppingList::remove_dead_shops()
+{
+    // Only restore the excursion at the very end.
+    level_excursion le;
+
+    set<level_pos> shops_to_remove;
+
+    for (CrawlHashTable &thing : *list)
+    {
+        const level_pos place = thing_pos(thing);
+        le.go_to(place.id); // thereby running DACT_REMOVE_GOZAG_SHOPS
+        const shop_struct *shop = get_shop(place.pos);
+
+        if (!shop)
+            shops_to_remove.insert(place);
+    }
+
+    for (auto pos : shops_to_remove)
+        forget_pos(pos);
 
     // Prices could have changed.
     refresh();

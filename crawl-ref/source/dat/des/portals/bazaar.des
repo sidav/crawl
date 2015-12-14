@@ -98,7 +98,7 @@ default-depth: D:11-, Depths, Orc:$, Elf, Snake, Shoals, Vaults:1-4
 # and resides in des/builder/shops.des.
 
 NAME:   bzr_entry_dummy
-TAGS:   transparent zotdef_bazaar allow_dup
+TAGS:   transparent allow_dup
 veto {{ return you.is_level_on_stack("Bazaar") }}
 : place_bazaar_portal(_G)
 MAP
@@ -199,7 +199,7 @@ ENDMAP
 
 # Bazaar entry with statue (Lemuel)
 NAME:   statue_bzr
-KPROP:  O = no_rtele_into
+KPROP:  O = no_tele_into
 SUBST:  G = G111
 MONS:   orange crystal statue / obsidian statue / ice statue
 : place_bazaar_portal(_G, true)
@@ -218,9 +218,9 @@ MARKER: W = lua:fog_machine { cloud_type = "freezing vapour", \
 : place_bazaar_portal(_G)
 MAP
   W
- www
-WwOwW
- www
+ WWW
+WWOWW
+ WWW
   W
 ENDMAP
 
@@ -267,7 +267,7 @@ COLOUR:  . = magenta
 FTILE:   b.O = floor_crystal_squares
 RTILE:   b = dngn_crystal_lightmagenta
 : place_bazaar_portal(_G)
-: set_feature_name("green_crystal_wall", "wall of crystal")
+: set_feature_name("crystal_wall", "wall of crystal")
 MAP
 bb@bb
 b...b

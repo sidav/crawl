@@ -51,14 +51,16 @@ game_state::game_state()
       tiles_disabled(false),
       title_screen(true),
 #endif
-      darken_range(nullptr), unsaved_macros(false), mon_act(nullptr)
+      invisible_targeting(false),
+      darken_range(nullptr), unsaved_macros(false), disables(),
+      minor_version(-1), save_rcs_version(), mon_act(nullptr)
 {
     reset_cmd_repeat();
     reset_cmd_again();
 #ifdef TARGET_OS_WINDOWS
     no_gdb = "Non-UNIX Platform -> not running gdb.";
 #else
-    no_gdb = access("/usr/bin/gdb", 1) ? "GDB not installed." : 0;
+    no_gdb = access("/usr/bin/gdb", 1) ? "/usr/bin/gdb not executable." : 0;
 #endif
 }
 
@@ -79,8 +81,8 @@ void game_state::show_startup_errors()
     error_menu.set_title(
         new MenuEntry("Warning: Crawl encountered errors during startup:",
                       MEL_TITLE));
-    for (int i = 0, size = startup_errors.size(); i < size; ++i)
-        error_menu.add_entry(new MenuEntry(startup_errors[i]));
+    for (const string &err : startup_errors)
+        error_menu.add_entry(new MenuEntry(err));
     error_menu.show();
 }
 
@@ -179,7 +181,7 @@ void game_state::cant_cmd_any(string reason)
 // The method is called to prevent the "no repeating zero turns
 // commands" message that input() generates (in the absence of
 // cancelling the repetition) for a repeated command that took no
-// turns.  A wrapper around cancel_cmd_repeat(), its only purpose is
+// turns. A wrapper around cancel_cmd_repeat(), its only purpose is
 // to make it clear why cancel_cmd_repeat() is being called.
 void game_state::zero_turns_taken()
 {
@@ -215,7 +217,8 @@ bool interrupt_cmd_repeat(activity_interrupt_type ai,
     if (ai == AI_SEE_MONSTER)
     {
         const monster* mon = at.mons_data;
-        if (!you.can_see(mon))
+        ASSERT(mon);
+        if (!you.can_see(*mon))
             return false;
 
         if (crawl_state.cmd_repeat_started_unsafe
@@ -276,11 +279,8 @@ bool interrupt_cmd_repeat(activity_interrupt_type ai,
         // when the only monsters around are 0xp.
         const monster* mon = at.mons_data;
 
-        if (mons_class_flag(mon->type, M_NO_EXP_GAIN)
-            && mon->visible_to(&you))
-        {
+        if (!mons_class_gives_xp(mon->type) && mon->visible_to(&you))
             return false;
-        }
 
         crawl_state.cancel_cmd_repeat("Command repetition interrupted.");
         return true;
@@ -582,12 +582,6 @@ bool game_state::game_is_sprint() const
     return type == GAME_TYPE_SPRINT;
 }
 
-bool game_state::game_is_zotdef() const
-{
-    ASSERT(type < NUM_GAME_TYPE);
-    return type == GAME_TYPE_ZOTDEF;
-}
-
 bool game_state::game_is_hints() const
 {
     ASSERT(type < NUM_GAME_TYPE);
@@ -620,23 +614,18 @@ string game_state::game_type_name_for(game_type _type)
         return "Arena";
     case GAME_TYPE_SPRINT:
         return "Dungeon Sprint";
-    case GAME_TYPE_ZOTDEF:
-        return "Zot Defence";
     }
 }
 
 string game_state::game_savedir_path() const
 {
-    return game_is_sprint()? "sprint/" :
-           game_is_zotdef()? "zotdef/" : "";
+    return game_is_sprint()? "sprint/" : "";
 }
 
 string game_state::game_type_qualifier() const
 {
     if (crawl_state.game_is_sprint())
         return "-sprint";
-    if (crawl_state.game_is_zotdef())
-        return "-zotdef";
     if (crawl_state.game_is_tutorial())
         return "-tutorial";
     if (crawl_state.game_is_hints())

@@ -81,6 +81,7 @@ void wizard_place_stairs(bool down)
     if (stairs == DNGN_UNSEEN)
         return;
 
+    mprf("Creating %sstairs.", down ? "down" : "up");
     dungeon_terrain_changed(you.pos(), stairs, false);
 }
 
@@ -346,17 +347,17 @@ void wizard_reveal_traps()
 
 void wizard_map_level()
 {
-    if (testbits(env.level_flags, LFLAG_NO_MAP))
+    if (!is_map_persistent())
     {
         if (!yesno("Force level to be mappable?", true, 'n'))
         {
             canned_msg(MSG_OK);
             return;
         }
-
-        unset_level_flags(LFLAG_NO_MAP);
+        env.properties[FORCE_MAPPABLE_KEY] = true;
     }
 
+    mpr("Mapping level.");
     magic_mapping(1000, 100, true, true);
 }
 
@@ -391,7 +392,10 @@ bool debug_make_trap(const coord_def& pos)
     msgwin_get_line("What kind of trap? ",
                     requested_trap, sizeof(requested_trap));
     if (!*requested_trap)
+    {
+        canned_msg(MSG_OK);
         return false;
+    }
 
     string spec = lowercase_string(requested_trap);
     vector<trap_type> matches;
@@ -487,7 +491,10 @@ bool debug_make_shop(const coord_def& pos)
     msgwin_get_line("What kind of shop? ",
                     requested_shop, sizeof(requested_shop));
     if (!*requested_shop)
+    {
+        canned_msg(MSG_OK);
         return false;
+    }
 
     const shop_type new_shop_type = str_to_shoptype(requested_shop);
 
@@ -509,7 +516,7 @@ static void _free_all_vaults()
     for (rectangle_iterator ri(MAPGEN_BORDER); ri; ++ri)
         env.level_map_ids(*ri) = INVALID_MAP_INDEX;
 
-    for (auto vp : env.level_vaults)
+    for (auto &vp : env.level_vaults)
         vp->seen = false;
 
     dgn_erase_unused_vault_placements();
@@ -764,6 +771,8 @@ void wizard_list_levels()
 
 void wizard_recreate_level()
 {
+    mpr("Regenerating level.");
+
     // Need to allow reuse of vaults, otherwise we'd run out of them fast.
     _free_all_vaults();
 
@@ -809,7 +818,7 @@ void wizard_clear_used_vaults()
 void wizard_abyss_speed()
 {
     char specs[256];
-    mprf(MSGCH_PROMPT, "Set abyss speed to what? (now %d, higher value = "
+    mprf(MSGCH_PROMPT, "Set Abyss speed to what? (now %d, higher value = "
                        "higher speed) ", you.abyss_speed);
 
     if (!cancellable_get_line(specs, sizeof(specs)))
@@ -817,6 +826,7 @@ void wizard_abyss_speed()
         const int speed = atoi(specs);
         if (speed || specs[0] == '0')
         {
+            mprf("Setting Abyss speed to %i.", speed);
             you.abyss_speed = speed;
             return;
         }

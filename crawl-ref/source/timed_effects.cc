@@ -722,12 +722,6 @@ static void _handle_magic_contamination()
     if (you.duration[DUR_HASTE])
         added_contamination += 30;
 
-    // Is there a point to this? It's not even strong enough to cancel normal
-    // dissipation, so it only slows it down. Shouldn't it cancel dissipation
-    // like haste and invis do?
-    if (you.duration[DUR_FINESSE])
-        added_contamination += 20;
-
 #if TAG_MAJOR_VERSION == 34
     if (you.duration[DUR_REGENERATION] && you.species == SP_DJINNI)
         added_contamination += 20;
@@ -735,7 +729,7 @@ static void _handle_magic_contamination()
     // The Orb halves dissipation (well a bit more, I had to round it),
     // but won't cause glow on its own -- otherwise it'd spam the player
     // with messages about contamination oscillating near zero.
-    if (you.magic_contamination && orb_haloed(you.pos()))
+    if (you.magic_contamination && player_has_orb())
         added_contamination += 13;
 
     // Normal dissipation
@@ -820,58 +814,18 @@ static void _handle_magic_contamination(int /*time_delta*/)
     }
 }
 
-// Adjust the player's stats if s/he's diseased (or recovering).
-static void _recover_stats(int /*time_delta*/)
+// Adjust the player's stats if diseased.
+static void _handle_sickness(int /*time_delta*/)
 {
-    if (!you.disease)
+    // If Cheibriados has slowed your biology, disease might
+    // not actually do anything.
+    if (you.disease && one_chance_in(30)
+        && !(you_worship(GOD_CHEIBRIADOS)
+             && you.piety >= piety_breakpoint(0)
+             && coinflip()))
     {
-        bool recovery = true;
-
-        // The better-fed you are, the faster your stat recovery.
-        if (you.species == SP_VAMPIRE)
-        {
-            if (you.hunger_state == HS_STARVING)
-            {
-                // No stat recovery for starving vampires.
-                recovery = false;
-            }
-            else if (you.hunger_state <= HS_HUNGRY)
-            {
-                // Halved stat recovery for hungry vampires.
-                recovery = coinflip();
-            }
-        }
-
-        // Slow heal 3 mutation stops stat recovery.
-        if (player_mutation_level(MUT_SLOW_HEALING) == 3)
-            recovery = false;
-
-        // Rate of recovery equals one level of MUT_DETERIORATION.
-        if (recovery && x_chance_in_y(4, 200))
-            restore_stat(STAT_RANDOM, 1, false, true);
-    }
-    else
-    {
-        // If Cheibriados has slowed your biology, disease might
-        // not actually do anything.
-        if (one_chance_in(30)
-            && !(you_worship(GOD_CHEIBRIADOS)
-                 && you.piety >= piety_breakpoint(0)
-                 && coinflip()))
-        {
-            mprf(MSGCH_WARN, "Your disease is taking its toll.");
-            lose_stat(STAT_RANDOM, 1, false, "disease");
-        }
-    }
-}
-
-// Adjust the player's stats if s/he has the deterioration mutation.
-static void _deteriorate(int /*time_delta*/)
-{
-    if (player_mutation_level(MUT_DETERIORATION)
-        && x_chance_in_y(player_mutation_level(MUT_DETERIORATION) * 5 - 1, 200))
-    {
-        lose_stat(STAT_RANDOM, 1, false, "deterioration mutation");
+        mprf(MSGCH_WARN, "Your disease is taking its toll.");
+        lose_stat(STAT_RANDOM, 1);
     }
 }
 
@@ -1009,9 +963,11 @@ static struct timed_effect timed_effects[] =
 {
     { TIMER_CORPSES,       rot_floor_items,               200,   200, true  },
     { TIMER_HELL_EFFECTS,  _hell_effects,                 200,   600, false },
-    { TIMER_STAT_RECOVERY, _recover_stats,                100,   300, false },
+    { TIMER_SICKNESS,      _handle_sickness,              100,   300, false },
     { TIMER_CONTAM,        _handle_magic_contamination,   200,   600, false },
-    { TIMER_DETERIORATION, _deteriorate,                  100,   300, false },
+#if TAG_MAJOR_VERSION == 34
+    { TIMER_DETERIORATION, nullptr,                         0,     0, false },
+#endif
     { TIMER_GOD_EFFECTS,   handle_god_time,               100,   300, false },
 #if TAG_MAJOR_VERSION == 34
     { TIMER_SCREAM, nullptr,                                0,     0, false },
@@ -1036,9 +992,8 @@ void handle_time()
     // The checks below assume the function is called at least
     // once every 50 elapsed time units.
 
-    // Every 5 turns, spawn random monsters, not in Zotdef.
-    if (_div(base_time, 50) > _div(old_time, 50)
-        && !crawl_state.game_is_zotdef())
+    // Every 5 turns, spawn random monsters
+    if (_div(base_time, 50) > _div(old_time, 50))
     {
         spawn_random_monsters();
         if (player_in_branch(BRANCH_ABYSS))
@@ -1091,17 +1046,14 @@ static int _mon_forgetfulness_time(mon_intel_type intelligence)
 {
     switch (intelligence)
     {
-        case I_HIGH:
-            return 1000;
-        case I_NORMAL:
-        default:
-            return 500;
+        case I_HUMAN:
+            return 600;
         case I_ANIMAL:
-        case I_REPTILE:
-        case I_INSECT:
-            return 250;
-        case I_PLANT:
-            return 125;
+            return 300;
+        case I_BRAINLESS:
+            return 150;
+        default:
+            die("Invalid intelligence type!");
     }
 }
 
@@ -1282,7 +1234,7 @@ static void _catchup_monster_moves(monster* mon, int turns)
     dprf("mon #%d: range %d; "
          "pos (%d,%d); targ %d(%d,%d); flags %" PRIx64,
          mon->mindex(), mon_turns, mon->pos().x, mon->pos().y,
-         mon->foe, mon->target.x, mon->target.y, mon->flags);
+         mon->foe, mon->target.x, mon->target.y, mon->flags.flags);
 
     if (mon_turns <= 0)
         return;
@@ -1329,7 +1281,7 @@ static void _catchup_monster_moves(monster* mon, int turns)
 // Consider: Poison/Sticky Flame a monster at range and leave, monster
 // dies but can't leave level to get to player (implied game balance of
 // the delayed damage is that the monster could be a danger before
-// it dies).  This could be fixed by keeping some monsters active
+// it dies). This could be fixed by keeping some monsters active
 // off level and allowing them to take stairs (a very serious change).
 //
 // Compare this to the current abuse where the player gets
@@ -1361,14 +1313,14 @@ void monster::timeout_enchantments(int levels)
             lose_ench_levels(entry.second, levels);
             break;
 
-        case ENCH_POISON: case ENCH_ROT: case ENCH_CORONA:
+        case ENCH_POISON: case ENCH_CORONA:
         case ENCH_STICKY_FLAME: case ENCH_ABJ: case ENCH_SHORT_LIVED:
         case ENCH_HASTE: case ENCH_MIGHT: case ENCH_FEAR:
         case ENCH_CHARM: case ENCH_SLEEP_WARY: case ENCH_SICK:
         case ENCH_PARALYSIS: case ENCH_PETRIFYING:
         case ENCH_PETRIFIED: case ENCH_SWIFT: case ENCH_BATTLE_FRENZY:
         case ENCH_SILENCE: case ENCH_LOWERED_MR:
-        case ENCH_SOUL_RIPE: case ENCH_BLEED: case ENCH_ANTIMAGIC:
+        case ENCH_SOUL_RIPE: case ENCH_ANTIMAGIC:
         case ENCH_FEAR_INSPIRING: case ENCH_REGENERATION: case ENCH_RAISED_MR:
         case ENCH_MIRROR_DAMAGE: case ENCH_STONESKIN: case ENCH_LIQUEFYING:
         case ENCH_SILVER_CORONA: case ENCH_DAZED: case ENCH_FAKE_ABJURATION:
@@ -1376,10 +1328,11 @@ void monster::timeout_enchantments(int levels)
         case ENCH_WRETCHED: case ENCH_SCREAMED:
         case ENCH_BLIND: case ENCH_WORD_OF_RECALL: case ENCH_INJURY_BOND:
         case ENCH_FLAYED: case ENCH_BARBS:
-        case ENCH_AGILE: case ENCH_FROZEN: case ENCH_EPHEMERAL_INFUSION:
+        case ENCH_AGILE: case ENCH_FROZEN:
         case ENCH_BLACK_MARK: case ENCH_SAP_MAGIC: case ENCH_NEUTRAL_BRIBED:
         case ENCH_FRIENDLY_BRIBED: case ENCH_CORROSION: case ENCH_GOLD_LUST:
-        case ENCH_RESISTANCE: case ENCH_HEXED:
+        case ENCH_RESISTANCE: case ENCH_HEXED: case ENCH_CHANT_FIRE_STORM:
+        case ENCH_CHANT_WORD_OF_ENTROPY:
             lose_ench_levels(entry.second, levels);
             break;
 
@@ -1457,33 +1410,6 @@ void monster::timeout_enchantments(int levels)
     }
 }
 
-/**
- * Check to see if there are any dormant shadow traps that should become
- * active; if so, activate them.
- *
- * @param   The amount of time that's passed since we last checked these traps.
- */
-static void _energize_shadow_traps(int time_taken)
-{
-    for (int i = 0; i < MAX_TRAPS; i++)
-    {
-        if (env.trap[i].type == TRAP_SHADOW_DORMANT)
-        {
-            env.trap[i].ammo_qty -= div_rand_round(time_taken, 10);
-            if (env.trap[i].ammo_qty <= 0)
-            {
-                env.trap[i].ammo_qty = 0;
-                env.trap[i].type = TRAP_SHADOW;
-                const coord_def &pos = env.trap[i].pos;
-                grd(pos) = env.trap[i].category();
-                if (env.map_knowledge(pos).feat() == DNGN_TRAP_SHADOW_DORMANT)
-                    env.map_knowledge(pos).set_feature(grd(pos), 0, TRAP_SHADOW);
-                dprf("activating shadow trap");
-            }
-        }
-    }
-}
-
 //---------------------------------------------------------------
 //
 // update_level
@@ -1494,10 +1420,6 @@ static void _energize_shadow_traps(int time_taken)
 void update_level(int elapsedTime)
 {
     ASSERT(!crawl_state.game_is_arena());
-
-    // In ZotDef, no time passes while off-level.
-    if (crawl_state.game_is_zotdef())
-        return;
 
     const int turns = elapsedTime / 10;
 
@@ -1511,7 +1433,6 @@ void update_level(int elapsedTime)
     shoals_apply_tides(turns, true, turns < 5);
     timeout_tombs(turns);
     recharge_rods(turns, true);
-    _energize_shadow_traps(elapsedTime);
 
     if (env.sanctuary_time)
     {
@@ -1613,12 +1534,12 @@ void recharge_rods(int aut, bool level_only)
 {
     if (!level_only)
     {
-        for (int item = 0; item < ENDOFPACK; ++item)
-            _recharge_rod(you.inv[item], aut, true);
+        for (auto &item : you.inv)
+            _recharge_rod(item, aut, true);
     }
 
-    for (int item = 0; item < MAX_ITEMS; ++item)
-        _recharge_rod(mitm[item], aut, false);
+    for (auto &item : mitm)
+        _recharge_rod(item, aut, false);
 }
 
 static void _drop_tomb(const coord_def& pos, bool premature, bool zin)
@@ -1643,10 +1564,8 @@ static void _drop_tomb(const coord_def& pos, bool premature, bool zin)
         // Zin's Imprison.
         else if (zin && revert_terrain_change(*ai, TERRAIN_CHANGE_IMPRISON))
         {
-            vector<map_marker*> markers = env.markers.get_markers_at(*ai);
-            for (int i = 0, size = markers.size(); i < size; ++i)
+            for (map_marker *mark : env.markers.get_markers_at(*ai))
             {
-                map_marker *mark = markers[i];
                 if (mark->property("feature_description")
                     == "a gleaming silver wall")
                 {
@@ -1692,10 +1611,8 @@ static vector<map_malign_gateway_marker*> _get_malign_gateways()
 {
     vector<map_malign_gateway_marker*> mm_markers;
 
-    vector<map_marker*> markers = env.markers.get_all(MAT_MALIGN);
-    for (int i = 0, size = markers.size(); i < size; ++i)
+    for (map_marker *mark : env.markers.get_all(MAT_MALIGN))
     {
-        map_marker *mark = markers[i];
         if (mark->get_type() != MAT_MALIGN)
             continue;
 
@@ -1717,12 +1634,8 @@ void timeout_malign_gateways(int duration)
     // Passing 0 should allow us to just touch the gateway and see
     // if it should decay. This, in theory, should resolve the one
     // turn delay between it timing out and being recastable. -due
-    vector<map_malign_gateway_marker*> markers = _get_malign_gateways();
-
-    for (int i = 0, size = markers.size(); i < size; ++i)
+    for (map_malign_gateway_marker *mmark : _get_malign_gateways())
     {
-        map_malign_gateway_marker *mmark = markers[i];
-
         if (duration)
             mmark->duration -= duration;
 
@@ -1780,11 +1693,8 @@ void timeout_tombs(int duration)
     if (!duration)
         return;
 
-    vector<map_marker*> markers = env.markers.get_all(MAT_TOMB);
-
-    for (int i = 0, size = markers.size(); i < size; ++i)
+    for (map_marker *mark : env.markers.get_all(MAT_TOMB))
     {
-        map_marker *mark = markers[i];
         if (mark->get_type() != MAT_TOMB)
             continue;
 
@@ -1822,12 +1732,10 @@ void timeout_terrain_changes(int duration, bool force)
 
     int num_seen[NUM_TERRAIN_CHANGE_TYPES] = {0};
 
-    vector<map_marker*> markers = env.markers.get_all(MAT_TERRAIN_CHANGE);
-
-    for (int i = 0, size = markers.size(); i < size; ++i)
+    for (map_marker *mark : env.markers.get_all(MAT_TERRAIN_CHANGE))
     {
         map_terrain_change_marker *marker =
-                dynamic_cast<map_terrain_change_marker*>(markers[i]);
+                dynamic_cast<map_terrain_change_marker*>(mark);
 
         if (marker->duration != INFINITE_DURATION)
             marker->duration -= duration;
@@ -1939,7 +1847,6 @@ void run_environment_effects()
     timeout_malign_gateways(you.time_taken);
     timeout_terrain_changes(you.time_taken);
     run_cloud_spreaders(you.time_taken);
-    _energize_shadow_traps(you.time_taken);
 }
 
 // Converts a movement speed to a duration. i.e., answers the

@@ -70,7 +70,7 @@ int is_pacifiable(const monster* mon)
 
     // I was thinking of jellies when I wrote this, but maybe we shouldn't
     // exclude zombies and such... (jpeg)
-    if (mons_intel(mon) <= I_INSECT // no self-awareness
+    if (mons_intel(mon) <= I_BRAINLESS // no self-awareness
         || mons_is_tentacle_or_tentacle_segment(mon->type)) // body part
     {
         return -1;
@@ -112,7 +112,7 @@ static int _can_pacify_monster(const monster* mon, const int healed,
     if (healed < 1)
         return 0;
 
-    const int factor = (mons_intel(mon) <= I_ANIMAL)       ? 3 : // animals
+    const int factor = (mons_intel(mon) < I_HUMAN)         ? 3 : // animals
                        (is_player_same_genus(mon->type))   ? 2   // same genus
                                                            : 1;  // other
 
@@ -149,7 +149,7 @@ static int _can_pacify_monster(const monster* mon, const int healed,
 
 static vector<string> _desc_mindless(const monster_info& mi)
 {
-    if (mi.intel() <= I_INSECT)
+    if (mi.intel() <= I_BRAINLESS)
         return { "mindless" };
     else
         return {};
@@ -346,7 +346,9 @@ void debuff_player()
         int& dur = you.duration[i];
         if (duration_dispellable((duration_type) i) && dur > 0)
         {
-            if ((i == DUR_FLIGHT || i == DUR_TRANSFORMATION) && dur > 11)
+            if (i == DUR_TRANSFORMATION && you.form == TRAN_SHADOW)
+                continue;
+            else if ((i == DUR_FLIGHT || i == DUR_TRANSFORMATION) && dur > 11)
             {
                 dur = 11;
                 need_msg = true;
@@ -378,7 +380,10 @@ void debuff_player()
              danger ? "Careful! " : "");
     }
 
+    const int old_contam_level = get_contamination_level();
     contaminate_player(-1 * (1000 + random2(4000)));
+    if (old_contam_level && old_contam_level == get_contamination_level())
+        mpr("You feel slightly less contaminated with magical energies.");
 }
 
 void debuff_monster(monster* mon)
@@ -400,7 +405,6 @@ void debuff_monster(monster* mon)
         ENCH_PETRIFYING,
         ENCH_PETRIFIED,
         ENCH_REGENERATION,
-        ENCH_STICKY_FLAME,
         ENCH_TP,
         ENCH_INNER_FLAME,
         ENCH_OZOCUBUS_ARMOUR,
@@ -409,7 +413,6 @@ void debuff_monster(monster* mon)
         ENCH_CONTROL_WINDS,
         ENCH_TOXIC_RADIANCE,
         ENCH_AGILE,
-        ENCH_EPHEMERAL_INFUSION,
         ENCH_BLACK_MARK,
         ENCH_SHROUD,
         ENCH_SAP_MAGIC,
@@ -457,20 +460,20 @@ int detect_items(int pow)
     int items_found = 0;
     int map_radius;
     if (pow >= 0)
-        map_radius = 8 + random2(8) + pow;
+        map_radius = 7 + random2(7) + pow;
     else
     {
         if (you_worship(GOD_ASHENZARI))
         {
-            map_radius = min(you.piety / 20, LOS_RADIUS);
+            map_radius = min(you.piety / 20 - 1, LOS_RADIUS);
             if (map_radius <= 0)
                 return 0;
         }
         else // MUT_JELLY_GROWTH
-            map_radius = 6;
+            map_radius = 5;
     }
 
-    for (radius_iterator ri(you.pos(), map_radius, C_ROUND); ri; ++ri)
+    for (radius_iterator ri(you.pos(), map_radius, C_SQUARE); ri; ++ri)
     {
         // Don't expose new dug out areas:
         // Note: assumptions are being made here about how
@@ -560,13 +563,13 @@ int detect_creatures(int pow, bool telepathic)
         _fuzz_detect_creatures(pow, &fuzz_radius, &fuzz_chance);
 
     int creatures_found = 0;
-    const int map_radius = 10 + random2(8) + pow;
+    const int map_radius = 9 + random2(7) + pow;
 
     // Clear the map so detect creatures is more useful and the detection
     // fuzz is harder to analyse by averaging.
     clear_map(false);
 
-    for (radius_iterator ri(you.pos(), map_radius, C_ROUND); ri; ++ri)
+    for (radius_iterator ri(you.pos(), map_radius, C_SQUARE); ri; ++ri)
     {
         if (monster* mon = monster_at(*ri))
         {
@@ -772,7 +775,7 @@ static bool _do_imprison(int pow, const coord_def& where, bool zin)
                     || !get_push_space(*ai, newpos, act, true, &veto_spots))
                 {
                     success = false;
-                    if (you.can_see(act))
+                    if (you.can_see(*act))
                         none_vis = false;
                     break;
                 }
@@ -908,12 +911,6 @@ static bool _do_imprison(int pow, const coord_def& where, bool zin)
 
 bool entomb(int pow)
 {
-    // Zotdef - turned off
-    if (crawl_state.game_is_zotdef())
-    {
-        mpr("The dungeon rumbles ominously, and rocks fall from the ceiling!");
-        return false;
-    }
     if (_do_imprison(pow, you.pos(), false))
     {
         const int tomb_duration = BASELINE_DELAY * pow;
@@ -971,10 +968,9 @@ bool cast_smiting(int pow, monster* mons)
 
     if (success)
     {
-        // Maxes out at around 40 damage at 27 Invocations, which is
-        // plenty in my book (the old max damage was around 70, which
-        // seems excessive).
-        mons->hurt(&you, 7 + (random2(pow) * 33 / 191));
+        // damage at 0 Invo ranges from 9-12 (avg 10), to 9-72 (avg 40) at 27.
+        int damage_increment = div_rand_round(pow, 8);
+        mons->hurt(&you, 6 + roll_dice(3, damage_increment));
         if (mons->alive())
             print_wounds(mons);
     }
@@ -1046,7 +1042,7 @@ void holy_word_monsters(coord_def where, int pow, holy_word_source_type source,
     if (attacker == mons)
         hploss = max(0, mons->hit_points / 2 - 1);
     else
-        hploss = roll_dice(3, 15) + (random2(pow) / 10);
+        hploss = roll_dice(3, 15) + (random2(pow) / 5);
 
     if (hploss)
     {
@@ -1059,7 +1055,7 @@ void holy_word_monsters(coord_def where, int pow, holy_word_source_type source,
 
     if (!hploss || !mons->alive())
         return;
-    // Holy word won't annoy or stun its user.
+    // Holy word won't annoy or daze its user.
     if (attacker != mons)
     {
         // Currently, holy word annoys the monsters it affects
@@ -1074,8 +1070,8 @@ void holy_word_monsters(coord_def where, int pow, holy_word_source_type source,
             behaviour_event(mons, ME_ANNOY, attacker);
         }
 
-        if (mons->speed_increment >= 25)
-            mons->speed_increment -= 20;
+        mons->add_ench(mon_enchant(ENCH_DAZED, 0, attacker,
+                                   (10 + random2(10)) * BASELINE_DELAY));
     }
 }
 
@@ -1172,6 +1168,7 @@ void torment_player(actor *attacker, torment_source_type taux)
     case TORMENT_LURKING_HORROR:
         type = KILLED_BY_SPORE;
         aux = "an exploding lurking horror";
+        break;
 
     case TORMENT_MISCAST:
         aux = "by torment";
@@ -1203,7 +1200,7 @@ void torment_cell(coord_def where, actor *attacker, torment_source_type taux)
 
         // Currently, torment doesn't annoy the monsters it affects
         // because it can't kill them, and because hostile monsters use
-        // it.  It does alert them, though.
+        // it. It does alert them, though.
         // XXX: attacker isn't passed through "int torment()".
         behaviour_event(mons, ME_ALERT, attacker);
     }

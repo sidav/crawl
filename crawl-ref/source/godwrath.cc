@@ -32,7 +32,6 @@
 #include "mon-poly.h"
 #include "mutation.h"
 #include "player-stats.h"
-#include "potion.h"
 #include "random-weight.h"
 #include "religion.h"
 #include "shopping.h"
@@ -129,8 +128,8 @@ static bool _yred_random_zombified_hostile()
 
 static const pop_entry _okawaru_servants[] =
 { // warriors
-  {  1,  3,   3, DOWN, MONS_ORC },
-  {  1,  3,   3, DOWN, MONS_GNOLL },
+  {  1,  3,   3, FALL, MONS_ORC },
+  {  1,  3,   3, FALL, MONS_GNOLL },
   {  2,  6,   3, PEAK, MONS_OGRE },
   {  2,  6,   2, PEAK, MONS_GNOLL_SERGEANT },
   {  3,  7,   1, FLAT, MONS_TWO_HEADED_OGRE },
@@ -349,17 +348,17 @@ static void _ely_dull_inventory_weapons()
     int num_dulled = 0;
     int quiver_link;
 
-    you.m_quiver->get_desired_item(nullptr, &quiver_link);
+    you.m_quiver.get_desired_item(nullptr, &quiver_link);
 
-    for (int i = 0; i < ENDOFPACK; ++i)
+    for (auto &item : you.inv)
     {
-        if (!you.inv[i].defined())
+        if (!item.defined())
             continue;
 
-        if (you.inv[i].base_type == OBJ_WEAPONS)
+        if (item.base_type == OBJ_WEAPONS)
         {
             // Don't dull artefacts at all, or weapons below -1.
-            if (is_artefact(you.inv[i]) || you.inv[i].plus <= -1)
+            if (is_artefact(item) || item.plus <= -1)
                 continue;
 
             // 2/3 of the time, don't do anything.
@@ -368,18 +367,18 @@ static void _ely_dull_inventory_weapons()
 
             bool wielded = false;
 
-            if (you.inv[i].link == you.equip[EQ_WEAPON])
+            if (item.link == you.equip[EQ_WEAPON])
                 wielded = true;
 
             // Dull the weapon.
-            if (you.inv[i].plus > -1)
-                you.inv[i].plus--;
+            if (item.plus > -1)
+                item.plus--;
 
             // Update the weapon display, if necessary.
             if (wielded)
                 you.wield_change = true;
 
-            chance += item_value(you.inv[i], true) / 50;
+            chance += item_value(item, true) / 50;
             num_dulled++;
         }
     }
@@ -564,6 +563,9 @@ static monster* get_avatar(god_type god)
     monster* avatar = shadow_monster(false);
     if (!avatar)
         return nullptr;
+
+    // shadow_monster() has the player's mid, which is no good here.
+    avatar->set_new_monster_id();
 
     avatar->mname = _god_wrath_name(god);
     avatar->flags |= MF_NAME_REPLACE;
@@ -845,13 +847,12 @@ static bool _trog_retribution()
         switch (random2(6))
         {
         case 0:
-            potionlike_effect(POT_DECAY, 100);
+            you.rot(nullptr, 0, 3 + random2(3));
             break;
 
         case 1:
         case 2:
-            lose_stat(STAT_STR, 1 + random2(you.strength() / 5), false,
-                      "divine retribution from Trog");
+            lose_stat(STAT_STR, 1 + random2(you.strength() / 5));
             break;
 
         case 3:
@@ -1033,8 +1034,7 @@ static bool _sif_muna_retribution()
     {
     case 0:
     case 1:
-        lose_stat(STAT_INT, 1 + random2(you.intel() / 5), false,
-                  "divine retribution from Sif Muna");
+        lose_stat(STAT_INT, 1 + random2(you.intel() / 5));
         break;
 
     case 2:
@@ -1094,7 +1094,7 @@ static void _lugonu_transloc_retribution()
         simple_god_message("'s wrath finds you!", god);
         mpr("Space warps around you!");
         if (!one_chance_in(3))
-            you_teleport_now(false);
+            you_teleport_now();
         else
             uncontrolled_blink();
     }
@@ -1593,7 +1593,7 @@ static bool _dithmenos_retribution()
                         MONS_NO_MONSTER, 0, BLACK, PROX_ANYWHERE,
                         level_id(BRANCH_DUNGEON,
                                  min(27, you.experience_level + 5)),
-                        0, 0, 0, "", _god_wrath_name(god))))
+                        0, 0, MF_NO_FLAGS, "", _god_wrath_name(god))))
             {
                 count++;
             }
@@ -1681,20 +1681,17 @@ static void _qazlal_elemental_vulnerability()
  */
 static bool _qazlal_retribution()
 {
-    switch (random2(3))
+    if (coinflip())
     {
-    case 0:
-        _qazlal_summon_elementals();
-        break;
-    case 1:
-        _qazlal_elemental_vulnerability();
-        break;
-    case 2:
         simple_god_message(" causes a mighty clap of thunder!",
                            GOD_QAZLAL);
         noisy(25, you.pos());
-        break;
     }
+
+    if (coinflip())
+        _qazlal_summon_elementals();
+    else
+        _qazlal_elemental_vulnerability();
 
     return true;
 }
@@ -1772,7 +1769,7 @@ bool divine_retribution(god_type god, bool no_bonus, bool force)
         {
             if (you.duration[DUR_SLOW] < 180 * BASELINE_DELAY)
             {
-                mprf(MSGCH_WARN, "The divine experience leaves you feeling exhausted!");
+                mprf(MSGCH_WARN, "The divine experience drains your vigour!");
 
                 slow_player(random2(20));
             }
@@ -1805,7 +1802,7 @@ void beogh_idol_revenge()
     // Beogh watches his charges closely, but for others doesn't always
     // notice.
     if (!you_worship(GOD_BEOGH)
-        && (!player_genus(GENPC_ORCISH) || coinflip())
+        && (!species_is_orcish(you.species) || coinflip())
         && x_chance_in_y(2, 3))
     {
         return;
@@ -1815,7 +1812,7 @@ void beogh_idol_revenge()
 
     if (you_worship(GOD_BEOGH))
         revenge = _get_beogh_speech("idol follower").c_str();
-    else if (player_genus(GENPC_ORCISH))
+    else if (species_is_orcish(you.species))
         revenge = _get_beogh_speech("idol orc").c_str();
     else
         revenge = _get_beogh_speech("idol other").c_str();
@@ -1825,29 +1822,16 @@ void beogh_idol_revenge()
 
 static void _tso_blasts_cleansing_flame(const char *message)
 {
-    // TSO won't protect you from his own cleansing flame, and Xom is too
-    // capricious to protect you from it.
-    if (!you_worship(GOD_SHINING_ONE) && !you_worship(GOD_XOM)
-        && !player_under_penance() && x_chance_in_y(you.piety, MAX_PIETY * 2))
-    {
-        god_speaks(you.religion,
-                   make_stringf("\"Mortal, I have averted the wrath of %s... "
-                                "this time.\"",
-                                god_name(GOD_SHINING_ONE).c_str()).c_str());
-    }
-    else
-    {
-        // If there's a message, display it before firing.
-        if (message)
-            god_speaks(GOD_SHINING_ONE, message);
+    // If there's a message, display it before firing.
+    if (message)
+        god_speaks(GOD_SHINING_ONE, message);
 
-        simple_god_message(" blasts you with cleansing flame!",
-                           GOD_SHINING_ONE);
+    simple_god_message(" blasts you with cleansing flame!",
+                       GOD_SHINING_ONE);
 
-        // damage is 2d(pow), *3/2 for undead and demonspawn
-        cleansing_flame(5 + (you.experience_level * 7) / 12,
-                        CLEANSING_FLAME_TSO, you.pos());
-    }
+    // damage is 2d(pow), *3/2 for undead and demonspawn
+    cleansing_flame(5 + (you.experience_level * 7) / 12,
+                    CLEANSING_FLAME_TSO, you.pos());
 }
 
 static void _god_smites_you(god_type god, const char *message,
@@ -1855,48 +1839,36 @@ static void _god_smites_you(god_type god, const char *message,
 {
     ASSERT(god != GOD_NO_GOD);
 
-    // Your god won't protect you from his own smiting, and Xom is too
-    // capricious to protect you from any god's smiting.
-    if (!you_worship(god) && !you_worship(GOD_XOM)
-        && !player_under_penance() && x_chance_in_y(you.piety, MAX_PIETY * 2))
+    if (death_type == NUM_KILLBY)
     {
-        god_speaks(you.religion,
-                   make_stringf("\"Mortal, I have averted the wrath of %s... "
-                                "this time.\"", god_name(god).c_str()).c_str());
+        switch (god)
+        {
+            case GOD_BEOGH:     death_type = KILLED_BY_BEOGH_SMITING; break;
+            case GOD_SHINING_ONE: death_type = KILLED_BY_TSO_SMITING; break;
+            default:            death_type = KILLED_BY_DIVINE_WRATH;  break;
+        }
     }
-    else
+
+    string aux;
+
+    if (death_type != KILLED_BY_BEOGH_SMITING
+        && death_type != KILLED_BY_TSO_SMITING)
     {
-        if (death_type == NUM_KILLBY)
-        {
-            switch (god)
-            {
-                case GOD_BEOGH:     death_type = KILLED_BY_BEOGH_SMITING; break;
-                case GOD_SHINING_ONE: death_type = KILLED_BY_TSO_SMITING; break;
-                default:            death_type = KILLED_BY_DIVINE_WRATH;  break;
-            }
-        }
-
-        string aux;
-
-        if (death_type != KILLED_BY_BEOGH_SMITING
-            && death_type != KILLED_BY_TSO_SMITING)
-        {
-            aux = "smitten by " + god_name(god);
-        }
-
-        // If there's a message, display it before smiting.
-        if (message)
-            god_speaks(god, message);
-
-        int divine_hurt = 10 + random2(10);
-
-        for (int i = 0; i < 5; ++i)
-            divine_hurt += random2(you.experience_level);
-
-        simple_god_message(" smites you!", god);
-        ouch(divine_hurt, death_type, MID_NOBODY, aux.c_str());
-        dec_penance(god, 1);
+        aux = "smitten by " + god_name(god);
     }
+
+    // If there's a message, display it before smiting.
+    if (message)
+        god_speaks(god, message);
+
+    int divine_hurt = 10 + random2(10);
+
+    for (int i = 0; i < 5; ++i)
+        divine_hurt += random2(you.experience_level);
+
+    simple_god_message(" smites you!", god);
+    ouch(divine_hurt, death_type, MID_NOBODY, aux.c_str());
+    dec_penance(god, 1);
 }
 
 void reduce_xp_penance(god_type god, int amount)

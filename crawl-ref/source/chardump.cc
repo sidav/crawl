@@ -169,9 +169,9 @@ bool dump_char(const string &fname, bool quiet, bool full_id,
 
     dump_params par(text, "", full_id, se);
 
-    for (int i = 0, size = Options.dump_order.size(); i < size; ++i)
+    for (const string &section : Options.dump_order)
     {
-        par.section = Options.dump_order[i];
+        par.section = section;
         dump_section(par);
     }
 
@@ -493,33 +493,26 @@ static void _sdump_lua(dump_params &par)
 }
 #endif
 
- //---------------------------------------------------------------
- //
- // munge_description
- //
- // word wrap to 80 characters.
- // XXX: should be replaced by some other linewrapping function
- //      now EOL munging is gone
- //---------------------------------------------------------------
-string munge_description(string inStr)
+string chardump_desc(const item_def& item)
 {
-    string outStr;
+    string desc = get_item_description(item, false, true);
+    string outs;
 
-    outStr.reserve(inStr.length() + 32);
+    outs.reserve(desc.length() + 32);
 
-    const int kIndent = 3;
+    const int indent = 3;
 
-    if (inStr.empty()) // always at least an empty line
+    if (desc.empty()) // always at least an empty line
         return "\n";
 
-    while (!inStr.empty())
+    while (!desc.empty())
     {
-        outStr += string(kIndent, ' ')
-                  + wordwrap_line(inStr, 79 - kIndent)
+        outs += string(indent, ' ')
+                  + wordwrap_line(desc, 79 - indent)
                   + "\n";
     }
 
-    return outStr;
+    return outs;
 }
 
 static void _sdump_messages(dump_params &par)
@@ -639,7 +632,7 @@ static bool _dump_item_origin(const item_def &item)
     if (fs(IODS_JEWELLERY) && item.base_type == OBJ_JEWELLERY)
         return true;
 
-    if (fs(IODS_RUNES) && item_is_rune(item))
+    if (fs(IODS_RUNES) && item.base_type == OBJ_RUNES)
         return true;
 
     if (fs(IODS_RODS) && item.base_type == OBJ_RODS)
@@ -665,23 +658,19 @@ static bool _dump_item_origin(const item_def &item)
  //---------------------------------------------------------------
 static void _sdump_inventory(dump_params &par)
 {
-    int i, j;
+    int i;
 
     string &text(par.text);
-    string text2;
 
-    int inv_class2[NUM_OBJECT_CLASSES];
+    int inv_class2[NUM_OBJECT_CLASSES] = { 0, };
     int inv_count = 0;
 
-    for (i = 0; i < NUM_OBJECT_CLASSES; i++)
-        inv_class2[i] = 0;
-
-    for (i = 0; i < ENDOFPACK; i++)
+    for (const auto &item : you.inv)
     {
-        if (you.inv[i].defined())
+        if (item.defined())
         {
             // adds up number of each class in invent.
-            inv_class2[you.inv[i].base_type]++;
+            inv_class2[item.base_type]++;
             inv_count++;
         }
     }
@@ -702,47 +691,27 @@ static void _sdump_inventory(dump_params &par)
             if (inv_class2[i] == 0)
                 continue;
 
-            switch (i)
-            {
-            case OBJ_WEAPONS:    text += "Hand weapons";    break;
-            case OBJ_MISSILES:   text += "Missiles";        break;
-            case OBJ_ARMOUR:     text += "Armour";          break;
-            case OBJ_WANDS:      text += "Magical devices"; break;
-            case OBJ_FOOD:       text += "Comestibles";     break;
-            case OBJ_SCROLLS:    text += "Scrolls";         break;
-            case OBJ_JEWELLERY:  text += "Jewellery";       break;
-            case OBJ_POTIONS:    text += "Potions";         break;
-            case OBJ_BOOKS:      text += "Books";           break;
-            case OBJ_STAVES:     text += "Magical staves";  break;
-            case OBJ_RODS:       text += "Rods";            break;
-            case OBJ_ORBS:       text += "Orbs of Power";   break;
-            case OBJ_MISCELLANY: text += "Miscellaneous";   break;
-            case OBJ_CORPSES:    text += "Carrion";         break;
-
-            default:
-                die("Bad item class");
-            }
+            text += item_class_name(i);
             text += "\n";
 
-            for (j = 0; j < ENDOFPACK; j++)
+            for (const auto &item : you.inv)
             {
-                if (!you.inv[j].defined() || you.inv[j].base_type != i)
+                if (!item.defined() || item.base_type != i)
                     continue;
 
                 text += " ";
-                text += you.inv[j].name(DESC_INVENTORY_EQUIP);
+                text += item.name(DESC_INVENTORY_EQUIP);
 
                 inv_count--;
 
-                if (origin_describable(you.inv[j]) && _dump_item_origin(you.inv[j]))
-                    text += "\n" "   (" + origin_desc(you.inv[j]) + ")";
+                if (origin_describable(item) && _dump_item_origin(item))
+                    text += "\n" "   (" + origin_desc(item) + ")";
 
-                if (is_dumpable_artefact(you.inv[j])
+                if (is_dumpable_artefact(item)
                     || Options.dump_book_spells
-                       && you.inv[j].base_type == OBJ_BOOKS)
+                       && item.base_type == OBJ_BOOKS)
                 {
-                    text2 = get_item_description(you.inv[j], false, true);
-                    text += munge_description(text2);
+                    text += chardump_desc(item);
                 }
                 else
                     text += "\n";
@@ -849,9 +818,8 @@ static void _sdump_spells(dump_params &par)
 
                 bool already = false;
 
-                for (int i = 0; i <= SPTYP_LAST_EXPONENT; i++)
+                for (const auto bit : spschools_type::range())
                 {
-                    const auto bit = spschools_type::exponent(i);
                     if (spell_typematch(spell, bit))
                     {
                         spell_line += spell_type_shortname(bit, already);
@@ -883,7 +851,7 @@ static void _sdump_spells(dump_params &par)
 
 static void _sdump_kills(dump_params &par)
 {
-    par.text += you.kills->kill_info();
+    par.text += you.kills.kill_info();
 }
 
 static string _sdump_kills_place_info(PlaceInfo place_info, string name = "")
@@ -1224,8 +1192,10 @@ static void _sdump_mutations(dump_params &par)
 //      Public Functions
 // ========================================================================
 
+// Must match the order of hunger_state_t enums
 static const char* hunger_names[] =
 {
+    "fainting",
     "starving",
     "near starving",
     "very hungry",
@@ -1235,9 +1205,12 @@ static const char* hunger_names[] =
     "very full",
     "completely stuffed",
 };
+COMPILE_CHECK(ARRAYSZ(hunger_names) == HS_ENGORGED + 1);
 
+// Must match the order of hunger_state_t enums
 static const char* thirst_names[] =
 {
+    "bloodless",
     "bloodless",
     "near bloodless",
     "very thirsty",
@@ -1247,12 +1220,10 @@ static const char* thirst_names[] =
     "very full",
     "almost alive",
 };
+COMPILE_CHECK(ARRAYSZ(thirst_names) == HS_ENGORGED + 1);
 
 const char *hunger_level()
 {
-    COMPILE_CHECK(ARRAYSZ(hunger_names) == HS_ENGORGED + 1);
-    COMPILE_CHECK(ARRAYSZ(thirst_names) == HS_ENGORGED + 1);
-
     ASSERT(you.hunger_state <= HS_ENGORGED);
 
     if (you.species == SP_VAMPIRE)
@@ -1301,7 +1272,7 @@ void dump_map(FILE *fp, bool debug, bool dist)
             {
 #ifdef COLOURED_DUMPS
                 size_t nv = 0;
-                for (const vault_placement *vault : env.level_vaults)
+                for (auto &vault : env.level_vaults)
                     if (vault->map.in_map(coord_def(x, y) - vault->pos))
                         nv++;
 

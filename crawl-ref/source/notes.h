@@ -28,7 +28,7 @@ enum NOTE_TYPES
     NOTE_LEARN_SPELL,           /* needs: spell idx */
     NOTE_GET_GOD,               /* needs: god id */
     NOTE_GOD_GIFT,              /* needs: god id */
-    NOTE_GOD_POWER,             /* needs: god id, idx */
+    NOTE_PIETY_RANK,            /* needs: god id, rank */
     NOTE_GET_MUTATION,          /* needs: mutation idx, reason (string) */
     NOTE_LOSE_MUTATION,         /* needs: mutation idx, reason (string) */
     NOTE_ID_ITEM,               /* needs: item name (string) */
@@ -87,5 +87,22 @@ void take_note(const Note& note, bool force = false);
 void save_notes(writer&);
 void load_notes(reader&);
 void make_user_note();
+
+/**
+ * Disable notes in a dynamic scope. Restores the original note status when
+ * the object goes out of scope or is otherwise destroyed.
+ */
+struct no_notes
+{
+    no_notes() : saved(notes_are_active())
+    {
+        activate_notes(false);
+    }
+    ~no_notes()
+    {
+        activate_notes(saved);
+    }
+    bool saved;
+};
 
 #endif

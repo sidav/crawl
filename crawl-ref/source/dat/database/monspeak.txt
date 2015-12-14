@@ -808,8 +808,6 @@ VISUAL:@The_monster@ waves at you.
 @The_monster@ says, "Be careful!"
 
 @The_monster@ says, "I'll never leave you."
-
-@The_monster@ says, "I would die for you."
 %%%%
 _friendly_humanoid_medium_
 
@@ -1418,6 +1416,16 @@ Qazlal player ghost
 @The_monster@ says, "Let nature run its course against you!"
 
 @The_monster@ says, "The earth shall destroy you!"
+%%%%
+Ru player ghost
+
+@The_monster@ says, "I sacrificed my body for ultimate power!"
+
+@The_monster@ says, "I'll show you the great annihilating truth!"
+
+@The_monster@ tells you, "None of this matters. None of this is real!"
+
+@The_monster@ says @to_foe@, "First you will suffer, then you will die."
 %%%%
 Sif Muna player ghost
 
@@ -2478,6 +2486,11 @@ w:50
 
 @The_monster@ says, "So-called 'good' gods are just as evil as the rest. I hate hypocrisy."
 
+@The_monster@ says, "I hate temples."
+
+w:5
+@The_monster@ says, "What about an ecumenical tavern?"
+
 %%%%
 Orc Donald
 
@@ -2534,6 +2547,8 @@ w:50
 @The_monster@ says, "Why do these elves have so many gross rats and spiders?"
 
 @The_monster@ says, "None of these elves know how to fight. I hate that."
+
+@The_monster@ says, "What's the point of a Hall of Blades anyway?"
 %%%%
 Swamp Donald
 
@@ -2641,8 +2656,6 @@ Slime Donald
 w:50
 @_generic_Donald_@
 
-@The_monster@ says, "I forgot to wear corrosion-proof armour. Damn, I hate that!"
-
 @The_monster@ says, "Those amoebas look tasty."
 
 @The_monster@ says, "Where's all the loot?"
@@ -2658,8 +2671,6 @@ w:50
 @The_monster@ says, "I can't smell anything here. I hate that."
 
 @The_monster@ says, "I can't get this icky slime off my feet."
-
-@The_monster@ says, "My other sword rusted away completely. I hate that!"
 
 @The_monster@ says, "I keep getting this feeling like someone's watching me. Creepy."
 
@@ -2705,8 +2716,6 @@ w:50
 @The_monster@ says, "Robes are for wimps. Real warriors wear heavy armour!"
 
 @The_monster@ says, "Nagas are pretty ugly. I hate nagas."
-
-@The_monster@ says, "I really didn't expect a pair of shoes to bite me."
 
 @The_monster@ says, "Did all the warriors here go to shield school or something?"
 
@@ -2756,43 +2765,6 @@ w:50
 
 @The_monster@ says, "I saw a dragon earlier, but I didn't get too close - it seemed pretty mercurial."
 %%%%
-Blade Donald
-
-w:50
-@_generic_Donald_@
-
-@The_monster@ says, "A great mace doesn't even have a blade."
-
-@The_monster@ says, "How can an animated sword scowl?"
-
-@The_monster@ says, "I feel like half the man I was before coming here."
-
-@The_monster@ says, "I thought dancing weapons might, you know, dance?"
-
-@The_monster@ says, "How did I get over here?"
-
-@The_monster@ says, "That sword's pretty flaming."
-
-@The_monster@ says, "What do you do with a bardiche, anyway?"
-
-@The_monster@ says, "I didn't find what I was looking for. Maybe they'll restock."
-
-@The_monster@ says, "Why would anyone bother coming here? It's boring."
-
-@The_monster@ says, "I hate weapons. I hate dancing weapons even more."
-
-@The_monster@ says, "That axe looks sharp."
-
-@The_monster@ says, "Animated weapons are so last century."
-
-@The_monster@ says, "I'm hungry."
-
-@The_monster@ says, "I've been waiting here for ages. Nothing new."
-
-@The_monster@ says, "What's so great about these maces?"
-
-@The_monster@ says, "Nobody here wants to dance with me. I hate that."
-%%%%
 Crypt Donald
 
 w:50
@@ -2811,8 +2783,6 @@ w:50
 @The_monster@ says, "Is it cursed, or does it curse? I can never tell."
 
 @The_monster@ says, "Curse skulls, curse toes... What next?"
-
-@The_monster@ says, "Why would someone inter a butterfly?"
 
 @The_monster@ says, "This isn't even all that spooky."
 
@@ -2897,6 +2867,12 @@ w:50
 @The_monster@ says, "I've never heard of a star cursing anything."
 
 @The_monster@ says, "I've never heard of a star spawning anything."
+
+@The_monster@ throws up his hands and says, "Alright, I admit it, I'm lost!"
+
+@The_monster@ says, "I hate wrenching sensations."
+
+@The_monster@ says, "What's so abyssal about tentacles and stars?"
 %%%%
 Zot Donald
 
@@ -2913,7 +2889,7 @@ w:50
 
 @The_monster@ says, "How do you make a golem out of electricity?"
 
-@The_monster@ says, "What's an "orb guardian", anyway?"
+@The_monster@ says, "What's an "Orb Guardian", anyway?"
 
 @The_monster@ says, "Orbs of fire, orbs of destruction, the Orb of Zot... what's with all the orbs?"
 
@@ -2950,8 +2926,6 @@ Zin Donald
 w:50
 @_generic_Donald_@
 
-@The_monster@ says, "At least you won't get hungry."
-
 @The_monster@ says, "So much for spreading the word; you get punched in the face instead."
 
 @The_monster@ says, "This pamphlet doesn't say what the point to Recitation is."
@@ -2961,8 +2935,6 @@ w:50
 @The_monster@ says, "What does Zin need our gold for, anyway?"
 
 @The_monster@ says, "Something seems a little bit odd about a God who wants to be paid."
-
-@The_monster@ says, "That's really confusing. What's the point of divine satiation if you're not allowed to eat?"
 
 @The_monster@ says, "At least you'll get really skinny."
 
@@ -3155,8 +3127,6 @@ w:50
 
 @The_monster@ says, "What's all in the cards? Your future?"
 
-@The_monster@ says, "You missed a spot upstairs."
-
 @The_monster@ says, "I bet you're feeling stupid now, huh?"
 
 @The_monster@ says, "If I draw a card, can you tell me which one it is?"
@@ -3181,8 +3151,6 @@ w:50
 @_generic_Donald_@
 
 @The_monster@ says, "Whatever happened to, 'First, do no harm'?"
-
-@The_monster@ says, "Hungry yet?"
 
 @The_monster@ says, "Doesn't healing your enemies sound rather pointless?"
 
@@ -3295,7 +3263,7 @@ w:50
 
 @The_monster@ says, "Slow down!"
 
-@The_monster@ says, "You're not very quick on the up-take, are you?"
+@The_monster@ says, "You're not very quick on the uptake, are you?"
 
 @The_monster@ says, "You know, if you want, I know a very good posture trainer."
 
@@ -3409,11 +3377,13 @@ w:50
 
 @The_monster@ says, "So the shops here weren't enough for you?"
 
-@The_monster@ says, "Feeling hungry, yet?"
+@The_monster@ says, "Feeling hungry yet?"
 
 @The_monster@ says, "I saw some gold over there. Quick, better go get it!"
 
 @The_monster@ says, "I bet you can make some really great dragon armour out of gold."
+
+@The_monster@ says, "What do potions have to do with a god of gold, anyway?"
 %%%%
 Qazlal Donald
 
@@ -3434,6 +3404,27 @@ w:50
 
 @The_monster@ says, "Great. Now my shield is all dirty."
 %%%%
+Ru Donald
+
+w:50
+@_generic_Donald_@
+
+@The_monster@ says, "Missing something?"
+
+@The_monster@ says, "I hate sacrifices."
+
+@The_monster@ says, "I hate sacrificants."
+
+@The_monster@ says, "Once, I gave up eating meat for a week. I hated that."
+
+@The_monster@ says, "Once, I gave up drinking for a week. I hated that."
+
+@The_monster@ says, "I hate hidden layers of reality."
+
+@The_monster@ says, "I hate existential doubt."
+
+@The_monster@ says, "The great annihilating truth is that I hate you."
+%%%%
 No God Donald
 
 w:50
@@ -3443,10 +3434,10 @@ w:50
 
 @The_monster@ says, "I hate the gods."
 
+@The_monster@ says, "I hate atheists."
+
 w:5
 @The_monster@ says, "I hate the gods, and the gods hate me."
-
-@The_monster@ says, "So, what do you do with all of your corpses? Leave them to rot?"
 
 @The_monster@ says, "You must run out of gods to curse by."
 

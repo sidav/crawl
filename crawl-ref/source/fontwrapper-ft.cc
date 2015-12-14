@@ -613,10 +613,9 @@ formatted_string FTFontWrapper::split(const formatted_string &str,
                 ellipses = line_end - 2;
 
             size_t idx = &line[ellipses] - &base[0];
-            ret[idx] = '.';
-            ret[idx+1] = '.';
-
-            return ret.chop(idx + 2);
+            ret = ret.chop(idx);
+            ret += formatted_string("..");
+            return ret;
         }
         else
         {
@@ -654,7 +653,7 @@ void FTFontWrapper::render_string(unsigned int px, unsigned int py,
             cols += w;
         max_cols = max(cols, max_cols);
 
-        // NOTE: only newlines should be used for tool tips.  Don't use EOL.
+        // NOTE: only newlines should be used for tool tips. Don't use EOL.
         ASSERT(c != '\r');
 
         if (c == '\n')

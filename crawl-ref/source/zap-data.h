@@ -74,6 +74,22 @@ static const zap_info zap_data[] =
 },
 
 {
+    ZAP_MEPHITIC,
+    "stinking cloud",
+    100,
+    nullptr,
+    new tohit_calculator<AUTOMATIC_HIT>,
+    GREEN,
+    false,
+    BEAM_MEPHITIC,
+    DCHAR_FIRED_ZAP,
+    true,
+    false,
+    true,
+    0 // Noise comes from explosion
+},
+
+{
     ZAP_HASTE,
     "",
     100,
@@ -106,7 +122,7 @@ static const zap_info zap_data[] =
 },
 
 {
-    ZAP_MAJOR_HEALING,
+    ZAP_HEAL_WOUNDS,
     "",
     100,
     new dicedef_calculator<1, 7, 1, 3>,
@@ -206,7 +222,7 @@ static const zap_info zap_data[] =
     "",
     100,
     nullptr,
-    nullptr,
+    new tohit_calculator<0, 3, 1>,
     BLACK,
     true,
     BEAM_TUKIMAS_DANCE,
@@ -1193,22 +1209,6 @@ static const zap_info zap_data[] =
     false,
     false,
     6
-},
-
-{
-    ZAP_GRAVITAS,
-    "",
-    200,
-    nullptr,
-    nullptr,
-    BLACK,
-    true,
-    BEAM_ATTRACT,
-    NUM_DCHAR_TYPES,
-    false,
-    false,
-    false,
-    0
 },
 
 };

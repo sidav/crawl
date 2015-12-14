@@ -74,7 +74,7 @@ static bool _do_build_level()
 {
     clear_messages();
     mprf("On %s; %d g, %d fail, %u err%s, %u uniq, "
-         "%d try, %d (%.2lf%%) vetos",
+         "%d try, %d (%.2f%%) vetos",
          level_id::current().describe().c_str(), levels_tried, levels_failed,
          (unsigned int)errors.size(), last_error.empty() ? ""
          : (" (" + last_error + ")").c_str(), (unsigned int) use_count.size(),
@@ -133,9 +133,9 @@ static bool _do_build_level()
 
     // Record floor items for objstat.
     if (crawl_state.obj_stat_gen)
-        for (int i = 0; i < MAX_ITEMS; ++i)
-            if (mitm[i].defined())
-                objstat_record_item(mitm[i]);
+        for (auto &item : mitm)
+            if (item.defined())
+                objstat_record_item(item);
 
     {
         unwind_bool wiz(you.wizard, true);
@@ -146,13 +146,10 @@ static bool _do_build_level()
     // should be fine for objstat purposes.
     if (_is_disconnected_level() && !crawl_state.obj_stat_gen)
     {
-        string vaults;
-        for (int j = 0, size = env.level_vaults.size(); j < size; ++j)
-        {
-            if (j && !vaults.empty())
-                vaults += ", ";
-            vaults += env.level_vaults[j]->map.name;
-        }
+        string vaults = comma_separated_fn(
+                begin(env.level_vaults), end(env.level_vaults),
+                [](unique_ptr<vault_placement> &lp) { return lp->map.name; },
+                ", ", ", ");
 
         if (!vaults.empty())
             vaults = " (" + vaults + ")";
@@ -206,9 +203,8 @@ static void _dungeon_places()
 
 static bool _build_dungeon()
 {
-    for (int i = 0, size = generated_levels.size(); i < size; ++i)
+    for (const level_id lid : generated_levels)
     {
-        const level_id &lid = generated_levels[i];
         you.where_are_you = lid.branch;
         you.depth = lid.depth;
 
@@ -249,7 +245,7 @@ bool mapstat_build_levels()
     {
         clear_messages();
         mprf("On %d of %d; %d g, %d fail, %u err%s, %u uniq, "
-             "%d try, %d (%.2lf%%) vetoes",
+             "%d try, %d (%.2f%%) vetoes",
              i, SysEnv.map_gen_iters, levels_tried, levels_failed,
              (unsigned int)errors.size(),
              last_error.empty() ? "" : (" (" + last_error + ")").c_str(),

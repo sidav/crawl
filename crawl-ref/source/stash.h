@@ -24,6 +24,8 @@ public:
     Stash(int xp = -1, int yp = -1);
     Stash(const Stash &other) { *this = other; };
 
+    static bool is_boring_feature(dungeon_feature_type feat);
+
     static string stash_item_name(const item_def &item);
     void update();
     bool unmark_trapping_nets();
@@ -416,6 +418,5 @@ string stash_annotate_item(const char *s, const item_def *item,
 
 #define STASH_LUA_SEARCH_ANNOTATE "ch_stash_search_annotate_item"
 #define STASH_LUA_DUMP_ANNOTATE   "ch_stash_dump_annotate_item"
-#define STASH_LUA_VIEW_ANNOTATE   "ch_stash_view_annotate_item"
 
 #endif
