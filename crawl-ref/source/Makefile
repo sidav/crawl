@@ -594,9 +594,7 @@ ifdef LTO
       CFOPTIMIZE += -fno-fat-lto-objects
     endif
   else
-    # Clang uses a different syntax than gcc, using -O4 instead.  This means
-    # you can't select a different level of optimization to go with LTO.
-    CFOPTIMIZE := $(patsubst -O%,,$(CFOPTIMIZE)) -O4
+    CFOPTIMIZE += -flto
   endif
 endif
 
@@ -1443,7 +1441,6 @@ endif
 	$(COPY) ../docs/develop/levels/*.txt $(datadir_fp)/docs/develop/levels/
 	$(COPY) ../docs/license/*.txt $(datadir_fp)/docs/license/
 	$(COPY) ../CREDITS.txt $(datadir_fp)/docs/
-	util/columnise-credits.pl $(datadir_fp)/docs/CREDITS.txt
 	$(COPY) ../settings/* $(datadir_fp)/settings/
 ifeq ($(GAME),crawl.exe)
 	sed -i 's/$$/\r/' `find $(datadir_fp) -iname '*.txt' -o -iname '*.des'`
@@ -1693,7 +1690,6 @@ source: removeold prebuildyacc
 	  done
 	find build -name .gitignore -execdir rm -f '{}' +
 	git describe --tags $(MERGE_BASE) > $(BSRC)util/release_ver
-	util/columnise-credits.pl build/crawl-ref/CREDITS.txt
 	mv build/crawl-ref build/$(PKG_SRC_DIR)
 
 package-tarball-deps: source

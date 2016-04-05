@@ -774,7 +774,7 @@ menu_letter InvMenu::load_items(const vector<const item_def*> &mitems,
         string subtitle = item_class_name(i);
 
         // Mention the class selection shortcuts.
-        if (is_set(MF_MULTISELECT) && inv_class[i] > 1)
+        if (is_set(MF_MULTISELECT))
         {
             vector<char> glyphs;
             get_class_hotkeys(i, glyphs);
@@ -1558,7 +1558,7 @@ bool needs_handle_warning(const item_def &item, operation_types oper,
         return true;
 
     // Everything else depends on knowing the item subtype/brand.
-    if (!item_ident(item, ISFLAG_KNOW_TYPE))
+    if (!item_type_known(item))
         return false;
 
     if (oper == OPER_REMOVE

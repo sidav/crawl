@@ -747,13 +747,12 @@ bool throw_it(bolt &pbolt, int throw_2, dist *target)
             // normal projectiles.
             monster *m = monster_at(thr.target);
             if (m)
-                cancelled = stop_attack_prompt(m, false, thr.target, false);
+                cancelled = stop_attack_prompt(m, false, thr.target);
         }
         else
         {
             // Set values absurdly high to make sure the tracer will
             // complain if we're attempting to fire through allies.
-            pbolt.hit    = AUTOMATIC_HIT;
             pbolt.damage = dice_def(1, 100);
 
             // Init tracer variables.
@@ -802,7 +801,8 @@ bool throw_it(bolt &pbolt, int throw_2, dist *target)
     if (thrown.quantity > 1 && is_perishable_stack(item))
     {
         // Initialise thrown item with oldest item in stack.
-        const int rot_timer = remove_oldest_perishable_item(thrown);
+        const int rot_timer = remove_oldest_perishable_item(thrown)
+                              - you.elapsed_time;
         item.props.clear();
         init_perishable_stack(item, rot_timer);
     }

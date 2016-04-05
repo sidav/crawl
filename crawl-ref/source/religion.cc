@@ -323,11 +323,11 @@ const vector<god_power> god_powers[NUM_GODS] =
 
     // Elyvilon
     { { 1, ABIL_ELYVILON_LESSER_HEALING, "provide lesser healing for yourself" },
-      { 1, ABIL_ELYVILON_LIFESAVING, "call on Elyvilon to save your life" },
       { 2, ABIL_ELYVILON_HEAL_OTHER, "heal and attempt to pacify others" },
       { 3, ABIL_ELYVILON_PURIFICATION, "purify yourself" },
       { 4, ABIL_ELYVILON_GREATER_HEALING, "provide greater healing for yourself" },
       { 5, ABIL_ELYVILON_DIVINE_VIGOUR, "call upon Elyvilon for divine vigour" },
+      { 1, ABIL_ELYVILON_LIFESAVING, "call on Elyvilon to save your life" },
     },
 
     // Lugonu
@@ -2260,8 +2260,9 @@ static void _gain_piety_point()
         if (you_worship(GOD_ASHENZARI))
         {
             if (rank == 3)
-            {
                 autotoggle_autopickup(false);
+            if (rank == 4)
+            {
                 // Inconsistent with donning amulets, but matches the
                 // message better and is not abusable.
                 you.duration[DUR_CONF] = 0;

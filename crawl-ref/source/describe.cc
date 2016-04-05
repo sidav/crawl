@@ -316,11 +316,15 @@ static vector<string> _randart_propnames(const item_def& item,
                 break;
             case PROPN_SYMBOLIC: // e.g. F++
             {
-                // XXX: actually handle absurd values instead of displaying
-                // the wrong number of +s or -s
-                const int sval = min(abs(val), 6);
-                work << artp_name(ann.prop)
-                     << string(sval, (val > 0 ? '+' : '-'));
+                work << artp_name(ann.prop);
+
+                char symbol = val > 0 ? '+' : '-';
+                const int sval = abs(val);
+                if (sval > 4)
+                    work << symbol << sval;
+                else
+                    work << string(sval, symbol);
+
                 break;
             }
             case PROPN_PLAIN: // e.g. rPois or SInv
@@ -377,7 +381,7 @@ static const char* _jewellery_base_ability_description(int subtype)
     case RING_ICE:
         return "It enhances your ice magic, and weakens your fire magic.";
     case RING_TELEPORTATION:
-        return "It may teleport you to nearby monsters, and can be evoked to "
+        return "It may teleport you next to monsters, and can be evoked to "
                "randomly teleport.";
 #if TAG_MAJOR_VERSION == 34
     case RING_TELEPORT_CONTROL:
@@ -452,7 +456,7 @@ static string _randart_descrip(const item_def &item)
         { ARTP_BERSERK, "It lets you go berserk.", false},
         { ARTP_NOISE, "It may make noises in combat.", false},
         { ARTP_PREVENT_SPELLCASTING, "It prevents spellcasting.", false},
-        { ARTP_CAUSE_TELEPORTATION, "It may teleport you to nearby monsters.", false},
+        { ARTP_CAUSE_TELEPORTATION, "It may teleport you next to monsters.", false},
         { ARTP_PREVENT_TELEPORTATION, "It prevents most forms of teleportation.",
           false},
         { ARTP_ANGRY,  "It may make you go berserk in combat.", false},
@@ -2751,8 +2755,11 @@ string get_skill_description(skill_type skill, bool need_title)
  */
 int hex_chance(const spell_type spell, const int hd)
 {
+    const int cap = 200;
     const int pow = mons_power_for_hd(spell, hd, false) / ENCH_POW_FACTOR;
-    const int chance = hex_success_chance(you.res_magic(), pow, 100, true);
+    const int capped_pow = min(cap, pow);
+    const int chance = hex_success_chance(you.res_magic(), capped_pow,
+                                          100, true);
     if (spell == SPELL_STRIP_RESISTANCE)
         return chance + (100 - chance) / 3; // ignores mr 1/3rd of the time
     return chance;
