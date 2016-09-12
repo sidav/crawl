@@ -12,7 +12,9 @@
 #include "clua.h"
 #include "command.h"
 #include "describe.h"
+#include "english.h" // apostrophise
 #include "evoke.h"
+#include "godpassive.h" // passive_t::bondage_skill_boost
 #include "hints.h"
 #include "options.h"
 #include "output.h"
@@ -129,8 +131,7 @@ bool SkillMenuEntry::is_selectable(bool keep_hotkey)
     if (is_set(SKMF_RESKILL_TO) && is_useless_skill(m_sk))
         return false;
 
-    if (is_set(SKMF_RESKILL_FROM)
-        && you.skill_points[m_sk] <= skill_exp_needed(1, m_sk))
+    if (is_set(SKMF_RESKILL_FROM) && !you.skill_points[m_sk])
     {
         if (!keep_hotkey)
             ++m_letter;
@@ -568,11 +569,16 @@ string SkillMenuSwitch::get_help()
         string result;
         if (skm.is_set(SKMF_ENHANCED))
         {
-            vector<const char *> causes;
+            vector<string> causes;
             if (you.duration[DUR_HEROISM])
                 causes.push_back("Heroism");
-            if (!you.skill_boost.empty() && in_good_standing(GOD_ASHENZARI, 1))
-                causes.push_back("Ashenzari's power");
+
+            if (!you.skill_boost.empty()
+                && have_passive(passive_t::bondage_skill_boost))
+            {
+                causes.push_back(apostrophise(god_name(you.religion))
+                                 + " power");
+            }
             if (_any_crosstrained())
                 causes.push_back("cross-training");
             if (player_equip_unrand(UNRAND_FENCERS))
@@ -1151,7 +1157,11 @@ void SkillMenu::init_switches()
     m_switches[SKM_SHOW] = sw;
     sw->add(SKM_SHOW_DEFAULT);
     if (!is_set(SKMF_SIMPLE) && !is_set(SKMF_EXPERIENCE))
+    {
         sw->add(SKM_SHOW_ALL);
+        if (Options.default_show_all_skills)
+            sw->set_state(SKM_SHOW_ALL);
+    }
     sw->update();
     sw->set_id(SKM_SHOW);
     add_item(sw, sw->size(), m_pos);
@@ -1182,8 +1192,8 @@ void SkillMenu::init_switches()
 
         sw->add(SKM_VIEW_COST);
 
-        if (Options.default_manual_training)
-                sw->set_state(SKM_VIEW_COST);
+        if (!you.auto_training)
+            sw->set_state(SKM_VIEW_COST);
     }
 
     if (you.wizard)
@@ -1401,11 +1411,7 @@ void SkillMenu::set_title()
         t = make_stringf(format, "source");
     else if (is_set(SKMF_RESKILL_TO))
         t = make_stringf(format, "destination");
-    else if (is_set(SKMF_EXPERIENCE_CARD) && is_set(SKMF_EXPERIENCE_POTION))
-        t = "You are more experienced. Select the skills to train.";
-    else if (is_set(SKMF_EXPERIENCE_CARD))
-        t = make_stringf(format, "drawn an Experience card");
-    else if (is_set(SKMF_EXPERIENCE_POTION))
+    else if (is_set(SKMF_EXPERIENCE))
         t = make_stringf(format, "quaffed a potion of experience");
 
     m_title->set_text(t);

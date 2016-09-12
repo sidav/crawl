@@ -164,7 +164,7 @@
 #include "wiz-item.h"
 #include "wiz-mon.h"
 #include "wiz-you.h"
-#include "xom.h"
+#include "xom.h" // debug_xom_effects()
 
 // ----------------------------------------------------------------------
 // Globals whose construction/destruction order needs to be managed
@@ -391,7 +391,7 @@ static void _launch_game_loop()
         }
         catch (ext_fail_exception &fe)
         {
-            end(1, false, "%s", fe.msg.c_str());
+            end(1, false, "%s", fe.what());
         }
         catch (short_read_exception &E)
         {
@@ -837,19 +837,7 @@ static void _do_wizard_command(int wiz_command)
         you.experience = 1 + exp_needed(1 + you.experience_level);
         level_change();
         break;
-    case 'X':
-    {
-        int result = 0;
-        do
-        {
-            if (you_worship(GOD_XOM))
-                result = xom_acts(abs(you.piety - HALF_MAX_PIETY));
-            else
-                result = xom_acts(coinflip(), random_range(0, HALF_MAX_PIETY));
-        }
-        while (result == 0);
-        break;
-    }
+    case 'X': wizard_xom_acts(); break;
     case CONTROL('X'): debug_xom_effects(); break;
 
     case 'y': wizard_identify_all_items(); break;
@@ -1843,7 +1831,7 @@ static void _experience_check()
     }
 
     handle_real_time();
-    msg::stream << "Play time: " << make_time_string(you.real_time)
+    msg::stream << "Play time: " << make_time_string(you.real_time())
                 << " (" << you.num_turns << " turns)"
                 << endl;
 #ifdef DEBUG_DIAGNOSTICS
@@ -1899,12 +1887,9 @@ static void _do_rest()
 
     if (i_feel_safe())
     {
-        if ((you.hp == you.hp_max
-                || player_mutation_level(MUT_SLOW_REGENERATION) == 3
-                || (you.species == SP_VAMPIRE
-                    && you.hunger_state <= HS_STARVING))
+        if ((you.hp == you.hp_max || !player_regenerates_hp())
             && (you.magic_points == you.max_magic_points
-                || you.spirit_shield() && you.species == SP_DEEP_DWARF))
+                || !player_regenerates_mp()))
         {
             mpr("You start waiting.");
             _start_running(RDIR_REST, RMODE_WAIT_DURATION);
@@ -2050,13 +2035,23 @@ void process_command(command_type cmd)
 
 #ifdef CLUA_BINDINGS
     case CMD_AUTOFIGHT:
-        if (!clua.callfn("hit_closest", 0, 0))
-            mprf(MSGCH_ERROR, "Lua error: %s", clua.error.c_str());
-        break;
     case CMD_AUTOFIGHT_NOMOVE:
-        if (!clua.callfn("hit_closest_nomove", 0, 0))
+    {
+        const char * const fnname = cmd == CMD_AUTOFIGHT ? "hit_closest"
+                                                         : "hit_closest_nomove";
+        if (Options.autofight_warning > 0
+            && !is_processing_macro()
+            && you.real_time_delta
+               <= chrono::milliseconds(Options.autofight_warning)
+            && (crawl_state.prev_cmd == CMD_AUTOFIGHT
+                || crawl_state.prev_cmd == CMD_AUTOFIGHT_NOMOVE))
+        {
+            mprf(MSGCH_DANGER, "You should not fight recklessly!");
+        }
+        else if (!clua.callfn(fnname, 0, 0))
             mprf(MSGCH_ERROR, "Lua error: %s", clua.error.c_str());
         break;
+    }
 #endif
     case CMD_REST:            _do_rest(); break;
 
@@ -2084,8 +2079,6 @@ void process_command(command_type cmd)
         mprf("Autopickup is now %s.", Options.autopickup_on > 0 ? "on" : "off");
         break;
 
-    case CMD_TOGGLE_VIEWPORT_MONSTER_HP: toggle_viewport_monster_hp(); break;
-    case CMD_TOGGLE_VIEWPORT_WEAPONS: toggle_viewport_weapons(); break;
     case CMD_TOGGLE_TRAVEL_SPEED:        _toggle_travel_speed(); break;
 
         // Map commands.
@@ -2298,7 +2291,9 @@ void process_command(command_type cmd)
             = (Options.restart_after_game && Options.restart_after_save)
               ? "Save game and return to main menu?"
               : "Save game and exit?";
-        if (yesno(prompt, true, 'n'))
+        explicit_keymap map;
+        map['S'] = 'y';
+        if (yesno(prompt, true, 'n', true, true, false, &map))
             save_game(true);
         else
             canned_msg(MSG_OK);
@@ -2341,6 +2336,7 @@ void process_command(command_type cmd)
 
         break;
     }
+
 }
 
 static void _prep_input()
@@ -2351,7 +2347,7 @@ static void _prep_input()
 
     textcolour(LIGHTGREY);
 
-    set_redraw_status(REDRAW_LINE_2_MASK | REDRAW_LINE_3_MASK);
+    you.redraw_status_lights = true;
     if (!player_stair_delay())
         print_stats();
 
@@ -2362,7 +2358,7 @@ static void _prep_input()
 
     if (you.seen_portals)
     {
-        ASSERT(you_worship(GOD_ASHENZARI));
+        ASSERT(have_passive(passive_t::detect_portals));
         if (you.seen_portals == 1)
             mprf(MSGCH_GOD, "You have a vision of a gate.");
         else
@@ -2370,8 +2366,6 @@ static void _prep_input()
 
         you.seen_portals = 0;
     }
-    if (you.seen_invis)
-        you.seen_invis = false;
 }
 
 static void _check_banished()
@@ -2386,23 +2380,21 @@ static void _check_banished()
             mprf(MSGCH_BANISHMENT, "You are cast deeper into the Abyss!");
         else
             mprf(MSGCH_BANISHMENT, "The Abyss bends around you!");
-        more();
-        banished(you.banished_by);
+        // these are included in default force_more_message
+        banished(you.banished_by, you.banished_power);
     }
 }
 
 static void _check_shafts()
 {
-    for (int i = 0; i < MAX_TRAPS; ++i)
+    for (auto& entry : env.trap)
     {
-        trap_def &trap = env.trap[i];
-
-        if (trap.type != TRAP_SHAFT)
+        if (entry.second.type != TRAP_SHAFT)
             continue;
 
-        ASSERT_IN_BOUNDS(trap.pos);
+        ASSERT_IN_BOUNDS(entry.first);
 
-        handle_items_on_shaft(trap.pos, true);
+        handle_items_on_shaft(entry.first, true);
     }
 }
 
@@ -2466,7 +2458,7 @@ static void _update_golubria_traps()
     vector<coord_def> traps = find_golubria_on_level();
     for (auto c : traps)
     {
-        trap_def *trap = find_trap(c);
+        trap_def *trap = trap_at(c);
         if (trap && trap->type == TRAP_GOLUBRIA)
         {
             if (--trap->ammo_qty <= 0)
@@ -2760,9 +2752,9 @@ static bool _cancel_confused_move(bool stationary)
         else
         {
             string name = bad_mons->name(DESC_PLAIN);
-            if (name.find("the ") == 0)
+            if (starts_with(name, "the "))
                name.erase(0, 4);
-            if (bad_adj.find("your") != 0)
+            if (!starts_with(bad_adj, "your"))
                bad_adj = "the " + bad_adj;
             prompt += bad_adj + name + bad_suff;
         }
@@ -2851,7 +2843,7 @@ static void _swing_at_target(coord_def move)
             mpr("You swing at nothing.");
         make_hungry(3, true);
         // Take the usual attack delay.
-        you.time_taken = you.attack_delay(you.weapon());
+        you.time_taken = you.attack_delay().roll();
     }
     you.turn_is_over = true;
     return;
@@ -3177,7 +3169,7 @@ static void _move_player(coord_def move)
     bool moving = true;         // used to prevent eventual movement (swap)
     bool swap = false;
 
-    int additional_time_taken = 0; // Extra time independant of movement speed
+    int additional_time_taken = 0; // Extra time independent of movement speed
 
     ASSERT(!in_bounds(you.pos()) || !cell_is_solid(you.pos())
            || you.wizmode_teleported_into_rock);

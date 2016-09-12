@@ -114,7 +114,7 @@ MDEF(beh)
 MDEF(energy)
 {
     // XXX: fix this after speed_increment clean up
-    PLUARET(number, (mons->speed_increment - 79))
+    PLUARET(number, (mons->speed_increment - 79));
 }
 
 LUAFN(l_mons_add_energy)
@@ -549,8 +549,8 @@ static const char *_monster_behaviour_names[] =
     "cornered",
 #if TAG_MAJOR_VERSION == 34
     "panic",
-#endif
     "lurk",
+#endif
     "retreat",
     "withdraw",
 };

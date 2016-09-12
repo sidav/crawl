@@ -907,7 +907,7 @@ enum old_species_type
     OLD_SP_SLUDGE_ELF = -7,
     OLD_SP_DJINNI = -8,
     OLD_SP_LAVA_ORC = -9,
-    NUM_OLD_SPECIES = OLD_SP_LAVA_ORC
+    NUM_OLD_SPECIES = -OLD_SP_LAVA_ORC
 };
 
 static string _species_name(int race)
@@ -953,7 +953,7 @@ static int _species_by_name(const string& name)
     if (race != SP_UNKNOWN)
         return race;
 
-    for (race = -1; race >= -NUM_OLD_JOBS; race--)
+    for (race = -1; race >= -NUM_OLD_SPECIES; race--)
         if (name == _species_name(race))
             return race;
 
@@ -1212,7 +1212,7 @@ string scorefile_entry::make_oneline(const string &ml) const
     vector<string> lines = split_string("\n", ml);
     for (string &s : lines)
     {
-        if (s.find("...") == 0)
+        if (starts_with(s, "..."))
         {
             s = s.substr(3);
             trim_string(s);
@@ -1244,7 +1244,7 @@ string scorefile_entry::short_kill_message() const
  *
  * @param[in,out] str   The string to modify.
  * @param[in]     infix The infix to remove.
- * @post If \c infix occured as a substring of <tt>str</tt>, \c str is updated
+ * @post If \c infix occurred as a substring of <tt>str</tt>, \c str is updated
  *       by removing all characters up to and including the last character
  *       of the the first occurrence. Otherwise, \c str is unchanged.
  * @return \c true if \c str was modified, \c false otherwise.
@@ -1605,6 +1605,9 @@ void scorefile_entry::init(time_t dt)
 
         points = pt;
     }
+    else
+        ASSERT(crawl_state.game_is_sprint());
+        // only sprint should use custom scores
 
     race = you.species;
     job  = you.char_class;
@@ -1690,8 +1693,8 @@ void scorefile_entry::init(time_t dt)
     birth_time = you.birth_time;     // start time of game
     death_time = (dt != 0 ? dt : time(nullptr)); // end time of game
 
-    handle_real_time(death_time);
-    real_time = you.real_time;
+    handle_real_time(chrono::system_clock::from_time_t(death_time));
+    real_time = you.real_time();
 
     num_turns = you.num_turns;
     num_aut = you.elapsed_time;
@@ -1704,7 +1707,8 @@ void scorefile_entry::init(time_t dt)
     zigmax     = you.zig_max;
 
     scrolls_used = 0;
-    pair<caction_type, int> p(CACT_USE, OBJ_SCROLLS);
+    dprf("checking %d", caction_compound(OBJ_SCROLLS));
+    pair<caction_type, int> p(CACT_USE, caction_compound(OBJ_SCROLLS));
 
     const int maxlev = min<int>(you.max_level, 27);
     if (you.action_count.count(p))
@@ -1712,7 +1716,7 @@ void scorefile_entry::init(time_t dt)
             scrolls_used += you.action_count[p][i];
 
     potions_used = 0;
-    p = make_pair(CACT_USE, OBJ_POTIONS);
+    p = make_pair(CACT_USE, caction_compound(OBJ_POTIONS));
     if (you.action_count.count(p))
         for (int i = 0; i < maxlev; i++)
             potions_used += you.action_count[p][i];
@@ -1769,9 +1773,9 @@ string scorefile_entry::damage_string(bool terse) const
 
 string scorefile_entry::strip_article_a(const string &s) const
 {
-    if (s.find("a ") == 0)
+    if (starts_with(s, "a "))
         return s.substr(2);
-    else if (s.find("an ") == 0)
+    else if (starts_with(s, "an "))
         return s.substr(3);
     return s;
 }
@@ -1788,7 +1792,7 @@ string scorefile_entry::terse_missile_name() const
 
     for (const string (&affixes)[2] : pre_post)
     {
-        if (aux.find(affixes[0]) != 0)
+        if (!starts_with(aux, affixes[0]))
             continue;
 
         string::size_type end = aux.rfind(affixes[1]);
@@ -1801,17 +1805,13 @@ string scorefile_entry::terse_missile_name() const
 
         // Was this prefixed by "a" or "an"?
         // (This should only ever not be the case with Robin and Ijyb.)
-        if (missile.find("an ") == 0)
-            missile = missile.substr(3);
-        else if (missile.find("a ") == 0)
-            missile = missile.substr(2);
+        missile = strip_article_a(missile);
     }
     return missile;
 }
 
 string scorefile_entry::terse_missile_cause() const
 {
-    string cause;
     const string &aux = auxkilldata;
 
     string monster_prefix = " by ";
@@ -1834,7 +1834,7 @@ string scorefile_entry::terse_missile_cause() const
 string scorefile_entry::terse_beam_cause() const
 {
     string cause = auxkilldata;
-    if (cause.find("by ") == 0 || cause.find("By ") == 0)
+    if (starts_with(cause, "by ") || starts_with(cause, "By "))
         cause = cause.substr(3);
     return cause;
 }
@@ -1860,7 +1860,8 @@ string scorefile_entry::single_cdesc() const
     scname = chop_string(name, 10);
 
     return make_stringf("%8d %s %s-%02d%s", points, scname.c_str(),
-                         race_class_name.c_str(), lvl, (wiz_mode == 1) ? "W" : (explore_mode == 1) ? "E" : "");
+                        race_class_name.c_str(), lvl,
+                        (wiz_mode == 1) ? "W" : (explore_mode == 1) ? "E" : "");
 }
 
 static string _append_sentence_delimiter(const string &sentence,
@@ -2131,7 +2132,7 @@ string scorefile_entry::death_description(death_desc_verbosity verbosity) const
             desc += terse? terse_missile_cause() : auxkilldata;
             needs_damage = true;
         }
-        else if (verbose && auxkilldata.find("by ") == 0)
+        else if (verbose && starts_with(auxkilldata, "by "))
         {
             // "by" is used for priest attacks where the effect is indirect
             // in verbose format we have another line for the monster
@@ -2207,8 +2208,11 @@ string scorefile_entry::death_description(death_desc_verbosity verbosity) const
     case KILLED_BY_STUPIDITY:
         if (terse)
             desc += "stupidity";
-        else if (species_is_unbreathing(static_cast<species_type>(race)))
+        else if (race >= 0 && // not a removed race
+                 species_is_unbreathing(static_cast<species_type>(race)))
+        {
             desc += "Forgot to exist";
+        }
         else
             desc += "Forgot to breathe";
         break;
@@ -2485,8 +2489,11 @@ string scorefile_entry::death_description(death_desc_verbosity verbosity) const
             {
                 // Lugonu's touch or "the <retribution> of <deity>";
                 // otherwise it's a beam
-                if (!isupper(auxkilldata[0]) && auxkilldata.find("the ") != 0)
+                if (!isupper(auxkilldata[0])
+                    && !starts_with(auxkilldata, "the "))
+                {
                     desc += is_vowel(auxkilldata[0]) ? "an " : "a ";
+                }
 
                 desc += auxkilldata;
             }
@@ -2652,7 +2659,8 @@ string scorefile_entry::death_description(death_desc_verbosity verbosity) const
             {
                 if (!semiverbose)
                 {
-                    desc += (is_vowel(auxkilldata[0])) ? "... with an "
+                    desc += auxkilldata == "damnation" ? "... with " :
+                            (is_vowel(auxkilldata[0])) ? "... with an "
                                                        : "... with a ";
                     desc += auxkilldata;
                     desc += _hiscore_newline_string();

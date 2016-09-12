@@ -102,7 +102,7 @@ mon-speak.cc mon-stealth.cc mon-tentacle.cc monster.cc mon-transit.cc \
 mon-util.cc mutation.cc newgame.cc ng-init.cc ng-input.cc ng-restr.cc ng-setup.cc \
 ng-wanderer.cc notes.cc orb.cc ouch.cc output.cc package.cc pattern.cc pcg.cc perlin.cc\
 place.cc place-info.cc playable.cc player-act.cc player.cc player-equip.cc player-reacts.cc player-stats.cc \
-potion.cc prompt.cc quiver.cc random.cc random-var.cc ranged_attack.cc ray.cc religion.cc rot.cc shopping.cc \
+potion.cc prompt.cc quiver.cc randbook.cc random.cc random-var.cc ranged_attack.cc ray.cc religion.cc rot.cc shopping.cc \
 shout.cc show.cc showsymb.cc skill_menu.cc skills.cc species.cc spl-book.cc \
 spl-cast.cc spl-clouds.cc spl-damage.cc spl-goditem.cc spl-miscast.cc spl-monench.cc \
 spl-other.cc spl-selfench.cc spl-summoning.cc spl-tornado.cc spl-transloc.cc \

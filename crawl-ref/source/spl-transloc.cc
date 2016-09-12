@@ -410,7 +410,7 @@ static bool _cell_vetoes_teleport(const coord_def cell, bool check_monsters = tr
         return true;
 
     // As do all clouds; this may change.
-    if (env.cgrid(cell) != EMPTY_CLOUD && !wizard_tele)
+    if (cloud_at(cell) && !wizard_tele)
         return true;
 
     if (cell_is_solid(cell))
@@ -528,38 +528,10 @@ static bool _teleport_player(bool wizard_tele, bool teleportitis)
     }
     else
     {
+        if (player_in_branch(BRANCH_LABYRINTH) && teleportitis)
+            return false;
+
         coord_def newpos;
-
-        // If in a labyrinth, always teleport well away from the centre.
-        // (Check done for the straight line, no pathfinding involved.)
-        bool need_distance_check = false;
-        coord_def centre;
-        if (player_in_branch(BRANCH_LABYRINTH))
-        {
-            if (teleportitis)
-                return false;
-
-            bool success = false;
-            for (int xpos = 0; xpos < GXM; xpos++)
-            {
-                for (int ypos = 0; ypos < GYM; ypos++)
-                {
-                    centre = coord_def(xpos, ypos);
-                    if (!in_bounds(centre))
-                        continue;
-
-                    if (grd(centre) == DNGN_ESCAPE_HATCH_UP)
-                    {
-                        success = true;
-                        break;
-                    }
-                }
-                if (success)
-                    break;
-            }
-            need_distance_check = success;
-        }
-
         int tries = 500;
         do
         {
@@ -567,8 +539,6 @@ static bool _teleport_player(bool wizard_tele, bool teleportitis)
         }
         while (--tries > 0
                && (_cell_vetoes_teleport(newpos)
-                   || need_distance_check && (newpos - centre).rdist()
-                                              <= 30
                    || testbits(env.pgrid(newpos), FPROP_NO_TELE_INTO)));
 
         // Running out of tries shouldn't happen; no message. Return false so
@@ -581,7 +551,7 @@ static bool _teleport_player(bool wizard_tele, bool teleportitis)
         {
             int mons_near_target = 0;
             for (monster_near_iterator mi(newpos, LOS_NO_TRANS); mi; ++mi)
-                if (!mons_is_firewood(*mi) && mons_attitude(*mi) == ATT_HOSTILE)
+                if (mons_is_threatening(*mi) && mons_attitude(*mi) == ATT_HOSTILE)
                     mons_near_target++;
             if (!mons_near_target)
             {
@@ -900,8 +870,8 @@ spret_type cast_golubrias_passage(const coord_def& where, bool fail)
     place_specific_trap(randomized_here, TRAP_GOLUBRIA);
     env.level_state |= LSTATE_GOLUBRIA;
 
-    trap_def *trap = find_trap(randomized_where);
-    trap_def *trap2 = find_trap(randomized_here);
+    trap_def *trap = trap_at(randomized_where);
+    trap_def *trap2 = trap_at(randomized_here);
     if (!trap || !trap2)
     {
         mpr("Something buggy happened.");
@@ -1006,10 +976,10 @@ static void _attract_actor(const actor* agent, actor* victim,
     }
 }
 
-bool fatal_attraction(const coord_def& pos, actor *agent, int pow)
+bool fatal_attraction(const coord_def& pos, const actor *agent, int pow)
 {
     bool affected = false;
-    for (actor_near_iterator ai(pos, LOS_NO_TRANS); ai; ++ai)
+    for (actor_near_iterator ai(pos, LOS_SOLID); ai; ++ai)
     {
         if (*ai == agent || ai->is_stationary() || ai->pos() == pos)
             continue;

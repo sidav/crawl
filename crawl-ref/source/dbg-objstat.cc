@@ -28,6 +28,7 @@
 #include "invent.h"
 #include "itemname.h"
 #include "itemprop.h"
+#include "itemprop-enum.h"
 #include "items.h"
 #include "libutil.h"
 #include "maps.h"
@@ -179,7 +180,8 @@ static const char* missile_brand_field = "BrandNums";
 
 static const vector<string> monster_fields = {
     "Num", "NumMin", "NumMax", "NumSD", "MonsHD", "MonsHP",
-    "MonsXP", "TotalXP", "MonsNumChunks", "TotalNutr"
+    "MonsXP", "TotalXP", "MonsNumChunks", "MonsNumMutChunks", "TotalNutr",
+    "TotalCarnNutr", "TotalGhoulNutr",
 };
 
 static map<monster_type, int> valid_monsters;
@@ -384,11 +386,12 @@ static item_def _dummy_item(const item_type &item)
     item_def dummy_item;
     dummy_item.base_type = _item_orig_base_type(item.base_type);
     dummy_item.sub_type = _item_orig_sub_type(item);
+    dummy_item.quantity = 1;
     // Deck name is reported as buggy if this is not done.
     if (item.base_type == ITEM_DECKS)
     {
         dummy_item.plus = 1;
-        dummy_item.special  = DECK_RARITY_COMMON;
+        dummy_item.deck_rarity = DECK_RARITY_COMMON;
         init_deck(dummy_item);
     }
     return dummy_item;
@@ -708,7 +711,7 @@ void objstat_record_item(const item_def &item)
     case ITEM_RODS:
         _record_item_stat(cur_lev, itype, "RodMana",
                              item.charge_cap / ROD_CHARGE_MULT);
-        _record_item_stat(cur_lev, itype, "RodRecharge", item.special);
+        _record_item_stat(cur_lev, itype, "RodRecharge", item.rod_plus);
         break;
     case ITEM_MISCELLANY:
         all_plus_f = "MiscPlus";
@@ -810,12 +813,25 @@ void objstat_record_monster(const monster *mons)
         // copied from turn_corpse_into_chunks()
         double chunks = (1 + stepdown_value(max_corpse_chunks(type),
                                             4, 4, 12, 12)) / 2.0;
+        item_def chunk_item = _dummy_item(item_type(ITEM_FOOD, FOOD_CHUNK));
+
+        you.mutation[MUT_CARNIVOROUS] = 3;
+        int carn_value = food_value(chunk_item);
+        you.mutation[MUT_CARNIVOROUS] = 0;
+
         _record_monster_stat(lev, mons_ind, "MonsNumChunks", chunks);
+        if (chunk_effect == CE_MUTAGEN)
+            _record_monster_stat(lev, mons_ind, "MonsNumMutChunks", chunks);
+
         if (chunk_effect == CE_CLEAN)
         {
             _record_monster_stat(lev, mons_ind, "TotalNutr",
-                                    chunks * CHUNK_BASE_NUTRITION);
+                                 chunks * food_value(chunk_item));
+            _record_monster_stat(lev, mons_ind, "TotalCarnNutr",
+                                 chunks * carn_value);
         }
+        _record_monster_stat(lev, mons_ind, "TotalGhoulNutr",
+                             chunks * carn_value);
     }
 }
 
@@ -896,7 +912,8 @@ static void _write_stat(map<string, double> &stats, string field)
              || field == "MonsHD"
              || field == "MonsHP"
              || field == "MonsXP"
-             || field == "MonsNumChunks")
+             || field == "MonsNumChunks"
+             || field == "MonsNumMutChunks")
     {
         value = stats[field] / stats["Num"];
     }
@@ -930,32 +947,32 @@ static void _write_stat(map<string, double> &stats, string field)
 }
 
 static string _brand_name(const item_type &item, int brand)
- {
-     string brand_name = "";
-     item_def dummy_item = _dummy_item(item);
+{
+    string brand_name = "";
+    item_def dummy_item = _dummy_item(item);
 
-     if (!brand)
-            brand_name = "none";
-     else
-     {
-         dummy_item.special = brand;
-         switch (item.base_type)
-            {
-            case ITEM_WEAPONS:
-                brand_name = weapon_brand_name(dummy_item, true);
-                break;
-            case ITEM_ARMOUR:
-                brand_name = armour_ego_name(dummy_item, true);
-                break;
-            case ITEM_MISSILES:
-                brand_name = missile_brand_name(dummy_item, MBN_TERSE);
-                break;
-            default:
-                break;
-            }
-     }
-     return brand_name;
- }
+    if (!brand)
+        brand_name = "none";
+    else
+    {
+        dummy_item.brand = brand;
+        switch (item.base_type)
+        {
+        case ITEM_WEAPONS:
+            brand_name = weapon_brand_name(dummy_item, true);
+            break;
+        case ITEM_ARMOUR:
+            brand_name = armour_ego_name(dummy_item, true);
+            break;
+        case ITEM_MISSILES:
+            brand_name = missile_brand_name(dummy_item, MBN_TERSE);
+            break;
+        default:
+            break;
+        }
+    }
+    return brand_name;
+}
 
 static string _item_name(const item_type &item)
 {
