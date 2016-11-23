@@ -107,8 +107,7 @@ void player::set_position(const coord_def &c)
 
     if (real_move)
     {
-        reset_prev_move();
-
+        prev_grd_targ.reset();
         if (duration[DUR_QUAD_DAMAGE])
             invalidate_agrid(true);
 
@@ -173,25 +172,7 @@ bool player::is_habitable_feat(dungeon_feature_type actual_grid) const
     if (!can_pass_through_feat(actual_grid))
         return false;
 
-    if (airborne()
-#if TAG_MAJOR_VERSION == 34
-            || species == SP_DJINNI
-#endif
-            )
-    {
-        return true;
-    }
-
-    if (
-#if TAG_MAJOR_VERSION == 34
-        actual_grid == DNGN_LAVA && species != SP_LAVA_ORC ||
-#endif
-        actual_grid == DNGN_DEEP_WATER && !can_swim())
-    {
-        return false;
-    }
-
-    return true;
+    return !is_feat_dangerous(actual_grid);
 }
 
 size_type player::body_size(size_part_type psize, bool base) const
@@ -321,18 +302,19 @@ random_var player::attack_delay(const item_def *projectile, bool rescale) const
         // longer so when Haste speeds it up, only Finesse will apply.
         if (you.duration[DUR_HASTE] && rescale)
             attk_delay = haste_mul(attk_delay);
-        attk_delay = rv::max(random_var(2), div_rand_round(attk_delay, 2));
+        attk_delay = div_rand_round(attk_delay, 2);
     }
 
     // see comment on player.cc:player_speed
-    return div_rand_round(attk_delay * you.time_taken, 10);
+    return rv::max(div_rand_round(attk_delay * you.time_taken, 10),
+                   random_var(2));
 }
 
 // Returns the item in the given equipment slot, nullptr if the slot is empty.
 // eq must be in [EQ_WEAPON, EQ_RING_AMULET], or bad things will happen.
 item_def *player::slot_item(equipment_type eq, bool include_melded) const
 {
-    ASSERT_RANGE(eq, EQ_WEAPON, NUM_EQUIP);
+    ASSERT_RANGE(eq, EQ_FIRST_EQUIP, NUM_EQUIP);
 
     const int item = equip[eq];
     if (item == -1 || !include_melded && melded[eq])
@@ -662,7 +644,7 @@ bool player::fumbles_attack()
     // Fumbling in shallow water.
     if (floundering() || liquefied_ground())
     {
-        if (x_chance_in_y(4, dex()) || one_chance_in(5))
+        if (x_chance_in_y(3, 8))
         {
             mpr("Your unstable footing causes you to fumble your attack.");
             did_fumble = true;
@@ -671,11 +653,6 @@ bool player::fumbles_attack()
             learned_something_new(HINT_FUMBLING_SHALLOW_WATER);
     }
     return did_fumble;
-}
-
-bool player::cannot_fight() const
-{
-    return false;
 }
 
 void player::attacking(actor *other, bool ranged)
@@ -692,7 +669,7 @@ void player::attacking(actor *other, bool ranged)
             pet_target = mon->mindex();
     }
 
-    if (ranged || mons_is_firewood((monster*) other))
+    if (ranged || mons_is_firewood(*(monster*) other))
         return;
 
     const int chance = pow(3, player_mutation_level(MUT_BERSERK) - 1);
@@ -780,8 +757,7 @@ bool player::go_berserk(bool intentional, bool potion)
     if (!you.duration[DUR_MIGHT])
         notify_stat_change(STAT_STR, 5, true);
 
-    if (you.berserk_penalty != NO_BERSERK_PENALTY)
-        you.berserk_penalty = 0;
+    you.berserk_penalty = 0;
 
     you.redraw_quiver = true; // Account for no firing.
 
@@ -810,7 +786,6 @@ bool player::can_go_berserk() const
 bool player::can_go_berserk(bool intentional, bool potion, bool quiet,
                             string *reason) const
 {
-    COMPILE_CHECK(HUNGER_STARVING - 100 + BERSERK_NUTRITION < HUNGER_VERY_HUNGRY);
     const bool verbose = (intentional || potion) && !quiet;
     string msg;
     bool success = false;
@@ -837,8 +812,6 @@ bool player::can_go_berserk(bool intentional, bool potion, bool quiet,
         msg = "You cannot go berserk while under stasis.";
     else if (!intentional && !potion && clarity())
         msg = "You're too calm and focused to rage.";
-    else if (hunger <= HUNGER_VERY_HUNGRY)
-        msg = "You're too hungry to go berserk.";
     else
         success = true;
 

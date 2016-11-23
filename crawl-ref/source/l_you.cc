@@ -20,8 +20,8 @@
 #include "jobs.h"
 #include "losglobal.h"
 #include "mapmark.h"
-#include "misc.h"
 #include "mutation.h"
+#include "nearby-danger.h"
 #include "newgame_def.h"
 #include "ng-setup.h"
 #include "ouch.h"
@@ -119,7 +119,6 @@ LUARET1(you_res_fire, number, player_res_fire(false))
 LUARET1(you_res_cold, number, player_res_cold(false))
 LUARET1(you_res_draining, number, player_prot_life(false))
 LUARET1(you_res_shock, number, player_res_electricity(false))
-LUARET1(you_res_statdrain, boolean, player_sust_attr(false))
 LUARET1(you_res_mutation, number, you.rmut_from_item(false) ? 1 : 0)
 LUARET1(you_see_invisible, boolean, you.can_see_invisible(false))
 // Returning a number so as not to break existing scripts.
@@ -176,9 +175,7 @@ LUARET1(you_depth_fraction, number,
 // [1KB] FIXME: eventually eliminate the notion of absolute depth at all.
 LUARET1(you_absdepth, number, env.absdepth0 + 1)
 LUAWRAP(you_stop_activity, interrupt_activity(AI_FORCE_INTERRUPT))
-LUARET1(you_taking_stairs, boolean,
-        current_delay_action() == DELAY_ASCENDING_STAIRS
-        || current_delay_action() == DELAY_DESCENDING_STAIRS)
+LUARET1(you_taking_stairs, boolean, player_stair_delay())
 LUARET1(you_turns, number, you.num_turns)
 LUARET1(you_time, number, you.elapsed_time)
 LUARET1(you_spell_levels, number, player_spell_levels())
@@ -296,8 +293,7 @@ static int l_you_mem_spells(lua_State *ls)
     char buf[2];
     buf[1] = 0;
 
-    vector<int> books;
-    vector<spell_type> mem_spells = get_mem_spell_list(books);
+    vector<spell_type> mem_spells = get_mem_spell_list();
 
     for (size_t i = 0; i < mem_spells.size(); ++i)
     {
@@ -481,11 +477,25 @@ LUAFN(you_train_skill)
     skill_type sk = str_to_skill(luaL_checkstring(ls, 1));
     if (lua_gettop(ls) >= 2 && you.can_train[sk])
     {
-        you.train[sk] = min(max(luaL_checkint(ls, 2), 0), 2);
+        you.train[sk] = min(max((training_status)luaL_checkint(ls, 2),
+                                                 TRAINING_DISABLED),
+                                             TRAINING_FOCUSED);
         reset_training();
     }
 
     PLUARET(number, you.train[sk]);
+}
+
+LUAFN(you_skill_cost)
+{
+    skill_type sk = str_to_skill(luaL_checkstring(ls, 1));
+    float cost = scaled_skill_cost(sk);
+    if (cost == 0)
+    {
+        lua_pushnil(ls);
+        return 1;
+    }
+    PLUARET(number, max(1, (int)(10.0 * cost + 0.5)) * 0.1);
 }
 
 LUAFN(you_status)
@@ -557,6 +567,7 @@ static const struct luaL_reg you_clib[] =
     { "can_train_skill", you_can_train_skill },
     { "best_skill",   you_best_skill },
     { "train_skill",  you_train_skill },
+    { "skill_cost"  , you_skill_cost },
     { "xl"          , you_xl },
     { "xl_progress" , you_xl_progress },
     { "res_poison"  , you_res_poison },
@@ -564,7 +575,6 @@ static const struct luaL_reg you_clib[] =
     { "res_cold"    , you_res_cold   },
     { "res_draining", you_res_draining },
     { "res_shock"   , you_res_shock },
-    { "res_statdrain", you_res_statdrain },
     { "res_mutation", you_res_mutation },
     { "see_invisible", you_see_invisible },
     { "spirit_shield", you_spirit_shield },
@@ -791,38 +801,6 @@ LUAFN(you_in_branch)
     PLUARET(boolean, in_branch);
 }
 
-LUAFN(_you_shopping_list_has)
-{
-    const char *thing = luaL_checkstring(ls, 1);
-    MAPMARKER(ls, 2, mark);
-
-    level_pos pos(level_id::current(), mark->pos);
-    bool has = shopping_list.is_on_list(thing, &pos);
-    PLUARET(boolean, has);
-}
-
-LUAFN(_you_shopping_list_add)
-{
-    const char *thing = luaL_checkstring(ls, 1);
-    const char *verb  = luaL_checkstring(ls, 2);
-    const int  cost   = luaL_checkint(ls, 3);
-    MAPMARKER(ls, 4, mark);
-
-    level_pos pos(level_id::current(), mark->pos);
-    bool added = shopping_list.add_thing(thing, verb, cost, &pos);
-    PLUARET(boolean, added);
-}
-
-LUAFN(_you_shopping_list_del)
-{
-    const char *thing = luaL_checkstring(ls, 1);
-    MAPMARKER(ls, 2, mark);
-
-    level_pos pos(level_id::current(), mark->pos);
-    bool deleted = shopping_list.del_thing(thing, &pos);
-    PLUARET(boolean, deleted);
-}
-
 LUAFN(_you_at_branch_bottom)
 {
     PLUARET(boolean, at_branch_bottom());
@@ -877,9 +855,6 @@ static const struct luaL_reg you_dlib[] =
 { "dock_piety",         you_dock_piety },
 { "lose_piety",         you_lose_piety },
 { "in_branch",          you_in_branch },
-{ "shopping_list_has",  _you_shopping_list_has },
-{ "shopping_list_add",  _you_shopping_list_add },
-{ "shopping_list_del",  _you_shopping_list_del },
 { "stop_running",       you_stop_running },
 { "at_branch_bottom",   _you_at_branch_bottom },
 { "gain_exp",           you_gain_exp },

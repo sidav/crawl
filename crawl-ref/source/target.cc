@@ -14,6 +14,7 @@
 #include "libutil.h"
 #include "los_def.h"
 #include "losglobal.h"
+#include "mon-tentacle.h"
 #include "spl-damage.h"
 #include "spl-goditem.h" // player_is_debuffable
 #include "terrain.h"
@@ -38,11 +39,6 @@ bool targetter::set_aim(coord_def a)
 }
 
 bool targetter::can_affect_outside_range()
-{
-    return false;
-}
-
-bool targetter::can_affect_walls()
 {
     return false;
 }
@@ -130,7 +126,7 @@ void targetter_beam::set_explosion_target(bolt &tempbeam)
     tempbeam.target = origin;
     for (auto c : path_taken)
     {
-        if (cell_is_solid(c) && !tempbeam.can_affect_wall(grd(c)))
+        if (cell_is_solid(c) && !tempbeam.can_affect_wall(c))
             break;
         tempbeam.target = c;
         if (anyone_there(c) && !tempbeam.ignores_monster(monster_at(c)))
@@ -166,7 +162,7 @@ aff_type targetter_beam::is_affected(coord_def loc)
     for (auto pc : path_taken)
     {
         if (cell_is_solid(pc)
-            && !beam.can_affect_wall(grd(pc))
+            && !beam.can_affect_wall(pc)
             && max_expl_rad > 0)
         {
             break;
@@ -180,7 +176,7 @@ aff_type targetter_beam::is_affected(coord_def loc)
                 on_path = true;
             else if (cell_is_solid(pc))
             {
-                bool res = beam.can_affect_wall(grd(pc));
+                bool res = beam.can_affect_wall(pc);
                 if (res)
                     return current;
                 else
@@ -204,7 +200,7 @@ aff_type targetter_beam::is_affected(coord_def loc)
     {
         if ((loc - c).rdist() <= 9)
         {
-            bool aff_wall = beam.can_affect_wall(grd(loc));
+            bool aff_wall = beam.can_affect_wall(loc);
             if (!cell_is_solid(loc) || aff_wall)
             {
                 coord_def centre(9,9);
@@ -232,10 +228,18 @@ bool targetter_beam::affects_monster(const monster_info& mon)
     //     bolt::is_harmless (and transitively, bolt::nasty_to) should
     //     take monster_infos instead.
     const monster* m = monster_at(mon.pos);
-    return m && (!beam.is_harmless(m) || beam.nice_to(mon))
-           && !(beam.is_enchantment() && beam.has_saving_throw()
-                && beam.flavour != BEAM_VIRULENCE
-                && mon.res_magic() == MAG_IMMUNE);
+    if (!m)
+        return false;
+
+    if (beam.is_enchantment() && beam.has_saving_throw()
+        && mon.res_magic() == MAG_IMMUNE)
+    {
+        return false;
+    }
+
+    return !beam.is_harmless(m) || beam.nice_to(mon)
+    // Inner flame affects allies without harming or helping them.
+           || beam.flavour == BEAM_INNER_FLAME && !m->is_summoned();
 }
 
 targetter_unravelling::targetter_unravelling(const actor *act, int r, int pow)
@@ -455,6 +459,33 @@ aff_type targetter_smite::is_affected(coord_def loc)
     return AFF_NO;
 }
 
+targetter_transference::targetter_transference(const actor* act, int aoe) :
+    targetter_smite(act, LOS_RADIUS, aoe, aoe, false, nullptr)
+{
+}
+
+bool targetter_transference::valid_aim(coord_def a)
+{
+    if (!targetter_smite::valid_aim(a))
+        return false;
+
+    const actor *victim = actor_at(a);
+    if (victim && you.can_see(*victim))
+    {
+        if (mons_is_hepliaklqana_ancestor(victim->type))
+        {
+            return notify_fail("You can't transfer your ancestor with "
+                               "themself.");
+        }
+        if (mons_is_tentacle_or_tentacle_segment(victim->type)
+            || victim->is_stationary())
+        {
+            return notify_fail("You can't transfer that.");
+        }
+    }
+    return true;
+}
+
 targetter_fragment::targetter_fragment(const actor* act, int power, int ran) :
     targetter_smite(act, ran, 1, 1, true, nullptr),
     pow(power)
@@ -509,11 +540,6 @@ bool targetter_fragment::set_aim(coord_def a)
     beam.determine_affected_cells(exp_map_max, coord_def(), 0,
                                   exp_range_max, false, false);
 
-    return true;
-}
-
-bool targetter_fragment::can_affect_walls()
-{
     return true;
 }
 
@@ -674,7 +700,8 @@ aff_type targetter_cloud::is_affected(coord_def loc)
     return AFF_NO;
 }
 
-targetter_splash::targetter_splash(const actor* act)
+targetter_splash::targetter_splash(const actor* act, int ran)
+    : range(ran)
 {
     ASSERT(act);
     agent = act;
@@ -683,7 +710,7 @@ targetter_splash::targetter_splash(const actor* act)
 
 bool targetter_splash::valid_aim(coord_def a)
 {
-    if (agent && grid_distance(origin, a) > 1)
+    if (agent && grid_distance(origin, a) > range)
         return notify_fail("Out of range.");
     return true;
 }
@@ -1100,7 +1127,9 @@ void targetter_shadow_step::get_additional_sites(coord_def a)
 
     const actor *victim = actor_at(a);
     if (!victim || !victim->as_monster()
-        || mons_is_firewood(victim->as_monster()) || victim->invisible()
+        || mons_is_firewood(*victim->as_monster())
+        || victim->as_monster()->friendly()
+        || !agent->can_see(*victim)
         || !victim->umbraed())
     {
         no_landing_reason = BLOCKED_NO_TARGET;
@@ -1369,4 +1398,91 @@ aff_type targetter_shotgun::is_affected(coord_def loc)
     return (zapped[loc] >= num_beams) ? AFF_YES :
            (zapped[loc] > 0)          ? AFF_MAYBE
                                       : AFF_NO;
+}
+
+targetter_monster_sequence::targetter_monster_sequence(const actor *act, int pow, int r) :
+                          targetter_beam(act, r, ZAP_EXPLOSIVE_BOLT, pow, 0, 0)
+{
+}
+
+bool targetter_monster_sequence::set_aim(coord_def a)
+{
+    if (!targetter_beam::set_aim(a))
+        return false;
+
+    bolt tempbeam = beam;
+    tempbeam.target = origin;
+    bool last_cell_has_mons = true;
+    bool passed_through_mons = false;
+    for (auto c : path_taken)
+    {
+        if (!last_cell_has_mons)
+            return false; // we must have an uninterrupted chain of monsters
+
+        if (cell_is_solid(c))
+            break;
+
+        tempbeam.target = c;
+        if (anyone_there(c))
+        {
+            passed_through_mons = true;
+            tempbeam.use_target_as_pos = true;
+            exp_map.init(INT_MAX);
+            tempbeam.determine_affected_cells(exp_map, coord_def(), 0,
+                                              0, true, true);
+        }
+        else
+            last_cell_has_mons = false;
+    }
+
+    return passed_through_mons;
+}
+
+bool targetter_monster_sequence::valid_aim(coord_def a)
+{
+    if (!targetter_beam::set_aim(a))
+        return false;
+
+    bool last_cell_has_mons = true;
+    bool passed_through_mons = false;
+    for (auto c : path_taken)
+    {
+        if (!last_cell_has_mons)
+            return false; // we must have an uninterrupted chain of monsters
+
+        if (cell_is_solid(c))
+            return false;
+
+        if (!anyone_there(c))
+            last_cell_has_mons = false;
+        else
+            passed_through_mons = true;
+    }
+
+    return passed_through_mons;
+}
+
+aff_type targetter_monster_sequence::is_affected(coord_def loc)
+{
+    bool on_path = false;
+    for (auto c : path_taken)
+    {
+        if (cell_is_solid(c))
+            break;
+        if (c == loc)
+            on_path = true;
+        if (anyone_there(c)
+            && !beam.ignores_monster(monster_at(c))
+            && (loc - c).rdist() <= 9)
+        {
+            coord_def centre(9,9);
+            if (exp_map(loc - c + centre) < INT_MAX
+                && !cell_is_solid(loc))
+            {
+                return AFF_YES;
+            }
+        }
+    }
+
+    return on_path ? AFF_TRACER : AFF_NO;
 }

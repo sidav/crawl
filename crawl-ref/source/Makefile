@@ -82,7 +82,7 @@ MAKEFLAGS += -rR # This only works for recursive makes, i.e. contribs ...
 
 .PHONY: all test install clean clean-contrib clean-rltiles clean-android \
         distclean debug debug-lite profile package-source source \
-        build-windows package-windows rest docs greet api android FORCE monster
+        build-windows package-windows docs greet api android FORCE monster
 
 include Makefile.obj
 
@@ -432,7 +432,7 @@ endif
 
 # Find the oldest SDK available, in attempt to make this build as
 # backward-compatible as we possibly can.
-SDK_VER := $(shell ls $(DEVELOPER_PATH)/SDKs | sort -n | head -1 | perl -pe 's/^MacOSX//g;s/.sdk$$//g')
+SDK_VER := $(shell ls $(DEVELOPER_PATH)/SDKs | grep -v "MacOSX.sdk" | sort -n | head -1 | perl -pe 's/^MacOSX//g;s/.sdk$$//g')
 
 ifeq ($(SDK_VER),10.4u)
 SDK_VER := 10.4
@@ -631,30 +631,38 @@ ifndef BUILD_LUA
     BUILD_LUA = yes
   endif
 endif
-ifndef BUILD_LUA
-  ifneq ($(USE_LUAJIT),)
-    ifeq ($(shell $(PKGCONFIG) luajit --exists || echo no),)
-      LUA_PACKAGE = luajit
-    else
-      BUILD_LUA = yes
-    endif
-  else
-    ifneq ($(shell $(PKGCONFIG) lua5.1 --exists || echo no),)
-      ifneq ($(shell $(PKGCONFIG) lua-5.1 --exists || echo no),)
-        ifneq ($(shell $(PKGCONFIG) lua --exists || echo no),)
-          BUILD_LUA = yes
-        else
-          ifeq ($(shell $(PKGCONFIG) lua --modversion | head -c 3),5.1)
-            LUA_PACKAGE = lua
-          else
-            BUILD_LUA = yes
-          endif
-        endif
+# You can override the Lua package search with "make LUA_PACKAGE=lua-5-1".
+# pkg-config is still required.
+ifndef LUA_PACKAGE
+  ifndef BUILD_LUA
+    ifneq ($(USE_LUAJIT),)
+      ifeq ($(shell $(PKGCONFIG) luajit --exists || echo no),)
+        LUA_PACKAGE = luajit
       else
-        LUA_PACKAGE = lua-5.1
+        BUILD_LUA = yes
       endif
     else
-      LUA_PACKAGE = lua5.1
+      ifneq ($(shell $(PKGCONFIG) lua5.1 --exists || echo no),)
+        ifneq ($(shell $(PKGCONFIG) lua-5.1 --exists || echo no),)
+          ifneq ($(shell $(PKGCONFIG) lua51 --exists || echo no),)
+            ifneq ($(shell $(PKGCONFIG) lua --exists || echo no),)
+              BUILD_LUA = yes
+            else
+              ifeq ($(shell $(PKGCONFIG) lua --modversion | head -c 3),5.1)
+                LUA_PACKAGE = lua
+              else
+                BUILD_LUA = yes
+              endif
+            endif
+          else
+            LUA_PACKAGE = lua51
+          endif
+        else
+          LUA_PACKAGE = lua-5.1
+        endif
+      else
+        LUA_PACKAGE = lua5.1
+      endif
     endif
   endif
 endif
@@ -954,12 +962,7 @@ ifdef PROPORTIONAL_FONT
     INSTALL_FONTS += "$(PROPORTIONAL_FONT)"
   endif
 else
-  SYS_PROPORTIONAL_FONT = $(shell { name=$(OUR_PROPORTIONAL_FONT);\
-    {\
-      fc-list | sed 's/: .*//' | grep -Fi "/$$name";\
-      for dir in /usr/share/fonts /usr/local/share/fonts /usr/*/lib/X11/fonts;\
-      do [ -d $$dir ] && echo $$dir; done;\
-    } | xargs -I% find % -type f -iname $$name -print | head -n1; } 2>/dev/null)
+  SYS_PROPORTIONAL_FONT = $(shell util/find_font "$(OUR_PROPORTIONAL_FONT)")
   ifneq (,$(SYS_PROPORTIONAL_FONT))
     ifeq (,$(COPY_FONTS))
       DEFINES += -DPROPORTIONAL_FONT=\"$(SYS_PROPORTIONAL_FONT)\"
@@ -979,12 +982,7 @@ ifdef MONOSPACED_FONT
     INSTALL_FONTS += "$(MONOSPACED_FONT)"
   endif
 else
-  SYS_MONOSPACED_FONT = $(shell { name=$(OUR_MONOSPACED_FONT);\
-    {\
-      fc-list | sed 's/: .*//' | grep -Fi "/$$name";\
-      for dir in /usr/share/fonts /usr/local/share/fonts /usr/*/lib/X11/fonts;\
-      do [ -d $$dir ] && echo $$dir; done;\
-    } | xargs -I% find % -type f -iname $$name -print | head -n1; } 2>/dev/null)
+  SYS_MONOSPACED_FONT = $(shell util/find_font "$(OUR_MONOSPACED_FONT)")
   ifneq (,$(SYS_MONOSPACED_FONT))
     ifeq (,$(COPY_FONTS))
       DEFINES += -DMONOSPACED_FONT=\"$(SYS_MONOSPACED_FONT)\"
@@ -1192,7 +1190,7 @@ RLTILES_CFLAGS := $(ALL_CFLAGS) -Wno-tautological-compare
 
 DOC_BASE        := ../docs
 DOC_TEMPLATES   := $(DOC_BASE)/template
-GENERATED_DOCS  := $(DOC_BASE)/aptitudes.txt $(DOC_BASE)/FAQ.html $(DOC_BASE)/crawl_manual.txt
+GENERATED_DOCS  := $(DOC_BASE)/aptitudes.txt $(DOC_BASE)/aptitudes-wide.txt $(DOC_BASE)/FAQ.html $(DOC_BASE)/crawl_manual.txt
 GENERATED_HEADERS := art-enum.h config.h mon-mst.h #the rest are private
 GENERATED_FILES := $(GENERATED_HEADERS) art-data.h mi-enum.h \
                    $(RLTILES)/dc-unrand.txt build.h compflag.h dat/dlua/tags.lua \
@@ -1256,11 +1254,8 @@ else
 webserver:
 endif
 
-ifeq (,$(filter monster,$(MAKECMDGOALS)))
-OBJECTS += main.o
-else
-OBJECTS += util/monster/monster-main.o
-endif
+GAME_OBJS=$(OBJECTS) main.o $(EXTRA_OBJECTS)
+MONSTER_OBJS=$(OBJECTS) util/monster/monster-main.o $(EXTRA_OBJECTS)
 
 # There might not have been any goals passed on the commandline, so...
 GOALS = $(or $(MAKECMDGOALS),$(.DEFAULT_GOAL))
@@ -1335,10 +1330,10 @@ endif
 
 # This information is included in crash reports, and is printed with
 # "crawl -version"
-compflag.h: $(OBJECTS:.o=.cc) util/gen-cflg.pl .cflags
+compflag.h: $(OBJECTS:.o=.cc) main.cc util/gen-cflg.pl .cflags
 	$(QUIET_GEN)util/gen-cflg.pl compflag.h "$(ALL_CFLAGS)" "$(LDFLAGS)" "$(HOST)" "$(ARCH)"
 
-build.h: $(OBJECTS:.o=.cc) util/gen_ver.pl
+build.h: $(OBJECTS:.o=.cc) main.cc util/gen_ver.pl
 	$(QUIET_GEN)util/gen_ver.pl $@ $(MERGE_BASE)
 
 version.o: build.h compflag.h
@@ -1350,14 +1345,14 @@ $(DOC_BASE)/aptitudes.txt: $(DOC_TEMPLATES)/apt-tmpl.txt species-data.h aptitude
 						   util/gen-apt.pl
 	$(QUIET_GEN)./util/gen-apt.pl $@ $^
 
+$(DOC_BASE)/aptitudes-wide.txt: $(DOC_TEMPLATES)/apt-tmpl-wide.txt species-data.h \
+						   aptitudes.h util/gen-apt.pl
+	$(QUIET_GEN)./util/gen-apt.pl $@ $^
+
 $(DOC_BASE)/FAQ.html: dat/database/FAQ.txt util/FAQ2html.pl
 	$(QUIET_GEN)./util/FAQ2html.pl $< $@
 
-rest:
-	wget -O - https://crawl.develz.org/wiki/doku.php?id=dcss:manual:rest \
-	| sed -f util/undoku.sed | tr -d '\r' > $(DOC_BASE)/crawl_manual.reST
-
-$(DOC_BASE)/crawl_manual.txt: $(DOC_BASE)/crawl_manual.reST util/unrest.pl
+$(DOC_BASE)/crawl_manual.txt: $(DOC_BASE)/crawl_manual.rst util/unrest.pl
 	$(QUIET_GEN)util/unrest.pl <$< >$@
 
 CLUA_MODULE_SOURCES = $(filter l_%,$(OBJECTS:%.o=%.cc))
@@ -1531,17 +1526,16 @@ distclean: clean clean-contrib clean-rltiles
 	$(RM) -r mac-app-zips
 	$(RM) -r $(DOXYGEN_HTML_GEN)
 
-$(GAME): $(OBJECTS) $(EXTRA_OBJECTS) $(CONTRIB_LIBS) dat/dlua/tags.lua
-	+$(QUIET_LINK)$(CXX) $(LDFLAGS) $(EXTRA_OBJECTS) $(OBJECTS) -o $(GAME) $(LIBS)
+$(GAME): $(GAME_OBJS) $(CONTRIB_LIBS) dat/dlua/tags.lua
+	+$(QUIET_LINK)$(CXX) $(LDFLAGS) $(GAME_OBJS) -o $(GAME) $(LIBS)
 
 util/monster/vault_monster_data.h: dat/des util/gather_mons
 	util/gather_mons -v > $@
 
 util/monster/monster-main.o: util/monster/vault_monster_data.h
 
-util/monster/monster: $(OBJECTS) $(EXTRA_OBJECTS) $(CONTRIB_LIBS) dat/dlua/tags.lua
-	+$(QUIET_LINK)$(CXX) $(LDFLAGS) $(EXTRA_OBJECTS) $(OBJECTS) \
-	 -o $@ $(LIBS)
+util/monster/monster: $(MONSTER_OBJS) $(CONTRIB_LIBS) dat/dlua/tags.lua
+	+$(QUIET_LINK)$(CXX) $(LDFLAGS) $(MONSTER_OBJS) -o $@ $(LIBS)
 
 monster: util/monster/monster
 
@@ -1594,7 +1588,7 @@ endif
 # Plain old compilation
 #
 
-$(OBJECTS:%.o=%.cc): $(CONTRIB_LIBS)
+$(OBJECTS:%.o=%.cc) main.cc: $(CONTRIB_LIBS)
 
 $(UTIL)%.o: ALL_CFLAGS=$(YACC_CFLAGS)
 $(TILEDEFOBJS): ALL_CFLAGS=$(RLTILES_CFLAGS)

@@ -30,16 +30,14 @@ enum spflag_type
     SPFLAG_ESCAPE               = 0x002000,      // useful for running away
     SPFLAG_RECOVERY             = 0x004000,      // healing or recovery spell
     SPFLAG_AREA                 = 0x008000,      // area affect
-    SPFLAG_BATTLE               = 0x010000,      // a non-Conjuration spell that
-                                                 // is still a battle spell
+                            //  = 0x010000,      // was SPFLAG_BATTLE
     SPFLAG_SELFENCH             = 0x020000,      // monsters use as selfench
     SPFLAG_MONSTER              = 0x040000,      // monster-only spell
     SPFLAG_NEEDS_TRACER         = 0x080000,      // monster casting needs tracer
     SPFLAG_NOISY                = 0x100000,      // makes noise, even if innate
     SPFLAG_TESTING              = 0x200000,      // a testing/debugging spell
     SPFLAG_CORPSE_VIOLATING     = 0x400000,      // Conduct violation for Fedhas
-    SPFLAG_ALLOW_SELF           = 0x800000,      // Not helpful, but may want to
-                                                 // target self
+                               // 0x800000,      // was SPFLAG_ALLOW_SELF
     SPFLAG_UTILITY             = 0x1000000,      // usable no matter what foe is
     SPFLAG_NO_GHOST            = 0x2000000,      // ghosts can't get this spell
     SPFLAG_CLOUD               = 0x4000000,      // makes a cloud
@@ -75,7 +73,7 @@ enum spret_type
 
 #define fail_check() if (fail) return SPRET_FAIL
 
-void surge_power(const int enhanced, const string adj = "");
+void surge_power(const int enhanced);
 
 typedef bool (*spell_selector)(spell_type spell);
 
@@ -117,10 +115,10 @@ int power_to_barcount(int power);
 
 string spell_power_string(spell_type spell, bool rod = false);
 string spell_range_string(spell_type spell, bool rod = false);
-string range_string(int range, int maxrange, ucs_t caster_char);
+string range_string(int range, int maxrange, char32_t caster_char);
 string spell_schools_string(spell_type spell);
 string spell_hunger_string(spell_type spell, bool rod = false);
-string spell_noise_string(spell_type spell);
+string spell_noise_string(spell_type spell, int chop_wiz_display_width = 0);
 
 void spell_skills(spell_type spell, set<skill_type> &skills);
 

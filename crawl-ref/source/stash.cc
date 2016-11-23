@@ -90,7 +90,7 @@ string stash_annotate_item(const char *s, const item_def *item, bool exclusive)
     // autopickup configuration annotations, and annotating an item based on
     // item_needs_autopickup while trying to decide if the item needs to be
     // autopickedup leads to infinite recursion
-    if (item_needs_autopickup(*item))
+    if (Options.autopickup_search && item_needs_autopickup(*item))
         text += " {autopickup}";
 
     return text;
@@ -390,7 +390,7 @@ string Stash::stash_item_name(const item_def &item)
 
     if (in_inventory(item))
     {
-        name.insert(0, "(carried) ");
+        name.insert(0, " (carried) ");
         return name;
     }
 
@@ -474,6 +474,17 @@ vector<stash_search_result> Stash::matches_search(
         res.pos.pos = pos;
 
     return results;
+}
+
+/// Fedhas: rot away all corpses.
+void Stash::rot_all_corpses()
+{
+    for (int i = items.size() - 1; i >= 0; i--)
+    {
+        item_def &item = items[i];
+        if (item.is_type(OBJ_CORPSES, CORPSE_BODY) && item.stash_freshness >= 0)
+            item.stash_freshness = -1;
+    }
 }
 
 void Stash::_update_corpses(int rot_time)
@@ -935,6 +946,13 @@ void LevelStashes::get_matching_stashes(
             results.push_back(res);
         }
     }
+}
+
+/// Fedhas: rot away all corpses.
+void LevelStashes::rot_all_corpses()
+{
+    for (auto &entry : m_stashes)
+        entry.second.rot_all_corpses();
 }
 
 void LevelStashes::_update_corpses(int rot_time)
@@ -1516,7 +1534,7 @@ bool StashTracker::display_search_results(
     if (results_in.empty())
         return false;
 
-    vector<stash_search_result> * results = &results_in;
+    vector<stash_search_result> * results;
     vector<stash_search_result> results_filtered;
 
     if (filter_useless)
@@ -1564,7 +1582,9 @@ bool StashTracker::display_search_results(
 
         matchtitle << res.match;
 
-        MenuEntry *me = new MenuEntry(matchtitle.str(), MEL_ITEM, 1, hotkey);
+        MenuEntry *me = new MenuEntry(matchtitle.str(), MEL_ITEM, 1,
+                                      res.in_inventory ? 0
+                                                       : (int)hotkey);
         me->data = &res;
 
         if (res.shop && !res.shop->is_visited())
@@ -1579,7 +1599,8 @@ bool StashTracker::display_search_results(
         }
 
         stashmenu.add_entry(me);
-        ++hotkey;
+        if (!res.in_inventory)
+            ++hotkey;
     }
 
     stashmenu.set_flags(MF_SINGLESELECT | MF_ALLOW_FORMATTING);

@@ -649,7 +649,7 @@ public:
     bool generate_awake;
     bool patrolling;
     bool band;
-    int colour; // either COLOUR_INHERIT for "default", COLOUR_INDEF for any
+    int colour; // either COLOUR_INHERIT for "default", COLOUR_UNDEF for any
                 // colour upon creation, or an otherwise valid colour_t value.
 
     god_type god;
@@ -734,6 +734,7 @@ private:
     void get_zombie_type(string s, mons_spec &spec) const;
     mons_spec get_hydra_spec(const string &name) const;
     mons_spec get_slime_spec(const string &name) const;
+    mons_spec get_salt_spec(const string &name) const;
     mons_spec get_zombified_monster(const string &name,
                                     monster_type zomb) const;
     mons_spec_slot parse_mons_spec(string spec);
@@ -1333,4 +1334,6 @@ string mapdef_split_key_item(const string &s, string *key, int *separator,
 const char *map_section_name(int msect);
 
 int store_tilename_get_index(const string& tilename);
+
+int str_to_ego(object_class_type item_type, string ego_str);
 #endif

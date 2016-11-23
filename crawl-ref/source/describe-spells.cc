@@ -17,6 +17,7 @@
 #include "macro.h"
 #include "menu.h"
 #include "mon-book.h"
+#include "monster.h" // SEEN_SPELLS_KEY
 #include "prompt.h"
 #include "religion.h"
 #include "spl-book.h"
@@ -24,8 +25,6 @@
 #include "stringutil.h"
 #include "state.h"
 #include "unicode.h"
-
-extern const spell_type serpent_of_hell_breaths[4][3];
 
 /**
  * Returns a spellset containing the spells for the given item.
@@ -54,7 +53,7 @@ static string _ability_type_descriptor(mon_spell_slot_flag type)
 {
     static const map<mon_spell_slot_flag, string> descriptors =
     {
-        { MON_SPELL_NATURAL, "special" },
+        { MON_SPELL_NATURAL, "natural" },
         { MON_SPELL_MAGICAL, "magical" },
         { MON_SPELL_PRIEST,  "divine" },
     };
@@ -63,38 +62,138 @@ static string _ability_type_descriptor(mon_spell_slot_flag type)
 }
 
 /**
+ * What type of effects is this spell type vulnerable to?
+ *
+ * @param type              The type of spell-ability; e.g. MON_SPELL_MAGICAL.
+ * @param silencable        Whether any of the spells are subject to Silence
+ *                          despite being non-wizardly and non-priestly.
+ * @return                  A description of the spell's vulnerabilities.
+ */
+static string _ability_type_vulnerabilities(mon_spell_slot_flag type,
+                                            bool silencable)
+{
+    if (type == MON_SPELL_NATURAL && !silencable)
+        return "";
+    silencable |= type == MON_SPELL_WIZARD || type == MON_SPELL_PRIEST;
+    const bool antimagicable
+        = type == MON_SPELL_WIZARD || type == MON_SPELL_MAGICAL;
+    ASSERT(silencable || antimagicable);
+    return make_stringf(", which are affected by%s%s%s",
+                        silencable ? " silence" : "",
+                        silencable && antimagicable ? " and" : "",
+                        antimagicable ? " antimagic" : "");
+}
+
+/**
+ * Produces a portion of the spellbook description: the portion indicating
+ * whether the list of spellbooks has been filtered based on which spells you
+ * have seen the monster cast already.
+ *
+ * @param type    The type of ability set / spellbook we're decribing.
+ * @param pronoun The monster pronoun to use (should be derived from PRONOUN_OBJECTIVE).
+ * @return        A string to include in the spellbook description.
+ */
+static string _describe_spell_filtering(mon_spell_slot_flag type, const char* pronoun)
+{
+    const bool is_spell = type = MON_SPELL_WIZARD;
+    return make_stringf(" (judging by the %s you have seen %s %s)",
+                        is_spell ? "spells" : "abilities",
+                        pronoun,
+                        is_spell ? "cast" : "use");
+}
+
+/**
  * What description should a given (set of) monster spellbooks be prefixed
  * with?
  *
  * @param type              The type of book(s); e.g. MON_SPELL_MAGICAL.
  * @param num_books         The number of books in the set.
- * @param mi                The player's information about the caster.
+ * @param has_silencable    Whether any of the spells are subject to Silence
+ *                          despite being non-wizardly and non-priestly.
+ * @param has_filtered      Whether any spellbooks have been filtered out due
+ *                          to the spells you've seen the monster cast.
+ * @param pronoun           The pronoun to use in describing which spells
+ *                          the monster has been seen casting.
  * @return                  A header string for the bookset; e.g.,
- *                          "She has mastered one of the following spellbooks:\n"
- *                          "It possesses the following special abilities:\n"
+ *                          "has mastered one of the following spellbooks:"
+ *                          "possesses the following natural abilities:"
  */
 static string _booktype_header(mon_spell_slot_flag type, size_t num_books,
-                               const monster_info &mi)
+                               bool has_silencable, bool has_filtered, const char* pronoun)
 {
-    const string pronoun = uppercase_first(mi.pronoun(PRONOUN_SUBJECTIVE));
+    const string vulnerabilities =
+        _ability_type_vulnerabilities(type, has_silencable);
+    const string spell_filter_desc = has_filtered ? _describe_spell_filtering(type, pronoun)
+                                                  : "";
 
     if (type == MON_SPELL_WIZARD)
     {
-        return make_stringf("\n%s has mastered %s:", pronoun.c_str(),
+        return make_stringf("has mastered %s%s%s:",
                             num_books > 1 ? "one of the following spellbooks"
-                                          : "the following spells");
+                                          : "the following spells",
+                            spell_filter_desc.c_str(),
+                            vulnerabilities.c_str());
     }
 
     const string descriptor = _ability_type_descriptor(type);
 
-    if (num_books > 1)
+    return make_stringf("possesses the following %s abilities%s%s:",
+                        descriptor.c_str(),
+                        spell_filter_desc.c_str(),
+                        vulnerabilities.c_str());
+}
+
+static bool _spell_in_book(spell_type spell, const vector<mon_spell_slot> &book)
+{
+    return any_of(book.begin(), book.end(),
+                  [=](mon_spell_slot slot){return slot.spell == spell;});
+}
+
+/**
+ * Is it possible that the given monster could be using the given book, from
+ * what the player knows about each?
+ *
+ * @param book          A list of spells.
+ * @param mon_owner     The monster being examined.
+ * @return              Whether it's possible for the given monster to
+ */
+static bool _book_valid(const vector<mon_spell_slot> &book,
+                        const monster_info &mi)
+{
+    if (!mi.props.exists(SEEN_SPELLS_KEY))
+        return true;
+
+    auto seen_spells = mi.props[SEEN_SPELLS_KEY].get_vector();
+
+    // assumption: any monster with multiple true spellbooks will only ever
+    // use one of them
+    return all_of(seen_spells.begin(), seen_spells.end(),
+                  [&](int spell){return _spell_in_book((spell_type)spell, book);});
+}
+
+static void _split_by_silflag(unique_books &books)
+{
+    unique_books result;
+
+    for (auto book : books)
     {
-        return make_stringf("\n%s possesses one of the following sets of %s abilities:",
-                            pronoun.c_str(), descriptor.c_str());
+        vector<mon_spell_slot> silflag;
+        vector<mon_spell_slot> no_silflag;
+
+        for (auto i : book)
+        {
+            if (i.flags & MON_SPELL_NO_SILENT)
+                silflag.push_back(i);
+            else no_silflag.push_back(i);
+        }
+
+        if (!no_silflag.empty())
+            result.push_back(no_silflag);
+        if (!silflag.empty())
+            result.push_back(silflag);
     }
 
-    return make_stringf("\n%s possesses the following %s abilities:",
-                        pronoun.c_str(), descriptor.c_str());
+    books = result;
 }
 
 /**
@@ -110,7 +209,16 @@ static void _monster_spellbooks(const monster_info &mi,
                                 mon_spell_slot_flag type,
                                 spellset &all_books)
 {
-    const unique_books books = get_unique_spells(mi, type);
+    unique_books books = get_unique_spells(mi, type);
+
+    // Books of natural abilities get special treatment, because there should
+    // be information about silence in the label(s).
+    const bool ability_case =
+        (bool) (type & (MON_SPELL_MAGICAL | MON_SPELL_NATURAL));
+    // We must split them now; later we'll label them separately.
+    if (ability_case)
+        _split_by_silflag(books);
+
     const size_t num_books = books.size();
 
     if (num_books == 0)
@@ -118,15 +226,39 @@ static void _monster_spellbooks(const monster_info &mi,
 
     const string set_name = type == MON_SPELL_WIZARD ? "Book" : "Set";
 
-    // Loop through books and display spells/abilities for each of them
+    // filter out books we know this monster can't cast (conflicting books)
+    std::vector<size_t> valid_books;
+    bool filtered_books = false;
     for (size_t i = 0; i < num_books; ++i)
     {
-        const vector<spell_type> &book_spells = books[i];
+        if (num_books <= 1 || _book_valid(books[i], mi))
+            valid_books.emplace_back(i);
+        else if (!_book_valid(books[i], mi))
+            filtered_books = true;
+    }
+
+    // Loop through books and display spells/abilities for each of them
+    for (size_t i = 0; i < valid_books.size(); ++i)
+    {
+        const vector<mon_spell_slot> &book_slots = books[valid_books[i]];
         spellbook_contents output_book;
 
-        if (i == 0)
-            output_book.label += _booktype_header(type, num_books, mi);
-        if (num_books > 1)
+        const bool has_silencable = any_of(begin(book_slots), end(book_slots),
+            [](const mon_spell_slot& slot)
+            {
+                return slot.flags & MON_SPELL_NO_SILENT;
+            });
+
+        if (i == 0 || ability_case)
+        {
+            output_book.label +=
+                "\n" +
+                uppercase_first(mi.pronoun(PRONOUN_SUBJECTIVE)) +
+                " " +
+                _booktype_header(type, valid_books.size(), has_silencable,
+                                 filtered_books, mi.pronoun(PRONOUN_OBJECTIVE));
+        }
+        else
         {
             output_book.label += make_stringf("\n%s %d:",
                                               set_name.c_str(), (int) i + 1);
@@ -135,9 +267,10 @@ static void _monster_spellbooks(const monster_info &mi,
         // Does the monster have a spell that allows them to cast Abjuration?
         bool mons_abjure = false;
 
-        for (auto spell : book_spells)
+        for (const auto& slot : book_slots)
         {
-            if (spell != SPELL_SERPENT_OF_HELL_BREATH)
+            const spell_type spell = slot.spell;
+            if (!spell_is_soh_breath(spell))
             {
                 output_book.spells.emplace_back(spell);
                 if (get_spell_flags(spell) & SPFLAG_MONS_ABJURE)
@@ -145,28 +278,15 @@ static void _monster_spellbooks(const monster_info &mi,
                 continue;
             }
 
-            static map<monster_type, size_t> serpent_indices =
-            {
-                { MONS_SERPENT_OF_HELL, 0 },
-                { MONS_SERPENT_OF_HELL_COCYTUS, 1 },
-                { MONS_SERPENT_OF_HELL_DIS, 2 },
-                { MONS_SERPENT_OF_HELL_TARTARUS, 3 },
-            };
-
-            const size_t *s_i_ptr = map_find(serpent_indices, mi.type);
-            ASSERT(s_i_ptr);
-            const size_t serpent_index = *s_i_ptr;
-            ASSERT_LESS(serpent_index, ARRAYSZ(serpent_of_hell_breaths));
-
-            for (auto breath : serpent_of_hell_breaths[serpent_index])
+            const vector<spell_type> *breaths = soh_breath_spells(spell);
+            ASSERT(breaths);
+            for (auto breath : *breaths)
                 output_book.spells.emplace_back(breath);
         }
 
         if (mons_abjure)
             output_book.spells.emplace_back(SPELL_ABJURATION);
 
-        // XXX: it seems like we should be able to just place this in the
-        // vector at the start, without having to copy it in now...?
         all_books.emplace_back(output_book);
     }
 }
@@ -194,8 +314,19 @@ spellset monster_spellset(const monster_info &mi)
 
     spellset books;
 
-    for (auto book_flag : book_flags)
-        _monster_spellbooks(mi, book_flag, books);
+    if (mi.type != MONS_PANDEMONIUM_LORD)
+        for (auto book_flag : book_flags)
+            _monster_spellbooks(mi, book_flag, books);
+    else if (mi.props.exists(SEEN_SPELLS_KEY))
+    {
+        spellbook_contents output_book;
+        output_book.label
+          = make_stringf("You have seen %s using the following:",
+                         mi.pronoun(PRONOUN_SUBJECTIVE));
+        for (int spell : mi.props[SEEN_SPELLS_KEY].get_vector())
+            output_book.spells.emplace_back((spell_type)spell);
+        books.emplace_back(output_book);
+    }
 
     ASSERT(books.size());
     return books;
@@ -362,7 +493,7 @@ static void _describe_book(const spellbook_contents &book,
     const bool doublecolumn = _list_spells_doublecolumn(source_item);
 
     bool first_line_element = true;
-    const int hd = mon_owner ? mon_owner->hd : 0;
+    const int hd = mon_owner ? mon_owner->spell_hd() : 0;
     for (auto spell : book.spells)
     {
         description.cprintf(" ");
@@ -375,6 +506,9 @@ static void _describe_book(const spellbook_contents &book,
                                   index_to_letter(*spell_letter_index) :
                                   ' ';
         if (hd > 0 && crawl_state.need_save
+#ifndef DEBUG_DIAGNOSTICS
+            && mon_owner->attitude != ATT_FRIENDLY
+#endif
             && (get_spell_flags(spell) & SPFLAG_MR_CHECK))
         {
             description.cprintf("%c - (%d%%) %s",
@@ -471,7 +605,7 @@ string describe_item_spells(const item_def &item)
 void list_spellset(const spellset &spells, const monster_info *mon_owner,
                    const item_def *source_item, formatted_string &initial_desc)
 {
-    const bool can_memorize = source_item
+    const bool can_memorise = source_item
                               && source_item->base_type == OBJ_BOOKS
                               && in_inventory(*source_item);
 
@@ -481,8 +615,8 @@ void list_spellset(const spellset &spells, const monster_info *mon_owner,
     description.textcolour(LIGHTGREY);
 
     description.cprintf("Select a spell to read its description");
-    if (can_memorize)
-        description.cprintf(", to memorize it or to forget it");
+    if (can_memorise)
+        description.cprintf(" or to to memorise it");
     description.cprintf(".\n");
 
     spell_scroller ssc(spells, mon_owner, source_item);
@@ -520,13 +654,11 @@ bool spell_scroller::process_key(int keyin)
     const spell_type chosen_spell = flat_spells[spell_index];
     describe_spell(chosen_spell, mon_owner, source_item);
 
-    const bool used_amnesia = source_item && !source_item->is_valid();
-    const bool memorized = already_learning_spell();
-    const bool exit_menu = used_amnesia || memorized;
+    if (already_learning_spell()) // player began (M)emorizing
+        return false; // time to leave the menu
 
-    if (!exit_menu)
-        draw_menu();
-    return !exit_menu;
+    draw_menu();
+    return true; // loop
 }
 
 spell_scroller::~spell_scroller() { }

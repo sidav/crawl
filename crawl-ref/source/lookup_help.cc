@@ -50,7 +50,7 @@
 #include "viewchar.h"
 
 
-typedef vector<string> (*keys_by_glyph)(ucs_t showchar);
+typedef vector<string> (*keys_by_glyph)(char32_t showchar);
 typedef vector<string> (*simple_key_list)();
 typedef void (*db_keys_recap)(vector<string>&);
 typedef MenuEntry* (*menu_entry_generator)(char letter, const string &str,
@@ -150,6 +150,38 @@ private:
 
 
 
+/**
+ * What monster enum corresponds to the given Serpent of Hell name?
+ *
+ * @param soh_name  The name of the monster; e.g. "the Serpent of Hell dis".
+ * @return          The corresponding enum; e.g. MONS_SERPENT_OF_HELL_DIS.
+ */
+static monster_type _soh_type(string soh_name)
+{
+    // trying to minimize code duplication...
+    static const vector<monster_type> soh_types = {
+        MONS_SERPENT_OF_HELL, MONS_SERPENT_OF_HELL_DIS,
+        MONS_SERPENT_OF_HELL_COCYTUS, MONS_SERPENT_OF_HELL_TARTARUS,
+    };
+
+    // grab 'cocytus' etc
+    const string flavour_name
+        = soh_name.substr(lowercase(soh_name).find("hell") + 5);
+    for (monster_type mtype : soh_types)
+        if (serpent_of_hell_flavour(mtype) == flavour_name)
+            return mtype;
+    return MONS_PROGRAM_BUG;
+}
+
+static bool _is_soh(string name)
+{
+    return starts_with(lowercase(name), "the serpent of hell");
+}
+
+static monster_type _mon_by_name(string name)
+{
+    return _is_soh(name) ? _soh_type(name) : get_monster_by_name(name);
+}
 
 static bool _compare_mon_names(MenuEntry *entry_a, MenuEntry* entry_b)
 {
@@ -266,7 +298,7 @@ static vector<string> _get_desc_keys(string regex, db_find_filter filter)
     return all_matches;
 }
 
-static vector<string> _get_monster_keys(ucs_t showchar)
+static vector<string> _get_monster_keys(char32_t showchar)
 {
     vector<string> mon_keys;
 
@@ -283,11 +315,20 @@ static vector<string> _get_monster_keys(ucs_t showchar)
         if (me->mc != i)
             continue;
 
+        if ((char32_t)me->basechar != showchar)
+            continue;
+
+        if (mons_species(i) == MONS_SERPENT_OF_HELL)
+        {
+            mon_keys.push_back(string(me->name) + " "
+                               + serpent_of_hell_flavour(i));
+            continue;
+        }
+
         if (getLongDescription(me->name).empty())
             continue;
 
-        if ((ucs_t)me->basechar == showchar)
-            mon_keys.push_back(me->name);
+        mon_keys.push_back(me->name);
     }
 
     return mon_keys;
@@ -301,7 +342,9 @@ static vector<string> _get_god_keys()
     for (int i = GOD_NO_GOD + 1; i < NUM_GODS; i++)
     {
         god_type which_god = static_cast<god_type>(i);
-        names.push_back(god_name(which_god));
+        // XXX: currently disabled.
+        if (which_god != GOD_PAKELLAS)
+            names.push_back(god_name(which_god));
     }
 
     return names;
@@ -353,7 +396,7 @@ static vector<string> _get_skill_keys()
 
 static bool _monster_filter(string key, string body)
 {
-    monster_type mon_num = get_monster_by_name(key);
+    const monster_type mon_num = _mon_by_name(key);
     return mons_class_flag(mon_num, M_CANT_SPAWN)
            || mons_is_tentacle_segment(mon_num);
 }
@@ -420,8 +463,11 @@ static void _recap_mon_keys(vector<string> &keys)
 {
     for (unsigned int i = 0, size = keys.size(); i < size; i++)
     {
-        monster_type type = get_monster_by_name(keys[i]);
-        keys[i] = mons_type_name(type, DESC_PLAIN);
+        if (!_is_soh(keys[i]))
+        {
+            monster_type type = get_monster_by_name(keys[i]);
+            keys[i] = mons_type_name(type, DESC_PLAIN);
+        }
     }
 }
 
@@ -589,11 +635,12 @@ static MenuEntry* _simple_menu_gen(char letter, const string &str, string &key)
  * @return            A new menu entry.
  */
 static MenuEntry* _monster_menu_gen(char letter, const string &str,
-                             monster_info &mslot)
+                                    monster_info &mslot)
 {
     // Create and store fake monsters, so the menu code will
     // have something valid to refer to.
-    monster_type m_type = get_monster_by_name(str);
+    monster_type m_type = _mon_by_name(str);
+    const string name = _is_soh(str) ? "The Serpent of Hell" : str;
 
     monster_type base_type = MONS_NO_MONSTER;
     // HACK: Set an arbitrary humanoid monster as base type.
@@ -618,9 +665,9 @@ static MenuEntry* _monster_menu_gen(char letter, const string &str,
     prefix += colour_to_str(colour);
     prefix += ">) ";
 
-    const string title = prefix + str;
+    const string title = prefix + name;
 #else
-    const string &title = str;
+    const string &title = name;
 #endif
 
     // NOTE: MonsterMenuEntry::get_tiles() takes care of setting
@@ -702,7 +749,7 @@ static MenuEntry* _skill_menu_gen(char letter, const string &str, string &key)
 
 #ifdef USE_TILE
     const skill_type skill = str_to_skill(str);
-    me->add_tile(tile_def(tileidx_skill(skill, 1), TEX_GUI));
+    me->add_tile(tile_def(tileidx_skill(skill, TRAINING_ENABLED), TEX_GUI));
 #endif
 
     return me;
@@ -787,6 +834,14 @@ vector<string> LookupType::matching_keys(string regex) const
     return key_list;
 }
 
+static string _mons_desc_key(monster_type type)
+{
+    const string name = mons_type_name(type, DESC_PLAIN);
+    if (mons_species(type) == MONS_SERPENT_OF_HELL)
+        return name + " " + serpent_of_hell_flavour(type);
+    return name;
+}
+
 /**
  * Build a menu listing the given keys, and allow the player to interact
  * with them.
@@ -845,7 +900,7 @@ void LookupType::display_keys(vector<string> &key_list) const
             if (doing_mons)
             {
                 monster_info* mon = (monster_info*) sel[0]->data;
-                key = mons_type_name(mon->type, DESC_PLAIN);
+                key = _mons_desc_key(mon->type);
             }
             else
                 key = *((string*) sel[0]->data);
@@ -956,7 +1011,7 @@ static int _describe_generic(const string &key, const string &suffix,
 static int _describe_monster(const string &key, const string &suffix,
                              string footer)
 {
-    const monster_type mon_num = get_monster_by_name(key);
+    const monster_type mon_num = _mon_by_name(key);
     ASSERT(mon_num != MONS_PROGRAM_BUG);
     // Don't attempt to get more information on ghost demon
     // monsters, as the ghost struct has not been initialised, which
@@ -1020,17 +1075,12 @@ static int _describe_card(const string &key, const string &suffix,
  * @return          The keypress the user made to exit.
  */
 static int _describe_cloud(const string &key, const string &suffix,
-                          string footer)
+                           string footer)
 {
     const string cloud_name = key.substr(0, key.size() - suffix.size());
     const cloud_type cloud = cloud_name_to_type(cloud_name);
     ASSERT(cloud != NUM_CLOUD_TYPES);
-
-    const string extra_info = is_opaque_cloud(cloud) ?
-        "\nThis cloud is opaque; one tile will not block vision, but "
-        "multiple will."
-        : "";
-    return _describe_key(key, suffix, footer, extra_info);
+    return _describe_key(key, suffix, footer, extra_cloud_info(cloud));
 }
 
 
@@ -1186,32 +1236,6 @@ static string _branch_subbranches(branch_type br)
     return desc;
 }
 
-static string _branch_noise(branch_type br)
-{
-    string desc;
-    const int noise = branches[br].ambient_noise;
-    if (noise != 0)
-    {
-        desc = "\n\nThis branch is ";
-        if (noise > 0)
-        {
-            desc += make_stringf("filled with %snoise, and thus all sounds "
-                                 "travel %sless far.",
-                                 noise > 5 ? "deafening " : "",
-                                 noise > 5 ? "much " : "");
-        }
-        else
-        {
-            desc += make_stringf("%s, and thus all sounds travel %sfurther.",
-                                 noise < -5 ? "unnaturally silent"
-                                            : "very quiet",
-                                 noise < -5 ? "much " : "");
-        }
-    }
-
-    return desc;
-}
-
 /**
  * Describe the branch with the given name.
  *
@@ -1227,13 +1251,17 @@ static int _describe_branch(const string &key, const string &suffix,
     const branch_type branch = branch_by_shortname(branch_name);
     ASSERT(branch != NUM_BRANCHES);
 
-    const string info  = _branch_noise(branch)
-                         + _branch_location(branch)
-                         + _branch_entry_runes(branch)
-                         + _branch_depth(branch)
-                         + _branch_subbranches(branch)
-                         + "\n\n"
-                         + branch_rune_desc(branch, false);
+    string info = "";
+    const string noise_desc = branch_noise_desc(branch);
+    if (!noise_desc.empty())
+        info += "\n\n" + noise_desc;
+
+    info += _branch_location(branch)
+            + _branch_entry_runes(branch)
+            + _branch_depth(branch)
+            + _branch_subbranches(branch)
+            + "\n\n"
+            + branch_rune_desc(branch, false);
 
     return _describe_key(key, suffix, footer, info);
 }

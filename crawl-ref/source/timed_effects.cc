@@ -82,8 +82,7 @@ static void _random_hell_miscast()
                                  4, SPTYP_SUMMONING,
                                  2, SPTYP_CONJURATION,
                                  1, SPTYP_CHARMS,
-                                 1, SPTYP_HEXES,
-                                 0);
+                                 1, SPTYP_HEXES);
 
     MiscastEffect(&you, nullptr, HELL_EFFECT_MISCAST, which_miscast,
                   4 + random2(6), random2avg(97, 3),
@@ -146,8 +145,8 @@ static void _themed_hell_summon_or_miscast()
         const monster_type fiend
             = spec->fiend_types[random2(spec->fiend_types.size())];
         create_monster(
-                       mgen_data::hostile_at(fiend, "the effects of Hell",
-                                             true, 0, 0, you.pos()));
+                       mgen_data::hostile_at(fiend, true, you.pos())
+                       .set_non_actor_summoner("the effects of Hell"));
     }
     else
     {
@@ -798,8 +797,8 @@ static void _magic_contamination_effects()
 static void _handle_magic_contamination(int /*time_delta*/)
 {
     // [ds] Move magic contamination effects closer to b26 again.
-    const bool glow_effect = get_contamination_level() > 1
-            && x_chance_in_y(you.magic_contamination, 12000);
+    const bool glow_effect = player_severe_contamination()
+                             && x_chance_in_y(you.magic_contamination, 12000);
 
     if (glow_effect)
     {
@@ -813,23 +812,10 @@ static void _handle_magic_contamination(int /*time_delta*/)
     }
 }
 
-// Adjust the player's stats if diseased.
-static void _handle_sickness(int /*time_delta*/)
-{
-    // If Cheibriados has slowed your biology, disease might
-    // not actually do anything.
-    if (you.disease && one_chance_in(30)
-        && !(have_passive(passive_t::slow_metabolism) && coinflip()))
-    {
-        mprf(MSGCH_WARN, "Your disease is taking its toll.");
-        lose_stat(STAT_RANDOM, 1);
-    }
-}
-
 // Exercise armour *xor* stealth skill: {dlb}
 static void _wait_practice(int /*time_delta*/)
 {
-    practise(EX_WAIT);
+    practise_waiting();
 }
 
 static void _lab_change(int /*time_delta*/)
@@ -873,8 +859,8 @@ static void _jiyva_effects(int /*time_delta*/)
                    || cloud_at(newpos)
                    || testbits(env.pgrid(newpos), FPROP_NO_JIYVA));
 
-            mgen_data mg(MONS_JELLY, BEH_STRICT_NEUTRAL, 0, 0, 0, newpos,
-                         MHITNOT, MG_NONE, GOD_JIYVA);
+            mgen_data mg(MONS_JELLY, BEH_STRICT_NEUTRAL, newpos);
+            mg.god = GOD_JIYVA;
             mg.non_actor_summoner = "Jiyva";
 
             if (create_monster(mg))
@@ -957,7 +943,9 @@ static struct timed_effect timed_effects[] =
 {
     { rot_floor_items,               200,   200, true  },
     { _hell_effects,                 200,   600, false },
-    { _handle_sickness,              100,   300, false },
+#if TAG_MAJOR_VERSION == 34
+    { nullptr,                         0,     0, false },
+#endif
     { _handle_magic_contamination,   200,   600, false },
 #if TAG_MAJOR_VERSION == 34
     { nullptr,                         0,     0, false },
@@ -1063,7 +1051,7 @@ static bool _monster_forget(monster* mon, int mon_turns)
     // After x turns, half of the monsters will have forgotten about the
     // player. A given monster has a 95% chance of forgetting the player after
     // 4*x turns.
-    const int forgetfulness_time = _mon_forgetfulness_time(mons_intel(mon));
+    const int forgetfulness_time = _mon_forgetfulness_time(mons_intel(*mon));
     const int forget_chances = mon_turns / forgetfulness_time;
     // n.b. this is an integer division, so if range < forgetfulness_time
     // nothing happens
@@ -1133,7 +1121,7 @@ static void _catchup_monster_move(monster* mon, int moves)
         coord_def inc(mon->target - pos);
         inc = coord_def(sgn(inc.x), sgn(inc.y));
 
-        if (mons_is_retreating(mon))
+        if (mons_is_retreating(*mon))
             inc *= -1;
 
         // Bounds check: don't let shifting monsters try to run off the
@@ -1196,20 +1184,20 @@ static void _catchup_monster_moves(monster* mon, int turns)
     }
 
     // Don't move non-land or stationary monsters around.
-    if (mons_primary_habitat(mon) != HT_LAND
-        || mons_is_zombified(mon)
+    if (mons_primary_habitat(*mon) != HT_LAND
+        || mons_is_zombified(*mon)
            && mons_class_primary_habitat(mon->base_monster) != HT_LAND
         || mon->is_stationary())
     {
         return;
     }
 
-    // Don't shift giant spores since that would disrupt their trail.
-    if (mon->type == MONS_GIANT_SPORE)
+    // Don't shift ballistomycete spores since that would disrupt their trail.
+    if (mon->type == MONS_BALLISTOMYCETE_SPORE)
         return;
 
-    // special movement code for ioods, boulder beetles...
-    if (mon->is_projectile())
+    // special movement code for ioods
+    if (mons_is_projectile(*mon))
     {
         iood_catchup(mon, turns);
         return;
@@ -1240,7 +1228,7 @@ static void _catchup_monster_moves(monster* mon, int turns)
     // restore behaviour later if we start fleeing
     unwind_var<beh_type> saved_beh(mon->behaviour);
 
-    if (!forgot && mons_has_ranged_attack(mon))
+    if (!forgot && mons_has_ranged_attack(*mon))
     {
         // If we're doing short time movement and the monster has a
         // ranged attack (missile or spell), then the monster will
@@ -1295,16 +1283,6 @@ void monster::timeout_enchantments(int levels)
     {
         switch (entry.first)
         {
-        case ENCH_WITHDRAWN:
-            if (hit_points >= (max_hit_points - max_hit_points / 4)
-                && !one_chance_in(3))
-            {
-                del_ench(entry.first);
-                break;
-            }
-            lose_ench_levels(entry.second, levels);
-            break;
-
         case ENCH_POISON: case ENCH_CORONA:
         case ENCH_STICKY_FLAME: case ENCH_ABJ: case ENCH_SHORT_LIVED:
         case ENCH_HASTE: case ENCH_MIGHT: case ENCH_FEAR:
@@ -1313,15 +1291,17 @@ void monster::timeout_enchantments(int levels)
         case ENCH_PETRIFIED: case ENCH_SWIFT: case ENCH_SILENCE:
         case ENCH_LOWERED_MR: case ENCH_SOUL_RIPE: case ENCH_ANTIMAGIC:
         case ENCH_FEAR_INSPIRING: case ENCH_REGENERATION: case ENCH_RAISED_MR:
-        case ENCH_MIRROR_DAMAGE: case ENCH_MAGIC_ARMOUR: case ENCH_LIQUEFYING:
+        case ENCH_MIRROR_DAMAGE: case ENCH_LIQUEFYING:
         case ENCH_SILVER_CORONA: case ENCH_DAZED: case ENCH_FAKE_ABJURATION:
-        case ENCH_BREATH_WEAPON: case ENCH_DEATHS_DOOR: case ENCH_WRETCHED:
+        case ENCH_BREATH_WEAPON: case ENCH_WRETCHED:
         case ENCH_SCREAMED: case ENCH_BLIND: case ENCH_WORD_OF_RECALL:
         case ENCH_INJURY_BOND: case ENCH_FLAYED: case ENCH_BARBS:
         case ENCH_AGILE: case ENCH_FROZEN:
         case ENCH_BLACK_MARK: case ENCH_SAP_MAGIC: case ENCH_NEUTRAL_BRIBED:
         case ENCH_FRIENDLY_BRIBED: case ENCH_CORROSION: case ENCH_GOLD_LUST:
-        case ENCH_RESISTANCE: case ENCH_HEXED:
+        case ENCH_RESISTANCE: case ENCH_HEXED: case ENCH_IDEALISED:
+        case ENCH_BOUND_SOUL:
+        case ENCH_STILL_WINDS:
             lose_ench_levels(entry.second, levels);
             break;
 
@@ -1347,8 +1327,8 @@ void monster::timeout_enchantments(int levels)
         case ENCH_INSANE:
         case ENCH_BERSERK:
         case ENCH_INNER_FLAME:
-        case ENCH_ROLLING:
         case ENCH_MERFOLK_AVATAR_SONG:
+        case ENCH_INFESTATION:
             del_ench(entry.first);
             break;
 
@@ -1647,13 +1627,10 @@ void timeout_malign_gateways(int duration)
 
                 mgen_data mg = mgen_data(MONS_ELDRITCH_TENTACLE,
                                          mmark->behaviour,
-                                         caster,
-                                         0,
-                                         0,
                                          mmark->pos,
                                          MHITNOT,
-                                         MG_FORCE_PLACE,
-                                         mmark->god);
+                                         MG_FORCE_PLACE);
+                mg.set_summoned(caster, 0, 0, mmark->god);
                 if (!is_player)
                     mg.non_actor_summoner = mmark->summoner_string;
 

@@ -212,9 +212,8 @@ without taking damage.
 %%%%
 Sick status
 
-You have been sickened. Your health will no longer regenerate and your
-attributes may be drained temporarily. Sickness can be cured immediately by
-potions of curing.
+You have been sickened, and your health will no longer regenerate. Sickness can
+be cured immediately by potions of curing.
 %%%%
 Vertigo status
 
@@ -276,28 +275,29 @@ vicinity to be raised as spectral servants.
 %%%%
 Vit status
 
-You are divinely vitalised, provideing protection from poison, confusion,
+You are divinely vitalised, providing protection from poison, confusion,
 petrification, rotting and sickness, and increasing and sustaining your
 strength, intelligence and dexterity.
 %%%%
 RoF status
 
 You are surrounded by a ring of flame clouds, increasing the power of your fire
-magic and giving protection from fire. However, it also makes you much more
-susceptible to cold.
+magic and giving protection from fire but also making you much more susceptible
+to cold.
 %%%%
-MR- status
+MR/2 status
 
 You are more vulnerable to hostile enchantments.
 %%%%
 Stone status
 
-You are petrified, and completely unable to act.
+You are petrified, and completely unable to act. You are very easy to hit,
+but all damage taken is substantially reduced.
 %%%%
 Petr status
 
-You are turning to stone. Your actions are slowed, and you will soon be
-completely petrified.
+You are turning to stone. Your actions are slowed, all damage taken is slightly
+reduced, and you will soon be completely petrified (gaining the Stone status).
 %%%%
 Resist status
 
@@ -315,10 +315,6 @@ You are covering ground swiftly.
 -Swift status
 
 You are covering ground slowly.
-%%%%
-Emp status
-
-You are telepathically detecting nearby creatures.
 %%%%
 DDoor status
 
@@ -398,7 +394,7 @@ attacks which increase every time you slay a foe in combat.
 Toxic status
 
 You are radiating toxic energy, and will continously inflict poison on all
-nearby creatures (including yourself).
+nearby creatures.
 %%%%
 Recite status
 
@@ -449,11 +445,6 @@ rElec+ status
 
 You are more resistant to electricity.
 %%%%
-Fort status
-
-You have greatly increased fortitude, enhancing your strength and reducing all
-damage taken.
-%%%%
 Horr status
 
 You are terrified of nearby monsters, reducing your damage and accuracy in
@@ -481,4 +472,22 @@ Howl status
 
 A terrifying howl is echoing in your mind, calling forth powerful creatures to
 attack you.
+%%%%
+Blood status
+
+Your body is covered in congealed blood, serving as armour for as long as you
+remain seriously injured.
+%%%%
+-Cast status
+
+You are unable to cast spells.
+%%%%
+Channel status
+
+You are channeling magical energy.
+%%%%
++Cast status
+
+You may cast spells with insufficient reserves of magic, but doing so will
+cause you to briefly lose access to your magic after the spell is cast.
 %%%%

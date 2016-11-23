@@ -13,6 +13,9 @@ const int KRAKEN_TENTACLE_RANGE = 3;
 #define ZOMBIE_BASE_EV_KEY "zombie_base_ev"
 #define MON_SPEED_KEY "speed"
 #define CUSTOM_SPELLS_KEY "custom_spells"
+#define SEEN_SPELLS_KEY "seen_spells"
+#define KNOWN_MAX_HP_KEY "known_max_hp"
+#define VAULT_HD_KEY "vault_hd"
 
 #define FAKE_BLINK_KEY "fake_blink"
 
@@ -65,11 +68,11 @@ public:
     {
         // These must all be the same size!
         unsigned int number;   ///< General purpose number variable
-        int blob_size;         ///< # of slimes/masses in this one
+        int blob_size;         ///< num of slimes/masses in this one
         int num_heads;         ///< Hydra-like head number
         int ballisto_activity; ///< How active is this ballistomycete?
         int spore_cooldown;    ///< Can this make ballistos (if 0)
-        int mangrove_pests;    ///< # of animals in shambling mangrove
+        int mangrove_pests;    ///< num of animals in shambling mangrove
         int prism_charge;      ///< Turns this prism has existed
         int battlecharge;      ///< Charges of battlesphere
         int move_spurt;        ///< Sixfirhy/jiangshi/kraken black magic
@@ -110,6 +113,7 @@ public:
     void set_hit_dice(int new_hd);
 
     mon_attitude_type temp_attitude() const override;
+    mon_attitude_type real_attitude() const override { return attitude; }
 
     // Returns true if the monster is named with a proper name, or is
     // a player ghost.
@@ -228,7 +232,6 @@ public:
     void ghost_demon_init();
     void uglything_init(bool only_mutate = false);
     void uglything_mutate(colour_t force_colour = COLOUR_UNDEF);
-    void uglything_upgrade();
     void destroy_inventory();
     void load_ghost_spells();
 
@@ -315,7 +318,7 @@ public:
                      bool force_visible = false) const;
     // Full name of the monster. For an orc priest named Arbolt, full_name()
     // will return "Arbolt the orc priest".
-    string full_name(description_level_type type, bool use_comma = false) const;
+    string full_name(description_level_type type) const;
     string pronoun(pronoun_type pro, bool force_visible = false) const override;
     string conj_verb(const string &verb) const override;
     string hand_name(bool plural, bool *can_plural = nullptr) const override;
@@ -323,7 +326,6 @@ public:
     string arm_name(bool plural, bool *can_plural = nullptr) const override;
 
     bool fumbles_attack() override;
-    bool cannot_fight() const override;
 
     int  skill(skill_type skill, int scale = 1,
                bool real = false, bool drained = true) const override;
@@ -354,12 +356,10 @@ public:
     bool undead_or_demonic() const override;
     bool holy_wrath_susceptible() const override;
     bool is_holy(bool check_spells = true) const override;
-    bool is_unholy(bool check_spells = true) const override;
-    bool is_evil(bool check_spells = true) const override;
+    bool is_nonliving(bool /*temp*/ = true) const override;
     int how_unclean(bool check_god = true) const;
     int known_chaos(bool check_spells_god = false) const;
     int how_chaotic(bool check_spells_god = false) const override;
-    bool is_artificial(bool temp = true) const override;
     bool is_unbreathing() const override;
     bool is_insubstantial() const override;
     bool res_damnation() const override;
@@ -417,7 +417,6 @@ public:
 #if TAG_MAJOR_VERSION == 34
     int heat_radius() const override;
 #endif
-    bool glows_naturally() const override;
     bool petrified() const override;
     bool petrifying() const override;
     bool liquefied_ground() const override;
@@ -430,14 +429,10 @@ public:
     bool strict_neutral() const;
     bool wont_attack() const override;
     bool pacified() const;
-    bool withdrawn() const {return has_ench(ENCH_WITHDRAWN);};
 
-    bool rolling() const { return has_ench(ENCH_ROLLING); } ;
     bool has_spells() const;
     bool has_spell(spell_type spell) const override;
     mon_spell_slot_flags spell_slot_flags(spell_type spell) const;
-    bool has_unholy_spell() const;
-    bool has_evil_spell() const;
     bool has_unclean_spell() const;
     bool has_chaotic_spell() const;
     bool has_corpse_violating_spell() const;
@@ -470,8 +465,8 @@ public:
     void splash_with_acid(const actor* evildoer, int /*acid_strength*/ = -1,
                           bool /*allow_corrosion*/ = true,
                           const char* /*hurt_msg*/ = nullptr) override;
-    void corrode_equipment(const char* corrosion_source = "the acid",
-                            int degree = 1) override;
+    bool corrode_equipment(const char* corrosion_source = "the acid",
+                           int degree = 1) override;
     int hurt(const actor *attacker, int amount,
              beam_type flavour = BEAM_MISSILE,
              kill_method_type kill_type = KILLED_BY_MONSTER,
@@ -496,7 +491,8 @@ public:
 
     int stat_hp() const override    { return hit_points; }
     int stat_maxhp() const override { return max_hit_points; }
-    int stealth() const override;
+    int stealth() const override { return 0; }
+
 
     bool    shielded() const override;
     int     shield_bonus() const override;
@@ -548,18 +544,19 @@ public:
 
     bool is_illusion() const;
     bool is_divine_companion() const;
-    bool is_projectile() const;
     // Jumping spiders (jump instead of blink)
     bool is_jumpy() const;
 
     int  spell_hd(spell_type spell = SPELL_NO_SPELL) const;
     void align_avatars(bool force_friendly = false);
     void remove_avatars();
+    void note_spell_cast(spell_type spell);
 
     bool clear_far_engulf() override;
     bool search_slots(function<bool (const mon_spell_slot &)> func) const;
 
     bool has_facet(int facet) const;
+    bool angered_by_attacks() const;
 
 private:
     int hit_dice;

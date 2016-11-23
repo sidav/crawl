@@ -13,7 +13,6 @@
 #include "adjust.h"
 #include "artefact.h"
 #include "cluautil.h"
-#include "cluautil.h"
 #include "colour.h"
 #include "coord.h"
 #include "enum.h"
@@ -29,6 +28,7 @@
 #include "output.h"
 #include "player.h"
 #include "prompt.h"
+#include "shopping.h"
 #include "skills.h"
 #include "spl-book.h"
 #include "spl-summoning.h"
@@ -187,7 +187,7 @@ static int l_item_do_remove(lua_State *ls)
     }
 
     int eq = get_equip_slot(item);
-    if (eq < 0 || eq >= NUM_EQUIP)
+    if (eq < EQ_FIRST_EQUIP || eq >= NUM_EQUIP)
     {
         mpr("Item is not equipped");
         return 0;
@@ -196,7 +196,7 @@ static int l_item_do_remove(lua_State *ls)
     bool result = false;
     if (eq == EQ_WEAPON)
         result = wield_weapon(true, SLOT_BARE_HANDS);
-    else if (eq >= EQ_LEFT_RING && eq < NUM_EQUIP)
+    else if (eq >= EQ_FIRST_JEWELLERY && eq <= EQ_LAST_JEWELLERY)
         result = remove_ring(item->link);
     else
         result = takeoff_armour(item->link);
@@ -217,7 +217,7 @@ static int l_item_do_drop(lua_State *ls)
         return 0;
 
     int eq = get_equip_slot(item);
-    if (eq >= 0 && eq < NUM_EQUIP)
+    if (eq >= EQ_FIRST_EQUIP && eq < NUM_EQUIP)
     {
         lua_pushboolean(ls, false);
         lua_pushstring(ls, "Can't drop worn items");
@@ -243,7 +243,7 @@ IDEF(equipped)
         lua_pushboolean(ls, false);
 
     int eq = get_equip_slot(item);
-    if (eq < 0 || eq >= NUM_EQUIP)
+    if (eq < EQ_FIRST_EQUIP || eq >= NUM_EQUIP)
         lua_pushboolean(ls, false);
     else
         lua_pushboolean(ls, true);
@@ -539,16 +539,6 @@ IDEF(is_melded)
     return 1;
 }
 
-IDEF(can_cut_meat)
-{
-    if (!item || !item->defined())
-        return 0;
-
-    lua_pushboolean(ls, can_cut_meat(*item));
-
-    return 1;
-}
-
 IDEF(is_corpse)
 {
     if (!item || !item->defined())
@@ -824,6 +814,16 @@ IDEF(is_in_shop)
         return 0;
 
     lua_pushboolean(ls, is_shop_item(*item));
+
+    return 1;
+}
+
+IDEF(inscription)
+{
+    if (!item || !item->defined())
+        return 0;
+
+    lua_pushstring(ls, item->inscription.c_str());
 
     return 1;
 }
@@ -1183,7 +1183,7 @@ static int l_item_equipped_at(lua_State *ls)
         eq = equip_name_to_slot(eqname);
     }
 
-    if (eq < 0 || eq >= NUM_EQUIP)
+    if (eq < EQ_FIRST_EQUIP || eq >= NUM_EQUIP)
         return 0;
 
     if (you.equip[eq] != -1)
@@ -1262,6 +1262,30 @@ static int l_item_shop_inventory(lua_State *ls)
         lua_rawseti(ls, -2, 1);
         lua_pushnumber(ls, item_price(item, *shop));
         lua_rawseti(ls, -2, 2);
+        lua_pushboolean(ls, shopping_list.is_on_list(item));
+        lua_rawseti(ls, -2, 3);
+        lua_rawseti(ls, -2, ++index);
+    }
+
+    return 1;
+}
+
+static int l_item_shopping_list(lua_State *ls)
+{
+    if (shopping_list.empty())
+        return 0;
+
+    lua_newtable(ls);
+
+    const vector<shoplist_entry> items = shopping_list.entries();
+    int index = 0;
+    for (const auto &item : items)
+    {
+        lua_newtable(ls);
+        lua_pushstring(ls, item.first.c_str());
+        lua_rawseti(ls, -2, 1);
+        lua_pushnumber(ls, item.second);
+        lua_rawseti(ls, -2, 2);
         lua_rawseti(ls, -2, ++index);
     }
 
@@ -1306,7 +1330,6 @@ static ItemAccessor item_attrs[] =
     { "is_throwable",      l_item_is_throwable },
     { "dropped",           l_item_dropped },
     { "is_melded",         l_item_is_melded },
-    { "can_cut_meat",      l_item_can_cut_meat },
     { "is_skeleton",       l_item_is_skeleton },
     { "is_corpse",         l_item_is_corpse },
     { "has_skeleton",      l_item_has_skeleton },
@@ -1322,6 +1345,7 @@ static ItemAccessor item_attrs[] =
     { "ac",                l_item_ac },
     { "encumbrance",       l_item_encumbrance },
     { "is_in_shop",        l_item_is_in_shop },
+    { "inscription",       l_item_inscription },
 
     // dlua only past this point
     { "pluses",            l_item_pluses },
@@ -1367,6 +1391,7 @@ static const struct luaL_reg item_lib[] =
     { "inslot",            l_item_inslot },
     { "get_items_at",      l_item_get_items_at },
     { "shop_inventory",    l_item_shop_inventory },
+    { "shopping_list",     l_item_shopping_list },
     { nullptr, nullptr },
 };
 

@@ -88,8 +88,8 @@ special_missile_type get_ammo_brand(const item_def &item) PURE;
 
 // armour functions:
 int armour_max_enchant(const item_def &item) PURE;
-bool armour_type_is_hide(int type, bool inc_made = false) PURE;
-bool armour_is_hide(const item_def &item, bool inc_made = false) PURE;
+bool armour_type_is_hide(armour_type type) PURE;
+bool armour_is_hide(const item_def &item) PURE;
 bool armour_is_special(const item_def &item) PURE;
 int armour_acq_weight(const armour_type armour) PURE;
 
@@ -100,15 +100,14 @@ bool jewellery_is_amulet(const item_def &item) PURE;
 bool jewellery_is_amulet(int sub_type) IMMUTABLE;
 
 armour_type hide_for_monster(monster_type mc) PURE;
-armour_type armour_for_hide(armour_type hide_type) PURE;
 monster_type monster_for_hide(armour_type arm) PURE;
-bool  hide2armour(item_def &item);
 
 int fit_armour_size(const item_def &item, size_type size) PURE;
 bool check_armour_size(const item_def &item, size_type size) PURE;
 bool check_armour_size(armour_type sub_type, size_type size) PURE;
 
-bool item_is_rechargeable(const item_def &it, bool hide_charged = false) PURE;
+bool item_is_rechargeable(const item_def &it, bool hide_charged = false,
+                          bool divine = false) PURE;
 int wand_charge_value(int type) PURE;
 int wand_max_charges(const item_def &item) PURE;
 bool is_known_empty_wand(const item_def &item) PURE;
@@ -200,7 +199,6 @@ bool food_is_veggie(int food_type) PURE;
 bool food_is_veggie(const item_def &item) PURE;
 int food_value(const item_def &item) PURE;
 int food_turns(const item_def &item) PURE;
-bool can_cut_meat(const item_def &item) PURE;
 bool is_fruit(const item_def &item) PURE;
 
 // generic item property functions:
@@ -230,6 +228,10 @@ bool gives_resistance(const item_def &item) PURE;
 bool item_is_jelly_edible(const item_def &item);
 equipment_type get_item_slot(object_class_type type, int sub_type) IMMUTABLE;
 equipment_type get_item_slot(const item_def &item) PURE;
+
+int weapon_base_price(weapon_type type) PURE;
+int missile_base_price(missile_type type) PURE;
+int armour_base_price(armour_type type) PURE;
 
 string item_base_name(const item_def &item);
 string item_base_name(object_class_type type, int sub_type);

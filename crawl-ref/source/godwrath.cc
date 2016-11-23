@@ -83,6 +83,8 @@ static const char *_god_wrath_adjectives[] =
     "adversity",        // Qazlal
     "disappointment",   // Ru
     "progress",         // Pakellas
+    "fury",             // Uskayaw
+    "memory",           // Hepliaklqana (unused)
 };
 COMPILE_CHECK(ARRAYSZ(_god_wrath_adjectives) == NUM_GODS);
 
@@ -105,6 +107,15 @@ static string _god_wrath_name(god_type god)
                         god_name(god, use_full_name).c_str());
 }
 
+static mgen_data _wrath_mon_data(monster_type mtyp, god_type god)
+{
+    mgen_data mg = mgen_data::hostile_at(mtyp, true, you.pos())
+                    .set_summoned(nullptr, 0, 0, god)
+                    .set_non_actor_summoner(_god_wrath_name(god));
+    mg.extra_flags |= (MF_NO_REWARD | MF_HARD_RESET);
+    return mg;
+}
+
 static bool _yred_random_zombified_hostile()
 {
     const bool skel = one_chance_in(4);
@@ -121,12 +132,9 @@ static bool _yred_random_zombified_hostile()
     }
     while (skel && !mons_skeleton(z_base));
 
-    mgen_data temp = mgen_data::hostile_at(skel ? MONS_SKELETON : MONS_ZOMBIE,
-                                           _god_wrath_name(GOD_YREDELEMNUL),
-                                           true, 0, 0, you.pos(), MG_NONE,
-                                           GOD_YREDELEMNUL, z_base);
-
-    temp.extra_flags |= (MF_NO_REWARD | MF_HARD_RESET);
+    mgen_data temp = _wrath_mon_data(skel ? MONS_SKELETON : MONS_ZOMBIE,
+                                     GOD_YREDELEMNUL)
+                     .set_base(z_base);
 
     return create_monster(temp, false);
 }
@@ -166,17 +174,12 @@ static bool _okawaru_random_servant()
     monster_type mon_type = pick_monster_from(_okawaru_servants,
                                               you.experience_level);
 
-    mgen_data temp = mgen_data::hostile_at(mon_type,
-                                           _god_wrath_name(GOD_OKAWARU),
-                                           true, 0, 0, you.pos(), MG_NONE,
-                                           GOD_OKAWARU);
+    mgen_data temp = _wrath_mon_data(mon_type, GOD_OKAWARU);
 
-    // Don't send sheep into battle, but otherwise let bands in.
+    // Don't send dream sheep into battle, but otherwise let bands in.
     // This makes sure you get multiple orcs/gnolls early on.
     if (mon_type != MONS_CYCLOPS)
         temp.flags |= MG_PERMIT_BANDS;
-
-    temp.extra_flags |= (MF_NO_REWARD | MF_HARD_RESET);
 
     return create_monster(temp, false);
 }
@@ -189,14 +192,7 @@ static bool _dithmenos_random_shadow(const int count, const int tier)
     else if (tier >= 1 && count < 3 && coinflip())
         mon_type = MONS_SHADOW_DEMON;
 
-    mgen_data temp = mgen_data::hostile_at(mon_type,
-                                           _god_wrath_name(GOD_DITHMENOS),
-                                           true, 0, 0, you.pos(), MG_NONE,
-                                           GOD_DITHMENOS);
-
-    temp.extra_flags |= (MF_NO_REWARD | MF_HARD_RESET);
-
-    return create_monster(temp, false);
+    return create_monster(_wrath_mon_data(mon_type, GOD_DITHMENOS), false);
 }
 
 /**
@@ -275,9 +271,10 @@ static void _zin_remove_good_mutations()
     if (!how_mutated())
         return;
 
+    const god_type god = GOD_ZIN;
     bool success = false;
 
-    simple_god_message(" draws some chaos from your body!", GOD_ZIN);
+    simple_god_message(" draws some chaos from your body!", god);
 
     bool failMsg = true;
 
@@ -285,7 +282,7 @@ static void _zin_remove_good_mutations()
     {
         // Ensure that only good mutations are removed.
         if (i <= random2(10)
-            && delete_mutation(RANDOM_GOOD_MUTATION, "Zin's wrath",
+            && delete_mutation(RANDOM_GOOD_MUTATION, _god_wrath_name(god),
                                failMsg, false, true, true))
         {
             success = true;
@@ -296,8 +293,8 @@ static void _zin_remove_good_mutations()
 
     if (success && !how_mutated())
     {
-        simple_god_message(" rids your body of chaos!", GOD_ZIN);
-        dec_penance(GOD_ZIN, 1);
+        simple_god_message(" rids your body of chaos!", god);
+        dec_penance(god, 1);
     }
 }
 
@@ -352,9 +349,6 @@ static void _ely_dull_inventory_weapons()
 {
     int chance = 50;
     int num_dulled = 0;
-    int quiver_link;
-
-    you.m_quiver.get_desired_item(nullptr, &quiver_link);
 
     for (auto &item : you.inv)
     {
@@ -581,6 +575,13 @@ static monster* get_avatar(god_type god)
     return avatar;
 }
 
+/// Cleanup a temporary 'avatar' monster.
+static void _reset_avatar(monster &avatar)
+{
+    env.mid_cache.erase(avatar.mid);
+    shadow_monster_reset(&avatar);
+}
+
 /**
  * Rain down Makhleb's destruction upon the player!
  *
@@ -600,7 +601,7 @@ static bool _makhleb_call_down_destruction()
     }
 
     _spell_retribution(avatar, _makhleb_destruction_type(), god);
-    shadow_monster_reset(avatar);
+    _reset_avatar(*avatar);
     return true;
 }
 
@@ -630,15 +631,7 @@ static int _makhleb_num_greater_servants()
  */
 static bool _makhleb_summon_servant(monster_type servant)
 {
-
-    mgen_data temp = mgen_data::hostile_at(servant,
-                                           _god_wrath_name(GOD_MAKHLEB),
-                                           true, 0, 0, you.pos(), MG_NONE,
-                                           GOD_MAKHLEB);
-
-    temp.extra_flags |= (MF_NO_REWARD | MF_HARD_RESET);
-
-    return create_monster(temp, false);
+    return create_monster(_wrath_mon_data(servant, GOD_MAKHLEB), false);
 }
 
 /**
@@ -853,7 +846,7 @@ static bool _trog_retribution()
         switch (random2(6))
         {
         case 0:
-            you.rot(nullptr, 0, 3 + random2(3));
+            you.rot(nullptr, 3 + random2(3));
             break;
 
         case 1:
@@ -928,10 +921,7 @@ static bool _beogh_retribution()
 
             // Now create monster.
             if (monster *mon =
-                create_monster(
-                    mgen_data::hostile_at(MONS_DANCING_WEAPON,
-                        _god_wrath_name(god),
-                        true, 0, 0, you.pos(), MG_NONE, god)))
+                create_monster(_wrath_mon_data(MONS_DANCING_WEAPON, god)))
             {
                 ASSERT(mon->weapon() != nullptr);
                 item_def& wpn(*mon->weapon());
@@ -944,8 +934,6 @@ static bool _beogh_retribution()
                 set_ident_flags(wpn, ISFLAG_KNOW_TYPE);
 
                 item_colour(wpn);
-
-                mon->flags |= (MF_NO_REWARD | MF_HARD_RESET);
 
                 ghost_demon newstats;
                 newstats.init_dancing_weapon(wpn,
@@ -991,18 +979,14 @@ static bool _beogh_retribution()
         else
             punisher = MONS_ORC;
 
-        mgen_data temp = mgen_data::hostile_at(punisher,
-                                               _god_wrath_name(god),
-                                               true, 0, 0, you.pos(),
-                                               MG_PERMIT_BANDS, god);
-
-        temp.extra_flags |= (MF_NO_REWARD | MF_HARD_RESET);
+        mgen_data temp = _wrath_mon_data(punisher, god);
+        temp.flags |=  MG_PERMIT_BANDS;
 
         monster *mons = create_monster(temp, false);
 
         // sometimes name band leader
         if (mons && one_chance_in(3))
-            give_monster_proper_name(mons);
+            give_monster_proper_name(*mons);
 
         simple_god_message(
             mons ? " sends forth an army of orcs."
@@ -1143,16 +1127,10 @@ static void _lugonu_minion_retribution()
                 15 - (you.experience_level/2),  MONS_ABOMINATION_SMALL,
                 you.experience_level/2,         MONS_ABOMINATION_LARGE,
                 6,                              MONS_THRASHING_HORROR,
-                3,                              MONS_ANCIENT_ZYME,
-                0
+                3,                              MONS_ANCIENT_ZYME
             );
 
-        mgen_data temp = mgen_data::hostile_at(to_summon,
-                                               _god_wrath_name(god), true, 0,
-                                               0, you.pos(), MG_NONE, god);
-        temp.extra_flags |= (MF_NO_REWARD | MF_HARD_RESET);
-
-        if (create_monster(temp, false))
+        if (create_monster(_wrath_mon_data(to_summon, god), false))
             success = true;
     }
 
@@ -1163,12 +1141,7 @@ static void _lugonu_minion_retribution()
                                                      MONS_WRETCHED_STAR,
                                                      MONS_STARCURSED_MASS);
 
-        mgen_data temp = mgen_data::hostile_at(to_summon,
-                                               _god_wrath_name(god), true, 0,
-                                               0, you.pos(), MG_NONE, god);
-        temp.extra_flags |= (MF_NO_REWARD | MF_HARD_RESET);
-
-        if (create_monster(temp, false))
+        if (create_monster(_wrath_mon_data(to_summon, god), false))
             success = true;
     }
 
@@ -1271,12 +1244,12 @@ static bool _vehumet_retribution()
     if (spell == SPELL_NO_SPELL)
     {
         simple_god_message(" has no time to deal with you just now.", god);
-        shadow_monster_reset(avatar);
+        _reset_avatar(*avatar);
         return false;
     }
 
     _spell_retribution(avatar, spell, god);
-    shadow_monster_reset(avatar);
+    _reset_avatar(*avatar);
     return true;
 }
 
@@ -1285,8 +1258,7 @@ static bool _nemelex_retribution()
     // card theme
     const god_type god = GOD_NEMELEX_XOBEH;
 
-    // like Xom, this might actually help the player -- bwr
-    simple_god_message(" makes you draw from the Deck of Punishment.", god);
+    simple_god_message(" makes you draw from the deck of Punishment.", god);
     draw_from_deck_of_punishment();
     return true;
 }
@@ -1296,55 +1268,61 @@ static bool _nemelex_retribution()
  */
 static void _jiyva_mutate_player()
 {
-    god_speaks(GOD_JIYVA, "You feel Jiyva alter your body.");
+    const god_type god = GOD_JIYVA;
+    god_speaks(god, "You feel Jiyva alter your body.");
 
     const int mutations = 1 + random2(3);
     for (int i = 0; i < mutations; ++i)
-        mutate(RANDOM_BAD_MUTATION, "Jiyva's wrath", true, false, true);
+        mutate(RANDOM_BAD_MUTATION, _god_wrath_name(god), true, false, true);
 }
 
-static bool _choose_slimify_target(const monster* mon)
+static void _jiyva_remove_slime_mutation()
 {
-    return mon_can_be_slimified(mon) && mon->attitude == ATT_HOSTILE;
+    bool slimy = false;
+    for (int i = 0; i < NUM_MUTATIONS; ++i)
+    {
+        if (is_slime_mutation(static_cast<mutation_type>(i))
+            && you.mutation[i] > 0)
+        {
+            slimy = true;
+        }
+    }
+
+    if (!slimy)
+        return;
+
+    const god_type god = GOD_JIYVA;
+    simple_god_message("'s gift of slime is revoked.", god);
+    delete_mutation(RANDOM_SLIME_MUTATION, _god_wrath_name(god),
+                    true, false, true);
 }
 
 /**
- * Make Jiyva slimify a nearby enemy.
+ * Make Jiyva polymorph the player into a bad form.
  */
-static bool _jiyva_slimify()
+static void _jiyva_transform()
 {
-    monster* mon = nullptr;
-    mon = choose_random_nearby_monster(0, _choose_slimify_target);
+    const god_type god = GOD_JIYVA;
+    god_speaks(god, "Mutagenic energy floods into your body!");
 
-    if (!mon)
-        return false;
+    const transformation_type form = random_choose(TRAN_BAT,
+                                                   TRAN_FUNGUS,
+                                                   TRAN_PIG,
+                                                   TRAN_TREE,
+                                                   TRAN_PORCUPINE,
+                                                   TRAN_WISP);
 
-    simple_god_message(make_stringf("'s putrescence saturates %s!",
-                                    mon->name(DESC_THE).c_str()).c_str(),
-                       GOD_JIYVA);
-    slimify_monster(mon, true);
-    return true;
+    if (transform(random2(you.penance[god]) * 2, form, true))
+        you.transform_uncancellable = true;
 }
-
 /**
- * Transmutation-miscast-themed wrath; make Jiyva contaminate tha player,
- * and possibly polymorph them into a bad (?) form.
+ * Make Jiyva contaminate tha player.
  */
-static void _jiyva_tmut()
+static void _jiyva_contaminate()
 {
     const god_type god = GOD_JIYVA;
     god_speaks(god, "Mutagenic energy floods into your body!");
     contaminate_player(random2(you.penance[god] * 500));
-
-    if (coinflip())
-        return;
-
-    // XXX: someone should probably rethink this list...
-    const transformation_type form = random_choose(TRAN_BAT, TRAN_STATUE,
-                                                   TRAN_SPIDER);
-
-    if (transform(random2(you.penance[god]) * 2, form, true))
-        you.transform_uncancellable = true;
 }
 
 static void _jiyva_summon_slimes()
@@ -1353,12 +1331,12 @@ static void _jiyva_summon_slimes()
 
     const monster_type slimes[] =
     {
-        MONS_GIANT_EYEBALL,
+        MONS_FLOATING_EYE,
         MONS_EYE_OF_DRAINING,
         MONS_EYE_OF_DEVASTATION,
         MONS_GREAT_ORB_OF_EYES,
         MONS_SHINING_EYE,
-        MONS_GIANT_ORANGE_BRAIN,
+        MONS_GLOWING_ORANGE_BRAIN,
         MONS_JELLY,
         MONS_ACID_BLOB,
         MONS_AZURE_JELLY,
@@ -1373,14 +1351,7 @@ static void _jiyva_summon_slimes()
     {
         const monster_type slime = RANDOM_ELEMENT(slimes);
 
-        mgen_data temp =
-            mgen_data::hostile_at(static_cast<monster_type>(slime),
-                                  _god_wrath_name(god),
-                                  true, 0, 0, you.pos(), MG_NONE, god);
-
-        temp.extra_flags |= (MF_NO_REWARD | MF_HARD_RESET);
-
-        if (create_monster(temp, false))
+        if (create_monster(_wrath_mon_data(slime, god), false))
             success = true;
     }
 
@@ -1401,17 +1372,15 @@ static bool _jiyva_retribution()
 
     if (you.can_safely_mutate() && one_chance_in(7))
         _jiyva_mutate_player();
-    // Don't create hostile slimes while under penance.
-    else if (!you_worship(god)
-             && coinflip()
-             && _jiyva_slimify())
-    {
-        return true;
-    }
+    else if (one_chance_in(3) && !you.transform_uncancellable)
+        _jiyva_transform();
     else if (!one_chance_in(3) || you_worship(god))
-        _jiyva_tmut();
+        _jiyva_contaminate();
     else
         _jiyva_summon_slimes();
+
+    if (coinflip())
+        _jiyva_remove_slime_mutation();
 
     return true;
 }
@@ -1458,14 +1427,7 @@ static bool _fedhas_summon_plants()
         }
     }
 
-    mgen_data temp =
-        mgen_data::hostile_at(MONS_OKLOB_PLANT,
-                              _god_wrath_name(god),
-                              false, 0, 0,
-                              coord_def(-1, -1),
-                              MG_FORCE_PLACE, god);
-
-    temp.extra_flags |= (MF_NO_REWARD | MF_HARD_RESET);
+    mgen_data temp = _wrath_mon_data(MONS_OKLOB_PLANT, god);
 
     // If we have a lot of space to work with we can do something
     // flashy.
@@ -1544,7 +1506,7 @@ static bool _fedhas_retribution()
     switch (random2(retribution_options))
     {
     case 0:
-        // Try and spawn some hostile giant spores, if none are created
+        // Try and spawn some hostile ballistomycete spores, if none are created
         // fall through to the elemental miscast effects.
         if (fedhas_corpse_spores(BEH_HOSTILE))
         {
@@ -1594,12 +1556,13 @@ static bool _dithmenos_retribution()
         {
             if (create_monster(
                     mgen_data(
-                        RANDOM_MOBILE_MONSTER, BEH_HOSTILE, 0,
-                        4, MON_SUMM_WRATH, you.pos(), MHITYOU, MG_NONE, god,
-                        MONS_NO_MONSTER, COLOUR_UNDEF, PROX_ANYWHERE,
-                        level_id(BRANCH_DUNGEON,
-                                 min(27, you.experience_level + 5)),
-                        0, 0, MF_NO_FLAGS, "", _god_wrath_name(god))))
+                        RANDOM_MOBILE_MONSTER, BEH_HOSTILE, you.pos(), MHITYOU,
+                              MG_NONE, god)
+                            .set_place(level_id(BRANCH_DUNGEON,
+                                                min(27,
+                                                    you.experience_level + 5)))
+                            .set_summoned(nullptr, 4, MON_SUMM_WRATH)
+                            .set_non_actor_summoner(_god_wrath_name(god))))
             {
                 count++;
             }
@@ -1643,7 +1606,7 @@ static const pop_entry pop_qazlal_wrath[] =
 
   {  0, 12, 25, SEMI, MONS_EARTH_ELEMENTAL },
   {  2, 10, 50, FLAT, MONS_BASILISK },
-  {  4, 14, 30, FLAT, MONS_BOULDER_BEETLE },
+  {  4, 14, 30, FLAT, MONS_CATOBLEPAS },
   { 18, 27, 50, RISE, MONS_IRON_DRAGON },
 
   { 0,0,0,FLAT,MONS_0 }
@@ -1664,13 +1627,7 @@ static void _qazlal_summon_elementals()
         monster_type mon = pick_monster_from(pop_qazlal_wrath,
                                              you.experience_level);
 
-        mgen_data temp =
-            mgen_data::hostile_at(mon, _god_wrath_name(god),
-                                  true, 0, 0, you.pos(), MG_NONE, god);
-
-        temp.extra_flags |= (MF_NO_REWARD | MF_HARD_RESET);
-
-        if (create_monster(temp, false))
+        if (create_monster(_wrath_mon_data(mon, god), false))
             success = true;
     }
 
@@ -1724,20 +1681,6 @@ static bool _qazlal_retribution()
     return true;
 }
 
-void pakellas_evoke_backfire(spell_type spell)
-{
-    if (!one_chance_in(20))
-        return;
-
-    // Like Veh and Kiku: you can still get the spell to go through,
-    // but you get a miscast anyway.
-    simple_god_message(" does not allow the disloyal to dabble in "
-                        "devices!", GOD_PAKELLAS);
-    MiscastEffect(&you, nullptr, GOD_MISCAST + GOD_PAKELLAS, spell,
-                  (you.experience_level / 2) + (spell_difficulty(spell) * 2),
-                  random2avg(88, 3), _god_wrath_name(GOD_PAKELLAS));
-}
-
 bool drain_wands()
 {
     vector<string> wands;
@@ -1762,89 +1705,49 @@ bool drain_wands()
     return true;
 }
 
-static bool _pakellas_drain_rods()
+static bool _choose_hostile_monster(const monster& mon)
 {
-    vector<string> rods;
-    for (int i = 0; i < ENDOFPACK; ++i)
-    {
-        if (!you.inv[i].defined())
-            continue;
-
-        if (you.inv[i].base_type == OBJ_RODS)
-        {
-            const int charges = you.inv[i].charges;
-            if (charges > 0 && coinflip())
-            {
-                you.inv[i].charges = 0;
-                if (you.inv[i].charge_cap > 6 * ROD_CHARGE_MULT)
-                    you.inv[i].charge_cap -= ROD_CHARGE_MULT;
-                if (you.inv[i].rod_plus > -3)
-                    you.inv[i].rod_plus -= 1 + random2(2);
-
-                rods.push_back(you.inv[i].name(DESC_PLAIN));
-            }
-        }
-    }
-    if (rods.empty())
-        return false;
-
-    mpr_comma_separated_list("Magical energy is drained from your ", rods);
-    return true;
+    return mon.attitude == ATT_HOSTILE;
 }
 
-static bool _pakellas_drain_evokers()
-{
-    vector<string> evokers;
-    for (int i = 0; i < ENDOFPACK; ++i)
-    {
-        if (!you.inv[i].defined())
-            continue;
 
-        if (is_xp_evoker(you.inv[i]) && evoker_is_charged(you.inv[i])
-            && coinflip())
+static bool _uskayaw_retribution()
+{
+    const god_type god = GOD_USKAYAW;
+
+    // check if we have monsters around
+    monster* mon = nullptr;
+    mon = choose_random_nearby_monster(0, _choose_hostile_monster);
+
+    switch (random2(5))
+    {
+    case 0:
+    case 1:
+        if (mon && mon->can_go_berserk())
         {
-            expend_xp_evoker(you.inv[i]);
-            evokers.push_back(you.inv[i].name(DESC_PLAIN));
+            simple_god_message(make_stringf(" drives %s into a dance frenzy!",
+                                     mon->name(DESC_THE).c_str()).c_str(), god);
+            mon->go_berserk(true);
+            return true;
         }
+        // else we intentionally fall through
+
+    case 2:
+    case 3:
+        if (mon)
+        {
+            simple_god_message(" booms out, \"Time for someone else to take a solo\"",
+                                    god);
+            paralyse_player(_god_wrath_name(god));
+            return false;
+        }
+        // else we intentionally fall through
+
+    case 4:
+        simple_god_message(" booms out: \"Revellers, it's time to dance!\"", god);
+        noisy(35, you.pos());
+        break;
     }
-    if (evokers.empty())
-        return false;
-
-    mpr_comma_separated_list("Magical energy is drained from your ", evokers);
-    return true;
-}
-
-/**
- * Call down the wrath of Pakellas upon the player!
- *
- * Devices / inventor theme.
- *
- * @return Whether to take further divine wrath actions afterward.
- */
-static bool _pakellas_retribution()
-{
-    simple_god_message(" sneers upon you!", GOD_PAKELLAS);
-
-    vector<bool(*)()> pakellas_wrath_funcs =
-        { drain_wands, _pakellas_drain_rods, _pakellas_drain_evokers };
-    shuffle_array(pakellas_wrath_funcs);
-    if (x_chance_in_y(pakellas_wrath_funcs.size(),
-                      pakellas_wrath_funcs.size() + 2))
-    {
-        for (auto func : pakellas_wrath_funcs)
-            if ((*func)())
-                return true;
-    }
-    if (you.magic_points > 0 && coinflip())
-    {
-        drain_mp(you.magic_points);
-        canned_msg(MSG_MAGIC_DRAIN);
-        return true;
-    }
-
-    // Pakellas can't or won't drain one of your possessions right now,
-    // so drain *you* instead...
-    drain_player(100, false, true);
     return true;
 }
 
@@ -1892,11 +1795,13 @@ bool divine_retribution(god_type god, bool no_bonus, bool force)
     case GOD_CHEIBRIADOS:   do_more = _cheibriados_retribution(); break;
     case GOD_DITHMENOS:     do_more = _dithmenos_retribution(); break;
     case GOD_QAZLAL:        do_more = _qazlal_retribution(); break;
-    case GOD_PAKELLAS:      do_more = _pakellas_retribution(); break;
+    case GOD_USKAYAW:       do_more = _uskayaw_retribution(); break;
 
     case GOD_ASHENZARI:
     case GOD_GOZAG:
     case GOD_RU:
+    case GOD_HEPLIAKLQANA:
+    case GOD_PAKELLAS:
         // No reduction with time.
         return false;
 
@@ -1935,43 +1840,6 @@ bool divine_retribution(god_type god, bool no_bonus, bool force)
     dec_penance(god, 1 + random2(3));
 
     return true;
-}
-
-// Currently only used when orcish idols have been destroyed.
-static string _get_beogh_speech(const string &key)
-{
-    string result = getSpeakString("Beogh " + key);
-
-    if (result.empty())
-        return "Beogh is angry!";
-
-    return result;
-}
-
-// Destroying orcish idols (a.k.a. idols of Beogh) may anger Beogh.
-void beogh_idol_revenge()
-{
-    god_acting gdact(GOD_BEOGH, true);
-
-    // Beogh watches his charges closely, but for others doesn't always
-    // notice.
-    if (!you_worship(GOD_BEOGH)
-        && (!species_is_orcish(you.species) || coinflip())
-        && x_chance_in_y(2, 3))
-    {
-        return;
-    }
-
-    const char *revenge;
-
-    if (you_worship(GOD_BEOGH))
-        revenge = _get_beogh_speech("idol follower").c_str();
-    else if (species_is_orcish(you.species))
-        revenge = _get_beogh_speech("idol orc").c_str();
-    else
-        revenge = _get_beogh_speech("idol other").c_str();
-
-    _god_smites_you(GOD_BEOGH, revenge);
 }
 
 static void _tso_blasts_cleansing_flame(const char *message)

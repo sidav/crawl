@@ -9,6 +9,7 @@
 #include "evoke.h"
 #include "food.h"
 #include "godabil.h"
+#include "godpassive.h"
 #include "itemprop.h"
 #include "mon-transit.h" // untag_followers() in duration-data
 #include "mutation.h"
@@ -177,6 +178,23 @@ bool fill_status_info(int status, status_info* inf)
     // completing or overriding the defaults set above.
     switch (status)
     {
+    case STATUS_DIVINE_ENERGY:
+        if (you.duration[DUR_NO_CAST])
+        {
+            inf->light_colour = RED;
+            inf->light_text   = "-Cast";
+            inf->short_text   = "no casting";
+            inf->long_text    = "You are unable to cast spells.";
+        }
+        else if (you.attribute[ATTR_DIVINE_ENERGY])
+        {
+            inf->light_colour = WHITE;
+            inf->light_text   = "+Cast";
+            inf->short_text   = "divine energy";
+            inf->long_text    = "You are calling on Sif Muna for divine "
+                                "energy.";
+        }
+        break;
 
     case DUR_CORROSION:
         inf->light_text = make_stringf("Corr (%d)",
@@ -636,6 +654,14 @@ bool fill_status_info(int status, status_info* inf)
         break;
     }
 
+    case STATUS_STILL_WINDS:
+        if (env.level_state & LSTATE_STILL_WINDS)
+        {
+            inf->light_colour = BROWN;
+            inf->light_text = "-Clouds";
+        }
+        break;
+
     default:
         if (!found)
         {
@@ -658,7 +684,7 @@ static void _describe_hunger(status_info* inf)
     switch (you.hunger_state)
     {
     case HS_ENGORGED:
-        inf->light_colour = LIGHTGREEN;
+        inf->light_colour = (vamp ? GREEN : LIGHTGREEN);
         inf->light_text   = (vamp ? "Alive" : "Engorged");
         break;
     case HS_VERY_FULL:
@@ -704,9 +730,15 @@ static void _describe_glow(status_info* inf)
         return;
 
     const unsigned int cont = signed_cont; // so we don't get compiler warnings
-    inf->light_colour = DARKGREY;
-    if (cont > 1)
-        inf->light_colour = _bad_ench_colour(cont, 3, 4);
+    if (player_severe_contamination())
+    {
+        inf->light_colour = _bad_ench_colour(cont, SEVERE_CONTAM_LEVEL + 1,
+                                                   SEVERE_CONTAM_LEVEL + 2);
+    }
+    else if (cont > 1)
+        inf->light_colour = LIGHTGREY;
+    else
+        inf->light_colour = DARKGREY;
 #if TAG_MAJOR_VERSION == 34
     if (cont > 1 || you.species != SP_DJINNI)
 #endif
@@ -717,6 +749,7 @@ static void _describe_glow(status_info* inf)
     {
         "",
         "very slightly ",
+        "slightly",
         "",
         "heavily ",
         "very heavily ",
@@ -777,10 +810,8 @@ static void _describe_regen(status_info* inf)
 
         if (you.hunger_state < HS_SATIATED)
             inf->short_text += " slowly";
-        else if (you.hunger_state < HS_ENGORGED)
-            inf->short_text += " quickly";
         else
-            inf->short_text += " very quickly";
+            inf->short_text += " quickly";
     }
 }
 
@@ -835,11 +866,12 @@ static void _describe_airborne(status_info* inf)
     if (!you.airborne())
         return;
 
-    const bool perm     = you.permanent_flight();
-    const bool expiring = (!perm && dur_expiring(DUR_FLIGHT));
+    const bool perm      = you.permanent_flight();
+    const bool expiring  = (!perm && dur_expiring(DUR_FLIGHT));
+    const bool emergency = you.props[EMERGENCY_FLIGHT_KEY].get_bool();
     const string desc   = you.tengu_flight() ? " quickly and evasively" : "";
 
-    inf->light_colour = perm ? WHITE : BLUE;
+    inf->light_colour = perm ? WHITE : emergency ? LIGHTRED : BLUE;
     inf->light_text   = "Fly";
     inf->short_text   = "flying" + desc;
     inf->long_text    = "You are flying" + desc + ".";
@@ -954,7 +986,7 @@ static void _describe_missiles(status_info* inf)
 
     if (level > 1)
     {
-        bool perm = false; /* in_good_standing(GOD_QAZLAL, 4) */
+        bool perm = false;
         inf->light_colour = perm ? WHITE : LIGHTMAGENTA;
         inf->light_text   = "DMsl";
         inf->short_text   = "deflect missiles";
@@ -964,7 +996,7 @@ static void _describe_missiles(status_info* inf)
     {
         bool perm = player_mutation_level(MUT_DISTORTION_FIELD) == 3
                     || you.scan_artefacts(ARTP_RMSL)
-                    || in_good_standing(GOD_QAZLAL, 3);
+                    || have_passive(passive_t::upgraded_storm_shield);
         inf->light_colour = perm ? WHITE : LIGHTBLUE;
         inf->light_text   = "RMsl";
         inf->short_text   = "repel missiles";

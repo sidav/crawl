@@ -70,6 +70,7 @@ fineff.o \
 food.o \
 format.o \
 fprop.o \
+game-options.o \
 geom2d.o \
 ghost.o \
 godabil.o \
@@ -157,12 +158,12 @@ mon-place.o \
 mon-poly.o \
 mon-project.o \
 mon-speak.o \
-mon-stealth.o \
 mon-tentacle.o \
 mon-transit.o \
 mon-util.o \
 monster.o \
 mutation.o \
+nearby-danger.o \
 newgame.o \
 ng-init.o \
 ng-input.o \
@@ -307,4 +308,6 @@ ALL_OBJECTS = $(OBJECTS) $(TILES_OBJECTS) $(GLTILES_OBJECTS) \
 $(WEBTILES_OBJECTS) $(YACC_OBJECTS) $(TILEDEFOBJS) \
 libw32c.o \
 libunix.o \
+main.o \
+util/monster/monster-main.o \
 version.o

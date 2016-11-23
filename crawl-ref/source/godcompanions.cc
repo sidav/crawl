@@ -52,7 +52,7 @@ void remove_enslaved_soul_companion()
         monster* mons = monster_by_mid(entry.first);
         if (!mons)
             mons = &entry.second.mons.mons;
-        if (mons_enslaved_soul(mons))
+        if (mons_enslaved_soul(*mons))
         {
             remove_companion(mons);
             return;
@@ -67,7 +67,7 @@ void remove_all_companions(god_type god)
         monster* mons = monster_by_mid(i->first);
         if (!mons)
             mons = &i->second.mons.mons;
-        if (mons_is_god_gift(mons, god))
+        if (mons_is_god_gift(*mons, god))
             companion_list.erase(i++);
         else
             ++i;
@@ -143,7 +143,7 @@ bool recall_offlevel_ally(mid_t mid)
     // The monster is now on this level
     remove_monster_from_transit(comp->level, mid);
     comp->level = level_id::current();
-    simple_monster_message(mons, " is recalled.");
+    simple_monster_message(*mons, " is recalled.");
 
     // Now that the monster is onlevel, we can safely apply traps to it.
     // old location isn't very meaningful, so use current loc
@@ -207,6 +207,49 @@ void wizard_list_companions()
         mprf("%s (%d)(%s:%d)", mon.name(DESC_PLAIN, true).c_str(), mon.mid,
              branches[comp.level.branch].abbrevname, comp.level.depth);
     }
+}
+
+/**
+ * Returns the mid of the current ancestor granted by Hepliaklqana, if any. If none
+ * exists, returns MID_NOBODY.
+ *
+ * The ancestor is *not* guaranteed to be on-level, even if it exists; check
+ * the companion_list before doing anything rash!
+ *
+ * @return  The mid_t of the player's ancestor, or MID_NOBODY if none exists.
+ */
+mid_t hepliaklqana_ancestor()
+{
+    for (auto &entry : companion_list)
+        if (mons_is_hepliaklqana_ancestor(entry.second.mons.mons.type))
+            return entry.first;
+    return MID_NOBODY;
+}
+
+/**
+ * Returns the a pointer to the current ancestor granted by Hepliaklqana, if
+ * any. If none exists, returns null.
+ *
+ * The ancestor is *not* guaranteed to be on-level, even if it exists; check
+ * the companion_list before doing anything rash!
+ *
+ * @return  The player's ancestor, or nullptr if none exists.
+ */
+monster* hepliaklqana_ancestor_mon()
+{
+    const mid_t ancestor_mid = hepliaklqana_ancestor();
+    if (ancestor_mid == MID_NOBODY)
+        return nullptr;
+
+    monster* ancestor = monster_by_mid(ancestor_mid);
+    if (ancestor)
+        return ancestor;
+
+    for (auto &entry : companion_list)
+        if (mons_is_hepliaklqana_ancestor(entry.second.mons.mons.type))
+            return &entry.second.mons.mons;
+    // should never reach this...
+    return nullptr;
 }
 
 #if TAG_MAJOR_VERSION == 34

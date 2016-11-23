@@ -13,13 +13,14 @@
 #include "cloud.h"
 #include "food.h"
 #include "godconduct.h"
+#include "godwrath.h" // reduce_xp_penance
 #include "hints.h"
 #include "itemname.h"
 #include "itemprop.h"
 #include "item_use.h"
 #include "message.h"
-#include "misc.h"
 #include "mutation.h"
+#include "nearby-danger.h"
 #include "player-stats.h"
 #include "prompt.h"
 #include "religion.h"
@@ -127,9 +128,16 @@ public:
 
         if (ddoor)
             mpr("You feel queasy.");
-        else if (you.can_device_heal() || you.duration[DUR_POISONING]
-            || you.duration[DUR_CONF] || unrotted)
+        else if (you.can_device_heal()
+                 || !is_device
+                 || you.duration[DUR_POISONING]
+                 || you.duration[DUR_CONF]
+                 || unrotted)
+        {
+            if (is_device)
+                print_device_heal_message();
             canned_msg(MSG_GAIN_HEALTH);
+        }
         else
             mpr("That felt strangely inert.");
         // need to redraw from yellow to green even if no hp was gained
@@ -195,6 +203,8 @@ public:
         // Pay for rot right off the top.
         amount = unrot_hp(amount);
         inc_hp(amount);
+        if (is_device)
+            print_device_heal_message();
         mpr("You feel much better.");
         return true;
     }
@@ -208,17 +218,6 @@ static string _blood_flavour_message()
     if (player_mutation_level(MUT_HERBIVOROUS) < 3 && player_likes_chunks())
         return "This tastes like blood.";
     return "Yuck - this tastes like blood.";
-}
-
-static bool _prompt_quaff_blood()
-{
-    if (is_good_god(you.religion)
-        && !yesno("Really drink that potion of blood?", false, 'n'))
-    {
-        canned_msg(MSG_OK);
-        return false;
-    }
-    return true;
 }
 
 class PotionBlood : public PotionEffect
@@ -258,11 +257,10 @@ public:
 
     bool quaff(bool was_known) const override
     {
-        if (was_known && (!check_known_quaff() || !_prompt_quaff_blood()))
+        if (was_known && !check_known_quaff())
             return false;
 
-        effect(was_known, 1040);
-        did_god_conduct(DID_DRINK_BLOOD, 1 + random2(3), was_known);
+        effect(was_known, 1000);
         return true;
     }
 };
@@ -455,6 +453,10 @@ public:
     {
         debuff_player();
         mpr("You feel magically purged.");
+        const int old_contam_level = get_contamination_level();
+        contaminate_player(-1 * (1000 + random2(4000)));
+        if (old_contam_level && old_contam_level == get_contamination_level())
+            mpr("You feel slightly less contaminated with magical energies.");
         return true;
     }
 };
@@ -475,6 +477,7 @@ public:
         const int ambrosia_turns = 3 + random2(8);
         if (confuse_player(ambrosia_turns, false, true))
         {
+            print_device_heal_message();
             mprf("You feel%s invigorated.",
                  you.duration[DUR_AMBROSIA] ? " more" : "");
             you.increase_duration(DUR_AMBROSIA, ambrosia_turns);
@@ -504,7 +507,7 @@ public:
             vector<const char *> afflictions;
             if (you.haloed() && !you.umbraed())
                 afflictions.push_back("halo");
-            if (get_contamination_level() > 1)
+            if (player_severe_contamination())
                 afflictions.push_back("magical contamination");
             if (you.duration[DUR_CORONA])
                 afflictions.push_back("corona");
@@ -565,6 +568,14 @@ public:
 
     bool effect(bool=true, int=40, bool=true) const override
     {
+        if (player_under_penance(GOD_HEPLIAKLQANA))
+        {
+            simple_god_message(" appreciates the memories.",
+                               GOD_HEPLIAKLQANA);
+            reduce_xp_penance(GOD_HEPLIAKLQANA, 750 * you.experience_level);
+            return true;
+        }
+
         if (you.experience_level < you.get_max_xl())
         {
             mpr("You feel more experienced!");
@@ -640,7 +651,7 @@ public:
 
     bool effect(bool was_known = true, int pow = 40, bool=true) const override
     {
-        if (you.species == SP_VAMPIRE && you.hunger_state <= HS_SATIATED)
+        if (you.species == SP_VAMPIRE && you.hunger_state < HS_SATIATED)
         {
             mpr("You feel slightly irritated.");
             return false;
@@ -988,11 +999,10 @@ public:
 
     bool quaff(bool was_known) const override
     {
-        if (was_known && (!check_known_quaff() || !_prompt_quaff_blood()))
+        if (was_known && !check_known_quaff())
             return false;
 
         effect(was_known, 840);
-        did_god_conduct(DID_DRINK_BLOOD, 1 + random2(3), was_known);
         return true;
     }
 };

@@ -26,8 +26,6 @@
     #endif
 #endif
 
-typedef uint32_t ucs_t;
-
 // max size of inventory array {dlb}:
 #define ENDOFPACK 52
 
@@ -125,7 +123,6 @@ const int LABYRINTH_BORDER = 4;
 
 const int MAX_SKILL_LEVEL = 27;
 const int MAX_EXP_TOTAL = 8999999;
-const int HIGH_EXP_POOL = 20000;
 const int EXERCISE_QUEUE_SIZE = 100;
 
 const int MIN_HIT_MISS_PERCENTAGE = 5;
@@ -226,7 +223,7 @@ enum COLOURS
     LIGHTMAGENTA,
     YELLOW,
     WHITE,
-    MAX_TERM_COLOUR
+    NUM_TERM_COLOURS
 };
 
 // Many, MANY places currently hard-code this to 8 bits, but we need to

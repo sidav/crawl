@@ -9,8 +9,7 @@ spret_type conjure_flame(const actor *agent, int pow, const coord_def& where,
                          bool fail);
 
 void big_cloud(cloud_type cl_type, const actor *agent, const coord_def& where,
-               int pow, int size, int spread_rate = -1, int colour = -1,
-               string name = "", string tile = "");
+               int pow, int size, int spread_rate = -1);
 
 spret_type cast_big_c(int pow, spell_type spl, const actor *caster, bolt &beam,
                       bool fail);
@@ -22,8 +21,6 @@ spret_type cast_corpse_rot(bool fail);
 void corpse_rot(actor* caster);
 
 void holy_flames(monster* caster, actor* defender);
-
-void apply_control_winds(const monster* mon);
 
 spret_type cast_cloud_cone(const actor *caster, int pow, const coord_def &pos,
                            bool fail = false);

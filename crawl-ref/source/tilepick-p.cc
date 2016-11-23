@@ -51,7 +51,9 @@ tileidx_t tilep_equ_weapon(const item_def &item)
         case MISC_BOTTLED_EFREET:             return TILEP_HAND1_BOTTLE;
 #endif
         case MISC_FAN_OF_GALES:               return TILEP_HAND1_FAN;
+#if TAG_MAJOR_VERSION == 34
         case MISC_STONE_OF_TREMORS:           return TILEP_HAND1_STONE;
+#endif
         case MISC_DISC_OF_STORMS:             return TILEP_HAND1_DISC;
 
         case MISC_CRYSTAL_BALL_OF_ENERGY:     return TILEP_HAND1_CRYSTAL;
@@ -69,11 +71,16 @@ tileidx_t tilep_equ_weapon(const item_def &item)
         case MISC_DECK_OF_DUNGEONS:
 #endif
         case MISC_DECK_OF_SUMMONING:
+#if TAG_MAJOR_VERSION == 34
         case MISC_DECK_OF_WONDERS:
+#endif
         case MISC_DECK_OF_PUNISHMENT:
+#if TAG_MAJOR_VERSION == 34
         case MISC_DECK_OF_WAR:
         case MISC_DECK_OF_CHANGES:
-        case MISC_DECK_OF_DEFENCE:            return TILEP_HAND1_DECK;
+        case MISC_DECK_OF_DEFENCE:
+#endif
+            return TILEP_HAND1_DECK;
         }
     }
 
@@ -226,8 +233,8 @@ tileidx_t tilep_equ_weapon(const item_def &item)
     case WPN_HUNTING_SLING:
         tile = TILEP_HAND1_HUNTING_SLING;
         break;
-    case WPN_GREATSLING:
-        tile = TILEP_HAND1_GREATSLING;
+    case WPN_FUSTIBALUS:
+        tile = TILEP_HAND1_FUSTIBALUS;
         break;
     case WPN_SHORTBOW:
         tile = TILEP_HAND1_BOW2;
@@ -315,17 +322,6 @@ tileidx_t tilep_equ_armour(const item_def &item)
     case ARM_PLATE_ARMOUR:          tile = TILEP_BODY_PLATE; break;
     case ARM_CRYSTAL_PLATE_ARMOUR:  tile = TILEP_BODY_CRYSTAL_PLATE; break;
 
-    case ARM_FIRE_DRAGON_HIDE:      tile = TILEP_BODY_DRAGONSC_RED; break;
-    case ARM_ICE_DRAGON_HIDE:       tile = TILEP_BODY_DRAGONSC_CYAN; break;
-    case ARM_STEAM_DRAGON_HIDE:     tile = TILEP_BODY_DRAGONSC_WHITE; break;
-    case ARM_MOTTLED_DRAGON_HIDE:   tile = TILEP_BODY_DRAGONSC_MAGENTA; break;
-    case ARM_QUICKSILVER_DRAGON_HIDE:   tile = TILEP_BODY_DRAGONSC_QUICKSILVER; break;
-    case ARM_STORM_DRAGON_HIDE:     tile = TILEP_BODY_DRAGONSC_BLUE; break;
-    case ARM_SHADOW_DRAGON_HIDE:    tile = TILEP_BODY_DRAGONSC_SHADOW; break;
-    case ARM_GOLD_DRAGON_HIDE:      tile = TILEP_BODY_DRAGONSC_GOLD; break;
-    case ARM_SWAMP_DRAGON_HIDE:     tile = TILEP_BODY_DRAGONSC_BROWN; break;
-    case ARM_PEARL_DRAGON_HIDE:     tile = TILEP_BODY_DRAGONSC_PEARL; break;
-
     case ARM_FIRE_DRAGON_ARMOUR:    tile = TILEP_BODY_DRAGONARM_RED; break;
     case ARM_ICE_DRAGON_ARMOUR:     tile = TILEP_BODY_DRAGONARM_CYAN; break;
     case ARM_STEAM_DRAGON_ARMOUR:   tile = TILEP_BODY_DRAGONARM_WHITE; break;
@@ -338,7 +334,6 @@ tileidx_t tilep_equ_armour(const item_def &item)
     case ARM_PEARL_DRAGON_ARMOUR:   tile = TILEP_BODY_DRAGONARM_PEARL; break;
 
     case ARM_ANIMAL_SKIN:           tile = TILEP_BODY_ANIMAL_SKIN; break;
-    case ARM_TROLL_HIDE:            tile = TILEP_BODY_TROLL_HIDE; break;
     case ARM_TROLL_LEATHER_ARMOUR:  tile = TILEP_BODY_TROLL_LEATHER; break;
 
     default:                        tile = 0;
@@ -1224,7 +1219,6 @@ void tilep_print_parts(char *fbuf, const dolls_data &doll)
             else if (idx != 0)
             {
                 idx = doll.parts[p] - tile_player_part_start[p] + 1;
-                ASSERT(idx >= 0);
                 if (idx > tile_player_part_count[p])
                     idx = 0;
             }

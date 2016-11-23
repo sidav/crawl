@@ -8,25 +8,18 @@ function fixup_slime_vaults(data, triggerable, triggerer, marker, ev)
     return
   end
 
-  local to_feat
-  if you.god() == "Jiyva" and you.one_time_ability_used() then
-    to_feat = "floor"
-  else
-    to_feat = "clear_rock_wall"
-  end
-
-  local seen = dgn.seen_replace_feat("stone_wall", to_feat)
-        seen = dgn.seen_replace_feat("clear_stone_wall", to_feat) or seen
+  local seen = dgn.seen_destroy_feat("stone_wall")
+        seen = dgn.seen_destroy_feat("clear_stone_wall") or seen
 
   if you.god() == "Jiyva" and you.piety_rank() >= 6 then
     if you.silenced() then
-        crawl.mpr("An unexplained breeze blows through the dungeon.", "god")
+        crawl.mpr("You feel a strange vibration for a moment.", "god")
     else
         crawl.mpr("You hear the sound of toppling stones.", "god")
     end
   else
     if seen then
-        crawl.mpr("Suddenly, the colour oozes out of the stone walls.",
+        crawl.mpr("The stone walls suddenly crumble and collapse.",
                   "monster_enchant")
     else
         crawl.mpr("You feel a strange vibration for a moment.",
@@ -251,7 +244,7 @@ ENDMAP
 ################################################################################
 NAME:    hangedman_slime_spill
 TAGS:    no_monster_gen no_trap_gen
-DEPTH:   Slime:1-5
+DEPTH:   Slime, !Slime:$
 WEIGHT:  1
 MONS:    patrolling eye of devastation
 SHUFFLE: yzZ
@@ -273,11 +266,11 @@ ENDMAP
 
 NAME:    hangedman_slime_tunnels
 TAGS:    no_monster_gen no_trap_gen transparent
-DEPTH:   Slime:1-5
+DEPTH:   Slime, !Slime:$
 WEIGHT:  1
 KMONS:   1 = slime creature w:30 / nothing w:2
-KMONS:   2 = shining eye / giant eyeball / eye of devastation w:5 / \
-             great orb of eyes / giant orange brain / random w:1
+KMONS:   2 = shining eye / floating eye / eye of devastation w:5 / \
+             great orb of eyes / glowing orange brain / random w:1
 KFEAT:   2 = alarm trap / . w:30
 SHUFFLE: AB, CD, EF, GH, ab
 SUBST:   ACEG = ', BDFH = x, 0 = 0 ':4, ab = 0XX
@@ -309,7 +302,7 @@ X'xxxxxxxxxxxxxxxx'X
 ENDMAP
 
 NAME: nicolae_slime_pool
-DEPTH: Slime
+DEPTH: Slime, !Slime:$
 TAGS: transparent
 MONS: slime creature
 ORIENT: float
@@ -396,7 +389,7 @@ ENDMAP
 
 NAME: nicolae_slime_welcoming_committee
 TAGS: no_monster_gen no_item_gen no_trap_gen
-DEPTH: Slime:2-5
+DEPTH: Slime:2-, !Slime:$
 SUBST: X = x., { = {[(
 KMONS: 1 : jelly w:20 / ooze / slime creature w:30 / \
    acid blob w:5 / death ooze w:5 / azure jelly w:5
@@ -415,7 +408,7 @@ xxxXX.....1.@
 ENDMAP
 
 NAME: nicolae_slime_phagocytosis
-DEPTH: Slime
+DEPTH: Slime, !Slime:$
 TAGS: transparent
 SUBST: a : .x, b : .x, c : .x, d : .x, e : .x, { = {[(, X = Wx, ' = ._
 NSUBST: W = 4:1 / *:W
@@ -446,7 +439,7 @@ MAP
 ENDMAP
 
 NAME: nicolae_slime_round_cave
-DEPTH: Slime, !Slime:1, !Slime:$
+DEPTH: Slime:2-, !Slime:$
 TAGS: no_monster_gen
 SHUFFLE: {}/()/[]
 NSUBST: a = X / .
@@ -481,7 +474,7 @@ zzX..0..XXxx.xxXX.....Xzz
 ENDMAP
 
 NAME: nicolae_slime_ancient_tower_intersection
-DEPTH: Slime
+DEPTH: Slime, !Slime:$
 WEIGHT: 2
 TAGS: extra decor transparent
 SUBST: c = ccc., X = x_, V = V..

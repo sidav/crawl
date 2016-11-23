@@ -20,13 +20,16 @@
 #include "travel.h"
 #include "view.h"
 
+#define PLAYERCOORDS(p, p1, p2) \
+    const coord_def p = player2grid(coord_def(luaL_checkint(ls,p1), \
+                                              luaL_checkint(ls,p2)));
+
 LUAFN(view_feature_at)
 {
-    COORDSHOW(s, 1, 2)
-    const coord_def p = player2grid(s);
+    PLAYERCOORDS(p, 1, 2)
     if (!map_bounds(p))
     {
-        lua_pushnil(ls);
+        lua_pushstring(ls, "unseen");
         return 1;
     }
     dungeon_feature_type f = env.map_knowledge(p).feat();
@@ -36,8 +39,7 @@ LUAFN(view_feature_at)
 
 LUAFN(view_cloud_at)
 {
-    COORDSHOW(s, 1, 2)
-    const coord_def p = player2grid(s);
+    PLAYERCOORDS(p, 1, 2)
     if (!map_bounds(p))
     {
         lua_pushnil(ls);
@@ -55,8 +57,7 @@ LUAFN(view_cloud_at)
 
 LUAFN(view_is_safe_square)
 {
-    COORDSHOW(s, 1, 2)
-    const coord_def p = player2grid(s);
+    PLAYERCOORDS(p, 1, 2)
     if (!map_bounds(p))
     {
         PLUARET(boolean, false);
@@ -118,8 +119,7 @@ LUAFN(view_can_reach)
 
 LUAFN(view_withheld)
 {
-    COORDSHOW(s, 1, 2)
-    const coord_def p = player2grid(s);
+    PLAYERCOORDS(p, 1, 2)
     if (!map_bounds(p))
     {
         PLUARET(boolean, false);
@@ -131,14 +131,26 @@ LUAFN(view_withheld)
 
 LUAFN(view_invisible_monster)
 {
-    COORDSHOW(s, 1, 2)
-    const coord_def p = player2grid(s);
+    PLAYERCOORDS(p, 1, 2)
     if (!map_bounds(p))
     {
         PLUARET(boolean, false);
         return 1;
     }
     PLUARET(boolean, env.map_knowledge(p).flags & MAP_INVISIBLE_MONSTER);
+    return 1;
+}
+
+LUAFN(view_cell_see_cell)
+{
+    PLAYERCOORDS(p1, 1, 2)
+    PLAYERCOORDS(p2, 3, 4)
+    if (!map_bounds(p1) || !map_bounds(p2))
+    {
+        PLUARET(boolean, false);
+        return 1;
+    }
+    PLUARET(boolean, exists_ray(p1, p2, opc_excl));
     return 1;
 }
 
@@ -158,6 +170,7 @@ static const struct luaL_reg view_lib[] =
     { "can_reach", view_can_reach },
     { "withheld", view_withheld },
     { "invisible_monster", view_invisible_monster },
+    { "cell_see_cell", view_cell_see_cell },
 
     { "update_monsters", view_update_monsters },
 

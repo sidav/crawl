@@ -53,8 +53,8 @@
 #include "macro.h"
 #include "makeitem.h"
 #include "message.h"
-#include "misc.h"
 #include "mon-ench.h"
+#include "nearby-danger.h"
 #include "notes.h"
 #include "options.h"
 #include "orb.h"
@@ -83,6 +83,42 @@
 #include "view.h"
 #include "xom.h"
 
+/**
+ * Return an item's location (floor or inventory) and the corresponding mitm
+ * int or inv slot referring to it.
+ *
+ * @param item_def An item in either mitm (the floor or monster inventory)
+ *                 or you.inv.
+ *
+ * @return A pair containing bool and int. The bool is true for items in
+ *         inventory, false for others. The int is the item's index in either
+ *         you.inv or mitm.
+ */
+
+pair<bool, int> item_int(item_def &item)
+{
+    if (in_inventory(item))
+        return make_pair(true, item.link);
+    return make_pair(false, item.index());
+}
+
+
+/**
+ * Return an item_def& requested by an item's inv slot or mitm index.
+ *
+ * @param inv Is the item in inventory?
+ * @param number The index of the item, either in you.inv (if inv == true)
+ *               or in mitm (if inv == false).
+ *
+ * @return The item.
+ */
+
+item_def& item_from_int(bool inv, int number)
+{
+    return inv ? you.inv[number] : mitm[number];
+}
+
+static int _autopickup_subtype(const item_def &item);
 static void _autoinscribe_item(item_def& item);
 static void _autoinscribe_floor_items();
 static void _autoinscribe_inventory();
@@ -379,7 +415,7 @@ bool dec_inv_item_quantity(int obj, int amount)
 
     if (you.inv[obj].quantity <= amount)
     {
-        for (int i = 0; i < NUM_EQUIP; i++)
+        for (int i = EQ_FIRST_EQUIP; i < NUM_EQUIP; i++)
         {
             if (you.equip[i] == obj)
             {
@@ -717,10 +753,12 @@ int count_movable_items(int obj)
  * @param[in] obj The location link; an index in mitm.
  * @param exclude_stationary If true, don't include stationary items.
 */
-void item_list_on_square(vector<const item_def*>& items, int obj)
+vector<const item_def*> item_list_on_square(int obj)
 {
+    vector<const item_def*> items;
     for (stack_iterator si(obj); si; ++si)
         items.push_back(& (*si));
+    return items;
 }
 
 bool need_to_autopickup()
@@ -803,9 +841,7 @@ void item_check()
 
     ostream& strm = msg::streams(MSGCH_FLOOR_ITEMS);
 
-    vector<const item_def*> items;
-
-    item_list_on_square(items, you.visible_igrd(you.pos()));
+    auto items = item_list_on_square(you.visible_igrd(you.pos()));
 
     if (items.empty())
         return;
@@ -813,7 +849,7 @@ void item_check()
     if (items.size() == 1)
     {
         const item_def& it(*items[0]);
-        string name = get_menu_colour_prefix_tags(it, DESC_A);
+        string name = menu_colour_item_name(it, DESC_A);
         strm << "You see here " << name << '.' << endl;
         _maybe_give_corpse_hint(it);
         return;
@@ -872,7 +908,7 @@ void item_check()
             mpr_nojoin(MSGCH_FLOOR_ITEMS, "Things that are here:");
         for (const item_def *it : items)
         {
-            mprf_nocap("%s", get_menu_colour_prefix_tags(*it, DESC_A).c_str());
+            mprf_nocap("%s", menu_colour_item_name(*it, DESC_A).c_str());
             _maybe_give_corpse_hint(*it);
         }
     }
@@ -898,13 +934,37 @@ void item_check()
     }
 }
 
+/// If the given item is an unknown book, ID it; return whether we did.
+static bool _id_floor_book(item_def &book)
+{
+    if (book.base_type != OBJ_BOOKS)
+        return false;
+
+    if (fully_identified(book) && book.sub_type != BOOK_MANUAL)
+        return false;
+
+    // fix autopickup for previously-unknown books (hack)
+    if (item_needs_autopickup(book))
+        book.props["needs_autopickup"] = true;
+    set_ident_flags(book, ISFLAG_IDENT_MASK);
+    mark_had_book(book);
+    return true;
+}
+
+/// Auto-ID whatever spellbooks and manuals the player stands on.
+void id_floor_books()
+{
+    for (stack_iterator si(you.pos()); si; ++si)
+        if (si->base_type == OBJ_BOOKS)
+            _id_floor_book(*si);
+}
+
 void pickup_menu(int item_link)
 {
     int n_did_pickup   = 0;
     int n_tried_pickup = 0;
 
-    vector<const item_def*> items;
-    item_list_on_square(items, item_link);
+    auto items = item_list_on_square(item_link);
     ASSERT(items.size());
 
     string prompt = "Pick up what? " + slot_description()
@@ -1364,8 +1424,7 @@ void pickup(bool partial_quantity)
                 string prompt = "Pick up %s? ((y)es/(n)o/(a)ll/(m)enu/*?g,/q)";
 
                 mprf(MSGCH_PROMPT, prompt.c_str(),
-                     get_menu_colour_prefix_tags(mitm[o],
-                                                 DESC_A).c_str());
+                     menu_colour_item_name(mitm[o], DESC_A).c_str());
 
                 mouse_control mc(MOUSE_MODE_YESNO);
                 keyin = getchk();
@@ -1409,7 +1468,7 @@ void pickup(bool partial_quantity)
         if (!any_selectable)
         {
             for (stack_iterator si(you.pos(), true); si; ++si)
-                mprf_nocap("%s", get_menu_colour_prefix_tags(*si, DESC_A).c_str());
+                mprf_nocap("%s", menu_colour_item_name(*si, DESC_A).c_str());
         }
 
         if (!pickup_warning.empty())
@@ -1434,7 +1493,9 @@ bool is_stackable_item(const item_def &item)
     }
 
     if (item.is_type(OBJ_MISCELLANY, MISC_PHANTOM_MIRROR)
-        || item.is_type(OBJ_MISCELLANY, MISC_ZIGGURAT))
+        || item.is_type(OBJ_MISCELLANY, MISC_ZIGGURAT)
+        || item.is_type(OBJ_MISCELLANY, MISC_SACK_OF_SPIDERS)
+        || item.is_type(OBJ_MISCELLANY, MISC_BOX_OF_BEASTS))
     {
         return true;
     }
@@ -1795,13 +1856,8 @@ static void _get_orb(const item_def &it, bool quiet)
     env.orb_pos = you.pos(); // can be wrong in wizmode
     orb_pickup_noise(you.pos(), 30);
 
-    if (you.duration[DUR_TELEPORT])
-    {
-        mprf(MSGCH_ORB, "You feel the Orb delaying your translocation!");
-        you.increase_duration(DUR_TELEPORT, 5 + random2(5));
-    }
-
-    start_orb_run(CHAPTER_ESCAPING, "Now all you have to do is get back out of the dungeon!");
+    start_orb_run(CHAPTER_ESCAPING, "Now all you have to do is get back out "
+                                    "of the dungeon!");
 }
 
 /**
@@ -1838,7 +1894,7 @@ static bool _merge_stackable_item_into_inv(const item_def &it, int quant_got,
         if (!quiet)
         {
             mprf_nocap("%s (gained %d)",
-                        get_menu_colour_prefix_tags(you.inv[inv_slot],
+                        menu_colour_item_name(you.inv[inv_slot],
                                                     DESC_INVENTORY).c_str(),
                         quant_got);
         }
@@ -1938,8 +1994,7 @@ static int _place_item_in_free_slot(item_def &it, int quant_got,
         set_ident_type(item, true);
 
     if ((item.base_type == OBJ_WANDS || item.base_type == OBJ_RODS)
-        && you_worship(GOD_PAKELLAS)
-        && in_good_standing(GOD_PAKELLAS))
+        && have_passive(passive_t::identify_devices))
     {
         if (item.base_type == OBJ_RODS)
             set_ident_flags(item, ISFLAG_KNOW_TYPE);
@@ -1974,10 +2029,7 @@ static int _place_item_in_free_slot(item_def &it, int quant_got,
     if (const item_def* newitem = auto_assign_item_slot(item))
         return newitem->link;
     else if (!quiet)
-    {
-        mprf_nocap("%s", get_menu_colour_prefix_tags(item,
-                                                     DESC_INVENTORY).c_str());
-    }
+        mprf_nocap("%s", menu_colour_item_name(item, DESC_INVENTORY).c_str());
 
     return item.link;
 }
@@ -2178,6 +2230,9 @@ bool move_item_to_grid(int *const obj, const coord_def& p, bool silent)
         maybe_identify_base_type(item);
     }
 
+    if (p == you.pos() && _id_floor_book(item))
+        mprf("You see here %s.", item.name(DESC_A).c_str());
+
     return true;
 }
 
@@ -2373,7 +2428,7 @@ bool drop_item(int item_dropped, int quant_drop)
         else if (remove_ring(item_dropped, true))
         {
             // The delay handles the case where the item disappeared.
-            start_delay(DELAY_DROP_ITEM, 1, item_dropped, 1);
+            start_delay<DropItemDelay>(1, item);
             // We didn't actually succeed yet, but remove_ring took time,
             // so return true anyway.
             return true;
@@ -2401,7 +2456,7 @@ bool drop_item(int item_dropped, int quant_drop)
                 if (takeoff_armour(item_dropped))
                 {
                     // The delay handles the case where the item disappeared.
-                    start_delay(DELAY_DROP_ITEM, 1, item_dropped, 1);
+                    start_delay<DropItemDelay>(1, item);
                     // We didn't actually succeed yet, but takeoff_armour
                     // took a turn to start up, so return true anyway.
                     return true;
@@ -2481,7 +2536,7 @@ int get_equip_slot(const item_def *item)
     int worn = -1;
     if (item && in_inventory(*item))
     {
-        for (int i = 0; i < NUM_EQUIP; ++i)
+        for (int i = EQ_FIRST_EQUIP; i < NUM_EQUIP; ++i)
         {
             if (you.equip[i] == item->link)
             {
@@ -2535,7 +2590,9 @@ static string _drop_selitem_text(const vector<MenuEntry*> *s)
                s->size() > 1? "s" : "");
 }
 
-vector<SelItem> items_for_multidrop;
+// This has to be of static storage class, so that the value isn't lost when a
+// MultidropDelay is interrupted.
+static vector<SelItem> items_for_multidrop;
 
 // Arrange items that have been selected for multidrop so that
 // equipped items are dropped after other items, and equipped items
@@ -2637,7 +2694,7 @@ static void _multidrop(vector<SelItem> tmp_items)
         items_for_multidrop.clear();
     }
     else
-        start_delay(DELAY_MULTIDROP, items_for_multidrop.size());
+        start_delay<MultidropDelay>(items_for_multidrop.size(), items_for_multidrop);
 }
 
 static void _autoinscribe_item(item_def& item)
@@ -2792,6 +2849,13 @@ static bool _is_option_autopickup(const item_def &item, bool ignore_force)
     return Options.autopickups[item.base_type];
 }
 
+/// Should the player automatically butcher the given item?
+static bool _should_autobutcher(const item_def &item)
+{
+    return Options.auto_butcher && item.base_type == OBJ_CORPSES
+           && !is_inedible(item) && !is_bad_food(item);
+}
+
 /** Is the item something that we should try to autopickup?
  *
  * @param ignore_force If true, ignore force_autopickup settings from the
@@ -2802,6 +2866,10 @@ bool item_needs_autopickup(const item_def &item, bool ignore_force)
 {
     if (in_inventory(item))
         return false;
+
+    // mark autobutcher corpses for pickup so autotravel works
+    if (_should_autobutcher(item))
+        return true;
 
     if (item_is_stationary(item))
         return false;
@@ -3054,24 +3122,36 @@ static void _do_autopickup()
     while (o != NON_ITEM)
     {
         const int next = mitm[o].link;
+        item_def& mi = mitm[o];
 
-        if (item_needs_autopickup(mitm[o]))
+        if (item_needs_autopickup(mi))
         {
+            if (_should_autobutcher(mi))
+            {
+                if (you_are_delayed() && current_delay()->want_autoeat())
+                    butchery(&mi);
+                else
+                {
+                    o = next;
+                    continue;
+                }
+            }
+
             // Do this before it's picked up, otherwise the picked up
             // item will be in inventory and _interesting_explore_pickup()
             // will always return false.
             const bool interesting_pickup
-                = _interesting_explore_pickup(mitm[o]);
+                = _interesting_explore_pickup(mi);
 
-            const iflags_t iflags(mitm[o].flags);
+            const iflags_t iflags(mi.flags);
             if ((iflags & ISFLAG_THROWN))
                 learned_something_new(HINT_AUTOPICKUP_THROWN);
 
-            clear_item_pickup_flags(mitm[o]);
+            clear_item_pickup_flags(mi);
 
-            const bool pickup_result = move_item_to_inv(o, mitm[o].quantity);
-            if (mitm[o].is_type(OBJ_FOOD, FOOD_CHUNK))
-                mitm[o].flags |= ISFLAG_DROPPED;
+            const bool pickup_result = move_item_to_inv(o, mi.quantity);
+            if (mi.is_type(OBJ_FOOD, FOOD_CHUNK))
+                mi.flags |= ISFLAG_DROPPED;
 
             if (pickup_result)
             {
@@ -3083,10 +3163,9 @@ static void _do_autopickup()
             {
                 n_tried_pickup++;
                 pickup_warning = "Your pack is full.";
-                mitm[o].flags = iflags;
+                mi.flags = iflags;
             }
         }
-
         o = next;
     }
 
@@ -3175,7 +3254,7 @@ equipment_type item_equip_slot(const item_def& item)
     if (!in_inventory(item))
         return EQ_NONE;
 
-    for (int i = 0; i < NUM_EQUIP; i++)
+    for (int i = EQ_FIRST_EQUIP; i < NUM_EQUIP; i++)
         if (item.link == you.equip[i])
             return static_cast<equipment_type>(i);
 
@@ -3235,7 +3314,7 @@ zap_type item_def::zap() const
                              ZAP_ICEBLAST, ZAP_TELEPORT_OTHER,
                              ZAP_LIGHTNING_BOLT, ZAP_POLYMORPH,
                              ZAP_ENSLAVEMENT, ZAP_BOLT_OF_DRAINING,
-                             ZAP_DISINTEGRATE, ZAP_DIG, ZAP_INVISIBILITY,
+                             ZAP_INVISIBILITY,
                              ZAP_BOLT_OF_FIRE);
     }
 
@@ -3426,7 +3505,7 @@ colour_t item_def::armour_colour() const
     if (is_artefact(*this))
         return randart_colour();
 
-    if (armour_type_is_hide(sub_type, true))
+    if (armour_type_is_hide((armour_type)sub_type))
         return mons_class_colour(monster_for_hide((armour_type)sub_type));
 
 
@@ -3615,15 +3694,13 @@ colour_t item_def::amulet_colour() const
     // (use an array of [name, colour] tuples/structs)
     switch (subtype_rnd % NDSC_JEWEL_PRI)
     {
-        case 0:             // "zirconium amulet"
-        case 9:             // "ivory amulet"
+        case 1:             // "zirconium amulet"
         case 10:            // "bone amulet"
         case 11:            // "platinum amulet"
         case 16:            // "pearl amulet"
         case 20:            // "diamond amulet"
-        case 24:            // "silver amulet"
             return LIGHTGREY;
-        case 1:             // "sapphire amulet"
+        case 0:             // "sapphire amulet"
         case 17:            // "blue amulet"
         case 26:            // "lapis lazuli amulet"
             return BLUE;
@@ -3640,16 +3717,18 @@ colour_t item_def::amulet_colour() const
         case 15:            // "cameo amulet"
             return RED;
         case 22:            // "steel amulet"
-        case 23:            // "cabochon amulet"
+        case 24:            // "silver amulet"
         case 27:            // "filigree amulet"
             return CYAN;
         case 13:            // "fluorescent amulet"
-        case 14:            // "crystal amulet"
+        case 14:            // "amethyst amulet"
+        case 23:            // "cabochon amulet"
             return MAGENTA;
         case 2:             // "golden amulet"
         case 5:             // "bronze amulet"
         case 6:             // "brass amulet"
         case 7:             // "copper amulet"
+        case 9:             // "citrine amulet"
         default:
             return BROWN;
     }
@@ -3794,8 +3873,10 @@ colour_t item_def::miscellany_colour() const
 #endif
         case MISC_PHANTOM_MIRROR:
             return RED;
+#if TAG_MAJOR_VERSION == 34
         case MISC_STONE_OF_TREMORS:
             return BROWN;
+#endif
         case MISC_DISC_OF_STORMS:
             return LIGHTGREY;
         case MISC_PHIAL_OF_FLOODS:
@@ -4119,11 +4200,8 @@ static void _deck_from_specs(const char* _specs, item_def &item,
 
     while (item.sub_type == MISC_DECK_UNKNOWN)
     {
-        mprf(MSGCH_PROMPT,
-             "[a] escape     [b] destruction [c] summoning [d] wonders");
-        mprf(MSGCH_PROMPT,
-             "[e] war         [f] changes  [g] defence");
-        mpr("Which deck (ESC to exit)? ");
+        mprf(MSGCH_PROMPT, "[a] escape [b] destruction [c] summoning? "
+                           "(ESC to exit)");
 
         const int keyin = toalower(get_ch());
 
@@ -4140,10 +4218,6 @@ static void _deck_from_specs(const char* _specs, item_def &item,
             { 'a', MISC_DECK_OF_ESCAPE },
             { 'b', MISC_DECK_OF_DESTRUCTION },
             { 'c', MISC_DECK_OF_SUMMONING },
-            { 'd', MISC_DECK_OF_WONDERS },
-            { 'e', MISC_DECK_OF_WAR },
-            { 'f', MISC_DECK_OF_CHANGES },
-            { 'g', MISC_DECK_OF_DEFENCE }
         };
 
         const misc_item_type *deck_type = map_find(deckmap, keyin);
@@ -4440,14 +4514,6 @@ bool get_item_by_name(item_def *item, const char* specs,
         init_rod_mp(*item);
         break;
 
-    case OBJ_MISCELLANY:
-        if (item->sub_type == MISC_BOX_OF_BEASTS
-            || item->sub_type == MISC_SACK_OF_SPIDERS)
-        {
-            item->charges = 50;
-        }
-        break;
-
     case OBJ_POTIONS:
         item->quantity = 12;
         if (is_blood_potion(*item))
@@ -4669,8 +4735,8 @@ item_info get_item_info(const item_def& item)
             ii.sub_type = item.sub_type;
         else
         {
-            if (item.sub_type >= MISC_DECK_OF_ESCAPE
-                 && item.sub_type <= MISC_DECK_OF_DEFENCE)
+            if (item.sub_type >= MISC_FIRST_DECK
+                 && item.sub_type <= MISC_LAST_DECK)
             {
                 // Needs to be changed if we add other miscellaneous items
                 // that can be non-identified.
@@ -4745,7 +4811,7 @@ item_info get_item_info(const item_def& item)
         ARTEFACT_APPEAR_KEY, KNOWN_PROPS_KEY, CORPSE_NAME_KEY,
         CORPSE_NAME_TYPE_KEY, DRAWN_CARD_KEY, "item_tile", "item_tile_name",
         "worn_tile", "worn_tile_name", "needs_autopickup",
-        FORCED_ITEM_COLOUR_KEY, MANGLED_CORPSE_KEY,
+        FORCED_ITEM_COLOUR_KEY,
     };
     for (const char *prop : copy_props)
         if (item.props.exists(prop))

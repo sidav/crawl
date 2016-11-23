@@ -39,29 +39,45 @@ enum armour_type
 
     ARM_ANIMAL_SKIN,
 
+#if TAG_MAJOR_VERSION == 34
     ARM_TROLL_HIDE,
+#endif
     ARM_TROLL_LEATHER_ARMOUR,
 
+#if TAG_MAJOR_VERSION == 34
     ARM_FIRE_DRAGON_HIDE,
+#endif
     ARM_FIRE_DRAGON_ARMOUR,
+#if TAG_MAJOR_VERSION == 34
     ARM_ICE_DRAGON_HIDE,
+#endif
     ARM_ICE_DRAGON_ARMOUR,
+#if TAG_MAJOR_VERSION == 34
     ARM_STEAM_DRAGON_HIDE,
+#endif
     ARM_STEAM_DRAGON_ARMOUR,
+#if TAG_MAJOR_VERSION == 34
     ARM_MOTTLED_DRAGON_HIDE,
+#endif
     ARM_MOTTLED_DRAGON_ARMOUR,
+#if TAG_MAJOR_VERSION == 34
     ARM_STORM_DRAGON_HIDE,
+#endif
     ARM_STORM_DRAGON_ARMOUR,
+#if TAG_MAJOR_VERSION == 34
     ARM_GOLD_DRAGON_HIDE,
+#endif
     ARM_GOLD_DRAGON_ARMOUR,
+#if TAG_MAJOR_VERSION == 34
     ARM_SWAMP_DRAGON_HIDE,
+#endif
     ARM_SWAMP_DRAGON_ARMOUR,
+#if TAG_MAJOR_VERSION == 34
     ARM_PEARL_DRAGON_HIDE,
+#endif
     ARM_PEARL_DRAGON_ARMOUR,
 #if TAG_MAJOR_VERSION > 34
-    ARM_SHADOW_DRAGON_HIDE,
     ARM_SHADOW_DRAGON_ARMOUR,
-    ARM_QUICKSILVER_DRAGON_HIDE,
     ARM_QUICKSILVER_DRAGON_ARMOUR,
 #endif
 
@@ -119,9 +135,12 @@ enum brand_type // item_def.special
     SPWPN_RETURNING,
 #endif
     SPWPN_CHAOS,
+#if TAG_MAJOR_VERSION == 34
     SPWPN_EVASION,
-
     MAX_GHOST_BRAND = SPWPN_EVASION,
+#else
+    MAX_GHOST_BRAND = SPWPN_CHAOS,
+#endif
 
 #if TAG_MAJOR_VERSION == 34
     SPWPN_CONFUSE, // XXX not a real weapon brand, only for Confusing Touch
@@ -132,7 +151,7 @@ enum brand_type // item_def.special
 // From this point on save compat is irrelevant.
     NUM_REAL_SPECIAL_WEAPONS,
 
-    SPWPN_ACID,    // acid bite only for the moment
+    SPWPN_ACID,    // acid bite and Punk
 #if TAG_MAJOR_VERSION > 34
     SPWPN_CONFUSE, // Confusing Touch only for the moment
 #endif
@@ -169,7 +188,9 @@ enum jewellery_type
     RING_LOUDNESS,
     RING_TELEPORTATION,
     RING_EVASION,
+#if TAG_MAJOR_VERSION == 34
     RING_SUSTAIN_ATTRIBUTES,
+#endif
     RING_STEALTH,
     RING_DEXTERITY,
     RING_INTELLIGENCE,
@@ -180,7 +201,9 @@ enum jewellery_type
     RING_PROTECTION_FROM_MAGIC,
     RING_FIRE,
     RING_ICE,
+#if TAG_MAJOR_VERSION == 34
     RING_TELEPORT_CONTROL,
+#endif
     NUM_RINGS,                         //   keep as last ring; should not overlap
                                        //   with amulets!
     // RINGS after num_rings are for unique types for artefacts
@@ -191,7 +214,9 @@ enum jewellery_type
     AMU_RAGE = 35,
     AMU_FIRST_AMULET = AMU_RAGE,
     AMU_HARM,
+#if TAG_MAJOR_VERSION == 34
     AMU_DISMISSAL,
+#endif
     AMU_MANA_REGENERATION,
     AMU_THE_GOURMAND,
 #if TAG_MAJOR_VERSION == 34
@@ -210,6 +235,7 @@ enum jewellery_type
 
 enum launch_retval
 {
+    LRET_BUGGY = -1, // could be 0 maybe? TODO: test
     LRET_FUMBLED,
     LRET_LAUNCHED,
     LRET_THROWN,
@@ -222,8 +248,8 @@ enum misc_item_type
 #endif
     MISC_FAN_OF_GALES,
     MISC_LAMP_OF_FIRE,
-    MISC_STONE_OF_TREMORS,
 #if TAG_MAJOR_VERSION == 34
+    MISC_STONE_OF_TREMORS,
     MISC_BUGGY_LANTERN_OF_SHADOWS,
 #endif
     MISC_HORN_OF_GERYON,
@@ -234,26 +260,27 @@ enum misc_item_type
 #endif
     MISC_DISC_OF_STORMS,
 
-    // pure decks
     MISC_DECK_OF_ESCAPE,
+    MISC_FIRST_DECK = MISC_DECK_OF_ESCAPE,
     MISC_DECK_OF_DESTRUCTION,
 #if TAG_MAJOR_VERSION == 34
     MISC_DECK_OF_DUNGEONS,
 #endif
     MISC_DECK_OF_SUMMONING,
+#if TAG_MAJOR_VERSION == 34
     MISC_DECK_OF_WONDERS,
-#if TAG_MAJOR_VERSION > 34
-    MISC_DECK_OF_ODDITIES,
 #endif
     MISC_DECK_OF_PUNISHMENT,
 
-    // mixed decks
+#if TAG_MAJOR_VERSION == 34
     MISC_DECK_OF_WAR,
     MISC_DECK_OF_CHANGES,
     MISC_DECK_OF_DEFENCE,
+    MISC_LAST_DECK = MISC_DECK_OF_DEFENCE,
 
-#if TAG_MAJOR_VERSION == 34
     MISC_RUNE_OF_ZOT,
+#else
+    MISC_LAST_DECK = MISC_DECK_OF_PUNISHMENT,
 #endif
 
     MISC_QUAD_DAMAGE, // Sprint only
@@ -275,19 +302,22 @@ enum misc_item_type
 // in no particular order (but we need *a* fixed order for dbg-scan)
 const vector<misc_item_type> deck_types =
 {
-    MISC_DECK_OF_ESCAPE, MISC_DECK_OF_DESTRUCTION, MISC_DECK_OF_SUMMONING,
-    MISC_DECK_OF_WONDERS, MISC_DECK_OF_ODDITIES, MISC_DECK_OF_PUNISHMENT,
-    MISC_DECK_OF_WAR, MISC_DECK_OF_CHANGES, MISC_DECK_OF_DEFENCE,
+    MISC_DECK_OF_ESCAPE, MISC_DECK_OF_DESTRUCTION,
 #if TAG_MAJOR_VERSION == 34
-    MISC_DECK_OF_DUNGEONS,
+    MISC_DECK_OF_SUMMONING, MISC_DECK_OF_WONDERS, MISC_DECK_OF_ODDITIES,
+#endif
+    MISC_DECK_OF_PUNISHMENT, MISC_DECK_OF_WAR,
+#if TAG_MAJOR_VERSION == 34
+    MISC_DECK_OF_CHANGES, MISC_DECK_OF_DEFENCE, MISC_DECK_OF_DUNGEONS,
 #endif
 };
 
 // in no particular order (but we need *a* fixed order for dbg-scan)
 const vector<misc_item_type> misc_types =
 {
-    MISC_FAN_OF_GALES, MISC_LAMP_OF_FIRE, MISC_STONE_OF_TREMORS,
+    MISC_FAN_OF_GALES, MISC_LAMP_OF_FIRE,
 #if TAG_MAJOR_VERSION == 34
+    MISC_STONE_OF_TREMORS,
     MISC_BUGGY_LANTERN_OF_SHADOWS,
 #endif
     MISC_HORN_OF_GERYON, MISC_BOX_OF_BEASTS,
@@ -565,7 +595,7 @@ enum weapon_type
 
 #if TAG_MAJOR_VERSION > 34
     WPN_HUNTING_SLING,
-    WPN_GREATSLING,
+    WPN_FUSTIBALUS,
 #endif
 
     WPN_DEMON_WHIP,
@@ -600,7 +630,7 @@ enum weapon_type
     WPN_TRISHULA,
 
 #if TAG_MAJOR_VERSION == 34
-    WPN_GREATSLING,
+    WPN_FUSTIBALUS,
     WPN_HAND_CROSSBOW,
     WPN_TRIPLE_CROSSBOW,
 

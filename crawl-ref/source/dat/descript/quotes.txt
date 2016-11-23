@@ -200,16 +200,20 @@ ch. 2
 %%%%
 A portal to a secret trove of treasure
 
-“‘Stop thief! Stop thief!’ There is a magic in the sound. The tradesman leaves
-his counter, and the car-man his waggon; the butcher throws down his tray; the
-baker his basket; the milkman his pail; the errand-boy his parcels; the
-school-boy his marbles; the paviour his pickaxe; the child his battledore. Away
-they run, pell-mell, helter-skelter, slap-dash: tearing, yelling, screaming,
-knocking down the passengers as they turn the corners, rousing up the dogs, and
-astonishing the fowls: and streets, squares, and courts, re-echo with the
-sound.”
-    -Charles Dickens, _Oliver Twist; or, The parish boy's progress_, ch. X.
-1838.
+“He saw a large cavern and a vaulted [roof], in height equalling the stature
+of a full-grown man and it was hewn in the live stone and lighted up with
+light that came through air-holes and bullseyes in the upper surface of the
+rock which formed the roof. He had expected to find naught save outer gloom
+in this robbers' den, and he was surprised to see the whole room filled
+with bales of all manner stuffs, and heaped up from sole to ceiling with
+camel-loads of silks and brocades and embroidered cloths and mounds on
+mounds of vari-colored carpetings; besides which he espied coins golden and
+silvern without measure or account, some piled upon the ground and others
+bound in leathern bags and sacks. Seeing these goods and moneys in such
+abundance, Ali Baba determined in his mind that not during a few years only
+but for many generations thieves must have stored their gains and spoils in
+this place.”
+    -_The Arabian Nights_. trans. Sir Richard F. Burton, 1885.
 %%%%
 A rock wall
 
@@ -627,12 +631,6 @@ Nikola
 settle the battles of the near future.”
     -Nikola Tesla, “The Transmission of Electrical Energy Without Wires As a
 Means for Furthering Peace”, _Electrical World and Engineer_. January 7, 1905.
-%%%%
-Norris
-
-“Death and death alone gives meaning to life and this meaning is entirely
-negative.”
-    -Georges Poulet
 %%%%
 Orcish Mines
 
@@ -1195,6 +1193,11 @@ Dragon's Call spell
  And presumably, somewhere, there's the key.”
     -Terry Pratchett, “Guards! Guards!”. 1990.
 %%%%
+dream sheep
+
+“How undisturbed, the sleep of the foolish.”
+    -Philip K. Dick
+%%%%
 dryad
 
  • Roy Quixote: Wait, what's my beef with clean energy again?
@@ -1311,7 +1314,7 @@ breathtaking slenderness and colour which [they] cut down and burned the crab
 meat with.”
     -Douglas Adams, The Hitch-hiker’s Guide to the Galaxy
 %%%%
-fire dragon armour
+fire dragon scales
 
 <steam dragon hide>
 %%%%
@@ -1374,14 +1377,14 @@ giant club
     -Edmund Spenser, _The Faerie Queene_, Book I, “The Legend of the Knight of
      the Red Crosse”, Canto VIII, stanza vii, l. 55-9. 1590.
 %%%%
-giant eyeball
+floating eye
 
 “El ojo que ves
  no es ojo porque tú lo veas,
  es ojo porque te ve.”
     -Antonio Machado, Campos de Castilla. 1912-1917.
 %%%%
-giant frog
+bullfrog
 
 “Hello, my baby
  Hello, my honey
@@ -1445,7 +1448,7 @@ goblin
  Below, my lad!”
     -J.R.R. Tolkien, _The Hobbit_
 %%%%
-gold dragon armour
+gold dragon scales
 
 <steam dragon hide>
 %%%%
@@ -1492,30 +1495,6 @@ great sword
 greater mummy
 
 <mummy>
-%%%%
-greater naga
-
-“Then there have also come
- nagas from Lake Nabhasa,
- Vesali, and Tacchaka.
- Kambalas, Assataras,
- Payagas, and their kin.
- And from the River Yamuna
- comes the prestigious naga, Dhatarattha.
- The great naga Eravanna:
- He, too, has come
- to the forest meeting.”
-    -Mahasamaya Sutta, _Dīgha Nikāya_, 20. ca. 500 B.C.
-     trans. Thanissaro Bhikkhu
-%%%%
-griffon
-
-“As when a Gryphon through the wilderness,
- With winged course, o’er hill and moory dale,
- Pursues the Arimaspian who by stealth
- Hath from his wakeful custody purloined
- His guarded gold.”
-    -Milton, _Paradise Lost_, Book II. 1667.
 %%%%
 guardian golem
 
@@ -1636,7 +1615,7 @@ ice bat
 
 <bat>
 %%%%
-ice dragon armour
+ice dragon scales
 
 <steam dragon hide>
 %%%%
@@ -1682,8 +1661,8 @@ deeply-felt respect for any object in the universe than this here shotgun...”
 %%%%
 Iskenderun's Battlesphere spell
 
-“Rule 4: Close air support covereth a multitude of sins.”
-    -Howard Tayler, _The Seven Habits of Highly Effective Pirates_,
+“Maxim 4: Close air support covereth a multitude of sins.”
+    -Howard Tayler, _The Seventy Maxims of Maximally Effective Mercenaries_,
      in _Schlock Mercenary_. 2008.
 %%%%
 jackal
@@ -1937,7 +1916,7 @@ nothing but a club, which carried with it death and destruction.”
     -Paul Belloni Du Chaillu,_The Viking Age: the Early History, Manners, and
      Customs of the Ancestors of the English Speaking Nations_. 1889.
 %%%%
-mottled dragon armour
+mottled dragon scales
 
 <steam dragon hide>
 %%%%
@@ -1969,6 +1948,21 @@ tell thee, O lady, that we are incapable of being seen by human beings.”
 naga mage
 
 <naga>
+%%%%
+nagaraja
+
+“Then there have also come
+ nagas from Lake Nabhasa,
+ Vesali, and Tacchaka.
+ Kambalas, Assataras,
+ Payagas, and their kin.
+ And from the River Yamuna
+ comes the prestigious naga, Dhatarattha.
+ The great naga Eravanna:
+ He, too, has come
+ to the forest meeting.”
+    -Mahasamaya Sutta, _Dīgha Nikāya_, 20. ca. 500 B.C.
+     trans. Thanissaro Bhikkhu
 %%%%
 naga warrior
 
@@ -2088,7 +2082,7 @@ Passwall spell
 “He says the best way out is always through.”
     -Robert Frost, _A Servant to Servants_. 1915.
 %%%%
-pearl dragon armour
+pearl dragon scales
 
 <steam dragon hide>
 %%%%
@@ -2362,10 +2356,6 @@ ring of slaying
 <ring>
 %%%%
 ring of strength
-
-<ring>
-%%%%
-ring of sustain attributes
 
 <ring>
 %%%%
@@ -2673,15 +2663,6 @@ iron, and laughed its laughter of nails rattling.
 pounding and pounding, and the mouth answering.”
     -Carl Sandburg, “Gargoyle”, _Cornhusker_. 1918.
 %%%%
-skeletal archer
-
-“For a glory of all evil spirits rise for victory
- Pain for pain, blood for blood
- Pagan warriors moved quickly forward
- Bows are ready to shoot out their searing
- Darts...”
-    -Mastiphal, “For a Glory of All Evil Spirits”. 1995.
-%%%%
 skeletal bat
 
 <bat>
@@ -2736,7 +2717,7 @@ smote the Philistine in his forehead, that the stone sunk into his forehead;
 and he fell upon his face to the earth.”
     -KJV Bible, 1 Samuel 17:49.
 %%%%
-greatsling
+fustibalus
 
 “Thrice whirling round his head
  The whistling thong, Mezentius took his aim.
@@ -2815,6 +2796,18 @@ spectral thing
 “On the hungry craving wind
  My Spectre follows thee behind.”
     -William Blake, “Broken Love”. ca. 1800.
+%%%%
+spellforged servitor
+
+“When you think
+ Your toys have gone berserk
+ It's an illusion
+ You cannot shirk”
+    -Siouxsie and the Banshees, "Spellbound"
+%%%%
+Spellforged Servitor spell
+
+<spellforged servitor>
 %%%%
 staff
 
@@ -2907,7 +2900,7 @@ starcursed mass
  up where the stars get lit.”
     -Thee Silver Mt. Zion, “I Built Myself a Metal Bird”. 2010.
 %%%%
-steam dragon armour
+steam dragon scales
 
 <steam dragon hide>
 %%%%
@@ -2943,7 +2936,7 @@ rills of water, along the field.”
      Mancha_, IV, 10. 1605.
      trans. Carlos Fuentes, 1997.
 %%%%
-storm dragon armour
+storm dragon scales
 
 <steam dragon hide>
 %%%%
@@ -2957,7 +2950,7 @@ sun demon
  The shadows lengthening as the vapours rise.”
     -John Dryden, “Absalom and Achitophel”, I, 268. 1681.
 %%%%
-swamp dragon armour
+swamp dragon scales
 
 <steam dragon hide>
 %%%%

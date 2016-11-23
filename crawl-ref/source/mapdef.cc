@@ -4071,6 +4071,7 @@ mons_list::mons_spec_slot mons_list::parse_mons_spec(string spec)
             MAYBE_COPY(MUTANT_BEAST_FACETS);
             MAYBE_COPY(MGEN_BLOB_SIZE);
             MAYBE_COPY(MGEN_NUM_HEADS);
+            MAYBE_COPY(MGEN_NO_AUTO_CRUMBLE);
 #undef MAYBE_COPY
         }
 
@@ -4147,6 +4148,22 @@ string mons_list::set_mons(int index, const string &s)
     return error;
 }
 
+static monster_type _fixup_mon_type(monster_type orig)
+{
+    if (mons_class_flag(orig, M_CANT_SPAWN))
+        return MONS_PROGRAM_BUG;
+
+    if (orig < 0)
+        orig = MONS_PROGRAM_BUG;
+
+    monster_type dummy_mons = MONS_PROGRAM_BUG;
+    coord_def dummy_pos;
+    dungeon_char_type dummy_feat;
+    level_id place = level_id::current();
+    return resolve_monster_type(orig, dummy_mons, PROX_ANYWHERE, &dummy_pos, 0,
+                                &dummy_feat, &place);
+}
+
 void mons_list::get_zombie_type(string s, mons_spec &spec) const
 {
     static const char *zombie_types[] =
@@ -4181,16 +4198,12 @@ void mons_list::get_zombie_type(string s, mons_spec &spec) const
     trim_string(s);
 
     mons_spec base_monster = mons_by_name(s);
-    if (base_monster.type < 0)
-        base_monster.type = MONS_PROGRAM_BUG;
-
-    monster_type dummy_mons = MONS_PROGRAM_BUG;
-    coord_def dummy_pos;
-    dungeon_char_type dummy_feat;
-    level_id place = level_id::current();
-    base_monster.type = resolve_monster_type(base_monster.type, dummy_mons,
-                                             PROX_ANYWHERE, &dummy_pos, 0,
-                                             &dummy_feat, &place);
+    base_monster.type = _fixup_mon_type(base_monster.type);
+    if (base_monster.type == MONS_PROGRAM_BUG)
+    {
+        spec.type = MONS_PROGRAM_BUG;
+        return;
+    }
 
     spec.monbase = static_cast<monster_type>(base_monster.type);
     if (base_monster.props.exists(MGEN_NUM_HEADS))
@@ -4276,6 +4289,31 @@ mons_spec mons_list::get_slime_spec(const string &name) const
 
     mons_spec spec(MONS_SLIME_CREATURE);
     spec.props[MGEN_BLOB_SIZE] = slime_size;
+    return spec;
+}
+
+/**
+ * Build a monster specification for a specified pillar of salt. The pillar of
+ * salt won't crumble over time, since that seems unuseful for any version of
+ * this function.
+ *
+ * @param name      The description of the pillar of salt; e.g.
+ *                  "human-shaped pillar of salt",
+ *                  "titanic slime creature-shaped pillar of salt."
+ *                  XXX: doesn't currently work with zombie specifiers
+ *                  e.g. "zombie-shaped..." (does this matter?)
+ * @return          A specifier for a pillar of salt.
+ */
+mons_spec mons_list::get_salt_spec(const string &name) const
+{
+    const string prefix = name.substr(0, name.find("-shaped pillar of salt"));
+    mons_spec base_mon = mons_by_name(prefix);
+    if (base_mon.type == MONS_PROGRAM_BUG)
+        return base_mon; // invalid specifier
+
+    mons_spec spec(MONS_PILLAR_OF_SALT);
+    spec.monbase = _fixup_mon_type(base_mon.type);
+    spec.props[MGEN_NO_AUTO_CRUMBLE] = true;
     return spec;
 }
 
@@ -4517,6 +4555,9 @@ mons_spec mons_list::mons_by_name(string name) const
     if (ends_with(name, " slime creature"))
         return get_slime_spec(name);
 
+    if (ends_with(name, "-shaped pillar of salt"))
+        return get_salt_spec(name);
+
     const auto m_index = name.find(" mutant beast");
     if (m_index != string::npos)
     {
@@ -4575,7 +4616,6 @@ mons_spec mons_list::mons_by_name(string name) const
     if (name.find("demonspawn") != string::npos
         || name.find("black sun") != string::npos
         || name.find("blood saint") != string::npos
-        || name.find("chaos champion") != string::npos
         || name.find("corrupter") != string::npos
         || name.find("warmonger") != string::npos)
     {
@@ -4585,6 +4625,10 @@ mons_spec mons_list::mons_by_name(string name) const
     // The space is important - it indicates a flavour is being specified.
     if (name.find("serpent of hell ") != string::npos)
         return soh_monspec(name);
+
+    // Allow access to her second form, which shares display names.
+    if (name == "bai suzhen dragon")
+        return MONS_BAI_SUZHEN_DRAGON;
 
     return get_monster_by_name(name);
 }
@@ -4778,7 +4822,7 @@ void item_list::set_from_slot(const item_list &list, int slot_index)
 // TODO: More checking for inappropriate combinations, like the holy
 // wrath brand on a demonic weapon or the running ego on a helmet.
 // NOTE: Be sure to update the reference in syntax.txt if this gets moved!
-static int _str_to_ego(item_spec &spec, string ego_str)
+int str_to_ego(object_class_type item_type, string ego_str)
 {
     const char* armour_egos[] =
     {
@@ -4885,7 +4929,7 @@ static int _str_to_ego(item_spec &spec, string ego_str)
 
     int *order;
 
-    switch (spec.base_type)
+    switch (item_type)
     {
     case OBJ_ARMOUR:
         order = armour_order;
@@ -4896,9 +4940,11 @@ static int _str_to_ego(item_spec &spec, string ego_str)
         break;
 
     case OBJ_MISSILES:
+#if TAG_MAJOR_VERSION == 34
         // HACK to get an old save to load; remove me soon?
         if (ego_str == "sleeping")
             return SPMSL_SLEEP;
+#endif
         order = missile_order;
         break;
 
@@ -5181,8 +5227,6 @@ bool item_list::parse_single_spec(item_spec& result, string s)
         result.props["ident"].get_int() = id;
     }
 
-    string unrand_str = strip_tag_prefix(s, "unrand:");
-
     if (strip_tag(s, "good_item"))
         result.level = ISPEC_GOOD_ITEM;
     else
@@ -5434,6 +5478,13 @@ bool item_list::parse_single_spec(item_spec& result, string s)
         return parse_corpse_spec(result, s);
     }
 
+    const int unrand_id = get_unrandart_num(s.c_str());
+    if (unrand_id)
+    {
+        result.ego = -unrand_id; // lol
+        return true;
+    }
+
     // Check for "any objclass"
     if (starts_with(s, "any "))
         parse_random_by_class(s.substr(4), result);
@@ -5445,18 +5496,6 @@ bool item_list::parse_single_spec(item_spec& result, string s)
 
     if (!error.empty())
         return false;
-
-    if (!unrand_str.empty())
-    {
-        result.ego = get_unrandart_num(unrand_str.c_str());
-        if (result.ego == SPWPN_NORMAL)
-        {
-            error = make_stringf("Unknown unrand art: %s", unrand_str.c_str());
-            return false;
-        }
-        result.ego = -result.ego;
-        return true;
-    }
 
     if (ego_str.empty())
         return true;
@@ -5476,7 +5515,7 @@ bool item_list::parse_single_spec(item_spec& result, string s)
         return true;
     }
 
-    const int ego = _str_to_ego(result, ego_str);
+    const int ego = str_to_ego(result.base_type, ego_str);
 
     if (ego == 0)
     {

@@ -18,7 +18,8 @@
 #include "env.h"
 #include "godabil.h"
 #include "goditem.h"
-#include "godpassive.h" // passive_t::water_walk
+#include "godpassive.h" // passive_t::resist_polymorph
+#include "invent.h" // check_old_item_warning
 #include "item_use.h"
 #include "itemname.h"
 #include "itemprop.h"
@@ -100,7 +101,7 @@ Form::Form(const form_entry &fe)
       hand_name(fe.hand_name), foot_name(fe.foot_name),
       flesh_equivalent(fe.flesh_equivalent),
       long_name(fe.long_name), description(fe.description),
-      resists(fe.resists), stealth_mod(fe.stealth_mod),
+      resists(fe.resists),
       base_unarmed_damage(fe.base_unarmed_damage),
       can_fly(fe.can_fly), can_swim(fe.can_swim),
       flat_ac(fe.flat_ac), power_ac(fe.power_ac), xl_ac(fe.xl_ac),
@@ -782,17 +783,6 @@ public:
     }
 
     /**
-     * Get a multiplier for skill when calculating stealth values.
-     *
-     * @return  The stealth modifier for the given form. (0 = default to
-     *          racial values.)
-     */
-    int get_stealth_mod() const override
-    {
-        return you.species == SP_VAMPIRE ? 20 : stealth_mod;
-    }
-
-    /**
      * Find the player's base unarmed damage in this form.
      */
     int get_base_unarmed_damage() const override
@@ -1218,8 +1208,10 @@ _init_equipment_removal(transformation_type form)
     if (form == TRAN_LICH && you.weapon() && is_holy_item(*you.weapon()))
         result.insert(EQ_WEAPON);
 
-    for (int i = EQ_WEAPON + 1; i < NUM_EQUIP; ++i)
+    for (int i = EQ_FIRST_EQUIP; i < NUM_EQUIP; ++i)
     {
+        if (i == EQ_WEAPON)
+            continue;
         const equipment_type eq = static_cast<equipment_type>(i);
         const item_def *pitem = you.slot_item(eq, true);
 
@@ -1248,7 +1240,7 @@ static void _remove_equipment(const set<equipment_type>& removed,
         {
             if (form_can_wield(you.form))
                 unequip = true;
-            if (!is_weapon(*equip))
+            if (!is_weapon(*equip) && equip->base_type != OBJ_RODS)
                 unequip = true;
         }
 
@@ -1460,10 +1452,7 @@ bool feat_dangerous_for_form(transformation_type which_trans,
         return !form_likes_lava(which_trans);
 
     if (feat == DNGN_DEEP_WATER)
-    {
-        return !have_passive(passive_t::water_walk)
-            && !form_likes_water(which_trans);
-    }
+        return !you.can_water_walk() && !form_likes_water(which_trans);
 
     return false;
 }
@@ -1636,11 +1625,11 @@ undead_form_reason lifeless_prevents_form(transformation_type which_trans)
     if (which_trans == TRAN_LICH)
         return UFR_TOO_DEAD; // vampires can never lichform
 
-    if (which_trans == TRAN_BAT) // can batform on low blood
+    if (which_trans == TRAN_BAT) // can batform on satiated or below
         return you.hunger_state <= HS_SATIATED ? UFR_GOOD : UFR_TOO_ALIVE;
 
-    // other forms can only be entered when full or above.
-    return you.hunger_state > HS_SATIATED ? UFR_GOOD : UFR_TOO_DEAD;
+    // other forms can only be entered when satiated or above.
+    return you.hunger_state >= HS_SATIATED ? UFR_GOOD : UFR_TOO_DEAD;
 }
 
 /**
@@ -1763,6 +1752,18 @@ bool transform(int pow, transformation_type which_trans, bool involuntary,
         untransform(true);
 
     set<equipment_type> rem_stuff = _init_equipment_removal(which_trans);
+
+    // if going into lichform causes us to drop a holy weapon with consequences
+    // for unwielding (e.g. contam), warn first.
+    item_def nil_item;
+    nil_item.link = -1;
+    if (just_check && !involuntary
+        && which_trans == TRAN_LICH && rem_stuff.count(EQ_WEAPON)
+        && !check_old_item_warning(nil_item, OPER_WIELD))
+    {
+        canned_msg(MSG_OK);
+        return false;
+    }
 
     if (which_trans == TRAN_APPENDAGE)
     {
@@ -2051,7 +2052,9 @@ void untransform(bool skip_move)
     if (!skip_move)
     {
         // Land the player if we stopped flying.
-        if (was_flying && !you.airborne())
+        if (is_feat_dangerous(grd(you.pos())))
+            enable_emergency_flight();
+        else if (was_flying && !you.airborne())
             move_player_to_grid(you.pos(), false);
 
         // Update merfolk swimming for the form change.

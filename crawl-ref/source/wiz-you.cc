@@ -35,6 +35,7 @@
 #include "stringutil.h"
 #include "transform.h"
 #include "unicode.h"
+#include "unwind.h"
 #include "view.h"
 #include "xom.h"
 
@@ -109,7 +110,7 @@ static xom_event_type _find_xom_event_from_string(const string &event_name)
 
     xom_event_type x = XOM_DID_NOTHING;
 
-    for (int i = 0; i < XOM_LAST_REAL_ACT; ++i)
+    for (int i = 0; i <= XOM_LAST_REAL_ACT; ++i)
     {
         const xom_event_type xi = static_cast<xom_event_type>(i);
         const string x_name = lowercase_string(xom_effect_to_name(xi));
@@ -203,7 +204,7 @@ void wizard_change_species_to(species_type sp)
 
     // FIXME: this checks only for valid slots, not for suitability of the
     // item in question. This is enough to make assertions happy, though.
-    for (int i = 0; i < NUM_EQUIP; ++i)
+    for (int i = EQ_FIRST_EQUIP; i < NUM_EQUIP; ++i)
         if (you_can_wear(static_cast<equipment_type>(i)) == MB_FALSE
             && you.equip[i] != -1)
         {
@@ -252,9 +253,7 @@ void wizard_change_species()
 
     wizard_change_species_to(sp);
 }
-#endif
 
-#ifdef WIZARD
 // Casts a specific spell by number or name.
 void wizard_cast_spec_spell()
 {
@@ -315,7 +314,6 @@ void wizard_memorise_spec_spell()
     if (!learn_spell(static_cast<spell_type>(spell), true))
         crawl_state.cancel_cmd_repeat();
 }
-#endif
 
 void wizard_heal(bool super_heal)
 {
@@ -465,6 +463,25 @@ void wizard_set_piety_to(int newpiety, bool force)
         dec_penance(you.penance[you.religion]);
 }
 
+void wizard_set_gold()
+{
+    const int default_gold = you.gold + 1000;
+    mprf(MSGCH_PROMPT, "Enter new gold value (current = %d, Enter for %d): ",
+         you.gold, default_gold);
+
+    char buf[30];
+    if (cancellable_get_line_autohist(buf, sizeof buf))
+    {
+        canned_msg(MSG_OK);
+        return;
+    }
+
+    if (buf[0] == '\0')
+        you.gold = default_gold;
+    else
+        you.gold = atoi(buf);
+}
+
 void wizard_set_piety()
 {
     if (you_worship(GOD_NO_GOD))
@@ -492,7 +509,6 @@ void wizard_set_piety()
     wizard_set_piety_to(atoi(buf));
 }
 
-#ifdef WIZARD
 void wizard_exercise_skill()
 {
     skill_type skill = debug_prompt_for_skill("Which skill (by name)? ");
@@ -505,9 +521,7 @@ void wizard_exercise_skill()
         exercise(skill, 10);
     }
 }
-#endif
 
-#ifdef WIZARD
 void wizard_set_skill_level(skill_type skill)
 {
     if (skill == SK_NONE)
@@ -534,8 +548,8 @@ void wizard_set_skill_level(skill_type skill)
 
     if (amount == 27)
     {
-        you.train[skill] = 0;
-        you.train_alt[skill] = 0;
+        you.train[skill] = TRAINING_DISABLED;
+        you.train_alt[skill] = TRAINING_DISABLED;
         reset_training();
         check_selected_skills();
     }
@@ -547,9 +561,7 @@ void wizard_set_skill_level(skill_type skill)
                                                           : "Reset"),
          skill_name(skill), amount);
 }
-#endif
 
-#ifdef WIZARD
 void wizard_set_all_skills()
 {
     double amount = prompt_for_float("Set all skills to what level? ");
@@ -570,7 +582,7 @@ void wizard_set_all_skills()
 
             if (amount == 27)
             {
-                you.train[sk] = 0;
+                you.train[sk] = TRAINING_DISABLED;
                 you.training[sk] = 0;
             }
         }
@@ -586,60 +598,25 @@ void wizard_set_all_skills()
         you.redraw_evasion = true;
     }
 }
-#endif
 
-#ifdef WIZARD
 bool wizard_add_mutation()
 {
     bool success = false;
     char specs[80];
 
-    if (player_mutation_level(MUT_MUTATION_RESISTANCE) > 0
-        && !crawl_state.is_replaying_keys())
-    {
-        const char* msg;
-
-        if (you.mutation[MUT_MUTATION_RESISTANCE] == 3)
-            msg = "You are immune to mutations; remove immunity?";
-        else
-            msg = "You are resistant to mutations; remove resistance?";
-
-        if (yesno(msg, true, 'n'))
-        {
-            you.mutation[MUT_MUTATION_RESISTANCE] = 0;
-            crawl_state.cancel_cmd_repeat();
-        }
-    }
-
-    int answer = yesnoquit("Force mutation to happen?", true, 'n');
-    if (answer == -1)
-    {
-        canned_msg(MSG_OK);
-        return false;
-    }
-    const bool force = (answer == 1);
-
-    if (player_mutation_level(MUT_MUTATION_RESISTANCE) == 3 && !force)
-    {
-        mpr("Can't mutate when immune to mutations without forcing it.");
-        crawl_state.cancel_cmd_repeat();
-        return false;
-    }
-
-    answer = yesnoquit("Treat mutation as god gift?", true, 'n');
-    if (answer == -1)
-    {
-        canned_msg(MSG_OK);
-        return false;
-    }
-    const bool god_gift = (answer == 1);
+    if (player_mutation_level(MUT_MUTATION_RESISTANCE) > 0)
+        mpr("Ignoring mut resistance to apply mutation.");
+    unwind_var<uint8_t> mut_res(you.mutation[MUT_MUTATION_RESISTANCE], 0);
 
     msgwin_get_line("Which mutation (name, 'good', 'bad', 'any', "
                     "'xom', 'slime', 'qazlal')? ",
                     specs, sizeof(specs));
 
     if (specs[0] == '\0')
-        return false;
+    {
+        canned_msg(MSG_OK);
+        return true;
+    }
 
     string spec = lowercase_string(specs);
 
@@ -659,19 +636,7 @@ bool wizard_add_mutation()
         mutat = RANDOM_QAZLAL_MUTATION;
 
     if (mutat != NUM_MUTATIONS)
-    {
-        int old_resist = player_mutation_level(MUT_MUTATION_RESISTANCE);
-
-        success = mutate(mutat, "wizard power", true, force, god_gift);
-
-        if (old_resist < player_mutation_level(MUT_MUTATION_RESISTANCE)
-            && !force)
-        {
-            crawl_state.cancel_cmd_repeat("Your mutation resistance has "
-                                          "increased.");
-        }
-        return success;
-    }
+        return mutate(mutat, "wizard power", true, true);
 
     vector<mutation_type> partial_matches;
 
@@ -738,20 +703,19 @@ bool wizard_add_mutation()
         else if (levels > 0)
         {
             for (int i = 0; i < levels; ++i)
-                if (mutate(mutat, "wizard power", true, force, god_gift))
+                if (mutate(mutat, "wizard power", true, true))
                     success = true;
         }
         else
         {
             for (int i = 0; i < -levels; ++i)
-                if (delete_mutation(mutat, "wizard power", true, force, god_gift))
+                if (delete_mutation(mutat, "wizard power", true, true))
                     success = true;
         }
     }
 
     return success;
 }
-#endif
 
 void wizard_set_abyss()
 {
@@ -1158,3 +1122,4 @@ void wizard_xom_acts()
     dprf("Okay, Xom is doing '%s'.", xom_effect_to_name(event).c_str());
     xom_take_action(event, severity);
 }
+#endif

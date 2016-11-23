@@ -178,6 +178,7 @@ int InventoryRegion::handle_mouse(MouseEvent &event)
             else
                 tile_item_use(idx);
         }
+        update();
         return CK_MOUSE_CMD;
     }
     else if (event.button == MouseEvent::RIGHT)
@@ -428,8 +429,8 @@ bool InventoryRegion::update_tip_text(string& tip)
                 }
                 break;
             case OBJ_MISCELLANY:
-                if (item.sub_type >= MISC_DECK_OF_ESCAPE
-                    && item.sub_type <= MISC_DECK_OF_DEFENCE)
+                if (item.sub_type >= MISC_FIRST_DECK
+                    && item.sub_type <= MISC_LAST_DECK)
                 {
                     _handle_wield_tip(tmp, cmd);
                     break;
@@ -438,8 +439,8 @@ bool InventoryRegion::update_tip_text(string& tip)
                 cmd.push_back(CMD_EVOKE);
                 break;
             case OBJ_MISCELLANY + EQUIP_OFFSET:
-                if (item.sub_type >= MISC_DECK_OF_ESCAPE
-                    && item.sub_type <= MISC_DECK_OF_DEFENCE)
+                if (item.sub_type >= MISC_FIRST_DECK
+                    && item.sub_type <= MISC_LAST_DECK)
                 {
                     tmp += "Draw a card (%)";
                     cmd.push_back(CMD_EVOKE_WIELDED);
@@ -698,7 +699,7 @@ void InventoryRegion::update()
     for (int i = you.visible_igrd(you.pos()); i != NON_ITEM; i = mitm[i].link)
         num_ground++;
 
-    ucs_t c;
+    char32_t c;
     const char *tp = Options.tile_show_items.c_str();
     int s;
     do // Do one last iteration with the 0 char at the end.
@@ -729,7 +730,7 @@ void InventoryRegion::update()
             _fill_item_info(desc, get_item_info(you.inv[i]));
             desc.idx = i;
 
-            for (int eq = 0; eq < NUM_EQUIP; ++eq)
+            for (int eq = EQ_FIRST_EQUIP; eq < NUM_EQUIP; ++eq)
             {
                 if (you.equip[eq] == i)
                 {

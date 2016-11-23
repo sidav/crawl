@@ -11,15 +11,16 @@
 
 #include "butcher.h"
 #include "cloud.h"
+#include "coord.h"
 #include "coordit.h"
 #include "english.h"
 #include "env.h"
 #include "fprop.h"
+#include "fight.h"
 #include "godconduct.h"
 #include "items.h"
 #include "losglobal.h"
 #include "message.h"
-#include "misc.h"
 #include "ouch.h"
 #include "prompt.h"
 #include "random-pick.h"
@@ -173,24 +174,22 @@ spret_type cast_big_c(int pow, spell_type spl, const actor *caster, bolt &beam,
 }
 
 static int _make_a_normal_cloud(coord_def where, int pow, int spread_rate,
-                                cloud_type ctype, const actor *agent, int colour,
-                                string name, string tile, int excl_rad)
+                                cloud_type ctype, const actor *agent,
+                                int excl_rad)
 {
     place_cloud(ctype, where,
                 (3 + random2(pow / 4) + random2(pow / 4) + random2(pow / 4)),
-                agent, spread_rate, colour, name, tile, excl_rad);
+                agent, spread_rate, excl_rad);
 
     return 1;
 }
 
 void big_cloud(cloud_type cl_type, const actor *agent,
-               const coord_def& where, int pow, int size, int spread_rate,
-               int colour, string name, string tile)
+               const coord_def& where, int pow, int size, int spread_rate)
 {
     // The starting point _may_ be a place no cloud can be placed on.
     apply_area_cloud(_make_a_normal_cloud, where, pow, size,
-                     cl_type, agent, spread_rate, colour, name, tile,
-                     -1);
+                     cl_type, agent, spread_rate, -1);
 }
 
 spret_type cast_ring_of_flames(int power, bool fail)
@@ -307,91 +306,8 @@ void holy_flames(monster* caster, actor* defender)
         if (defender->is_player())
             mpr("Blessed fire suddenly surrounds you!");
         else
-            simple_monster_message(defender->as_monster(),
+            simple_monster_message(*defender->as_monster(),
                                    " is surrounded by blessed fire!");
-    }
-}
-
-static bool _safe_cloud_spot(const monster* mon, coord_def p)
-{
-    if (cell_is_solid(p) || cloud_at(p))
-        return false;
-
-    if (actor_at(p) && mons_aligned(mon, actor_at(p)))
-        return false;
-
-    return true;
-}
-
-void apply_control_winds(const monster* mon)
-{
-    vector<coord_def> cloud_list;
-    for (distance_iterator di(mon->pos(), true, false, LOS_RADIUS); di; ++di)
-    {
-        if (cloud_at(*di)
-            && cell_see_cell(mon->pos(), *di, LOS_SOLID)
-            && (di.radius() < 6 || cloud_at(*di)->type == CLOUD_FOREST_FIRE
-                                || actor_at(*di) && mons_aligned(mon, actor_at(*di))))
-        {
-            cloud_list.push_back(*di);
-        }
-    }
-
-    bolt wind_beam;
-    wind_beam.hit = AUTOMATIC_HIT;
-    wind_beam.pierce  = true;
-    wind_beam.affects_nothing = true;
-    wind_beam.source = mon->pos();
-    wind_beam.range = LOS_RADIUS;
-    wind_beam.is_tracer = true;
-
-    for (int i = cloud_list.size() - 1; i >= 0; --i)
-    {
-        const coord_def p = cloud_list[i];
-        // Leave clouds engulfing hostiles alone
-        if (actor_at(p) && !mons_aligned(actor_at(p), mon))
-            continue;
-
-        bool pushed = false;
-
-        coord_def newpos;
-        if (p != mon->pos())
-        {
-            wind_beam.target = p;
-            wind_beam.fire();
-            for (unsigned int j = 0; j < wind_beam.path_taken.size() - 1; ++j)
-            {
-                if (wind_beam.path_taken[j] == p)
-                {
-                    newpos = wind_beam.path_taken[j+1];
-                    if (_safe_cloud_spot(mon, newpos))
-                    {
-                        swap_clouds(p, newpos);
-                        pushed = true;
-                        break;
-                    }
-                }
-            }
-        }
-
-        if (!pushed)
-        {
-            for (distance_iterator di(p, true, true, 1); di; ++di)
-            {
-                if ((newpos.origin() || adjacent(*di, newpos))
-                    && di->distance_from(mon->pos())
-                        == (p.distance_from(mon->pos()) + 1)
-                    && _safe_cloud_spot(mon, *di))
-                {
-                    swap_clouds(*di, p);
-                    pushed = true;
-                    break;
-                }
-            }
-
-            if (!pushed && actor_at(p) && mons_aligned(mon, actor_at(p)))
-                cloud_at(p)->decay = cloud_at(p)->decay / 2 - 20;
-        }
     }
 }
 
@@ -412,6 +328,13 @@ random_pick_entry<cloud_type> cloud_cone_clouds[] =
 spret_type cast_cloud_cone(const actor *caster, int pow, const coord_def &pos,
                            bool fail)
 {
+    if (env.level_state & LSTATE_STILL_WINDS)
+    {
+        if (caster->is_player())
+            mpr("The air is too still to form clouds.");
+        return SPRET_ABORT;
+    }
+
     // For monsters:
     pow = min(100, pow);
 

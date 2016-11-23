@@ -301,7 +301,7 @@ int start_colour()
 	colourMap[LIGHTMAGENTA] = 0xFFFA4FFD;
 	colourMap[YELLOW] = 0xFFFFFF00;
 	colourMap[WHITE] = 0xFFFFFFFF;
-	colourMap[MAX_TERM_COLOUR] = 0xFF008040;
+	colourMap[NUM_TERM_COLOURS] = 0xFF008040;
 
 	foregroundColour = colourMap[WHITE];
 	backgroundColour = colourMap[BLACK];
@@ -445,7 +445,7 @@ void cprintf(const char *format, ...)
     vsnprintf(buffer, sizeof(buffer), format, argp);
     va_end(argp);
     
-    ucs_t c;
+    char32_t c;
     char *bp = buffer;
     int i = 0;
     while (int s = utf8towc(&c, bp))
@@ -457,7 +457,7 @@ void cprintf(const char *format, ...)
 }
 
 
-void putwch(ucs_t chr)
+void putwch(char32_t chr)
 {
     wchar_t c = chr;
     if (!c)

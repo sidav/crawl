@@ -33,6 +33,7 @@ public:
 
     list<actor*> cleave_targets;
     bool         cleaving;        // additional attack from cleaving
+    bool      is_riposte;         // long blade retaliation attack
     coord_def attack_position;
 
 public:
@@ -71,7 +72,6 @@ private:
     bool check_unrand_effects() override;
 
     void rot_defender(int amount);
-    void splash_defender_with_acid(int strength);
 
     bool consider_decapitation(int damage_done, int damage_type = -1);
     bool attack_chops_heads(int damage_done, int damage_type, int wpn_brand);
@@ -80,6 +80,9 @@ private:
     /* Axe cleaving */
     void cleave_setup();
     int cleave_damage_mod(int dam);
+
+    /* Long blade riposte */
+    void riposte();
 
     /* Mutation Effects */
     void do_spines();
@@ -121,7 +124,6 @@ private:
     bool player_aux_test_hit();
     bool player_aux_apply(unarmed_attack_type atk);
 
-    int  player_aux_stat_modify_damage(int damage);
     int  player_apply_misc_modifiers(int damage) override;
     int  player_apply_final_multipliers(int damage) override;
 

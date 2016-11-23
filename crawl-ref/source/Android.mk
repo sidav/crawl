@@ -84,7 +84,7 @@ database.cc dbg-asrt.cc dbg-maps.cc dbg-scan.cc dbg-util.cc decks.cc delay.cc de
 describe-god.cc describe-spells.cc dgl-message.cc dgn-delve.cc dgnevent.cc dgn-height.cc dgn-labyrinth.cc dgn-layouts.cc \
 dgn-overview.cc dgn-proclayouts.cc dgn-shoals.cc dgn-swamp.cc directn.cc dlua.cc domino.cc dungeon.cc \
 end.cc english.cc errors.cc evoke.cc exclude.cc exercise.cc fearmonger.cc feature.cc fight.cc files.cc \
-fineff.cc fontwrapper-ft.cc food.cc format.cc fprop.cc geom2d.cc ghost.cc glwrapper.cc \
+fineff.cc fontwrapper-ft.cc food.cc format.cc fprop.cc game-options.cc geom2d.cc ghost.cc glwrapper.cc \
 glwrapper-ogl.cc godabil.cc godblessing.cc godconduct.cc godcompanions.cc goditem.cc godmenu.cc godpassive.cc \
 godprayer.cc godwrath.cc hash.cc hints.cc hiscores.cc initfile.cc invent.cc itemname.cc \
 itemprop.cc items.cc item_use.cc jobs.cc json.cc kills.cc l_colour.cc l_crawl.cc \
@@ -98,8 +98,8 @@ maps.cc melee_attack.cc menu.cc message.cc message-stream.cc misc.cc \
 mon-abil.cc mon-act.cc mon-behv.cc mon-cast.cc mon-clone.cc \
 mon-death.cc mon-ench.cc mon-gear.cc mon-grow.cc mon-info.cc   \
 mon-movetarget.cc mon-pathfind.cc mon-pick.cc mon-place.cc mon-poly.cc mon-project.cc \
-mon-speak.cc mon-stealth.cc mon-tentacle.cc monster.cc mon-transit.cc \
-mon-util.cc mutation.cc newgame.cc ng-init.cc ng-input.cc ng-restr.cc ng-setup.cc \
+mon-speak.cc mon-tentacle.cc monster.cc mon-transit.cc mon-util.cc \
+mutation.cc nearby-danger.cc newgame.cc ng-init.cc ng-input.cc ng-restr.cc ng-setup.cc \
 ng-wanderer.cc notes.cc orb.cc ouch.cc output.cc package.cc pattern.cc pcg.cc perlin.cc\
 place.cc place-info.cc playable.cc player-act.cc player.cc player-equip.cc player-reacts.cc player-stats.cc \
 potion.cc prompt.cc quiver.cc randbook.cc random.cc random-var.cc ranged_attack.cc ray.cc religion.cc rot.cc shopping.cc \

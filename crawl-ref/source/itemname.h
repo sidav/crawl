@@ -139,13 +139,13 @@ bool set_ident_type(object_class_type basetype, int subtype, bool identify);
 void pack_item_identify_message(int base_type, int sub_type);
 
 string item_prefix(const item_def &item, bool temp = true);
-string get_menu_colour_prefix_tags(const item_def &item,
+string menu_colour_item_name(const item_def &item,
                                    description_level_type desc);
 
 void            init_item_name_cache();
 item_kind item_kind_by_name(const string &name);
 
-vector<string> item_name_list_for_glyph(unsigned glyph);
+vector<string> item_name_list_for_glyph(char32_t glyph);
 
 const char* rune_type_name(short p);
 
