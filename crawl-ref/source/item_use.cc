@@ -1959,6 +1959,9 @@ void drink(item_def* potion)
         // Always drink oldest potion.
         remove_oldest_perishable_item(*potion);
     }
+
+    // We'll need this later, after destroying the item.
+    const bool was_exp = potion->sub_type == POT_EXPERIENCE;
     if (in_inventory(*potion))
     {
         dec_inv_item_quantity(potion->link, 1);
@@ -1968,8 +1971,9 @@ void drink(item_def* potion)
         dec_mitm_item_quantity(potion->index(), 1);
     count_action(CACT_USE, OBJ_POTIONS);
     you.turn_is_over = true;
+
     // This got deferred from PotionExperience::effect to prevent SIGHUP abuse.
-    if (potion->sub_type == POT_EXPERIENCE)
+    if (was_exp)
         level_change();
 }
 
@@ -2303,8 +2307,11 @@ bool enchant_armour(int &ac_change, bool quiet, item_def &arm)
     // Output message before changing enchantment and curse status.
     if (!quiet)
     {
-        mprf("%s glows green for a moment.",
-             _item_name(arm).c_str());
+        const bool plural = armour_is_hide(arm)
+                            && arm.sub_type != ARM_TROLL_LEATHER_ARMOUR;
+        mprf("%s %s green for a moment.",
+             _item_name(arm).c_str(),
+             conjugate_verb("glow", plural).c_str());
     }
 
     arm.plus++;
@@ -3048,15 +3055,8 @@ void tile_item_drop(int idx, bool partdrop)
 
 void tile_item_eat_floor(int idx)
 {
-    // XXX: refactor this
-    if (mitm[idx].base_type == OBJ_CORPSES
-            && you.species == SP_VAMPIRE
-        || mitm[idx].base_type == OBJ_FOOD
-            && you.undead_state() != US_UNDEAD && you.species != SP_VAMPIRE)
-    {
-        if (can_eat(mitm[idx], false))
-            eat_item(mitm[idx]);
-    }
+    if (can_eat(mitm[idx], false))
+        eat_item(mitm[idx]);
 }
 
 void tile_item_use_secondary(int idx)

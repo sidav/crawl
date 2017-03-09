@@ -5367,11 +5367,7 @@ player::player()
     constricting = 0;
 
     // Protected fields:
-    for (branch_iterator it; it; ++it)
-    {
-        branch_info[it->id].branch = it->id;
-        branch_info[it->id].assert_validity();
-    }
+    clear_place_info();
 }
 
 void player::init_skills()
@@ -6829,13 +6825,16 @@ void player::paralyse(actor *who, int str, string source)
 
     int &paralysis(duration[DUR_PARALYSIS]);
 
-    if (source.empty() && who)
+    const bool use_actor_name = source.empty() && who != nullptr;
+    if (use_actor_name)
         source = who->name(DESC_A);
 
     if (!paralysis && !source.empty())
     {
         take_note(Note(NOTE_PARALYSIS, str, 0, source));
-        props["paralysed_by"] = source;
+        // use the real name here even for invisible monsters
+        props["paralysed_by"] = use_actor_name ? who->name(DESC_A, true)
+                                               : source;
     }
 
     mprf("You %s the ability to move!",

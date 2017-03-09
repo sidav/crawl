@@ -173,7 +173,7 @@ static armour_type _acquirement_armour_for_slot(equipment_type slot_type,
                     return ARM_BOOTS;
             }
         case EQ_HELMET:
-            if (you_can_wear(EQ_HELMET) == MB_MAYBE)
+            if (you_can_wear(EQ_HELMET) == MB_TRUE)
                 return coinflip() ? ARM_HELMET : ARM_HAT;
             return ARM_HAT;
         case EQ_SHIELD:
@@ -1483,6 +1483,8 @@ int acquirement_create_item(object_class_type class_wanted,
 
     if (thing_created == NON_ITEM)
         return _failed_acquirement(quiet);
+
+    item_set_appearance(mitm[thing_created]); // cleanup
 
     ASSERT(!is_useless_item(mitm[thing_created], false) || agent == GOD_XOM);
     ASSERT(!god_hates_item(mitm[thing_created]));

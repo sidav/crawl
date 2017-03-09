@@ -3649,16 +3649,9 @@ bool cheibriados_slouch()
     return true;
 }
 
-// A low-duration step from time, allowing monsters to get closer
-// to the player safely.
-void cheibriados_temporal_distortion()
+static void _run_time_step()
 {
-    const coord_def old_pos = you.pos();
-
-    const int time = 3 + random2(3);
-    you.moveto(coord_def(0, 0));
-    you.duration[DUR_TIME_STEP] = time;
-
+    ASSERT(you.duration[DUR_TIME_STEP] > 0);
     do
     {
         run_environment_effects();
@@ -3666,6 +3659,18 @@ void cheibriados_temporal_distortion()
         manage_clouds();
     }
     while (--you.duration[DUR_TIME_STEP] > 0);
+}
+
+// A low-duration step from time, allowing monsters to get closer
+// to the player safely.
+void cheibriados_temporal_distortion()
+{
+    const coord_def old_pos = you.pos();
+
+    you.moveto(coord_def(0, 0));
+    you.duration[DUR_TIME_STEP] = 3 + random2(3);
+
+    _run_time_step();
 
     if (monster *mon = monster_at(old_pos))
     {
@@ -3692,13 +3697,7 @@ void cheibriados_time_step(int pow) // pow is the number of turns to skip
     you.duration[DUR_TIME_STEP] = pow;
 
     you.time_taken = 10;
-    do
-    {
-        run_environment_effects();
-        handle_monsters();
-        manage_clouds();
-    }
-    while (--you.duration[DUR_TIME_STEP] > 0);
+    _run_time_step();
     // Update corpses, etc. This does also shift monsters, but only by
     // a tiny bit.
     update_level(pow * 10);
@@ -6268,13 +6267,17 @@ bool ru_power_leap()
 
     bool return_val = false;
 
-    if (you.attempt_escape(2)) // I'm hoping this returns true if not constrict
+    if (!you.attempt_escape(2)) // returns true if not constricted
+        return true;
+
+    if (cell_is_solid(beam.target) || monster_at(beam.target))
     {
-        if (cell_is_solid(beam.target) || monster_at(beam.target))
-            mpr("Something unexpectedly blocked you, preventing you from leaping!");
-        else
-            move_player_to_grid(beam.target, false);
+        // XXX: try to jump somewhere nearby?
+        mpr("Something unexpectedly blocked you, preventing you from leaping!");
+        return true;
     }
+
+    move_player_to_grid(beam.target, false);
 
     crawl_state.cancel_cmd_again();
     crawl_state.cancel_cmd_repeat();
@@ -6669,7 +6672,7 @@ bool uskayaw_line_pass()
     return true;
 }
 
-bool uskayaw_grand_finale()
+spret_type uskayaw_grand_finale(bool fail)
 {
     ASSERT(!crawl_state.game_is_arena());
 
@@ -6678,7 +6681,7 @@ bool uskayaw_grand_finale()
         crawl_state.cant_cmd_repeat("No encores!");
         crawl_state.cancel_cmd_again();
         crawl_state.cancel_cmd_repeat();
-        return false;
+        return SPRET_ABORT;
     }
 
     // query for location:
@@ -6700,11 +6703,11 @@ bool uskayaw_grand_finale()
         {
             clear_messages();
             mpr("Cancelling grand finale due to HUP.");
-            return false;
+            return SPRET_ABORT;
         }
 
         if (!beam.isValid || beam.target == you.pos())
-            return false;         // early return
+            return SPRET_ABORT;   // early return
 
         mons = monster_at(beam.target);
         if (!mons || !you.can_see(*mons))
@@ -6747,6 +6750,8 @@ bool uskayaw_grand_finale()
         }
     }
 
+    fail_check();
+
     ASSERT(mons);
 
     // kill the target
@@ -6769,7 +6774,7 @@ bool uskayaw_grand_finale()
 
     set_piety(piety_breakpoint(0)); // Reset piety to 1*.
 
-    return true;
+    return SPRET_SUCCESS;
 }
 
 /**
