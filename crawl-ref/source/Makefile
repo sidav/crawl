@@ -18,7 +18,8 @@
 # Typical parameters:
 #    TILES         -- set to anything to enable tiles build
 #
-#    SOUND         -- set to anything to enable sound
+#    SOUND         -- set to anything to enable sound; note that you will need to
+#                     uncomment some lines in sound.h if not building tiles
 #
 #    CROSSHOST     -- target system, eg, i386-pc-msdosdjgpp or i586-mingw32msvc
 #
@@ -132,7 +133,7 @@ CHMOD = chmod 2>/dev/null
 CHOWN = chown 2>/dev/null
 PNGCRUSH = $(COPY)
 PNGCRUSH_LABEL = COPY
-ADVPNG = advpng -z -4
+ADVPNG = advpng -z -2
 PKGCONFIG = pkg-config
 DOXYGEN = doxygen
 DOXYGEN_SIMPLE_CONF = crawl_simple.doxy
@@ -285,7 +286,13 @@ endif
 LIBZ := contrib/install/$(ARCH)/lib/libz.a
 
 ifndef CROSSHOST
-	SQLITE_INCLUDE_DIR := /usr/include
+	# FreeBSD keeps all of its userland includes in /usr/local so
+	# look there
+	ifeq ($(uname_S),FreeBSD)
+		SQLITE_INCLUDE_DIR := /usr/local/include
+	else
+		SQLITE_INCLUDE_DIR := /usr/include
+	endif
 else
 	# This is totally wrong, works only with some old-style setups, and
 	# on some architectures of Debian/new FHS multiarch -- excluding, for
@@ -323,10 +330,10 @@ endif
 #
 # Check for an Apple-released compiler.
 #
-ifndef NO_APPLE_GCC
+ifndef NO_APPLE_PLATFORM
 ifeq ($(uname_S),Darwin)
 ifneq ($(shell gcc -v 2>&1 | grep Apple),)
-APPLE_GCC = YesPlease
+APPLE_PLATFORM = YesPlease
 endif
 endif
 endif
@@ -370,9 +377,6 @@ MCHMOD_LOGS := 664
 INSTALL_UGRP := games:games
 endif
 
-chroot_prefix :=
-prefix        :=
-
 ifeq ($(patsubst %/local,%,$(patsubst %/,%,$(prefix))),/usr)
 FHS := yes
 endif
@@ -405,7 +409,7 @@ endif
 
 INCLUDES_L += -Iutil -I.
 
-ifdef APPLE_GCC
+ifdef APPLE_PLATFORM
 
 ifdef BUILD_UNIVERSAL
 # [ds] 10.4 SDK g++-4.0 + x86_64 runs into SDL compile issues.
@@ -1014,7 +1018,7 @@ ifeq ($(strip $(YACC)),)
 NO_YACC = YesPlease
 endif
 
-ifneq ($(findstring $(MAKEFLAGS),s),s)
+ifneq ($(findstring s,$(MAKEFLAGS)),s)
 ifndef V
         QUIET_CC       = @echo '   ' CC $@;
         QUIET_CXX      = @echo '   ' CXX $@;
@@ -1137,6 +1141,10 @@ SRC_VERSION   := $(shell git describe --tags $(MERGE_BASE) 2>/dev/null || cat ut
 MAJOR_VERSION = $(shell echo "$(SRC_VERSION)"|sed -r 's/-.*//;s/^([^.]+\.[^.]+).*/\1/')
 
 export SRC_VERSION
+
+# Update .ver file if SRC_VERSION has changed
+.ver: FORCE
+	@echo '$(SRC_VERSION)' | cmp -s - $@ || echo '$(SRC_VERSION)' > $@
 
 PKG_SRC_DIR   := $(SRC_PKG_BASE)-$(SRC_VERSION)
 SRC_PKG_TAR   := $(PKG_SRC_DIR).tar.xz
@@ -1268,7 +1276,7 @@ endif
 compflag.h: $(OBJECTS:.o=.cc) main.cc util/gen-cflg.pl .cflags
 	$(QUIET_GEN)util/gen-cflg.pl compflag.h "$(ALL_CFLAGS)" "$(LDFLAGS)" "$(HOST)" "$(ARCH)"
 
-build.h: $(OBJECTS:.o=.cc) main.cc util/gen_ver.pl
+build.h: $(OBJECTS:.o=.cc) main.cc util/gen_ver.pl .ver
 	$(QUIET_GEN)util/gen_ver.pl $@ $(MERGE_BASE)
 
 version.o: build.h compflag.h
@@ -1384,7 +1392,7 @@ endif
 	$(COPY) ../docs/develop/levels/*.txt $(datadir_fp)/docs/develop/levels/
 	$(COPY) ../docs/license/*.txt $(datadir_fp)/docs/license/
 	$(COPY) ../CREDITS.txt $(datadir_fp)/docs/
-	$(COPY) ../settings/* $(datadir_fp)/settings/
+	$(COPY_R) ../settings/* $(datadir_fp)/settings/
 ifeq ($(GAME),crawl.exe)
 	sed -i 's/$$/\r/' `find $(datadir_fp) -iname '*.txt' -o -iname '*.des'`
 endif
@@ -1593,7 +1601,7 @@ $(RLTILES)/dc-unrand.txt: art-data.h
 artefact.o: art-data.h art-enum.h
 mon-util.o: mon-mst.h
 mon-util.d: mon-mst.h
-l_moninf.o: mi-enum.h
+l-moninf.o: mi-enum.h
 macro.o: cmd-name.h
 
 #############################################################################

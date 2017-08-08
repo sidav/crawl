@@ -13,7 +13,7 @@
 #include "files.h"
 #include "glwrapper.h"
 #include "libutil.h"
-#include "map_knowledge.h"
+#include "map-knowledge.h"
 #include "menu.h"
 #include "message.h"
 #include "mon-util.h"
@@ -1006,13 +1006,13 @@ void TilesFramework::do_layout()
     crawl_view.viewsz.y = m_region_tile->my;
 
     // Resize and place the message window.
+    m_region_msg->set_overlay(message_overlay);
     if (message_overlay)
     {
         m_region_msg->place(0, 0, 0); // TODO: Maybe add an option to place
                                       // overlay at the bottom.
         m_region_msg->resize_to_fit(m_stat_x_divider, Options.msg_min_height
                                     * m_region_msg->dy);
-        m_region_msg->set_overlay(message_overlay);
     }
     else
     {
@@ -1305,11 +1305,6 @@ void TilesFramework::layout_statcol()
 
         m_statcol_bottom = m_region_tab->sy - m_tab_margin;
 
-#if TAG_MAJOR_VERSION == 34
-        // Lava orc temperature bar
-        if (you.species == SP_LAVA_ORC)
-            ++crawl_view.hudsz.y;
-#endif
         m_region_stat->resize(m_region_stat->mx, crawl_view.hudsz.y);
         m_statcol_top += m_region_stat->dy;
 
@@ -1526,8 +1521,8 @@ void TilesFramework::add_text_tag(text_tag_type type, const monster_info& mon)
 
     if (mons_is_pghost(mon.type))
     {
-        // Beautification hack.  "Foo's ghost" is a little bit
-        // verbose as a tag.  "Foo" on its own should be sufficient.
+        // Beautification hack. "Foo's ghost" is a little bit
+        // verbose as a tag. "Foo" on its own should be sufficient.
         tiles.add_text_tag(TAG_NAMED_MONSTER, mon.mname, gc);
     }
     else

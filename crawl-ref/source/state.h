@@ -3,16 +3,17 @@
  * @brief Game state.
 **/
 
-#ifndef STATE_H
-#define STATE_H
+#pragma once
 
 #include <vector>
 
+#include "command-type.h"
+#include "disable-type.h"
 #include "player.h"
 
 class monster;
 class mon_acting;
-class targetter;
+class targeter;
 struct activity_interrupt_data;
 
 struct god_act_state
@@ -51,6 +52,8 @@ struct game_state
     int  seen_hups;         // Set to true if SIGHUP received.
 
     bool map_stat_gen;      // Set if we're generating stats on maps.
+    bool map_stat_dump_disconnect; // Set if we dump disconnected maps and exit
+                                   // under mapstat.
     bool obj_stat_gen;      // Set if we're generating object stats.
 
     game_type type;
@@ -104,7 +107,7 @@ struct game_state
     bool invisible_targeting;
 
     // Area beyond which view should be darkened,  0 = disabled.
-    targetter *darken_range;
+    targeter *darken_range;
 
     // Monsters to highlight on the screen, 0 = disabled.
     vector<monster *> *flash_monsters;
@@ -248,5 +251,3 @@ private:
 
 bool interrupt_cmd_repeat(activity_interrupt_type ai,
                           const activity_interrupt_data &at);
-
-#endif

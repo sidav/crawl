@@ -16,14 +16,14 @@
 #include "directn.h"
 #include "env.h"
 #include "fight.h"
-#include "itemprop.h"
+#include "item-prop.h"
 #include "items.h"
-#include "item_use.h"
+#include "item-use.h"
 #include "jobs.h"
 #include "libutil.h"
 #include "makeitem.h"
 #include "message.h"
-#include "mgen_data.h"
+#include "mgen-data.h"
 #include "mon-clone.h"
 #include "mon-death.h"
 #include "mon-place.h"
@@ -33,7 +33,7 @@
 #include "output.h"
 #include "player-equip.h"
 #include "player.h"
-#include "ranged_attack.h"
+#include "ranged-attack.h"
 #include "skills.h"
 #include "species.h"
 #include "state.h"
@@ -304,7 +304,7 @@ static monster* _init_fsim()
 
     if (!adjacent(mon->pos(), you.pos()))
     {
-        monster_die(mon, KILL_DISMISSED, NON_MONSTER);
+        monster_die(*mon, KILL_DISMISSED, NON_MONSTER);
         mpr("Could not put monster adjacent to player.");
         return 0;
     }
@@ -322,7 +322,7 @@ static monster* _init_fsim()
 
 static void _uninit_fsim(monster *mon)
 {
-    monster_die(mon, KILL_DISMISSED, NON_MONSTER);
+    monster_die(*mon, KILL_DISMISSED, NON_MONSTER);
     reset_training();
 }
 
@@ -438,6 +438,18 @@ static fight_data _get_fight_data(monster &mon, int iter_limit, bool defend)
     fdata.av_speed = double(iter_limit) * 100 / time_taken;
     fdata.av_eff_dam = fdata.av_dam * 100 / fdata.av_time;
 
+    return fdata;
+}
+
+fight_data wizard_quick_fsim_raw(bool defend)
+{
+    monster *mon = _init_fsim();
+    ASSERT(mon);
+
+    const int iter_limit = Options.fsim_rounds;
+    fight_data fdata = _get_fight_data(*mon, iter_limit, defend);
+
+    _uninit_fsim(mon);
     return fdata;
 }
 

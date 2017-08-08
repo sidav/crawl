@@ -1,46 +1,173 @@
-Stone Soup 0.19.5 (20170228)
---------------------------------------------
+Stone Soup 0.20.1 (20170701)
+----------------------------
 
 Bugfix Release
 --------------
 
-* Fix save compatibility when loading games from version 0.18.
-* Macros now work in map mode in Tiles.
-* Autopickup is now smarter about whether items are permanently or temporarily
-  useless.
-* 22 other bug-fixes and cleanups.
+* Restore 5 base damage to kick aux attacks, which had been missing since
+  0.16.0.
+* Don't let equipped weapon accuracy affected throwing accuracy.
+* Ignore negative relative window sizes in fullscreen mode. Not ignoring these
+  setting caused fullscreen issues on Windows platforms in particular.
+* 41 other bugfixes and cleanups.
 
-Stone Soup 0.19.4 (20170130)
---------------------------------------------
+Stone Soup 0.20 (20170525)
+--------------------------
 
-Bugfix Release
---------------
+Highlights
+----------
+* New species: Barachim
+* New spells: Poisonous Vapours and Ignition
+* New scarf items: Armour for the cloak slot with new egos
+* New evocations: Wands and an evocable based on spells formerly found on rods
 
-* Fix mouse lag experienced by trackpad users on Mac systems.
-* Fix to allow the Temple entrance to place as part of a vault instead of
-  always by itself.
+Branches, Environment
+---------------------
+* The Slime Pits treasure vault walls are breached when the Royal Jelly dies.
+* Web traps created in play (by e.g. jumping spiders) are destroyed on
+  escape.
+* The Tomb of Ancients now has one-way escape hatches with return hatches
+  nearby instead of stairs.
+* New transporter dungeon feature: a one-way portal to elsewhere on the level.
+  Currently used in a number of new loot vaults.
 
-Stone Soup 0.19.3 (20170121)
---------------------------------------------
+Character
+---------
+* New species: Barachim, with an powerful innate Hop ability and good
+  aptitudes balanced by slow movement and an increased base LOS radius.
+* Ogre aptitudes have been adjusted, trading M&F skill for spells.
+* Mummies' spellcasting aptitude has been increased to +2, from -1.
+* Deep dwarves have an innate ability that heals them and has a chance of
+  permanently reducing their MP. Their old recharge ability has been removed.
+* Loud noises no longer break mesmerization or fear.
+* Various 'badform' (e.g. wispform) special cases have been removed.
+* Several abilities that triggered exhaustion now have their own cooldown timers.
+* Removed:
+  - High elves.
+  - Mottled draconians.
+  - Vestigial Lava Orcs/Djinni. Saves will load, but (after a prompt) will be
+    converted to Hill Orcs/Vinestalkers.
 
-Bugfix Release
---------------
+Gods
+----
+* The Shining One:
+  - Cleansing Flame is more effective against non-evil enemies.
+  - All bonus-damage 'stab' attacks are prevented.
+  - Poison is no longer forbidden.
+* Minor Elyvilon wrath effects removed; enemy lifesaving strengthened.
+* Nemelex's wrath reclaims all decks, rather than sabotaging them.
 
-* Work around an AMD driver bug where the game crashes when loading 512x512
-  images.
+Interface
+---------
+* The species selection menu has been reworked to have a more useful
+  conceptual organization, with species grouped into "simple", "intermediate",
+  and "advanced" categories.
+* Noise from the last turn is displayed in the top-right, replacing gold.
+  (Gold can still be seen with % and $.)
+* Terminal colors now work properly on a wider range of terminals by default.
+  However, as a consequence the default background map color is dark blue.
+  To get dark grey, depending on your terminal you can set
+  `bold_brightens_foreground=true` or `allow_extended_colours=true` in
+  your rc file.
+* New equip_bar option that replaces the noise display with a display of the
+  glyphs of your equipped items (console only).
+* Monsters' melee attacks, including estimates of potential damage, are
+  now included in their descriptions.
+* The player's odds of succeeding with melee confusion attacks is displayed.
+* auto_butcher can be configured to trigger on different hunger levels.
+* Stash searches now hide distant duplicate matches of more vanilla
+  weapons, armour, and ammo by default. Searches results are now first
+  ordered by items' descriptive names, rather than by the whole string
+  including determiners.
+* Red draining is now divided into red and magenta; magenta is the worst.
+* The mouse can be used in webtiles (now enabled by default, previously a
+  secret option).
+* Local versions have much-improved support for custom sounds; see
+  https://github.com/crawl/crawl/commit/4270d38ebf63 for details.
+* SDL Tiles now no longer disables screen savers.
 
-Stone Soup 0.19.2 (20170120)
---------------------------------------------
+Items
+-----
+* New item type: scarves, occupying the cloak slot.
+  - Scarves give 0 AC and cannot be enchanted, but always have an ego.
+  - Scarf egos: Cloud Immunity, Spirit Shield, Resistance, rMsl.
+* Evocations:
+  - New wand types: Clouds and Scattershot.
+  - New misc item: the Lightning Rod, a 4-charge XP evocable.
+  - Wands scale better with Evocations.
+  - Wands can no longer be zapped while confused.
+  - Wands of disintegration no longer destroy terrain.
+  - Wands of digging can now destroy statues.
+  - Wand and miscellaneous acquirement merged into 'evocations'.
+* Unrandarts:
+  - New unrand: Maxwell's Thermic Engine, a freezing/flaming double sword that
+    increases in power with each swing taken.
+  - The Ratskin Cloak's stats have been tweaked, and it can now summon rats.
+  - Amulet of Bloodlust: Slay+6 (was +3), MR++ (was MR+).
+  - Shield of Ignorance: Now +10 {Int-4, rN+}. *Curse, AC+4 removed.
+  - Sword of Jihad: renamed to Zealot's Sword.
+  - Sceptre of Torment only torments on-hit, rather than randomly.
+  - The Captain's Cutlass no longer chops off hydra heads.
+  - The Ring of Shaolin is renamed to the Ring of Phasing, and the bow of Krishna
+    "Sharnga" is renamed to the longbow "Zephyr".
+* Potions of cure mutation, beneficial mutation, and mutation have been merged.
+* All types of food take one turn to eat.
+* All types of manuals are pre-identified.
+* Weapons:
+  - Giant Spiked Clubs have had their base delay lowered slightly.
+* Removed:
+  - Wands of heal wounds, haste, teleportation, and slowing.
+  - Rods.
+  - Discs of Storms.
+  - The Hat of the High Council, the Scimitar of Flaming Death, and the Dagger
+    of Chilly Death.
+  - Beef jerky and pizza.
 
-Bugfix Release
---------------
+Monsters
+--------
+* Draconian callers -> stormcallers, which Smite, Summon Drakes, and Upheaval.
+* Mottled dragons -> acid dragons.
+* Two-headed ogres are significantly stronger.
+* The 'draining' effect once again lowers monsters' MR.
+* Various unique monsters give better rewards for defeating them.
+* Monsters such as alligators get a larger movement speed increase when using
+  their Sprint ability.
+* Maurice and Ijyb now always have wands, and Ijyb first appears a bit deeper
+  in the Dungeon.
+* Draconian ghosts will no longer have negative energy breath.
+* Removed:
+  - Mottled draconians.
+  - Draconian zealots.
+  - Hill giants.
 
-* Fix a long-standing Tiles mouse lag bug. Now there is no lag when updating
-  cursor information upon mouse movement to a new tile.
-* Fix to allow helmets as armour acquirement gifts.
-* Fix to prevent Infestation death scarabs becoming hostile when killing their
-  host in an explosion.
-* 24 other bug-fixes and cleanups.
+Spells
+------
+* New spell: Poisonous Vapours (L2 Poison/Air); creates an extremely short-
+  duration poison cloud on a targeted creature. Appears in the VM book.
+* New spell: Ignition (L8 Fire). Drops a weakened Fireball on every monster in
+  line of sight. The caster and their allies are unaffected.
+* Gell's Gravitas is now Translocations only (was Tloc/Hex).
+* Portal Projectile is now Tloc/Hex (was Translocations only).
+* Swapped Portal Projectile and Gell's Gravitas in the Wr/AM starting books.
+* Book of Conjurations: Battlesphere replaced with Force Lance.
+* Book of Air: Repel Missiles replaced with Airstrike.
+* Confusing Touch is less effective, especially against high-HD enemies.
+* Sandblast consumes stones directly from inventory, but no longer functions
+  without ammo, and cannot consume large rocks.
+* Removed:
+    - Delayed Fireball.
+    - Poisonous Cloud
+    - Repel Missiles.
+
+Modding/contribution support
+----------------------------
+* A number of guides from contributor Cerol on how to change key components
+  of the game (first debuted in r/dcss and r/roguelikes) have been added to
+  the documentation. These can be found at:
+    - https://github.com/crawl/crawl/blob/master/crawl-ref/docs/develop/background_creation.txt
+    - https://github.com/crawl/crawl/blob/master/crawl-ref/docs/develop/god_creation.txt
+    - https://github.com/crawl/crawl/blob/master/crawl-ref/docs/develop/mutation_creation.txt
+    - https://github.com/crawl/crawl/blob/master/crawl-ref/docs/develop/species_creation.txt
 
 Stone Soup 0.19.1 (20161123)
 --------------------------------------------
@@ -75,7 +202,7 @@ Branches, Environment
 * The Slime treasure vault's walls disappear entirely on their master's death.
 * Webs are no longer destroyed after creatures escape from them.
 * Beogh will no longer smite creatures that destroy orcish idols.
-  Lair and Orc no longer have ambient noise.
+* Lair and Orc no longer have ambient noise.
 * Storm cloud damage is more common and much less severe.
 * Non-opaque clouds created by the player vanish instantly when out of LOS.
 * The Orb's translocation restrictions now apply throughout the Zot branch.

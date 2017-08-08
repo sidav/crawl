@@ -23,16 +23,17 @@
 #include "exercise.h"
 #include "fight.h"
 #include "fineff.h"
-#include "godconduct.h"
-#include "godpassive.h" // passive_t::no_haste
-#include "itemname.h"
-#include "itemprop.h"
+#include "god-conduct.h"
+#include "god-passive.h" // passive_t::no_haste
+#include "item-name.h"
+#include "item-prop.h"
 #include "message.h"
 #include "mon-behv.h"
 #include "mon-clone.h"
 #include "mon-death.h"
 #include "mon-poly.h"
 #include "nearby-danger.h"
+#include "pronoun-type.h"
 #include "religion.h"
 #include "spl-miscast.h"
 #include "state.h"
@@ -123,7 +124,7 @@ bool attack::handle_phase_killed()
 {
     monster* mon = defender->as_monster();
     if (!invalid_monster(mon))
-        monster_die(mon, attacker);
+        monster_die(*mon, attacker);
 
     return true;
 }
@@ -177,7 +178,7 @@ int attack::calc_to_hit(bool random)
         else
         {
             // Claws give a slight bonus to accuracy when active
-            mhit += (player_mutation_level(MUT_CLAWS) > 0
+            mhit += (you.get_mutation_level(MUT_CLAWS) > 0
                      && wpn_skill == SK_UNARMED_COMBAT) ? 4 : 2;
 
             mhit += maybe_random_div(you.skill(wpn_skill, 100), 100,
@@ -213,8 +214,8 @@ int attack::calc_to_hit(bool random)
             mhit -= 5;
 
         // mutation
-        if (player_mutation_level(MUT_EYEBALLS))
-            mhit += 2 * player_mutation_level(MUT_EYEBALLS) + 1;
+        if (you.get_mutation_level(MUT_EYEBALLS))
+            mhit += 2 * you.get_mutation_level(MUT_EYEBALLS) + 1;
 
         // hit roll
         mhit = maybe_random2(mhit, random);
@@ -260,7 +261,7 @@ int attack::calc_to_hit(bool random)
     else
     {
         // This can only help if you're visible!
-        const int how_transparent = player_mutation_level(MUT_TRANSLUCENT_SKIN);
+        const int how_transparent = you.get_mutation_level(MUT_TRANSLUCENT_SKIN);
         if (defender->is_player() && how_transparent)
             mhit -= 2 * how_transparent;
 
@@ -347,6 +348,7 @@ string attack::anon_pronoun(pronoun_type pron)
  */
 void attack::init_attack(skill_type unarmed_skill, int attack_number)
 {
+    ASSERT(attacker);
     weapon          = attacker->weapon(attack_number);
 
     wpn_skill       = weapon ? item_attack_skill(*weapon) : unarmed_skill;
@@ -599,13 +601,6 @@ static const vector<chaos_effect> chaos_effects = {
             const bool obvious_effect
                 = you.can_see(defender) && you.can_see(*clone);
 
-            if (obvious_effect)
-            {
-                attack.special_damage_message =
-                    make_stringf("%s is duplicated!",
-                                 attack.defender_name(false).c_str());
-            }
-
             // The player shouldn't get new permanent followers from cloning.
             if (clone->attitude == ATT_FRIENDLY && !clone->is_summoned())
                 clone->mark_summoned(6, true, MON_SUMM_CLONE);
@@ -616,13 +611,7 @@ static const vector<chaos_effect> chaos_effects = {
         },
     },
     {
-        "polymorph", 1, _is_chaos_polyable, BEAM_POLYMORPH,
-    },
-    {
-        "polymorph PPT_MORE", 1, [](const actor &defender) {
-            return _is_chaos_polyable(defender) && defender.is_monster();
-        },
-        BEAM_POLYMORPH,
+        "polymorph", 2, _is_chaos_polyable, BEAM_POLYMORPH,
     },
     {
         "shifter", 1, [](const actor &defender)
@@ -681,7 +670,6 @@ static const vector<chaos_effect> chaos_effects = {
             return you.can_see(*attack.defender);
         },
     },
-    { "healing", 10, nullptr, BEAM_HEALING, },
     { "hasting", 10, _is_chaos_slowable, BEAM_HASTE },
     { "invisible", 10, nullptr, BEAM_INVISIBILITY, },
     { "slowing", 10, _is_chaos_slowable, BEAM_SLOW },
@@ -692,9 +680,8 @@ static const vector<chaos_effect> chaos_effects = {
         }, BEAM_PARALYSIS,
     },
     {
-        "petrify", 10, [](const actor &defender) {
-            return _is_chaos_slowable(defender) && !defender.res_petrify()
-                   && defender.is_monster(); // ??? why though
+        "petrify", 5, [](const actor &defender) {
+            return _is_chaos_slowable(defender) && !defender.res_petrify();
         }, BEAM_PETRIFY,
     },
 };
@@ -773,85 +760,61 @@ void attack::chaos_affects_defender()
         obvious_effect = false; // XXX: VERY dubious!
 }
 
-// NOTE: random_chaos_brand() and random_chaos_attack_flavour() should
-// return a set of effects that are roughly the same, to make it easy
-// for chaos_affects_defender() not to do duplicate effects caused
-// by the non-chaos brands/flavours they return.
+struct chaos_attack_type
+{
+    attack_flavour flavour;
+    brand_type brand;
+    int chance;
+    function<bool(const actor& def)> valid;
+};
+
+// Chaos melee attacks randomly choose a brand from here, with brands that
+// definitely won't affect the target being invalid. Chaos itself should
+// always be a valid option, triggering a more unpredictable chaos_effect
+// instead of a normal attack brand when selected.
+static const vector<chaos_attack_type> chaos_types = {
+    { AF_FIRE,      SPWPN_FLAMING,       10,
+      [](const actor &d) { return !d.is_fiery(); } },
+    { AF_COLD,      SPWPN_FREEZING,      10,
+      [](const actor &d) { return !d.is_icy(); } },
+    { AF_ELEC,      SPWPN_ELECTROCUTION, 10,
+      nullptr },
+    { AF_POISON,    SPWPN_VENOM,         10,
+      [](const actor &d) {
+          return !(d.holiness() & (MH_UNDEAD | MH_NONLIVING)); } },
+    { AF_CHAOTIC,   SPWPN_CHAOS,         10,
+      nullptr },
+    { AF_DRAIN_XP,  SPWPN_DRAINING,      5,
+      [](const actor &d) { return bool(d.holiness() & MH_NATURAL); } },
+    { AF_VAMPIRIC,  SPWPN_VAMPIRISM,     5,
+      [](const actor &d) {
+          return !d.is_summoned() && bool(d.holiness() & MH_NATURAL); } },
+    { AF_HOLY,      SPWPN_HOLY_WRATH,    5,
+      [](const actor &d) { return d.holy_wrath_susceptible(); } },
+    { AF_ANTIMAGIC, SPWPN_ANTIMAGIC,     5,
+      [](const actor &d) { return d.antimagic_susceptible(); } },
+    { AF_CONFUSE,   SPWPN_CONFUSE,       2,
+      [](const actor &d) {
+          return !(d.holiness() & (MH_NONLIVING | MH_PLANT)); } },
+    { AF_DISTORT,   SPWPN_DISTORTION,    2,
+      nullptr },
+};
+
 brand_type attack::random_chaos_brand()
 {
-    brand_type brand = SPWPN_NORMAL;
-    // Assuming the chaos to be mildly intelligent, try to avoid brands
-    // that clash with the most basic resists of the defender,
-    // i.e. its holiness.
-    while (true)
-    {
-        brand = (random_choose_weighted(
-                     5, SPWPN_VORPAL,
-                    10, SPWPN_FLAMING,
-                    10, SPWPN_FREEZING,
-                    10, SPWPN_ELECTROCUTION,
-                    10, SPWPN_VENOM,
-                    10, SPWPN_CHAOS,
-                     5, SPWPN_DRAINING,
-                     5, SPWPN_VAMPIRISM,
-                     5, SPWPN_HOLY_WRATH,
-                     5, SPWPN_ANTIMAGIC,
-                     2, SPWPN_CONFUSE,
-                     2, SPWPN_DISTORTION));
+    vector<pair<brand_type, int>> weights;
+    for (const chaos_attack_type &choice : chaos_types)
+        if (!choice.valid || choice.valid(*defender))
+            weights.push_back({choice.brand, choice.chance});
 
-        if (one_chance_in(3))
-            break;
+    ASSERT(!weights.empty());
 
-        bool susceptible = true;
-        switch (brand)
-        {
-        case SPWPN_FLAMING:
-            if (defender->is_fiery())
-                susceptible = false;
-            break;
-        case SPWPN_FREEZING:
-            if (defender->is_icy())
-                susceptible = false;
-            break;
-        case SPWPN_VENOM:
-            if (defender->holiness() & MH_UNDEAD)
-                susceptible = false;
-            break;
-        case SPWPN_VAMPIRISM:
-            if (defender->is_summoned())
-            {
-                susceptible = false;
-                break;
-            }
-            // intentional fall-through
-        case SPWPN_DRAINING:
-            if (!(defender->holiness() & MH_NATURAL))
-                susceptible = false;
-            break;
-        case SPWPN_HOLY_WRATH:
-            if (!defender->holy_wrath_susceptible())
-                susceptible = false;
-            break;
-        case SPWPN_CONFUSE:
-            if (defender->holiness() & (MH_NONLIVING | MH_PLANT))
-                susceptible = false;
-            break;
-        case SPWPN_ANTIMAGIC:
-            if (!defender->antimagic_susceptible())
-                susceptible = false;
-            break;
-        default:
-            break;
-        }
+    brand_type brand = *random_choose_weighted(weights);
 
-        if (susceptible)
-            break;
-    }
 #ifdef NOTE_DEBUG_CHAOS_BRAND
     string brand_name = "CHAOS brand: ";
     switch (brand)
     {
-    case SPWPN_NORMAL:          brand_name += "(plain)"; break;
     case SPWPN_FLAMING:         brand_name += "flaming"; break;
     case SPWPN_FREEZING:        brand_name += "freezing"; break;
     case SPWPN_HOLY_WRATH:      brand_name += "holy wrath"; break;
@@ -860,13 +823,10 @@ brand_type attack::random_chaos_brand()
     case SPWPN_DRAINING:        brand_name += "draining"; break;
     case SPWPN_DISTORTION:      brand_name += "distortion"; break;
     case SPWPN_VAMPIRISM:       brand_name += "vampirism"; break;
-    case SPWPN_VORPAL:          brand_name += "vorpal"; break;
     case SPWPN_ANTIMAGIC:       brand_name += "antimagic"; break;
-
-    // both ranged and non-ranged
     case SPWPN_CHAOS:           brand_name += "chaos"; break;
     case SPWPN_CONFUSE:         brand_name += "confusion"; break;
-    default:                    brand_name += "(other)"; break;
+    default:                    brand_name += "BUGGY"; break;
     }
 
     // Pretty much duplicated by the chaos effect note,
@@ -875,6 +835,18 @@ brand_type attack::random_chaos_brand()
         take_note(Note(NOTE_MESSAGE, 0, 0, brand_name), true);
 #endif
     return brand;
+}
+
+attack_flavour attack::random_chaos_attack_flavour()
+{
+    vector<pair<attack_flavour, int>> weights;
+    for (const chaos_attack_type &choice : chaos_types)
+        if (!choice.valid || choice.valid(*defender))
+            weights.push_back({choice.flavour, choice.chance});
+
+    ASSERT(!weights.empty());
+
+    return *random_choose_weighted(weights);
 }
 
 void attack::do_miscast()
@@ -979,8 +951,8 @@ int attack::inflict_damage(int dam, beam_type flavour, bool clean)
     if (flavour == NUM_BEAMS)
         flavour = special_damage_flavour;
     // Auxes temporarily clear damage_brand so we don't need to check
-    if (damage_brand == SPWPN_REAPING ||
-        damage_brand == SPWPN_CHAOS && one_chance_in(100))
+    if (damage_brand == SPWPN_REAPING
+        || damage_brand == SPWPN_CHAOS && one_chance_in(100))
     {
         defender->props["reaping_damage"].get_int() += dam;
         // With two reapers of different friendliness, the most recent one
@@ -1153,9 +1125,9 @@ int attack::player_stat_modify_damage(int damage)
     int dammod = 39;
 
     if (you.strength() > 10)
-        dammod += (random2(you.strength() - 10) * 2);
+        dammod += (random2(you.strength() - 9) * 2);
     else if (you.strength() < 10)
-        dammod -= (random2(10 - you.strength()) * 3);
+        dammod -= (random2(11 - you.strength()) * 3);
 
     damage *= dammod;
     damage /= 39;
@@ -1196,7 +1168,10 @@ int attack::get_weapon_plus()
 {
     if (weapon->base_type == OBJ_STAVES
         || weapon->sub_type == WPN_BLOWGUN
-        || weapon->base_type == OBJ_RODS)
+#if TAG_MAJOR_VERSION == 34
+        || weapon->base_type == OBJ_RODS
+#endif
+       )
     {
         return 0;
     }
@@ -1224,7 +1199,7 @@ int attack::player_apply_slaying_bonuses(int damage, bool aux)
 int attack::player_apply_final_multipliers(int damage)
 {
     // Can't affect much of anything as a shadow.
-    if (you.form == TRAN_SHADOW)
+    if (you.form == transformation::shadow)
         damage = div_rand_round(damage, 2);
 
     return damage;
@@ -1257,12 +1232,7 @@ int attack::calc_base_unarmed_damage()
         damage += you.has_claws() * 2;
 
     if (you.form_uses_xl())
-        damage += you.experience_level;
-    else if (you.form == TRAN_BAT || you.form == TRAN_PORCUPINE)
-    {
-        // Bats really don't do a lot of damage.
-        damage += you.skill_rdiv(wpn_skill, 1, 5);
-    }
+        damage += div_rand_round(you.experience_level, 3);
     else
         damage += you.skill_rdiv(wpn_skill);
 
@@ -1441,62 +1411,6 @@ bool attack::attack_shield_blocked(bool verbose)
     return false;
 }
 
-attack_flavour attack::random_chaos_attack_flavour()
-{
-    attack_flavour flavour = AF_PLAIN;
-
-    while (true)
-    {
-        flavour = random_choose_weighted(10, AF_FIRE,
-                                         10, AF_COLD,
-                                         10, AF_ELEC,
-                                         10, AF_POISON,
-                                         10, AF_CHAOTIC,
-                                          5, AF_DRAIN_XP,
-                                          5, AF_VAMPIRIC,
-                                          5, AF_HOLY,
-                                          5, AF_ANTIMAGIC,
-                                          2, AF_CONFUSE,
-                                          2, AF_DISTORT);
-
-        if (one_chance_in(3))
-            break;
-
-        bool susceptible = true;
-        switch (flavour)
-        {
-        case AF_FIRE:
-            if (defender->is_fiery())
-                susceptible = false;
-            break;
-        case AF_COLD:
-            if (defender->is_icy())
-                susceptible = false;
-            break;
-        case AF_POISON:
-            if (defender->holiness() & MH_UNDEAD)
-                susceptible = false;
-            break;
-        case AF_VAMPIRIC:
-        case AF_DRAIN_XP:
-            if (!(defender->holiness() & MH_NATURAL))
-                susceptible = false;
-            break;
-        case AF_HOLY:
-            if (!defender->holy_wrath_susceptible())
-                susceptible = false;
-            break;
-        default:
-            break;
-        }
-
-        if (susceptible)
-            break;
-    }
-
-    return flavour;
-}
-
 bool attack::apply_poison_damage_brand()
 {
     if (!one_chance_in(4))
@@ -1532,12 +1446,7 @@ bool attack::apply_damage_brand(const char *what)
     bool ret = false;
 
     if (using_weapon())
-    {
-        if (is_artefact(*weapon))
-            brand_was_known = artefact_known_property(*weapon, ARTP_BRAND);
-        else
-            brand_was_known = item_type_known(*weapon);
-    }
+        brand_was_known = item_brand_known(*weapon);
 
     special_damage = 0;
     obvious_effect = false;
@@ -1610,7 +1519,8 @@ bool attack::apply_damage_brand(const char *what)
             special_damage_message =
                 defender->is_player()?
                    "You are electrocuted!"
-                :  "There is a sudden explosion of sparks!";
+                :  make_stringf("Lightning courses through %s!",
+                                defender->name(DESC_THE).c_str());
             special_damage = 8 + random2(13);
             special_damage_flavour = BEAM_ELECTRICITY;
             defender->expose_to_element(BEAM_ELECTRICITY, 2);
@@ -1686,7 +1596,7 @@ bool attack::apply_damage_brand(const char *what)
     {
         // If a monster with a chaos weapon gets this brand, act like
         // AF_CONFUSE.
-        if (defender->is_player())
+        if (attacker->is_monster())
         {
             if (one_chance_in(3))
             {
@@ -1698,18 +1608,14 @@ bool attack::apply_damage_brand(const char *what)
 
         // Also used for players in fungus form.
         if (attacker->is_player()
-            && you.form == TRAN_FUNGUS
+            && you.form == transformation::fungus
             && !you.duration[DUR_CONFUSING_TOUCH]
             && defender->is_unbreathing())
         {
             break;
         }
 
-        const int hdcheck =
-            (defender->holiness() & MH_NATURAL ? random2(30) : random2(22));
-
-        if (hdcheck < defender->get_hit_dice()
-            || one_chance_in(5)
+        if (!x_chance_in_y(melee_confuse_chance(defender->get_hit_dice()), 100)
             || defender->as_monster()->check_clarity(false))
         {
             break;
@@ -1726,7 +1632,7 @@ bool attack::apply_damage_brand(const char *what)
         if (attacker->is_player() && damage_brand == SPWPN_CONFUSE
             && you.duration[DUR_CONFUSING_TOUCH])
         {
-            you.duration[DUR_CONFUSING_TOUCH] = 1;
+            you.duration[DUR_CONFUSING_TOUCH] = 0;
             obvious_effect = false;
         }
         break;
@@ -1747,11 +1653,7 @@ bool attack::apply_damage_brand(const char *what)
 
     default:
         if (using_weapon() && is_unrandom_artefact(*weapon, UNRAND_DAMNATION))
-        {
-            calc_elemental_brand_damage(BEAM_DAMNATION, "damn", what);
-            defender->expose_to_element(BEAM_DAMNATION);
             attacker->god_conduct(DID_EVIL, 2 + random2(3));
-        }
         break;
     }
 
@@ -1762,7 +1664,7 @@ bool attack::apply_damage_brand(const char *what)
         {
             miscast_level  = 0;
             miscast_type   = SPTYP_RANDOM;
-            miscast_target = coinflip() ? attacker : defender;
+            miscast_target = random_choose(attacker, defender);
         }
 
         if (responsible->is_player())

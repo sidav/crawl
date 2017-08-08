@@ -3,8 +3,7 @@
  *  @brief Global game options controlled by the rcfile.
  */
 
-#ifndef GAME_OPTIONS_H
-#define GAME_OPTIONS_H
+#pragma once
 
 #include <functional>
 #include <string>
@@ -12,6 +11,7 @@
 
 #include "colour.h"
 #include "stringutil.h"
+#include "maybe-bool.h"
 
 enum rc_line_type
 {
@@ -202,5 +202,4 @@ private:
 };
 
 bool read_bool(const std::string &field, bool def_value);
-
-#endif // GAME_OPTION_H
+maybe_bool read_maybe_bool(const std::string &field);

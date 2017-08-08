@@ -1,11 +1,12 @@
-#ifndef MON_INFO_H
-#define MON_INFO_H
+#pragma once
 
 #include <functional>
 
+#include "enchant-type.h"
 #include "mon-util.h"
 
 #define SPECIAL_WEAPON_KEY "special_weapon_name"
+#define CLOUD_IMMUNE_MB_KEY "cloud_immune"
 
 enum monster_info_flags
 {
@@ -47,7 +48,9 @@ enum monster_info_flags
     MB_INSANE,
     MB_SILENCING,
     MB_MESMERIZING,
+#if TAG_MAJOR_VERSION == 34
     MB_EVIL_ATTACK,
+#endif
     MB_SHAPESHIFTER,
     MB_CHAOTIC,
     MB_SUBMERGED,
@@ -169,6 +172,7 @@ enum monster_info_flags
     MB_NO_REWARD,
     MB_STILL_WINDS,
     MB_SLOWLY_DYING,
+    MB_DISTRACTED_ACROBATICS,
     NUM_MB_FLAGS
 };
 
@@ -382,4 +386,3 @@ void clear_monster_list_colours();
 void get_monster_info(vector<monster_info>& mons);
 
 typedef function<vector<string> (const monster_info& mi)> (desc_filter);
-#endif

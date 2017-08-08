@@ -108,7 +108,11 @@ function callback.xom_greatest_gift(data, triggerable, triggerer, marker, ev)
 end
 
 function species_mock(e)
-  if you.race() == "Centaur" then
+  if you.race() == "Barachi" then
+    e.kmons("1 = bullfrog")
+  elseif you.race() == "Gnoll" then
+    e.kmons("1 = jackal")
+  elseif you.race() == "Centaur" then
     e.kmons("1 = dart slug")
   elseif you.race() == "Demigod" then
     e.kmons("1 = titan simulacrum")
@@ -122,8 +126,6 @@ function species_mock(e)
     e.kmons("1 = insubstantial wisp")
   elseif you.race() == "Halfling" then
     e.kmons("1 = hobgoblin ; mundane hunting sling")
-  elseif you.race() == "High Elf" then
-    e.kmons("1 = glowing orange brain")
   elseif you.race() == "Hill Orc" then
     e.kmons("1 = goblin ; mundane hand axe . mundane ring mail")
   elseif you.race() == "Human" then
@@ -349,28 +351,6 @@ x.....x
 x.....x
 x.._..x
 xxxxxxx
-ENDMAP
-
-NAME:   cheibriados_altar_wand_db
-TAGS:   uniq_altar_cheibriados temple_overflow_1 temple_overflow_cheibriados
-TAGS:   patrolling
-DEPTH:  D:3-9
-WEIGHT: 5
-KFEAT:  _ = altar_cheibriados
-MONS:   goblin; wand of slowing ident:type / \
-        hobgoblin; wand of slowing ident:type / \
-        gnoll; wand of slowing ident:type / \
-        orc; wand of slowing ident:type / \
-        kobold; wand of slowing ident:type
-MONS:   goblin / hobgoblin / gnoll / orc / kobold
-NSUBST: 2 = 1:1 / *:2
-MAP
-ccccccc
-c.2.2.c
-c2._.2c
-c.....c
-c.....c
-ccc+ccc
 ENDMAP
 
 NAME:   chei_slow_surprise
@@ -1211,6 +1191,8 @@ NAME:  makhleb_altar_promises_db
 TAGS:  uniq_altar_makhleb temple_overflow_1 temple_overflow_makhleb
 DEPTH: D:2-
 KFEAT: _ = altar_makhleb
+KPROP: 12 = no_tele_into
+KMASK: 12 = no_trap_gen
 MONS:  executioner / balrug / green death / cacodemon / blizzard demon
 MONS:  orange demon / ynoxinul / neqoxec / hellwing / smoke demon
 : interest_check(_G)
@@ -2210,7 +2192,7 @@ DEPTH:  D:2-9
 TAGS:   temple_overflow_1 temple_overflow_uskayaw
 KFEAT:  _ = altar_uskayaw
 ITEM:   any potion q:1, any weapon
-ITEM:   fruit q:3 / fruit q:2 / pizza q:1 / royal jelly q:1
+ITEM:   fruit q:3 / fruit q:2 / royal jelly q:1
 MAP
 ...........
 .G.......G.
@@ -2503,6 +2485,7 @@ NAME:   doesnt_xom_only_xom
 TAGS:   temple_overflow_1 temple_overflow_xom uniq_altar_xom
 KFEAT:  _ = altar_xom
 KFEAT:  C = C mimic
+NSUBST: C = 1:_ / *:C
 MAP
 xxxxxxxxxxx
 x.G.G.G.G.x
@@ -2510,7 +2493,7 @@ xGC..C..CGx
 x.........x
 x.........x
 xG.......Gx
-x.C.._..C.x
+x.C..C..C.x
 xG.......Gx
 xxxx...xxxx
    x...x
@@ -2652,7 +2635,7 @@ DEPTH:  D:2-9, Orc, !Orc:$
 KFEAT:  _ = altar_zin
 KFEAT:  v = general shop name:Zin type:Purification suffix:Station count:1 \
         greed:30 ; \
-        potion of curing | potion of cure mutation w:1
+        potion of curing
 COLOUR: c = white
 COLOUR: ' = white
 TILE:   c = wall_church
@@ -3379,6 +3362,61 @@ cccc..Bcc
  c..c
 ENDMAP
 
+NAME:   gammafunk_temple_of_torment
+DEPTH:  D
+WEIGHT: 2
+TAGS:   no_monster_gen no_trap_gen temple_overflow_2
+TAGS:   temple_overflow_kikubaaqudgha temple_overflow_yredelemnul
+: if you.depth() <= 4 then
+MONS: zombie / skeleton
+MONS: mummy / shadow imp / wight / necrophage / phantom / hungry ghost
+KMONS: 3 = menkaure, necrophage / wight
+SUBST: 2 = 2---
+: elseif you.depth() <= 7 then
+MONS: zombie / skeleton / mummy / shadow imp / wight / necrophage / phantom \
+      / hungry ghost
+MONS: wraith / vampire
+KMONS: 3 = menkaure, wraith / vampire
+SUBST: 2 = 12--
+: else
+MONS: mummy / wight / zombie / skeleton / phantom / hungry ghost
+MONS: wraith / vampire / shadow / w:5 death knight / w:5 skeletal warrior
+MONS: flayed ghost / death knight
+NSUBST: 2 = 2 / 2-
+: end
+SUBST:  1 = 11-
+NSUBST: R = R / -
+KFEAT:  D = altar_kikubaaqudgha
+KFEAT:  E = altar_yredelemnul
+MARKER: P = lua:transp_loc("temple_of_torment_entry")
+MARKER: Q = lua:transp_dest_loc("temple_of_torment_entry")
+MARKER: R = lua:transp_loc("temple_of_torment_exit")
+MARKER: S = lua:transp_dest_loc("temple_of_torment_exit")
+TILE:   G = dngn_sarcophagus_pedestal_left
+TILE:   c = wall_tomb
+FTILE:  -QRVDE|*$123Gcn = floor_tomb
+COLOUR: G = yellow
+COLOUR: -QR|*$123 = brown
+: set_feature_name("granite_statue", "sarcophagus")
+MAP
+ ...............
+ .nnnnnnnnnnnnn.
+ .nR----1----Rn.
+ .n-2-------2*n.
+ .n--ccc-ccc-$n.
+ .n--cGc-cGc-Dn.
+..n----------|n..
+@Pn1----Q---3YnS@
+..n----------*n..
+ .n--cGc-cGc-En.
+ .n--ccc-ccc-$n.
+ .n-2-------2|n.
+ .nR----1----Rn.
+ .nnnnnnnnnnnnn.
+ ...............
+ENDMAP
+
+
 ### Variable overflow altars ##################################################
 
 # To make an overflow temple for N altars, give it the tag
@@ -3955,8 +3993,7 @@ ENDMAP
 
 NAME:  chequers_temple_overflow_minitemple
 TAGS:  temple_overflow_generic_5 temple_overflow_generic_4
-TAGS:  temple_overflow_generic_3 temple_overflow_generic_2
-TAGS:  temple_overflow_generic_1
+TAGS:  temple_overflow_generic_3
 {{
   local altarcount = 5
   if not is_validating() then
@@ -3977,4 +4014,41 @@ ccc..cc...cc..ccc
    cccc...cccc
       ccOcc
        ccc
+ENDMAP
+
+NAME: gammafunk_temple_overflow_arena
+TAGS: temple_overflow_generic_3 temple_overflow_generic_2
+TAGS: temple_overflow_generic_1 no_monster_gen no_trap_gen
+WEIGHT: 1
+{{
+  local altarcount = 3
+  if not is_validating() then
+    altarcount = tonumber(get_overflow_altar_count(_G))
+  end
+  if altarcount == 1 then
+    subst("h = a")
+  elseif altarcount == 2 then
+    subst("B = a")
+  end
+}}
+SUBST: a = |*%$ .:80, 0 = 09., h = B, i : x., j : x., x : bcvx
+NSUBST: R = R / .
+MARKER: P = lua:transp_loc("temple_overflow_arena_entry")
+MARKER: Q = lua:transp_dest_loc("temple_overflow_arena_entry")
+MARKER: R = lua:transp_loc("temple_overflow_arena_exit")
+MARKER: S = lua:transp_dest_loc("temple_overflow_arena_exit")
+MAP
+  ...........
+ ..nnnnnnnnn..
+ .nn0..R...nn.
+ .nG.ji0ij.Gn.
+ .n..ij.ji%$n.
+..n......8*hn..
+@Pn..Q....$BnS@
+..n......9*hn..
+ .n..ij.ji%$n.
+ .nG.ji0ij.Gn.
+ .nn0..R...nn.
+ ..nnnnnnnnn..
+  ...........
 ENDMAP

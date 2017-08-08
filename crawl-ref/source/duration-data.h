@@ -2,6 +2,8 @@
  * Status defaults for durations.
  */
 
+#include "god-passive.h"
+
 static void _end_weapon_brand()
 {
     you.duration[DUR_EXCRUCIATING_WOUNDS] = 1;
@@ -51,7 +53,8 @@ struct midpoint_msg
                     ///< reduced by after the message prints?
 
     /// Randomly, much should the duration actually be reduced by?
-    int offset() const {
+    int offset() const
+    {
         return max_offset ? random2(max_offset+1) : 0;
     }
 };
@@ -137,6 +140,10 @@ static const duration_def duration_data[] =
       "berserking", "berserker",
       "You are possessed by a berserker rage.", D_EXPIRES,
       {{ "You are no longer berserk.", player_end_berserk }}, 6},
+    { DUR_BERSERK_COOLDOWN,
+      YELLOW, "-Berserk",
+      "berserk cooldown", "",
+      "", D_NO_FLAGS},
     { DUR_BREATH_WEAPON,
       YELLOW, "Breath",
       "short of breath", "breath weapon",
@@ -155,9 +162,9 @@ static const duration_def duration_data[] =
       "You are confused.", D_DISPELLABLE,
       {{ "You feel less confused." }}},
     { DUR_CONFUSING_TOUCH,
-      BLUE, "Touch",
+      LIGHTBLUE, "Touch",
       "confusing touch", "",
-      "" , D_DISPELLABLE | D_EXPIRES,
+      "" , D_DISPELLABLE,
       {{ "", []() {
           mprf(MSGCH_DURATION, "%s",
                you.hands_act("stop", "glowing.").c_str());
@@ -190,7 +197,8 @@ static const duration_def duration_data[] =
     { DUR_EXHAUSTED,
       YELLOW, "Exh",
       "exhausted", "",
-      "You are exhausted.", D_NO_FLAGS},
+      "You are exhausted.", D_NO_FLAGS,
+      {{ "You feel less exhausted." }}},
     { DUR_FIRE_SHIELD,
       BLUE, "RoF",
       "immune to fire clouds", "fire shield",
@@ -262,10 +270,15 @@ static const duration_def duration_data[] =
     { DUR_DEATHS_DOOR,
       LIGHTGREY, "DDoor",
       "death's door", "deaths door",
-      "", D_EXPIRES,
+      "You are standing in death's doorway.", D_EXPIRES,
       {{ "Your life is in your own hands again!", []() {
-            you.increase_duration(DUR_EXHAUSTED, roll_dice(1,3));
+            you.duration[DUR_DEATHS_DOOR_COOLDOWN] = random_range(10, 30);
       }}, { "Your time is quickly running out!", 5 }}, 10},
+    { DUR_DEATHS_DOOR_COOLDOWN,
+      YELLOW, "-DDoor",
+      "death's door cooldown", "",
+      "", D_NO_FLAGS,
+      {{ "You step away from death's doorway." }}},
     { DUR_QUAD_DAMAGE,
       BLUE, "Quad",
       "quad damage", "",
@@ -273,7 +286,7 @@ static const duration_def duration_data[] =
       {{ "", []() { invalidate_agrid(true); }},
         { "Quad Damage is wearing off."}}, 3 }, // per client.qc
     { DUR_SILENCE,
-      MAGENTA, "Sil",
+      0, "",
       "silence", "",
       "You radiate silence.", D_DISPELLABLE | D_EXPIRES,
       {{ "Your hearing returns.", []() { invalidate_agrid(true); }}}, 5 },
@@ -344,7 +357,7 @@ static const duration_def duration_data[] =
       {{ "Your shroud unravels." },
         { "Your shroud begins to fray at the edges." }}, 6},
     { DUR_TORNADO_COOLDOWN,
-      YELLOW, "Tornado",
+      YELLOW, "-Tornado",
       "", "tornado cooldown",
       "", D_NO_FLAGS,
       {{ "The winds around you calm down.", []() {
@@ -397,6 +410,11 @@ static const duration_def duration_data[] =
       WHITE, "Recite",
       "reciting", "",
       "You are reciting Zin's Axioms of Law.", D_NO_FLAGS},
+    { DUR_RECITE_COOLDOWN,
+      YELLOW, "-Recite",
+      "", "recite cooldown",
+      "", D_NO_FLAGS,
+      {{ "You are ready to recite again." }}},
     { DUR_GRASPING_ROOTS,
       BROWN, "Roots",
       "grasped by roots", "grasping roots",
@@ -446,7 +464,7 @@ static const duration_def duration_data[] =
           you.duration[DUR_DRAGON_CALL_COOLDOWN] = random_range(160, 260);
       }}}},
     { DUR_DRAGON_CALL_COOLDOWN,
-      YELLOW, "Dragoncall",
+      YELLOW, "-Dragoncall",
       "", "dragon call cooldown",
       "", D_NO_FLAGS,
       {{ "You can once more reach out to the dragon horde." }}},
@@ -460,7 +478,7 @@ static const duration_def duration_data[] =
       "no potions", "",
       "You cannot drink potions.", D_NO_FLAGS,
       {{ "", []() {
-          if (!you_foodless(true))
+          if (!you_foodless())
               mprf(MSGCH_RECOVERY, "You can drink potions again.");
       }}}},
     { DUR_QAZLAL_FIRE_RES,
@@ -504,7 +522,8 @@ static const duration_def duration_data[] =
     { DUR_DIVINE_SHIELD,
       0, "",
       "divine shield", "",
-      "You are shielded by the power of the Shining One.", D_NO_FLAGS},
+      "You are shielded by the power of the Shining One.", D_NO_FLAGS,
+      {{ "", tso_remove_divine_shield }}},
     { DUR_CLEAVE,
       LIGHTBLUE, "Cleave",
       "cleaving", "cleave",
@@ -537,6 +556,10 @@ static const duration_def duration_data[] =
     { DUR_SPWPN_PROTECTION, 0, "", "protection aura", "",
       "Your weapon is exuding a protective aura.", D_NO_FLAGS,
       {{ "", _redraw_armour }}},
+    { DUR_NO_HOP, YELLOW, "-Hop",
+      "can't hop", "",
+      "", D_NO_FLAGS,
+      {{ "You are ready to hop once more." }}},
 
     // The following are visible in wizmode only, or are handled
     // specially in the status lights and/or the % or @ screens.
@@ -579,13 +602,15 @@ static const duration_def duration_data[] =
         {{"", trog_remove_trogs_hand},
           {"You feel the effects of Trog's Hand fading.", 1}}, 6},
     { DUR_GOZAG_GOLD_AURA, 0, "", "gold aura", "", "", D_NO_FLAGS,
-        {{ "", []() { you.props[GOZAG_GOLD_AURA_KEY] = 0; }}}},
+        {{ "", []() { you.props[GOZAG_GOLD_AURA_KEY] = 0; you.redraw_title = true;}}}},
     { DUR_COLLAPSE, 0, "", "", "collapse", "", D_NO_FLAGS },
     { DUR_BRAINLESS, 0, "", "", "brainless", "", D_NO_FLAGS },
     { DUR_CLUMSY, 0, "", "", "clumsy", "", D_NO_FLAGS },
     { DUR_ANCESTOR_DELAY, 0, "", "", "ancestor delay", "", D_NO_FLAGS, {{""}}},
     { DUR_NO_CAST, 0, "", "", "no cast", "", D_NO_FLAGS,
       {{ "You regain access to your magic." }, {}, true }},
+    { DUR_HEAVENLY_STORM, 0, "", "", "", "", D_NO_FLAGS,
+      {{ "",  wu_jian_heaven_tick }}},
 
 #if TAG_MAJOR_VERSION == 34
     // And removed ones

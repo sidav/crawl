@@ -103,9 +103,9 @@ void wizard_level_travel(bool down)
     }
 
     if (down)
-        down_stairs(stairs);
+        down_stairs(stairs, false, false);
     else
-        up_stairs(stairs);
+        up_stairs(stairs, false);
 }
 
 static void _wizard_go_to_level(const level_pos &pos)
@@ -566,6 +566,16 @@ static void debug_load_map_by_name(string name, bool primary)
 
     if (primary)
     {
+        if (toplace->orient == MAP_ENCOMPASS
+            && !toplace->is_usable_in(level_id::current())
+            && !yesno("Warning: this is an encompass vault not designed "
+                       "for this location; placing it with &P may result in "
+                       "crashes and save corruption. Continue?", true, 'y'))
+        {
+            mprf("Ok; try placing with &L or go to the relevant location to "
+                 "safely place with &P.");
+            return;
+        }
         if (toplace->is_minivault())
             you.props["force_minivault"] = toplace->name;
         else
@@ -591,6 +601,9 @@ static void debug_load_map_by_name(string name, bool primary)
             // Fix up doors from vaults and any changes to the default walls
             // and floors from the vault.
             tile_init_flavour();
+            // Transporters would normally be made from map markers by the
+            // builder.
+            dgn_make_transporters_from_markers();
         }
         else
             mprf("Failed to place %s.", toplace->name.c_str());

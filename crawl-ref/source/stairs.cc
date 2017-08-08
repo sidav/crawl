@@ -18,17 +18,20 @@
 #include "env.h"
 #include "files.h"
 #include "fprop.h"
-#include "godabil.h"
-#include "godpassive.h" // passive_t::slow_abyss
+#include "god-abil.h"
+#include "god-passive.h" // passive_t::slow_abyss
 #include "hints.h"
 #include "hiscores.h"
-#include "itemname.h"
+#include "item-name.h"
+#include "item-status-flag-type.h"
 #include "items.h"
+#include "level-state-type.h"
 #include "mapmark.h"
 #include "message.h"
 #include "misc.h"
 #include "mon-death.h"
 #include "notes.h"
+#include "orb-type.h"
 #include "output.h"
 #include "prompt.h"
 #include "religion.h"
@@ -535,7 +538,7 @@ static level_id _travel_destination(const dungeon_feature_type how,
  */
 void floor_transition(dungeon_feature_type how,
                       const dungeon_feature_type whence, level_id whither,
-                      bool forced, bool going_up, bool shaft)
+                      bool forced, bool going_up, bool shaft, bool update_travel_cache)
 {
     const level_id old_level = level_id::current();
 
@@ -635,14 +638,9 @@ void floor_transition(dungeon_feature_type how,
         how = branches[old_level.branch].entry_stairs;
     }
 
-    // Check for falling down the stairs or portal. (Why can't you fall in the abyss?)
-    if (!going_up && !shaft
-        && how != DNGN_ENTER_ABYSS
-        && how != DNGN_ABYSSAL_STAIR
-        && how != DNGN_EXIT_ABYSS)
-    {
+    // Check for falling down the stairs or portal.
+    if (!going_up && !shaft && !forced)
         _check_fall_down_stairs(how, false);
-    }
 
     if (shaft)
         how = DNGN_TRAP_SHAFT;
@@ -771,7 +769,7 @@ void floor_transition(dungeon_feature_type how,
 
     you.clear_fearmongers();
 
-    if (!you.wizard && !shaft)
+    if (update_travel_cache && !shaft)
         _update_travel_cache(old_level, stair_pos);
 
     // Preventing obvious finding of stairs at your position.
@@ -797,7 +795,7 @@ void floor_transition(dungeon_feature_type how,
  * @param force_known_shaft true if the player is shafting themselves via ability
  */
 void take_stairs(dungeon_feature_type force_stair, bool going_up,
-                 bool force_known_shaft)
+                 bool force_known_shaft, bool update_travel_cache)
 {
     const dungeon_feature_type old_feat = orig_terrain(you.pos());
     dungeon_feature_type how = force_stair ? force_stair : old_feat;
@@ -818,16 +816,16 @@ void take_stairs(dungeon_feature_type force_stair, bool going_up,
         return;
 
     floor_transition(how, old_feat, whither,
-                     bool(force_stair), going_up, shaft);
+                     bool(force_stair), going_up, shaft, update_travel_cache);
 }
 
-void up_stairs(dungeon_feature_type force_stair)
+void up_stairs(dungeon_feature_type force_stair, bool update_travel_cache)
 {
-    take_stairs(force_stair, true, false);
+    take_stairs(force_stair, true, false, update_travel_cache);
 }
 
 // Find the other end of the stair or portal at location pos on the current
-// level.  for_real is true if we are actually traversing the feature rather
+// level. for_real is true if we are actually traversing the feature rather
 // than merely asking what is on the other side.
 level_id stair_destination(coord_def pos, bool for_real)
 {
@@ -836,7 +834,7 @@ level_id stair_destination(coord_def pos, bool for_real)
                              for_real);
 }
 
-// Find the other end of a stair or portal on the current level.  feat is the
+// Find the other end of a stair or portal on the current level. feat is the
 // type of feature (DNGN_EXIT_ABYSS, for example), dst is the target of a
 // portal vault entrance (and is ignored for other types of features), and
 // for_real is true if we are actually traversing the feature rather than
@@ -981,9 +979,9 @@ level_id stair_destination(dungeon_feature_type feat, const string &dst,
 }
 
 // TODO(Zannick): Fully merge with up_stairs into take_stairs.
-void down_stairs(dungeon_feature_type force_stair, bool force_known_shaft)
+void down_stairs(dungeon_feature_type force_stair, bool force_known_shaft, bool update_travel_cache)
 {
-    take_stairs(force_stair, false, force_known_shaft);
+    take_stairs(force_stair, false, force_known_shaft, update_travel_cache);
 }
 
 static bool _any_glowing_mold()
@@ -1014,6 +1012,12 @@ static void _update_level_state()
             env.level_state |= LSTATE_BEOGH;
         if (mon_it->has_ench(ENCH_STILL_WINDS))
             env.level_state |= LSTATE_STILL_WINDS;
+        if (mon_it->has_ench(ENCH_AWAKEN_FOREST))
+        {
+            env.forest_awoken_until
+                = you.elapsed_time
+                  + mon_it->get_ench(ENCH_AWAKEN_FOREST).duration;
+        }
     }
     for (rectangle_iterator ri(0); ri; ++ri)
         if (grd(*ri) == DNGN_SLIMY_WALL)

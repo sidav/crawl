@@ -1,9 +1,21 @@
-#ifndef ACTOR_H
-#define ACTOR_H
+#pragma once
 
-#include "itemprop-enum.h"
+#include "artefact-prop-type.h"
+#include "beam-type.h"
+#include "conduct-type.h"
+#include "energy-use-type.h"
+#include "equipment-type.h"
+#include "god-type.h"
+#include "held-type.h"
+#include "item-prop-enum.h"
+#include "mon-holy-type.h"
 #include "random-var.h"
 #include "ouch.h"
+#include "pronoun-type.h"
+#include "reach-type.h"
+#include "size-part-type.h"
+#include "size-type.h"
+#include "stat-type.h"
 
 #define CLING_KEY "clinging" // 'is creature clinging' property key
 
@@ -271,7 +283,7 @@ public:
 
     virtual mon_holy_type holiness(bool temp = true) const = 0;
     virtual bool undead_or_demonic() const = 0;
-    virtual bool holy_wrath_susceptible() const = 0;
+    virtual bool holy_wrath_susceptible() const;
     virtual bool is_holy(bool spells = true) const = 0;
     virtual bool is_nonliving(bool temp = true) const = 0;
     bool evil() const;
@@ -288,7 +300,7 @@ public:
     virtual int res_rotting(bool temp = true) const = 0;
     virtual int res_water_drowning() const = 0;
     virtual bool res_sticky_flame() const = 0;
-    virtual int res_holy_energy(const actor *attacker) const = 0;
+    virtual int res_holy_energy() const = 0;
     virtual int res_negative_energy(bool intrinsic_only = false) const = 0;
     virtual bool res_torment() const = 0;
     virtual bool res_wind() const = 0;
@@ -306,7 +318,8 @@ public:
     virtual bool res_corr(bool calc_unid = true, bool items = true) const;
     bool has_notele_item(bool calc_unid = true,
                          vector<item_def> *matches = nullptr) const;
-    virtual bool stasis(bool calc_unid = true, bool items = true) const;
+    virtual bool stasis() const = 0;
+    virtual bool cloud_immune(bool calc_unid = true, bool items = true) const;
     virtual bool run(bool calc_unid = true, bool items = true) const;
     virtual bool angry(bool calc_unid = true, bool items = true) const;
     virtual bool clarity(bool calc_unid = true, bool items = true) const;
@@ -353,10 +366,6 @@ public:
     virtual bool haloed() const;
     // Within an umbra?
     virtual bool umbraed() const;
-#if TAG_MAJOR_VERSION == 34
-    // Being heated by a heat aura?
-    virtual bool heated() const;
-#endif
     // Halo radius.
     virtual int halo_radius() const = 0;
     // Silence radius.
@@ -364,9 +373,6 @@ public:
     // Liquefying radius.
     virtual int liquefying_radius() const = 0;
     virtual int umbra_radius() const = 0;
-#if TAG_MAJOR_VERSION == 34
-    virtual int heat_radius() const = 0;
-#endif
 
     virtual bool petrifying() const = 0;
     virtual bool petrified() const = 0;
@@ -442,10 +448,11 @@ public:
 
     void collide(coord_def newpos, const actor *agent, int pow);
 
+    static const actor *ensure_valid_actor(const actor *act);
+    static actor *ensure_valid_actor(actor *act);
+
 private:
     void end_constriction(mid_t whom, bool intentional, bool quiet);
 };
 
 bool actor_slime_wall_immune(const actor *actor);
-
-#endif
