@@ -126,6 +126,7 @@ struct game_options
 {
 public:
     game_options();
+    ~game_options();
     void reset_options();
 
     void read_option_line(const string &s, bool runscripts = false);
@@ -270,6 +271,9 @@ public:
                                         // two autofight commands
     bool        cloud_status;     // Whether to show a cloud status light
 
+    bool        wall_jump_prompt; // Whether to ask for confirmation before jumps.
+    bool        wall_jump_move;   // Whether to allow wall jump via movement
+
     int         fire_items_start; // index of first item for fire command
     vector<unsigned> fire_order;  // missile search order for 'f' command
 
@@ -329,7 +333,14 @@ public:
     unsigned    tc_reachable;   // Colour for squares that are reachable
     unsigned    tc_excluded;    // Colour for excluded squares.
     unsigned    tc_exclude_circle; // Colour for squares in the exclusion radius
-    unsigned    tc_dangerous;   // Colour for trapped squares, deep water, lava.
+    // Colour for squares which are safely traversable but that travel
+    // considers forbidden, either because they are themselves forbidden by
+    // travel options or exclusions or because they are only accessible through
+    // such squares.
+    unsigned    tc_forbidden;
+    // Colour for squares that are not safely traversable (e.g. deep water,
+    // lava, or traps)
+    unsigned    tc_dangerous;
     unsigned    tc_disconnected;// Areas that are completely disconnected.
     vector<text_pattern> auto_exclude; // Automatically set an exclusion
                                        // around certain monsters.
@@ -398,9 +409,16 @@ public:
     int         assign_item_slot;   // How free slots are assigned
     maybe_bool  show_god_gift;      // Show {god gift} in item names
 
-    bool        restart_after_game; // If true, Crawl will not close on game-end
+    maybe_bool  restart_after_game; // If true, Crawl will not close on game-end
+                                    // If maybe, Crawl will restart only if the
+                                    // CL options would bring up the startup
+                                    // menu.
     bool        restart_after_save; // .. or on save
+    bool        newgame_after_quit; // override the restart_after_game behavior
+                                    // to always start a new game on quit.
 
+    bool        name_bypasses_menu; // should the menu be skipped if there is
+                                    // a name set on game start
     bool        read_persist_options; // If true, Crawl will try to load
                                       // options from c_persist.options
 
@@ -424,6 +442,8 @@ public:
 
     int         level_map_cursor_step;  // The cursor increment in the level
                                         // map.
+
+    bool        use_modifier_prefix_keys; // Treat '/' as SHIFT and '*' as CTRL
 
     // If the player prefers to merge kill records, this option can do that.
     int         kill_map[KC_NCATEGORIES];
@@ -460,6 +480,7 @@ public:
 #endif  // WIZARD
 
 #ifdef USE_TILE
+    // TODO: have these present but ignored in non-tile builds
     string      tile_show_items; // show which item types in tile inventory
     bool        tile_skip_title; // wait for a key at title screen?
     bool        tile_menu_icons; // display icons in menus?
@@ -478,6 +499,7 @@ public:
     VColour     tile_downstairs_col;
     VColour     tile_upstairs_col;
     VColour     tile_transporter_col;
+    VColour     tile_transporter_landing_col;
     VColour     tile_branchstairs_col;
     VColour     tile_portal_col;
     VColour     tile_feature_col;

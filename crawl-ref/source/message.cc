@@ -28,9 +28,7 @@
 #include "sound.h"
 #include "state.h"
 #include "stringutil.h"
-#ifdef USE_TILE_WEB
- #include "tileweb.h"
-#endif
+#include "tiles-build-specific.h"
 #include "unwind.h"
 #include "view.h"
 
@@ -919,6 +917,9 @@ void webtiles_send_last_messages(int n)
     tiles.json_close_object(true);
     tiles.finish_message();
 }
+#else
+void webtiles_send_messages() { }
+void webtiles_send_last_messages(int n) { }
 #endif
 
 static FILE* _msg_dump_file = nullptr;
@@ -1188,7 +1189,7 @@ void mprf_nojoin(const char *format, ...)
 #ifdef DEBUG_DIAGNOSTICS
 void dprf(const char *format, ...)
 {
-    if (Options.quiet_debug_messages[DIAG_NORMAL])
+    if (Options.quiet_debug_messages[DIAG_NORMAL] || you.suppress_wizard)
         return;
 
     va_list argp;
@@ -1199,7 +1200,7 @@ void dprf(const char *format, ...)
 
 void dprf(diag_type param, const char *format, ...)
 {
-    if (Options.quiet_debug_messages[param])
+    if (Options.quiet_debug_messages[param] || you.suppress_wizard)
         return;
 
     va_list argp;
@@ -1447,7 +1448,7 @@ void msgwin_got_input()
 int msgwin_get_line(string prompt, char *buf, int len,
                     input_history *mh, const string &fill)
 {
-    if (prompt != "")
+    if (!prompt.empty())
         msgwin_prompt(prompt);
 
     int ret = cancellable_get_line(buf, len, mh, nullptr, fill);
@@ -1819,8 +1820,12 @@ void canned_msg(canned_message_type which_message)
             break;
         case MSG_SOMETHING_IN_WAY:
             mpr("There's something in the way.");
+            break;
         case MSG_CANNOT_SEE:
             mpr("You can't see that place.");
+            break;
+        case MSG_GOD_DECLINES:
+            mpr("Your god isn't willing to do this for you now.");
             break;
     }
 }

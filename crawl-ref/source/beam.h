@@ -151,9 +151,7 @@ struct bolt
 
     ray_def     ray;             // shoot on this specific ray
 
-#ifdef USE_TILE
-    int         tile_beam;
-#endif
+    int         tile_beam; // only used if USE_TILE is defined
 
 private:
     bool can_see_invis = false;
@@ -208,7 +206,6 @@ public:
 private:
     void do_fire();
     void initialise_fire();
-    void apply_beam_conducts();
 
     // Lots of properties of the beam.
     coord_def pos() const;
@@ -268,6 +265,7 @@ private:
     void enchantment_affect_monster(monster* mon);
 public:
     mon_resist_type apply_enchantment_to_monster(monster* mon);
+    void apply_beam_conducts();
 private:
     void apply_bolt_paralysis(monster* mons);
     void apply_bolt_petrify(monster* mons);

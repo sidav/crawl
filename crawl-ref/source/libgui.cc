@@ -19,6 +19,7 @@
 #include "terrain.h"
 #include "tiledef-main.h"
 #include "tilereg-text.h"
+#include "tiles-build-specific.h"
 #include "travel.h"
 #include "viewgeom.h"
 #include "windowmanager.h"
@@ -195,7 +196,7 @@ void update_screen()
 
 bool kbhit()
 {
-    if (crawl_state.tiles_disabled)
+    if (crawl_state.tiles_disabled || crawl_state.seen_hups)
         return false;
     // Look for the presence of any keyboard events in the queue.
     int count = wm->get_event_count(WME_KEYDOWN)

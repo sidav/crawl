@@ -45,6 +45,7 @@
 #include "terrain.h"
 #ifdef USE_TILE
 #include "tile-flags.h"
+#include "tiledef-main.h"
 #include "tilepick.h"
 #include "tileview.h"
 #endif
@@ -412,6 +413,8 @@ static bool _spell_filter(string key, string body)
 
     if (spell == SPELL_NO_SPELL)
         return true;
+    if (spell_removed(spell))
+        return true;
 
     if (get_spell_flags(spell) & SPFLAG_TESTING)
         return !you.wizard;
@@ -643,12 +646,32 @@ static MenuEntry* _monster_menu_gen(char letter, const string &str,
 }
 
 /**
+ * Generate a ?/I menu entry. (ref. _simple_menu_gen()).
+ */
+static MenuEntry* _item_menu_gen(char letter, const string &str, string &key)
+{
+    MenuEntry* me = _simple_menu_gen(letter, str, key);
+#ifdef USE_TILE
+    item_def item;
+    item_kind kind = item_kind_by_name(key);
+    get_item_by_name(&item, key.c_str(), kind.base_type);
+    item_colour(item);
+    tileidx_t idx = tileidx_item(get_item_info(item));
+    tileidx_t base_item = tileidx_known_base_item(idx);
+    if (base_item)
+        me->add_tile(tile_def(base_item, TEX_DEFAULT));
+    me->add_tile(tile_def(idx, TEX_DEFAULT));
+#endif
+    return me;
+}
+
+/**
  * Generate a ?/F menu entry. (ref. _simple_menu_gen()).
  */
 static MenuEntry* _feature_menu_gen(char letter, const string &str, string &key)
 {
     const dungeon_feature_type feat = feat_by_desc(str);
-    MenuEntry* me = new FeatureMenuEntry(str, feat, letter);
+    MenuEntry* me = new MenuEntry(str, MEL_ITEM, 1, letter);
     me->data = &key;
 
 #ifdef USE_TILE
@@ -688,6 +711,18 @@ static MenuEntry* _ability_menu_gen(char letter, const string &str, string &key)
 }
 
 /**
+ * Generate a ?/C menu entry. (ref. _simple_menu_gen()).
+ */
+static MenuEntry* _card_menu_gen(char letter, const string &str, string &key)
+{
+    MenuEntry* me = _simple_menu_gen(letter, str, key);
+#ifdef USE_TILE
+    me->add_tile(tile_def(TILE_MISC_CARD, TEX_DEFAULT));
+#endif
+    return me;
+}
+
+/**
  * Generate a ?/S menu entry. (ref. _simple_menu_gen()).
  */
 static MenuEntry* _spell_menu_gen(char letter, const string &str, string &key)
@@ -713,8 +748,23 @@ static MenuEntry* _skill_menu_gen(char letter, const string &str, string &key)
     MenuEntry* me = _simple_menu_gen(letter, str, key);
 
 #ifdef USE_TILE
-    const skill_type skill = str_to_skill(str);
+    const skill_type skill = str_to_skill_safe(str);
     me->add_tile(tile_def(tileidx_skill(skill, TRAINING_ENABLED), TEX_GUI));
+#endif
+
+    return me;
+}
+
+/**
+ * Generate a ?/B menu entry. (ref. _simple_menu_gen()).
+ */
+static MenuEntry* _branch_menu_gen(char letter, const string &str, string &key)
+{
+    MenuEntry* me = _simple_menu_gen(letter, str, key);
+
+#ifdef USE_TILE
+    const branch_type branch = branch_by_shortname(str);
+    me->add_tile(tile_def(tileidx_branch(branch), TEX_FEAT));
 #endif
 
     return me;
@@ -1249,13 +1299,13 @@ static const vector<LookupType> lookup_types = {
                _describe_generic,
                lookup_type::db_suffix | lookup_type::support_tiles),
     LookupType('C', "card", _recap_card_keys, _card_filter,
-               nullptr, nullptr, _simple_menu_gen,
+               nullptr, nullptr, _card_menu_gen,
                _describe_card,
-               lookup_type::db_suffix),
+               lookup_type::db_suffix | lookup_type::support_tiles),
     LookupType('I', "item", nullptr, _item_filter,
-               item_name_list_for_glyph, nullptr, _simple_menu_gen,
+               item_name_list_for_glyph, nullptr, _item_menu_gen,
                _describe_item,
-               lookup_type::none),
+               lookup_type::none | lookup_type::support_tiles),
     LookupType('F', "feature", _recap_feat_keys, _feature_filter,
                nullptr, nullptr, _feature_menu_gen,
                _describe_generic,
@@ -1265,9 +1315,9 @@ static const vector<LookupType> lookup_types = {
                _describe_god,
                lookup_type::support_tiles),
     LookupType('B', "branch", nullptr, nullptr,
-               nullptr, _get_branch_keys, _simple_menu_gen,
+               nullptr, _get_branch_keys, _branch_menu_gen,
                _describe_branch,
-               lookup_type::disable_sort),
+               lookup_type::disable_sort | lookup_type::support_tiles),
     LookupType('L', "cloud", nullptr, nullptr,
                nullptr, _get_cloud_keys, _cloud_menu_gen,
                _describe_cloud,

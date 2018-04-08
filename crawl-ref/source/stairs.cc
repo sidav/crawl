@@ -45,6 +45,7 @@
 #ifdef USE_TILE_LOCAL
  #include "tilepick.h"
 #endif
+#include "tiles-build-specific.h"
 #include "traps.h"
 #include "travel.h"
 #include "view.h"
@@ -72,6 +73,22 @@ bool check_annotation_exclusion_warning()
     {
         mprf(MSGCH_WARN, "This staircase is marked as excluded!");
         might_be_dangerous = true;
+    }
+
+    if (feat_is_travelable_stair(grd(you.pos())))
+    {
+        if (LevelInfo *li = travel_cache.find_level_info(level_id::current()))
+        {
+            if (const stair_info *si = li->get_stair(you.pos()))
+            {
+                if (stairs_destination_is_excluded(*si))
+                {
+                    mprf(MSGCH_WARN,
+                         "This staircase leads to a travel-excluded area!");
+                    might_be_dangerous = true;
+                }
+            }
+        }
     }
 
     if (might_be_dangerous

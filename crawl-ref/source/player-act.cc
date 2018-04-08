@@ -76,7 +76,7 @@ void player::moveto(const coord_def &c, bool clear_net)
     crawl_view.set_player_at(c);
     set_position(c);
 
-    clear_far_constrictions();
+    clear_invalid_constrictions();
     end_searing_ray();
 }
 
@@ -765,28 +765,28 @@ bool player::can_go_berserk() const
 }
 
 bool player::can_go_berserk(bool intentional, bool potion, bool quiet,
-                            string *reason) const
+                            string *reason, bool temp) const
 {
     const bool verbose = (intentional || potion) && !quiet;
     string msg;
     bool success = false;
 
-    if (berserk())
+    if (berserk() && temp)
         msg = "You're already berserk!";
-    else if (duration[DUR_BERSERK_COOLDOWN])
-         msg = "You're still recovering from your berserk rage.";
-    else if (duration[DUR_DEATHS_DOOR])
+    else if (duration[DUR_BERSERK_COOLDOWN] && temp)
+        msg = "You're still recovering from your berserk rage.";
+    else if (duration[DUR_DEATHS_DOOR] && temp)
         msg = "You can't enter a blood rage from death's door.";
-    else if (beheld() && !player_equip_unrand(UNRAND_DEMON_AXE))
+    else if (beheld() && !player_equip_unrand(UNRAND_DEMON_AXE) && temp)
         msg = "You are too mesmerised to rage.";
-    else if (afraid())
+    else if (afraid() && temp)
         msg = "You are too terrified to rage.";
-    else if (is_lifeless_undead())
+    else if (!intentional && !potion && clarity() && temp)
+        msg = "You're too calm and focused to rage.";
+    else if (is_lifeless_undead(temp))
         msg = "You cannot raise a blood rage in your lifeless body.";
     else if (stasis())
         msg = "Your stasis prevents you from going berserk.";
-    else if (!intentional && !potion && clarity())
-        msg = "You're too calm and focused to rage.";
     else
         success = true;
 
@@ -837,9 +837,20 @@ bool player::shove(const char* feat_name)
     return false;
 }
 
-int player::constriction_damage() const
+/*
+ * Calculate base constriction damage.
+ *
+ * @param direct True if this is for direct constriction, false otherwise (e.g.
+ *               Borg's Vile Clutch), false otherwise.
+ * @returns The base damage.
+ */
+int player::constriction_damage(bool direct) const
 {
-    return roll_dice(2, div_rand_round(strength(), 5));
+    if (direct)
+        return roll_dice(2, div_rand_round(strength(), 5));
+
+    return roll_dice(2, 5 + div_rand_round(
+                calc_spell_power(SPELL_BORGNJORS_VILE_CLUTCH, true), 15));
 }
 
 /**

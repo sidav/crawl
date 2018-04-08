@@ -141,6 +141,9 @@ enum class passive_t
     /// Warning about shapeshifters when they come to view.
     warn_shapeshifter,
 
+    /// Cleanse mutation potions (they only delete mutations).
+    cleanse_mut_potions,
+
     /// Torment resistance, piety dependent.
     resist_torment,
 
@@ -274,7 +277,9 @@ bool god_id_item(item_def& item, bool silent = true);
 void ash_id_monster_equipment(monster* mon);
 int ash_detect_portals(bool all);
 monster_type ash_monster_tier(const monster *mon);
+unsigned int ash_skill_point_boost(skill_type sk, int scaled_skill);
 int ash_skill_boost(skill_type sk, int scale);
+bool ash_has_skill_boost(skill_type sk);
 map<skill_type, int8_t> ash_get_boosted_skills(eq_type type);
 int gozag_gold_in_los(actor* whom);
 int qazlal_sh_boost(int piety = you.piety);
@@ -283,7 +288,6 @@ void qazlal_storm_clouds();
 void qazlal_element_adapt(beam_type flavour, int strength);
 bool does_ru_wanna_redirect(monster* mon);
 ru_interference get_ru_attack_interference_level();
-void pakellas_id_device_charges();
 monster* shadow_monster(bool equip = true);
 void shadow_monster_reset(monster *mon);
 void dithmenos_shadow_melee(actor* target);
@@ -292,11 +296,10 @@ void dithmenos_shadow_spell(bolt* orig_beam, spell_type spell);
 void uskayaw_prepares_audience();
 void uskayaw_bonds_audience();
 
-void wu_jian_trigger_martial_arts(const coord_def& old_pos);
-bool wu_jian_can_wall_jump_in_principle(const coord_def& target);
-bool wu_jian_can_wall_jump(const coord_def& target, bool messaging=false);
 void wu_jian_wall_jump_effects(const coord_def& old_pos);
-void wu_jian_trigger_serpents_lash(const coord_def& old_pos);
 bool wu_jian_has_momentum(wu_jian_attack_type);
 void wu_jian_heaven_tick();
+void wu_jian_post_move_effects(bool did_wall_jump,
+                               const coord_def& initial_position);
+void wu_jian_end_of_turn_effects();
 void end_heavenly_storm();

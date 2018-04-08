@@ -103,6 +103,7 @@ bool god_likes_spell(spell_type spell, god_type god);
 bool god_hates_spellcasting(god_type god);
 bool god_hates_spell(spell_type spell, god_type god, bool fake_spell = false);
 bool god_loathes_spell(spell_type spell, god_type god);
+string god_spell_warn_string(spell_type spell, god_type god);
 bool god_hates_ability(ability_type ability, god_type god);
 lifesaving_chance elyvilon_lifesaving();
 bool god_protects_from_harm();
@@ -194,3 +195,5 @@ struct god_power
 
 void set_god_ability_slots();
 vector<god_power> get_god_powers(god_type god);
+const god_power* god_power_from_ability(ability_type abil);
+bool god_power_usable(const god_power& power, bool ignore_piety=false, bool ignore_penance=false);

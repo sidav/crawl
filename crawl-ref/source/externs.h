@@ -542,14 +542,13 @@ struct item_def
         short charges;              ///< # of charges held by a wand, etc
         short initial_cards;        ///< the # of cards a deck *started* with
         short net_durability;       ///< damage dealt to a net
+        short tithe_state;          ///< tithe state of a stack of gold
     };
     union
     {
         // These must all be the same size!
         short plus2;        ///< legacy/generic name for this union
-        short used_count;   ///< the # of known times it was used (decks, wands)
-                            // for wands, may hold negative ZAPCOUNT knowledge
-                            // info (e.g. "recharged", "empty", "unknown")
+        short used_count;   ///< the # of times a deck was used
         short net_placed;   ///< is this throwing net trapping something?
         short skill_points; ///< # of skill points a manual gives
         short stash_freshness; ///< where stash.cc stores corpse freshness
@@ -698,6 +697,7 @@ public:
     bool notified_hp_full;
     coord_def pos;
     int travel_speed;
+    int direction;
 
     FixedVector<run_check_dir,3> run_check; // array of grids to check
 
@@ -735,6 +735,7 @@ public:
 private:
     void set_run_check(int index, int compass_dir);
     bool run_should_stop() const;
+    bool diag_run_passes_door() const;
 };
 
 enum mon_spell_slot_flag

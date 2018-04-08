@@ -1770,16 +1770,14 @@ SHUFFLE: 1x
 SUBST:   x = '
 NSUBST:  ' = 2:d / *:'
 NSUBST:  . = '.
-KITEM:   d : fruit q:1
-KFEAT:   d = '
-FTILE:   d'1{ = floor_grass
-COLOUR:  d' = green
+FTILE:   '1{ = floor_grass
+COLOUR:  ' = green
 MAP
   .....
  .x...x.
- '1'''1'
+ '''''''
 ..''{''..
- '1'''1'
+ '''''''
  .x...x.
   .....
 ENDMAP
@@ -2123,7 +2121,7 @@ NAME:    onia_arrival_mini_maze
 TAGS:    arrival
 WEIGHT:  5
 ORIENT:  float
-ITEM:    fruit q:1 / nothing w:20 / stone
+ITEM:    ration w:2 / nothing w:20 / stone
 SHUFFLE: Aa, Bb, Cc, Ee, Ff
 MONS:    w:30 nothing / w:10 plant / w:5 fungus / w:10 rat
 SUBST:   A=x, B=x, C=x, E=x, F=x, a=., b=., c=., e=., f=.
@@ -2149,7 +2147,7 @@ NAME:    onia_arrival_mini_maze_b
 TAGS:    arrival
 WEIGHT:  5
 ORIENT:  float
-ITEM:    fruit q:1 / nothing w:50 / stone
+ITEM:    ration w:2 / nothing w:50 / stone
 SHUFFLE: AB
 SUBST:   A : x , B = +., X = x+
 MONS:    w:30 nothing / w:10 plant / w:3 fungus / w:1 worm
@@ -2651,7 +2649,7 @@ ENDMAP
 ##############################################################
 # A small-room arrival with wooden doors and big ring of trees and rocks.
 NAME:    saegor_arrival_under_anarchy
-TAGS:    arrival no_trap_gen no_monster_gen
+TAGS:    arrival no_monster_gen
 ORIENT:  float
 NSUBST:  @ = 3:@ / *:X
 SUBST:   X = tc w:1
@@ -2685,7 +2683,7 @@ ENDMAP
 ##############################################################
 # Moated graveyard arrival (oiseaux)
 NAME:    moated_graveyard_arrival
-TAGS:    arrival no_monster_gen no_trap_gen no_pool_fixup no_rotate
+TAGS:    arrival no_monster_gen no_pool_fixup no_rotate
 ORIENT:  float
 FTILE:   t{G = FLOOR_PEBBLE_BROWN
 TILE:    ' = FLOOR_PEBBLE_BROWN / FLOOR_PEBBLE_DARKGRAY
@@ -3160,7 +3158,7 @@ ccc...ccc
 ENDMAP
 
 NAME:   kennysheep_arrival_forest
-TAGS:   arrival no_monster_gen no_trap_gen
+TAGS:   arrival no_monster_gen
 ORIENT: south
 FTILE:  t'G = floor_grass
 COLOUR: ' = green
@@ -3176,4 +3174,37 @@ xtttttt''G.{.G''''ttttx
 xtttttttt'...'''ttttttx
 xtttttttttt.ttttttttttx
 xtttttttttttttttttttttx
+ENDMAP
+
+NAME:   nzn_arrival_settlement
+TAGS:   arrival no_monster_gen
+ORIENT: float
+SUBST:  a = -'
+SHUFFLE: TG
+: if crawl.coinflip() then
+SUBST:  de = ', f = t, gh = ., ij = -, kpqr = x, s = @, uy = A
+: else
+SUBST: dhjsy = x, gfru = -, ep = A, iq = ., k = @
+: end
+FTILE:  -G = floor_dirt, 'Tt = floor_grass
+COLOUR: ' = green, - = brown
+MAP
+               xkx
+            xxxxpxxx
+   xsx   xxxxqirrqxxx
+  xxyxxxxx-x.rur.''txx
+ xxhjjii.xAx--i.'aa'tx
+ xhhh..iii---..'ataaax
+ xddd.....-.....aaaatx
+ xdfeggggg-......a.aax
+ xded..'..-.---.....xx
+xx'g..'t'----T------xx
+xt'gg..'--..---.''xAx
+xt'.ggg--......'txxx@
+xx'...--.......'xx
+ xw----....aaaaax
+ xxx.{..a.aat''tx
+   xx..aaaaa'''ax
+    xxaataaaataxx
+     xxxxxxxxxxx
 ENDMAP

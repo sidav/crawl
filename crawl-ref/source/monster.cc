@@ -73,9 +73,10 @@ monster::monster()
       speed(0), speed_increment(0), target(), firing_pos(),
       patrol_point(), travel_target(MTRAV_NONE), inv(NON_ITEM), spells(),
       attitude(ATT_HOSTILE), behaviour(BEH_WANDER), foe(MHITYOU),
-      enchantments(), flags(), experience(0), base_monster(MONS_NO_MONSTER),
-      number(0), colour(COLOUR_INHERIT), foe_memory(0), god(GOD_NO_GOD),
-      ghost(), seen_context(SC_NONE), client_id(0), hit_dice(0)
+      enchantments(), flags(), xp_tracking(XP_GENERATED), experience(0),
+      base_monster(MONS_NO_MONSTER), number(0), colour(COLOUR_INHERIT),
+      foe_memory(0), god(GOD_NO_GOD), ghost(), seen_context(SC_NONE),
+      client_id(0), hit_dice(0)
 
 {
     type = MONS_NO_MONSTER;
@@ -198,6 +199,7 @@ void monster::init_with(const monster& mon)
     props             = mon.props;
     damage_friendly   = mon.damage_friendly;
     damage_total      = mon.damage_total;
+    xp_tracking       = mon.xp_tracking;
 
     if (mon.ghost.get())
         ghost.reset(new ghost_demon(*mon.ghost));
@@ -777,11 +779,12 @@ bool monster::likes_wand(const item_def &item) const
     ASSERT(item.base_type == OBJ_WANDS);
     // kind of a hack
     // assumptions:
-    // bad wands are value 16, so won't be used past hd 4
-    // mediocre wands are value 8; won't be used past hd 8
-    // other good wands are value 5, won't be used past hd 10
+    // bad wands are value 48, so won't be used past hd 4
+    // mediocre wands are value 24; won't be used past hd 8
+    // good wands are value 15; won't be used past hd 9
+    // best wands are value 9; won't be used past hd 10
     // better implementations welcome
-    return wand_charge_value(item.sub_type) + get_hit_dice() * 2 <= 24;
+    return wand_charge_value(item.sub_type) + get_hit_dice() * 6 <= 72;
 }
 
 void monster::equip_weapon(item_def &item, bool msg)
@@ -2690,9 +2693,11 @@ void monster::moveto(const coord_def& c, bool clear_net)
         props[IOOD_Y].get_float() += c.y - pos().y;
     }
 
-    clear_constrictions_far_from(c);
-
     set_position(c);
+
+    // Do constriction invalidation after to the move, so that all LOS checking
+    // is available.
+    clear_invalid_constrictions(true);
 }
 
 bool monster::fumbles_attack()
@@ -2947,7 +2952,7 @@ bool monster::has_damage_type(int dam_type)
     return false;
 }
 
-int monster::constriction_damage() const
+int monster::constriction_damage(bool /* direct */) const
 {
     for (int i = 0; i < 4; ++i)
     {
@@ -2956,6 +2961,11 @@ int monster::constriction_damage() const
             return attack.damage;
     }
     return -1;
+}
+
+bool monster::constriction_does_damage(bool direct) const
+{
+    return constriction_damage(direct) > 0;
 }
 
 /** Return true if the monster temporarily confused. False for butterflies, or
@@ -2996,7 +3006,7 @@ bool monster::cannot_act() const
 
 bool monster::cannot_move() const
 {
-    return cannot_act();
+    return cannot_act() || has_ench(ENCH_WHIRLWIND_PINNED);
 }
 
 bool monster::asleep() const
@@ -3120,11 +3130,6 @@ int monster::shield_bonus() const
                             * (shld->sub_type - ARM_LARGE_SHIELD);
         sh = random2avg(shld_c + get_hit_dice() * 4 / 3, 2) / 2;
     }
-    if (has_ench(ENCH_BONE_ARMOUR))
-    {
-        const int bone_armour = 6 + get_hit_dice() / 3;
-        sh = max(sh + bone_armour, bone_armour);
-    }
     // shielding from jewellery
     const item_def *amulet = mslot_item(MSLOT_JEWELLERY);
     if (amulet && amulet->sub_type == AMU_REFLECTION)
@@ -3137,21 +3142,6 @@ int monster::shield_bonus() const
     return sh;
 }
 
-/**
- * After being hit or blocking an attack, possibly remove the monster's bone
- * armour (if it has any).
- *
- * Currently a 1/4 chance each time.
- */
-void monster::maybe_degrade_bone_armour()
-{
-    if (has_ench(ENCH_BONE_ARMOUR) && one_chance_in(4))
-    {
-        del_ench(ENCH_BONE_ARMOUR);
-        simple_monster_message(*this, "'s corpse armour sloughs away.");
-    }
-}
-
 int monster::shield_block_penalty() const
 {
     return 4 * shield_blocks * shield_blocks;
@@ -3162,7 +3152,6 @@ void monster::shield_block_succeeded(actor *attacker)
     actor::shield_block_succeeded(attacker);
 
     ++shield_blocks;
-    maybe_degrade_bone_armour();
 }
 
 int monster::shield_bypass_ability(int) const
@@ -3619,10 +3608,6 @@ int monster::how_unclean(bool check_god) const
         uncleanliness++;
 
     if (has_chaotic_spell() && is_actual_spellcaster())
-        uncleanliness++;
-
-    corpse_effect_type ce = mons_corpse_effect(type);
-    if (ce == CE_MUTAGEN && !how_chaotic())
         uncleanliness++;
 
     // Corporeal undead are a perversion of natural form.
@@ -4180,7 +4165,7 @@ bool monster::poison(actor *agent, int amount, bool force)
     return poison_monster(this, agent, amount, force);
 }
 
-int monster::skill(skill_type sk, int scale, bool real, bool drained) const
+int monster::skill(skill_type sk, int scale, bool real, bool drained, bool temp) const
 {
     // Let spectral weapons have necromancy skill for pain brand.
     if (mons_intel(*this) < I_HUMAN && !mons_is_avatar(type))
@@ -4601,6 +4586,9 @@ void monster::ghost_init(bool need_pos)
     // if we have a home first. {due}
     if (need_pos && !in_bounds(pos()))
         find_place_to_live();
+
+    bind_melee_flags();
+    bind_spell_flags(); // does this even do anything on ghosts?
 }
 
 void monster::uglything_init(bool only_mutate)
@@ -5649,7 +5637,7 @@ void monster::put_to_sleep(actor *attacker, int strength, bool hibernate)
     if (!valid_target)
         return;
 
-    stop_constricting_all();
+    stop_directly_constricting_all(false);
     behaviour = BEH_SLEEP;
     flags |= MF_JUST_SLEPT;
     if (hibernate)
@@ -5717,15 +5705,10 @@ int monster::action_energy(energy_use_type et) const
         move_cost -= 3;
 
     // Floundering monsters get the same penalty as the player, except that
-    // player get penalty on entering water, while monster get the penalty
-    // when leaving it.
+    // players get the penalty on entering water, while monsters get the
+    // penalty when leaving it.
     if (floundering())
-        move_cost += 3 + random2(8);
-
-    // If the monster cast it, it has more control and is there not
-    // as slow as when the player casts it.
-    if (has_ench(ENCH_LIQUEFYING))
-        move_cost -= 2;
+        move_cost += 6;
 
     // Never reduce the cost to zero
     return max(move_cost, 1);
@@ -5741,7 +5724,7 @@ void monster::lose_energy(energy_use_type et, int div, int mult)
     }
 
     if ((et == EUT_MOVE || et == EUT_SWIM) && has_ench(ENCH_GRASPING_ROOTS))
-        energy_loss += 5;
+        energy_loss += 4;
 
     if ((et == EUT_MOVE || et == EUT_SWIM) && has_ench(ENCH_FROZEN))
         energy_loss += 4;
@@ -6175,9 +6158,6 @@ void monster::react_to_damage(const actor *oppressor, int damage,
 
         add_ench(ENCH_RING_OF_THUNDER);
     }
-
-    if (alive())
-        maybe_degrade_bone_armour();
 }
 
 reach_type monster::reach_range() const
@@ -6303,6 +6283,9 @@ void monster::steal_item_from_player()
         {
             // If Maurice already's got some gold, simply increase the amount.
             mitm[inv[MSLOT_GOLD]].quantity += stolen_amount;
+            // Don't re-tithe stolen gold under Zin.
+            mitm[inv[MSLOT_GOLD]].tithe_state = (you_worship(GOD_ZIN))
+                                                ? TS_NO_TITHE : TS_NO_PIETY;
         }
         else
         {
@@ -6314,7 +6297,9 @@ void monster::steal_item_from_player()
             item_def &new_item = mitm[idx];
             new_item.base_type = OBJ_GOLD;
             new_item.sub_type  = 0;
-            new_item.plus      = 0;
+            // Don't re-tithe stolen gold under Zin.
+            new_item.tithe_state = (you_worship(GOD_ZIN)) ? TS_NO_TITHE
+                                                          : TS_NO_PIETY;
             new_item.plus2     = 0;
             new_item.special   = 0;
             new_item.flags     = 0;
@@ -6328,14 +6313,17 @@ void monster::steal_item_from_player()
             inv[MSLOT_GOLD] = idx;
             new_item.set_holding_monster(*this);
         }
-        mitm[inv[MSLOT_GOLD]].flags |= ISFLAG_THROWN;
-        mprf("%s steals %s your gold!",
+        mprf("%s steals %d gold piece%s!",
              name(DESC_THE).c_str(),
-             stolen_amount == you.gold ? "all" : "some of");
+             stolen_amount,
+             stolen_amount != 1 ? "s" : "");
 
         you.attribute[ATTR_GOLD_FOUND] -= stolen_amount;
 
         you.del_gold(stolen_amount);
+        mprf("You now have %d gold piece%s.",
+             you.gold, you.gold != 1 ? "s" : "");
+
         return;
     }
 
@@ -6343,13 +6331,7 @@ void monster::steal_item_from_player()
     ASSERT(mslot != NUM_MONSTER_SLOTS);
     ASSERT(inv[mslot] == NON_ITEM);
 
-    const int orig_qty = you.inv[steal_what].quantity;
-
-    mprf("%s steals %s!",
-         name(DESC_THE).c_str(),
-         you.inv[steal_what].name(DESC_YOUR).c_str());
-
-    item_def* tmp = take_item(steal_what, mslot);
+    item_def* tmp = take_item(steal_what, mslot, true);
     if (!tmp)
         return;
     item_def& new_item = *tmp;
@@ -6358,6 +6340,7 @@ void monster::steal_item_from_player()
     new_item.flags |= ISFLAG_THROWN;
 
     // Fix up blood/chunk timers.
+    const int orig_qty = you.inv[steal_what].quantity;
     if (is_perishable_stack(new_item))
     {
         // Somehow they always steal the freshest blood.
@@ -6378,7 +6361,8 @@ void monster::steal_item_from_player()
  *
  * @returns new_item the new item, now in the monster's inventory.
  */
-item_def* monster::take_item(int steal_what, mon_inv_type mslot)
+item_def* monster::take_item(int steal_what, mon_inv_type mslot,
+                             bool is_stolen)
 {
     // Create new item.
     int index = get_mitm_slot(10);
@@ -6389,6 +6373,26 @@ item_def* monster::take_item(int steal_what, mon_inv_type mslot)
 
     // Copy item.
     new_item = you.inv[steal_what];
+
+    // If the item was stolen, randomize quantity
+    if (is_stolen)
+    {
+        const int stolen_amount = 1 + random2(new_item.quantity);
+        if (stolen_amount < new_item.quantity)
+        {
+            mprf("%s steals %d of %s!",
+                 name(DESC_THE).c_str(),
+                 stolen_amount,
+                 new_item.name(DESC_YOUR).c_str());
+        }
+        else
+        {
+            mprf("%s steals %s!",
+                 name(DESC_THE).c_str(),
+                 new_item.name(DESC_YOUR).c_str());
+        }
+        new_item.quantity = stolen_amount;
+    }
 
     // Drop the item already in the slot (including the shield
     // if it's a two-hander).
@@ -6401,11 +6405,9 @@ item_def* monster::take_item(int steal_what, mon_inv_type mslot)
     if (inv[mslot] != NON_ITEM)
         drop_item(mslot, observable());
 
-    // Set quantity, and set the item as unlinked.
-    new_item.quantity -= random2(new_item.quantity);
+    // Set the item as unlinked.
     new_item.pos.reset();
     new_item.link = NON_ITEM;
-
     unlink_item(index);
     inv[mslot] = index;
     new_item.set_holding_monster(*this);
@@ -6495,15 +6497,23 @@ bool monster::attempt_escape(int attempts)
     escape_attempts += attempts;
     attfactor = 3 * escape_attempts;
 
-    if (constricted_by != MID_PLAYER)
+    if (constricted_by == MID_PLAYER)
+    {
+        if (has_ench(ENCH_VILE_CLUTCH))
+        {
+            randfact = roll_dice(1, 10 + div_rand_round(
+                    calc_spell_power(SPELL_BORGNJORS_VILE_CLUTCH, true), 5));
+        }
+        else
+            randfact = roll_dice(1, 3 + you.experience_level);
+    }
+    else
     {
         randfact = roll_dice(1, 5) + 5;
         const monster* themonst = monster_by_mid(constricted_by);
         ASSERT(themonst);
         randfact += roll_dice(1, themonst->get_hit_dice());
     }
-    else
-        randfact = roll_dice(1, 3 + you.experience_level);
 
     if (attfactor > randfact)
     {

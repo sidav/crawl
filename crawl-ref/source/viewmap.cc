@@ -31,6 +31,7 @@
 #include "stringutil.h"
 #include "terrain.h"
 #include "tileview.h"
+#include "tiles-build-specific.h"
 #include "travel.h"
 #include "unicode.h"
 #include "view.h"
@@ -41,6 +42,13 @@
 #endif
 
 #ifndef USE_TILE_LOCAL
+/**
+ * Get a console colour for representing the travel possibility at the given
+ * position based on the last travel update. Used when drawing the console map.
+ *
+ * @param p The position.
+ * @returns An unsigned int value for the colour.
+*/
 static unsigned _get_travel_colour(const coord_def& p)
 {
 #ifdef WIZARD
@@ -50,13 +58,19 @@ static unsigned _get_travel_colour(const coord_def& p)
 
     if (is_waypoint(p))
         return LIGHTGREEN;
+
     if (is_stair_exclusion(p))
         return Options.tc_excluded;
-    short dist = travel_point_distance[p.x][p.y];
+
+    const unsigned no_travel_col
+        = feat_is_traversable(grd(p)) ? Options.tc_forbidden
+                                      : Options.tc_dangerous;
+
+    const short dist = travel_point_distance[p.x][p.y];
     return dist > 0?                    Options.tc_reachable        :
            dist == PD_EXCLUDED ?        Options.tc_excluded         :
            dist == PD_EXCLUDED_RADIUS ? Options.tc_exclude_circle   :
-           dist < 0?                    Options.tc_dangerous        :
+           dist < 0?                    no_travel_col               :
                                         Options.tc_disconnected;
 }
 #endif
@@ -599,10 +613,16 @@ static void _forget_map()
 {
     for (rectangle_iterator ri(0); ri; ++ri)
     {
-        if (env.map_knowledge(*ri).flags & MAP_VISIBLE_FLAG)
+        auto& flags = env.map_knowledge(*ri).flags;
+        // don't touch squares we can currently see
+        if (flags & MAP_VISIBLE_FLAG)
             continue;
-        env.map_knowledge(*ri).flags &= ~MAP_SEEN_FLAG;
-        env.map_knowledge(*ri).flags |= MAP_MAGIC_MAPPED_FLAG;
+        // squares we've seen in the past, pretend we've mapped instead
+        if (flags & MAP_SEEN_FLAG)
+        {
+            flags |= MAP_MAGIC_MAPPED_FLAG;
+            flags &= ~MAP_SEEN_FLAG;
+        }
         env.map_seen.set(*ri, false);
 #ifdef USE_TILE
         tiles.update_minimap(*ri);

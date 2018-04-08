@@ -111,9 +111,7 @@ static int _corpse_quality(const item_def &item, bool bottle_blood)
     const corpse_effect_type ce = determine_chunk_effect(item);
     // Being almost rotten away has 480 badness.
     int badness = 3 * item.freshness;
-    if (ce == CE_MUTAGEN)
-        badness += 1000;
-    else if (ce == CE_NOXIOUS)
+    if (ce == CE_NOXIOUS)
         badness += 1000;
 
     // Bottleable corpses first, unless forbidden
@@ -297,7 +295,9 @@ void butchery(item_def* specific_corpse)
     //XXX: this assumes that we're not being called from a delay ourselves.
     // It's not a problem in the case of macros, though, because
     // delay.cc:_push_delay should handle them OK.
+#ifndef TOUCH_UI
 done:
+#endif
     if (butchered_any)
         handle_delay();
 

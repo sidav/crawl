@@ -753,7 +753,6 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClInclude Include="..\god-type.h" />
     <ClInclude Include="..\god-wrath.h" />
     <ClInclude Include="..\hash.h" />
-    <ClInclude Include="..\held-type.h" />
     <ClInclude Include="..\hints.h" />
     <ClInclude Include="..\hiscores.h" />
     <ClInclude Include="..\holy-word-source-type.h" />
@@ -783,7 +782,6 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClInclude Include="..\lev-pand.h" />
     <ClInclude Include="..\level-state-type.h" />
     <ClInclude Include="..\libconsole.h" />
-    <ClInclude Include="..\libgui.h" />
     <ClInclude Include="..\libunix.h" />
     <ClInclude Include="..\libutil.h" />
     <ClInclude Include="..\libw32c.h" />
@@ -879,6 +877,7 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClInclude Include="..\playable.h" />
     <ClInclude Include="..\player-equip.h" />
     <ClInclude Include="..\player-reacts.h" />
+    <ClInclude Include="..\player-save-info.h" />
     <ClInclude Include="..\player-stats.h" />
     <ClInclude Include="..\player.h" />
     <ClInclude Include="..\potion-type.h" />
@@ -933,8 +932,10 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClInclude Include="..\skills.h" />
     <ClInclude Include="..\slot-select-mode.h" />
     <ClInclude Include="..\sound.h" />
-    <ClInclude Include="..\species-type.h" />
     <ClInclude Include="..\species.h" />
+    <ClInclude Include="..\species-data.h" />
+    <ClInclude Include="..\species-def.h" />
+    <ClInclude Include="..\species-type.h" />
     <ClInclude Include="..\spell-type.h" />
     <ClInclude Include="..\spl-book.h" />
     <ClInclude Include="..\spl-cast.h" />
@@ -1009,6 +1010,7 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClInclude Include="..\tilereg-title.h" />
     <ClInclude Include="..\tilereg.h" />
     <ClInclude Include="..\tiles.h" />
+    <ClInclude Include="..\tiles-build-specific.h" />
     <ClInclude Include="..\tilesdl.h" />
     <ClInclude Include="..\tiletex.h" />
     <ClInclude Include="..\tileview.h" />
@@ -1048,6 +1050,7 @@ perl.exe "util/gen-cflg.pl" compflag.h "&lt;UNKNOWN&gt;" "&lt;UNKNOWN&gt;"
     <ClInclude Include="..\wizard-option-type.h" />
     <ClInclude Include="..\worley.h" />
     <ClInclude Include="..\xom.h" />
+    <ClInclude Include="..\xp-tracking-type.h" />
     <ClInclude Include="..\zap-data.h" />
     <ClInclude Include="..\zap-type.h" />
     <ClInclude Include="..\zotdef.h" />

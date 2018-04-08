@@ -10,6 +10,7 @@
 #include "potion-type.h"
 #include "seen-context-type.h"
 #include "spl-util.h"
+#include "xp-tracking-type.h"
 
 const int KRAKEN_TENTACLE_RANGE = 3;
 #define TIDE_CALL_TURN "tide-call-turn"
@@ -68,6 +69,7 @@ public:
     mon_enchant_list enchantments;
     FixedBitVector<NUM_ENCHANTMENTS> ench_cache;
     monster_flags_t flags;             // bitfield of boolean flags
+    xp_tracking_type xp_tracking;
 
     unsigned int experience;
     monster_type  base_monster;        // zombie base monster, draconian colour
@@ -198,7 +200,6 @@ public:
     bool gain_exp(int exp, int max_levels_to_gain = 2);
 
     void react_to_damage(const actor *oppressor, int damage, beam_type flavour);
-    void maybe_degrade_bone_armour();
 
     void add_enchantment_effect(const mon_enchant &me, bool quiet = false);
     void remove_enchantment_effect(const mon_enchant &me, bool quiet = false);
@@ -307,7 +308,8 @@ public:
     bool      drop_item(mon_inv_type eslot, bool msg);
     bool      unequip(item_def &item, bool msg, bool force = false);
     void      steal_item_from_player();
-    item_def* take_item(int steal_what, mon_inv_type mslot);
+    item_def* take_item(int steal_what, mon_inv_type mslot,
+                        bool is_stolen = false);
     item_def* disarm();
 
     bool      can_use_missile(const item_def &item) const;
@@ -333,7 +335,8 @@ public:
     bool fumbles_attack() override;
 
     int  skill(skill_type skill, int scale = 1,
-               bool real = false, bool drained = true) const override;
+               bool real = false, bool drained = true,
+               bool temp = true) const override;
 
     void attacking(actor *other, bool ranged) override;
     bool can_go_frenzy() const;
@@ -441,7 +444,8 @@ public:
 
     bool has_attack_flavour(int flavour) const;
     bool has_damage_type(int dam_type);
-    int constriction_damage() const override;
+    int constriction_damage(bool direct) const override;
+    bool constriction_does_damage(bool direct) const override;
 
     bool can_throw_large_rocks() const override;
     bool can_speak();

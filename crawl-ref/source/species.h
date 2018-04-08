@@ -6,8 +6,8 @@
 #include "job-type.h"
 #include "size-part-type.h"
 #include "size-type.h"
+#include "species-def.h"
 #include "species-type.h"
-#include "undead-state-type.h"
 
 bool species_is_elven(species_type species);
 bool species_is_draconian(species_type species);
@@ -29,7 +29,8 @@ bool species_recommends_weapon(species_type species, weapon_type wpn);
 species_type get_species_by_abbrev(const char *abbrev);
 const char *get_species_abbrev(species_type which_species);
 
-species_type find_species_from_string(const string &species_str);
+species_type find_species_from_string(const string &species_str,
+                                                    bool initial_only = false);
 
 // from player.cc
 enum species_name_type
@@ -63,3 +64,5 @@ void species_stat_gain(species_type species);
 bool species_has_low_str(species_type species);
 
 void change_species_to(species_type sp);
+
+const species_def& get_species_def(species_type species);

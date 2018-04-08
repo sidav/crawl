@@ -33,15 +33,14 @@ spret_type cast_ignite_poison(actor *agent, int pow, bool fail,
 int discharge_monsters(coord_def where, int pow, actor *agent);
 spret_type cast_discharge(int pow, bool fail);
 bool setup_fragmentation_beam(bolt &beam, int pow, const actor *caster,
-                              const coord_def target, bool allow_random,
-                              bool get_max_distance, bool quiet,
+                              const coord_def target, bool quiet,
                               const char **what,
                               bool &should_destroy_wall, bool &hole);
 spret_type cast_fragmentation(int powc, const actor *caster,
                               const coord_def target, bool fail);
 spret_type cast_sandblast(int powc, bolt &beam, bool fail);
 spret_type cast_tornado(int powc, bool fail);
-void tornado_damage(actor *caster, int dur);
+void tornado_damage(actor *caster, int dur, bool is_vortex = false);
 void cancel_tornado(bool tloc = false);
 void tornado_move(const coord_def &pos);
 spret_type cast_thunderbolt(actor *caster, int pow, coord_def aim,
@@ -74,3 +73,5 @@ spret_type cast_scattershot(const actor *caster, int pow, const coord_def &pos,
                             bool fail = false);
 
 spret_type cast_ignition(const actor *caster, int pow, bool fail);
+
+spret_type cast_borgnjors_vile_clutch(int pow, bolt &beam, bool fail);

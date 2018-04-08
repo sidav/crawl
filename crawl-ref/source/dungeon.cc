@@ -463,9 +463,12 @@ static void _builder_assertions()
  **/
 void dgn_place_transporter(const coord_def &pos, const coord_def &dest)
 {
+    ASSERT(pos != dest);
+
     env.markers.add(new map_position_marker(pos, DNGN_TRANSPORTER, dest));
     env.markers.clear_need_activate();
     dungeon_terrain_changed(pos, DNGN_TRANSPORTER, false, true);
+    dungeon_terrain_changed(dest, DNGN_TRANSPORTER_LANDING, false, true);
 }
 
 /**
@@ -1319,28 +1322,29 @@ static int _num_items_wanted(int absdepth0)
         return 3 + roll_dice(3, 11);
 }
 
+// Return how many level monster are wanted for level generation.
 static int _num_mons_wanted()
 {
-    if (player_in_branch(BRANCH_ABYSS))
+    const bool in_pan = player_in_branch(BRANCH_PANDEMONIUM);
+
+    // No disconnected branches aside from Pan have level monsters.
+    if ((!player_in_connected_branch() && !in_pan)
+        // Temple is connected but has no monsters.
+        || !branch_has_monsters(you.where_are_you))
+    {
         return 0;
+    }
 
-    if (player_in_branch(BRANCH_PANDEMONIUM))
-        return random2avg(28, 3);
+    int size = 12;
 
-    // Except for Abyss and Pan, no other portal gets random monsters.
-    if (!player_in_connected_branch())
-        return 0;
+    if (in_pan)
+        size = 8;
+    else if (player_in_branch(BRANCH_CRYPT))
+        size = 10;
+    else if (player_in_hell())
+        size = 23;
 
-    if (!branch_has_monsters(you.where_are_you))
-        return 0;
-
-    if (player_in_branch(BRANCH_CRYPT))
-        return roll_dice(3, 8);
-
-    int mon_wanted = roll_dice(3, 10);
-
-    if (player_in_hell())
-        mon_wanted += roll_dice(3, 8);
+    int mon_wanted = roll_dice(3, size);
 
     if (mon_wanted > 60)
         mon_wanted = 60;
@@ -2628,9 +2632,9 @@ static bool _pan_level()
     }
 
     // Unique pan lords become more common as you travel through pandemonium.
-    // On average it takes 27 levels to see all four, and you're likely to see
-    // your first one after about 10 levels.
-    if (x_chance_in_y(1 + place_info.levels_seen, 65 + place_info.levels_seen * 2)
+    // On average it takes about 14 levels to see all four, and on average
+    // about 5 levels to see your first.
+    if (x_chance_in_y(1 + place_info.levels_seen, 20 + place_info.levels_seen)
         && !all_demons_generated)
     {
         do
@@ -3760,7 +3764,6 @@ static void _builder_monsters()
     int mon_wanted = _num_mons_wanted();
 
     const bool in_shoals = player_in_branch(BRANCH_SHOALS);
-    const bool in_pan    = player_in_branch(BRANCH_PANDEMONIUM);
     if (in_shoals)
         dgn_shoals_generate_flora();
 
@@ -3774,12 +3777,23 @@ static void _builder_monsters()
     for (int i = 0; i < mon_wanted; i++)
     {
         mgen_data mg;
-        if (!in_pan)
+
+        // Chance to generate the monster awake, but away from level stairs.
+        // D:1 is excluded from this chance since the player can't escape
+        // upwards and is especially vulnerable.
+        if (player_in_connected_branch()
+            && env.absdepth0 > 0
+            && one_chance_in(8))
+        {
+            mg.proximity = PROX_AWAY_FROM_STAIRS;
+        }
+        // Pan monsters always generate awake.
+        else if (!player_in_branch(BRANCH_PANDEMONIUM))
             mg.behaviour = BEH_SLEEP;
+
         mg.flags    |= MG_PERMIT_BANDS;
         mg.map_mask |= MMT_NO_MONS;
         mg.preferred_grid_feature = preferred_grid_feature;
-
         place_monster(mg);
     }
 
@@ -4736,7 +4750,10 @@ monster* dgn_place_monster(mons_spec &mspec, coord_def where,
 
     if (type == RANDOM_MONSTER)
     {
-        type = pick_random_monster(mspec.place, mspec.monbase);
+        if (mons_class_is_zombified(mspec.monbase))
+            type = pick_local_zombifiable_monster(mspec.place, mspec.monbase, coord_def());
+        else
+            type = pick_random_monster(mspec.place, mspec.monbase);
         if (!type)
             type = RANDOM_MONSTER;
     }
@@ -5303,10 +5320,16 @@ bool join_the_dots(const coord_def &from, const coord_def &to,
 
     for (auto c : path)
     {
-        if (!map_masked(c, mapmask) && overwriteable(grd(c)))
+        auto feat = grd(c);
+        if (!map_masked(c, mapmask) && overwriteable(feat))
         {
             grd(c) = DNGN_FLOOR;
             dgn_height_set_at(c);
+        }
+        else
+        {
+            dprf(DIAG_DNGN, "Failed to path through %s at (%d;%d) for connectivity",
+                 get_feature_def(feat).name, c.x, c.y);
         }
     }
 
@@ -5787,10 +5810,7 @@ static bool _spotty_seed_ok(const coord_def& p)
 static bool _feat_is_wall_floor_liquid(dungeon_feature_type feat)
 {
     return feat_is_water(feat)
-#if TAG_MAJOR_VERSION == 34
-           || player_in_branch(BRANCH_FOREST) && feat == DNGN_TREE
-#endif
-           || player_in_branch(BRANCH_SWAMP) && feat == DNGN_TREE
+           || feat == DNGN_TREE
            || feat_is_lava(feat)
            || feat_is_wall(feat)
            || feat == DNGN_FLOOR;
@@ -6844,7 +6864,7 @@ bool vault_placement::is_space(const coord_def &c)
 {
     // Can't check outside bounds of vault
     if (size.zero() || c.x > size.x || c.y > size.y)
-        return NUM_FEATURES;
+        return false;
 
     const int feat = map.map.glyph(c);
     return feat == ' ';
@@ -6853,7 +6873,7 @@ bool vault_placement::is_exit(const coord_def &c)
 {
     // Can't check outside bounds of vault
     if (size.zero() || c.x > size.x || c.y > size.y)
-        return NUM_FEATURES;
+        return false;
 
     const int feat = map.map.glyph(c);
     return feat == '@';

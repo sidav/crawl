@@ -98,6 +98,13 @@ static xom_event_type _find_xom_event_from_string(const string &event_name)
     return x;
 }
 
+void wizard_suppress()
+{
+    you.wizard = false;
+    you.suppress_wizard = true;
+    redraw_screen();
+}
+
 void wizard_change_job_to(job_type job)
 {
     you.char_class = job;
@@ -484,7 +491,6 @@ bool wizard_add_mutation()
 
     if (you.has_mutation(MUT_MUTATION_RESISTANCE))
         mpr("Ignoring mut resistance to apply mutation.");
-    unwind_var<uint8_t> mut_res(you.mutation[MUT_MUTATION_RESISTANCE], 0);
 
     msgwin_get_line("Which mutation (name, 'good', 'bad', 'any', "
                     "'xom', 'slime', 'qazlal')? ",
@@ -762,7 +768,7 @@ static void debug_uptick_xl(int newxl, bool train)
 {
     if (train)
     {
-        you.exp_available += exp_needed(newxl) - you.experience;
+        you.exp_available += 10 * (exp_needed(newxl) - you.experience);
         train_skills();
     }
     you.experience = exp_needed(newxl);

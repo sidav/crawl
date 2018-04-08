@@ -19,6 +19,7 @@
 #include "libutil.h" // map_find
 #include "mon-place.h"
 #include "religion.h"
+#include "timed-effects.h"
 
 #define MAX_LOST 100
 
@@ -66,6 +67,7 @@ void add_monster_to_transit(const level_id &lid, const monster& m)
 
     m_transit_list &mlist = the_lost_ones[lid];
     mlist.emplace_back(m);
+    mlist.back().transit_start_time = you.elapsed_time;
 
     dprf("Monster in transit to %s: %s", lid.describe().c_str(),
          m.name(DESC_PLAIN, true).c_str());
@@ -139,10 +141,20 @@ void place_followers()
     _place_lost_ones(_level_place_followers);
 }
 
-static bool _place_lost_monster(follower &f)
+static monster* _place_lost_monster(follower &f)
 {
     dprf("Placing lost one: %s", f.mons.name(DESC_PLAIN, true).c_str());
-    return f.place(false);
+    if (monster* mons = f.place(false))
+    {
+        // Figure out how many turns we need to update the monster
+        int turns = (you.elapsed_time - f.transit_start_time)/10;
+
+        //Unflag as summoned or else monster will be ignored in update_monster
+        mons->flags &= ~MF_JUST_SUMMONED;
+        return update_monster(*mons, turns);
+    }
+    else
+        return nullptr;
 }
 
 static void _level_place_lost_monsters(m_transit_list &m)
@@ -156,13 +168,11 @@ static void _level_place_lost_monsters(m_transit_list &m)
         if (player_in_branch(BRANCH_ABYSS) && coinflip())
             continue;
 
-        if (_place_lost_monster(*mon))
+        if (monster* new_mon =_place_lost_monster(*mon))
         {
             // Now that the monster is on the level, we can safely apply traps
             // to it.
-            if (monster* new_mon = monster_by_mid(mon->mons.mid))
-                // old loc isn't really meaningful
-                new_mon->apply_location_effects(new_mon->pos());
+            new_mon->apply_location_effects(new_mon->pos());
             m.erase(mon);
         }
     }
@@ -227,13 +237,13 @@ void follower::load_mons_items()
             items[i].clear();
 }
 
-bool follower::place(bool near_player)
+monster* follower::place(bool near_player)
 {
     ASSERT(mons.alive());
 
     monster *m = get_free_monster();
     if (!m)
-        return false;
+        return nullptr;
 
     // Copy the saved data.
     *m = mons;
@@ -250,11 +260,11 @@ bool follower::place(bool near_player)
         m->flags |= MF_JUST_SUMMONED;
         restore_mons_items(*m);
         env.mid_cache[m->mid] = m->mindex();
-        return true;
+        return m;
     }
 
     m->reset();
-    return false;
+    return nullptr;
 }
 
 void follower::restore_mons_items(monster& m)

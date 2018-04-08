@@ -12,6 +12,8 @@
 #include <string>
 #include <vector>
 
+#include "tiles-build-specific.h"
+#include "cio.h"
 #include "format.h"
 #ifdef USE_TILE
  #include "tiledoll.h"
@@ -28,6 +30,7 @@ enum MenuEntryLevel
     MEL_TITLE,
     MEL_SUBTITLE,
     MEL_ITEM,
+    MEL_END_OF_SECTION,
 };
 
 struct menu_letter
@@ -183,9 +186,9 @@ public:
         return get_text();
     }
 
-#ifdef USE_TILE
     virtual bool get_tiles(vector<tile_def>& tileset) const;
 
+#ifdef USE_TILE
     virtual void add_tile(tile_def tile);
 #endif
 };
@@ -273,11 +276,12 @@ enum MenuFlag
 class MenuDisplay
 {
 public:
-    MenuDisplay(Menu *menu);
+    MenuDisplay(Menu *menu) : m_menu(menu) {};
     virtual ~MenuDisplay() {}
     virtual void draw_stock_item(int index, const MenuEntry *me) = 0;
     virtual void set_offset(int lines) = 0;
     virtual void draw_more() = 0;
+    virtual int get_maxpagesize() = 0;
     virtual void set_num_columns(int columns) = 0;
 protected:
     Menu *m_menu;
@@ -286,9 +290,10 @@ protected:
 class MenuDisplayText : public MenuDisplay
 {
 public:
-    MenuDisplayText(Menu *menu);
+    MenuDisplayText(Menu *menu) : MenuDisplay(menu), m_starty(1) {};
     virtual void draw_stock_item(int index, const MenuEntry *me) override;
     virtual void draw_more() override;
+    virtual int get_maxpagesize() override;
     virtual void set_offset(int lines) override { m_starty = lines; }
     virtual void set_num_columns(int columns) override {}
 protected:
@@ -298,9 +303,10 @@ protected:
 class MenuDisplayTile : public MenuDisplay
 {
 public:
-    MenuDisplayTile(Menu *menu);
+    MenuDisplayTile(Menu *menu) : MenuDisplay(menu) {};
     virtual void draw_stock_item(int index, const MenuEntry *me) override;
     virtual void set_offset(int lines) override;
+    virtual int get_maxpagesize() override;
     virtual void draw_more() override;
     virtual void set_num_columns(int columns) override;
 };
@@ -426,6 +432,7 @@ protected:
     void check_add_formatted_line(int firstcol, int nextcol,
                                   string &line, bool check_eol);
     void do_menu();
+    void recalculate_page_sizes();
     virtual string get_select_count_string(int count) const;
     virtual void draw_select_count(int count, bool force = false);
     virtual void draw_item(int index) const;
@@ -679,6 +686,13 @@ protected:
     int m_item_id;
 };
 
+struct edit_result
+{
+    edit_result(string txt, int result) : text(txt), reader_result(result) { };
+    string text; // the text in the box
+    int reader_result; // the result from calling read_line, typically ascii
+};
+
 /**
  * Basic Item with string unformatted text that can be selected
  */
@@ -696,6 +710,7 @@ public:
 
     void set_text(const string& text);
     const string& get_text() const;
+
 protected:
     void _wrap_text();
 
@@ -704,6 +719,34 @@ protected:
 
 #ifdef USE_TILE_LOCAL
     FontBuffer m_font_buf;
+#endif
+};
+
+class EditableTextItem : public TextItem
+{
+public:
+    EditableTextItem();
+    edit_result edit(const string *custom_prefill=nullptr,
+                     const line_reader::keyproc keyproc_fun=nullptr);
+    void set_editable(bool e, int width=-1);
+
+    virtual bool selected() const override;
+    virtual bool can_be_highlighted() const override;
+    virtual void render() override;
+
+    void set_tag(string t);
+    void set_prompt(string p);
+
+protected:
+    bool editable;
+    bool in_edit_mode;
+    int edit_width;
+
+    string tag;
+    string prompt;
+
+#ifdef USE_TILE_LOCAL
+    LineBuffer m_line_buf;
 #endif
 };
 
@@ -1177,8 +1220,9 @@ string get_linebreak_string(const string& s, int maxcol);
 class Popup
 {
 public:
-    // constructors
+    // constructors/destructor
     Popup(string prompt);
+    ~Popup();
 
     // accessors
     //  get/set prompt text

@@ -35,10 +35,12 @@ void flash_view(use_animation_type a, colour_t colour,
                 targeter *where = nullptr);
 void flash_view_delay(use_animation_type a, colour_t colour, int delay,
                       targeter *where = nullptr);
-#ifndef USE_TILE_LOCAL
+
+// warning: this function is broken (and ifdef'd out) in local tiles.
 void flash_monster_colour(const monster* mon, colour_t fmc_colour,
                           int fmc_delay);
-#endif
+
+
 
 enum animation_type
 {

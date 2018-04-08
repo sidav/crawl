@@ -9,6 +9,9 @@
 
 #include "tilefont.h"
 
+struct HiDPIState;
+extern HiDPIState display_density;
+
 // TODO enne - Fonts could be made better by:
 //
 // * handling kerning
@@ -24,8 +27,8 @@ public:
     virtual ~FTFontWrapper();
 
     // font loading
-    virtual bool load_font(const char *font_name, unsigned int font_size,
-                           bool outline, int scale_num, int scale_den) override;
+    virtual bool load_font(const char *font_name, unsigned int font_size) override;
+    virtual bool configure_font() override;
 
     // render just text
     virtual void render_textblock(unsigned int x, unsigned int y,
@@ -51,14 +54,18 @@ public:
                        const formatted_string &fs) override;
     virtual void store(FontBuffer &buf, float &x, float &y, char32_t c,
                        const VColour &col) override;
+    virtual void store(FontBuffer &buf, float &x, float &y, char32_t c,
+                       const VColour &fg_col, const VColour &bg_col) override;
 
-    virtual unsigned int char_width() const override;
-    virtual unsigned int char_height() const override;
+    virtual unsigned int char_width(bool logical=true) const override;
+    virtual unsigned int char_height(bool logical=true) const override;
+    virtual unsigned int max_width(int length, bool logical=true) const override;
+    virtual unsigned int max_height(int length, bool logical=true) const override;
 
-    virtual unsigned int string_width(const char *text) override;
-    virtual unsigned int string_width(const formatted_string &str) override;
-    virtual unsigned int string_height(const char *text) const override;
-    virtual unsigned int string_height(const formatted_string &str) const override;
+    virtual unsigned int string_width(const char *text, bool logical=true) override;
+    virtual unsigned int string_width(const formatted_string &str, bool logical=true) override;
+    virtual unsigned int string_height(const char *text, bool logical=true) const override;
+    virtual unsigned int string_height(const formatted_string &str, bool logical=true) const override;
 
     // Try to split this string to fit in w x h pixel area.
     virtual formatted_string split(const formatted_string &str,
@@ -138,12 +145,10 @@ protected:
     GenericTexture m_tex;
     GLShapeBuffer *m_buf;
 
+    FT_Byte *ttf;
     FT_Face face;
-    bool    outl;
     unsigned char *pixels;
-
-    int scale_num;
-    int scale_den;
+    unsigned int fsize;
 };
 
 #endif // USE_FT

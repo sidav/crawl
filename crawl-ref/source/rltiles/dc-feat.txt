@@ -157,6 +157,7 @@ statue_imp
 %syn DNGN_STATUE_IMP
 statue_orb
 statue_cerebov
+%syn DNGN_STATUE_CEREBOV
 statue_demonic_bust
 %syn DNGN_STATUE_DEMONIC_BUST
 statue_twins
@@ -494,6 +495,7 @@ dry_fountain DNGN_DRY_FOUNTAIN
 # Remove teleporter line when TAG_MAJOR_VERSION > 34
 teleporter DNGN_TELEPORTER
 transporter DNGN_TRANSPORTER
+transporter_landing_site DNGN_TRANSPORTER_LANDING
 
 ## Miscellaneous entries that get drawn on the background.
 ## Flavour is fixed again.

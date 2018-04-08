@@ -58,10 +58,8 @@ static const map<wand_type, spell_type> _wand_spells =
 {
     { WAND_FLAME, SPELL_THROW_FLAME },
     { WAND_PARALYSIS, SPELL_PARALYSE },
-    { WAND_CONFUSION, SPELL_CONFUSE },
     { WAND_DIGGING, SPELL_DIG },
     { WAND_ICEBLAST, SPELL_ICEBLAST },
-    { WAND_LIGHTNING, SPELL_LIGHTNING_BOLT },
     { WAND_POLYMORPH, SPELL_POLYMORPH },
     { WAND_ENSLAVEMENT, SPELL_ENSLAVEMENT },
     { WAND_ACID, SPELL_CORROSIVE_BOLT },
@@ -689,12 +687,13 @@ static spell_type _choose_mem_spell(spell_list &spells,
         int colour = LIGHTGRAY;
         if (vehumet_is_offering(spell))
             colour = LIGHTBLUE;
-        // Grey out spells for which you lack experience or spell levels.
-        else if (spell_difficulty(spell) > you.experience_level
-                 || player_spell_levels() < spell_levels_required(spell))
-            colour = DARKGRAY;
         else
-            colour = spell_highlight_by_utility(spell);
+        {
+            bool transient = false;
+            bool memcheck = true;
+            colour = spell_highlight_by_utility(spell, COL_UNKNOWN, transient, memcheck);
+        }
+
 
         desc << "<" << colour_to_str(colour) << ">";
 
@@ -874,6 +873,11 @@ static bool _learn_spell_checks(spell_type specspell, bool wizard = false)
 */
 bool learn_spell(spell_type specspell, bool wizard)
 {
+    string mem_spell_warning_string = god_spell_warn_string(specspell, you.religion);
+
+    if (!mem_spell_warning_string.empty())
+        mprf(MSGCH_WARN, "%s", mem_spell_warning_string.c_str());
+
     if (!_learn_spell_checks(specspell, wizard))
         return false;
 

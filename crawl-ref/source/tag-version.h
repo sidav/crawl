@@ -210,7 +210,16 @@ enum tag_minor_version
     TAG_MINOR_TOMB_HATCHES,        // Use fixed-destination hatches in Tomb.
     TAG_MINOR_TRANSPORTERS,        // Transporters and position marker changes.
     TAG_MINOR_SPIT_POISON_AGAIN_AGAIN, // save compat issues for TAG_MINOR_SPIT_POISON_AGAIN.
-
+    TAG_MINOR_TRANSPORTER_LANDING, // Transporters landing site features.
+    TAG_MINOR_STATLOCKED_GNOLLS,   // Gnolls have stats locked at 7/7/7.
+    TAG_MINOR_LIGHTNING_ROD_XP_FIX, // Set XP debt for partially used l. rods.
+    TAG_MINOR_LEVEL_XP_INFO,       // Track XP gain by level.
+    TAG_MINOR_LEVEL_XP_INFO_FIX,   // Fix orb spawn XP tracking.
+    TAG_MINOR_FOLLOWER_TRANSIT_TIME, // Handle updating lost_ones after placing.
+    TAG_MINOR_GNOLLS_REDUX,        // Handle Gnolls that always train all skills and no stat lock.
+    TAG_MINOR_TRAINING_TARGETS,    // training targets for skills
+    TAG_MINOR_XP_SCALING,          // scale exp_available and total_experience
+    TAG_MINOR_NO_ACTOR_HELD,       // Remove actor.held.
 #endif
     NUM_TAG_MINORS,
     TAG_MINOR_VERSION = NUM_TAG_MINORS - 1

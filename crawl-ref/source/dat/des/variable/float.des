@@ -1548,7 +1548,7 @@ MARKER: F = lua:fog_machine { \
 MONS:   death yak w:5 / dream sheep w:3 / yak w:7
 MONS:   generate_awake human ; dagger | hand axe
 SUBST:  F=d, 2=2.
-ITEM:   meat ration w:5 / nothing
+ITEM:   ration w:5 / nothing
 MAP
  cccccc       ccccccc
  cddddcxxxxxxxxcddddc
@@ -2394,7 +2394,7 @@ MONS:    death yak / manticore / catoblepas / dire elephant
 MONS:    hydra / anaconda / hornet w:2 / redback w:3 / wolf spider w:5 / harpy
 MONS:    spriggan druid, spriggan rider
 MONS:    sphinx / hell beast w:5 / caustic shrike w:5
-ITEM:    fruit q:1
+ITEM:    ration / nothing w:80
 NSUBST:  ' : 1:2 / 1:3 / 1:4 / 2 = 233444. / *:.
 NSUBST:  " : 2:2 / 2:3 / 2:4 / 4 = 233444. / *:.
 NSUBST:  C : 2:1 / * = c:299 1:1
@@ -3001,7 +3001,7 @@ MONS:    necromancer ; wand of iceblast . \
          staff of fire w:15 | quarterstaff ego:flaming w:15 . \
          robe ego:fire_resistance w:14 | robe ego:cold_resistance w:15 | \
          robe ego:resistance w:1
-MONS:    necromancer ; wand of lightning . \
+MONS:    necromancer ; wand of iceblast . \
          staff of cold ident:type | quarterstaff ego:freezing ident:type . \
          robe ego:fire_resistance w:15 | robe ego:cold_resistance w:14 | \
          robe ego:resistance w:1
@@ -4001,7 +4001,7 @@ DEPTH: Crypt, D:12-, Depths, Elf, Snake, Zot
 ORIENT: float
 ITEM: any book, any manual, any jewellery good_item
 ITEM: robe good_item / cloak good_item / scarf good_item \
-      pair of boots good_item / hat good_item
+      / pair of boots good_item / hat good_item
 # Do this nsubst now so some branches can adjust monster placement.
 NSUBST: 4 = 1:4 / 2=433 / 2=53 / 3, 3 = 3:3 / 3=3222 / 2
 NSUBST: ' = 1=d2 / 2, 2 = 2=211. / 6=2 / 4=2... / .
@@ -4040,8 +4040,7 @@ MONS: naga mage / naga ritualist / salamander mystic, nagaraja
 SUBST: 5 = 4, 4 = 23
 : elseif you.in_branch("Zot") then
 MONS: ghost moth / death cob / curse toe
-MONS: draconian annihilator / draconian scorcher / draconian shifter \
-      / draconian knight / draconian monk / draconian stormcaller
+MONS: nonbase draconian
 MONS: ancient lich, orb of fire
 SUBST: 3 = 2, 4 = 3, 5 = 4
 : end
@@ -4231,7 +4230,7 @@ ccccccccScccccccc
 ENDMAP
 
 NAME:   gammafunk_steamed_eel
-TAGS:   no_monster_gen no_trap_gen no_pool_fixup
+TAGS:   no_monster_gen no_trap_gen no_tele_into no_pool_fixup
 DEPTH:  D:3-9
 ORIENT: float
 KMONS:  p = plant
@@ -4257,15 +4256,14 @@ MAP
 ENDMAP
 
 NAME:   gammafunk_wand_slinger
-TAGS:   no_monster_gen no_trap_gen no_pool_fixup
+TAGS:   no_monster_gen no_trap_gen no_tele_into no_pool_fixup
 DEPTH:  D:3-13
 ORIENT: float
-KPROP:  LM = no_tele_into
 KMASK:  LM = no_item_gen
 ITEM:   wand of flame
-ITEM:   wand of lightning / wand of iceblast / wand of acid
-ITEM:   wand of confusion / wand of disintegration / wand of paralysis \
-        / wand of enslavement / wand of polymorph
+ITEM:   wand of iceblast / wand of acid
+ITEM:   wand of random effects / wand of disintegration / wand of paralysis \
+        / wand of enslavement / wand of polymorph w:5
 ITEM:   wand of clouds / wand of scattershot
 MONS: shadow imp, orc priest, kobold demonologist
 MONS: deep elf knight / fire crab / orc high priest / orc sorcerer
@@ -4307,6 +4305,202 @@ MAP
  .nGpnMMMMMMM-WGn.
  .nnnnnnnnnnnnnnn.
  .................
+ENDMAP
+
+NAME:   nzn_motion_control
+TAGS:   no_pool_fixup no_monster_gen
+DEPTH:  D:10-, Lair:4-, Shoals:2-, !Shoals:$
+ORIENT: float
+SHUFFLE: HY / 12, $%, eE / rR
+SUBST:  ER = ., r = x, e = + .
+: if you.in_branch("Shoals") then
+NSUBST: S = 1:s / *:W
+KFEAT:  s = W
+KMONS:  s = merfolk avatar
+SUBST:  $ = % $:20, % = %:40 *, H = 1, Y = 2
+: elseif you.absdepth() < 12 then
+SUBST:  % = $:30 .:15 %:5, HYS = .
+: else
+SUBST:  $ = $:20 %:5, H = 1, Y = 2, S = .
+: end
+MONS:  manticore, catoblepas
+MAP
+xxxxxE@Exxxxx
+xH..xxExx..2x
+x.%WWxexWW$.x
+x.WSSwSwSSW.x
+xxWSSSSSSSWxx
+RxxwSWWWSwxxR
+@RrSSW{WSSrR@
+RxxwSWWWSwxxR
+xxWSSSSSSSWxx
+x.WSSwSwSSW.x
+x.$WWxexWW%.x
+x1..xxExx..Yx
+xxxxxE@Exxxxx
+ENDMAP
+
+NAME:  gammafunk_mikee_crab_dinner
+TAGS:  no_monster_gen no_trap_gen patrolling
+DEPTH: D:13-, Depths, Lair:3-, Swamp, Zot
+ORIENT: float
+KMONS: F = apocalypse crab
+KITEM: F = |
+: if you.in_branch("D") then
+MONS:  fire crab, ghost crab, entropy weaver
+: elseif you.in_branch("Depths") then
+MONS:  apocalypse crab
+KMONS: 2 = apocalypse crab
+KMONS: 3 = titan
+KITEM: 2 = *
+SUBST: = = +, E = D
+: elseif you.in_branch("Lair") then
+MONS:  fire crab, ghost crab, entropy weaver
+SUBST: c = x
+: elseif you.in_branch("Swamp") then
+MONS:  ghost crab, apocalypse crab, spriggan druid
+SUBST: c = xxxt
+: elseif you.in_branch("Zot") then
+MONS:  apocalypse crab
+KMONS: 2 = apocalypse crab
+KMONS: 3 = killer klown / draconian stormcaller / draconian scorcher
+KITEM: 2 = *
+SUBST: = = +, E = D
+: end
+SUBST: D = 1., E = 2.
+NSUBST: 3 = 2:3 / 3.
+{{
+dgn.delayed_decay(_G, '-', 'troll skeleton / minotaur skeleton ' ..
+                           '/ deep dwarf skeleton / centaur skeleton')
+}}
+MAP
+ccccccccccc
+=.-...1.-.c
+ccccccccc.c
+c.3...E.c1c
+c.ccccc.c.c
+c-c-*3c.c-c
+c.c.c*c.c.c
+c1c.c*c2c3c
+c.c2c|c.c.c
+c.c.cFc-c.c
+c-c.c|c.c.c
+cDc.ccc3cDc
+c.cE....c-c
+c.ccccccc.c
+c.-3...1..c
+ccccccccccc
+ENDMAP
+
+NAME: gammafunk_cloud_chamber
+TAGS: no_monster_gen no_trap_gen no_tele_into
+DEPTH: D:4-, Lair
+ORIENT: float
+KMASK: -'DE12 = no_item_gen
+# Cancellation placed only for mutagenic clouds.
+ITEM: potion of resistance ident:type, potion of cancellation ident:type q:2
+# Replaces a gold pile in late Dungeon
+ITEM: cloak good_item / scarf good_item / pair of boots good_item \
+      / hat good_item
+# Monsters appropriate for the cloud type must be defined in order of
+# cloud_types and come in pairs. Some levels define a more difficult monster on
+# '2', otherwise the monster is repeated.
+: if you.in_branch("D") then
+:   if you.depth() <= 6 then
+:     cloud_types = {"flame", "freezing vapour", "poison gas"}
+KMONS: 1 = fire bat
+KMONS: 2 = nothing
+KMONS: 34 = ice beast
+KMONS: 56 = ogre zombie ; giant club ego:venom | giant spiked club ego:venom \
+           / orc warrior zombie ; hand axe ego:venom | war axe ego:venom \
+               | short sword ego:venom | long sword ego:venom \
+               | flail ego:venom | mace ego:venom \
+           / gnoll sergeant zombie ; spear ego:venom | trident ego:venom
+# In earliest 3 levels, thin out monsters and downgrade loot a bit.
+SUBST: | = %, ' = -
+NSUBST: 1 = 1 / 2 / 1- / 1---- / -
+:   elseif you.depth() <= 9 then
+:     cloud_types = {"flame", "freezing vapour", "poison gas", "acidic fog"}
+MONS: fire bat, fire elemental / hell hound
+MONS: ice beast, simulacrum place:D:15
+MONS: water moccasin
+KMONS: 6 = ogre zombie ; giant club ego:venom | giant spiked club ego:venom \
+           / orc warrior zombie ; hand axe ego:venom | war axe ego:venom \
+               | short sword ego:venom | long sword ego:venom \
+               | flail ego:venom | mace ego:venom \
+           / gnoll sergeant zombie ; spear ego:venom | trident ego:venom
+KMONS: 7 = jelly
+KMONS: 8 = acid dragon
+SUBST: | = *
+NSUBST: 1 = 2:1 / 2 / *=12-, $ = f / $
+:   elseif you.depth() <= 12 then
+:     cloud_types = {"flame", "poison gas", "acidic fog"}
+MONS: fire bat / fire elemental, hell hound w:20 / fire crab
+MONS: water moccasin w:40 / spiny frog / black mamba
+KMONS: 4 = two-headed ogre zombie \
+               ; dire flail ego:venom | great mace ego:venom \
+               . giant club ego:venom | giant spiked club ego:venom \
+           / orc knight zombie ; war axe ego:venom | battleaxe ego:venom \
+               | long sword ego:venom | great sword ego:venom \
+               | dire flail ego:venom | great mace ego:venom \
+           / tengu warrior zombie ; halberd ego:venom | glaive ego:venom \
+               | bardiche ego:venom
+KMONS: 5 = jelly / acid dragon
+KMONS: 6 = acid dragon
+NSUBST: 1 = 2:1 / 2 / *=12-, $ = f / $
+:   else
+:     cloud_types = {"acidic fog", "mutagenic fog"}
+MONS: acid dragon, acid dragon / acid blob
+MONS: ugly thing, ugly thing / very ugly thing
+SUBST: ' = n
+NSUBST: 1 = 2:1 / 2 / *=12-, $ = f / * / $
+:   end
+: elseif you.in_branch("Lair") then
+:  cloud_types = {"flame", "freezing vapour", "poison gas"}
+MONS: fire bat / fire elemental, hell hound / fire crab
+MONS: simulacrum place:Lair
+MONS: dire elephant simulacrum / anaconda simulacrum / wolf spider simulacrum \
+      / hydra simulacrum
+MONS: spiny frog / black mamba, swamp dragon
+NSUBST: 1 = 2:1 / 2 / *=12-, $ = f / * / $
+: end
+# Any ' not replace with floor or wall above become cloud squares
+SUBST: ' = E
+{{
+  -- Choose the cloud theme; the monster glyphs are defined in pairs in the
+  -- order as cloud_types. The D and E glyphs become fog machines of sizes 2
+  -- and 1, respectively, for the chosen cloud type.
+  local i = crawl.random2(#cloud_types) + 1
+  local mon_num = 2 * (i - 1) + 1
+
+  subst("1 = " .. tostring(mon_num))
+  subst("2 = " .. tostring(mon_num + 1))
+  lua_marker("D", fog_machine { cloud_type = cloud_types[i], pow_min = 3,
+      pow_max = 5, delay = 5, start_clouds = 3, size = 2, spread_rate = 0,
+      excl_rad = 0 })
+  lua_marker("E", fog_machine { cloud_type = cloud_types[i], pow_min = 3,
+      pow_max = 5, delay = 5, start_clouds = 3, size = 1, spread_rate = 0,
+      excl_rad = 0 })
+  if cloud_types[i] == "mutagenic fog" then
+    subst("d = e")
+  end
+}}
+MARKER: P = lua:transp_loc("cloud_chamber_entry")
+MARKER: Q = lua:transp_dest_loc("cloud_chamber_entry")
+MARKER: R = lua:transp_loc("cloud_chamber_exit")
+MARKER: S = lua:transp_dest_loc("cloud_chamber_exit")
+MAP
+         ccccccc
+  cccccccc1---1c
+  c-D--D-c-D--Dc
+..c------c--''-n
+..n--n.n.+1-'$*n..
+@PnD-Qd..+D-'|RnS@
+..n--n.n.+1-'$*n..
+  c------c1-''-n
+  c-D--D-c-D--Dc
+  cccccccc1---1c
+         ccccccc
 ENDMAP
 
 
@@ -8724,4 +8918,203 @@ MAP
      ccccccccccccccc
       cccccccccccc
        cccccccccc
+ENDMAP
+
+NAME: gammafunk_dig_for_victory
+TAGS: no_monster_gen no_item_gen no_trap_gen
+# Must not place on a branch end so it can place downhatch
+DEPTH: Crypt, !Crypt:$, D:13-, !D:$, Depths, !Depths:$, Pan, Zot, !Zot:$
+ORIENT: float
+# DTEM can use LRD, so include stone tiles in no_tele_into to be safe
+KPROP: 1DEFHJKR|*$ecmn = no_tele_into
+ITEM: wand of digging ident:all, any randart jewellery
+# Do these substs now so they can be cleaned up by branch.
+NSUBST: D = 1:8 / 2:9 / 0, F = 1:8 / 2:9 / 0, J = 1:8 / 2:9 / 0, e = 2:e / |
+SUBST:  E = 89..
+: if you.in_branch("D") or you.in_branch("Depths") then
+KMONS: 1H = deep troll earth mage
+COLOUR: n = lightblue
+COLOUR: c = blue
+TILE:   n = dngn_transparent_stone_blue
+: else
+KMONS: 1HK = cacodemon
+:   if you.in_branch("Crypt") then
+KMONS: 2 = ancient lich
+NSUBST: 8 = 2 / 8
+:   elseif you.in_branch("Pandemonium") then
+# 8 and 9 spawns aren't a thing in Pan, so replace these with scary things.
+KMONS: 2 = greater demon / nonbase demonspawn
+KMONS: 3 = executioner / brimstone fiend / ice fiend / tzitzimitl \
+           / hell sentinel
+SUBST: 8 = 39, 9 = 02, H = K
+:   elseif you.in_branch("Zot") then
+KMONS: 2 = ancient lich / orb of fire / curse toe
+SUBST: 8 = 28
+:   end
+COLOUR: n = yellow
+COLOUR: c = brown
+TILE:   n = dngn_transparent_stone_yellow
+: end
+KFEAT: H = >
+KFEAT: K = {
+MARKER: P = lua:transp_loc("dig_for_victory_entry")
+MARKER: Q = lua:transp_dest_loc("dig_for_victory_entry")
+MARKER: R = lua:transp_loc("dig_for_victory_exit")
+MARKER: S = lua:transp_dest_loc("dig_for_victory_exit")
+MAP
+       cccccccccccccccc
+       cccccccccccccccc
+       cccccccccccccccc
+       ccn1mmDDDEEmmmcc
+  ccccccnnnnmDDDEmmmmccccccc
+  c.....mmmmmmmmmmmmmnem*mec
+  c.....mmmmmmmmmmmmmmmmmmmn
+  c.....mmmmmmmmmmmmmn*m$m$n
+ .n.....mmmmmmmmmmJJmmmmmmmn.
+@PnQ.d.........mmmHJmn|mRm|nS@
+ .n.....mmmmmmmmmmJJmmmmmmmn.
+  c.....mmmmmmmmmmmmmn*m$m$n
+  c.....mmmmmmmmmmmmmmmmmmmn
+  c.....mmmmmmmmmmmmmnem*mec
+  ccccccnnnnmFFFEmmmmccccccc
+       ccn1mmFFFEEmmmcc
+       cccccccccccccccc
+       cccccccccccccccc
+       cccccccccccccccc
+ENDMAP
+
+NAME:    emtedronai_trogs_sanctum
+TAGS:    no_monster_gen no_trap_gen no_tele_into no_item_gen
+DEPTH:   D:13-, Depths
+ORIENT:  float
+: if not you.unrands("necklace_of_bloodlust") then
+KITEM:   _ = necklace of bloodlust no_pickup
+: elseif not you.unrands("wrath_of_trog") then
+KITEM:   _ = wrath of trog no_pickup
+: else
+KITEM:   _ = nothing
+: end
+ITEM:    manual of armour w:30 / manual of fighting w:30 / \
+         manual of long blades / manual of axes / manual of maces & flails / \
+         manual of polearms / manual of dodging / manual of shields
+ITEM:    executioner's axe good_item no_pickup w:5 / \
+         battleaxe good_item randart no_pickup / \
+         broad axe good_item no_pickup / \
+         triple sword good_item no_pickup w:5 / \
+         great sword good_item randart no_pickup / \
+         double sword good_item no_pickup / \
+         great mace good_item no_pickup / \
+         evening star good_item no_pickup / \
+         bardiche good_item no_pickup w:5 / \
+         glaive good_item randart no_pickup / \
+         demon trident good_item no_pickup
+ITEM:    plate armour good_item randart w:20 no_pickup / \
+         crystal plate armour good_item no_pickup / \
+         chain mail good_item randart no_pickup
+ITEM:    potion of berserk rage ident:type
+SHUFFLE: def
+KPROP:   .$*def123456 = bloody w:5 / nothing
+: if you.in_branch("Depths") then
+MONS:    patrolling juggernaut
+MONS:    deep troll w:15 / spriggan berserker w:15 / stone giant / \
+         iron troll w:5 / ettin w:5
+MONS:    deep elf annihilator / deep elf demonologist / titan / boggart / \
+         deep elf sorcerer / spriggan air mage / lich / vampire mage
+: else
+MONS:    patrolling ettin / patrolling iron troll
+MONS:    troll w:15 / two-headed ogre w:15 / cyclops w:5 / deep troll w:5
+MONS:    ogre mage / wizard / deep elf mage / boggart / necromancer
+: end
+MONS:    generate_awake moth of wrath, deep troll earth mage
+KMONS:   6 = silent spectre
+: dgn.delayed_decay(_G, '\'`', 'human skeleton')
+KFEAT:   _ = altar_trog
+KFEAT:   - = iron_grate
+FTILE:   ` = floor_rough_lightred
+MARKER:  ` = lua:fog_machine { \
+               cloud_type = "flame", pow_min = 10, pow_max = 10, delay = 10, \
+               size = 1, walk_dist = 0, start_clouds = 1, excl_rad = 0 }
+MARKER:  P = lua:transp_loc("trogsanc_entry")
+MARKER:  Q = lua:transp_dest_loc("trogsanc_entry")
+MARKER:  6 = lua:transp_loc("trogsanc_exit")
+MARKER:  R = lua:transp_dest_loc("trogsanc_exit")
+MAP
+vvvvvvvv...@...vvvvvvvv
+vvvvvvvv.......vvvvvvvv
+vvvvvvvv.......vvvvvvvv
+vvvvvvvvnv.P.vnvvvvvvvv
+vvvvvvvv4vnnnv4vvvvvvvv
+vvvvvvvv-vnnnv-vvvvvvvv
+vvvvvvv..+.Q.+..vvvvvvv
+vvvvvv...+.'.+...vvvvvv
+vvvvv....v.g.v....vvvvv
+vvv`-..v-vnvnv-v..-`vvv
+vvvvv..-4vv6vv4-..vvvvv
+vvv4-22v-vn=nv-v22-4vvv
+vvv3v...$$e_f$$...v3vvv
+vvv3-....$*d*$....-3vvv
+vvv3v..Y..***..Y..v3vvv
+vvv5-......1......-5vvv
+vvvvv22.........22vvvvv
+vvvvv-v-vvnnnvv-v-vvvvv
+vvvvv4v`vvnnnvv`v4vvvvv
+vvvvvvvvv..R..vvvvvvvvv
+vvvvvvv4n.....n4vvvvvvv
+vvvvvvvvv..@..vvvvvvvvv
+ENDMAP
+
+NAME:    nzn_random_ring
+TAGS:    no_pool_fixup no_monster_gen no_trap_gen
+DEPTH:   D:4-, !D:$, Depths, !Depths:$, Lair, !Lair:$, Zot, !Zot:$
+NSUBST:  D = 4:0 / 4 = 0. / 4=^. / r / ., E = 20:W / 12:w
+NSUBST:  F = 9 / 4:0 / 4=0. / 4:r / 4=^. / ., H = 0 / 9 / 4=09.. / 2:r / .
+NSUBST:  J = wl, K = 1 / } / s / K, 2 = 2 / G
+NSUBST:  h = 2:@ / c, j = 2:. / *:cv, k = . / *:bcv
+: if you.absdepth() < 8 then
+SHUFFLE: wW / LL
+SUBST:   9 = 0, 1 = 9:40 8, 2 = G, r = $%, s = *, ^ = ^.
+KFEAT:   ^ = shaft trap / teleport trap / alarm trap
+: elseif you.in_branch("Dungeon") then
+MONS:    ice statue
+SHUFFLE: wW / LL
+SUBST:   9 = 09, 1 = 98, 2 = G:50 1, r = $%, s =  *|, } = }>
+KFEAT:   ^ = shaft trap / teleport trap / alarm trap
+: elseif you.in_branch("Lair") then
+KMONS:   p = plant
+SHUFFLE: Ww / LL
+SUBST:   9 = 09, 1 = 98, r = $%, s = *|,  2G = ., bcv = x, } = }>, K = p
+KFEAT:   ^ = shaft trap / teleport trap / alarm trap
+: elseif you.in_branch("Depths") then
+MONS:    juggernaut / ancient lich / golden dragon
+MONS:    obsidian statue / orange crystal statue
+SHUFFLE: Ww / ll
+SUBST:   2 = G:50 2, r = $*, s = |
+KFEAT:   ^ = shaft trap / alarm trap / zot trap
+: elseif you.in_branch("Zot") then
+MONS:    ancient lich / orb of fire, orange crystal statue
+SUBST:   2 = G:50 2 r = *:30 |, wW = l, K = ), s = ]
+KFEAT:   ^ = zot trap
+: end
+SUBST: K = TUV, L = .
+MAP
+        hhhhhhhh
+      hhhDDDDDDhhh
+    hhhDDDjjjjDDDhhh
+  hhhDDDjjjFFjjjEDDhhh
+ hhDDDDjjFFFFFFjjDDDDhh
+hhDEDDjjFFkkkkFFjjDDEDhh
+hDDDEjjFFkkHHkkFFjjEDDDh
+hEDDDjFFkkJHHJkkFFjDDDEh
+hDEEDj2FkHHmmHHkF2jDEEDh
+hDDDEjFFkJHKKHJkFFjEDDDh
+hDDDEjFFkJHKKHJkFFjEDDDh
+hDEEDj2FkHHmmHHkF2jDEEDh
+hEDDDjFFkkJHHJkkFFjDDDEh
+hDDDEjjFFkkHHkkFFjjEDDDh
+hhDEDDjjFFkkkkFFjjDDEDhh
+ hhDDDDjjFFFFFFjjDDDDhh
+  hhhDDEjjjFFjjjEDDhhh
+    hhhDDDjjjjDDDhhh
+      hhhDDDDDDhhh
+        hhhhhhhh
 ENDMAP

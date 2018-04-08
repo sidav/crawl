@@ -33,9 +33,6 @@
 #include "skill-menu-state.h"
 #include "species.h"
 #include "stat-type.h"
-#ifdef USE_TILE
-#include "tiledoll.h"
-#endif
 #include "timed-effect-type.h"
 #include "transformation.h"
 #include "uncancellable-type.h"
@@ -129,6 +126,7 @@ public:
     // player might have been playing previously under wiz mode.
     bool          wizard;            // true if player has entered wiz mode.
     bool          explore;           // true if player has entered explore mode.
+    bool          suppress_wizard;
     time_t        birth_time;        // start time of game
 
     // ----------------
@@ -156,7 +154,8 @@ public:
     int hit_points_regeneration;
     int magic_points_regeneration;
     unsigned int experience;
-    unsigned int total_experience; // Unaffected by draining. Used for skill cost.
+    unsigned int total_experience; // 10 * amount of xp put into skills, used
+                                   // only for skill_cost_level
     int experience_level;
     int gold;
     int zigs_completed, zig_max;
@@ -208,6 +207,7 @@ public:
     FixedVector<unsigned int, NUM_SKILLS>  training; ///< percentage of XP used
     FixedBitVector<NUM_SKILLS> can_train; ///< Is training this skill allowed?
     FixedVector<unsigned int, NUM_SKILLS> skill_points;
+    FixedVector<unsigned int, NUM_SKILLS> training_targets; ///< Training targets, scaled by 10 (so [0,270]).  0 means no target.
 
     /// track skill points gained by crosstraining
     FixedVector<unsigned int, NUM_SKILLS> ct_skill_points;
@@ -230,7 +230,7 @@ public:
     unsigned int  transfer_total_skill_points;
 
     int  skill_cost_level;
-    int  exp_available;
+    int  exp_available; // xp pool, scaled by 10 from you.experience
 
     FixedVector<int, NUM_GODS> exp_docked;
     FixedVector<int, NUM_GODS> exp_docked_total; // XP-based wrath
@@ -313,6 +313,9 @@ public:
     map<level_id, vector<string> > vault_list;
 
     PlaceInfo global_info;
+
+    LevelXPInfo global_xp_info;
+
     player_quiver m_quiver;
 
     // monsters mesmerising player; should be protected, but needs to be saved
@@ -455,6 +458,7 @@ public:
 
 protected:
     FixedVector<PlaceInfo, NUM_BRANCHES> branch_info;
+    map<level_id, LevelXPInfo> level_xp_info;
 
 public:
     player();
@@ -550,7 +554,6 @@ public:
         override;
 
     int base_ac_from(const item_def &armour, int scale = 1) const;
-    void maybe_degrade_bone_armour(int trials);
 
     int inaccuracy() const override;
 
@@ -591,7 +594,9 @@ public:
     int         damage_type(int which_attack = -1) override;
     random_var  attack_delay(const item_def *projectile = nullptr,
                              bool rescale = true) const override;
-    int         constriction_damage() const override;
+    int         constriction_damage(bool direct) const override;
+    bool        constriction_does_damage(bool /* direct */) const override
+                    { return true; };
 
     int       has_claws(bool allow_tran = true) const override;
     bool      has_usable_claws(bool allow_tran = true) const;
@@ -615,6 +620,11 @@ public:
     int       get_mutation_level(mutation_type mut, mutation_activity_type minact) const;
     int       get_innate_mutation_level(mutation_type mut) const;
     int       get_temp_mutation_level(mutation_type mut) const;
+
+    int       get_training_target(const skill_type sk) const;
+    bool      set_training_target(const skill_type sk, const double target, bool announce=false);
+    bool      set_training_target(const skill_type sk, const int target, bool announce=false);
+    void      clear_training_targets();
 
     bool      has_temporary_mutation(mutation_type mut) const;
     bool      has_innate_mutation(mutation_type mut) const;
@@ -663,7 +673,8 @@ public:
     void attacking(actor *other, bool ranged = false) override;
     bool can_go_berserk() const override;
     bool can_go_berserk(bool intentional, bool potion = false,
-                        bool quiet = false, string *reason = nullptr) const;
+                        bool quiet = false, string *reason = nullptr,
+                        bool temp = true) const;
     bool go_berserk(bool intentional, bool potion = false) override;
     bool berserk() const override;
     bool can_mutate() const override;
@@ -820,7 +831,8 @@ public:
 
     bool wearing_light_armour(bool with_skill = false) const;
     int  skill(skill_type skill, int scale =1,
-               bool real = false, bool drained = true) const override;
+               bool real = false, bool drained = true,
+               bool temp=true) const override;
 
     bool do_shaft() override;
 
@@ -840,6 +852,9 @@ public:
     PlaceInfo& get_place_info(branch_type branch) const;
     void clear_place_info();
 
+    LevelXPInfo& get_level_xp_info();
+    LevelXPInfo& get_level_xp_info(const level_id &lev);
+
     void goto_place(const level_id &level);
 
     void set_place_info(PlaceInfo info);
@@ -847,6 +862,9 @@ public:
     // modify the player object.
     vector<PlaceInfo> get_all_place_info(bool visited_only = false,
                                          bool dungeon_only = false) const;
+
+    void set_level_xp_info(LevelXPInfo &xp_info);
+    vector<LevelXPInfo> get_all_xp_info(bool must_have_kills = false) const;
 
     bool did_escape_death() const;
     void reset_escaped_death();
@@ -877,32 +895,6 @@ protected:
 };
 COMPILE_CHECK((int) SP_UNKNOWN_BRAND < 8*sizeof(you.seen_weapon[0]));
 COMPILE_CHECK((int) SP_UNKNOWN_BRAND < 8*sizeof(you.seen_armour[0]));
-
-struct player_save_info
-{
-    string name;
-    unsigned int experience;
-    int experience_level;
-    bool wizard;
-    species_type species;
-    string species_name;
-    string class_name;
-    god_type religion;
-    string god_name;
-    string jiyva_second_name;
-    game_type saved_game_type;
-
-#ifdef USE_TILE
-    dolls_data doll;
-#endif
-
-    bool save_loadable;
-    string filename;
-
-    player_save_info& operator=(const player& rhs);
-    bool operator<(const player_save_info& rhs) const;
-    string short_desc() const;
-};
 
 class monster;
 struct item_def;
@@ -978,7 +970,7 @@ int player_res_acid(bool calc_unid = true, bool items = true);
 bool player_res_torment(bool random = true);
 bool player_kiku_res_torment();
 
-int player_likes_chunks(bool permanently = false);
+bool player_likes_chunks(bool permanently = false);
 bool player_likes_water(bool permanently = false);
 
 int player_res_electricity(bool calc_unid = true, bool temp = true,
@@ -1033,6 +1025,8 @@ void forget_map(bool rot = false);
 
 int get_exp_progress();
 void gain_exp(unsigned int exp_gained, unsigned int* actual_gain = nullptr);
+
+int xp_to_level_diff(int xp, int scale=1);
 
 void level_change(bool skip_attribute_increase = false);
 void adjust_level(int diff, bool just_xp = false);

@@ -117,7 +117,7 @@ force_more_message += hiss of flowing sand
 force_more_message += sound of rushing water
 force_more_message += oppressive heat about you
 force_more_message += crackle of arcane power
-force_more_message += distant wind
+force_more_message += hear a distant wind
 
 # Religion
 force_more_message += press .* to convert to Beogh
@@ -159,7 +159,7 @@ force_more_message += The gate opens wide
 force_more_message += With a loud hiss the gate opens wide
 
 # God gifts
-force_more_message += grants you a gift
+force_more_message += grants you (a gift|ammunition|armour|a weapon)
 force_more_message += offers you knowledge of
 force_more_message += believes you are ready to make a new sacrifice
 force_more_message += may now remember your ancestor
@@ -178,7 +178,6 @@ force_more_message += It is a scroll of brand weapon
 force_more_message += It is a scroll of enchant armour
 force_more_message += It is a scroll of enchant weapon
 force_more_message += It is a scroll of identify
-force_more_message += It is a scroll of recharging
 force_more_message += You feel more experienced
 force_more_message += A flood of memories washes over you
 force_more_message += There's only one card left

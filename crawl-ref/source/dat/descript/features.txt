@@ -242,10 +242,6 @@ A stone staircase leading up
 
 A staircase leading back up.
 %%%%
-A short-range portal
-
-A portal that will send you to a nearby location.
-%%%%
 A tree
 
 A large tree. While in most places the dim light of the dungeon is not bright
@@ -517,6 +513,11 @@ A transporter
 
 A one-way portal to another place on this level. When using a transporter,
 adjacent allies and monsters will travel with you to the other side.
+%%%%
+A transporter landing site
+
+The destination site of a transporter. As the portal is one-way, you cannot use
+this location to return back through the transporter.
 %%%%
 ########################################################################
 ## Doors

@@ -55,7 +55,7 @@ void InventoryRegion::pack_buffers()
                     break;
 
                 int num_floor = tile_dngn_count(env.tile_default.floor);
-                tileidx_t t = env.tile_default.floor + m_flavour[i] % num_floor;
+                tileidx_t t = env.tile_default.floor + i % num_floor;
                 m_buf.add_dngn_tile(t, x, y);
             }
             else
@@ -166,16 +166,16 @@ int InventoryRegion::handle_mouse(MouseEvent &event)
         tiles.set_need_redraw();
         if (on_floor)
         {
-            if (event.mod & MOD_SHIFT)
+            if (event.mod & TILES_MOD_SHIFT)
                 tile_item_use_floor(idx);
             else
-                tile_item_pickup(idx, (event.mod & MOD_CTRL));
+                tile_item_pickup(idx, (event.mod & TILES_MOD_CTRL));
         }
         else
         {
-            if (event.mod & MOD_SHIFT)
-                tile_item_drop(idx, (event.mod & MOD_CTRL));
-            else if (event.mod & MOD_CTRL)
+            if (event.mod & TILES_MOD_SHIFT)
+                tile_item_drop(idx, (event.mod & TILES_MOD_CTRL));
+            else if (event.mod & TILES_MOD_CTRL)
                 tile_item_use_secondary(idx);
             else
                 tile_item_use(idx);
@@ -187,7 +187,7 @@ int InventoryRegion::handle_mouse(MouseEvent &event)
     {
         if (on_floor)
         {
-            if (event.mod & MOD_SHIFT)
+            if (event.mod & TILES_MOD_SHIFT)
             {
                 m_last_clicked_item = item_idx;
                 tiles.set_need_redraw();
@@ -651,12 +651,8 @@ static void _fill_item_info(InventoryTile &desc, const item_info &item)
         // -1 specifies don't display anything
         desc.quantity = (item.quantity == 1) ? -1 : item.quantity;
     }
-    else if (type == OBJ_WANDS
-             && ((item.flags & ISFLAG_KNOW_PLUSES)
-                 || item.used_count == ZAPCOUNT_EMPTY))
-    {
+    else if (type == OBJ_WANDS && item.flags & ISFLAG_KNOW_TYPE)
         desc.quantity = item.charges;
-    }
     else
         desc.quantity = -1;
 

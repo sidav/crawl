@@ -54,6 +54,7 @@
 #include "nearby-danger.h"
 #include "notes.h"
 #include "output.h"
+#include "player-save-info.h"
 #include "player-stats.h"
 #include "potion.h"
 #include "prompt.h"
@@ -81,8 +82,6 @@
 #include "view.h"
 #include "wizard-option-type.h"
 #include "xom.h"
-
-static int _bone_armour_bonus();
 
 static void _moveto_maybe_repel_stairs()
 {
@@ -215,7 +214,7 @@ static bool _check_moveto_dangerous(const coord_def& p, const string& msg)
         return true;
     }
 
-    if (msg != "")
+    if (!msg.empty())
         mpr(msg);
     else if (species_likes_water(you.species) && feat_is_water(env.grid(p)))
         mpr("You cannot enter water in your current form.");
@@ -228,8 +227,7 @@ bool check_moveto_terrain(const coord_def& p, const string &move_verb,
                           const string &msg, bool *prompted)
 {
     if (!_check_moveto_dangerous(p, msg))
-        return false
-;
+        return false;
     if (!need_expiration_warning() && need_expiration_warning(p)
         && !crawl_state.disables[DIS_CONFIRMATIONS])
     {
@@ -238,7 +236,7 @@ bool check_moveto_terrain(const coord_def& p, const string &move_verb,
         if (prompted)
             *prompted = true;
 
-        if (msg != "")
+        if (!msg.empty())
             prompt = msg + " ";
 
         prompt += "Are you sure you want to " + move_verb;
@@ -1077,7 +1075,8 @@ bool regeneration_is_inhibited()
         {
             if (mons_is_threatening(**mi)
                 && !mi->wont_attack()
-                && !mi->neutral())
+                && !mi->neutral()
+                && !mi->submerged())
             {
                 return true;
             }
@@ -1136,13 +1135,13 @@ int player_mp_regen()
 {
     int regen_amount = 7 + you.max_magic_points / 2;
 
-    int multiplier = 100;
     if (you.get_mutation_level(MUT_MANA_REGENERATION))
-        multiplier += 100;
-    if (you.props[MANA_REGEN_AMULET_ACTIVE].get_int() == 1)
-        multiplier += 50;
+        regen_amount *= 2;
 
-    return regen_amount * multiplier / 100;
+    if (you.props[MANA_REGEN_AMULET_ACTIVE].get_int() == 1)
+        regen_amount += 25;
+
+    return regen_amount;
 }
 
 // Amulet of regeneration needs to be worn while at full health before it begins
@@ -1283,10 +1282,10 @@ int player_spell_levels()
     return sl;
 }
 
-int player_likes_chunks(bool permanently)
+bool player_likes_chunks(bool permanently)
 {
     return you.gourmand(true, !permanently)
-           ? 3 : you.get_mutation_level(MUT_CARNIVOROUS);
+           || you.get_mutation_level(MUT_CARNIVOROUS) > 0;
 }
 
 // If temp is set to false, temporary sources or resistance won't be counted.
@@ -1925,7 +1924,7 @@ int player_movement_speed()
         mv--;
 
     if (you.duration[DUR_FROZEN])
-        mv += 4;
+        mv += 3;
 
     if (you.duration[DUR_GRASPING_ROOTS])
         mv += 3;
@@ -2287,7 +2286,6 @@ int player_shield_class()
 
     shield += qazlal_sh_boost() * 100;
     shield += tso_sh_boost() * 100;
-    shield += _bone_armour_bonus() * 2;
     shield += you.wearing(EQ_AMULET_PLUS, AMU_REFLECTION) * 200;
     shield += you.scan_artefacts(ARTP_SHIELDING) * 200;
 
@@ -2429,12 +2427,19 @@ static void _recharge_xp_evokers(int exp)
         if (debt == 0)
             continue;
 
+        const int old_charges = evoker_charges(i);
         debt = max(0, debt - div_rand_round(exp, xp_factor));
-        if (debt == 0)
-        {
-            if (i == MISC_LIGHTNING_ROD)
-                you.props["thunderbolt_charge"].get_int() = 0;
+        const int gained = evoker_charges(i) - old_charges;
+        if (!gained)
+            continue;
+
+        if (evoker_max_charges(i) == 1)
             mprf("%s has recharged.", evoker->name(DESC_YOUR).c_str());
+        else
+        {
+            mprf("%s has regained %s charge%s.",
+                 evoker->name(DESC_YOUR).c_str(),
+                 number_in_words(gained).c_str(), gained > 1 ? "s" : "");
         }
     }
 }
@@ -2481,6 +2486,7 @@ static void _transfer_knowledge(int exp)
 {
     if (!(you.transfer_skill_points > 0))
         return;
+
     // Can happen if the game got interrupted during target skill choice.
     if (is_invalid_skill(you.transfer_to_skill))
     {
@@ -2609,7 +2615,7 @@ void gain_exp(unsigned int exp_gained, unsigned int* actual_gain)
     else
         you.experience += exp_gained;
 
-    you.exp_available += skill_xp;
+    you.exp_available += 10 * skill_xp;
 
     train_skills();
     while (check_selected_skills()
@@ -2617,9 +2623,6 @@ void gain_exp(unsigned int exp_gained, unsigned int* actual_gain)
     {
         train_skills();
     }
-
-    if (you.exp_available >= calc_skill_cost(you.skill_cost_level))
-        you.exp_available = calc_skill_cost(you.skill_cost_level);
 
     level_change();
 
@@ -2687,6 +2690,23 @@ void recalc_and_scale_hp()
         hp = 100;
     set_hp(min(hp / 100, you.hp_max));
     you.hit_points_regeneration = hp % 100;
+}
+
+int xp_to_level_diff(int xp, int scale)
+{
+    ASSERT(xp >= 0);
+    int adjusted_xp = you.experience + xp;
+    int level = you.experience_level;
+    while (adjusted_xp >= (int) exp_needed(level + 1))
+        level++;
+    if (scale > 1)
+    {
+        unsigned int remainder = adjusted_xp - (int) exp_needed(level);
+        unsigned int denom = exp_needed(level + 1) - (int) exp_needed(level);
+        return (level - you.experience_level) * scale +
+                    (remainder * scale / denom);
+    } else
+        return level - you.experience_level;
 }
 
 /**
@@ -3062,9 +3082,6 @@ int player_stealth()
         // Now 2 * EP^2 / 3 after EP rescaling.
         const int evp = you.unadjusted_body_armour_penalty();
         const int penalty = evp * evp * 2 / 3;
-#if 0
-        dprf("Stealth penalty for armour (ep: %d): %d", ep, penalty);
-#endif
         stealth -= penalty;
 
         const int pips = armour_type_prop(arm->sub_type, ARMF_STEALTH);
@@ -4736,7 +4753,21 @@ bool invis_allowed(bool quiet, string *fail_reason)
 
     if (you.haloed() && you.halo_radius() != -1)
     {
-        msg = "Your halo prevents invisibility.";
+        bool divine = you.attribute[ATTR_HEAVENLY_STORM] > 0 ||
+                you.religion == GOD_SHINING_ONE;
+        bool weapon = player_equip_unrand(UNRAND_EOS);
+        string reason;
+
+        if (divine && weapon)
+            reason = "Your weapon and divine halo glow too brightly";
+        else if (divine)
+            reason = "Your divine halo glows too radiantly";
+        else if (weapon)
+            reason = "Your weapon shines too brightly";
+        else
+            die("haloed by an unknown source");
+
+        msg = reason + " to become invisible.";
         success = false;
     }
     else if (you.backlit())
@@ -4828,8 +4859,12 @@ void fly_player(int pow, bool already_flying)
 
 void enable_emergency_flight()
 {
-    mpr("You can't land here! You focus on prolonging your flight, but the "
-        "process is draining.");
+    mprf("You can't survive in this terrain! You fly above the %s, but the "
+         "process is draining.",
+         (grd(you.pos()) == DNGN_LAVA)       ? "lava" :
+         (grd(you.pos()) == DNGN_DEEP_WATER) ? "water"
+                                             : "buggy terrain");
+
     you.props[EMERGENCY_FLIGHT_KEY] = true;
 }
 
@@ -4963,6 +4998,8 @@ player::player()
     wizard = false;
     explore = false;
 #endif
+    suppress_wizard = false;
+
     birth_time       = time(0);
 
     // Long-term state:
@@ -5089,7 +5126,7 @@ player::player()
     seen_armour.init(0);
     seen_misc.reset();
 
-    octopus_king_rings = 0;
+    octopus_king_rings = 0x00;
 
     normal_vision    = LOS_DEFAULT_RANGE;
     current_vision   = LOS_DEFAULT_RANGE;
@@ -5211,6 +5248,7 @@ void player::init_skills()
     skill_points.init(0);
     ct_skill_points.init(0);
     skill_order.init(MAX_SKILL_ORDER);
+    training_targets.init(0);
     exercises.clear();
     exercises_all.clear();
 }
@@ -5220,7 +5258,7 @@ player_save_info& player_save_info::operator=(const player& rhs)
     name             = rhs.your_name;
     experience       = rhs.experience;
     experience_level = rhs.experience_level;
-    wizard           = rhs.wizard;
+    wizard           = rhs.wizard || rhs.suppress_wizard;
     species          = rhs.species;
     species_name     = rhs.chr_species_name;
     class_name       = rhs.chr_class_name;
@@ -5675,7 +5713,15 @@ int player::shield_tohit_penalty(bool random_factor, int scale) const
     return maybe_roll_dice(1, adjusted_shield_penalty(scale), random_factor);
 }
 
-int player::skill(skill_type sk, int scale, bool real, bool drained) const
+/**
+ * Get the player's skill level for sk.
+ *
+ * @param scale a scale factor to multiply by.
+ * @param real whether to return the real value, or modified value.
+ * @param drained whether to include modification by draining.
+ * @param temp whether to include modification by other temporary factors (e.g. heroism)
+ */
+int player::skill(skill_type sk, int scale, bool real, bool drained, bool temp) const
 {
     // If you add another enhancement/reduction, be sure to change
     // SkillMenuSwitch::get_help() to reflect that
@@ -5686,30 +5732,12 @@ int player::skill(skill_type sk, int scale, bool real, bool drained) const
 
     // skills[sk] might not be updated yet if this is in the middle of
     // skill training, so make sure to use the correct value.
-    // This duplicates code in check_skill_level_change(), unfortunately.
     int actual_skill = skills[sk];
     unsigned int effective_points = skill_points[sk];
     if (!real)
-    {
-        for (skill_type cross : get_crosstrain_skills(sk))
-            effective_points += skill_points[cross] * 2 / 5;
-    }
+        effective_points += get_crosstrain_points(sk);
     effective_points = min(effective_points, skill_exp_needed(MAX_SKILL_LEVEL, sk));
-    while (1)
-    {
-        if (actual_skill < MAX_SKILL_LEVEL
-            && effective_points >= skill_exp_needed(actual_skill + 1, sk))
-        {
-            ++actual_skill;
-        }
-        else if (effective_points < skill_exp_needed(actual_skill, sk))
-        {
-            actual_skill--;
-            ASSERT(actual_skill >= 0);
-        }
-        else
-            break;
-    }
+    actual_skill = calc_skill_level_change(sk, actual_skill, effective_points);
 
     int level = actual_skill * scale
       + get_skill_progress(sk, actual_skill, effective_points, scale);
@@ -5725,16 +5753,14 @@ int player::skill(skill_type sk, int scale, bool real, bool drained) const
     }
 
     if (penance[GOD_ASHENZARI])
-        level = max(level - 4 * scale, level / 2);
-    else if (have_passive(passive_t::bondage_skill_boost))
     {
-        if (skill_boost.count(sk)
-            && skill_boost.find(sk)->second)
-        {
-            level = ash_skill_boost(sk, scale);
-        }
+        if (temp)
+            level = max(level - 4 * scale, level / 2);
     }
-    if (duration[DUR_HEROISM] && sk <= SK_LAST_MUNDANE)
+    else if (ash_has_skill_boost(sk))
+            level = ash_skill_boost(sk, scale);
+
+    if (temp && duration[DUR_HEROISM] && sk <= SK_LAST_MUNDANE)
         level = min(level + 5 * scale, MAX_SKILL_LEVEL * scale);
     return level;
 }
@@ -5745,23 +5771,6 @@ int player_icemail_armour_class()
         return 0;
 
     return you.duration[DUR_ICEMAIL_DEPLETED] ? 0 : ICEMAIL_MAX;
-}
-
-/**
- * How many points of AC/SH does the player get from their current bone armour?
- *
- * ((power / 100) + 0.5) * (# of corpses). (That is, between 0.5 and 1.5 AC+SH
- * per corpse.)
- * @return          The AC/SH bonus * 100. (For scale reasons.)
- */
-static int _bone_armour_bonus()
-{
-    if (!you.attribute[ATTR_BONE_ARMOUR])
-        return 0;
-
-    const int power = calc_spell_power(SPELL_CIGOTUVIS_EMBRACE, true);
-    // rounding errors here, but not sure of a good way to avoid that.
-    return you.attribute[ATTR_BONE_ARMOUR] * (50 + power);
 }
 
 /**
@@ -5837,7 +5846,7 @@ int player::racial_ac(bool temp) const
         else if (species == SP_GARGOYLE)
         {
             return 200 + 100 * experience_level * 2 / 5     // max 20
-                       + 100 * (max(0, experience_level - 7) * 2 / 5);
+                       + 100 * max(0, experience_level - 7) * 2 / 5;
         }
     }
 
@@ -5943,7 +5952,6 @@ int player::armour_class(bool /*calc_unid*/) const
     if (duration[DUR_CORROSION])
         AC -= 400 * you.props["corrosion_amount"].get_int();
 
-    AC += _bone_armour_bonus();
     AC += sanguine_armour_bonus();
 
     return AC / scale;
@@ -6358,7 +6366,7 @@ bool player::no_tele_print_reason(bool calc_unid, bool blinking) const
  */
 bool player::no_tele(bool calc_unid, bool /*permit_id*/, bool blinking) const
 {
-    return no_tele_reason(calc_unid, blinking) != "";
+    return !no_tele_reason(calc_unid, blinking).empty();
 }
 
 bool player::fights_well_unarmed(int heavy_armour_penalty)
@@ -6548,7 +6556,7 @@ bool player::corrode_equipment(const char* corrosion_source, int degree)
     int prev_corr = props["corrosion_amount"].get_int();
     bool did_corrode = false;
     for (int i = 0; i < degree; i++)
-        if (!x_chance_in_y(prev_corr, prev_corr + 9))
+        if (!x_chance_in_y(prev_corr, prev_corr + 7))
         {
             props["corrosion_amount"].get_int()++;
             prev_corr++;
@@ -6648,7 +6656,7 @@ void player::paralyse(actor *who, int str, string source)
 
     paralysis = min(str, 13) * BASELINE_DELAY;
 
-    stop_constricting_all();
+    stop_directly_constricting_all(false);
     end_searing_ray();
 }
 
@@ -7019,7 +7027,7 @@ bool player::is_lifeless_undead(bool temp) const
     if (undead_state() == US_SEMI_UNDEAD)
         return temp ? hunger_state < HS_SATIATED : false;
     else
-        return undead_state() != US_ALIVE;
+        return undead_state(temp) != US_ALIVE;
 }
 
 bool player::can_polymorph() const
@@ -7115,7 +7123,7 @@ void player::shiftto(const coord_def &c)
 {
     crawl_view.shift_player_to(c);
     set_position(c);
-    clear_far_constrictions();
+    clear_invalid_constrictions();
 }
 
 bool player::asleep() const
@@ -7170,7 +7178,7 @@ void player::put_to_sleep(actor*, int power, bool hibernate)
 
     mpr("You fall asleep.");
 
-    stop_constricting_all();
+    stop_directly_constricting_all(false);
     end_searing_ray();
     stop_delay();
     flash_view(UA_MONSTER, DARKGREY);
@@ -7203,34 +7211,6 @@ void player::check_awaken(int disturbance)
 int player::beam_resists(bolt &beam, int hurted, bool doEffects, string source)
 {
     return check_your_resists(hurted, beam.flavour, source, &beam, doEffects);
-}
-
-void player::set_place_info(PlaceInfo place_info)
-{
-    place_info.assert_validity();
-
-    if (place_info.is_global())
-        global_info = place_info;
-    else
-        branch_info[place_info.branch] = place_info;
-}
-
-vector<PlaceInfo> player::get_all_place_info(bool visited_only,
-                                             bool dungeon_only) const
-{
-    vector<PlaceInfo> list;
-
-    for (branch_iterator it; it; ++it)
-    {
-        if (visited_only && branch_info[it->id].num_visits == 0
-            || dungeon_only && !is_connected_branch(*it))
-        {
-            continue;
-        }
-        list.push_back(branch_info[it->id]);
-    }
-
-    return list;
 }
 
 // Used for falling into traps and other bad effects, but is a slightly
@@ -7528,32 +7508,43 @@ static string _constriction_description()
                               num_free_tentacles,
                               num_free_tentacles > 1 ? "s" : "");
     }
-    // name of what this monster is constricted by, if any
-    if (you.is_constricted())
+
+    if (you.is_directly_constricted())
     {
+        const monster * const constrictor = monster_by_mid(you.constricted_by);
+        ASSERT(constrictor);
+
         if (!cinfo.empty())
             cinfo += "\n";
 
         cinfo += make_stringf("You are being %s by %s.",
-                      you.held == HELD_MONSTER ? "held" : "constricted",
-                      monster_by_mid(you.constricted_by)->name(DESC_A).c_str());
+                              constrictor->constriction_does_damage(true) ?
+                                  "held" : "constricted",
+                              constrictor->name(DESC_A).c_str());
     }
 
-    if (you.constricting && !you.constricting->empty())
+    if (you.is_constricting())
     {
         for (const auto &entry : *you.constricting)
         {
             monster *whom = monster_by_mid(entry.first);
             ASSERT(whom);
+
+            if (!whom->is_directly_constricted())
+                continue;
+
             c_name.push_back(whom->name(DESC_A));
         }
 
-        if (!cinfo.empty())
-            cinfo += "\n";
+        if (!c_name.empty())
+        {
+            if (!cinfo.empty())
+                cinfo += "\n";
 
-        cinfo += "You are constricting ";
-        cinfo += comma_separated_line(c_name.begin(), c_name.end());
-        cinfo += ".";
+            cinfo += "You are constricting ";
+            cinfo += comma_separated_line(c_name.begin(), c_name.end());
+            cinfo += ".";
+        }
     }
 
     return cinfo;
@@ -7832,6 +7823,8 @@ void player_close_door(coord_def doorpos)
                                                 "door_description_noun");
     set<coord_def> all_door;
     find_connected_identical(doorpos, all_door);
+    const auto door_vec = vector<coord_def>(all_door.begin(), all_door.end());
+
     const char *adj, *noun;
     get_door_description(all_door.size(), &adj, &noun);
     const string waynoun_str = make_stringf("%sway", noun);
@@ -7864,16 +7857,31 @@ void player_close_door(coord_def doorpos)
 
         if (igrd(dc) != NON_ITEM)
         {
-            mprf("There's something blocking the %s.", waynoun);
-            return;
+            if (!has_push_spaces(dc, false, &door_vec))
+            {
+                mprf("There's something jamming the %s.", waynoun);
+                return;
+            }
         }
 
+        // messaging with gateways will be inconsistent if this isn't last
         if (you.pos() == dc)
         {
             mprf("There's a thick-headed creature in the %s!", waynoun);
             return;
         }
     }
+    const int you_old_top_item = igrd(you.pos());
+
+    bool items_moved = false;
+    for (const coord_def& dc : all_door)
+        items_moved |= push_items_from(dc, &door_vec);
+
+    // TODO: if only one thing moved, use that item's name
+    // TODO: handle des-derived strings.  (Better yet, find a way to not have
+    // format strings in des...)
+    const char *items_msg = items_moved ? ", pushing everything out of the way"
+                                        : "";
 
     const int skill = 8 + you.skill_rdiv(SK_STEALTH, 4, 3);
 
@@ -7887,7 +7895,7 @@ void player_close_door(coord_def doorpos)
                 mprf(berserk_close.c_str(), adj, noun);
             }
             else
-                mprf("You slam the %s%s shut!", adj, noun);
+                mprf("You slam the %s%s shut%s!", adj, noun, items_msg);
         }
         else
         {
@@ -7901,8 +7909,8 @@ void player_close_door(coord_def doorpos)
             }
             else
             {
-                mprf(MSGCH_SOUND, "You slam the %s%s shut with a bang!",
-                                  adj, noun);
+                mprf(MSGCH_SOUND, "You slam the %s%s shut with a bang%s!",
+                                  adj, noun, items_msg);
             }
 
             noisy(15, you.pos());
@@ -7914,31 +7922,28 @@ void player_close_door(coord_def doorpos)
             mprf(MSGCH_SOUND, door_close_creak.c_str(), adj, noun);
         else
         {
-            mprf(MSGCH_SOUND, "As you close the %s%s, it creaks loudly!",
-                              adj, noun);
+            mprf(MSGCH_SOUND, "As you close the %s%s%s, it creaks loudly!",
+                              adj, noun, items_msg);
         }
 
         noisy(10, you.pos());
     }
     else
     {
-        const char* verb;
         if (you.airborne())
         {
             if (!door_airborne.empty())
-                verb = door_airborne.c_str();
+                mprf(door_airborne.c_str(), adj, noun);
             else
-                verb = "You reach down and close the %s%s.";
+                mprf("You reach down and close the %s%s%s.", adj, noun, items_msg);
         }
         else
         {
             if (!door_close_verb.empty())
-                verb = door_close_verb.c_str();
+                mprf(door_close_verb.c_str(), adj, noun);
             else
-                verb = "You close the %s%s.";
+                mprf("You close the %s%s%s.", adj, noun, items_msg);
         }
-
-        mprf(verb, adj, noun);
     }
 
     vector<coord_def> excludes;
@@ -7964,6 +7969,10 @@ void player_close_door(coord_def doorpos)
     }
 
     update_exclusion_los(excludes);
+
+    // item pushing may have moved items under the player
+    if (igrd(you.pos()) != you_old_top_item)
+        item_check();
     you.turn_is_over = true;
 }
 
@@ -8013,52 +8022,6 @@ string player::hands_act(const string &plural_verb,
     return "Your " + hands_verb(plural_verb) + (space ? " " : "") + object;
 }
 
-/**
- * Possibly drop a point of bone armour (from Cigotuvi's Embrace) when hit,
- * or over time.
- *
- * Chance of losing a point of ac/sh increases with current number of corpses
- * (ATTR_BONE_ARMOUR). Each added corpse increases the chance of losing a bit
- * by 5/4x. (So ten corpses are a 9x chance, twenty are 87x...)
- *
- * Base chance is 1/500 (per aut) - 2% per turn, 63% within 50 turns.
- * At 10 corpses, that becomes a 17% per-turn chance, 61% within 5 turns.
- * At 20 corpses, that's 20% per-aut, 90% per-turn...
- *
- * Getting hit/blocking has a higher (BONE_ARMOUR_HIT_RATIO *) chance;
- * at BONE_ARMOUR_HIT_RATIO = 50, that's 10% at one corpse, 30% at five,
- * 90% at ten...
- *
- * @param trials  The number of times to potentially shed armour.
- */
-void player::maybe_degrade_bone_armour(int trials)
-{
-    if (attribute[ATTR_BONE_ARMOUR] <= 0)
-        return;
-
-    const int base_denom = 50 * BASELINE_DELAY;
-    int denom = base_denom;
-    for (int i = 1; i < attribute[ATTR_BONE_ARMOUR]; ++i)
-        denom = div_rand_round(denom * 4, 5);
-
-    const int degraded_armour = binomial(trials, 1, denom);
-    dprf("degraded armour? (%d armour, %d/%d in %d trials): %d",
-         attribute[ATTR_BONE_ARMOUR], 1, denom, trials, degraded_armour);
-    if (degraded_armour <= 0)
-        return;
-
-    you.attribute[ATTR_BONE_ARMOUR]
-        = max(0, you.attribute[ATTR_BONE_ARMOUR] - degraded_armour);
-
-    if (!you.attribute[ATTR_BONE_ARMOUR])
-        mpr("The last of your corpse armour falls away.");
-    else
-        for (int i = 0; i < degraded_armour; ++i)
-            mpr("A chunk of your corpse armour falls away.");
-
-    redraw_armour_class = true;
-}
-
 int player::inaccuracy() const
 {
     int degree = 0;
@@ -8094,7 +8057,7 @@ void player_end_berserk()
         {
             mprf(MSGCH_WARN, "You pass out from exhaustion.");
             you.increase_duration(DUR_PARALYSIS, roll_dice(1, 4));
-            you.stop_constricting_all();
+            you.stop_directly_constricting_all(false);
         }
     }
 

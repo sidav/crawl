@@ -107,14 +107,6 @@ int MenuRegion::handle_mouse(MouseEvent &event)
 
             return m_entries[entry].key;
         }
-#if 0
-        // TODO enne - these events are wonky on OS X.
-        // TODO enne - fix menus so that mouse wheeling doesn't easy exit
-        case MouseEvent::SCROLL_UP:
-            return CK_UP;
-        case MouseEvent::SCROLL_DOWN:
-            return CK_DOWN;
-#endif
         default:
             return 0;
         }
@@ -228,8 +220,7 @@ void MenuRegion::_place_entries(const int left_offset, const int top_offset,
                     // sorted by texture first, e.g. you can never draw
                     // a dungeon tile over a monster tile.
                     TextureID tex  = tile.tex;
-                    m_tile_buf[tex].add_unscaled(tile.tile, entry.sx, entry.sy,
-                                                 tile.ymax);
+                    m_tile_buf[tex].add(tile.tile, entry.sx, entry.sy, 0, 0, false, tile.ymax, 1, 1);
                 }
             }
             else

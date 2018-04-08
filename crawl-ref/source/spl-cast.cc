@@ -920,6 +920,11 @@ static void _spellcasting_god_conduct(spell_type spell)
     if (is_corpse_violating_spell(spell))
         did_god_conduct(DID_CORPSE_VIOLATION, conduct_level);
 
+    // not is_fiery_spell since the other ones handle the conduct themselves.
+    // need to handle ignite poison separately since it's not handled elsewhere.
+    if (spell == SPELL_IGNITE_POISON)
+        did_god_conduct(DID_FIRE, conduct_level);
+
     // not is_hasty_spell since the other ones handle the conduct themselves.
     if (spell == SPELL_SWIFTNESS)
         did_god_conduct(DID_HASTY, conduct_level);
@@ -956,8 +961,8 @@ static void _majin_speak(spell_type spell)
  *
  * @param spell         The type of spell just cast.
  * @param god           Which god is casting the spell; NO_GOD if it's you.
- * @param fake_spell    Whether the spell is evoked, or from an innate or
- *                      divine ability.
+ * @param fake_spell    true if the spell is evoked or from an innate or divine ability
+ *                      false if it is a spell being cast normally.
  */
 static void _spellcasting_side_effects(spell_type spell, god_type god,
                                        bool fake_spell)
@@ -1075,9 +1080,9 @@ static spret_type _do_cast(spell_type spell, int powc, const dist& spd,
  * it can't legally be cast in this circumstance, or because the player opts
  * to cancel it in response to a prompt?
  *
- * @param spell         The spell to be checked.
- * @param fake_spell    Whether the spell is evoked, or from an innate or
- *                      divine ability.
+ * @param spell         The spell to be checked
+ * @param fake_spell    true if the spell is evoked or from an innate or divine ability
+ *                      false if it is a spell being cast normally.
  * @return              Whether the spellcasting should be aborted.
  */
 static bool _spellcasting_aborted(spell_type spell, bool fake_spell)
@@ -1096,7 +1101,7 @@ static bool _spellcasting_aborted(spell_type spell, bool fake_spell)
         msg = spell_uselessness_reason(spell, true, true, fake_spell);
     }
 
-    if (msg != "")
+    if (!msg.empty())
     {
         mpr(msg);
         return true;
@@ -1169,9 +1174,9 @@ static unique_ptr<targeter> _spell_targeter(spell_type spell, int pow,
         return make_unique<targeter_cloud>(&you, range);
     case SPELL_THUNDERBOLT:
         return make_unique<targeter_thunderbolt>(&you, range,
-            (you.props.exists("thunderbolt_last")
-             && you.props["thunderbolt_last"].get_int() + 1 == you.num_turns) ?
-                you.props["thunderbolt_aim"].get_coord() : coord_def());
+            (you.props.exists(THUNDERBOLT_LAST_KEY)
+             && you.props[THUNDERBOLT_LAST_KEY].get_int() + 1 == you.num_turns) ?
+                you.props[THUNDERBOLT_AIM_KEY].get_coord() : coord_def());
     case SPELL_LRD:
         return make_unique<targeter_fragment>(&you, pow, range);
     case SPELL_FULMINANT_PRISM:
@@ -1197,6 +1202,11 @@ static unique_ptr<targeter> _spell_targeter(spell_type spell, int pow,
                                           0, 0);
     case SPELL_INFESTATION:
         return make_unique<targeter_smite>(&you, range, 2, 2, false,
+                                           [](const coord_def& p) -> bool {
+                                              return you.pos() != p; });
+
+    case SPELL_BORGNJORS_VILE_CLUTCH:
+        return make_unique<targeter_smite>(&you, range, 1, 1, false,
                                            [](const coord_def& p) -> bool {
                                               return you.pos() != p; });
 
@@ -1285,7 +1295,9 @@ vector<string> desc_success_chance(const monster_info& mi, int pow, bool evoked,
  *
  * @param spell         The type of spell being cast.
  * @param powc          Spellpower.
- * @param allow_fail    Whether spell-fail chance applies.
+ * @param allow_fail    true if it is a spell being cast normally.
+ *                      false if the spell is evoked or from an innate or divine ability
+ *
  * @param evoked_item   The wand the spell was evoked from if applicable, or
                         nullptr.
  * @return SPRET_SUCCESS if spell is successfully cast for purposes of
@@ -1343,7 +1355,7 @@ spret_type your_spells(spell_type spell, int powc, bool allow_fail,
                                 // it nevertheless requires line-of-fire.
                                 || spell == SPELL_APPORTATION;
 
-        const int range = calc_spell_range(spell, powc);
+        const int range = calc_spell_range(spell, powc, allow_fail);
 
         unique_ptr<targeter> hitfunc = _spell_targeter(spell, powc, range);
 
@@ -1365,11 +1377,6 @@ spret_type your_spells(spell_type spell, int powc, bool allow_fail,
         string title = "Aiming: <white>";
         title += spell_title(spell);
         title += "</white>";
-        if (evoked_item
-            && !item_ident(*evoked_item, ISFLAG_KNOW_PLUSES))
-        {
-            title += " <lightred>(will waste charges)</lightred>";
-        }
 
         direction_chooser_args args;
         args.hitfunc = hitfunc.get();
@@ -1684,6 +1691,9 @@ static spret_type _do_cast(spell_type spell, int powc, const dist& spd,
     case SPELL_IGNITION:
         return cast_ignition(&you, powc, fail);
 
+    case SPELL_BORGNJORS_VILE_CLUTCH:
+        return cast_borgnjors_vile_clutch(powc, beam, fail);
+
     // Summoning spells, and other spells that create new monsters.
     // If a god is making you cast one of these spells, any monsters
     // produced will count as god gifts.
@@ -1790,9 +1800,6 @@ static spret_type _do_cast(spell_type spell, int powc, const dist& spd,
     case SPELL_ENGLACIATION:
         return cast_englaciation(powc, fail);
 
-    case SPELL_CONTROL_UNDEAD:
-        return mass_enchantment(ENCH_CHARM, powc, fail);
-
     case SPELL_AURA_OF_ABJURATION:
         return cast_aura_of_abjuration(powc, fail);
 
@@ -1836,9 +1843,6 @@ static spret_type _do_cast(spell_type spell, int powc, const dist& spd,
 
     case SPELL_OZOCUBUS_ARMOUR:
         return ice_armour(powc, fail);
-
-    case SPELL_CIGOTUVIS_EMBRACE:
-        return corpse_armour(powc, fail);
 
     case SPELL_SILENCE:
         return cast_silence(powc, fail);
@@ -2172,11 +2176,11 @@ string spell_power_string(spell_type spell)
         return string(numbars, '#') + string(capbars - numbars, '.');
 }
 
-int calc_spell_range(spell_type spell, int power)
+int calc_spell_range(spell_type spell, int power, bool allow_bonus)
 {
     if (power == 0)
         power = calc_spell_power(spell, true, false, false);
-    const int range = spell_range(spell, power);
+    const int range = spell_range(spell, power, allow_bonus);
 
     return range;
 }
@@ -2274,6 +2278,8 @@ const set<spell_type> removed_spells =
     SPELL_PHASE_SHIFT,
     SPELL_MASS_CONFUSION,
     SPELL_CURE_POISON,
+    SPELL_CONTROL_UNDEAD,
+    SPELL_CIGOTUVIS_EMBRACE,
 #endif
 };
 

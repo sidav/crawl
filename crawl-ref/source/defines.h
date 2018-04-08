@@ -134,8 +134,10 @@ const int MIN_HIT_MISS_PERCENTAGE = 5;
 const int LIGHTNING_CHARGE_MULT = 100;
 const int LIGHTNING_MAX_CHARGE = 4;
 
-// evoker_debt for evoking one XP evoker
-const int XP_EVOKE_DEBT   = 10;
+// Evoker debt for evoking one XP evoker.
+const int XP_EVOKE_DEBT = 10;
+// Evoker debt for evoking a lightning rod once.
+const int XP_EVOKE_LIGHTNING_ROD_DEBT = 3;
 
 const int BASELINE_DELAY  = 10;
 const int INVIS_CONTAM_PER_TURN = 30;
@@ -180,6 +182,7 @@ const int WU_JIAN_HEAVEN_TICK_TIME = 10;
 const int AGILITY_BONUS = 5;
 
 #define TORNADO_RADIUS 5
+#define VORTEX_RADIUS 3
 
 #define VAULTS_ENTRY_RUNES 1
 #define ZOT_ENTRY_RUNES 3
@@ -288,6 +291,10 @@ const char * const MONSTER_MID = "monster-mid";
 
 const char * const NEUTRAL_BRIBE_KEY         = "gozag_bribed";
 const char * const FRIENDLY_BRIBE_KEY        = "gozag_permabribed";
+
+const char * const THUNDERBOLT_CHARGES_KEY = "thunderbolt_charges";
+const char * const THUNDERBOLT_LAST_KEY    = "thunderbolt_last";
+const char * const THUNDERBOLT_AIM_KEY     = "thunderbolt_aim";
 
 // Synthetic keys:
 #define KEY_MACRO_MORE_PROTECT -10

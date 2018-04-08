@@ -379,7 +379,7 @@ private:
     // Gets a list of coordinates of all player-known stairs on the current
     // level.
     static void get_stairs(vector<coord_def> &stairs);
-    static void get_transporters(vector<coord_def> &stairs);
+    static void get_transporters(vector<coord_def> &transporters);
 
     void correct_stair_list(const vector<coord_def> &s);
     void correct_transporter_list(const vector<coord_def> &s);
@@ -644,3 +644,5 @@ void clear_level_target();
 
 void clear_travel_trail();
 int travel_trail_index(const coord_def& gc);
+
+bool stairs_destination_is_excluded(const stair_info &si);

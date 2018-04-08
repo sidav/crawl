@@ -634,8 +634,8 @@ static string _get_god_misc_info(god_type which_god)
         case SK_INVOCATIONS:
             break;
         case SK_NONE:
-            if (which_god == GOD_GOZAG) // XXX: No piety, but there's no space
-                break;                  // for details due to the bribe table.
+            if (which_god == GOD_GOZAG || which_god == GOD_WU_JIAN)
+                break; // XXX: no space for details
             info += uppercase_first(apostrophise(god_name(which_god))) +
                     " powers are based on piety instead of Invocations skill.";
             break;
@@ -722,7 +722,7 @@ static string _raw_penance_message(god_type which_god)
     if (penance > initial_penance / 2)
         return "%s well remembers your sins.";
     if (penance > initial_penance / 4)
-        return "%s's wrath is beginning to cool.";
+        return "%s's wrath is beginning to fade.";
     if (penance > 0)
         return "%s is almost ready to forgive your sins.";
     return "%s is neutral towards you.";
@@ -814,7 +814,7 @@ static void _describe_god_powers(god_type which_god)
     {
         have_any = true;
         const char *how =
-            (piety >= piety_breakpoint(5)) ? "carefully" :
+            (piety >= piety_breakpoint(5)) ? "always" :
             (piety >= piety_breakpoint(3)) ? "often" :
             (piety >= piety_breakpoint(1)) ? "sometimes" :
                                              "occasionally";

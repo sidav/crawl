@@ -417,9 +417,19 @@ bool fill_status_info(int status, status_info* inf)
     case STATUS_CONSTRICTED:
         if (you.is_constricted())
         {
+            // Our constrictor isn't, valid so don't report this status.
+            if (you.has_invalid_constrictor())
+                return false;
+
+            const monster * const cstr = monster_by_mid(you.constricted_by);
+            ASSERT(cstr);
+
+            const bool damage =
+                cstr->constriction_does_damage(you.is_directly_constricted());
+
             inf->light_colour = YELLOW;
-            inf->light_text   = you.held == HELD_MONSTER ? "Held" : "Constr";
-            inf->short_text   = you.held == HELD_MONSTER ? "held" : "constricted";
+            inf->light_text   = damage ? "Constr"      : "Held";
+            inf->short_text   = damage ? "constricted" : "held";
         }
         break;
 

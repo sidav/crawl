@@ -80,7 +80,7 @@ static string _score_file_name()
         ret = Options.shared_dir + "scores";
 
     ret += crawl_state.game_type_qualifier();
-    if (crawl_state.game_is_sprint() && crawl_state.map != "")
+    if (crawl_state.game_is_sprint() && !crawl_state.map.empty())
         ret += "-" + crawl_state.map;
 
     return ret;
@@ -973,7 +973,7 @@ void scorefile_entry::init_with_fields()
     lvl     = fields->int_field("xl");
     race_class_name = fields->str_field("char");
 
-    best_skill     = str_to_skill(fields->str_field("sk"));
+    best_skill     = str_to_skill_safe(fields->str_field("sk"));
     best_skill_lvl = fields->int_field("sklev");
     title          = fields->str_field("title");
 
@@ -1718,7 +1718,7 @@ void scorefile_entry::init(time_t dt)
         for (int i = 0; i < maxlev; i++)
             potions_used += you.action_count[p][i];
 
-    wiz_mode = (you.wizard ? 1 : 0);
+    wiz_mode = (you.wizard || you.suppress_wizard ? 1 : 0);
     explore_mode = (you.explore ? 1 : 0);
 }
 
@@ -2888,7 +2888,7 @@ void mark_milestone(const string &type, const string &milestone,
             && lastmilestone == milestone)
 #ifndef SCORE_WIZARD_CHARACTERS
         // Don't mark normal milestones in wizmode or explore mode
-        || (type != "crash" && (you.wizard || you.explore))
+        || (type != "crash" && (you.wizard || you.suppress_wizard || you.explore))
 #endif
         )
     {

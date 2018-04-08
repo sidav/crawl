@@ -374,8 +374,8 @@ static bool _has_hand_evokable()
     for (const auto &item : you.inv)
     {
         if (item.defined()
-            && item_is_evokable(item, true, true, true, false, false)
-            && !item_is_evokable(item, true, true, true, false, true))
+            && item_is_evokable(item, true, true, false, false)
+            && !item_is_evokable(item, true, true, false, true))
         {
             return true;
         }
@@ -413,9 +413,6 @@ string no_selectables_message(int item_selector)
     }
     case OSEL_UNIDENT:
         return "You don't have any unidentified items.";
-    case OSEL_RECHARGE:
-    case OSEL_SUPERCHARGE:
-        return "You aren't carrying any rechargeable items.";
     case OSEL_ENCHANTABLE_ARMOUR:
         return "You aren't carrying any armour which can be enchanted further.";
     case OBJ_CORPSES:
@@ -481,7 +478,8 @@ bool InvEntry::get_tiles(vector<tile_def>& tileset) const
     if (!Options.tile_menu_icons)
         return false;
 
-    if (quantity <= 0)
+    // Runes + orb of zot have a special uncollected tile
+    if (quantity <= 0 && (item->base_type != OBJ_RUNES && item->base_type != OBJ_ORBS))
         return false;
 
     tileidx_t idx = tileidx_item(get_item_info(*item));
@@ -561,6 +559,8 @@ bool InvEntry::get_tiles(vector<tile_def>& tileset) const
 
     return true;
 }
+#else
+bool InvEntry::get_tiles(vector<tile_def>& tileset) const { return false; }
 #endif
 
 bool InvMenu::is_selectable(int index) const
@@ -1036,12 +1036,8 @@ bool item_is_selected(const item_def &i, int selector)
         return itype == OBJ_SCROLLS
                || (itype == OBJ_BOOKS && i.sub_type != BOOK_MANUAL);
 
-    case OSEL_RECHARGE:
-    case OSEL_SUPERCHARGE:
-        return item_is_rechargeable(i, selector != OSEL_SUPERCHARGE);
-
     case OSEL_EVOKABLE:
-        return item_is_evokable(i, true, true, true);
+        return item_is_evokable(i, true, true);
 
     case OSEL_ENCHANTABLE_ARMOUR:
         return is_enchantable_armour(i, true);
@@ -1578,7 +1574,7 @@ bool needs_handle_warning(const item_def &item, operation_types oper,
         return true;
     }
 
-    // You know that mutagenic chunks mutate you.
+    // You know that forbidden chunks are bad.
     if (oper == OPER_EAT && you_worship(GOD_ZIN) && god_hates_item(item))
     {
         penance = true;
@@ -1667,6 +1663,23 @@ bool needs_handle_warning(const item_def &item, operation_types oper,
     if (oper == OPER_EVOKE && god_hates_item(item))
     {
         penance = true;
+        return true;
+    }
+
+    // If you're invis from an item, warn that you're about to get an extra dose
+    // of contam from removing it. This check is rough, since we need to
+    // establish that the operation is a removal, the item being removed is in
+    // fact the +Invis one, and no other +Invis sources exist, and the player
+    // is currently invis from +Invis.
+    if ((oper == OPER_TAKEOFF || oper == OPER_REMOVE || (oper == OPER_WIELD && item_is_equipped(item)))
+        && (
+                (is_artefact(item) && artefact_property(item, ARTP_INVISIBLE))
+                || (item.base_type == OBJ_ARMOUR && get_armour_ego_type(item) == SPARM_INVISIBILITY)
+            )
+        && you.evokable_invis() < 2 // If you've got 2 sources, removing 1 is fine.
+        && you.duration[DUR_INVIS] > 1
+        && !you.attribute[ATTR_INVIS_UNCANCELLABLE])
+    {
         return true;
     }
 
@@ -1981,12 +1994,11 @@ bool item_is_wieldable(const item_def &item)
  * @param reach     Do weapons of reaching count?
  * @param known     When set, return true for items of unknown type which
  *                  might be evokable.
- * @param all_wands When set, return true for empty wands.
  * @param msg       Whether we need to print a message.
  * @param equip     When false, ignore wield and meld requirements.
  */
 bool item_is_evokable(const item_def &item, bool reach, bool known,
-                      bool all_wands, bool msg, bool equip)
+                      bool msg, bool equip)
 {
     const string error = item_is_melded(item)
             ? "Your " + item.name(DESC_QUALNAME) + " is melded into your body."
@@ -2037,15 +2049,6 @@ bool item_is_evokable(const item_def &item, bool reach, bool known,
     switch (item.base_type)
     {
     case OBJ_WANDS:
-        if (all_wands)
-            return true;
-
-        if (item.used_count == ZAPCOUNT_EMPTY)
-        {
-            if (msg)
-                mpr("This wand has no charges.");
-            return false;
-        }
         return true;
 
     case OBJ_WEAPONS:

@@ -2007,7 +2007,14 @@ static void _xom_pseudo_miscast(int /*sever*/)
     }
 
     if (you.slot_item(EQ_CLOAK))
-        messages.emplace_back("Your cloak billows in an unfelt wind.");
+    {
+        item_def* item = you.slot_item(EQ_CLOAK);
+
+        if (item->sub_type == ARM_CLOAK)
+            messages.emplace_back("Your cloak billows in an unfelt wind.");
+        else if (item->sub_type == ARM_SCARF)
+            messages.emplace_back("Your scarf briefly wraps itself around your head!");
+    }
 
     if (item_def* item = you.slot_item(EQ_HELMET))
     {
@@ -3839,7 +3846,7 @@ void debug_xom_effects()
         mood          = describe_xom_mood();
         if (old_mood != mood)
         {
-            if (old_mood != "")
+            if (!old_mood.empty())
             {
                 all_effects.push_back(mood_effects);
                 mood_effects.clear();
