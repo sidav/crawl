@@ -60,6 +60,12 @@ An amulet that allows its wearer to eat fresh raw meat when not hungry, and
 drastically increases nutrition gained from them. These effects on the wearer's
 digestion are cumulative over time and are initially small.
 %%%%
+amulet of the acrobat
+
+An amulet that allows the user to tumble and roll to evade the blows of their
+enemies, but only while moving and waiting. While taking other actions the
+amulet conveys no benefits. In order to function, it must first attune itself to the wearer's body at full health.
+%%%%
 animal skin
 
 A large piece of thick skin covered in fur, cut from the corpse of an animal
@@ -798,10 +804,9 @@ on its degree of enchantment.
 %%%%
 ring of resist corrosion
 
-A ring that protects the wearer from acid damage and from corrosion caused by
-acids, although not infallibly so.
+A ring that provides partial protection from all sources of acid and corrosion.
 %%%%
-ring of loudness
+ring of attention
 
 A ring that makes the player less stealthy.
 %%%%

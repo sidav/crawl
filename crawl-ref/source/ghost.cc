@@ -651,10 +651,6 @@ spell_type ghost_demon::translate_spell(spell_type spell) const
     {
     case SPELL_CONTROLLED_BLINK:
         return SPELL_BLINK;        // approximate
-#if TAG_MAJOR_VERSION == 34
-    case SPELL_DELAYED_FIREBALL:
-        return SPELL_FIREBALL;
-#endif
     case SPELL_DRAGON_CALL:
         return SPELL_SUMMON_DRAGON;
     case SPELL_SWIFTNESS:
@@ -666,11 +662,11 @@ spell_type ghost_demon::translate_spell(spell_type spell) const
     return spell;
 }
 
-const vector<ghost_demon> ghost_demon::find_ghosts()
+const vector<ghost_demon> ghost_demon::find_ghosts(bool include_player)
 {
     vector<ghost_demon> gs;
 
-    if (you.undead_state(false) == US_ALIVE)
+    if (include_player && you.undead_state(false) == US_ALIVE)
     {
         ghost_demon player;
         player.init_player_ghost();
@@ -697,7 +693,7 @@ void ghost_demon::find_transiting_ghosts(
             if (i->mons.type == MONS_PLAYER_GHOST)
             {
                 const monster& m = i->mons;
-                if (m.ghost.get())
+                if (m.ghost && !m.props.exists(MIRRORED_GHOST_KEY))
                 {
                     announce_ghost(*m.ghost);
                     gs.push_back(*m.ghost);
@@ -718,7 +714,9 @@ void ghost_demon::find_extra_ghosts(vector<ghost_demon> &gs)
 {
     for (monster_iterator mi; mi; ++mi)
     {
-        if (mi->type == MONS_PLAYER_GHOST && mi->ghost.get())
+        if (mi->type == MONS_PLAYER_GHOST
+            && mi->ghost
+            && !mi->props.exists(MIRRORED_GHOST_KEY))
         {
             // Bingo!
             announce_ghost(*(mi->ghost));

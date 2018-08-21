@@ -9,6 +9,7 @@
 
 #include "command-type.h"
 #include "disable-type.h"
+#include "end.h"
 #include "game-exit-type.h"
 #include "player.h"
 
@@ -45,7 +46,8 @@ struct game_state
     time_t last_winch;       // Time of last resize, for crash dumps.
 
     bool io_inited;         // Is curses or the equivalent initialised?
-    bool need_save;         // Set to true when game has started.
+    bool need_save;         // Set to true when game can be saved, false when the game ends.
+    bool game_started;      // Set to true when a game has started.
     bool saving_game;       // Set to true while in save_game.
     bool updating_scores;   // Set to true while updating hiscores.
     const char* no_gdb;     // reason for not running gdb
@@ -61,7 +63,7 @@ struct game_state
 
     game_type type;
     game_type last_type;
-    game_exit last_game_exit;
+    game_ended_condition last_game_exit;
     bool marked_as_won;
     bool arena_suspended;   // Set if the arena has been temporarily
                             // suspended.
@@ -99,7 +101,7 @@ struct game_state
     int             lua_calls_no_turn;
     bool            stat_gain_prompt;
 
-    vector<string> startup_errors;
+    bool            simulating_xp_gain; // is the skill menu in xp potion mode?
 
     bool level_annotation_shown;
     bool viewport_monster_hp;
@@ -128,6 +130,11 @@ struct game_state
     // character has been loaded from a previous save.
     std::string save_rcs_version;
 
+    string default_startup_name;
+
+    // Should flushing a nonempty key buffer error or crash? Used for tests.
+    bool nonempty_buffer_flush_errors;
+
 protected:
     void reset_cmd_repeat();
     void reset_cmd_again();
@@ -144,7 +151,6 @@ public:
     void reset_game();
 
     void add_startup_error(const string &error);
-    void show_startup_errors();
 
     bool is_replaying_keys() const;
 

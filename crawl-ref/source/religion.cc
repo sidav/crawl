@@ -185,7 +185,6 @@ const vector<god_power> god_powers[NUM_GODS] =
       { 4, ABIL_TROG_BROTHERS_IN_ARMS, "call in reinforcements" },
       { 5, "Trog will gift you weapons as you gain piety.",
            "Trog will no longer gift you weapons." },
-      {-1, ABIL_TROG_BURN_SPELLBOOKS, "call upon Trog to burn spellbooks in your surroundings" },
     },
 
     // Nemelex
@@ -236,8 +235,8 @@ const vector<god_power> god_powers[NUM_GODS] =
     // Fedhas
     {
       { 0, ABIL_FEDHAS_FUNGAL_BLOOM, "turn corpses into toadstools" },
-      { 1, ABIL_FEDHAS_EVOLUTION, "induce evolution" },
-      { 2, ABIL_FEDHAS_SUNLIGHT, "call sunshine" },
+      { 1, ABIL_FEDHAS_SUNLIGHT, "call sunshine" },
+      { 2, ABIL_FEDHAS_EVOLUTION, "induce evolution" },
       { 3, ABIL_FEDHAS_PLANT_RING, "cause a ring of plants to grow" },
       { 4, ABIL_FEDHAS_SPAWN_SPORES, "spawn explosive spores" },
       { 5, ABIL_FEDHAS_RAIN, "control the weather" },
@@ -268,9 +267,9 @@ const vector<god_power> god_powers[NUM_GODS] =
 
     // Dithmenos
     { { 2, ABIL_DITHMENOS_SHADOW_STEP, "step into the shadows of nearby creatures" },
-      { 3, "You now sometimes bleed smoke when heavily injured by enemies.",
+      { 3, "You sometimes bleed smoke when heavily injured by enemies.",
            "You no longer bleed smoke." },
-      { 4, "Your shadow now sometimes tangibly mimics your actions.",
+      { 4, "Your shadow sometimes tangibly mimics your actions.",
            "Your shadow no longer tangibly mimics your actions." },
       { 5, ABIL_DITHMENOS_SHADOW_FORM, "transform into a swirling mass of shadows" },
     },
@@ -393,7 +392,8 @@ bool is_evil_god(god_type god)
            || god == GOD_MAKHLEB
            || god == GOD_YREDELEMNUL
            || god == GOD_BEOGH
-           || god == GOD_LUGONU;
+           || god == GOD_LUGONU
+           || god == GOD_DITHMENOS;
 }
 
 bool is_good_god(god_type god)
@@ -1087,7 +1087,6 @@ void vehumet_accept_gift(spell_type spell)
     if (vehumet_is_offering(spell))
     {
         you.vehumet_gifts.erase(spell);
-        you.seen_spell.set(spell);
         you.duration[DUR_VEHUMET_GIFT] = 0;
     }
 }
@@ -1132,11 +1131,12 @@ static set<spell_type> _vehumet_eligible_gift_spells(set<spell_type> excluded_sp
 
         if (vehumet_supports_spell(spell)
             && !you.has_spell(spell)
+            && !you.spell_library[spell]
             && is_player_spell(spell)
             && spell_difficulty(spell) <= max_level
             && spell_difficulty(spell) >= min_level)
         {
-            if (!you.seen_spell[spell] && !_is_old_gift(spell))
+            if (!_is_old_gift(spell))
                 eligible_spells.insert(spell);
             else
                 backup_spells.insert(spell);
@@ -1505,11 +1505,6 @@ static bool _gift_sif_kiku_gift(bool forced)
         }
         if (thing_created == NON_ITEM)
             return false;
-
-        // Mark the book type as known to avoid duplicate
-        // gifts if players don't read their gifts for some
-        // reason.
-        mark_had_book(gift);
 
         move_item_to_grid(&thing_created, you.pos(), true);
 
@@ -2180,6 +2175,7 @@ void god_speaks(god_type god, const char *mesg)
 
     monster fake_mon;
     fake_mon.type       = MONS_PROGRAM_BUG;
+    fake_mon.mid        = MID_NOBODY;
     fake_mon.hit_points = 1;
     fake_mon.god        = god;
     fake_mon.set_position(you.pos());
@@ -2396,9 +2392,9 @@ static void _gain_piety_point()
                                "Slime Pits.");
             dlua.callfn("dgn_set_persistent_var", "sb",
                         "fix_slime_vaults", true);
-            // If we're on Slime:6, pretend we just entered the level
+            // If we're on Slime:$, pretend we just entered the level
             // in order to bring down the vault walls.
-            if (level_id::current() == level_id(BRANCH_SLIME, 6))
+            if (level_id::current() == level_id(BRANCH_SLIME, brdepth[BRANCH_SLIME]))
                 dungeon_events.fire_event(DET_ENTERED_LEVEL);
 
             you.one_time_ability_used.set(you.religion);
@@ -3745,54 +3741,13 @@ void god_pitch(god_type which_god)
         return;
     }
 
-#ifdef USE_TILE_WEB
-    tiles_crt_control show_as_menu(CRT_MENU, "god_pitch");
-#endif
-
-    describe_god(which_god, false);
-
-    string service_fee = "";
-    if (which_god == GOD_GOZAG)
-    {
-        if (fee == 0)
-        {
-            service_fee = string("Gozag will waive the service fee if you ")
-                          + random_choose("act now", "join today") + "!\n";
-        }
-        else
-        {
-            service_fee = make_stringf(
-                    "The service fee for joining is currently %d gold; you"
-                    " have %d.\n",
-                    fee, you.gold);
-        }
-    }
-    const string prompt = make_stringf("%sDo you wish to %sjoin this religion?",
-                                       service_fee.c_str(),
-                                       (you.worshipped[which_god]) ? "re" : "");
-
-    cgotoxy(1, 21, GOTO_CRT);
-    textcolour(channel_to_colour(MSGCH_PROMPT));
-    if (!yesno(prompt.c_str(), false, 'n', true, true, false, nullptr, GOTO_CRT))
-    {
-        you.turn_is_over = false; // Okay, opt out.
-        redraw_screen();
-        return;
-    }
-
-    const string abandon = make_stringf("Are you sure you want to abandon %s?",
-                                        god_name(you.religion).c_str());
-    if (!you_worship(GOD_NO_GOD) && !yesno(abandon.c_str(), false, 'n', true,
-                                           true, false, nullptr, GOTO_CRT))
+    if (describe_god_with_join(which_god))
+        join_religion(which_god);
+    else
     {
         you.turn_is_over = false;
-        canned_msg(MSG_OK);
         redraw_screen();
-        return;
     }
-
-    // OK, so join the new religion.
-    join_religion(which_god);
 }
 
 /** Ask the user for a god by name.
@@ -3952,10 +3907,6 @@ bool god_hates_spell(spell_type spell, god_type god, bool fake_spell)
         if (is_hasty_spell(spell))
             return true;
         break;
-    case GOD_DITHMENOS:
-        if (is_fiery_spell(spell))
-            return true;
-        break;
     case GOD_PAKELLAS:
         if (spell == SPELL_SUBLIMATION_OF_BLOOD)
             return true;
@@ -4007,11 +3958,6 @@ bool god_hates_ability(ability_type ability, god_type god)
 {
     switch (ability)
     {
-        case ABIL_BREATHE_FIRE:
-#if TAG_MAJOR_VERSION == 34
-        case ABIL_DELAYED_FIREBALL:
-            return god == GOD_DITHMENOS;
-#endif
         case ABIL_EVOKE_BERSERK:
             return god == GOD_CHEIBRIADOS;
         default:

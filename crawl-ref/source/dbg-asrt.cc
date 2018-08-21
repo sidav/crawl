@@ -486,8 +486,9 @@ static void _debug_dump_markers()
         if (marker == nullptr || marker->get_type() == MAT_LUA_MARKER)
             continue;
 
-        mprf(MSGCH_DIAGNOSTICS, "Marker %d at (%d, %d): %s",
-             i, marker->pos.x, marker->pos.y,
+        mprf(MSGCH_DIAGNOSTICS, "Marker #%d, type %d at (%d, %d): %s",
+             i, marker->get_type(),
+             marker->pos.x, marker->pos.y,
              marker->debug_describe().c_str());
     }
 }
@@ -583,7 +584,7 @@ static void _dump_options(FILE *file)
     fprintf(file, "\n\n");
 }
 
-// Defined in stuff.cc. Not a part of crawl_state, since that's a
+// Defined in end.cc. Not a part of crawl_state, since that's a
 // global C++ instance which is free'd by exit() hooks when exit()
 // is called, and we don't want to reference free'd memory.
 extern bool CrawlIsExiting;
@@ -601,7 +602,7 @@ void do_crash_dump()
 
         _dump_ver_stuff(stderr);
 
-        dump_crash_info(stderr);
+        fprintf(stderr, "%s\n\n", crash_signal_info().c_str());
         write_stack_trace(stderr, 0);
         call_gdb(stderr);
 
@@ -623,8 +624,11 @@ void do_crash_dump()
     snprintf(name, sizeof(name), "%scrash-%s-%s.txt", dir.c_str(),
             you.your_name.c_str(), make_file_time(t).c_str());
 
-    if (!crawl_state.test && !_assert_msg.empty())
-        fprintf(stderr, "\n%s", _assert_msg.c_str());
+    const string signal_info = crash_signal_info();
+    const string cause_msg = _assert_msg.empty() ? signal_info : _assert_msg;
+
+    if (!crawl_state.test && !cause_msg.empty())
+        fprintf(stderr, "\n%s", cause_msg.c_str());
     // This message is parsed by the WebTiles server.
     fprintf(stderr,
             "\n\nWe crashed! This is likely due to a bug in Crawl. "
@@ -653,8 +657,8 @@ void do_crash_dump()
 
     set_msg_dump_file(file);
 
-    if (!_assert_msg.empty())
-        fprintf(file, "%s\n\n", _assert_msg.c_str());
+    if (!cause_msg.empty())
+        fprintf(file, "%s\n\n", cause_msg.c_str());
 
     _dump_ver_stuff(file);
 
@@ -665,7 +669,8 @@ void do_crash_dump()
     // First get the immediate cause of the crash and the stack trace,
     // since that's most important and later attempts to get more information
     // might themselves cause crashes.
-    dump_crash_info(file);
+    if (!signal_info.empty())
+        fprintf(file, "%s\n\n", signal_info.c_str());
     write_stack_trace(file, 0);
     fprintf(file, "\n");
 
@@ -699,6 +704,7 @@ void do_crash_dump()
 
     // Dumping the player state and crawl state is next least likely to cause
     // another crash, so do that next.
+    fprintf(file, "\nVersion history:\n%s\n", Version::history().c_str());
     crawl_state.dump();
     _dump_player(file);
 
@@ -750,7 +756,7 @@ void do_crash_dump()
 
     set_msg_dump_file(nullptr);
 
-    mark_milestone("crash", _assert_msg, "", t);
+    mark_milestone("crash", cause_msg, "", t);
 
     if (file != stderr)
         fclose(file);
@@ -823,7 +829,7 @@ NORETURN void AssertFailed(const char *expr, const char *file, int line,
         vsnprintf(detail, sizeof(detail), text, args);
         va_end(args);
         // Build the final result
-        char final_mesg[1024];
+        char final_mesg[1026];
         snprintf(final_mesg, sizeof(final_mesg), "%s (%s)", mesg, detail);
         _assert_msg = final_mesg;
         _BreakStrToDebugger(final_mesg, true);
@@ -840,7 +846,7 @@ NORETURN void AssertFailed(const char *expr, const char *file, int line,
 NORETURN void die(const char *file, int line, const char *format, ...)
 {
     char tmp[2048] = {};
-    char mesg[2048] = {};
+    char mesg[2071] = {};
 
     va_list args;
 
@@ -859,7 +865,7 @@ NORETURN void die(const char *file, int line, const char *format, ...)
 NORETURN void die_noline(const char *format, ...)
 {
     char tmp[2048] = {};
-    char mesg[2048] = {};
+    char mesg[2055] = {};
 
     va_list args;
 

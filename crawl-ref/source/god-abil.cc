@@ -59,6 +59,7 @@
 #include "mon-poly.h"
 #include "mon-tentacle.h"
 #include "mon-util.h"
+#include "movement.h"
 #include "mutation.h"
 #include "notes.h"
 #include "ouch.h"
@@ -76,9 +77,9 @@
 #include "spl-goditem.h"
 #include "spl-monench.h"
 #include "spl-summoning.h"
-#include "spl-wpnench.h"
 #include "spl-transloc.h"
 #include "spl-util.h"
+#include "spl-wpnench.h"
 #include "sprint.h"
 #include "state.h"
 #include "stringutil.h"
@@ -620,7 +621,7 @@ static int _heretic_recite_weakness(const monster *mon)
         && !(mon->has_ench(ENCH_DUMB) || mons_is_confused(*mon)))
     {
         // In the eyes of Zin, everyone is a sinner until proven otherwise!
-            degree++;
+        degree++;
 
         // Any priest is a heretic...
         if (mon->is_priest())
@@ -745,13 +746,6 @@ bool zin_check_able_to_recite(bool quiet)
     {
         if (!quiet)
             mpr("You're not ready to recite again yet.");
-        return false;
-    }
-
-    if (you.duration[DUR_WATER_HOLD] && !you.res_water_drowning())
-    {
-        if (!quiet)
-            mpr("You cannot recite while unable to breathe!");
         return false;
     }
 
@@ -1469,114 +1463,6 @@ bool vehumet_supports_spell(spell_type spell)
     return false;
 }
 
-// Returns false if the invocation fails (no spellbooks in sight, etc.).
-bool trog_burn_spellbooks()
-{
-    if (!you_worship(GOD_TROG))
-        return false;
-
-    god_acting gdact;
-
-    // XXX: maybe this should be allowed with less than immunity.
-    if (player_res_fire(false) <= 3)
-    {
-        for (stack_iterator si(you.pos()); si; ++si)
-        {
-            if (item_is_spellbook(*si))
-            {
-                mprf("Burning your own %s might not be such a smart idea!",
-                        you.foot_name(true).c_str());
-                return false;
-            }
-        }
-    }
-
-    int totalpiety = 0;
-    int totalblocked = 0;
-    vector<coord_def> mimics;
-
-    for (radius_iterator ri(you.pos(), LOS_NO_TRANS); ri; ++ri)
-    {
-        cloud_struct* cloud = cloud_at(*ri);
-        int count = 0;
-        for (stack_iterator si(*ri); si; ++si)
-        {
-            if (!item_is_spellbook(*si))
-                continue;
-
-            // If a grid is blocked, books lying there will be ignored.
-            // Allow bombing of monsters.
-            if (cell_is_solid(*ri)
-                || cloud && cloud->type != CLOUD_FIRE)
-            {
-                totalblocked++;
-                continue;
-            }
-
-            if (si->flags & ISFLAG_MIMIC)
-            {
-                totalblocked++;
-                mimics.push_back(*ri);
-                continue;
-            }
-
-            // Ignore {!D} inscribed books.
-            if (!check_warning_inscriptions(*si, OPER_DESTROY))
-            {
-                mpr("Won't ignite {!D} inscribed spellbook.");
-                continue;
-            }
-
-            totalpiety += 2;
-            item_was_destroyed(*si);
-            destroy_item(si.index());
-            count++;
-        }
-
-        if (count)
-        {
-            if (cloud)
-            {
-                // Reinforce the cloud.
-                mpr("The fire blazes with new energy!");
-                const int extra_dur = count + random2(6);
-                cloud->decay += extra_dur * 5;
-                cloud->set_whose(KC_YOU);
-                continue;
-            }
-
-            const int duration = min(4 + count + random2(6), 20);
-            place_cloud(CLOUD_FIRE, *ri, duration, &you);
-
-            mprf(MSGCH_GOD, "The spellbook%s burst%s into flames.",
-                 count == 1 ? ""  : "s",
-                 count == 1 ? "s" : "");
-        }
-    }
-
-    if (totalpiety)
-    {
-        simple_god_message(" is delighted!", GOD_TROG);
-        gain_piety(totalpiety);
-    }
-    else if (totalblocked)
-    {
-        mprf("The spellbook%s fail%s to ignite!",
-             totalblocked == 1 ? ""  : "s",
-             totalblocked == 1 ? "s" : "");
-        for (auto c : mimics)
-            discover_mimic(c);
-        return !mimics.empty();
-    }
-    else
-    {
-        mpr("You cannot see a spellbook to ignite!");
-        return false;
-    }
-
-    return true;
-}
-
 void trog_do_trogs_hand(int pow)
 {
     you.increase_duration(DUR_TROGS_HAND,
@@ -1851,6 +1737,18 @@ bool yred_injury_mirror()
            && crawl_state.which_god_acting() != GOD_YREDELEMNUL;
 }
 
+bool yred_can_enslave_soul(monster* mon)
+{
+    return (mon->holiness() & MH_NATURAL
+            || mon->holiness() & MH_DEMONIC
+            || mon->holiness() & MH_HOLY)
+           && !mon->is_summoned()
+           && !mons_enslaved_body_and_soul(*mon)
+           && mon->attitude != ATT_FRIENDLY
+           && mons_intel(*mon) >= I_HUMAN
+           && mon->type != MONS_PANDEMONIUM_LORD;
+}
+
 void yred_make_enslaved_soul(monster* mon, bool force_hostile)
 {
     ASSERT(mon); // XXX: change to monster &mon
@@ -1885,7 +1783,8 @@ void yred_make_enslaved_soul(monster* mon, bool force_hostile)
             convert2bad(*wpn);
         }
     }
-    monster_drop_things(mon, false, is_holy_item);
+    monster_drop_things(mon, false, [](const item_def& item)
+                                    { return is_holy_item(item); });
     mon->remove_avatars();
 
     const monster orig = *mon;
@@ -3409,8 +3308,9 @@ spret_type fedhas_evolve_flora(bool fail)
 
         return SPRET_ABORT;
     }
-
-    monster_conversion upgrade = *map_find(conversions, plant->type);
+    auto upgrade_ptr = map_find(conversions, plant->type);
+    ASSERT(upgrade_ptr);
+    monster_conversion upgrade = *upgrade_ptr;
 
     vector<pair<int, int> > collected_rations;
     if (upgrade.ration_cost)
@@ -4196,7 +4096,7 @@ static int _gozag_max_shops()
     const int max_non_food_shops = 3;
 
     // add a food shop if you can eat (non-mu/dj)
-    if (!you_foodless_normally())
+    if (!you_foodless(false))
         return max_non_food_shops + 1;
     return max_non_food_shops;
 }
@@ -4294,7 +4194,7 @@ static void _setup_gozag_shop(int index, vector<shop_type> &valid_shops)
     ASSERT(!you.props.exists(make_stringf(GOZAG_SHOPKEEPER_NAME_KEY, index)));
 
     shop_type type = NUM_SHOPS;
-    if (index == 0 && !you_foodless_normally())
+    if (index == 0 && !you_foodless(false))
         type = SHOP_FOOD;
     else
     {
@@ -4441,13 +4341,11 @@ static void _gozag_place_shop(int index)
     ASSERT(grd(you.pos()) == DNGN_FLOOR);
     keyed_mapspec kmspec;
     kmspec.set_feat(_gozag_shop_spec(index), false);
-    if (!kmspec.get_feat().shop.get())
-        die("Invalid shop spec?");
 
     feature_spec feat = kmspec.get_feat();
-    shop_spec *spec = feat.shop.get();
-    ASSERT(spec);
-    place_spec_shop(you.pos(), *spec, you.experience_level);
+    if (!feat.shop)
+        die("Invalid shop spec?");
+    place_spec_shop(you.pos(), *feat.shop, you.experience_level);
 
     link_items();
     env.markers.add(new map_feature_marker(you.pos(), DNGN_ABANDONED_SHOP));
@@ -4935,6 +4833,7 @@ spret_type qazlal_elemental_force(bool fail)
     mg.summon_type = MON_SUMM_AID;
     mg.abjuration_duration = 1;
     mg.flags |= MG_FORCE_PLACE | MG_AUTOFOE;
+    mg.summoner = &you;
     int placed = 0;
     for (unsigned int i = 0; placed < count && i < targets.size(); i++)
     {
@@ -4943,7 +4842,12 @@ spret_type qazlal_elemental_force(bool fail)
         const cloud_struct &cl = *cloud_at(pos);
         mg.behaviour = BEH_FRIENDLY;
         mg.pos       = pos;
-        mg.cls = *map_find(elemental_clouds, cl.type);
+        auto mons_type = map_find(elemental_clouds, cl.type);
+        // it is not impossible that earlier placements caused new clouds not
+        // in the map.
+        if (!mons_type)
+            continue;
+        mg.cls = *mons_type;
         if (!create_monster(mg))
             continue;
         delete_cloud(pos);
@@ -5405,6 +5309,7 @@ int get_sacrifice_piety(ability_type sac, bool include_skill)
                 piety_gain += 20; // -health is pretty much always quite bad.
             else if (mut == MUT_PHYSICAL_VULNERABILITY)
                 piety_gain += 5; // -AC is a bit worse than -EV
+            break;
         case ABIL_RU_SACRIFICE_ESSENCE:
             if (mut == MUT_LOW_MAGIC)
             {
@@ -5950,6 +5855,8 @@ bool ru_do_sacrifice(ability_type sac)
     // get confirmation that the sacrifice is desired.
     if (!_execute_sacrifice(sac, offer_text.c_str()))
         return false;
+    // save piety gain, since sacrificing skills can lower the piety gain
+    const int piety_gain = _ru_get_sac_piety_gain(sac);
     // Apply the sacrifice, starting by mutating the player.
     if (variable_sac)
     {
@@ -6010,8 +5917,7 @@ bool ru_do_sacrifice(ability_type sac)
         you.props["num_sacrifice_muts"] = num_sacrifices;
 
     // Actually give the piety for this sacrifice.
-    set_piety(min(piety_breakpoint(5),
-                  you.piety + _ru_get_sac_piety_gain(sac)));
+    set_piety(min(piety_breakpoint(5), you.piety + piety_gain));
 
     if (you.piety == piety_breakpoint(5))
         simple_god_message(" indicates that your awakening is complete.");
@@ -7144,7 +7050,7 @@ bool wu_jian_can_wall_jump(const coord_def& target, string &error_ret)
 {
     if (target.distance_from(you.pos()) != 1)
     {
-        error_ret = "You can only wall jump against adjacent positions.";
+        error_ret = "Please select an adjacent position to wall jump against.";
         return false;
     }
 
@@ -7274,6 +7180,7 @@ bool wu_jian_do_wall_jump(coord_def targ, bool ability)
 bool wu_jian_wall_jump_ability()
 {
     // This needs to be kept in sync with direct walljumping via movement.
+    // TODO: Refactor to call the same code.
     ASSERT(!crawl_state.game_is_arena());
 
     if (crawl_state.is_repeating_cmd())
@@ -7283,6 +7190,16 @@ bool wu_jian_wall_jump_ability()
         crawl_state.cancel_cmd_repeat();
         return false;
     }
+
+    if (cancel_barbed_move())
+        return false;
+
+    if (you.digging)
+    {
+        you.digging = false;
+        mpr("You retract your mandibles.");
+    }
+
     string wj_error;
     bool has_targets = false;
 
@@ -7346,5 +7263,7 @@ bool wu_jian_wall_jump_ability()
     crawl_state.cancel_cmd_again();
     crawl_state.cancel_cmd_repeat();
 
+    apply_barbs_damage();
+    remove_ice_armour_movement();
     return true;
 }

@@ -48,6 +48,7 @@ vector<string> get_dir_files_recursive(const string &dirname,
                                        int recursion_depth = -1,
                                        bool include_directories = false);
 
+void validate_basedirs();
 string datafile_path(string basename, bool croak_on_fail = true,
                      bool test_base_path = false,
                      bool (*thing_exists)(const string&) = file_exists);
@@ -108,8 +109,10 @@ public:
     void go_to(const level_id &level);
 };
 
-void save_ghosts(const vector<ghost_demon> &ghosts, bool force = false);
+void save_ghosts(const vector<ghost_demon> &ghosts, bool force = false,
+                                                    bool use_store = true);
 bool load_ghosts(int max_ghosts, bool creating_level);
+bool define_ghost_from_bones(monster& mons);
 
 FILE *lk_open(const char *mode, const string &file);
 FILE *lk_open_exclusive(const string &file);

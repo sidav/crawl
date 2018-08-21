@@ -24,6 +24,7 @@
 #include "output.h"
 #include "prompt.h"
 #include "religion.h"
+#include "scroller.h"
 #include "stairs.h"
 #include "stringutil.h"
 #include "terrain.h"
@@ -609,14 +610,10 @@ bool unnotice_feature(const level_pos &pos)
 
 void display_overview()
 {
-    clrscr();
     string disp = overview_description_string(true);
-    linebreak_string(disp, get_number_of_cols());
-    int flags = MF_ANYPRINTABLE | MF_NOSELECT;
-    if (Options.easy_exit_menu)
-        flags |= MF_EASY_EXIT;
+    linebreak_string(disp, 80);
+    int flags = FS_PREWRAPPED_TEXT; // TODO: add ANYPRINTABLE
     formatted_scroller(flags, disp).show();
-    redraw_screen();
 }
 
 static void _seen_staircase(const coord_def& pos)
@@ -840,16 +837,19 @@ void set_unique_annotation(monster* mons, const level_id level)
 
 void remove_unique_annotation(monster* mons)
 {
+    if (mons->is_illusion()) // Fake monsters don't clear real annotations
+        return;
     set<level_id> affected_levels;
     string name = unique_name(mons);
     for (auto i = auto_unique_annotations.begin();
          i != auto_unique_annotations.end();)
     {
-        // Only remove player ghosts from the current level: they can't
-        // change levels, but there may be a different ghost with the same
-        // unique_name elsewhere.
+        // Only remove player ghosts from the current level or that you can see
+        // (e.g. following you on stairs): there may be a different ghost with
+        // the same unique_name elsewhere.
         if ((mons->type != MONS_PLAYER_GHOST
-             || i->second == level_id::current())
+             || i->second == level_id::current()
+             || you.can_see(*mons) && testbits(mons->flags, MF_TAKING_STAIRS))
             && i->first == name)
         {
             affected_levels.insert(i->second);

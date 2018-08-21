@@ -133,7 +133,7 @@ static bool _fill_out_corpse(const monster& mons, item_def& corpse)
     if (col == COLOUR_UNDEF)
     {
         // XXX hack to avoid crashing in wiz mode.
-        if (mons_is_ghost_demon(mons.type) && !mons.ghost.get())
+        if (mons_is_ghost_demon(mons.type) && !mons.ghost)
             col = LIGHTRED;
         else
         {
@@ -362,15 +362,15 @@ static void _give_player_experience(int experience, killer_type killer,
     LevelXPInfo& curr_xp_info = you.get_level_xp_info();
     LevelXPInfo xp_delta;
 
-    if (xp_tracking == XP_SPAWNED)
+    if (xp_tracking == XP_NON_VAULT)
     {
-        xp_delta.spawn_xp += exp_gain;
-        xp_delta.spawn_count++;
+        xp_delta.non_vault_xp += exp_gain;
+        xp_delta.non_vault_count++;
     }
-    else if (xp_tracking == XP_GENERATED)
+    else if (xp_tracking == XP_VAULT)
     {
-        xp_delta.generated_xp += exp_gain;
-        xp_delta.generated_count++;
+        xp_delta.vault_xp += exp_gain;
+        xp_delta.vault_count++;
     }
 
     you.global_xp_info += xp_delta;
@@ -491,13 +491,16 @@ static void _create_monster_hide(const item_def &corpse, bool silent)
     }
 
     move_item_to_grid(&o, pos);
-    if (you.see_cell(pos) && !silent)
+
+    // Don't display this message if the scales were dropped over
+    // lava/deep water, because then they are hardly intact.
+    if (you.see_cell(pos) && !silent && !feat_eliminates_items(grd(pos)))
     {
         // XXX: tweak for uniques/named monsters, somehow?
         mprf("%s %s intact enough to wear.",
              item.name(DESC_THE).c_str(),
              mons_genus(mtyp) == MONS_DRAGON ? "are"  // scales are
-                                             : "is"); // hide is
+                                             : "is"); // troll armour is
                                                       // XXX: refactor
     }
 
@@ -1823,12 +1826,6 @@ static void _fire_kill_conducts(monster &mons, killer_type killer,
     // Cheibriados hates fast monsters.
     if (cheibriados_thinks_mons_is_fast(mons) && !mons.cannot_move())
         did_kill_conduct(DID_KILL_FAST, mons);
-
-    // Dithmenos hates sources of fire.
-    // (This is *after* the holy so that the right order of
-    //  messages appears.)
-    if (mons_is_fiery(mons))
-        did_kill_conduct(DID_KILL_FIERY, mons);
 }
 
 item_def* monster_die(monster& mons, const actor *killer, bool silent,
@@ -2348,7 +2345,7 @@ item_def* monster_die(monster& mons, killer_type killer,
                 // perhaps this should go to its own function
                 if (mp_heal
                     && have_passive(passive_t::bottle_mp)
-                    && !you_foodless_normally())
+                    && !you_foodless(false))
                 {
                     simple_god_message(" collects the excess magic power.");
                     you.attribute[ATTR_PAKELLAS_EXTRA_MP] -= mp_heal;
@@ -3347,8 +3344,11 @@ monster* mons_find_elven_twin_of(const monster* mons)
 void elven_twin_died(monster* twin, bool in_transit, killer_type killer, int killer_index)
 {
     // Sometimes, if you pacify one twin near a staircase, they leave
-    // in the same turn. Convert, in those instances.
-    if (twin->neutral() && !twin->has_ench(ENCH_INSANE))
+    // in the same turn. Convert, in those instances. The strict_neutral check
+    // is intended to cover the slimify case, we don't want to pacify the other
+    // if a slimified twin dies.
+    if (twin->neutral() && !twin->has_ench(ENCH_INSANE)
+                                                    && !twin->strict_neutral())
     {
         elven_twins_pacify(twin);
         return;
@@ -3360,7 +3360,7 @@ void elven_twin_died(monster* twin, bool in_transit, killer_type killer, int kil
         return;
 
     // Don't consider already neutralised monsters.
-    if (mons->good_neutral())
+    if (mons->good_neutral() || mons->strict_neutral())
         return;
 
     // Okay, let them climb stairs now.
@@ -3410,8 +3410,15 @@ void elven_twin_died(monster* twin, bool in_transit, killer_type killer, int kil
 
     // Upgrade the spellbook here, as elven_twin_energize
     // may not be called due to lack of visibility.
-    if (mons_is_mons_class(mons, MONS_DOWAN))
+    if (mons_is_mons_class(mons, MONS_DOWAN)
+                                        && !(mons->flags & MF_POLYMORPHED))
     {
+        // Don't mess with Dowan's spells if he's been polymorphed: most
+        // possible forms have no spells, and the few that do (e.g. boggart)
+        // have way more fun spells than this. If this ever changes, the
+        // following code would need to be rewritten, as it'll crash.
+        // TODO: this is a fairly brittle way of upgrading Dowan...
+        ASSERT(mons->spells.size() >= 5);
         mons->spells[0].spell = SPELL_STONE_ARROW;
         mons->spells[1].spell = SPELL_THROW_ICICLE;
         mons->spells[3].spell = SPELL_BLINK;
@@ -3485,9 +3492,10 @@ void elven_twins_unpacify(monster* twin)
     if (!mons)
         return;
 
-    // Don't consider already neutralised monsters.
+    // Don't consider already un-neutralised monsters.
     if (!mons->neutral() || mons->has_ench(ENCH_INSANE))
         return;
+    simple_monster_message(*mons, " gets angry again!");
 
     behaviour_event(mons, ME_WHACK, &you, you.pos(), false);
 }

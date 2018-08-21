@@ -211,6 +211,16 @@ int getchk()
     return c;
 }
 
+/**
+ * As far as I know we don't really need to implement this.
+ * Not even sure if the UNUSED(rr) thing is important either.
+ */
+static bool getch_returns_resizes;
+void set_getch_returns_resizes(bool rr)
+{
+    UNUSED(rr);
+}
+
 int m_getch()
 {
     int c;

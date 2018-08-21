@@ -99,10 +99,11 @@ void formatted_string::parse_string_to_multiple(const string &s,
         vector<string> pre_split = move(lines);
         for (string &line : pre_split)
         {
-            if (line.empty())
-                lines.emplace_back(" ");
-            while (!line.empty())
+            do
+            {
                 lines.push_back(wordwrap_line(line, wrap_col, true, true));
+            }
+            while (!line.empty());
         }
     }
 
@@ -424,6 +425,47 @@ formatted_string formatted_string::chop(int length) const
     }
 
     return result;
+}
+
+formatted_string formatted_string::chop_bytes(int length) const
+{
+    return substr_bytes(0, length);
+}
+
+formatted_string formatted_string::substr_bytes(int pos, int length) const
+{
+    formatted_string result;
+    fs_op initial(LIGHTGREY);
+    for (const fs_op& op : ops)
+    {
+        if (op.type == FSOP_TEXT)
+        {
+            int n = op.text.size();
+            if (pos >= n)
+            {
+                pos -= n;
+                continue;
+            }
+            if (result.empty())
+                result.ops.push_back(initial);
+            result.ops.push_back(fs_op(op.text.substr(pos, length)));
+            string& new_string = result.ops[result.ops.size()-1].text;
+            pos = 0;
+            length -= new_string.size();
+            if (length <= 0)
+                break;
+        }
+        else if (pos == 0)
+            result.ops.push_back(op);
+        else
+            initial = op;
+    }
+    return result;
+}
+
+formatted_string formatted_string::trim() const
+{
+    return parse_string(trimmed_string(to_colour_string()));
 }
 
 void formatted_string::del_char()

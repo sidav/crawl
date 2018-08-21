@@ -284,6 +284,8 @@ static void _translate_event(const SDL_MouseMotionEvent &sdl_event,
     tile_event.button = MouseEvent::NONE;
     tile_event.px     = sdl_event.x;
     tile_event.py     = sdl_event.y;
+    tile_event.held   = wm->get_mouse_state(nullptr, nullptr);
+    tile_event.mod    = wm->get_mod_state();
 
     // TODO: enne - do we want the relative motion?
 }
@@ -312,14 +314,16 @@ static void _translate_event(const SDL_MouseButtonEvent &sdl_event,
     }
     tile_event.px = sdl_event.x;
     tile_event.py = sdl_event.y;
+    tile_event.held = wm->get_mouse_state(nullptr, nullptr);
+    tile_event.mod = wm->get_mod_state();
 }
 
 static void _translate_wheel_event(const SDL_MouseWheelEvent &sdl_event,
                                    MouseEvent &tile_event)
 {
     tile_event.held  = MouseEvent::NONE;
-    tile_event.event = MouseEvent::PRESS; // XXX
-    tile_event.button = (sdl_event.y > 0) ? MouseEvent::SCROLL_DOWN
+    tile_event.event = MouseEvent::WHEEL;
+    tile_event.button = (sdl_event.y < 0) ? MouseEvent::SCROLL_DOWN
                                           : MouseEvent::SCROLL_UP;
     tile_event.px = sdl_event.x;
     tile_event.py = sdl_event.y;
@@ -328,10 +332,14 @@ static void _translate_wheel_event(const SDL_MouseWheelEvent &sdl_event,
 SDLWrapper::SDLWrapper():
     m_window(nullptr), m_context(nullptr), prev_keycode(0)
 {
+    m_cursors.fill(nullptr);
 }
 
 SDLWrapper::~SDLWrapper()
 {
+    for (const auto& cursor : m_cursors)
+        if (cursor)
+            SDL_FreeCursor(cursor);
     if (m_context)
         SDL_GL_DeleteContext(m_context);
     if (m_window)
@@ -509,14 +517,22 @@ void SDLWrapper::set_window_title(const char *title)
 
 bool SDLWrapper::set_window_icon(const char* icon_name)
 {
-    SDL_Surface *surf =load_image(datafile_path(icon_name, true, true).c_str());
+    string icon_path = datafile_path(icon_name, false, true);
+    if (!icon_path.size())
+    {
+        mprf(MSGCH_ERROR, "Unable to find window icon '%s'", icon_name);
+        return false;
+    }
+
+    SDL_Surface *surf = load_image(icon_path.c_str());
     if (!surf)
     {
 #ifdef __ANDROID__
         __android_log_print(ANDROID_LOG_INFO, "Crawl",
                             "Failed to load icon: %s", SDL_GetError());
 #endif
-        printf("Failed to load icon: %s\n", SDL_GetError());
+        mprf(MSGCH_ERROR, "Failed to load icon '%s': %s\n", icon_path.c_str(),
+                                                                SDL_GetError());
         return false;
     }
     SDL_SetWindowIcon(m_window, surf);
@@ -647,6 +663,48 @@ void SDLWrapper::set_mod_state(tiles_key_mod mod)
     SDL_SetModState(set_to);
 }
 
+void SDLWrapper::set_mouse_cursor(mouse_cursor_type type)
+{
+    SDL_Cursor *cursor = m_cursors[type];
+
+    if (!cursor)
+    {
+        SDL_SystemCursor sdl_cursor_id;
+        switch (type)
+        {
+            case MOUSE_CURSOR_ARROW:
+                sdl_cursor_id = SDL_SYSTEM_CURSOR_ARROW;
+                break;
+            case MOUSE_CURSOR_POINTER:
+                sdl_cursor_id = SDL_SYSTEM_CURSOR_HAND;
+                break;
+            default:
+                die("bad mouse cursor type");
+        }
+        cursor = m_cursors[type] = SDL_CreateSystemCursor(sdl_cursor_id);
+        if (!cursor)
+        {
+            printf("Failed to create cursor: %s\n", SDL_GetError());
+            return;
+        }
+    }
+
+    SDL_SetCursor(cursor);
+}
+
+unsigned short SDLWrapper::get_mouse_state(int *x, int *y) const
+{
+    Uint32 state = SDL_GetMouseState(x, y);
+    unsigned short ret = 0;
+    if (state & SDL_BUTTON(SDL_BUTTON_LEFT))
+        ret |= MouseEvent::LEFT;
+    if (state & SDL_BUTTON(SDL_BUTTON_RIGHT))
+        ret |= MouseEvent::RIGHT;
+    if (state & SDL_BUTTON(SDL_BUTTON_MIDDLE))
+        ret |= MouseEvent::MIDDLE;
+    return ret;
+}
+
 static char32_t _key_suppresses_textinput(int keycode)
 {
     char result_char = 0;
@@ -699,10 +757,41 @@ static char32_t _key_suppresses_textinput(int keycode)
     return result;
 }
 
-int SDLWrapper::wait_event(wm_event *event)
+int SDLWrapper::send_textinput(wm_event *event)
+{
+    event->type = WME_KEYDOWN;
+    do
+    {
+        // pop a key off the input queue
+        char32_t wc;
+        int wc_bytelen = utf8towc(&wc, m_textinput_queue.c_str());
+        m_textinput_queue.erase(0, wc_bytelen);
+
+        if (prev_keycode && _key_suppresses_textinput(prev_keycode) == wc)
+        {
+            // this needs to return something, or the event loop in
+            // TilesFramework::getch_ck will block. Currently, CK_NO_KEY
+            // is handled in macro.cc:_getch_mul.
+            prev_keycode = 0;
+            if (!m_textinput_queue.empty())
+                continue;
+            event->key.keysym.sym = CK_NO_KEY;
+            return 1;
+        }
+        event->key.keysym.sym = wc;
+    }
+    while (false);
+    return 1;
+}
+
+int SDLWrapper::wait_event(wm_event *event, int timeout)
 {
     SDL_Event sdlevent;
-    if (!SDL_WaitEvent(&sdlevent))
+
+    if (!m_textinput_queue.empty())
+        return send_textinput(event);
+
+    if (!SDL_WaitEventTimeout(&sdlevent, timeout))
         return 0;
 
     if (sdlevent.type != SDL_TEXTINPUT)
@@ -750,21 +839,9 @@ int SDLWrapper::wait_event(wm_event *event)
         break;
     case SDL_TEXTINPUT:
     {
-        event->type = WME_KEYPRESS;
-        // XXX: handle multiple keys?
-        char32_t wc;
-        utf8towc(&wc, sdlevent.text.text);
-        if (prev_keycode && _key_suppresses_textinput(prev_keycode) == wc)
-        {
-            // this needs to return something, or the event loop in
-            // TilesFramework::getch_ck will block. Currently, CK_NO_KEY
-            // is handled in macro.cc:_getch_mul.
-            prev_keycode = 0;
-            event->key.keysym.sym = CK_NO_KEY;
-            return 1;
-        }
-        event->key.keysym.sym = wc;
-        break;
+        ASSERT(m_textinput_queue.empty());
+        m_textinput_queue = string(sdlevent.text.text);
+        return send_textinput(event);
     }
     case SDL_MOUSEMOTION:
         event->type = WME_MOUSEMOTION;
@@ -779,7 +856,7 @@ int SDLWrapper::wait_event(wm_event *event)
         _translate_event(sdlevent.button, event->mouse_event);
         break;
     case SDL_MOUSEWHEEL:
-        event->type = WME_MOUSEBUTTONDOWN; // XXX
+        event->type = WME_MOUSEWHEEL;
         _translate_wheel_event(sdlevent.wheel, event->mouse_event);
         break;
     case SDL_QUIT:
@@ -831,6 +908,11 @@ void SDLWrapper::delay(unsigned int ms)
 
 unsigned int SDLWrapper::get_event_count(wm_event_type type)
 {
+    // check for enqueued characters from a multi-char textinput event
+    // count is floored to 1 for consistency with other event types
+    if (type == WME_KEYDOWN && m_textinput_queue.size() > 0)
+        return 1;
+
     // Look for the presence of any keyboard events in the queue.
     Uint32 event;
     switch (type)
@@ -850,10 +932,6 @@ unsigned int SDLWrapper::get_event_count(wm_event_type type)
         event = SDL_KEYUP;
         break;
 
-    case WME_KEYPRESS:
-        event = SDL_TEXTINPUT;
-        break;
-
     case WME_MOUSEMOTION:
         event = SDL_MOUSEMOTION;
         break;
@@ -864,6 +942,10 @@ unsigned int SDLWrapper::get_event_count(wm_event_type type)
 
     case WME_MOUSEBUTTONDOWN:
         event = SDL_MOUSEBUTTONDOWN;
+        break;
+
+    case WME_MOUSEWHEEL:
+        event = SDL_MOUSEWHEEL;
         break;
 
     case WME_QUIT:
@@ -884,6 +966,8 @@ unsigned int SDLWrapper::get_event_count(wm_event_type type)
 
     // Note: this returns -1 for error.
     int count = SDL_PeepEvents(&store, 1, SDL_PEEKEVENT, event, event);
+    if (type == WME_KEYDOWN)
+        count += SDL_PeepEvents(&store, 1, SDL_PEEKEVENT, SDL_TEXTINPUT, SDL_TEXTINPUT);
     ASSERT(count >= 0);
 
     return max(count, 0);
@@ -926,7 +1010,7 @@ bool SDLWrapper::load_texture(GenericTexture *tex, const char *filename,
     }
 
     unsigned int bpp = img->format->BytesPerPixel;
-    glmanager->pixelstore_unpack_alignment(bpp);
+    glmanager->pixelstore_unpack_alignment(1);
 
     // Determine texture format
     unsigned char *pixels = (unsigned char*)img->pixels;
@@ -1025,7 +1109,7 @@ bool SDLWrapper::load_texture(GenericTexture *tex, const char *filename,
             int x;
             for (x = 0; x < img->w; x++)
             {
-                unsigned int index = ((unsigned char*)img->pixels)[src++];
+                unsigned int index = ((unsigned char*)img->pixels)[src+x];
                 pixels[dest*4    ] = pal->colors[index].r;
                 pixels[dest*4 + 1] = pal->colors[index].g;
                 pixels[dest*4 + 2] = pal->colors[index].b;
@@ -1041,6 +1125,7 @@ bool SDLWrapper::load_texture(GenericTexture *tex, const char *filename,
                 pixels[dest*4 + 3] = 0;
                 dest++;
             }
+            src += img->pitch;
         }
         while (dest < new_width * new_height)
         {
@@ -1063,7 +1148,12 @@ bool SDLWrapper::load_texture(GenericTexture *tex, const char *filename,
 
     bool success = false;
     if (!proc || proc(pixels, new_width, new_height))
+    {
+        // TODO: could fail if texture is too large / if there are opengl errs
+        opengl::check_texture_size(filename, new_width, new_height);
         success |= tex->load_texture(pixels, new_width, new_height, mip_opt);
+        opengl::flush_opengl_errors();
+    }
 
     // If conversion has occurred, delete converted data.
     if (pixels != img->pixels)

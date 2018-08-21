@@ -42,6 +42,7 @@
 #include "place.h"
 #include "prompt.h"
 #include "religion.h"
+#include "scroller.h"
 #include "showsymb.h"
 #include "skills.h"
 #include "spl-util.h"
@@ -456,18 +457,16 @@ static string _sdump_level_xp_info(LevelXPInfo xp_info, string name = "")
         name = xp_info.level.describe();
 
     float c, f;
-    unsigned int total_xp = xp_info.spawn_xp + xp_info.generated_xp;
-    unsigned int total_count
-        = xp_info.spawn_count + xp_info.generated_count;
+    unsigned int total_xp = xp_info.vault_xp + xp_info.non_vault_xp;
+    unsigned int total_count = xp_info.vault_count + xp_info.non_vault_count;
 
-    c = TO_PERCENT(xp_info.spawn_xp, total_xp);
-    f = TO_PERCENT(xp_info.spawn_count, total_count);
+    c = TO_PERCENT(xp_info.vault_xp, total_xp);
+    f = TO_PERCENT(xp_info.vault_count, total_count);
 
     out =
-        make_stringf("%11s | %7d | %7d | %5.1f | %7d | %7d | %5.1f | %7d\n",
-                     name.c_str(), xp_info.spawn_xp, xp_info.generated_xp,
-                     c, xp_info.spawn_count, xp_info.generated_count, f,
-                     xp_info.turns);
+        make_stringf("%11s | %7d | %7d | %5.1f | %7d | %7d | %5.1f\n",
+                     name.c_str(), xp_info.non_vault_xp, xp_info.vault_xp,
+                     c, xp_info.non_vault_count, xp_info.vault_count, f);
 
     return _denanify(out);
 }
@@ -517,29 +516,29 @@ static void _sdump_xp_by_level(dump_params &par)
 
     text +=
 "Table legend:\n"
-" A = Spawn XP\n"
-" B = Non-spawn XP\n"
-" C = Spawn XP percentage of total XP\n"
-" D = Spawn monster count\n"
-" E = Non-spawn monster count\n"
-" F = Spawn count percentage of total count\n"
+" A = Non-vault XP\n"
+" B = Vault XP\n"
+" C = Vault XP percentage of total XP\n"
+" D = Non-vault monster count\n"
+" E = Vault monster count\n"
+" F = Vault count percentage of total count\n\n"
 " G = Total turns spent on level\n\n";
 
     text += "            ";
-    text += "     A         B        C        D         E        F        G    \n";
+    text += "     A         B        C        D         E        F   \n";
     text += "            ";
-    text += "+---------+---------+-------+---------+---------+-------+---------\n";
+    text += "+---------+---------+-------+---------+---------+-------\n";
 
     text += _sdump_level_xp_info(you.global_xp_info, "Total");
 
     text += "            ";
-    text += "+---------+---------+-------+---------+---------+-------+---------\n";
+    text += "+---------+---------+-------+---------+---------+-------\n";
 
     for (const LevelXPInfo &mi : all_info)
         text += _sdump_level_xp_info(mi);
 
     text += "            ";
-    text += "+---------+---------+-------+---------+---------+-------+---------\n";
+    text += "+---------+---------+-------+---------+---------+-------\n";
 
     text += "\n";
 }
@@ -842,7 +841,7 @@ static void _sdump_spells(dump_params &par)
     {
         verb = par.se? "didn't" : "don't";
 
-        text += "You " + verb + " know any spells.\n\n";
+        text += "You " + verb + " know any spells.\n";
     }
     else
     {
@@ -863,6 +862,72 @@ static void _sdump_spells(dump_params &par)
 
                 spell_line += letter;
                 spell_line += " - ";
+                spell_line += spell_title(spell);
+
+                spell_line = chop_string(spell_line, 24);
+                spell_line += "  ";
+
+                bool already = false;
+
+                for (const auto bit : spschools_type::range())
+                {
+                    if (spell_typematch(spell, bit))
+                    {
+                        spell_line += spell_type_shortname(bit, already);
+                        already = true;
+                    }
+                }
+
+                spell_line = chop_string(spell_line, 41);
+
+                spell_line += spell_power_string(spell);
+
+                spell_line = chop_string(spell_line, 54);
+
+                spell_line += failure_rate_to_string(raw_spell_fail(spell));
+
+                spell_line = chop_string(spell_line, 66);
+
+                spell_line += make_stringf("%-5d", spell_difficulty(spell));
+
+                spell_line += spell_hunger_string(spell);
+                spell_line += "\n";
+
+                text += spell_line;
+            }
+        }
+        text += "\n";
+    }
+
+    if (!you.spell_library.count())
+    {
+        verb = par.se ? "was" : "is";
+        text += "Your spell library " + verb + " empty.\n\n";
+    }
+    else
+    {
+        verb = par.se? "contained" : "contains";
+        text += "Your spell library " + verb + " the following spells:\n\n";
+        text += " Spells                   Type           Power        Failure   Level  Hunger" "\n";
+
+        FixedBitVector<NUM_SPELLS> memorizable = you.spell_library;
+
+        for (int j = 0; j < 52; j++)
+        {
+            const spell_type spell  = get_spell_by_letter(index_to_letter(j));
+            if (spell != SPELL_NO_SPELL)
+                memorizable.set(spell, false);
+        }
+
+        for (int j = 0; j < NUM_SPELLS; j++)
+        {
+            const spell_type spell  = static_cast<spell_type>(j);
+
+            if (memorizable.get(spell))
+            {
+                string spell_line;
+
+                spell_line += ' ';
                 spell_line += spell_title(spell);
 
                 spell_line = chop_string(spell_line, 24);
@@ -1603,12 +1668,10 @@ static bool _write_dump(const string &fname, const dump_params &par, bool quiet)
 
 void display_notes()
 {
-    formatted_scroller scr;
-    scr.set_flags(MF_START_AT_END | MF_ALWAYS_SHOW_MORE);
+    formatted_scroller scr(FS_START_AT_END | FS_PREWRAPPED_TEXT);
     scr.set_more();
     scr.set_tag("notes");
-    scr.set_highlighter(new MenuHighlighter);
-    scr.set_title(new MenuEntry("Turn   | Place    | Note"));
+    scr.add_raw_text("Turn   | Place    | Note\n");
     for (const Note &note : note_list)
     {
         if (note.hidden())
@@ -1617,8 +1680,7 @@ void display_notes()
         string suffix = note.describe(false, false, true);
         if (suffix.empty())
             continue;
-
-        int spaceleft = get_number_of_cols() - prefix.length() - 1;
+        int spaceleft = 80 - prefix.length() - 1; // Use 100 cols
         if (spaceleft <= 0)
             return;
 
@@ -1627,26 +1689,20 @@ void display_notes()
         if (parts.empty()) // Disregard pure-whitespace notes.
             continue;
 
-        scr.add_entry(new MenuEntry(prefix + parts[0]));
+        scr.add_raw_text(prefix + parts[0] + "\n");
         for (unsigned int j = 1; j < parts.size(); ++j)
-        {
-            scr.add_entry(new MenuEntry(string(prefix.length()-2, ' ') +
-                                        string("| ") + parts[j]));
-        }
+            scr.add_raw_text(string(prefix.length()-2, ' ') + string("| ") + parts[j] + "\n");
     }
     scr.show();
-    redraw_screen();
 }
 
 void display_char_dump()
 {
-    formatted_scroller scr;
-    scr.set_flags(MF_ALWAYS_SHOW_MORE);
-    scr.add_raw_text(_get_dump().text, false, get_number_of_cols());
+    formatted_scroller scr(FS_PREWRAPPED_TEXT);
+    scr.add_raw_text(_get_dump().text, false);
     scr.set_more();
     scr.set_tag("dump");
     scr.show();
-    redraw_screen();
 }
 
 #ifdef DGL_WHEREIS

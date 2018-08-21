@@ -759,7 +759,7 @@ const char* jewellery_effect_name(int jeweltype, bool terse)
         case RING_SLAYING:               return "slaying";
         case RING_SEE_INVISIBLE:         return "see invisible";
         case RING_RESIST_CORROSION:      return "resist corrosion";
-        case RING_LOUDNESS:              return "loudness";
+        case RING_ATTENTION:             return "attention";
         case RING_TELEPORTATION:         return "teleportation";
         case RING_EVASION:               return "evasion";
 #if TAG_MAJOR_VERSION == 34
@@ -782,8 +782,8 @@ const char* jewellery_effect_name(int jeweltype, bool terse)
         case AMU_HARM:              return "harm";
         case AMU_MANA_REGENERATION: return "magic regeneration";
         case AMU_THE_GOURMAND:      return "gourmand";
+        case AMU_ACROBAT:           return "the acrobat";
 #if TAG_MAJOR_VERSION == 34
-        case AMU_DISMISSAL:         return "obsoleteness";
         case AMU_CONSERVATION:      return "conservation";
         case AMU_CONTROLLED_FLIGHT: return "controlled flight";
 #endif
@@ -813,7 +813,7 @@ const char* jewellery_effect_name(int jeweltype, bool terse)
         case RING_SLAYING:               return "Slay";
         case RING_SEE_INVISIBLE:         return "sInv";
         case RING_RESIST_CORROSION:      return "rCorr";
-        case RING_LOUDNESS:              return "Stlth-";
+        case RING_ATTENTION:             return "Stlth-";
         case RING_EVASION:               return "EV";
         case RING_STEALTH:               return "Stlth+";
         case RING_DEXTERITY:             return "Dex";
@@ -825,6 +825,7 @@ const char* jewellery_effect_name(int jeweltype, bool terse)
         case AMU_RAGE:                   return "+Rage";
         case AMU_REGENERATION:           return "Regen";
         case AMU_REFLECTION:             return "Reflect";
+        case AMU_ACROBAT:                return "Acrobat";
         case AMU_NOTHING:                return "";
         default: return "buggy";
         }
@@ -2272,11 +2273,6 @@ protected:
         return "known-menu";
     }
 
-    bool allow_easy_exit() const override
-    {
-        return true;
-    }
-
     bool process_key(int key) override
     {
         bool resetting = (lastch == CONTROL('D'));
@@ -2284,7 +2280,6 @@ protected:
         {
             //return the menu title to its previous text.
             set_title(temp_title);
-            update_title();
             num = -2;
 
             // Disarm ^D here, because process_key doesn't always set lastch.
@@ -2321,7 +2316,6 @@ protected:
                 lastch = CONTROL('D');
                 temp_title = title->text;
                 set_title("Select to reset item to default: ");
-                update_title();
             }
 
             return true;
@@ -2602,12 +2596,11 @@ void check_item_knowledge(bool unknown_items)
 
     string prompt = "(_ for help)";
     //TODO: when the menu is opened, the text is not justified properly.
-    stitle = stitle + string(max(0, get_number_of_cols() - strwidth(stitle)
-                                                         - strwidth(prompt)),
+    stitle = stitle + string(max(0, 80 - strwidth(stitle) - strwidth(prompt)),
                              ' ') + prompt;
 
     menu.set_preselect(&selected_items);
-    menu.set_flags( MF_QUIET_SELECT | MF_ALLOW_FORMATTING
+    menu.set_flags( MF_QUIET_SELECT | MF_ALLOW_FORMATTING | MF_USE_TWO_COLUMNS
                     | ((unknown_items) ? MF_NOSELECT
                                        : MF_MULTISELECT | MF_ALLOW_FILTER));
     menu.set_type(MT_KNOW);
@@ -2691,7 +2684,6 @@ void display_runes()
     auto title = make_stringf("<white>Runes of Zot (</white>"
                               "<%s>%d</%s><white> collected) & Orbs of Power</white>",
                               col, runes_in_pack(), col);
-    title = string(max(0, 39 - printed_width(title) / 2), ' ') + title;
 
     InvMenu menu(MF_NOSELECT | MF_ALLOW_FORMATTING);
 
@@ -3264,7 +3256,7 @@ bool is_bad_item(const item_def &item, bool temp)
         switch (item.sub_type)
         {
         case AMU_INACCURACY:
-        case RING_LOUDNESS:
+        case RING_ATTENTION:
             return true;
         case RING_TELEPORTATION:
             return !(you.stasis() || crawl_state.game_is_sprint());
@@ -3384,10 +3376,7 @@ bool is_useless_item(const item_def &item, bool temp)
             return true;
         }
 
-        if (!item_type_known(item))
-            return false;
-
-        if (you.undead_or_demonic() && is_holy_item(item))
+        if (you.undead_or_demonic() && is_holy_item(item, false))
         {
             if (!temp && you.form == transformation::lich
                 && you.species != SP_DEMONSPAWN)
@@ -3439,8 +3428,10 @@ bool is_useless_item(const item_def &item, bool temp)
 
         if (item.sub_type == ARM_SCARF
             && item_type_known(item)
-            && get_armour_ego_type(item) == SPARM_SPIRIT_SHIELD
-            && you.spirit_shield(false, false))
+            && (get_armour_ego_type(item) == SPARM_SPIRIT_SHIELD
+                && you.spirit_shield(false, false)
+                || get_armour_ego_type(item) == SPARM_CLOUD_IMMUNE
+                   && have_passive(passive_t::cloud_immunity)))
         {
             return true;
         }
@@ -3486,9 +3477,6 @@ bool is_useless_item(const item_def &item, bool temp)
 
     case OBJ_WANDS:
         if (you.get_mutation_level(MUT_NO_ARTIFICE))
-            return true;
-
-        if (you.magic_points < wand_mp_cost() && temp)
             return true;
 
 #if TAG_MAJOR_VERSION == 34
@@ -3617,7 +3605,7 @@ bool is_useless_item(const item_def &item, bool temp)
                        && you.get_mutation_level(MUT_INHIBITED_REGENERATION) > 0
                        && regeneration_is_inhibited())
                    || (temp && you.species == SP_VAMPIRE
-                      && you.hunger_state <= HS_STARVING);
+                       && you.hunger_state <= HS_STARVING);
 
         case AMU_MANA_REGENERATION:
             return you_worship(GOD_PAKELLAS);
@@ -3737,8 +3725,19 @@ bool is_useless_item(const item_def &item, bool temp)
         }
 
     case OBJ_BOOKS:
-        if (!item_type_known(item) || item.sub_type != BOOK_MANUAL)
+        if (!item_type_known(item))
             return false;
+        if (item_type_known(item) && item.sub_type != BOOK_MANUAL)
+        {
+            // Spellbooks are useless if all spells are either in the library
+            // already or are uncastable.
+            bool useless = true;
+            for (spell_type st : spells_in_book(item))
+                if (!you.spell_library[st] && you_can_memorise(st))
+                    useless = false;
+            return useless;
+        }
+        // If we're here, it's a manual.
         if (you.skills[item.plus] >= 27)
             return true;
         if (is_useless_skill((skill_type)item.plus))
@@ -3950,8 +3949,8 @@ void init_item_name_cache()
                 }
                 else if (name.find("buggy") != string::npos)
                 {
-                    crawl_state.add_startup_error("Bad name for item name"
-                                                  " cache: " + name);
+                    mprf(MSGCH_ERROR, "Bad name for item name cache: %s",
+                                                                name.c_str());
                     continue;
                 }
 

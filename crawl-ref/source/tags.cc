@@ -41,6 +41,7 @@
 #include "colour.h"
 #include "coordit.h"
 #include "dbg-scan.h"
+#include "dbg-util.h"
 #include "describe.h"
 #include "dgn-overview.h"
 #include "dungeon.h"
@@ -1417,6 +1418,9 @@ static void tag_construct_you(writer &th)
     marshallShort(th, you.pos().x);
     marshallShort(th, you.pos().y);
 
+    marshallFixedBitVector<NUM_SPELLS>(th, you.spell_library);
+    marshallFixedBitVector<NUM_SPELLS>(th, you.hidden_spells);
+
     // how many spells?
     marshallUByte(th, MAX_KNOWN_SPELLS);
     for (int i = 0; i < MAX_KNOWN_SPELLS; ++i)
@@ -1635,9 +1639,8 @@ static void tag_construct_you(writer &th)
     for (mid_t recallee : you.recall_list)
         _marshall_as_int(th, recallee);
 
-    marshallUByte(th, NUM_SEEDS);
-    for (int i = 0; i < NUM_SEEDS; i++)
-        marshallInt(th, you.game_seeds[i]);
+    marshallUByte(th, 1); // number of seeds: always 1
+    marshallInt(th, you.game_seed);
 
     CANARY;
 
@@ -1694,14 +1697,6 @@ static void tag_construct_you_items(writer &th)
     for (int j = 0; j < MAX_UNRANDARTS; ++j)
         marshallByte(th,you.unique_items[j]);
 
-    marshallByte(th, NUM_FIXED_BOOKS);
-    for (int j = 0; j < NUM_FIXED_BOOKS; ++j)
-        marshallByte(th,you.had_book[j]);
-
-    marshallShort(th, NUM_SPELLS);
-    for (int j = 0; j < NUM_SPELLS; ++j)
-        marshallByte(th,you.seen_spell[j]);
-
     marshallShort(th, NUM_WEAPONS);
     for (int j = 0; j < NUM_WEAPONS; ++j)
         marshallInt(th,you.seen_weapon[j]);
@@ -1748,11 +1743,10 @@ static void marshallLevelXPInfo(writer &th, LevelXPInfo xp_info)
 {
     marshall_level_id(th, xp_info.level);
 
-    marshallInt(th, xp_info.spawn_xp);
-    marshallInt(th, xp_info.generated_xp);
-    marshallInt(th, xp_info.spawn_count);
-    marshallInt(th, xp_info.generated_count);
-    marshallInt(th, xp_info.turns);
+    marshallInt(th, xp_info.non_vault_xp);
+    marshallInt(th, xp_info.non_vault_count);
+    marshallInt(th, xp_info.vault_xp);
+    marshallInt(th, xp_info.vault_count);
 }
 
 static void tag_construct_you_dungeon(writer &th)
@@ -2202,7 +2196,8 @@ void tag_read_char(reader &th, uint8_t format, uint8_t major, uint8_t minor)
     // be forward-compatible. We validate them only on an actual restore.
     you.your_name         = unmarshallString2(th);
     you.prev_save_version = unmarshallString2(th);
-    dprf("Last save Crawl version: %s", you.prev_save_version.c_str());
+    dprf("Saved character %s, version: %s", you.your_name.c_str(),
+                                            you.prev_save_version.c_str());
 
     you.species           = static_cast<species_type>(unmarshallUByte(th));
     you.char_class        = static_cast<job_type>(unmarshallUByte(th));
@@ -2479,6 +2474,15 @@ static void tag_read_you(reader &th)
         unmarshallShort(th);
 #endif
 
+#if TAG_MAJOR_VERSION == 34
+    if (th.getMinorVersion() >= TAG_MINOR_GOLDIFY_BOOKS)
+    {
+#endif
+    unmarshallFixedBitVector<NUM_SPELLS>(th, you.spell_library);
+    unmarshallFixedBitVector<NUM_SPELLS>(th, you.hidden_spells);
+#if TAG_MAJOR_VERSION == 34
+    }
+#endif
     // how many spells?
     you.spell_no = 0;
     count = unmarshallUByte(th);
@@ -2722,6 +2726,9 @@ static void tag_read_you(reader &th)
     }
     if (you.attribute[ATTR_SEARING_RAY] > 3)
         you.attribute[ATTR_SEARING_RAY] = 0;
+
+    if (you.attribute[ATTR_DELAYED_FIREBALL])
+        you.attribute[ATTR_DELAYED_FIREBALL] = 0;
 
     if (th.getMinorVersion() < TAG_MINOR_STAT_LOSS_XP)
     {
@@ -3609,11 +3616,9 @@ static void tag_read_you(reader &th)
     {
 #endif
     count = unmarshallUByte(th);
-    ASSERT(count <= NUM_SEEDS);
-    for (int i = 0; i < count; i++)
-        you.game_seeds[i] = unmarshallInt(th);
-    for (int i = count; i < NUM_SEEDS; i++)
-        you.game_seeds[i] = get_uint32();
+    you.game_seed = count > 0 ? unmarshallInt(th) : get_uint32();
+    for (int i = 1; i < count; i++)
+        unmarshallInt(th);
 #if TAG_MAJOR_VERSION == 34
     }
 #endif
@@ -3819,25 +3824,26 @@ static void tag_read_you_items(reader &th)
     for (int j = NUM_UNRANDARTS; j < count; j++)
         unmarshallByte(th);
 
-    // how many books?
-    count = unmarshallUByte(th);
-    COMPILE_CHECK(NUM_FIXED_BOOKS <= 256);
-    for (int j = 0; j < count && j < NUM_FIXED_BOOKS; ++j)
-        you.had_book.set(j, unmarshallByte(th));
-    for (int j = count; j < NUM_FIXED_BOOKS; ++j)
-        you.had_book.set(j, false);
-    for (int j = NUM_FIXED_BOOKS; j < count; ++j)
-        unmarshallByte(th);
+#if TAG_MAJOR_VERSION == 34
+    if (th.getMinorVersion() < TAG_MINOR_GOLDIFY_BOOKS)
+    {
+        // how many books?
+        count = unmarshallUByte(th);
+        COMPILE_CHECK(NUM_FIXED_BOOKS <= 256);
+        for (int j = 0; j < count && j < NUM_FIXED_BOOKS; ++j)
+            unmarshallByte(th);
+        for (int j = NUM_FIXED_BOOKS; j < count; ++j)
+            unmarshallByte(th);
 
-    // how many spells?
-    count = unmarshallShort(th);
-    ASSERT(count >= 0);
-    for (int j = 0; j < count && j < NUM_SPELLS; ++j)
-        you.seen_spell.set(j, unmarshallByte(th));
-    for (int j = count; j < NUM_SPELLS; ++j)
-        you.seen_spell.set(j, false);
-    for (int j = NUM_SPELLS; j < count; ++j)
-        unmarshallByte(th);
+        // how many spells?
+        count = unmarshallShort(th);
+        ASSERT(count >= 0);
+        for (int j = 0; j < count && j < NUM_SPELLS; ++j)
+            unmarshallByte(th);
+        for (int j = NUM_SPELLS; j < count; ++j)
+            unmarshallByte(th);
+    }
+#endif
 
     count = unmarshallShort(th);
     ASSERT(count >= 0);
@@ -3910,6 +3916,10 @@ static void tag_read_you_items(reader &th)
     // Reset training arrays for transfered gnolls that didn't train all skills.
     if (th.getMinorVersion() < TAG_MINOR_GNOLLS_REDUX)
         reset_training();
+
+    // Move any books from inventory into the player's library.
+    if (th.getMinorVersion() < TAG_MINOR_GOLDIFY_BOOKS)
+        add_held_books_to_library();
 #endif
 }
 
@@ -3963,13 +3973,30 @@ static LevelXPInfo unmarshallLevelXPInfo(reader &th)
 
     xp_info.level = unmarshall_level_id(th);
 
-    xp_info.spawn_xp        = unmarshallInt(th);
-    xp_info.generated_xp    = unmarshallInt(th);
-
-    xp_info.spawn_count     = unmarshallInt(th);
-    xp_info.generated_count = unmarshallInt(th);
-
-    xp_info.turns           = unmarshallInt(th);
+#if TAG_MAJOR_VERSION == 34
+    // Track monster placement from vaults instead of tracking spawns.
+    if (th.getMinorVersion() < TAG_MINOR_LEVEL_XP_VAULTS)
+    {
+        // Spawned/generated xp and counts have to be combined as non-vault
+        // info. We have no vault info on dead monsters, so this is the best we
+        // can do.
+        xp_info.non_vault_xp     = unmarshallInt(th);
+        xp_info.non_vault_xp    += unmarshallInt(th);
+        xp_info.non_vault_count  = unmarshallInt(th);
+        xp_info.non_vault_count += unmarshallInt(th);
+        // turns spent on level, which we don't need.
+        unmarshallInt(th);
+    }
+    else
+    {
+#endif
+    xp_info.non_vault_xp    = unmarshallInt(th);
+    xp_info.non_vault_count = unmarshallInt(th);
+    xp_info.vault_xp        = unmarshallInt(th);
+    xp_info.vault_count     = unmarshallInt(th);
+#if TAG_MAJOR_VERSION == 34
+    }
+#endif
 
     return xp_info;
 }
@@ -4234,8 +4261,8 @@ static void tag_construct_level(writer &th)
             marshallInt(th, env.pgrid[count_x][count_y].flags);
         }
 
-    marshallBoolean(th, !!env.map_forgotten.get());
-    if (env.map_forgotten.get())
+    marshallBoolean(th, !!env.map_forgotten);
+    if (env.map_forgotten)
         for (int x = 0; x < GXM; x++)
             for (int y = 0; y < GYM; y++)
                 marshallMapCell(th, (*env.map_forgotten)[x][y]);
@@ -4282,8 +4309,8 @@ static void tag_construct_level(writer &th)
     marshallInt(th, you.dactions.size());
 
     // Save heightmap, if present.
-    marshallByte(th, !!env.heightmap.get());
-    if (env.heightmap.get())
+    marshallByte(th, !!env.heightmap);
+    if (env.heightmap)
     {
         grid_heightmap &heightmap(*env.heightmap);
         for (rectangle_iterator ri(0); ri; ++ri)
@@ -4628,9 +4655,10 @@ void unmarshallItem(reader &th, item_def &item)
         }
 
         // Make sure no weird fake-rap combinations are produced by the upgrade
-        // from rings of sustenance/hunger with {Stlth} to stealth/loudness
+        // from rings of sustenance/hunger with {Stlth} to stealth/attention
         if (item.base_type == OBJ_JEWELLERY
-            && (item.sub_type == RING_STEALTH || item.sub_type == RING_LOUDNESS))
+            && (item.sub_type == RING_STEALTH
+                || item.sub_type == RING_ATTENTION))
         {
             artefact_set_property(item, ARTP_STEALTH, 0);
         }
@@ -4859,7 +4887,11 @@ void unmarshallItem(reader &th, item_def &item)
     };
     // ASSUMPTION: there was no such thing as an artefact hide
     if (item.base_type == OBJ_ARMOUR && hide_to_armour.count(item.sub_type))
-        item.sub_type = *map_find(hide_to_armour, item.sub_type);
+    {
+        auto subtype_ptr = map_find(hide_to_armour, item.sub_type);
+        ASSERT(subtype_ptr);
+        item.sub_type = *subtype_ptr;
+    }
 
     if (th.getMinorVersion() < TAG_MINOR_HIDE_TO_SCALE && armour_is_hide(item))
     {
@@ -5182,7 +5214,7 @@ void marshallMonster(writer &th, const monster& m)
     if (parts & MP_GHOST_DEMON)
     {
         // *Must* have ghost field set.
-        ASSERT(m.ghost.get());
+        ASSERT(m.ghost);
         marshallGhost(th, *m.ghost);
     }
 
@@ -5249,10 +5281,10 @@ void marshallMonsterInfo(writer &th, const monster_info& mi)
         _marshall_mi_attack(th, mi.attack[i]);
     for (unsigned int i = 0; i <= MSLOT_LAST_VISIBLE_SLOT; ++i)
     {
-        if (mi.inv[i].get())
+        if (mi.inv[i])
         {
             marshallBoolean(th, true);
-            marshallItem(th, *mi.inv[i].get(), true);
+            marshallItem(th, *mi.inv[i], true);
         }
         else
             marshallBoolean(th, false);
@@ -5506,7 +5538,7 @@ void unmarshallMonsterInfo(reader &th, monster_info& mi)
         if (unmarshallBoolean(th))
         {
             mi.inv[i].reset(new item_def());
-            unmarshallItem(th, *mi.inv[i].get());
+            unmarshallItem(th, *mi.inv[i]);
         }
     }
 
@@ -5794,6 +5826,19 @@ static void tag_read_level(reader &th)
                 grd(dest) = DNGN_TRANSPORTER_LANDING;
         }
     }
+    if (th.getMinorVersion() < TAG_MINOR_VETO_DISINT)
+    {
+        for (map_marker *mark : env.markers.get_all(MAT_ANY))
+        {
+            if (mark->property("veto_disintegrate") == "veto")
+            {
+                map_wiz_props_marker *marker =
+                    new map_wiz_props_marker(mark->pos);
+                marker->set_property("veto_dig", "veto");
+                env.markers.add(marker);
+            }
+        }
+    }
 #endif
 
     env.properties.clear();
@@ -5922,9 +5967,15 @@ static void tag_read_level_items(reader &th)
 #ifdef DEBUG_ITEM_SCAN
     // There's no way to fix this, even with wizard commands, so get
     // rid of it when restoring the game.
-    for (auto &item : mitm)
-        if (item.pos.origin())
-            item.clear();
+    for (int i = 0; i < item_count; ++i)
+    {
+        if (mitm[i].defined() && mitm[i].pos.origin())
+        {
+            debug_dump_item(mitm[i].name(DESC_PLAIN).c_str(), i, mitm[i],
+                                        "Fixing up unlinked temporary item:");
+            mitm[i].clear();
+        }
+    }
 #endif
 }
 
@@ -5960,7 +6011,13 @@ void unmarshallMonster(reader &th, monster& m)
     {
         // This was monster::is_spawn before the level XP info fix.
         if (th.getMinorVersion() < TAG_MINOR_LEVEL_XP_INFO_FIX)
-            m.xp_tracking = unmarshallByte(th) ? XP_SPAWNED : XP_GENERATED;
+        {
+            // We no longer track spawns but instead whether the monster comes
+            // from a vault. This gets determined from props below for
+            // transferred games.
+            unmarshallByte(th);
+            m.xp_tracking = XP_NON_VAULT;
+        }
         else
 #endif
     m.xp_tracking     = static_cast<xp_tracking_type>(unmarshallUByte(th));
@@ -6363,6 +6420,12 @@ void unmarshallMonster(reader &th, monster& m)
         m.props.erase("given beogh weapon");
         m.props[BEOGH_MELEE_WPN_GIFT_KEY] = true;
     }
+
+    if (th.getMinorVersion() < TAG_MINOR_LEVEL_XP_VAULTS
+        && m.props.exists("map"))
+    {
+        m.xp_tracking = XP_VAULT;
+    }
 #endif
 
     if (m.type != MONS_PROGRAM_BUG && mons_species(m.type) == MONS_PROGRAM_BUG)
@@ -6406,6 +6469,33 @@ static void tag_read_level_monsters(reader &th)
         if (!m.alive())
             continue;
 
+        monster *dup_m = monster_by_mid(m.mid);
+
+#if TAG_MAJOR_VERSION == 34
+        // clear duplicates of followers who got their god cleared as the result
+        // of a bad polymorph prior to e6d7efa92cb0. This only fires on level
+        // load *when there are duplicate mids*, because otherwise the clones
+        // aren't uniquely identifiable. This fix may still result in duplicate
+        // mid errors from time to time, but should never crash; saving and
+        // loading will fix up the duplicate errors. A similar check also
+        // happens in follower::place (since that runs after the level is
+        // loaded).
+        if (dup_m)
+        {
+            if (maybe_bad_priest_monster(*dup_m))
+                fixup_bad_priest_monster(*dup_m);
+            else if (maybe_bad_priest_monster(m))
+            {
+                fixup_bad_priest_monster(m);
+                env.mid_cache[dup_m->mid] = dup_m->mindex();
+                // dup_m should already be placed, so nothing else is needed.
+                continue;
+            }
+            // we could print an error on the else case, but this is already
+            // going to be handled by debug_mons_scan.
+        }
+#endif
+
         // companion_is_elsewhere checks the mid cache
         env.mid_cache[m.mid] = i;
         if (m.is_divine_companion() && companion_is_elsewhere(m.mid))
@@ -6414,6 +6504,13 @@ static void tag_read_level_monsters(reader &th)
                     m.name(DESC_PLAIN, true).c_str(), m.mid,
                     level_id::current().describe(false, true).c_str());
             monster_die(m, KILL_RESET, -1, true, false);
+            // avoid "mid cache bogosity" if there's an unhandled clone bug
+            if (dup_m && dup_m->alive())
+            {
+                mprf(MSGCH_ERROR, "elsewhere companion has duplicate mid %d: %s",
+                    dup_m->mid, dup_m->full_name(DESC_PLAIN).c_str());
+                env.mid_cache[dup_m->mid] = dup_m->mindex();
+            }
             continue;
         }
 

@@ -206,7 +206,7 @@ CRAWLSRC = ability.cc \
 	libgui.cc \
 	libutil.cc \
 	libandroid.cc \
-	libw32c.cc \
+	loading-screen.cc \
 	los.cc \
 	los-def.cc \
 	losglobal.cc \
@@ -246,6 +246,7 @@ CRAWLSRC = ability.cc \
 	monster.cc \
 	mon-transit.cc \
 	mon-util.cc \
+	movement.cc \
 	mutation.cc \
 	nearby-danger.cc \
 	newgame.cc \
@@ -280,6 +281,7 @@ CRAWLSRC = ability.cc \
 	ray.cc \
 	religion.cc \
 	rot.cc \
+	scroller.cc \
 	shopping.cc \
 	shout.cc \
 	show.cc \
@@ -332,6 +334,7 @@ CRAWLSRC = ability.cc \
 	traps.cc \
 	travel.cc \
 	tutorial.cc \
+	ui.cc \
 	uncancel.cc \
 	unicode.cc \
 	version.cc \

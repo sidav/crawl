@@ -73,7 +73,7 @@ monster::monster()
       speed(0), speed_increment(0), target(), firing_pos(),
       patrol_point(), travel_target(MTRAV_NONE), inv(NON_ITEM), spells(),
       attitude(ATT_HOSTILE), behaviour(BEH_WANDER), foe(MHITYOU),
-      enchantments(), flags(), xp_tracking(XP_GENERATED), experience(0),
+      enchantments(), flags(), xp_tracking(XP_NON_VAULT), experience(0),
       base_monster(MONS_NO_MONSTER), number(0), colour(COLOUR_INHERIT),
       foe_memory(0), god(GOD_NO_GOD), ghost(), seen_context(SC_NONE),
       client_id(0), hit_dice(0)
@@ -201,7 +201,7 @@ void monster::init_with(const monster& mon)
     damage_total      = mon.damage_total;
     xp_tracking       = mon.xp_tracking;
 
-    if (mon.ghost.get())
+    if (mon.ghost)
         ghost.reset(new ghost_demon(*mon.ghost));
     else
         ghost.reset(nullptr);
@@ -2204,7 +2204,7 @@ bool monster::has_base_name() const
 {
     // Any non-ghost, non-Pandemonium demon that has an explicitly set
     // name has a base name.
-    return !mname.empty() && !ghost.get();
+    return !mname.empty() && !ghost;
 }
 
 static string _invalid_monster_str(monster_type type)
@@ -3982,9 +3982,11 @@ bool monster::res_torment() const
            || get_mons_resist(*this, MR_RES_TORMENT) > 0;
 }
 
-bool monster::res_wind() const
+bool monster::res_tornado() const
 {
-    return has_ench(ENCH_TORNADO) || get_mons_resist(*this, MR_RES_WIND) > 0;
+    return has_ench(ENCH_TORNADO)
+           || has_ench(ENCH_VORTEX)
+           || get_mons_resist(*this, MR_RES_TORNADO) > 0;
 }
 
 bool monster::res_petrify(bool /*temp*/) const
@@ -4128,7 +4130,7 @@ bool monster::airborne() const
 {
     // For dancing weapons, this function can get called before their
     // ghost_demon is created, so check for a nullptr ghost. -cao
-    return mons_is_ghost_demon(type) && ghost.get() && ghost->flies
+    return mons_is_ghost_demon(type) && ghost && ghost->flies
            // check both so spectral humans and zombified dragons both fly
            || mons_class_flag(mons_base_type(*this), M_FLIES)
            || mons_class_flag(type, M_FLIES)
@@ -4800,20 +4802,20 @@ bool monster::is_location_safe(const coord_def &place)
 
 bool monster::has_originating_map() const
 {
-    return props.exists("map");
+    return props.exists(MAP_KEY);
 }
 
 string monster::originating_map() const
 {
     if (!has_originating_map())
         return "";
-    return props["map"].get_string();
+    return props[MAP_KEY].get_string();
 }
 
 void monster::set_originating_map(const string &map_name)
 {
     if (!map_name.empty())
-        props["map"].get_string() = map_name;
+        props[MAP_KEY].get_string() = map_name;
 }
 
 #define MAX_PLACE_NEAR_DIST 8
@@ -4922,7 +4924,7 @@ void monster::set_transit(const level_id &dest)
 
 void monster::load_ghost_spells()
 {
-    if (!ghost.get())
+    if (!ghost)
     {
         spells.clear();
         return;
@@ -6152,9 +6154,12 @@ void monster::react_to_damage(const actor *oppressor, int damage,
 
         if (observable())
         {
-            mprf(MSGCH_WARN, "%s roars in fury and transforms into a fierce dragon!",
-                 name(DESC_THE).c_str());
+            mprf(MSGCH_WARN,
+                "%s roars in fury and transforms into a fierce dragon!",
+                name(DESC_THE).c_str());
         }
+        if (caught())
+            check_net_will_hold_monster(this);
 
         add_ench(ENCH_RING_OF_THUNDER);
     }

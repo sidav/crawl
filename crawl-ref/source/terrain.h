@@ -31,6 +31,7 @@ private:
 actor* actor_at(const coord_def& c);
 
 bool cell_is_solid(const coord_def &c);
+bool cell_is_runed(const coord_def &p);
 
 bool feat_is_malign_gateway_suitable(dungeon_feature_type feat);
 bool feat_is_wall(dungeon_feature_type feat);
@@ -91,7 +92,7 @@ bool feat_is_shaftable(dungeon_feature_type feat);
 
 int count_neighbours_with_func(const coord_def& c, bool (*checker)(dungeon_feature_type));
 
-void find_connected_identical(const coord_def& d, set<coord_def>& out);
+void find_connected_identical(const coord_def& d, set<coord_def>& out, bool known_only = false);
 coord_def get_random_stair();
 
 bool slime_wall_neighbour(const coord_def& c);

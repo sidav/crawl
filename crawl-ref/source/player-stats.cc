@@ -112,20 +112,21 @@ bool attribute_increase()
     crawl_state.stat_gain_prompt = true;
 #ifdef TOUCH_UI
     learned_something_new(HINT_CHOOSE_STAT);
-    Popup pop{"Increase Attributes"};
+    Menu pop(MF_SINGLESELECT | MF_ANYPRINTABLE);
     MenuEntry * const status = new MenuEntry("", MEL_SUBTITLE);
-    MenuEntry * const s_me = new MenuEntry("Strength", MEL_ITEM, 0, 'S');
+    MenuEntry * const s_me = new MenuEntry("Strength", MEL_ITEM, 1, 'S');
     s_me->add_tile(tile_def(TILEG_FIGHTING_ON, TEX_GUI));
-    MenuEntry * const i_me = new MenuEntry("Intelligence", MEL_ITEM, 0, 'I');
+    MenuEntry * const i_me = new MenuEntry("Intelligence", MEL_ITEM, 1, 'I');
     i_me->add_tile(tile_def(TILEG_SPELLCASTING_ON, TEX_GUI));
-    MenuEntry * const d_me = new MenuEntry("Dexterity", MEL_ITEM, 0, 'D');
+    MenuEntry * const d_me = new MenuEntry("Dexterity", MEL_ITEM, 1, 'D');
     d_me->add_tile(tile_def(TILEG_DODGING_ON, TEX_GUI));
 
-    pop.push_entry(new MenuEntry(stat_gain_message + " Increase:", MEL_TITLE));
-    pop.push_entry(status);
-    pop.push_entry(s_me);
-    pop.push_entry(i_me);
-    pop.push_entry(d_me);
+    pop.set_title(new MenuEntry("Increase Attributes", MEL_TITLE));
+    pop.add_entry(new MenuEntry(stat_gain_message + " Increase:", MEL_TITLE));
+    pop.add_entry(status);
+    pop.add_entry(s_me);
+    pop.add_entry(i_me);
+    pop.add_entry(d_me);
 #else
     mprf(MSGCH_INTRINSIC_GAIN, "%s", stat_gain_message.c_str());
     learned_something_new(HINT_CHOOSE_STAT);
@@ -155,12 +156,13 @@ bool attribute_increase()
         {
             string result;
             clua.fnreturns(">s", &result);
-            keyin = result[0];
+            keyin = toupper(result[0]);
         }
         else
         {
 #ifdef TOUCH_UI
-            keyin = pop.pop();
+            pop.show();
+            keyin = pop.getkey();
 #else
             while ((keyin = getchm()) == CK_REDRAW)
                 redraw_screen();
@@ -178,23 +180,30 @@ bool attribute_increase()
                 return false;
             break;
 
-        case 's':
         case 'S':
             for (int i = 0; i < statgain; i++)
                 modify_stat(STAT_STR, 1, false);
             return true;
 
-        case 'i':
         case 'I':
             for (int i = 0; i < statgain; i++)
                 modify_stat(STAT_INT, 1, false);
             return true;
 
-        case 'd':
         case 'D':
             for (int i = 0; i < statgain; i++)
                 modify_stat(STAT_DEX, 1, false);
             return true;
+
+        case 's':
+        case 'i':
+        case 'd':
+#ifdef TOUCH_UI
+            status->text = "Uppercase letters only, please.";
+#else
+            mprf(MSGCH_PROMPT, "Uppercase letters only, please.");
+#endif
+            break;
 #ifdef TOUCH_UI
         default:
             status->text = "Please choose an option below"; // too naggy?

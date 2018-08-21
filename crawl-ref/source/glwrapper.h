@@ -7,6 +7,12 @@
 #include <stdlib.h>
 #include <vector>
 
+namespace opengl
+{
+    bool flush_opengl_errors();
+    bool check_texture_size(const char *name, int width, int height);
+}
+
 struct coord_def;
 
 struct GLW_2VF
@@ -142,6 +148,7 @@ public:
                                        const coord_def &m_drawablesz) = 0;
     virtual void set_transform(const GLW_3VF &trans, const GLW_3VF &scale) = 0;
     virtual void reset_transform() = 0;
+    virtual void get_transform(GLW_3VF *trans, GLW_3VF *scale) = 0;
     virtual void set_scissor(int x, int y, unsigned int w, unsigned int h) = 0;
     virtual void reset_scissor() = 0;
 #ifdef __ANDROID__

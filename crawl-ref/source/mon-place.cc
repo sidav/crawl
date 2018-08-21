@@ -32,6 +32,7 @@
 #include "libutil.h"
 #include "losglobal.h"
 #include "message.h"
+#include "mon-act.h"
 #include "mon-behv.h"
 #include "mon-death.h"
 #include "mon-gear.h"
@@ -333,7 +334,6 @@ void spawn_random_monsters()
     }
 
     mgen_data mg(WANDERING_MONSTER);
-    mg.xp_tracking = XP_SPAWNED;
     if (player_in_branch(BRANCH_PANDEMONIUM)
         && !env.properties.exists("vault_mon_weights")
         && !one_chance_in(40))
@@ -414,6 +414,10 @@ bool can_place_on_trap(monster_type mon_type, trap_type trap)
     if (mons_is_tentacle_segment(mon_type))
         return true;
 
+    // Things summoned by the player to a specific spot shouldn't protest.
+    if (mon_type == MONS_FULMINANT_PRISM || mon_type == MONS_LIGHTNING_SPIRE)
+        return true;
+
     if (trap == TRAP_TELEPORT || trap == TRAP_TELEPORT_PERMANENT
         || trap == TRAP_SHAFT)
     {
@@ -444,7 +448,6 @@ monster_type resolve_monster_type(monster_type mon_type,
                                   proximity_type proximity,
                                   coord_def *pos,
                                   unsigned mmask,
-                                  dungeon_char_type *stair_type,
                                   level_id *place,
                                   bool *want_band,
                                   bool allow_ood)
@@ -543,8 +546,7 @@ monster_type resolve_monster_type(monster_type mon_type,
                     mon_type =
                         resolve_monster_type(mon_type, base_type,
                                              proximity, pos, mmask,
-                                             stair_type, place,
-                                             want_band, allow_ood);
+                                             place, want_band, allow_ood);
                 }
                 return mon_type;
             }
@@ -632,7 +634,6 @@ monster* place_monster(mgen_data mg, bool force_pos, bool dont_place)
         return nullptr;
 
     int tries = 0;
-    dungeon_char_type stair_type = NUM_DCHAR_TYPES;
 
     // (1) Early out (summoned to occupied grid).
     if (mg.use_position() && monster_at(mg.pos))
@@ -646,10 +647,7 @@ monster* place_monster(mgen_data mg, bool force_pos, bool dont_place)
     level_id place = mg.place;
     mg.cls = resolve_monster_type(mg.cls, mg.base_type, mg.proximity,
                                   &mg.pos, mg.map_mask,
-                                  &stair_type,
-                                  &place,
-                                  &want_band,
-                                  allow_ood);
+                                  &place, &want_band, allow_ood);
     bool chose_ood_monster = place.absdepth() > mg.place.absdepth() + 5;
     if (want_band)
         mg.flags |= MG_PERMIT_BANDS;
@@ -734,8 +732,8 @@ monster* place_monster(mgen_data mg, bool force_pos, bool dont_place)
     if (!mon)
         return nullptr;
 
-    if (mg.props.exists("map"))
-        mon->set_originating_map(mg.props["map"].get_string());
+    if (mg.props.exists(MAP_KEY))
+        mon->set_originating_map(mg.props[MAP_KEY].get_string());
 
     if (mg.needs_patrol_point()
         || (mon->type == MONS_ALLIGATOR
@@ -1000,12 +998,7 @@ static monster* _place_monster_aux(const mgen_data &mg, const monster *leader,
             for (auto facet : mg.props[MUTANT_BEAST_FACETS].get_vector())
                 gen_facets.push_back(facet.get_int());
 
-        set<int> avoid_facets;
-        if (mg.props.exists(MUTANT_BEAST_AVOID_FACETS))
-            for (auto facet : mg.props[MUTANT_BEAST_AVOID_FACETS].get_vector())
-                avoid_facets.insert(facet.get_int());
-
-        init_mutant_beast(*mon, mg.hd, gen_facets, avoid_facets);
+        init_mutant_beast(*mon, mg.hd, gen_facets);
     }
 
     // Is it a god gift?
@@ -1484,7 +1477,7 @@ static monster* _place_monster_aux(const mgen_data &mg, const monster *leader,
     else if (!crawl_state.generating_level && !dont_place && you.can_see(*mon))
     {
         if (mg.flags & MG_DONT_COME)
-            mon->seen_context = SC_JUST_SEEN;
+            mons_set_just_seen(mon);
     }
 
     // Area effects can produce additional messages, and thus need to be
@@ -1888,7 +1881,6 @@ static const map<monster_type, band_set> bands_by_leader = {
     { MONS_TENGU_CONJURER,  { {2}, {{ BAND_TENGU, {1, 2}, true }}}},
     { MONS_TENGU_WARRIOR,   { {2}, {{ BAND_TENGU, {1, 2}, true }}}},
     { MONS_SOJOBO,          { {}, {{ BAND_SOJOBO, {2, 3}, true }}}},
-    { MONS_SPRIGGAN_AIR_MAGE, { {}, {{ BAND_AIR_ELEMENTALS, {2, 4}, true }}}},
     { MONS_SPRIGGAN_RIDER,  { {3}, {{ BAND_SPRIGGAN_RIDERS, {1, 3} }}}},
     { MONS_SPRIGGAN_BERSERKER, { {2}, {{ BAND_SPRIGGANS, {2, 4} }}}},
     { MONS_SPRIGGAN_DEFENDER, { {}, {{ BAND_SPRIGGAN_ELITES, {2, 5}, true }}}},
@@ -2104,7 +2096,6 @@ static const map<band_type, vector<member_possibilites>> band_membership = {
     { BAND_FLYING_SKULLS,       {{{MONS_FLYING_SKULL, 1}}}},
     { BAND_SHARD_SHRIKE,        {{{MONS_SHARD_SHRIKE, 1}}}},
     { BAND_SOJOBO,              {{{MONS_TENGU_REAVER, 1}}}},
-    { BAND_AIR_ELEMENTALS,      {{{MONS_AIR_ELEMENTAL, 1}}}},
     { BAND_HOWLER_MONKEY,       {{{MONS_HOWLER_MONKEY, 1}}}},
     { BAND_CAUSTIC_SHRIKE,      {{{MONS_CAUSTIC_SHRIKE, 1}}}},
     { BAND_DANCING_WEAPONS,     {{{MONS_DANCING_WEAPON, 1}}}},
@@ -2495,9 +2486,8 @@ static monster_type _band_member(band_type band, int which,
     {
         monster_type tmptype = MONS_PROGRAM_BUG;
         coord_def tmppos;
-        dungeon_char_type tmpfeat;
         return resolve_monster_type(RANDOM_BANDLESS_MONSTER, tmptype,
-                                    PROX_ANYWHERE, &tmppos, 0, &tmpfeat,
+                                    PROX_ANYWHERE, &tmppos, 0,
                                     &parent_place, nullptr, allow_ood);
     }
 
@@ -2833,9 +2823,6 @@ conduct_type player_will_anger_monster(const monster &mon)
     if (god_hates_spellcasting(you.religion) && mon.is_actual_spellcaster())
         return DID_SPELL_CASTING;
 
-    if (you_worship(GOD_DITHMENOS) && mons_is_fiery(mon))
-        return DID_FIRE;
-
     return DID_NOTHING;
 }
 
@@ -2872,9 +2859,6 @@ bool player_angers_monster(monster* mon)
                 break;
             case DID_SPELL_CASTING:
                 mprf("%s is enraged by your magic-hating god!", mname.c_str());
-                break;
-            case DID_FIRE:
-                mprf("%s is enraged by your darkness!", mname.c_str());
                 break;
             case DID_SACRIFICE_LOVE:
                 mprf("%s can only feel hate for you!", mname.c_str());

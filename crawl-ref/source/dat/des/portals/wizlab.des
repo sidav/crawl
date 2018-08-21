@@ -342,20 +342,6 @@ function callback.wizlab_wucad_wucad_died(data, triggerable,
   dgn.persist.wucad_mu_died = true
   crawl.mpr("The shadows inhabiting this place fade forever.", "talk_visual")
 end
-
--- Remove this function when TAG_MAJOR > 34
-function teleporter_golubria_switch_fn(data, triggerable, triggerer, marker, ev)
-  local position = dgn.point(marker:pos())
-  my_slaves = dgn.find_marker_positions_by_prop("teleport_spot",
-                                                data.teleport_spot)
-
-  if you.teleport_to(my_slaves[1].x, my_slaves[1].y, true) then
-    crawl.mpr("Your surroundings suddenly seem different!")
-  else
-    crawl.mpr("There is a strange hissing noise.")
-  end
-end
-
 }}
 
 default-depth: Depths, Elf, Crypt, Vaults:1-4
@@ -1088,7 +1074,7 @@ nsubst("G = " .. graves .. ":G / *:.")
 lua_marker("G", portal_desc { grave = 1 })
 lua_marker("Z", portal_desc { wizard_grave = 1})
 lua_marker("W", portal_desc { desc="Zonguldrok's gravestone",
-        veto_fragmentation="veto", veto_disintegrate="veto", veto_shatter="veto" })
+        veto_dig="veto", veto_shatter="veto" })
 
 local zombies_appear_marker = TriggerableFunction:new {
     func = "wizlab_zonguldrok_spawn_zombies",
@@ -1254,16 +1240,17 @@ lua_marker('A', summon_marker)
 lua_marker('A', wucad_marker)
 
 }}
-MARKER:     G = lua:props_marker {veto_fragmentation="veto", veto_disintegrate="veto", \
+MARKER:     G = lua:props_marker {veto_dig="veto", \
                                   veto_shatter="veto" }
-MARKER:     + = lua:props_marker {veto_fragmentation="veto", veto_disintegrate="veto", \
+MARKER:     + = lua:props_marker {veto_dig="veto", \
                                   veto_shatter="veto" }
-MARKER:     ' = lua:props_marker {veto_fragmentation="veto", veto_disintegrate="veto", \
+MARKER:     ' = lua:props_marker {veto_dig="veto", \
                                   veto_shatter="veto" }
-MARKER:     c = lua:props_marker {veto_fragmentation="veto", veto_disintegrate="veto", \
+MARKER:     c = lua:props_marker {veto_dig="veto", \
                                   veto_shatter="veto" }
-MARKER:     t = lua:props_marker {veto_fragmentation="veto", veto_disintegrate="veto", \
-                                  veto_shatter="veto", veto_fire="veto" }
+MARKER:     t = lua:props_marker {veto_dig="veto", \
+                                  veto_shatter="veto", \
+                                  veto_fire="veto" }
 :           wizlab_setup(_G)
 :           set_border_fill_type("tree")
 :           set_random_mon_list([[shadow w:6 / flayed ghost w:2 / hungry ghost w:2 / ]]
@@ -1361,7 +1348,7 @@ KITEM:   d = scroll of blinking / scroll of teleportation q:3 w:15 / \
              any scroll w:1
 KITEM:   e = any ring
 KITEM:   f = book of spatial translocations w:5 / book of the warp w:5 / \
-             plane papyrus w:5 / manual of translocations w:5 / \
+             akashic record w:5 / manual of translocations w:5 / \
              randbook disc:translocation numspells:5 / \
              randbook disc:translocation owner:Golubria numspells:7 \
              spells:shroud_of_golubria&passage_of_golubria
@@ -1504,7 +1491,7 @@ NAME:       wizlab_cloud
 TAGS:       no_rotate
 MONS:       air elemental w:20 / shock serpent w:5 / spark wasp w:5 \
             / wind drake w:5
-MONS:       fire crab w:5 / ghost crab / death drake / apocalypse crab
+MONS:       ghost crab / death drake / apocalypse crab
 MONS:       spriggan air mage / blizzard demon
 {{
 wizname = crawl.make_name()
@@ -1524,13 +1511,13 @@ MARKER:     ! = lua:fog_machine { \
 # player complete the rest of the map.
 ITEM:       potion of haste / potion of resistance w:5 / any potion w:20 \
             / scroll of silence w:5 / scroll of fog w:5 / any scroll w:20
-ITEM:       scarf ego:cloud_resistance / book of clouds / fan of gales \
+ITEM:       scarf ego:cloud_immunity / book of clouds / fan of gales \
             / staff of air
 # Main loot, including some thematic items that are good even if you don't care
 # about flight.
 ITEM:       any w:20 / star_item / superb_item / any book w:5
-ITEM:       randart ring of flight / good_item boots ego:flying \
-            / good_item boots ego:running / good_item quick blade \
+ITEM:       randart ring of flight / pair of boots ego:flying \
+            / pair of boots ego:running / good_item quick blade \
             / good_item ring of evasion
 ITEM:       randbook disc:air
 KFEAT:      #6 = deep_water
@@ -1545,8 +1532,8 @@ LFLOORTILE: floor_rough_lightblue
 {{
             set_border_fill_type('open_sea')
             set_random_mon_list("air elemental w:40 / shock serpent \
-                / spark wasp / wind drake / fire crab / ghost crab \
-                / apocalypse crab / spriggan air mage / blizzard demon")
+                / spark wasp / wind drake / ghost crab / apocalypse crab \
+                / spriggan air mage / blizzard demon")
             wizlab_setup(_G)
             set_feature_name("floor", "damp floor")
             set_feature_name("crystal_wall", "wall of white crystal")
@@ -1694,9 +1681,9 @@ KITEM:      f = demon blade w:1 / demon whip w:1 / demon trident w:1 \
                 / any randart jewellery w:5 / cloak good_item w:5 \
                 / star_item w:25 / superb_item
 KITEM:      g = randbook disc:summoning
-NSUBST:     d = e / d, ' = 2:1 / 2:2 / 3=12...., " = 2:1 / 2:2 / 3=12....
-NSUBST:     ` = 2:1 / 3:2 / 3=12...., ; = 2:1 / 3:2 / 3=12....
-NSUBST:     3 = 1:3 / 2, ~ = 2:1 / 4:2 / 4 / 9=12.... / ., f = 1:g / f
+NSUBST:     d = e / d, ' = 4:1 / 3=12...., " = 4:1 / 3=12....
+NSUBST:     ` = 2:1 / 2:2 / 3=12...., ; = 2:1 / 2:2 / 3=12....
+NSUBST:     3 = 1:3 / 1, ~ = 2:1 / 3:2 / 4 / 9=12.... / ., f = 1:g / f
 {{
 set_random_mon_list("common demon w:200 / balrug / blizzard demon / \
                      cacodemon / green death / hell beast / hellion / \

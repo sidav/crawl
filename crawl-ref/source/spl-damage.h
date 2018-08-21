@@ -7,9 +7,6 @@
 struct bolt;
 class dist;
 
-#if TAG_MAJOR_VERSION == 34
-spret_type cast_delayed_fireball(bool fail);
-#endif
 void setup_fire_storm(const actor *source, int pow, bolt &beam);
 spret_type cast_fire_storm(int pow, bolt &beam, bool fail);
 bool cast_smitey_damnation(int pow, bolt &beam);
@@ -34,8 +31,7 @@ int discharge_monsters(coord_def where, int pow, actor *agent);
 spret_type cast_discharge(int pow, bool fail);
 bool setup_fragmentation_beam(bolt &beam, int pow, const actor *caster,
                               const coord_def target, bool quiet,
-                              const char **what,
-                              bool &should_destroy_wall, bool &hole);
+                              const char **what, bool &hole);
 spret_type cast_fragmentation(int powc, const actor *caster,
                               const coord_def target, bool fail);
 spret_type cast_sandblast(int powc, bolt &beam, bool fail);

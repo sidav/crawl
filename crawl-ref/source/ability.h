@@ -27,7 +27,7 @@ unsigned int ability_mp_cost(ability_type abil);
 talent get_talent(ability_type ability, bool check_confused);
 const char* ability_name(ability_type ability);
 vector<const char*> get_ability_names();
-string get_ability_desc(const ability_type ability);
+string get_ability_desc(const ability_type ability, bool need_title = true);
 int choose_ability_menu(const vector<talent>& talents);
 string describe_talent(const talent& tal);
 skill_type abil_skill(ability_type abil);
@@ -35,8 +35,7 @@ int abil_skill_weight(ability_type abil);
 
 void no_ability_msg();
 bool activate_ability();
-bool check_ability_possible(const ability_type ability, bool hungerCheck = true,
-                            bool quiet = false);
+bool check_ability_possible(const ability_type ability, bool quiet = false);
 bool activate_talent(const talent& tal);
 vector<talent> your_talents(bool check_confused, bool include_unusable = false);
 bool string_matches_ability_name(const string& key);

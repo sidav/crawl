@@ -33,12 +33,14 @@
 #include "randbook.h"
 #include "random.h"
 #include "religion.h"
+#include "shopping.h"
 #include "skills.h"
 #include "spl-book.h"
 #include "spl-util.h"
 #include "state.h"
 #include "stringutil.h"
 #include "terrain.h"
+#include "unwind.h"
 
 static equipment_type _acquirement_armour_slot(bool);
 static armour_type _acquirement_armour_for_slot(equipment_type, bool);
@@ -716,6 +718,13 @@ static int _acquirement_wand_subtype(bool /*divine*/, int & /*quantity*/)
     return *wand;
 }
 
+static int _acquirement_book_subtype(bool /*divine*/, int & /*quantity*/)
+{
+    return BOOK_MINOR_MAGIC;
+    //this gets overwritten later, but needs to be a sane value
+    //or asserts will get set off
+}
+
 typedef int (*acquirement_subtype_finder)(bool divine, int &quantity);
 static const acquirement_subtype_finder _subtype_finders[] =
 {
@@ -727,7 +736,7 @@ static const acquirement_subtype_finder _subtype_finders[] =
     0, // no scrolls
     _acquirement_jewellery_subtype,
     _acquirement_food_subtype, // potion acquirement = food for vampires
-    0, // books handled elsewhere
+    _acquirement_book_subtype,
     _acquirement_staff_subtype,
     0, // no, you can't acquire the orb
     _acquirement_misc_subtype,
@@ -818,8 +827,8 @@ static int _book_weight(book_type book)
     int total_weight = 0;
     for (spell_type stype : spellbook_template(book))
     {
-        // Skip over spells already seen.
-        if (you.seen_spell[stype])
+        // Skip over spells already in library.
+        if (you.spell_library[stype])
             continue;
         if (god_hates_spell(stype, you.religion))
             continue;
@@ -846,7 +855,7 @@ static bool _skill_useless_with_god(int skill)
     case GOD_ELYVILON:
         return skill == SK_NECROMANCY;
     case GOD_XOM:
-    case GOD_NEMELEX_XOBEH:
+    case GOD_RU:
     case GOD_KIKUBAAQUDGHA:
     case GOD_VEHUMET:
     case GOD_ASHENZARI:
@@ -998,6 +1007,26 @@ static bool _do_book_acquirement(item_def &book, int agent)
         break;
     }
     } // switch book choice
+
+    // If we couldn't make a useful book, try to make a manual instead.
+    // We have to temporarily identify the book for this.
+    if (agent != GOD_XOM && agent != GOD_SIF_MUNA)
+    {
+        bool useless = false;
+        {
+            unwind_var<iflags_t> oldflags{book.flags};
+            book.flags |= ISFLAG_KNOW_TYPE;
+            useless = is_useless_item(book);
+        }
+        if (useless)
+        {
+            destroy_item(book);
+            book.base_type = OBJ_BOOKS;
+            book.quantity = 1;
+            return _acquire_manual(book);
+        }
+    }
+
     return true;
 }
 
@@ -1345,11 +1374,6 @@ int acquirement_create_item(object_class_type class_wanted,
             }
             // That might have changed the item's subtype.
             item_colour(acq_item);
-
-            // Don't mark books as seen if only generated for the
-            // acquirement statistics.
-            if (!debug)
-                mark_had_book(acq_item);
         }
         else if (acq_item.base_type == OBJ_JEWELLERY)
         {
@@ -1365,7 +1389,7 @@ int acquirement_create_item(object_class_type class_wanted,
                 acq_item.plus = max(abs((int) acq_item.plus), 1);
                 break;
 
-            case RING_LOUDNESS:
+            case RING_ATTENTION:
             case RING_TELEPORTATION:
             case AMU_INACCURACY:
                 // These are the only truly bad pieces of jewellery.
@@ -1459,7 +1483,7 @@ int acquirement_create_item(object_class_type class_wanted,
 }
 
 bool acquirement(object_class_type class_wanted, int agent,
-                 bool quiet, int* item_index, bool debug)
+                 bool quiet, int* item_index, bool debug, bool known_scroll)
 {
     ASSERT(!crawl_state.game_is_arena());
 
@@ -1474,7 +1498,7 @@ bool acquirement(object_class_type class_wanted, int agent,
     if (you.get_mutation_level(MUT_NO_ARTIFICE))
         bad_class.set(OBJ_MISCELLANY);
 
-    bad_class.set(OBJ_FOOD, you_foodless_normally() && !you_worship(GOD_FEDHAS));
+    bad_class.set(OBJ_FOOD, you_foodless(false) && !you_worship(GOD_FEDHAS));
 
     static struct { object_class_type type; const char* name; } acq_classes[] =
     {
@@ -1485,11 +1509,14 @@ bool acquirement(object_class_type class_wanted, int agent,
         { OBJ_STAVES,     "Staff " },
         { OBJ_MISCELLANY, "Evocable" },
         { OBJ_FOOD,       0 }, // amended below
-        { OBJ_GOLD,       "Gold" },
+        { OBJ_GOLD,       0 },
     };
     ASSERT(acq_classes[6].type == OBJ_FOOD);
     acq_classes[6].name = you.species == SP_VAMPIRE ? "Blood":
                                                       "Food";
+    string gold_text = make_stringf("Gold (you have $%d)", you.gold);
+    ASSERT(acq_classes[7].type == OBJ_GOLD);
+    acq_classes[7].name = gold_text.c_str();
 
     int thing_created = NON_ITEM;
 
@@ -1521,17 +1548,21 @@ bool acquirement(object_class_type class_wanted, int agent,
                 line.clear();
             }
         }
-        mprf(MSGCH_PROMPT, "What kind of item would you like to acquire? (\\ to view known items)");
+        mprf(MSGCH_PROMPT, "What kind of item would you like to acquire?"
+                "<lightgrey> [<w>\\</w>] known items [<w>$</w>] shopping list"
+                "</lightgrey>");
 
         const int keyin = toalower(get_ch());
         if (keyin >= 'a' && keyin < 'a' + (int)ARRAYSZ(acq_classes))
             class_wanted = acq_classes[keyin - 'a'].type;
         else if (keyin == '\\')
             check_item_knowledge(), redraw_screen();
+        else if (keyin == '$' && !shopping_list.empty())
+            shopping_list.display(true), redraw_screen();
         else
         {
             // Lets wizards escape out of accidentally choosing acquirement.
-            if (agent == AQ_WIZMODE)
+            if (agent == AQ_WIZMODE || known_scroll)
             {
                 canned_msg(MSG_OK);
                 return false;
