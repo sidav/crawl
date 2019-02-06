@@ -6867,6 +6867,7 @@ static void unmarshallSpells(reader &th, monster_spells &spells
 
 static void marshallGhost(writer &th, const ghost_demon &ghost)
 {
+    // save compat changes with minor tags here must be added to bones_minor_tags
     marshallString(th, ghost.name);
 
     marshallShort(th, ghost.species);
@@ -6894,6 +6895,7 @@ static void marshallGhost(writer &th, const ghost_demon &ghost)
 
 static ghost_demon unmarshallGhost(reader &th)
 {
+    // save compat changes with minor tags here must be added to bones_minor_tags
     ghost_demon ghost;
 
     ghost.name             = unmarshallString(th);
@@ -6966,7 +6968,11 @@ static vector<ghost_demon> tag_read_ghost(reader &th)
     int nghosts = unmarshallShort(th);
 
     if (nghosts < 1 || nghosts > MAX_GHOSTS)
-        return result;
+    {
+        string error = "Bones file has an invalid ghost count (" +
+                                                    to_string(nghosts) + ")";
+        throw corrupted_save(error);
+    }
 
     for (int i = 0; i < nghosts; ++i)
         result.push_back(unmarshallGhost(th));

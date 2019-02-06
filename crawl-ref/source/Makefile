@@ -1145,6 +1145,16 @@ LANGUAGES = $(filter-out en, $(notdir $(wildcard dat/descript/??)))
 SRC_PKG_BASE  := stone_soup
 SRC_VERSION   := $(shell git describe --tags $(MERGE_BASE) 2>/dev/null || cat util/release_ver)
 MAJOR_VERSION = $(shell echo "$(SRC_VERSION)"|sed -r 's/-.*//;s/^([^.]+\.[^.]+).*/\1/')
+RECENT_TAG    := $(shell git describe --abbrev=0 --tags $(MERGE_BASE))
+
+DIST_BONES_LOC := https://github.com/crawl/crawl/releases/download/$(RECENT_TAG)/dist_bones.tar.gz
+
+ifneq (,$(shell which wget))
+	DOWNLOADER := wget -O -
+else ifneq (,$(shell which curl))
+	DOWNLOADER := curl -L
+endif
+# otherwise, DOWNLOADER is empty -- any rule that uses it needs to check for this.
 
 export SRC_VERSION
 
@@ -1359,7 +1369,18 @@ ifdef ANDROID
   shareddir_fp =
 endif
 
-install-data: $(GENERATED_FILES)
+clean-bones-dist:
+	$(RM) -r dat/dist_bones
+
+install-bones-dist: clean-bones-dist
+ifeq (,$(DOWNLOADER))
+	@echo Neither curl nor wget is installed -- cannot download the bones distribution.
+else
+	@echo Attempting to install bones files from $(DIST_BONES_LOC)
+	@$(DOWNLOADER) $(DIST_BONES_LOC) | tar xz dat/dist_bones/ || echo Downloading bones distribution failed!
+endif
+
+install-data: $(GENERATED_FILES) install-bones-dist
 ifeq ($(DESTDIR)$(prefix)$(ANDROID),)
 	@echo Neither "DESTDIR" nor "prefix" defined -- nowhere to install to, aborting.
 	@exit 1
@@ -1393,6 +1414,11 @@ endif
 	for LANG in $(LANGUAGES); \
 		do $(COPY) dat/descript/$$LANG/*.txt $(datadir_fp)/dat/descript/$$LANG; \
 	done
+	@if [ -e dat/dist_bones ]; then \
+	    mkdir -p $(datadir_fp)/dat/dist_bones; \
+	    $(COPY) dat/dist_bones/* $(datadir_fp)/dat/dist_bones/; \
+	    echo Bones files installed to $(datadir_fp)/dat/dist_bones/; \
+	else echo Warning: distribution does not include bones files; fi
 	$(COPY) ../docs/*.txt $(datadir_fp)/docs/
 	$(COPY) ../docs/develop/*.txt $(datadir_fp)/docs/develop/
 	$(COPY) ../docs/develop/levels/*.txt $(datadir_fp)/docs/develop/levels/
@@ -1450,7 +1476,7 @@ ifeq ($(USE_DGAMELAUNCH),)
 	$(CHMOD) $(MCHMOD) $(prefix_fp)/$(bin_prefix)/$(GAME) || true
 endif
 
-clean: clean-rltiles clean-webserver clean-android clean-monster
+clean: clean-rltiles clean-webserver clean-android clean-monster clean-bones-dist
 	+$(MAKE) -C $(UTIL) clean
 	$(RM) $(GAME) $(GAME).exe $(GENERATED_FILES) $(EXTRA_OBJECTS) libw32c.o\
 	    libunix.o $(ALL_OBJECTS) $(ALL_OBJECTS:.o=.d) *.ixx  \
@@ -1671,6 +1697,7 @@ source: removeold prebuildyacc
 	  done
 	find build -name .gitignore -execdir rm -f '{}' +
 	git describe --tags $(MERGE_BASE) > $(BSRC)util/release_ver
+	cp build/LICENSE build/crawl-ref/LICENSE
 	mv build/crawl-ref build/$(PKG_SRC_DIR)
 
 package-tarball-deps: source
@@ -1685,7 +1712,7 @@ package-zipball-deps: source
 	fi
 
 package-tarball-nodeps: source
-	cd build && tar cfJ ../../../$(SRC_PKG_TAR_NODEPS) --exclude contrib $(PKG_SRC_DIR)
+	cd build && tar cfJ ../../../$(SRC_PKG_TAR_NODEPS) --exclude contrib --exclude simplebar.js $(PKG_SRC_DIR)
 
 package-source: package-tarball-deps package-zipball-deps package-tarball-nodeps
 	rm -rf build
@@ -1739,10 +1766,10 @@ endif
 # Building Mac app bundles
 #
 
-mac-app-tiles: all
+mac-app-tiles: all install-bones-dist
 	+$(MAKE) -j1 -C mac -f Makefile.app-bundle tiles
 
-mac-app-console: all
+mac-app-console: all install-bones-dist
 	+$(MAKE) -j1 -C mac -f Makefile.app-bundle
 
 #############################################################################

@@ -41,6 +41,7 @@
 #include "stringutil.h"
 #include "terrain.h"
 #include "unwind.h"
+#include "ui.h"
 
 static equipment_type _acquirement_armour_slot(bool);
 static armour_type _acquirement_armour_for_slot(equipment_type, bool);
@@ -1525,6 +1526,10 @@ bool acquirement(object_class_type class_wanted, int agent,
 
     *item_index = NON_ITEM;
 
+#ifdef USE_TILE_WEB
+    ui::cutoff_point ui_cutoff_point;
+#endif
+
     while (class_wanted == OBJ_RANDOM)
     {
         ASSERT(!quiet);
@@ -1549,8 +1554,8 @@ bool acquirement(object_class_type class_wanted, int agent,
             }
         }
         mprf(MSGCH_PROMPT, "What kind of item would you like to acquire?"
-                "<lightgrey> [<w>\\</w>] known items [<w>$</w>] shopping list"
-                "</lightgrey>");
+                "<lightgrey> [<w>\\</w>] known items %s</lightgrey>",
+                shopping_list.empty() ? "" : "[<w>$</w>] shopping list");
 
         const int keyin = toalower(get_ch());
         if (keyin >= 'a' && keyin < 'a' + (int)ARRAYSZ(acq_classes))
