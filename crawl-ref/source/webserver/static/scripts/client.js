@@ -28,6 +28,9 @@ function (exports, $, key_conversion, chat, comm) {
 
     var game_version = null;
     var loaded_modules = null;
+    var text_decoder = null;
+    if ("TextDecoder" in window)
+        text_decoder = new TextDecoder('utf-8');
 
     window.log = function (text)
     {
@@ -127,9 +130,12 @@ function (exports, $, key_conversion, chat, comm) {
 
     function delay(ms)
     {
-        clearTimeout(delay_timeout);
-        inhibit_messages();
-        delay_timeout = setTimeout(delay_ended, ms);
+        if (!("hidden" in document) || !document["hidden"])
+        {
+            clearTimeout(delay_timeout);
+            inhibit_messages();
+            delay_timeout = setTimeout(delay_ended, ms);
+        }
     }
 
     function delay_ended()
@@ -388,6 +394,7 @@ function (exports, $, key_conversion, chat, comm) {
         {
             $("#login_form").hide();
             $("#reg_link").hide();
+            $("#forgot_link").hide();
             $("#login_message").html("Logging in...");
             $("#remember_me").attr("checked", true);
             send_message("token_login", {
@@ -404,6 +411,7 @@ function (exports, $, key_conversion, chat, comm) {
     {
         $("#login_form").hide();
         $("#reg_link").hide();
+        $("#forgot_link").hide();
         $("#login_message").html("Logging in...");
         var username = $("#username").val();
         var password = $("#password").val();
@@ -419,6 +427,7 @@ function (exports, $, key_conversion, chat, comm) {
         $("#login_message").html("Login failed.");
         $("#login_form").show();
         $("#reg_link").show();
+        $("#forgot_link").show();
     }
 
     function logged_in(data)
@@ -430,6 +439,8 @@ function (exports, $, key_conversion, chat, comm) {
         hide_dialog();
         $("#login_form").hide();
         $("#reg_link").hide();
+        $("#forgot_link").hide();
+        $('#chem_link').show();
         $("#logout_link").show();
 
         chat.reset_visibility(true);
@@ -637,12 +648,6 @@ function (exports, $, key_conversion, chat, comm) {
             return false;
         }
 
-        if (email.indexOf(" ") >= 0)
-        {
-            $("#register_message").html("The email address can't contain spaces.");
-            return false;
-        }
-
         if (password !== password_repeat)
         {
             $("#register_message").html("Passwords don't match.");
@@ -661,6 +666,123 @@ function (exports, $, key_conversion, chat, comm) {
     function register_failed(data)
     {
         $("#register_message").html(data.reason);
+    }
+
+    function ask_change_email()
+    {
+        send_message("start_change_email");
+    }
+
+    function start_change_email(data)
+    {
+        $("#chem_current").html(data.email);
+        $("#chem_message").html("");
+        show_dialog("#change_email");
+        $("#chem_email").focus();
+    }
+
+    function cancel_change_email()
+    {
+        hide_dialog();
+    }
+
+    function change_email()
+    {
+        var email = $("#chem_email").val();
+
+        send_message("change_email", {
+            email: email
+        });
+
+        return false;
+    }
+
+    function change_email_failed(data)
+    {
+        $("#chem_message").html(data.reason);
+    }
+
+    function change_email_done(data)
+    {
+        if ( data.email == "" )
+        {
+            $("#chem_confirmation_message").html("Your account is no longer associated with an email address.");
+        }
+        else
+        {
+            $("#chem_confirmation_message").html("Your email address has been set to " + data.email + ".");
+        }
+
+        show_dialog("#change_email_2");
+    }
+
+    function start_forgot_password()
+    {
+        $("#forgot_message").html("");
+        show_dialog("#forgot");
+        $("#forgot_email").focus();
+    }
+
+    function cancel_forgot_password()
+    {
+        hide_dialog();
+    }
+
+    function forgot_password()
+    {
+        var email = $("#forgot_email").val();
+
+        if (email.indexOf(" ") >= 0)
+        {
+            $("#forgot_message").html("The email address can't contain spaces.");
+            return false;
+        }
+
+        send_message("forgot_password", {
+            email: email
+        });
+
+        return false;
+    }
+
+    function forgot_password_failed(data)
+    {
+        $("#forgot_message").html(data.reason);
+    }
+
+    function forgot_password_done()
+    {
+        show_dialog("#forgot_2");
+    }
+
+    function reset_password()
+    {
+        var token = $("#reset_pw_token").val();
+        var password = $("#reset_pw_password").val();
+        var password_repeat = $("#reset_pw_repeat_password").val();
+
+        if (password !== password_repeat)
+        {
+            $("#reset_pw_message").html("Passwords don't match.");
+            return false;
+        }
+
+        send_message("reset_password", {
+            token: token,
+            password: password
+        });
+
+        return false;
+    }
+
+    function cancel_reset_password()
+    {
+        do_reload_url()
+    }
+
+    function reset_password_failed(data)
+    {
+        $("#reset_pw_message").html(data.reason);
     }
 
     var editing_rc;
@@ -757,6 +879,11 @@ function (exports, $, key_conversion, chat, comm) {
         exit_reason = null;
         exit_message = null;
         exit_dump = null;
+
+        if ( $("#reset_pw").length )
+        {
+            show_dialog("#reset_pw");
+        }
     }
 
     function login_required(data)
@@ -1080,6 +1207,11 @@ function (exports, $, key_conversion, chat, comm) {
         set_layer(data.layer);
     }
 
+    function do_reload_url()
+    {
+        window.location.assign('/');
+    }
+
     function handle_multi_message(data)
     {
         var msg;
@@ -1089,12 +1221,21 @@ function (exports, $, key_conversion, chat, comm) {
 
     function decode_utf8(bufs, callback)
     {
-        var b = new Blob(bufs);
-        var f = new FileReader();
-        f.onload = function(e) {
-            callback(e.target.result)
+        if (text_decoder)
+            callback(text_decoder.decode(bufs));
+        else
+        {
+            // this approach is only a fallback for older browsers because the
+            // order of the callback isn't guaranteed, so messages can get
+            // queued out of order. TODO: maybe just fall back on uncompressed
+            // sockets instead?
+            var b = new Blob([bufs]);
+            var f = new FileReader();
+            f.onload = function(e) {
+                callback(e.target.result)
+            }
+            f.readAsText(b, "UTF-8");
         }
-        f.readAsText(b, "UTF-8");
     }
 
     var blob_construction_supported = true;
@@ -1162,6 +1303,12 @@ function (exports, $, key_conversion, chat, comm) {
         "login_fail": login_failed,
         "login_cookie": set_login_cookie,
         "register_fail": register_failed,
+        "start_change_email": start_change_email,
+        "change_email_fail": change_email_failed,
+        "change_email_done": change_email_done,
+        "forgot_password_fail": forgot_password_failed,
+        "forgot_password_done": forgot_password_done,
+        "reset_password_fail": reset_password_failed,
 
         "watching_started": watching_started,
 
@@ -1170,6 +1317,8 @@ function (exports, $, key_conversion, chat, comm) {
         "game_client": receive_game_client,
 
         "layer": do_set_layer,
+
+        "reload_url": do_reload_url,
     });
 
     $(document).ready(function () {
@@ -1197,6 +1346,24 @@ function (exports, $, key_conversion, chat, comm) {
         $("#reg_link").bind("click", start_register);
         $("#register_form").bind("submit", register);
         $("#reg_cancel").bind("click", cancel_register);
+
+        $("#chem_link").bind("click", ask_change_email);
+        $("#chem_form").bind("submit", change_email);
+        $("#chem_cancel").bind("click", cancel_change_email);
+
+        $("#change_email_2 input").bind("click", hide_dialog);
+
+        $("#forgot_link").bind("click", start_forgot_password);
+        $("#forgot_form").bind("submit", forgot_password);
+        $("#forgot_cancel").bind("click", cancel_forgot_password);
+
+        $("#forgot_2 input").bind("click", hide_dialog);
+
+        if ( $("#reset_pw").length )
+        {
+            $("#reset_pw_cancel").bind("click", cancel_reset_password);
+            $("#reset_pw_form").bind("submit", reset_password);
+        }
 
         $("#rc_edit_form").bind("submit", send_rc);
 
@@ -1248,8 +1415,8 @@ function (exports, $, key_conversion, chat, comm) {
                     var data = new Uint8Array(msg.data.byteLength + 4);
                     data.set(new Uint8Array(msg.data), 0);
                     data.set([0, 0, 255, 255], msg.data.byteLength);
-                    var decompressed = [inflater.append(data)];
-                    if (decompressed[0] === -1)
+                    var decompressed = inflater.append(data);
+                    if (decompressed === -1)
                     {
                         console.error("Decompression error!");
                         var x = inflater.append(data);
@@ -1258,8 +1425,10 @@ function (exports, $, key_conversion, chat, comm) {
                         if (window.log_messages === 2)
                             console.log("Message: " + s);
                         if (window.log_message_size)
-                            console.log("Message size: " + s.length);
-
+                        {
+                            console.log("Message size: " + s.length
+                                + " (compressed " + msg.data.byteLength + ")");
+                        }
                         enqueue_messages(s);
                     });
                     return;

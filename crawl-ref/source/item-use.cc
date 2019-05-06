@@ -19,7 +19,6 @@
 #include "colour.h"
 #include "coordit.h"
 #include "database.h"
-#include "decks.h"
 #include "delay.h"
 #include "describe.h"
 #include "directn.h"
@@ -27,6 +26,7 @@
 #include "env.h"
 #include "evoke.h"
 #include "exercise.h"
+#include "fight.h"
 #include "food.h"
 #include "god-abil.h"
 #include "god-conduct.h"
@@ -424,8 +424,8 @@ bool can_wield(const item_def *weapon, bool say_reason,
 }
 
 /**
- * @param auto_wield true if this was initiated by the wield weapon command (w)
- *      false otherwise (e.g. switching between ranged and melee with the
+ * @param auto_wield false if this was initiated by the wield weapon command (w)
+ *      true otherwise (e.g. switching between ranged and melee with the
  *      auto_switch option)
  * @param slot Index into inventory of item to equip. Or one of following
  *     special values:
@@ -2095,6 +2095,16 @@ void drink(item_def* potion)
         return;
     }
 
+    string prompt = make_stringf("Really quaff the %s?",
+                                 potion->name(DESC_DBNAME).c_str());
+    if (alreadyknown && is_dangerous_item(*potion, true)
+        && Options.bad_item_prompt
+        && !yesno(prompt.c_str(), false, 'n'))
+    {
+        canned_msg(MSG_OK);
+        return;
+    }
+
     // The "> 1" part is to reduce the amount of times that Xom is
     // stimulated when you are a low-level 1 trying your first unknown
     // potions on monsters.
@@ -2739,6 +2749,34 @@ string cannot_read_item_reason(const item_def &item)
 }
 
 /**
+ * Check if a particular scroll type would hurt a monster.
+ *
+ * @param scr           Scroll type in question
+ * @param m             Actor as a potential victim to the scroll
+ * @return  true if the provided scroll type is harmful to the actor.
+ */
+static bool _scroll_will_harm(const scroll_type scr, const actor &m)
+{
+    if (!m.alive())
+        return false;
+
+    switch (scr)
+    {
+        case SCR_HOLY_WORD:
+            if (m.undead_or_demonic())
+                return true;
+            break;
+        case SCR_TORMENT:
+            if (!m.res_torment())
+                return true;
+            break;
+        default: break;
+    }
+
+    return false;
+}
+
+/**
  * Check to see if the player can read the item in the given slot, and if so,
  * reads it. (Examining books, evoking the tome of destruction, & using
  * scrolls.)
@@ -2771,14 +2809,51 @@ void read(item_def* scroll)
         return;
     }
 
-    // need to handle this before we waste time (with e.g. blurryvis)
-    if (scroll->sub_type == SCR_BLINKING && item_type_known(*scroll)
-        && orb_limits_translocation()
-        && !yesno("Your blink will be uncontrolled - continue anyway?",
-                  false, 'n'))
-    {
-        canned_msg(MSG_OK);
-        return;
+    const scroll_type which_scroll = static_cast<scroll_type>(scroll->sub_type);
+    // Handle player cancels before we waste time (with e.g. blurryvis)
+    if (item_type_known(*scroll)) {
+        bool penance = god_hates_item(*scroll);
+        string verb_object = "read the " + scroll->name(DESC_DBNAME);
+
+        string penance_prompt = make_stringf("Really %s? This action would"
+                                             " place you under penance!",
+                                             verb_object.c_str());
+
+        targeter_los hitfunc(&you, LOS_NO_TRANS);
+
+        if (stop_attack_prompt(hitfunc, verb_object.c_str(),
+                               [which_scroll] (const actor* m)
+                               {
+                                   return _scroll_will_harm(which_scroll, *m);
+                               },
+                               nullptr, nullptr))
+        {
+            return;
+        }
+        else if (penance && !yesno(penance_prompt.c_str(), false, 'n'))
+        {
+            canned_msg(MSG_OK);
+            return;
+        }
+        else if ((is_dangerous_item(*scroll, true)
+                  || is_bad_item(*scroll, true))
+                 && Options.bad_item_prompt
+                 && !yesno(make_stringf("Really %s?",
+                                        verb_object.c_str()).c_str(),
+                           false, 'n'))
+        {
+            canned_msg(MSG_OK);
+            return;
+        }
+
+        if (scroll->sub_type == SCR_BLINKING
+            && orb_limits_translocation()
+            && !yesno("Your blink will be uncontrolled - continue anyway?",
+                      false, 'n'))
+        {
+            canned_msg(MSG_OK);
+            return;
+        }
     }
 
     if (you.get_mutation_level(MUT_BLURRY_VISION)
@@ -2875,7 +2950,7 @@ void read_scroll(item_def& scroll)
         else
         {
             cancel_scroll = (cast_controlled_blink(false, safely_cancellable)
-                             == SPRET_ABORT) && alreadyknown;
+                             == spret::abort) && alreadyknown;
         }
 
         if (!cancel_scroll)
@@ -2940,6 +3015,7 @@ void read_scroll(item_def& scroll)
         break;
 
     case SCR_FOG:
+    {
         if (alreadyknown && (env.level_state & LSTATE_STILL_WINDS))
         {
             mpr("The air is too still for clouds to form.");
@@ -2947,8 +3023,10 @@ void read_scroll(item_def& scroll)
             break;
         }
         mpr("The scroll dissolves into smoke.");
-        big_cloud(random_smoke_type(), &you, you.pos(), 50, 8 + random2(8));
+        auto smoke = random_smoke_type();
+        big_cloud(smoke, &you, you.pos(), 50, 8 + random2(8));
         break;
+    }
 
     case SCR_MAGIC_MAPPING:
         if (alreadyknown && !is_map_persistent())

@@ -294,6 +294,7 @@ static vector<string> _randart_propnames(const item_def& item,
         { ARTP_ANGRY,                 prop_note::plain },
         { ARTP_CAUSE_TELEPORTATION,   prop_note::plain },
         { ARTP_NOISE,                 prop_note::plain },
+        { ARTP_HARM,                  prop_note::plain },
         { ARTP_CORRODE,               prop_note::plain },
         { ARTP_DRAIN,                 prop_note::plain },
         { ARTP_SLOW,                  prop_note::plain },
@@ -564,6 +565,7 @@ static string _randart_descrip(const item_def &item)
         { ARTP_SLOW, "It may slow you when you take damage.", false},
         { ARTP_FRAGILE, "It will be destroyed if unequipped.", false },
         { ARTP_SHIELDING, "It affects your SH (%d).", false},
+        { ARTP_HARM, "It increases damage dealt and taken.", false},
     };
 
     // Give a short description of the base type, for base types with no
@@ -635,6 +637,7 @@ static const char *trap_names[] =
 #endif
     "arrow", "spear",
 #if TAG_MAJOR_VERSION > 34
+    "dispersal",
     "teleport",
 #endif
     "permanent teleport",
@@ -643,7 +646,7 @@ static const char *trap_names[] =
     "shaft", "passage", "pressure plate", "web",
 #if TAG_MAJOR_VERSION == 34
     "gas", "teleport",
-    "shadow", "dormant shadow",
+    "shadow", "dormant shadow", "dispersal"
 #endif
 };
 
@@ -1348,7 +1351,8 @@ static string _describe_weapon(const item_def &item, bool verbose)
         else
         {
             description += " weapon of "
-                        + ego_type_string(item, false, you.props[ORIGINAL_BRAND_KEY])
+                        + ego_type_string(item, false,
+                           (brand_type) you.props[ORIGINAL_BRAND_KEY].get_int())
                         + ".";
         }
     }
@@ -1627,7 +1631,7 @@ static string _describe_armour(const item_def &item, bool verbose)
             {
                 description += make_stringf("\nWearing mundane armour of this type "
                                             "will give the following: %d AC",
-                                             you.base_ac_from(item));
+                                             you.base_ac_from(item, 100) / 100);
             }
         }
     }
@@ -1850,106 +1854,6 @@ static string _describe_jewellery(const item_def &item, bool verbose)
     return description;
 }
 
-static bool _compare_card_names(card_type a, card_type b)
-{
-    return string(card_name(a)) < string(card_name(b));
-}
-
-static bool _check_buggy_deck(const item_def &deck, string &desc)
-{
-    if (!is_deck(deck))
-    {
-        desc += "This isn't a deck at all!\n";
-        return true;
-    }
-
-    const CrawlHashTable &props = deck.props;
-
-    if (!props.exists(CARD_KEY)
-        || props[CARD_KEY].get_type() != SV_VEC
-        || props[CARD_KEY].get_vector().get_type() != SV_BYTE
-        || cards_in_deck(deck) == 0)
-    {
-        return true;
-    }
-
-    return false;
-}
-
-static string _describe_deck(const item_def &item)
-{
-    string description;
-
-    description.reserve(100);
-
-    description += "\n";
-
-    if (_check_buggy_deck(item, description))
-        return "";
-
-    if (item_type_known(item))
-        description += deck_contents(item.sub_type) + "\n";
-
-    description += make_stringf("\nMost decks begin with %d to %d cards.",
-                                MIN_STARTING_CARDS,
-                                MAX_STARTING_CARDS);
-
-    const vector<card_type> drawn_cards = get_drawn_cards(item);
-    if (!drawn_cards.empty())
-    {
-        description += "\n";
-        description += "Drawn card(s): ";
-        description += comma_separated_fn(drawn_cards.begin(),
-                                          drawn_cards.end(),
-                                          card_name);
-    }
-
-    const int num_cards = cards_in_deck(item);
-    // The list of known cards, ending at the first one not known to be at the
-    // top.
-    vector<card_type> seen_top_cards;
-    // Seen cards in the deck not necessarily contiguous with the start. (If
-    // Nemelex wrath shuffled a deck that you stacked, for example.)
-    vector<card_type> other_seen_cards;
-    bool still_contiguous = true;
-    for (int i = 0; i < num_cards; ++i)
-    {
-        uint8_t flags;
-        const card_type card = get_card_and_flags(item, -i-1, flags);
-        if (flags & CFLAG_SEEN)
-        {
-            if (still_contiguous)
-                seen_top_cards.push_back(card);
-            else
-                other_seen_cards.push_back(card);
-        }
-        else
-            still_contiguous = false;
-    }
-
-    if (!seen_top_cards.empty())
-    {
-        description += "\n";
-        description += "Next card(s): ";
-        description += comma_separated_fn(seen_top_cards.begin(),
-                                          seen_top_cards.end(),
-                                          card_name);
-    }
-    if (!other_seen_cards.empty())
-    {
-        description += "\n";
-        sort(other_seen_cards.begin(), other_seen_cards.end(),
-             _compare_card_names);
-
-        description += "Seen card(s): ";
-        description += comma_separated_fn(other_seen_cards.begin(),
-                                          other_seen_cards.end(),
-                                          card_name);
-    }
-
-    return description;
-}
-
 bool is_dumpable_artefact(const item_def &item)
 {
     return is_known_artefact(item) && item_ident(item, ISFLAG_KNOW_PROPERTIES);
@@ -2135,8 +2039,6 @@ string get_item_description(const item_def &item, bool verbose,
         break;
 
     case OBJ_MISCELLANY:
-        if (is_deck(item))
-            description << _describe_deck(item);
         if (item.sub_type == MISC_ZIGGURAT && you.zigs_completed)
         {
             const int zigs = you.zigs_completed;
@@ -2938,7 +2840,7 @@ static string _player_spell_stats(const spell_type spell)
                      schools.c_str());
 
     if (!crawl_state.need_save
-        || (get_spell_flags(spell) & SPFLAG_MONSTER))
+        || (get_spell_flags(spell) & spflag::monster))
     {
         return description; // all other info is player-dependent
     }
@@ -3036,47 +2938,49 @@ int hex_chance(const spell_type spell, const int hd)
  */
 static string _player_spell_desc(spell_type spell)
 {
-    if (!crawl_state.need_save || (get_spell_flags(spell) & SPFLAG_MONSTER))
+    if (!crawl_state.need_save || (get_spell_flags(spell) & spflag::monster))
         return ""; // all info is player-dependent
 
-    string description;
+    ostringstream description;
 
     // Report summon cap
     const int limit = summons_limit(spell);
     if (limit)
     {
-        description += "You can sustain at most " + number_in_words(limit)
-                        + " creature" + (limit > 1 ? "s" : "")
-                        + " summoned by this spell.\n";
+        description << "You can sustain at most " + number_in_words(limit)
+                    << " creature" << (limit > 1 ? "s" : "")
+                    << " summoned by this spell.\n";
     }
 
     if (god_hates_spell(spell, you.religion))
     {
-        description += uppercase_first(god_name(you.religion))
-                       + " frowns upon the use of this spell.\n";
+        description << uppercase_first(god_name(you.religion))
+                    << " frowns upon the use of this spell.\n";
         if (god_loathes_spell(spell, you.religion))
-            description += "You'd be excommunicated if you dared to cast it!\n";
+            description << "You'd be excommunicated if you dared to cast it!\n";
     }
     else if (god_likes_spell(spell, you.religion))
     {
-        description += uppercase_first(god_name(you.religion))
-                       + " supports the use of this spell.\n";
+        description << uppercase_first(god_name(you.religion))
+                    << " supports the use of this spell.\n";
     }
 
     if (!you_can_memorise(spell))
     {
-        description += "\nYou cannot memorise this spell because "
-                       + desc_cannot_memorise_reason(spell)
-                       + "\n";
+        description << "\nYou cannot "
+                    << (you.has_spell(spell) ? "cast" : "memorise")
+                    << " this spell because "
+                    << desc_cannot_memorise_reason(spell)
+                    << "\n";
     }
     else if (spell_is_useless(spell, true, false))
     {
-        description += "\nThis spell will have no effect right now because "
-                       + spell_uselessness_reason(spell, true, false)
-                       + "\n";
+        description << "\nThis spell will have no effect right now because "
+                    << spell_uselessness_reason(spell, true, false)
+                    << "\n";
     }
 
-    return description;
+    return description.str();
 }
 
 
@@ -3130,13 +3034,13 @@ static bool _get_spell_description(const spell_type spell,
     if (mon_owner)
     {
         const int hd = mon_owner->spell_hd();
-        const int range = mons_spell_range(spell, hd);
+        const int range = mons_spell_range_for_hd(spell, hd);
         description += "\nRange : "
                        + range_string(range, range, mons_char(mon_owner->type))
                        + "\n";
 
         // only display this if the player exists (not in the main menu)
-        if (crawl_state.need_save && (get_spell_flags(spell) & SPFLAG_MR_CHECK)
+        if (crawl_state.need_save && (get_spell_flags(spell) & spflag::MR_check)
 #ifndef DEBUG_DIAGNOSTICS
             && mon_owner->attitude != ATT_FRIENDLY
 #endif
@@ -3147,9 +3051,13 @@ static bool _get_spell_description(const spell_type spell,
             if (you.wizard)
                 wiz_info += make_stringf(" (pow %d)", _hex_pow(spell, hd));
 #endif
-            description += make_stringf("Chance to beat your MR: %d%%%s\n",
-                                        hex_chance(spell, hd),
-                                        wiz_info.c_str());
+            description += you.immune_to_hex(spell)
+                ? make_stringf("You cannot be affected by this "
+                               "spell right now. %s\n",
+                               wiz_info.c_str())
+                : make_stringf("Chance to beat your MR: %d%%%s\n",
+                               hex_chance(spell, hd),
+                               wiz_info.c_str());
         }
 
     }
@@ -3352,6 +3260,22 @@ void describe_ability(ability_type ability)
 #endif
 }
 
+/**
+ * Examine a given deck.
+ */
+void describe_deck(deck_type deck)
+{
+    describe_info inf;
+
+    if (deck == DECK_STACK)
+        inf.title = "A stacked deck";
+    else
+        inf.title = "The " + deck_name(deck);
+
+    inf.body << deck_description(deck);
+
+    show_description(inf);
+}
 
 static string _describe_draconian(const monster_info& mi)
 {
@@ -3660,6 +3584,13 @@ static string _monster_attacks_description(const monster_info& mi)
 {
     ostringstream result;
     map<mon_attack_info, int> attack_counts;
+    brand_type special_flavour = SPWPN_NORMAL;
+
+    if (mi.props.exists(SPECIAL_WEAPON_KEY))
+    {
+        ASSERT(mi.type == MONS_PANDEMONIUM_LORD || mons_is_pghost(mi.type));
+        special_flavour = (brand_type) mi.props[SPECIAL_WEAPON_KEY].get_int();
+    }
 
     for (int i = 0; i < MAX_NUM_ATTACKS; ++i)
     {
@@ -3683,11 +3614,15 @@ static string _monster_attacks_description(const monster_info& mi)
     {
         const mon_attack_info &info = attack_count.first;
         const mon_attack_def &attack = info.definition;
-        const string weapon_note
-            = info.weapon ? make_stringf(" plus %s %s",
-                                         mi.pronoun(PRONOUN_POSSESSIVE),
-                                         info.weapon->name(DESC_PLAIN).c_str())
-                          : "";
+
+        const string weapon_name =
+              info.weapon ? info.weapon->name(DESC_PLAIN).c_str()
+            : ghost_brand_name(special_flavour, mi.type).c_str();
+        const string weapon_note = weapon_name.size() ?
+            make_stringf(" plus %s %s",
+                        mi.pronoun(PRONOUN_POSSESSIVE), weapon_name.c_str())
+            : "";
+
         const string count_desc =
               attack_count.second == 1 ? "" :
               attack_count.second == 2 ? " twice" :
@@ -3724,7 +3659,6 @@ static string _monster_attacks_description(const monster_info& mi)
                          _flavour_effect(attack.flavour, mi.hd).c_str()));
     }
 
-
     if (!attack_descs.empty())
     {
         result << uppercase_first(mi.pronoun(PRONOUN_SUBJECTIVE));
@@ -3734,28 +3668,32 @@ static string _monster_attacks_description(const monster_info& mi)
         result << ".\n";
     }
 
+    if (mi.type == MONS_ROYAL_JELLY)
+    {
+        result << "It will release varied jellies when damaged or killed, with"
+            " the number of jellies proportional to the amount of damage.\n";
+        result << "It will release all of its jellies when polymorphed.\n";
+    }
+
     return result.str();
 }
 
 static string _monster_spells_description(const monster_info& mi)
 {
-    static const string panlord_desc =
-        "It may possess any of a vast number of diabolical powers.\n";
-
-    // Show a generic message for pan lords, since they're secret.
-    if (mi.type == MONS_PANDEMONIUM_LORD && !mi.props.exists(SEEN_SPELLS_KEY))
-        return panlord_desc;
-
     // Show monster spells and spell-like abilities.
     if (!mi.has_spells())
         return "";
 
     formatted_string description;
-    if (mi.type == MONS_PANDEMONIUM_LORD)
-        description.cprintf("%s", panlord_desc.c_str());
     describe_spellset(monster_spellset(mi), nullptr, description, &mi);
-    description.cprintf("To read a description, press the key listed above.\n");
-    return description.tostring();
+    description.cprintf("\nTo read a description, press the key listed above. "
+        "(x%%) indicates the chance to beat your MR, "
+        "and (y) indicates the spell range");
+    description.cprintf(crawl_state.need_save
+        ? "; shown in red if you are in range.\n"
+        : ".\n");
+
+    return description.to_colour_string();
 }
 
 static const char *_speed_description(int speed)
@@ -4565,26 +4503,49 @@ int describe_monsters(const monster_info &mi, bool force_seen,
     title_hbox->set_margin_for_sdl({0, 0, 20, 0});
     vbox->add_child(move(title_hbox));
 
-    auto scroller = make_shared<Scroller>();
-    auto text = make_shared<Text>();
     desc += formatted_string(inf.body.str());
     if (crawl_state.game_is_hints())
         desc += formatted_string(hints_describe_monster(mi, has_stat_desc));
     desc += formatted_string(inf.footer);
     desc = formatted_string::parse_string(trimmed_string(desc));
 
-    text->set_text(desc);
-    text->wrap_text = true;
-    scroller->set_child(text);
-    vbox->add_child(scroller);
+    const formatted_string quote = formatted_string(trimmed_string(inf.quote));
 
-    if (!inf.quote.empty())
+    auto desc_sw = make_shared<Switcher>();
+    auto more_sw = make_shared<Switcher>();
+    desc_sw->current() = 0;
+    more_sw->current() = 0;
+
+#ifdef USE_TILE_LOCAL
+# define MORE_PREFIX "[<w>!</w>" "|<w>Right-click</w>" "]: "
+#else
+# define MORE_PREFIX "[<w>!</w>" "]: "
+#endif
+
+    const char* mores[2] = {
+        MORE_PREFIX "<w>Description</w>|Quote",
+        MORE_PREFIX "Description|<w>Quote</w>",
+    };
+
+    for (int i = 0; i < (inf.quote.empty() ? 1 : 2); i++)
     {
-        auto more = make_shared<Text>(_toggle_message);
-        more->set_margin_for_crt({1, 0, 0, 0});
-        more->set_margin_for_sdl({20, 0, 0, 0});
-        vbox->add_child(move(more));
+        const formatted_string *content[2] = { &desc, &quote };
+        auto scroller = make_shared<Scroller>();
+        auto text = make_shared<Text>(content[i]->trim());
+        text->wrap_text = true;
+        scroller->set_child(text);
+        desc_sw->add_child(move(scroller));
+
+        more_sw->add_child(make_shared<Text>(
+                formatted_string::parse_string(mores[i])));
     }
+
+    more_sw->set_margin_for_sdl({20, 0, 0, 0});
+    more_sw->set_margin_for_crt({1, 0, 0, 0});
+    desc_sw->expand_h = false;
+    vbox->add_child(desc_sw);
+    if (!inf.quote.empty())
+        vbox->add_child(more_sw);
 
 #ifdef USE_TILE_LOCAL
     vbox->max_size()[0] = tiles.get_crt_font()->char_width()*80;
@@ -4593,7 +4554,6 @@ int describe_monsters(const monster_info &mi, bool force_seen,
     auto popup = make_shared<ui::Popup>(move(vbox));
 
     bool done = false;
-    bool show_quote = false;
     int lastch;
     popup->on(Widget::slots.event, [&](wm_event ev) {
         if (ev.type != WME_KEYDOWN)
@@ -4603,8 +4563,13 @@ int describe_monsters(const monster_info &mi, bool force_seen,
         done = key == CK_ESCAPE;
         if (!inf.quote.empty() && (key == '!' || key == CK_MOUSE_CMD))
         {
-            show_quote = !show_quote;
-            text->set_text(show_quote ? formatted_string(trimmed_string(inf.quote)) : desc);
+            int n = (desc_sw->current() + 1) % 2;
+            desc_sw->current() = more_sw->current() = n;
+#ifdef USE_TILE_WEB
+            tiles.json_open_object();
+            tiles.json_write_int("pane", n);
+            tiles.ui_state_change("describe-monster", 0);
+#endif
         }
         const vector<pair<spell_type,char>> spell_map = map_chars_to_spells(spells, nullptr);
         auto entry = find_if(spell_map.begin(), spell_map.end(),
@@ -4624,9 +4589,10 @@ int describe_monsters(const monster_info &mi, bool force_seen,
     if (!needle.empty())
     {
         desc_without_spells = replace_all(desc_without_spells,
-                needle, "SPELLSET_PLACEHOLDER");
+                needle.to_colour_string(), "SPELLSET_PLACEHOLDER");
     }
     tiles.json_write_string("body", desc_without_spells);
+    tiles.json_write_string("quote", quote);
     write_spellset(spells, nullptr, &mi);
 
     {
@@ -4664,7 +4630,7 @@ int describe_monsters(const monster_info &mi, bool force_seen,
             tiles.json_write_null("mcache");
         }
     }
-    tiles.push_ui_layout("describe-monster", 0);
+    tiles.push_ui_layout("describe-monster", 1);
 #endif
 
     ui::run_layout(move(popup), done);

@@ -83,7 +83,8 @@ MAKEFLAGS += -rR # This only works for recursive makes, i.e. contribs ...
 
 .PHONY: all test install clean clean-contrib clean-rltiles clean-android \
         distclean debug debug-lite profile package-source source \
-        build-windows package-windows docs greet api android FORCE monster
+        build-windows package-windows docs greet api api-dev android FORCE \
+	monster
 
 include Makefile.obj
 
@@ -321,6 +322,9 @@ endif
 ifdef WEBTILES
 TILES_ANY = YesPlease
 OBJECTS += $(TILES_OBJECTS) $(WEBTILES_OBJECTS)
+ifdef NO_PKGCONFIG
+BUILD_LIBPNG = YesPlease # used by build-rltiles sub-make
+endif
 endif
 
 ifdef ANDROID
@@ -488,21 +492,6 @@ WINDRES := $(CROSSHOST)-windres
 
 endif
 
-# Define this to automatically generate code optimized for your machine
-# (GCC only as of now).
-#
-# NOTE: Don't use this with a release build, since the generated code
-# won't work for all machines.
-ifdef HURRY
-NO_AUTO_OPT = YesPlease
-endif
-
-ifdef AUTO_OPT
-ifndef NO_AUTO_OPT
-CFOPTIMIZE += -march=native
-endif
-endif
-
 ifdef USE_ICC
 # If you have a Core 2 processor, this _really_ makes things fly:
 #CFOPTIMIZE := -O2 -parallel -xT
@@ -522,6 +511,21 @@ else
   else
     CFOPTIMIZE := -O2
   endif
+endif
+
+# Define this to automatically generate code optimized for your machine
+# (GCC only as of now).
+#
+# NOTE: Don't use this with a release build, since the generated code
+# won't work for all machines.
+ifdef HURRY
+NO_AUTO_OPT = YesPlease
+endif
+
+ifdef AUTO_OPT
+ifndef NO_AUTO_OPT
+CFOPTIMIZE += -march=native
+endif
 endif
 
 ifdef LTO
@@ -1136,25 +1140,18 @@ RLTILES_CFLAGS := $(ALL_CFLAGS) -Wno-tautological-compare
 DOC_BASE        := ../docs
 DOC_TEMPLATES   := $(DOC_BASE)/template
 GENERATED_DOCS  := $(DOC_BASE)/aptitudes.txt $(DOC_BASE)/aptitudes-wide.txt $(DOC_BASE)/FAQ.html $(DOC_BASE)/crawl_manual.txt
-GENERATED_HEADERS := art-enum.h config.h mon-mst.h #the rest are private
+# Headers that need to exist before attempting to compile cc files
+GENERATED_HEADERS := art-enum.h config.h mon-mst.h species-type.h
+# All other generated files will be created later
 GENERATED_FILES := $(GENERATED_HEADERS) art-data.h mi-enum.h \
                    $(RLTILES)/dc-unrand.txt build.h compflag.h dat/dlua/tags.lua \
-                   cmd-name.h
+                   cmd-name.h species-data.h aptitudes.h species-groups.h
 
 LANGUAGES = $(filter-out en, $(notdir $(wildcard dat/descript/??)))
 SRC_PKG_BASE  := stone_soup
 SRC_VERSION   := $(shell git describe --tags $(MERGE_BASE) 2>/dev/null || cat util/release_ver)
 MAJOR_VERSION = $(shell echo "$(SRC_VERSION)"|sed -r 's/-.*//;s/^([^.]+\.[^.]+).*/\1/')
 RECENT_TAG    := $(shell git describe --abbrev=0 --tags $(MERGE_BASE))
-
-DIST_BONES_LOC := https://github.com/crawl/crawl/releases/download/$(RECENT_TAG)/dist_bones.tar.gz
-
-ifneq (,$(shell which wget))
-	DOWNLOADER := wget -O -
-else ifneq (,$(shell which curl))
-	DOWNLOADER := curl -L
-endif
-# otherwise, DOWNLOADER is empty -- any rule that uses it needs to check for this.
 
 export SRC_VERSION
 
@@ -1314,11 +1311,16 @@ $(DOC_BASE)/FAQ.html: dat/database/FAQ.txt util/FAQ2html.pl
 $(DOC_BASE)/crawl_manual.txt: $(DOC_BASE)/crawl_manual.rst util/unrest.pl
 	$(QUIET_GEN)util/unrest.pl <$< >$@
 
-CLUA_MODULE_SOURCES = $(filter l_%,$(OBJECTS:%.o=%.cc))
-api: $(CLUA_MODULE_SOURCES)
-	mkdir -p luadoc
-	luadoc --doclet util.html_doclet --taglet util.taglet -d luadoc $^
+api:
+	mkdir -p $(DOC_BASE)/develop/lua/
+	# need abspath here because ldoc is fragile
+	ldoc --config util/config.ld --dir $(abspath $(DOC_BASE)/lua/) .
 
+api-dev:
+	mkdir -p $(DOC_BASE)/develop/lua/
+	# need abspath here because ldoc is fragile
+	ldoc --config util/config.ld --dir $(abspath $(DOC_BASE)/develop/lua/) \
+	     --all .
 
 ##########################################################################
 # The level compiler
@@ -1369,18 +1371,7 @@ ifdef ANDROID
   shareddir_fp =
 endif
 
-clean-bones-dist:
-	$(RM) -r dat/dist_bones
-
-install-bones-dist: clean-bones-dist
-ifeq (,$(DOWNLOADER))
-	@echo Neither curl nor wget is installed -- cannot download the bones distribution.
-else
-	@echo Attempting to install bones files from $(DIST_BONES_LOC)
-	@$(DOWNLOADER) $(DIST_BONES_LOC) | tar xz dat/dist_bones/ || echo Downloading bones distribution failed!
-endif
-
-install-data: $(GENERATED_FILES) install-bones-dist
+install-data: $(GENERATED_FILES)
 ifeq ($(DESTDIR)$(prefix)$(ANDROID),)
 	@echo Neither "DESTDIR" nor "prefix" defined -- nowhere to install to, aborting.
 	@exit 1
@@ -1414,11 +1405,8 @@ endif
 	for LANG in $(LANGUAGES); \
 		do $(COPY) dat/descript/$$LANG/*.txt $(datadir_fp)/dat/descript/$$LANG; \
 	done
-	@if [ -e dat/dist_bones ]; then \
-	    mkdir -p $(datadir_fp)/dat/dist_bones; \
-	    $(COPY) dat/dist_bones/* $(datadir_fp)/dat/dist_bones/; \
-	    echo Bones files installed to $(datadir_fp)/dat/dist_bones/; \
-	else echo Warning: distribution does not include bones files; fi
+	mkdir -p $(datadir_fp)/dat/dist_bones
+	$(COPY) dat/dist_bones/* $(datadir_fp)/dat/dist_bones/
 	$(COPY) ../docs/*.txt $(datadir_fp)/docs/
 	$(COPY) ../docs/develop/*.txt $(datadir_fp)/docs/develop/
 	$(COPY) ../docs/develop/levels/*.txt $(datadir_fp)/docs/develop/levels/
@@ -1476,7 +1464,7 @@ ifeq ($(USE_DGAMELAUNCH),)
 	$(CHMOD) $(MCHMOD) $(prefix_fp)/$(bin_prefix)/$(GAME) || true
 endif
 
-clean: clean-rltiles clean-webserver clean-android clean-monster clean-bones-dist
+clean: clean-rltiles clean-webserver clean-android clean-monster
 	+$(MAKE) -C $(UTIL) clean
 	$(RM) $(GAME) $(GAME).exe $(GENERATED_FILES) $(EXTRA_OBJECTS) libw32c.o\
 	    libunix.o $(ALL_OBJECTS) $(ALL_OBJECTS:.o=.d) *.ixx  \
@@ -1628,6 +1616,23 @@ dat/dlua/tags.lua: tag-version.h util/gen-luatags.pl
 mi-enum.h: mon-info.h util/gen-mi-enum
 	$(QUIET_GEN)util/gen-mi-enum
 
+# species-gen.py creates multiple files at once. Ensure Make doesn't run it once
+# per target file. https://stackoverflow.com/q/2973445
+species-data.h: dat/species/*.yaml util/species-gen.py util/species-gen/*.txt
+	$(QUIET_GEN)util/species-gen.py dat/species/ util/species-gen/ species-data.h aptitudes.h species-groups.h species-type.h
+
+# no-op
+aptitudes.h: species-data.h
+	$(QUIET_GEN)
+
+# no-op
+species-groups.h: aptitudes.h
+	$(QUIET_GEN)
+
+# no-op
+species-type.h: species-groups.h
+	$(QUIET_GEN)
+
 $(RLTILES)/dc-unrand.txt: art-data.h
 
 artefact.o: art-data.h art-enum.h
@@ -1648,7 +1653,12 @@ ifdef ANDROID
         # prove that tiles were generated properly
 	grep tile_info rltiles/*.cc| head
 else
+# ensure we don't use contrib libpng when cross-compiling - it won't work.
+ifdef CROSSHOST
 	+$(MAKE) -C $(RLTILES) all ARCH=$(ARCH) TILES=$(TILES)$(WEBTILES)
+else
+	+$(MAKE) -C $(RLTILES) all ARCH=$(ARCH) NO_PKGCONFIG=$(NO_PKGCONFIG) TILES=$(TILES)$(WEBTILES)
+endif
 endif
 
 $(TILEDEFSRCS) $(TILEDEFHDRS) $(ORIGTILEFILES): build-rltiles
@@ -1766,10 +1776,10 @@ endif
 # Building Mac app bundles
 #
 
-mac-app-tiles: all install-bones-dist
+mac-app-tiles: all
 	+$(MAKE) -j1 -C mac -f Makefile.app-bundle tiles
 
-mac-app-console: all install-bones-dist
+mac-app-console: all
 	+$(MAKE) -j1 -C mac -f Makefile.app-bundle
 
 #############################################################################

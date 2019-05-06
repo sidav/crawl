@@ -416,7 +416,7 @@ void CLua::vfnreturns(const char *format, va_list args)
             break;
         case 'd':
             if (lua_isnumber(ls, sp))
-                *(va_arg(args, int*)) = luaL_checkint(ls, sp);
+                *(va_arg(args, int*)) = luaL_safe_checkint(ls, sp);
             break;
         case 'b':
             *(va_arg(args, bool *)) = lua_toboolean(ls, sp);
@@ -753,6 +753,11 @@ void CLua::init_lua()
 
     lua_atpanic(_state, _clua_panic);
 
+#ifdef CLUA_UNRESTRICTED_LIBS
+    // open all libs -- this is not safe for public servers or releases!
+    // Intended for people writing bots and the like.
+    luaL_openlibs(_state);
+#else
     // Selectively load some, but not all Lua core libraries.
     //
     // In Lua 5.1, these library setup calls are not supposed to be called
@@ -784,6 +789,7 @@ void CLua::init_lua()
         lua_pushstring(_state, l.first.c_str());
         lua_call(_state, 1, 0);
     }
+#endif
 
     // Open Crawl bindings
     cluaopen_kills(_state);
@@ -806,7 +812,7 @@ void CLua::init_lua()
     lua_register(_state, "loadfile", _clua_loadfile);
     lua_register(_state, "dofile", _clua_dofile);
 
-    lua_register(_state, "require", _clua_require);
+    lua_register(_state, "crawl_require", _clua_require);
 
     execfile("dlua/util.lua", true, true);
     execfile("dlua/iter.lua", true, true);
@@ -899,7 +905,7 @@ void CLua::print_stack()
     fprintf(stderr, "\n");
 }
 
-////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////
 // lua_text_pattern
 
 // We could simplify this a great deal by just using lex and yacc, but I
@@ -1067,7 +1073,7 @@ bool lua_text_pattern::translate() const
     return translated;
 }
 
-//////////////////////////////////////////////////////////////////////////
+// ////////////////////////////////////////////////////////////////////////
 
 lua_call_throttle::lua_clua_map lua_call_throttle::lua_map;
 
@@ -1201,6 +1207,20 @@ static int _clua_guarded_pcall(lua_State *ls)
     return lua_gettop(ls);
 }
 
+// Document clua globals here, as they're bound by the interpreter object
+
+/*** Pre-defined globals.
+ *
+ * *Note:* this is not a real module. All names described here are defined in
+ * the global clua namespace.
+ * @module Globals
+ */
+
+/*** Load the named lua file as a chunk.
+ * @tparam string filename
+ * @return function chunk or nil,error
+ * @function loadfile
+ */
 static int _clua_loadfile(lua_State *ls)
 {
     const char *file = luaL_checkstring(ls, 1);
@@ -1218,6 +1238,13 @@ static int _clua_loadfile(lua_State *ls)
     return 1;
 }
 
+/*** Load and execute the named lua file.
+ * Differs from @{dofile} in that the file is run for its side effects.
+ * If the execution has an error we raise that error and exit.
+ * @tparam string filename
+ * @treturn boolean|nil
+ * @function require
+ */
 static int _clua_require(lua_State *ls)
 {
     const char *file = luaL_checkstring(ls, 1);
@@ -1232,6 +1259,13 @@ static int _clua_require(lua_State *ls)
     return 1;
 }
 
+/*** Load and execute the named luafile, returning the result.
+ * Differs from @{require} in that the file is run for a result. Errors
+ * come back on the lua stack and can be handled by the caller.
+ * @tparam string filename
+ * @return whatever is left on the lua stack by filename
+ * @function dofile
+ */
 static int _clua_dofile(lua_State *ls)
 {
     const char *file = luaL_checkstring(ls, 1);
@@ -1256,7 +1290,7 @@ static string _get_persist_file()
     return Options.filename + ".persist";
 }
 
-/////////////////////////////////////////////////////////////////////
+// ///////////////////////////////////////////////////////////////////
 
 lua_shutdown_listener::~lua_shutdown_listener()
 {

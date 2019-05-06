@@ -122,7 +122,6 @@ CRAWLSRC = ability.cc \
 	dgn-delve.cc \
 	dgn-event.cc \
 	dgn-height.cc \
-	dgn-labyrinth.cc \
 	dgn-layouts.cc \
 	dgn-overview.cc \
 	dgn-proclayouts.cc \

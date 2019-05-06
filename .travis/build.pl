@@ -17,6 +17,16 @@ $ENV{TRAVIS} = 1;
 $ENV{FORCE_CC} = $ENV{CC};
 $ENV{FORCE_CXX} = $ENV{CXX};
 
+if ($ENV{UNBRACE}) {
+    try("util/unbrace -n");
+    exit 0;
+}
+
+if ($ENV{CHECKWHITE}) {
+    try("util/checkwhite -an");
+    exit 0;
+}
+
 if ($ENV{CROSSCOMPILE}) {
     try("make CROSSHOST=i686-w64-mingw32 package-windows");
     exit 0;

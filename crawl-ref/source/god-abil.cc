@@ -30,6 +30,7 @@
 #include "english.h"
 #include "fight.h"
 #include "files.h"
+#include "fineff.h"
 #include "food.h"
 #include "format.h" // formatted_string
 #include "god-blessing.h"
@@ -1437,7 +1438,7 @@ void elyvilon_remove_divine_vigour()
 
 bool vehumet_supports_spell(spell_type spell)
 {
-    if (spell_typematch(spell, SPTYP_CONJURATION))
+    if (spell_typematch(spell, spschool::conjuration))
         return true;
 
     // Conjurations work by conjuring up a chunk of short-lived matter and
@@ -1485,7 +1486,7 @@ void trog_remove_trogs_hand()
  * @param mon the orc in question.
  * @returns whether you have given the monster a Beogh gift before now.
  */
-static bool _given_gift(const monster* mon)
+bool given_gift(const monster* mon)
 {
     return mon->props.exists(BEOGH_RANGE_WPN_GIFT_KEY)
             || mon->props.exists(BEOGH_MELEE_WPN_GIFT_KEY)
@@ -1523,7 +1524,7 @@ bool beogh_can_gift_items_to(const monster* mons, bool quiet)
         return false;
     }
 
-    if (_given_gift(mons))
+    if (given_gift(mons))
     {
         if (!quiet)
         {
@@ -1817,7 +1818,7 @@ void yred_make_enslaved_soul(monster* mon, bool force_hostile)
     }
     monster_drop_things(mon, false, [](const item_def& item)
                                     { return is_holy_item(item); });
-    mon->remove_avatars();
+    mon->remove_summons();
 
     const monster orig = *mon;
 
@@ -1843,7 +1844,7 @@ void yred_make_enslaved_soul(monster* mon, bool force_hostile)
     mon->flags |= orig.flags & MF_MELEE_MASK;
     monster_spells spl = orig.spells;
     for (const mon_spell_slot &slot : spl)
-        if (!(get_spell_flags(slot.spell) & SPFLAG_HOLY))
+        if (!(get_spell_flags(slot.spell) & spflag::holy))
             mon->spells.push_back(slot);
     if (mon->spells.size())
         mon->props[CUSTOM_SPELLS_KEY] = true;
@@ -2572,7 +2573,7 @@ static bool _create_plant(coord_def& target, int hp_adjust = 0)
 
 #define SUNLIGHT_DURATION 80
 
-spret_type fedhas_sunlight(bool fail)
+spret fedhas_sunlight(bool fail)
 {
     dist spelld;
 
@@ -2590,7 +2591,7 @@ spret_type fedhas_sunlight(bool fail)
     direction(spelld, args);
 
     if (!spelld.isValid)
-        return SPRET_ABORT;
+        return spret::abort;
 
     fail_check();
 
@@ -2644,7 +2645,7 @@ spret_type fedhas_sunlight(bool fail)
              "an invisible shape" : "some invisible shapes");
     }
 
-    return SPRET_SUCCESS;
+    return spret::success;
 }
 
 void process_sunlights(bool future)
@@ -3290,7 +3291,7 @@ static vector<string> _evolution_name(const monster_info& mon)
         return { "cannot be evolved" };
 }
 
-spret_type fedhas_evolve_flora(bool fail)
+spret fedhas_evolve_flora(bool fail)
 {
     dist spelld;
 
@@ -3310,7 +3311,7 @@ spret_type fedhas_evolve_flora(bool fail)
     {
         // Check for user cancel.
         canned_msg(MSG_OK);
-        return SPRET_ABORT;
+        return spret::abort;
     }
 
     monster* const plant = monster_at(spelld.target);
@@ -3321,7 +3322,7 @@ spret_type fedhas_evolve_flora(bool fail)
             mpr("The tree has already reached the pinnacle of evolution.");
         else
             mpr("You must target a plant or fungus.");
-        return SPRET_ABORT;
+        return spret::abort;
     }
 
     if (!mons_is_evolvable(plant))
@@ -3338,7 +3339,7 @@ spret_type fedhas_evolve_flora(bool fail)
                                    " of evolution.");
         }
 
-        return SPRET_ABORT;
+        return spret::abort;
     }
     auto upgrade_ptr = map_find(conversions, plant->type);
     ASSERT(upgrade_ptr);
@@ -3352,14 +3353,14 @@ spret_type fedhas_evolve_flora(bool fail)
         if (total_rations < upgrade.ration_cost)
         {
             mpr("Not enough rations available.");
-            return SPRET_ABORT;
+            return spret::abort;
         }
     }
 
     if (upgrade.piety_cost && upgrade.piety_cost > you.piety)
     {
         mpr("Not enough piety available.");
-        return SPRET_ABORT;
+        return spret::abort;
     }
 
     fail_check();
@@ -3440,7 +3441,7 @@ spret_type fedhas_evolve_flora(bool fail)
         mpr("Your piety has decreased.");
     }
 
-    return SPRET_SUCCESS;
+    return spret::success;
 }
 
 static bool _lugonu_warp_monster(monster& mon, int pow)
@@ -3488,8 +3489,8 @@ void cheibriados_time_bend(int pow)
         monster* mon = monster_at(*ai);
         if (mon && !mon->is_stationary())
         {
-            int res_margin = roll_dice(mon->get_hit_dice(), 3)
-                             - random2avg(pow, 2);
+            int res_margin = roll_dice(mon->get_hit_dice(), 3);
+            res_margin -= random2avg(pow, 2);
             if (res_margin > 0)
             {
                 mprf("%s%s",
@@ -3600,8 +3601,8 @@ void cheibriados_temporal_distortion()
 {
     const coord_def old_pos = you.pos();
 
-    you.moveto(coord_def(0, 0));
     you.duration[DUR_TIME_STEP] = 3 + random2(3);
+    you.moveto(coord_def(0, 0));
 
     _run_time_step();
 
@@ -3629,8 +3630,8 @@ void cheibriados_time_step(int pow) // pow is the number of turns to skip
 
     mpr("You step out of the flow of time.");
     flash_view(UA_PLAYER, LIGHTBLUE);
-    you.moveto(coord_def(0, 0));
     you.duration[DUR_TIME_STEP] = pow;
+    you.moveto(coord_def(0, 0));
 
     you.time_taken = 10;
     _run_time_step();
@@ -3873,8 +3874,7 @@ bool dithmenos_shadow_step()
         if (!zot_trap_prompted)
         {
             trap_def* trap = trap_at(site);
-            if (trap && env.grid(site) != DNGN_UNDISCOVERED_TRAP
-                && trap->type == TRAP_ZOT)
+            if (trap && trap->type == TRAP_ZOT)
             {
                 if (!check_moveto_trap(site, "shadow step",
                                        &trap_prompted))
@@ -4642,7 +4642,7 @@ static int _upheaval_radius(int pow)
     return pow >= 100 ? 2 : 1;
 }
 
-spret_type qazlal_upheaval(coord_def target, bool quiet, bool fail)
+spret qazlal_upheaval(coord_def target, bool quiet, bool fail)
 {
     int pow = you.skill(SK_INVOCATIONS, 6);
     const int max_radius = _upheaval_radius(pow);
@@ -4674,13 +4674,13 @@ spret_type qazlal_upheaval(coord_def target, bool quiet, bool fail)
         args.self = CONFIRM_CANCEL;
         args.hitfunc = &tgt;
         if (!spell_direction(spd, beam, &args))
-            return SPRET_ABORT;
+            return spret::abort;
 
         if (cell_is_solid(beam.target))
         {
             mprf("There is %s there.",
                  article_a(feat_type_name(grd(beam.target))).c_str());
-            return SPRET_ABORT;
+            return spret::abort;
         }
 
         bolt tempbeam;
@@ -4694,7 +4694,7 @@ spret_type qazlal_upheaval(coord_def target, bool quiet, bool fail)
         tempbeam.is_tracer = true;
         tempbeam.explode(false);
         if (tempbeam.beam_cancelled)
-            return SPRET_ABORT;
+            return spret::abort;
     }
     else
         beam.target = target;
@@ -4800,10 +4800,7 @@ spret_type qazlal_upheaval(coord_def target, bool quiet, bool fail)
                      || grd(pos) == DNGN_CLEAR_ROCK_WALL
                      || grd(pos) == DNGN_SLIMY_WALL)
                      && x_chance_in_y(pow / 4, 100)
-                    || grd(pos) == DNGN_CLOSED_DOOR
-                    || grd(pos) == DNGN_RUNED_DOOR
-                    || grd(pos) == DNGN_OPEN_DOOR
-                    || grd(pos) == DNGN_SEALED_DOOR
+                    || feat_is_door(grd(pos))
                     || grd(pos) == DNGN_GRATE))
                 {
                     noisy(30, pos);
@@ -4819,10 +4816,10 @@ spret_type qazlal_upheaval(coord_def target, bool quiet, bool fail)
     if (wall_count && !quiet)
         mpr("Ka-crash!");
 
-    return SPRET_SUCCESS;
+    return spret::success;
 }
 
-spret_type qazlal_elemental_force(bool fail)
+spret qazlal_elemental_force(bool fail)
 {
     static const map<cloud_type, monster_type> elemental_clouds = {
         { CLOUD_FIRE,           MONS_FIRE_ELEMENTAL },
@@ -4853,7 +4850,7 @@ spret_type qazlal_elemental_force(bool fail)
     if (targets.empty())
     {
         mpr("You can't see any clouds you can empower.");
-        return SPRET_ABORT;
+        return spret::abort;
     }
 
     fail_check();
@@ -4891,7 +4888,7 @@ spret_type qazlal_elemental_force(bool fail)
     else
         canned_msg(MSG_NOTHING_HAPPENS); // can this ever happen?
 
-    return SPRET_SUCCESS;
+    return spret::success;
 }
 
 bool qazlal_disaster_area()
@@ -4944,21 +4941,22 @@ bool qazlal_disaster_area()
 
     mprf(MSGCH_GOD, "Nature churns violently around you!");
 
+    // TODO: should count get a cap proportional to targets.size()?
     int count = max(1, min((int)targets.size(),
                             max(you.skill_rdiv(SK_INVOCATIONS, 1, 2),
                                 random2avg(you.skill(SK_INVOCATIONS, 2), 2))));
-    vector<coord_def> victims;
+
     for (int i = 0; i < count; i++)
     {
         if (targets.size() == 0)
             break;
         int which = choose_random_weighted(weights.begin(), weights.end());
-        unsigned int j = 0;
-        for (; j < victims.size(); j++)
-            if (adjacent(targets[which], victims[j]))
-                break;
-        if (j == victims.size())
-            qazlal_upheaval(targets[which], true);
+        // Downweight adjacent potential targets (but don't rule them out
+        // entirely).
+        for (unsigned int j = 0; j < targets.size(); j++)
+            if (adjacent(targets[which], targets[j]))
+                weights[j] = max(weights[j] / 2, 1);
+        qazlal_upheaval(targets[which], true);
         targets.erase(targets.begin() + which);
         weights.erase(weights.begin() + which);
     }
@@ -5085,6 +5083,10 @@ static mutation_type _random_valid_sacrifice(const vector<mutation_type> &muts)
         {
             continue;
         }
+
+        // No potion heal doesn't affect mummies since they can't quaff potions
+        if (mut == MUT_NO_POTION_HEAL && you.species == SP_MUMMY)
+            continue;
 
         // The Grunt Algorithm
         // (choose a random element from a set of unknown size without building
@@ -5224,7 +5226,7 @@ static const char* _arcane_mutation_to_school_name(mutation_type mutation)
     // XXX: this does a really silly dance back and forth between school &
     // spelltype.
     const skill_type sk = arcane_mutation_to_skill(mutation);
-    const spschool_flag_type school = skill2spell_type(sk);
+    const spschool school = skill2spell_type(sk);
     return spelltype_long_name(school);
 }
 
@@ -5816,6 +5818,9 @@ static int _ru_get_sac_piety_gain(ability_type sac)
 
 string ru_sacrifice_description(ability_type sac)
 {
+    if (!you_worship(GOD_RU))
+        return "";
+
     const int piety_gain = _ru_get_sac_piety_gain(sac);
     return make_stringf("This is %s sacrifice. Piety after sacrifice: %s",
                         _describe_sacrifice_piety_gain(piety_gain),
@@ -6125,10 +6130,12 @@ void ru_draw_out_power()
     you.duration[DUR_SLOW] = 0;
     you.duration[DUR_PETRIFYING] = 0;
 
-    inc_hp(div_rand_round(you.piety, 16)
-           + roll_dice(div_rand_round(you.piety, 20), 6));
-    inc_mp(div_rand_round(you.piety, 48)
-           + roll_dice(div_rand_round(you.piety, 40), 4));
+    int hp_inc = div_rand_round(you.piety, 16);
+    hp_inc += roll_dice(div_rand_round(you.piety, 20), 6);
+    inc_hp(hp_inc);
+    int mp_inc = div_rand_round(you.piety, 48);
+    mp_inc += roll_dice(div_rand_round(you.piety, 40), 4);
+    inc_mp(mp_inc);
     drain_player(30, false, true);
 }
 
@@ -6551,7 +6558,7 @@ bool uskayaw_line_pass()
         args.range = 8;
 
         if (!spell_direction(beam, line_pass, &args))
-            return SPRET_ABORT;
+            return false;
 
         if (crawl_state.seen_hups)
         {
@@ -6643,7 +6650,7 @@ bool uskayaw_line_pass()
     return true;
 }
 
-spret_type uskayaw_grand_finale(bool fail)
+spret uskayaw_grand_finale(bool fail)
 {
     ASSERT(!crawl_state.game_is_arena());
 
@@ -6652,7 +6659,7 @@ spret_type uskayaw_grand_finale(bool fail)
         crawl_state.cant_cmd_repeat("No encores!");
         crawl_state.cancel_cmd_again();
         crawl_state.cancel_cmd_repeat();
-        return SPRET_ABORT;
+        return spret::abort;
     }
 
     // query for location:
@@ -6667,18 +6674,18 @@ spret_type uskayaw_grand_finale(bool fail)
         args.needs_path = false;
         args.top_prompt = "Aiming: <white>Grand Finale</white>";
         args.self = CONFIRM_CANCEL;
-        targeter_smite tgt(&you, 7, 0, 0);
+        targeter_smite tgt(&you);
         args.hitfunc = &tgt;
         direction(beam, args);
         if (crawl_state.seen_hups)
         {
             clear_messages();
             mpr("Cancelling grand finale due to HUP.");
-            return SPRET_ABORT;
+            return spret::abort;
         }
 
         if (!beam.isValid || beam.target == you.pos())
-            return SPRET_ABORT;   // early return
+            return spret::abort;   // early return
 
         mons = monster_at(beam.target);
         if (!mons || !you.can_see(*mons))
@@ -6714,7 +6721,15 @@ spret_type uskayaw_grand_finale(bool fail)
     ASSERT(mons);
 
     // kill the target
-    mprf("%s explodes violently!", mons->name(DESC_THE, false).c_str());
+    if (mons->type == MONS_ROYAL_JELLY && !mons->is_summoned())
+    {
+        // need to do this here, because react_to_damage is never called
+        mprf("%s explodes violently into a cloud of jellies!",
+                                        mons->name(DESC_THE, false).c_str());
+        trj_spawn_fineff::schedule(&you, mons, mons->pos(), mons->hit_points);
+    }
+    else
+        mprf("%s explodes violently!", mons->name(DESC_THE, false).c_str());
     mons->flags |= MF_EXPLODE_KILL;
     if (!mons->is_insubstantial())
     {
@@ -6734,7 +6749,7 @@ spret_type uskayaw_grand_finale(bool fail)
 
     set_piety(piety_breakpoint(0)); // Reset piety to 1*.
 
-    return SPRET_SUCCESS;
+    return spret::success;
 }
 
 /**
@@ -6802,20 +6817,20 @@ bool hepliaklqana_choose_ancestor_type(int ancestor_choice)
  * @param fail      Whether the effect should fail after checking validity.
  * @return          Whether the healing succeeded, failed, or was aborted.
  */
-spret_type hepliaklqana_idealise(bool fail)
+spret hepliaklqana_idealise(bool fail)
 {
     const mid_t ancestor_mid = hepliaklqana_ancestor();
     if (ancestor_mid == MID_NOBODY)
     {
         mpr("You have no ancestor to preserve!");
-        return SPRET_ABORT;
+        return spret::abort;
     }
 
     monster *ancestor = monster_by_mid(ancestor_mid);
     if (!ancestor || !you.can_see(*ancestor))
     {
         mprf("%s is not nearby!", hepliaklqana_ally_name().c_str());
-        return SPRET_ABORT;
+        return spret::abort;
     }
 
     fail_check();
@@ -6838,7 +6853,7 @@ spret_type hepliaklqana_idealise(bool fail)
     const int dur = random_range(50, 80)
                     + random2avg(you.skill(SK_INVOCATIONS, 20), 2);
     ancestor->add_ench({ ENCH_IDEALISED, 1, &you, dur});
-    return SPRET_SUCCESS;
+    return spret::success;
 }
 
 /**
@@ -6896,20 +6911,20 @@ static void _transfer_drain_nearby(coord_def destination)
  * @param fail      Whether the effect should fail after checking validity.
  * @return          Whether the ability succeeded, failed, or was aborted.
  */
-spret_type hepliaklqana_transference(bool fail)
+spret hepliaklqana_transference(bool fail)
 {
     monster *ancestor = hepliaklqana_ancestor_mon();
     if (!ancestor || !you.can_see(*ancestor))
     {
         mprf("%s is not nearby!", hepliaklqana_ally_name().c_str());
-        return SPRET_ABORT;
+        return spret::abort;
     }
 
     coord_def target = _get_transference_target();
     if (target.origin())
     {
         canned_msg(MSG_OK);
-        return SPRET_ABORT;
+        return spret::abort;
     }
 
     actor* victim = actor_at(target);
@@ -6919,13 +6934,13 @@ spret_type hepliaklqana_transference(bool fail)
                   true, 'n'))
     {
         canned_msg(MSG_OK);
-        return SPRET_ABORT;
+        return spret::abort;
     }
 
     if (victim == ancestor)
     {
         mpr("You can't transfer your ancestor with themself.");
-        return SPRET_ABORT;
+        return spret::abort;
     }
 
     const bool victim_immovable
@@ -6934,19 +6949,19 @@ spret_type hepliaklqana_transference(bool fail)
     if (victim_visible && victim_immovable)
     {
         mpr("You can't transfer that.");
-        return SPRET_ABORT;
+        return spret::abort;
     }
 
     const coord_def destination = ancestor->pos();
     if (victim == &you && !check_moveto(destination, "transfer"))
-        return SPRET_ABORT;
+        return spret::abort;
 
     const bool uninhabitable = victim && !victim->is_habitable(destination);
     if (uninhabitable && victim_visible)
     {
         mprf("%s can't be transferred into %s.",
              victim->name(DESC_THE).c_str(), feat_type_name(grd(destination)));
-        return SPRET_ABORT;
+        return spret::abort;
     }
 
     // we assume the ancestor flies & so can survive anywhere anything can.
@@ -6956,7 +6971,7 @@ spret_type hepliaklqana_transference(bool fail)
     if (!victim || uninhabitable || victim_immovable)
     {
         canned_msg(MSG_NOTHING_HAPPENS);
-        return SPRET_SUCCESS;
+        return spret::success;
     }
 
     if (victim->is_player())
@@ -6986,7 +7001,7 @@ spret_type hepliaklqana_transference(bool fail)
     if (have_passive(passive_t::transfer_drain))
         _transfer_drain_nearby(target);
 
-    return SPRET_SUCCESS;
+    return spret::success;
 }
 
 /// Prompt to rename your ancestor.
@@ -7209,7 +7224,7 @@ bool wu_jian_do_wall_jump(coord_def targ, bool ability)
     return true;
 }
 
-bool wu_jian_wall_jump_ability()
+spret wu_jian_wall_jump_ability()
 {
     // This needs to be kept in sync with direct walljumping via movement.
     // TODO: Refactor to call the same code.
@@ -7220,11 +7235,11 @@ bool wu_jian_wall_jump_ability()
         crawl_state.cant_cmd_repeat("You can't repeat a wall jump.");
         crawl_state.cancel_cmd_again();
         crawl_state.cancel_cmd_repeat();
-        return false;
+        return spret::abort;
     }
 
     if (cancel_barbed_move())
-        return false;
+        return spret::abort;
 
     if (you.digging)
     {
@@ -7245,14 +7260,24 @@ bool wu_jian_wall_jump_ability()
     if (!has_targets)
     {
         mpr("There is nothing to wall jump against here.");
-        return false;
+        return spret::abort;
     }
 
     if (you.is_nervous())
     {
         mpr("You are too terrified to wall jump!");
-        return false;
+        return spret::abort;
     }
+
+    if (you.attribute[ATTR_HELD])
+    {
+        mprf("You cannot wall jump while caught in a %s.",
+             get_trapping_net(you.pos()) == NON_ITEM ? "web" : "net");
+        return spret::abort;
+    }
+
+    if (!you.attempt_escape())
+        return spret::fail;
 
     // query for location:
     dist beam;
@@ -7279,23 +7304,23 @@ bool wu_jian_wall_jump_ability()
         {
             clear_messages();
             mpr("Cancelling wall jump due to HUP.");
-            return false;
+            return spret::abort;
         }
 
         if (!beam.isValid || beam.target == you.pos())
-            return false; // early return
+            return spret::abort; // early return
 
         if (wu_jian_can_wall_jump(beam.target, wj_error))
             break;
     }
 
     if (!wu_jian_do_wall_jump(beam.target, true))
-        return false;
+        return spret::abort;
 
     crawl_state.cancel_cmd_again();
     crawl_state.cancel_cmd_repeat();
 
     apply_barbs_damage();
     remove_ice_armour_movement();
-    return true;
+    return spret::success;
 }

@@ -280,8 +280,8 @@ void handle_behaviour(monster* mon)
     //     mon->mindex(), mon->behaviour, mon->foe, mon->pos().x,
     //     mon->pos().y, mon->target.x, mon->target.y);
 
-    // Check for confusion -- early out.
-    if (mon->has_ench(ENCH_CONFUSION))
+    // Check for permanent confusion, early out.
+    if (mons_class_flag(mon->type, M_CONFUSED))
     {
         set_random_target(mon);
         return;
@@ -517,7 +517,8 @@ void handle_behaviour(monster* mon)
             {
                 // If their foe is marked, the monster always knows exactly
                 // where they are.
-                if (mons_foe_is_marked(*mon) || mon->has_ench(ENCH_HAUNTING))
+                if (afoe && (mons_foe_is_marked(*mon)
+                                            || mon->has_ench(ENCH_HAUNTING)))
                 {
                     mon->target = afoe->pos();
                     try_pathfind(mon);
@@ -852,10 +853,12 @@ void handle_behaviour(monster* mon)
                     mon->props["idle_deadline"] = you.elapsed_time + 200;
                 }
 
+                coord_def target_rnd;
+                target_rnd.x = random_range(-2, 2);
+                target_rnd.y = random_range(-2, 2);
                 mon->target = clamp_in_bounds(
                                     mon->props["idle_point"].get_coord()
-                                    + coord_def(random_range(-2, 2),
-                                                random_range(-2, 2)));
+                                    + target_rnd);
 
                 if (you.elapsed_time >= mon->props["idle_deadline"].get_int())
                     stop_retreat = true;

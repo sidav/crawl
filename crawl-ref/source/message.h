@@ -17,6 +17,8 @@
 void display_message_window();
 void clear_message_window();
 
+void set_log_emergency_stderr(bool b);
+
 void scroll_message_window(int n);
 
 void clear_messages(bool force = false);
@@ -90,6 +92,8 @@ template<int> static int msgwin_get_line_autohist_temp(string prompt,
 void msgwin_new_cmd();
 // Tell the message window that a new turn has started.
 void msgwin_new_turn();
+
+bool msgwin_errors_to_stderr();
 
 class no_messages
 {

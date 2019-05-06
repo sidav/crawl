@@ -13,11 +13,15 @@
 #include "state.h"
 #include "tilefont.h"
 #include "tiledef-gui.h"
+#include "unwind.h"
 #include "windowmanager.h"
 #ifdef USE_TILE_LOCAL
 # include "tilesdl.h"
 # include "tilebuf.h"
 # include "tiledgnbuf.h"
+#endif
+#ifdef USE_TILE_WEB
+# include "tileweb.h"
 #endif
 
 namespace ui {
@@ -225,7 +229,10 @@ public:
 class Bin : public Container
 {
 public:
-    virtual ~Bin() {}
+    virtual ~Bin() {
+        if (m_child)
+            m_child->_set_parent(nullptr);
+    };
     virtual bool on_event(const wm_event& event) override;
     void set_child(shared_ptr<Widget> child);
     virtual shared_ptr<Widget> get_child() { return m_child; };
@@ -263,7 +270,11 @@ protected:
 class ContainerVec : public Container
 {
 public:
-    virtual ~ContainerVec() {}
+    virtual ~ContainerVec() {
+        for (auto& child : m_children)
+            if (child)
+                child->_set_parent(nullptr);
+    }
     virtual shared_ptr<Widget> get_child_at_offset(int x, int y) override;
     size_t num_children() const { return m_children.size(); }
 private:
@@ -439,7 +450,11 @@ protected:
 class Grid : public Container
 {
 public:
-    virtual ~Grid() {};
+    virtual ~Grid() {
+        for (auto& child : m_child_info)
+            if (child.widget)
+                child.widget->_set_parent(nullptr);
+    };
     void add_child(shared_ptr<Widget> child, int x, int y, int w = 1, int h = 1);
     const int column_flex_grow(int x) const { return m_col_info[x].flex_grow; }
     const int row_flex_grow(int y) const { return m_row_info[y].flex_grow; }
@@ -611,5 +626,23 @@ i4 get_scissor();
 void resize(int w, int h);
 
 bool is_available();
+
+class progress_popup
+{
+public:
+    progress_popup(string title, int width);
+    ~progress_popup();
+    void set_status_text(string status);
+    void advance_progress();
+    void force_redraw();
+private:
+    shared_ptr<Popup> contents;
+    shared_ptr<Text> progress_bar;
+    shared_ptr<Text> status_text;
+    unsigned int position;
+    unsigned int bar_width;
+    formatted_string get_progress_string(unsigned int len);
+    unwind_bool no_more;
+};
 
 }

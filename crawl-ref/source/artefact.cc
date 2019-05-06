@@ -585,6 +585,9 @@ static bool _artp_can_go_on_item(artefact_prop_type prop, const item_def &item,
             return item_class != OBJ_ARMOUR
                    && (item_class != OBJ_JEWELLERY
                        || jewellery_is_amulet(item));
+        case ARTP_HARM:
+            return item_class != OBJ_JEWELLERY && extant_props[ARTP_DRAIN];
+            // only get harm with *Drain
         default:
             return true;
     }
@@ -681,7 +684,7 @@ static const artefact_prop_data artp_data[] =
 #endif
     { "Slay", ARTP_VAL_ANY, 30,     // ARTP_SLAYING,
       []() { return 2 + random2(2); },
-      []() { return -(2 + random2(3) + random2(3)); }, 3, 2 },
+      []() { return -(2 + random2(5)); }, 3, 2 },
     { "*Curse", ARTP_VAL_POS, 0, nullptr, nullptr, 0 }, // ARTP_CURSE,
     { "Stlth", ARTP_VAL_ANY, 40,    // ARTP_STEALTH,
         _gen_good_res_artp, _gen_bad_res_artp, 0, 0 },
@@ -719,6 +722,8 @@ static const artefact_prop_data artp_data[] =
     { "Fragile", ARTP_VAL_BOOL, 25, // ARTP_FRAGILE,
         nullptr, []() { return 1; }, 0, 0 },
     { "SH", ARTP_VAL_ANY, 0, nullptr, nullptr, 0, 0 }, // ARTP_SHIELDING,
+    { "Harm", ARTP_VAL_BOOL, 0, // ARTP_HARM,
+        []() {return 1;}, nullptr, 0, 0},
 };
 COMPILE_CHECK(ARRAYSZ(artp_data) == ARTP_NUM_PROPERTIES);
 // weights sum to 1000
@@ -845,7 +850,8 @@ static void _get_randart_properties(const item_def &item,
     // things get spammy. Extra "good" properties will be used to enhance
     // properties only, not to add more distinct properties. There is still a
     // small chance of >4 properties.
-    const int max_properties = 4 + one_chance_in(20) + one_chance_in(40);
+    int max_properties = 4 + one_chance_in(20);
+    max_properties += one_chance_in(40);
     int enhance = 0;
     if (good + bad > max_properties)
     {
@@ -1702,7 +1708,9 @@ static void _make_faerie_armour(item_def &item)
     item.props = doodad.props;
 
     // On body armour, an enchantment of less than 0 is never viable.
-    item.plus = max(random2(6) + random2(6) - 2, random2(2));
+    int high_plus = random2(6) - 2;
+    high_plus += random2(6);
+    item.plus = max(high_plus, random2(2));
 }
 
 static jewellery_type octoring_types[8] =

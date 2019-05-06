@@ -31,18 +31,20 @@
 
 * The administrators of public crawl servers, both present:
     John Boyle (crawl.berotato.org)
-    Jan Anders Bremer (crawl.lantea.net)
     Rax E. Dillon (crawl.akrasiac.org)
     Wongi Hong (webzook.net / kr.dobrazupa.org)
     Alex Jurkiewicz (crawl.project357.org)
-    Aleksi Miikkael Luukkonen (crawl.lantea.net)
     Neil Moore (crawl.s-z.org)
     Marc H. Thoben (crawl.develz.org)
-    dplusplus (http://lazy-life.ddo.jp/)
+    dplusplus (lazy-life.ddo.jp)
+    floraline (crawl.kelbi.org)
   and past:
-    sd1989 (kr.dobrazupa.org)
+    Jan Anders Bremer (crawl.lantea.net)
+    Aleksi Miikkael Luukkonen (crawl.lantea.net)
     joosa (rl.heh.fi)
+    sd1989 (kr.dobrazupa.org)
     phunktion (crawl.somatika.net)
+    ZiBuDo (crawl.jorgrun.rocks)
 
 * The members of various usability testing teams from the department of
   Information Processing Science in Oulu University:
@@ -69,12 +71,14 @@
 
 * Members of the Dungeon Crawl community who have contributed to Dungeon
   Crawl Stone Soup:
+    Brent Adams
     Mike Adams
     Aj Adamson
     Nikhil Addleman
     Alcon
     Brandon Allbery
     Warwick Allison
+    AndSDev
     Austin Appleby
     araganzar
     argonaut
@@ -84,9 +88,12 @@
     Roy Axenov
     Steve 'nfogravity' Balady
     Max Bane
+    G. Bailey
+    Beargit
     Bill Beher
     Alexander Beisig
-    Edgar A. Bering IV
+    biasface
+    bjobae
     Stu Black
     blackcustard
     Peter 'xFleury' Blain
@@ -95,17 +102,22 @@
     Erik Inge Bolsø
     bones
     Peter Borgmann
+    Matthew Boeh
     Mike Boutin
+    John Boyle
     Daniel Mark Brownrigg
     Andre Bubel
     Trent W. Buck
     Joe Buzzelli
     Policarpo Caballero
+    Ian Caltabiano
+    David Candido
     Edgar Carballo
     Cedor
     Cerol
     Rahul Chandra
     Thom Chiovoloni
+    Anthony Chuah
     Henry Cipolla
     Nicholas Connelly
     Tom Conrad
@@ -115,6 +127,7 @@
     Paul Dejean
     Denzi
     Lothar Dierkes
+    Doesnty
     Mark 'Palyth' Donahue
     Kevin Donnelly
     drachereborn
@@ -126,11 +139,17 @@
     elliott
     Micha Elsner
     Carl-Oscar Erneholm
+    Erich Erstu
     Christopher Evenstar
     Floodkiller
+    floraline
     Brett Foster
     Kyle Fox
+    freepotion
     Chris Galardi
+    GenericPseudonym
+    Ge0ff
+    Joshua Gelbard
     Benoît Giannangeli
     Ben Goetter
     Aaron Golden
@@ -142,14 +161,17 @@
     Brian Haase
     Sophie Hamilton
     Chris Hamons
+    Tomas Krag Hansen
     Taylor Hedberg
     Anders Heggestøyl
     Alex Henry
     R. Dan Henry
+    Max 'Ploomutoo' Hon-Anderson
     Chris Honey
     Sylvia 'Onia' Hörnke
     Benoit Hudson
     Iainuki
+    ICC
     Icy Lich
     Ilyak
     Implojin
@@ -158,6 +180,7 @@
     Jeekaroose
     Mikko Juola
     Kurt Kartaltepe
+    Dominic Kempf
     Dominic 'dk' Kexel
     Jarmo Kielosto
     Brandon Kime
@@ -179,22 +202,28 @@
     Sami Liedes
     Dom 'Bodrick' Light
     Mark Lodato
+    Matthew Ludivico
     Rob Lund
     Lynn
     Michael Lynn
     Peter McLarnan
     Lain I. W. Madreisz
+    Johannes Maier
     Markus Maier
     MainiacJoe
     Arien Malec
     Paul Maloney
     Pablo Mansanet
     Wille Mäntylä
+    Jean Martel
     James 'Eronarn' Meickle
+    Jacob Meigs
+    mgdelmonte
     mikee
     Andrew Minton
     Yer Mivvaggah
     Shawn M Moore
+    Muffindrake
     Akinori Musha
     Mushboom
     Eva Myers
@@ -203,6 +232,7 @@
     neofelis
     nicolae
     Nikolai Lavsky
+    Jonathon Nooner
     NormalPerson7
     Erkki Nurmi
     Mattias Nyberg
@@ -211,22 +241,31 @@
     Chris Oelmueller
     John Olender
     Aaron Olowin
+    Andrew O'Neill
     Yuuma Oohara
     Julian Ospald
     Malwyn P
+    palyth
+    panicbit
     William Parker
     Pedro
+    Pekkekke
     Arlen Phillips
+    pikaro
     Lemuel Pitkin
+    Poroing
     Iago Porto
+    psywombats
     pubby
     Edward Randtke
     Derek Ray
+    RealzHS
     Terence Reeves
     Tobias Rehbein
     Remsleep
     Ryan Riegel
     RjY
+    Andy Roche
     rockygargoyle
     Will Rogers
     Nate Rook
@@ -238,6 +277,7 @@
     Roman Sêk
     Brennan Shacklett
     ShadyAmish
+    Umer Shaikh
     Evan Shaw
     Aditya Shevade
     Alexandra Shields
@@ -252,8 +292,10 @@
     Solf
     Michael Spang
     David Speare
+    Martin Staffa
     John Stahara
     Jan 'heftig' Steffens
+    Stenella
     Timothy Stiles
     Johan Strandell
     Ben Striegel
@@ -268,11 +310,13 @@
     Matt Titus
     Tommy
     Mikko Vepsäläinen
+    WanderingBlade
     waylon531
     Steven Wheeler
     Thomas Willem
     Evan Williams
     Jeremey Wilson
+    ximxim
     Yelve Yakut
     Edward Z. Yang
     Yermak
@@ -283,6 +327,7 @@
 The Dungeon Crawl Stone Soup development team is:
     advil
     Peter Berger
+    Edgar A. Bering IV
     Adam Borowski
     Samuel Bronson
     Jude Brown

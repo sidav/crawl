@@ -256,6 +256,12 @@ static const mon_spellbook mspell_list[] =
       }
     },
 
+    {  MST_SHAMBLING_MANGROVE,
+      {
+       { SPELL_GRASPING_ROOTS, 40, MON_SPELL_NATURAL },
+      }
+    },
+
     // ('g') Small humanoids.
     {  MST_GNOLL_SHAMAN,
       {
@@ -284,7 +290,7 @@ static const mon_spellbook mspell_list[] =
 
     {  MST_BEAR,
       {
-       { SPELL_BERSERKER_RAGE, 57, MON_SPELL_NATURAL | MON_SPELL_EMERGENCY },
+       { SPELL_BERSERKER_RAGE, 100, MON_SPELL_NATURAL | MON_SPELL_EMERGENCY },
       }
     },
 
@@ -607,6 +613,13 @@ static const mon_spellbook mspell_list[] =
        { SPELL_BOLT_OF_DRAINING, 20, MON_SPELL_WIZARD },
        { SPELL_BOLT_OF_COLD, 20, MON_SPELL_WIZARD },
        { SPELL_SHADOW_CREATURES, 20, MON_SPELL_WIZARD },
+      }
+    },
+
+    { MST_KILLER_KLOWN,
+      {
+       { SPELL_BLINK, 29, MON_SPELL_MAGICAL },
+       { SPELL_THROW_PIE, 24, MON_SPELL_NATURAL },
       }
     },
 
@@ -1715,6 +1728,7 @@ static const mon_spellbook mspell_list[] =
     {  MST_JORGRUN,
       {
        { SPELL_LRD, 16, MON_SPELL_WIZARD },
+       { SPELL_GRASPING_ROOTS, 16, MON_SPELL_WIZARD },
        { SPELL_IRON_SHOT, 16, MON_SPELL_WIZARD },
        { SPELL_PETRIFY, 16, MON_SPELL_WIZARD },
        { SPELL_DIG, 16, MON_SPELL_WIZARD },

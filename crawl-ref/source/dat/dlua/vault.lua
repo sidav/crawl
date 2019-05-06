@@ -36,8 +36,8 @@ function ks_random_setup(e, norandomexits)
     -- 1/2 chance the adjacent door is there, followed by a 1/2 chance every
     -- side has a door.
     if norandomexits == nil then
+        e.tags("transparent")
         if crawl.one_chance_in(2) then
-            e.tags("transparent")
             e.subst("D : +")
             e.subst("E : .")
             if crawl.one_chance_in(2) then
@@ -89,7 +89,7 @@ end
 function hell_branches_remaining()
    local hell_branches = { "Geh", "Coc", "Dis", "Tar" }
    local ret = #hell_branches
-   for _, branch in pairs(hell_branches) do
+   for _, branch in ipairs(hell_branches) do
       if travel.find_deepest_explored(branch) == 7 then
          ret = ret - 1
       end

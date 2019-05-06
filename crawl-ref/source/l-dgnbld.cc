@@ -1,8 +1,6 @@
-/**
- * @file
- * @brief Building routines (library "dgn").
-**/
-
+/***
+ * @module dgn
+ */
 #include "AppHdr.h"
 
 #include "l-libs.h"
@@ -33,7 +31,7 @@ static int _table_int(lua_State *ls, int idx, const char *name, int defval)
     bool valid = lua_isnumber(ls, idx);
     if (!nil && !valid)
         luaL_error(ls, "'%s' in table, but not an int.", name);
-    int ret = (!nil && valid ? luaL_checkint(ls, idx) : defval);
+    int ret = (!nil && valid ? luaL_safe_checkint(ls, idx) : defval);
     lua_pop(ls, 1);
     return ret;
 }
@@ -105,7 +103,7 @@ static bool _table_bool(lua_State *ls, int idx, const char *name, bool defval)
 #define TABLE_BOOL(ls, val, def) bool val = _table_bool(ls, -1, #val, def);
 
 #define ARG_INT(ls, num, val, def) int val = lua_isnone(ls, num) ? \
-                                             def : lua_tointeger(ls, num)
+                                             def : luaL_safe_tointeger(ls, num)
 
 // Read a set of box coords (x1, y1, x2, y2) from the table.
 // Return true if coords are valid.
@@ -279,7 +277,7 @@ static vector<char> _pool_fill_glyphs_from_table(lua_State *ls,
                 // we use first character of string as glyph
                 char glyph = (lua_tostring(ls, -2))[0];
 
-                int count = lua_tointeger(ls, -1);
+                int count = luaL_safe_tointeger(ls, -1);
                 // sanity-check
                 if (count > 10000)
                     count = 10000;
@@ -300,6 +298,7 @@ static vector<char> _pool_fill_glyphs_from_table(lua_State *ls,
     // We might have not got anything, if so, use floor
     if (fill_glyphs.size() == 0)
         fill_glyphs.push_back('.');
+    sort(fill_glyphs.begin(), fill_glyphs.end());
 
     return fill_glyphs;
 }
@@ -351,7 +350,7 @@ struct join_the_dots_path
     int avoid_vault_count;
 };
 
-/**
+/*
  * Calculates a possible path joining the provided coordinates.
  *
  * @param from              The start of the path to be calculated.
@@ -466,7 +465,7 @@ static join_the_dots_path _calculate_join_the_dots_path (const coord_def& from,
 }
 
 
-/**
+/*
  * Calculates a possible path joining the provided coordinates.
  *
  * @param from              The start of the path to be calculated.
@@ -1384,13 +1383,27 @@ LUAFN(dgn_widen_paths)
     if (y2 >= lines.height() - 1)
         y2 = lines.height() - 2;
 
-    float antifraction_each = 1.0 - percent / 100.0f;
-    float antifraction_current = 1.0;
-    int percent_for_neighbours[9];
-    for (int i = 0; i < 9; i++)
+    vector<int> percent_for_neighbours;
+    // these cases are temporary, to keep a particular seed stable for a bit...
+    // They mimic some floating point quirks of the previous version.
+    // there's one more case in gehenna that I didn't bother with.
+    if (percent == 30)
+        percent_for_neighbours = {0, 30, 52, 66, 76, 84, 89, 92, 95};
+    else if (percent == 50)
+        percent_for_neighbours = {0, 50, 75, 88, 94, 97, 99, 100, 100};
+    else
     {
-        percent_for_neighbours[i] = 100 - (int)(antifraction_current * 100);
-        antifraction_current *= antifraction_each;
+        const long antifraction_each = 10 - percent / 10; // truncates...
+        long antifraction_current = 10 * antifraction_each;
+        long divisor = 1;
+        percent_for_neighbours.push_back(0);
+        for (int i = 1; i < 9; i++)
+        {
+            percent_for_neighbours.push_back(
+                100 - antifraction_current / divisor);
+            antifraction_current *= antifraction_each;
+            divisor *= 10;
+        }
     }
 
     // We do not replace this as we go to avoid favouring some directions.

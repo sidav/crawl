@@ -15,8 +15,8 @@
 #include "art-enum.h"
 #include "cio.h"
 #include "coordit.h"
-#include "dbg-util.h"
 #include "decks.h"
+#include "dbg-util.h"
 #include "env.h"
 #include "god-passive.h"
 #include "invent.h"
@@ -271,11 +271,13 @@ static void _tweak_randart(item_def &item)
         char buf[80];
 
         if (choice_num < 26)
-            choice = 'A' + choice_num;
-        else if (choice_num < 'A' - '0' + 26)
+            choice = 'a' + choice_num;
+        else if (choice_num < 52)
+            choice = 'A' + choice_num - 26;
+        else if (choice_num < 'A' - '0' + 52)
         {
             // 0-9 then :;<=>?@ . Any higher would collide with letters.
-            choice = '0' + choice_num - 26;
+            choice = '0' + choice_num - 52;
         }
         else
             choice = '-'; // Too many choices!
@@ -290,17 +292,19 @@ static void _tweak_randart(item_def &item)
 
         choice_num++;
     }
-    mprf(MSGCH_PROMPT, "%s", prompt.c_str());
+    mprf_nocap(MSGCH_PROMPT, "%s", prompt.c_str());
 
     mprf(MSGCH_PROMPT, "Change which field? ");
 
-    int keyin = toalower(get_ch());
+    int keyin = get_ch();
     unsigned int  choice;
 
-    if (isaalpha(keyin))
+    if (isaalpha(keyin) && islower(keyin))
         choice = keyin - 'a';
+    else if (isaalpha(keyin) && isupper(keyin))
+        choice = keyin - 'A' + 26;
     else if (keyin >= '0' && keyin < 'A')
-        choice = keyin - '0' + 26;
+        choice = keyin - '0' + 52;
     else
     {
         canned_msg(MSG_OK);
@@ -910,7 +914,7 @@ static void _debug_acquirement_stats(FILE *ostat)
                 else if (item.sub_type == BOOK_RANDART_LEVEL)
                 {
                     const int level = item.plus;
-                    ego_quants[SPTYP_LAST_EXPONENT + level]++;
+                    ego_quants[SPSCHOOL_LAST_EXPONENT + level]++;
                 }
             }
         }
@@ -1008,8 +1012,8 @@ static void _debug_acquirement_stats(FILE *ostat)
     {
         // For spellbooks, for each spell discipline, list the number of
         // unseen and total spells available.
-        vector<int> total_spells(SPTYP_LAST_EXPONENT + 1);
-        vector<int> unseen_spells(SPTYP_LAST_EXPONENT + 1);
+        vector<int> total_spells(SPSCHOOL_LAST_EXPONENT + 1);
+        vector<int> unseen_spells(SPSCHOOL_LAST_EXPONENT + 1);
 
         for (int i = 0; i < NUM_SPELLS; ++i)
         {
@@ -1029,7 +1033,7 @@ static void _debug_acquirement_stats(FILE *ostat)
             const bool seen = you.spell_library[spell];
 
             const spschools_type disciplines = get_spell_disciplines(spell);
-            for (int d = 0; d <= SPTYP_LAST_EXPONENT; ++d)
+            for (int d = 0; d <= SPSCHOOL_LAST_EXPONENT; ++d)
             {
                 const auto disc = spschools_type::exponent(d);
 
@@ -1041,7 +1045,7 @@ static void _debug_acquirement_stats(FILE *ostat)
                 }
             }
         }
-        for (int d = 0; d <= SPTYP_LAST_EXPONENT; ++d)
+        for (int d = 0; d <= SPSCHOOL_LAST_EXPONENT; ++d)
         {
             const auto disc = spschools_type::exponent(d);
 
@@ -1193,9 +1197,9 @@ static void _debug_acquirement_stats(FILE *ostat)
                 "earth magic",
                 "air magic",
             };
-            COMPILE_CHECK(ARRAYSZ(names) == SPTYP_LAST_EXPONENT + 1);
+            COMPILE_CHECK(ARRAYSZ(names) == SPSCHOOL_LAST_EXPONENT + 1);
 
-            for (int i = 0; i <= SPTYP_LAST_EXPONENT; ++i)
+            for (int i = 0; i <= SPSCHOOL_LAST_EXPONENT; ++i)
             {
                 if (ego_quants[i] > 0)
                 {
@@ -1206,7 +1210,7 @@ static void _debug_acquirement_stats(FILE *ostat)
             // List levels for fixed level randarts.
             for (int i = 1; i < 9; ++i)
             {
-                const int k = SPTYP_LAST_EXPONENT + i;
+                const int k = SPSCHOOL_LAST_EXPONENT + i;
                 if (ego_quants[k] > 0)
                 {
                     fprintf(ostat, "%15s %d: %5.2f\n", "level", i,
@@ -1499,6 +1503,7 @@ static void _debug_rap_stats(FILE *ostat)
         "ARTP_SLOW",
         "ARTP_FRAGILE",
         "ARTP_SHIELDING",
+        "ARTP_HARM",
     };
     COMPILE_CHECK(ARRAYSZ(rap_names) == ARTP_NUM_PROPERTIES);
 
@@ -1580,7 +1585,7 @@ void wizard_draw_card()
         lowercase(card);
         if (card.find(wanted) != string::npos)
         {
-            card_effect(c, DECK_RARITY_LEGENDARY);
+            card_effect(c);
             found_card = true;
             break;
         }

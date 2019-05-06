@@ -372,7 +372,8 @@ static bool _cheibriados_retribution()
     // Very high tension wrath
     case 4:
         simple_god_message(" adjusts the clock.", god);
-        MiscastEffect(&you, nullptr, GOD_MISCAST + god, SPTYP_RANDOM,
+        MiscastEffect(&you, nullptr, {miscast_source::god, god},
+                      spschool::random,
                       5 + div_rand_round(you.experience_level, 9),
                       random2avg(88, 3), _god_wrath_name(god));
         if (one_chance_in(3))
@@ -399,7 +400,8 @@ static bool _cheibriados_retribution()
     case 1:
     case 0:
         mpr("Time shudders.");
-        MiscastEffect(&you, nullptr, GOD_MISCAST + god, SPTYP_RANDOM,
+        MiscastEffect(&you, nullptr, {miscast_source::god, god},
+                      spschool::random,
                       5 + div_rand_round(you.experience_level, 9),
                       random2avg(88, 3), _god_wrath_name(god));
         break;
@@ -633,8 +635,8 @@ static bool _kikubaaqudgha_retribution()
         {
             for (int i = 0; i < 3; ++i)
             {
-                MiscastEffect(&you, nullptr, GOD_MISCAST + god,
-                              SPTYP_NECROMANCY,
+                MiscastEffect(&you, nullptr, {miscast_source::god, god},
+                              spschool::necromancy,
                               2 + div_rand_round(you.experience_level, 9),
                               random2avg(88, 3), _god_wrath_name(god));
             }
@@ -646,9 +648,10 @@ static bool _kikubaaqudgha_retribution()
         const int num_miscasts = one_chance_in(4) ? 2 : 1;
         for (int i = 0; i < num_miscasts; i++)
         {
-            MiscastEffect(&you, nullptr, GOD_MISCAST + god, SPTYP_NECROMANCY,
-                      2 + div_rand_round(you.experience_level, 9),
-                      random2avg(88, 3), _god_wrath_name(god));
+            MiscastEffect(&you, nullptr, {miscast_source::god, god},
+                          spschool::necromancy,
+                          2 + div_rand_round(you.experience_level, 9),
+                          random2avg(88, 3), _god_wrath_name(god));
         }
     }
 
@@ -699,7 +702,8 @@ static bool _yredelemnul_retribution()
     else
     {
         simple_god_message("'s anger turns toward you for a moment.", god);
-        MiscastEffect(&you, nullptr, GOD_MISCAST + god, SPTYP_NECROMANCY,
+        MiscastEffect(&you, nullptr, {miscast_source::god, god},
+                      spschool::necromancy,
                       2 + div_rand_round(you.experience_level, 9),
                       random2avg(88, 3), _god_wrath_name(god));
     }
@@ -792,7 +796,7 @@ static bool _trog_retribution()
         //    we'll leave this effect in, but we'll remove the wild
         //    fire magic. -- bwr
         mprf(MSGCH_WARN, "You feel Trog's fiery rage upon you!");
-        MiscastEffect(&you, nullptr, GOD_MISCAST + god, SPTYP_FIRE,
+        MiscastEffect(&you, nullptr, {miscast_source::god, god}, spschool::fire,
                       8 + you.experience_level, random2avg(98, 3),
                       _god_wrath_name(god));
     }
@@ -975,8 +979,8 @@ static void _lugonu_transloc_retribution()
     if (coinflip())
     {
         simple_god_message("'s wrath finds you!", god);
-        MiscastEffect(&you, nullptr, GOD_MISCAST + god, SPTYP_TRANSLOCATION, 9,
-                      90, "Lugonu's touch");
+        MiscastEffect(&you, nullptr, {miscast_source::god, god},
+                      spschool::translocation, 9, 90, "Lugonu's touch");
     }
     else if (coinflip())
     {
@@ -1290,9 +1294,9 @@ static void _fedhas_elemental_miscast()
     const god_type god = GOD_FEDHAS;
     simple_god_message(" invokes the elements against you.", god);
 
-    const spschool_flag_type stype = random_choose(SPTYP_ICE, SPTYP_FIRE,
-                                                   SPTYP_EARTH, SPTYP_AIR);
-    MiscastEffect(&you, nullptr, GOD_MISCAST + god, stype,
+    const spschool stype = random_choose(spschool::ice, spschool::fire,
+                                         spschool::earth, spschool::air);
+    MiscastEffect(&you, nullptr, {miscast_source::god, god}, stype,
                   5 + you.experience_level, random2avg(88, 3),
                   _god_wrath_name(god));
 }

@@ -375,8 +375,7 @@ static bool _may_overwrite_feature(const coord_def p,
     if (!feat_is_opaque(grid)
         && grid != DNGN_FLOOR
         && grid != DNGN_SHALLOW_WATER
-        && grid != DNGN_OPEN_DOOR
-        && !feat_is_closed_door(grid))
+        && !feat_is_door(grid))
     {
         return false;
     }
@@ -545,8 +544,9 @@ static coord_def _find_minivault_place(
     // Find a target area which can be safely overwritten.
     for (int tries = 0; tries < 600; ++tries)
     {
-        coord_def v1(random_range(margin, GXM - margin - place.size.x),
-                     random_range(margin, GYM - margin - place.size.y));
+        coord_def v1;
+        v1.x = random_range(margin, GXM - margin - place.size.x);
+        v1.y = random_range(margin, GYM - margin - place.size.y);
 
         if (check_place && !map_place_valid(place.map, v1, place.size))
         {

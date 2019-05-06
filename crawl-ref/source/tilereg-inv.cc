@@ -24,6 +24,7 @@
 #include "rot.h"
 #include "spl-book.h"
 #include "stringutil.h"
+#include "terrain.h"
 #include "tile-inventory-flags.h"
 #include "tiledef-dngn.h"
 #include "tiledef-icons.h"
@@ -332,8 +333,10 @@ bool InventoryRegion::update_tip_text(string& tip)
 
         if (item_is_stationary_net(item))
         {
+            actor *trapped = actor_at(item.pos);
             tip += make_stringf(" (holding %s)",
-                                net_holdee(item)->name(DESC_A).c_str());
+                            trapped ? trapped->name(DESC_A).c_str()
+                                    : "nobody"); // buggy net, but don't crash
         }
 
         if (!item_is_stationary(item))
@@ -434,15 +437,6 @@ bool InventoryRegion::update_tip_text(string& tip)
                 cmd.push_back(CMD_EVOKE);
                 break;
             case OBJ_MISCELLANY + EQUIP_OFFSET:
-                if (item.sub_type >= MISC_FIRST_DECK
-                    && item.sub_type <= MISC_LAST_DECK)
-                {
-                    tmp += "Draw a card (%)";
-                    cmd.push_back(CMD_EVOKE_WIELDED);
-                    _handle_wield_tip(tmp, cmd, "\n[Ctrl + L-Click] ", true);
-                    break;
-                }
-                // else fall-through
             case OBJ_RODS + EQUIP_OFFSET:
                 tmp += "Evoke (%)";
                 cmd.push_back(CMD_EVOKE_WIELDED);

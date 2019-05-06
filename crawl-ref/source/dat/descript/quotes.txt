@@ -170,28 +170,6 @@ A granite statue
  The lone and level sands stretch far away.”
     -Percy Bysshe Shelley, “Ozymandias”. 1818.
 %%%%
-A labyrinth entrance
-
-“Maze-treaders, whose vision ahead and behind is severely constricted and
-fragmented, suffer confusion, whereas maze-viewers who see the pattern whole,
-from above or in a diagram, are dazzled by its complex artistry. What you see
-depends on where you stand, and thus, at one and the same time, labyrinths are
-single (there is one physical structure) and double: they simultaneously
-incorporate order and disorder, clarity and confusion, unity and multiplicity,
-artistry and chaos.”
-    -Mark Z. Danielewski, “House of Leaves”. 2000.
-
-“Since I emerged that day from the labyrinth,
- Dazed with the tall and echoing passages,
- The swift recoils, so many I almost feared
- I'd meet myself returning at some smooth corner,
- Myself or my ghost, for all there was unreal
- After the straw ceased rustling and the bull
- Lay dead upon the straw and I remained,
- Blood-splashed, if dead or alive I could not tell
- In the twilight nothingness”
-    -Edwin Muir, “The Labyrinth”. 1949.
-%%%%
 A one-way gate to the infinite horrors of the Abyss
 
 “And if you gaze for long into an abyss, the abyss gazes also into you.”
@@ -2292,7 +2270,10 @@ ring of ice
 %%%%
 ring of intelligence
 
-<ring>
+“HOBBES: Did it work?
+CALVIN: I think so.
+        I feel smarter already.”
+    -Bill Watterson, _Calvin and Hobbes_. November 19, 1993.
 %%%%
 ring of resist corrosion
 
@@ -2466,7 +2447,16 @@ scroll of remove curse
 %%%%
 scroll of silence
 
-<scroll>
+“And in the naked light I saw
+   Ten thousand people, maybe more.
+ People talking without speaking,
+   People hearing without listening;
+ People writing songs
+   That voices never shared:
+ No one dared
+   Disturb the sound
+   Of silence.”
+    -Simon & Garfunkel, _The Sound of Silence_. 1964.
 %%%%
 scroll of summoning
 

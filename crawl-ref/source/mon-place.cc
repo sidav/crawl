@@ -86,6 +86,10 @@ static monster* _place_monster_aux(const mgen_data &mg, const monster *leader,
                                    level_id place,
                                    bool force_pos = false,
                                    bool dont_place = false);
+static monster* _place_pghost_aux(const mgen_data &mg, const monster *leader,
+                                   level_id place,
+                                   bool force_pos, bool dont_place);
+
 
 /**
  * Is this feature "close enough" to the one we want for monster generation?
@@ -303,7 +307,7 @@ void spawn_random_monsters()
     }
 
     if (player_on_orb_run())
-        rate = have_passive(passive_t::slow_orb_run) ? 16 : 8;
+        rate = have_passive(passive_t::slow_orb_run) ? 36 : 18;
 
     if (player_in_branch(BRANCH_ABYSS))
     {
@@ -324,7 +328,7 @@ void spawn_random_monsters()
              rate, env.turns_on_level);
 
         mgen_data mg(WANDERING_MONSTER);
-        mg.proximity = one_chance_in(3) ? PROX_CLOSE_TO_PLAYER : PROX_ANYWHERE;
+        mg.proximity = PROX_CLOSE_TO_PLAYER;
         mg.foe = MHITYOU;
         // Don't count orb run spawns in the xp_by_level dump
         mg.xp_tracking = XP_UNTRACKED;
@@ -418,13 +422,7 @@ bool can_place_on_trap(monster_type mon_type, trap_type trap)
     if (mon_type == MONS_FULMINANT_PRISM || mon_type == MONS_LIGHTNING_SPIRE)
         return true;
 
-    if (trap == TRAP_TELEPORT || trap == TRAP_TELEPORT_PERMANENT
-        || trap == TRAP_SHAFT)
-    {
-        return false;
-    }
-
-    return true;
+    return false;
 }
 
 bool drac_colour_incompatible(int drac, int colour)
@@ -727,8 +725,12 @@ monster* place_monster(mgen_data mg, bool force_pos, bool dont_place)
     else if (!_valid_monster_generation_location(mg) && !dont_place)
         return nullptr;
 
-    monster* mon = _place_monster_aux(mg, nullptr, place, force_pos,
-                                      dont_place);
+    monster* mon;
+    if (mg.cls == MONS_PLAYER_GHOST)
+        mon = _place_pghost_aux(mg, nullptr, place, force_pos, dont_place);
+    else
+        mon = _place_monster_aux(mg, nullptr, place, force_pos, dont_place);
+
     if (!mon)
         return nullptr;
 
@@ -902,8 +904,9 @@ static monster* _place_monster_aux(const mgen_data &mg, const monster *leader,
         // We'll try 1000 times for a good spot.
         for (i = 0; i < 1000; ++i)
         {
-            fpos = mg.pos + coord_def(random_range(-3, 3),
-                                      random_range(-3, 3));
+            fpos = mg.pos;
+            fpos.x += random_range(-3, 3);
+            fpos.y += random_range(-3, 3);
 
             // Place members within LOS_SOLID of their leader.
             // TODO nfm - allow placing around corners but not across walls.
@@ -1217,9 +1220,9 @@ static monster* _place_monster_aux(const mgen_data &mg, const monster *leader,
     if (mon->has_spell(SPELL_OZOCUBUS_ARMOUR))
     {
         const int power = (mon->spell_hd(SPELL_OZOCUBUS_ARMOUR) * 15) / 10;
-        mon->add_ench(mon_enchant(ENCH_OZOCUBUS_ARMOUR,
-                                  20 + random2(power) + random2(power),
-                                  mon));
+        int rnd_power = random2(power);
+        rnd_power += random2(power);
+        mon->add_ench(mon_enchant(ENCH_OZOCUBUS_ARMOUR, 20 + rnd_power, mon));
     }
 
     if (mon->has_spell(SPELL_SHROUD_OF_GOLUBRIA))
@@ -1493,6 +1496,18 @@ static monster* _place_monster_aux(const mgen_data &mg, const monster *leader,
     }
 
     return mon;
+}
+
+static monster* _place_pghost_aux(const mgen_data &mg, const monster *leader,
+                                   level_id place,
+                                   bool force_pos, bool dont_place)
+{
+    // we need to isolate the generation of a pghost from the caller's RNG,
+    // since depending on the ghost, the aux call can trigger variation in
+    // things like whether an enchantment (with a random duration) is
+    // triggered.
+    rng_generator rng(RNG_SYSTEM_SPECIFIC);
+    return _place_monster_aux(mg, leader, place, force_pos, dont_place);
 }
 
 // Check base monster class against zombie type and position if set.
@@ -2518,11 +2533,16 @@ void debug_bands()
 
 static monster_type _pick_zot_exit_defender()
 {
-    if (one_chance_in(11))
+    // 10% Pan lord
+    //  - ~1% named pan lord / seraph
+    //  - ~9% random pan lord
+    // 15% Orb Guardian
+    // 40% Demon
+    //  - 25% greater demon
+    //  - 10% common demon
+    // 40% Pan spawn (can also include pan lords and demons)
+    if (one_chance_in(10))
     {
-#ifdef DEBUG_MON_CREATION
-        mprf(MSGCH_DIAGNOSTICS, "Create a pandemonium lord!");
-#endif
         for (int i = 0; i < 4; i++)
         {
             // Sometimes pick an unique lord whose rune you've stolen.
@@ -2535,18 +2555,17 @@ static monster_type _pick_zot_exit_defender()
             }
         }
 
-        if (one_chance_in(11))
+        if (one_chance_in(10))
             return MONS_SERAPH;
 
         return MONS_PANDEMONIUM_LORD;
     }
 
     return random_choose_weighted(
-        30, RANDOM_DEMON_COMMON,
-        30, RANDOM_DEMON,
-        20, pick_monster_no_rarity(BRANCH_PANDEMONIUM),
         15, MONS_ORB_GUARDIAN,
-        5, RANDOM_DEMON_GREATER);
+        25, RANDOM_DEMON_GREATER,
+        10, RANDOM_DEMON_COMMON,
+        40, pick_monster_no_rarity(BRANCH_PANDEMONIUM));
 }
 
 monster* mons_place(mgen_data mg)
@@ -3075,9 +3094,37 @@ monster_type summon_any_demon(monster_type dct, bool use_local_demons)
     }
 }
 
+void replace_boris()
+{
+    // Initial generation is governed by the vault uniq_boris. Once he is killed
+    // a first time, as long as he isn't alive somewhere, he can regenerate when
+    // a new level is entered.
+    if (!you.props["killed_boris_once"]
+        || you.unique_creatures[MONS_BORIS]
+        || !one_chance_in(6))
+    {
+        return;
+    }
+
+    // TODO: kind of ad hoc, maybe read from uniq_boris vault?
+    switch (you.where_are_you)
+    {
+    case BRANCH_DEPTHS:
+    case BRANCH_VAULTS:
+    case BRANCH_TOMB:
+    case BRANCH_CRYPT:
+        break;
+    default:
+        return;
+    }
+
+    mgen_data boris = mgen_data(MONS_BORIS);
+    mons_place(boris);
+}
+
 /////////////////////////////////////////////////////////////////////////////
 //
-// Random monsters for portal vaults.
+// Random monsters for portal vaults. Used for e.g. shadow creatures.
 //
 /////////////////////////////////////////////////////////////////////////////
 

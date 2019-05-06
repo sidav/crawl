@@ -313,8 +313,11 @@ mutation_activity_type mutation_activity_level(mutation_type mut)
                 return mutation_activity_type::FULL;
             if (mut == MUT_UNBREATHING && drag == MONS_IRON_DRAGON)
                 return mutation_activity_type::FULL;
-            if (mut == MUT_ACIDIC_BITE && drag == MONS_GOLDEN_DRAGON)
+            if ((mut == MUT_ACIDIC_BITE || mut == MUT_ACID_RESISTANCE)
+                && drag == MONS_GOLDEN_DRAGON)
+            {
                 return mutation_activity_type::FULL;
+            }
             if (mut == MUT_STINGER && drag == MONS_SWAMP_DRAGON)
                 return mutation_activity_type::FULL;
         }
@@ -542,9 +545,6 @@ void validate_mutations(bool debug_msg)
                 mutation_name(mut), you.mutation[mut],
                 you.innate_mutation[mut], you.temp_mutation[mut]);
         }
-        ASSERT(you.mutation[mut] >= 0);
-        ASSERT(you.innate_mutation[mut] >= 0);
-        ASSERT(you.temp_mutation[mut] >= 0);
         ASSERT(you.get_base_mutation_level(mut) == you.mutation[mut]);
         ASSERT(you.mutation[i] >= you.innate_mutation[mut] + you.temp_mutation[mut]);
         total_temp += you.temp_mutation[mut];

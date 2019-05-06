@@ -1,10 +1,11 @@
 ------------------------------------------------------------------------------
--- util.lua
--- Lua utilities.
+-- Utilities for lua programming.
+-- @module util
 ------------------------------------------------------------------------------
 
 util = { }
 
+--- Define a new class
 function util.defclass(name)
   local cls = { CLASS = name }
   cls.__index = cls
@@ -12,8 +13,10 @@ function util.defclass(name)
   return cls
 end
 
+--- Define a subclass
+-- @param parent should have no-arg constructor.
+-- @param subclassname name
 function util.subclass(parent, subclassname)
-  -- parent should have no-arg constructor.
   local subclass = parent:new()
   subclass.super = parent
   -- Not strictly necessary - parent constructor should do this.
@@ -25,23 +28,27 @@ function util.subclass(parent, subclassname)
   return subclass
 end
 
+--- Instatiate a new object
 function util.newinstance(class)
   local instance = { }
   setmetatable(instance, class)
   return instance
 end
 
+--- Is x a callable type?
 function util.callable(x)
   return type(x) == 'function' or (type(x) == 'table'
                                    and getmetatable(x)
                                    and getmetatable(x).__call)
 end
 
+--- Identity function.
 function util.identity(x)
   return x
 end
 
--- Returns the sublist of elements at indices [istart, iend) of the
+--- Slice a list.
+-- @return the sublist of elements at indices [istart, iend) of the
 -- supplied list.
 function util.slice(list, istart, iend)
   if not iend then
@@ -55,6 +62,11 @@ function util.slice(list, istart, iend)
   return res
 end
 
+--- Partition a list.
+-- @param list the list
+-- @param slice the slice size
+-- @param[opt=slice] increment the increment for slice start
+-- @return a list of pieces
 function util.partition(list, slice, increment)
   local res = { }
   for i = 1, #list, increment or slice do
@@ -63,6 +75,7 @@ function util.partition(list, slice, increment)
   return res
 end
 
+--- Curry a function
 function util.curry(fn, ...)
   local params = { ... }
   if #params == 1 then
@@ -76,7 +89,7 @@ function util.curry(fn, ...)
   end
 end
 
--- Returns a list of the keys in the given map.
+--- Returns a list of the keys in the given map.
 function util.keys(map)
   local keys = { }
   for key, _ in pairs(map) do
@@ -85,7 +98,7 @@ function util.keys(map)
   return keys
 end
 
--- Returns a list of the values in the given map.
+--- Returns a list of the values in the given map.
 function util.values(map)
   local values = { }
   for _, value in pairs(map) do
@@ -94,7 +107,8 @@ function util.values(map)
   return values
 end
 
--- Returns a list of lists built from the given map, each sublist being
+--- Make a list of pairs from a map.
+-- @return a list of lists built from the given map, each sublist being
 -- in the form { key, value } for each key-value pair in the map.
 function util.pairs(map)
   local mappairs = { }
@@ -104,12 +118,12 @@ function util.pairs(map)
   return mappairs
 end
 
--- Creates a string of the elements in list joined by separator.
+--- Creates a string of the elements in list joined by separator.
 function util.join(sep, list)
   return table.concat(list, sep)
 end
 
--- Creates a set (a map of keys to true) from the list supplied.
+--- Creates a set (a map of keys to true) from the list supplied.
 function util.set(list)
   local set = { }
   for _, value in ipairs(list) do
@@ -118,7 +132,7 @@ function util.set(list)
   return set
 end
 
--- Appends the elements in any number of additional tables to the first table.
+--- Appends the elements in any number of additional tables to the first table.
 function util.append(first, ...)
   local res = first
   local tables = { ... }
@@ -130,10 +144,13 @@ function util.append(first, ...)
   return res
 end
 
+--- Creates a single list from any number of lists.
 function util.catlist(...)
   return util.append({ }, ...)
 end
 
+--- Creates a single table from any number of input tables.
+-- Keys get overwritten in the merge.
 function util.cathash(...)
   local res = { }
   local tables = { ... }
@@ -149,13 +166,14 @@ function util.cathash(...)
   return res
 end
 
+--- Apply a function to each value in a table.
 function util.foreach(list, fn)
   for _, val in ipairs(list) do
     fn(val)
   end
 end
 
--- Classic map, but discards nil values (table.insert doesn't like nil).
+--- Classic map, but discards nil values (table.insert doesn't like nil).
 function util.map(fn, ...)
   local lists = { ... }
   local res = { }
@@ -189,6 +207,7 @@ function util.map(fn, ...)
   return res
 end
 
+--- Filter a list based on fn
 function util.filter(fn, list)
   local res = { }
   for _, val in ipairs(list) do
@@ -199,6 +218,7 @@ function util.filter(fn, list)
   return res
 end
 
+--- Test every list element against pred
 function util.forall(list, pred)
   for _, value in ipairs(list) do
     if not pred(value) then
@@ -208,6 +228,7 @@ function util.forall(list, pred)
   return true
 end
 
+--- Test list for at least one value matching pred
 function util.exists(list, pred)
   for _, value in ipairs(list) do
     if pred(value) then
@@ -217,6 +238,7 @@ function util.exists(list, pred)
   return false
 end
 
+--- Find the key of item
 function util.indexof(list, item)
   for _, value in ipairs(list) do
     if value == item then return _ end
@@ -224,6 +246,7 @@ function util.indexof(list, item)
   return -1
 end
 
+--- Remove an item
 function util.remove(list, item)
   local index = util.indexof(list,item)
   if index>-1 then
@@ -231,6 +254,7 @@ function util.remove(list, item)
   end
 end
 
+--- Check if a table contains an item
 function util.contains(haystack, needle)
   for _, value in ipairs(haystack) do
     if value == needle then
@@ -240,10 +264,16 @@ function util.contains(haystack, needle)
   return false
 end
 
+--- Pick a random element from a list (unweighted)
+-- @see util.random_choose_weighted
 function util.random_from(list)
   return list[ crawl.random2(#list) + 1 ]
 end
 
+--- Pick a random element from a list based on a weight function
+-- @param weightfn function or key to choose weights
+-- @param list if weightfn is a key then elements of list have weights
+-- chosen according to the number in key (default weight is 10).
 function util.random_weighted_from(weightfn, list)
   if type(weightfn) ~= "function" then
     local weightkey = weightfn
@@ -264,6 +294,11 @@ function util.random_weighted_from(weightfn, list)
   return chosen
 end
 
+--- Pick a random key from a table using weightfn
+-- weightfn is used as in @{util.random_weighted_from}
+-- @param weightfn function or key to choose weights
+-- @param list the list
+-- @param[opt] order order function to use on keys
 function util.random_weighted_keys(weightfn, list, order)
   if type(weightfn) ~= "function" then
     local weightkey = weightfn
@@ -293,7 +328,53 @@ function util.random_weighted_keys(weightfn, list, order)
   return chosen
 end
 
--- Given a table of elements, choose a subset of size n without replacement.
+-- convert a table of key-to-weight mappings into a table of key-weight pairs,
+-- as long as the keys are sortable.
+function util.sorted_weight_table(t, sort)
+  local keys = { }
+  for k, v in pairs(t) do table.insert(keys, k) end
+  if sort == nil then
+    table.sort(keys)
+  else
+    table.sort(keys, sort)
+  end
+  local res = { }
+  for i, k in ipairs(keys) do
+    table.insert(res, { k, t[k] })
+  end
+  return res
+end
+
+-- Given a list of pairs, where the second element of each pair is an integer
+-- weight, randomly choose from the list. This *cannot* be reimplemented using
+-- just a table, because iteration order through a table is indeterminate and
+-- can mess with the random choice here (and we have found that this matters
+-- in practice). That is, a table like {[a] = 1, [b] = 1}, with the exact same
+-- rng state, could under some circumstances return either value.
+--
+-- the implementation here is very similar to random_choose_weighted in
+-- random.h. Someone clever could probably call that directly instead.
+function util.random_choose_weighted_i(list)
+  local total = 0
+  for i,k in ipairs(list) do
+    total = total + k[2]
+  end
+  local r = crawl.random2(total)
+  local sum = 0
+  for i,k in ipairs(list) do
+    sum = sum + k[2]
+    if sum > r then
+      return i
+    end
+  end
+  -- not reachable
+end
+
+function util.random_choose_weighted(list)
+  return list[util.random_choose_weighted_i(list)][1]
+end
+
+--- Given a table of elements, choose a subset of size n without replacement.
 function util.random_subset(set, n)
    local result = {}
    local cmap = {}
@@ -318,8 +399,17 @@ function util.random_subset(set, n)
    return result
 end
 
--- Uses a predefined weight function allowing list items
--- to be weighted according to branch
+--- Select randomly from a list based on branch and weight
+-- The list should be a list of tables with any of:
+--
+-- - Keys for each branch name specifying the weight in that branch.
+-- - A single key `branch` containing a string, restricting the item to appear
+-- only in that branch
+-- - A single key `weight` giving the default weight.
+--
+-- An item with no keys gets a default weight of 10.
+--
+-- @param list A list of tables with weighting keys.
 function util.random_branch_weighted(list)
   local branch = you.branch()
   local weightfn = function(item)
@@ -333,6 +423,7 @@ function util.random_branch_weighted(list)
   return util.random_weighted_from(weightfn,list)
 end
 
+--- Random real number in the range [lower,upper)
 function util.random_range_real(lower,upper)
   return lower + crawl.random_real() * (upper-lower)
 end
@@ -360,7 +451,9 @@ function util.range(start, stop)
   return rt
 end
 
+--- Remove leading and trailing whitespace
 -- From http://lua-users.org/wiki/CommonFunctions
+-- @see crawl.trim
 function util.trim(s)
   return (s:gsub("^%s*(.-)%s*$", "%1"))
 end
@@ -438,6 +531,7 @@ function table_to_string(table, depth)
   return str
 end
 
+--- Copy a table.
 -- Copied from http://lua-users.org/wiki/CopyTable
 function util.copy_table(object)
   local lookup_table = {}
@@ -457,7 +551,7 @@ function util.copy_table(object)
   return _copy(object)
 end
 
--- Initialises a namespace that has functions spread across multiple files.
+--- Initialises a namespace that has functions spread across multiple files.
 -- If the namespace table does not exist, it is created. If it already exists,
 -- it is not modified.
 function util.namespace(table_name)

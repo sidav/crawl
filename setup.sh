@@ -30,8 +30,18 @@ util/gen-mst.pl
 util/cmd-name.pl
 util/gen-luatags.pl
 util/gen-mi-enum
+# aptitudes
+util/gen-apt.pl ../docs/aptitudes.txt ../docs/template/apt-tmpl.txt species-data.h aptitudes.h
+# aptitudes-wide
+util/gen-apt.pl ../docs/aptitudes-wide.txt ../docs/template/apt-tmpl-wide.txt species-data.h aptitudes.h
+# python species-gen
+python util/species-gen.py dat/species/ util/species-gen/ species-data.h aptitudes.h species-groups.h species-type.h
+
 util/gen_ver.pl build.h
 util/gen-cflg.pl compflag.h none armeabi android android
+
+#cd ../source/util
+#./gen-all.cmd
 
 echo "Running make syscalls.h..."
 echo ""

@@ -237,14 +237,14 @@ static void _dump_player(FILE *file)
             continue;
         }
 
-        const unsigned int flags = get_spell_flags(spell);
+        const spell_flags flags = get_spell_flags(spell);
 
-        if (flags & SPFLAG_MONSTER)
+        if (flags & spflag::monster)
         {
             fprintf(file, "    spell slot #%d: monster only spell %s\n",
                     (int)i, spell_title(spell));
         }
-        else if (flags & SPFLAG_TESTING)
+        else if (flags & spflag::testing)
             fprintf(file, "    spell slot #%d: testing spell %s\n",
                     (int)i, spell_title(spell));
         else if (count_bits(get_spell_disciplines(spell)) == 0)
@@ -711,10 +711,16 @@ void do_crash_dump()
     // Next item and monster scans. Any messages will be sent straight to
     // the file because of set_msg_dump_file()
 #ifdef DEBUG_ITEM_SCAN
-    debug_item_scan();
+    if (crawl_state.crash_debug_scans_safe)
+        debug_item_scan();
+    else
+        fprintf(file, "\nCrashed while loading a save; skipping debug_item_scan.\n");
 #endif
 #ifdef DEBUG_MONS_SCAN
-    debug_mons_scan();
+    if (crawl_state.crash_debug_scans_safe)
+        debug_mons_scan();
+    else
+        fprintf(file, "\nCrashed while loading a save; skipping debug_mons_scan.\n");
 #endif
 
     // Dump Webtiles message buffer.

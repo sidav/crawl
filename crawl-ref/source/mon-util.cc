@@ -54,6 +54,7 @@
 #include "notes.h"
 #include "options.h"
 #include "random.h"
+#include "reach-type.h"
 #include "religion.h"
 #include "showsymb.h"
 #include "species.h"
@@ -433,6 +434,9 @@ int monster::wearing(equipment_type slot, int sub_type, bool calc_unid) const
     int ret = 0;
     const item_def *item = 0;
 
+    if (!alive())
+        return 0;
+
     switch (slot)
     {
     case EQ_WEAPON:
@@ -501,6 +505,9 @@ int monster::wearing_ego(equipment_type slot, int special, bool calc_unid) const
     int ret = 0;
     const item_def *item = 0;
 
+    if (!alive())
+        return 0;
+
     switch (slot)
     {
     case EQ_WEAPON:
@@ -565,6 +572,10 @@ int monster::scan_artefacts(artefact_prop_type ra_prop, bool calc_unid,
                             vector<item_def> *matches) const
 {
     UNUSED(matches); //TODO: implement this when it will be required somewhere
+
+    if (!alive())
+        return 0;
+
     int ret = 0;
 
     // TODO: do we really want to prevent randarts from working for zombies?
@@ -744,6 +755,7 @@ bool mons_is_active_ballisto(const monster& mon)
 bool mons_class_is_firewood(monster_type mc)
 {
     return mons_class_is_stationary(mc)
+           && mc != MONS_TEST_STATUE
            && mons_class_flag(mc, M_NO_THREAT)
            && !mons_is_tentacle_or_tentacle_segment(mc);
 }
@@ -836,7 +848,7 @@ bool mons_is_fiery(const monster& mon)
     return mon.has_attack_flavour(AF_FIRE)
            || mon.has_attack_flavour(AF_PURE_FIRE)
            || mon.has_attack_flavour(AF_STICKY_FLAME)
-           || mon.has_spell_of_type(SPTYP_FIRE);
+           || mon.has_spell_of_type(spschool::fire);
 }
 
 bool mons_is_projectile(monster_type mc)
@@ -1021,6 +1033,29 @@ bool mons_is_plant(const monster& mon)
 bool mons_eats_items(const monster& mon)
 {
     return mons_is_slime(mon) && have_passive(passive_t::jelly_eating);
+}
+
+/* Is the actor susceptible to vampirism?
+ *
+ * Undead actors and summoned, temporary, or ghostified monsters are all not
+ * susceptible.
+ * @param act The actor.
+ * @returns True if the actor is susceptible to vampirism, false otherwise.
+ */
+bool actor_is_susceptible_to_vampirism(const actor& act)
+{
+    if (!(act.holiness() & MH_NATURAL) || act.is_summoned())
+        return false;
+
+    if (act.is_player())
+        return true;
+
+    const monster *mon = act.as_monster();
+    // Don't allow HP draining from temporary monsters such as those created by
+    // Sticks to Snakes.
+    return !mon->has_ench(ENCH_FAKE_ABJURATION)
+           // Nor from now-ghostly monsters.
+           && !testbits(mon->flags, MF_SPECTRALISED);
 }
 
 bool invalid_monster(const monster* mon)
@@ -1706,7 +1741,8 @@ bool mons_class_can_use_stairs(monster_type mc)
            && !mons_is_tentacle_or_tentacle_segment(mc)
            && mc != MONS_SILENT_SPECTRE
            && mc != MONS_GERYON
-           && mc != MONS_ROYAL_JELLY;
+           && mc != MONS_ROYAL_JELLY
+           && mc != MONS_BALL_LIGHTNING;
 }
 
 bool mons_class_can_use_transporter(monster_type mc)
@@ -1993,25 +2029,8 @@ mon_attack_def mons_attack_spec(const monster& m, int attk_number,
     if (attk.type == AT_CHERUB)
         attk.type = random_choose(AT_HIT, AT_BITE, AT_PECK, AT_GORE);
 
-    if (!base_flavour)
-    {
-        if (attk.flavour == AF_KLOWN)
-        {
-            attack_flavour flavours[] =
-                {AF_POISON_STRONG, AF_PAIN, AF_DRAIN_SPEED, AF_FIRE,
-                 AF_COLD, AF_ELEC, AF_ANTIMAGIC, AF_ACID};
-
-            attk.flavour = RANDOM_ELEMENT(flavours);
-        }
-
-        if (attk.flavour == AF_DRAIN_STAT)
-        {
-            attack_flavour flavours[] =
-                {AF_DRAIN_STR, AF_DRAIN_INT, AF_DRAIN_DEX};
-
-            attk.flavour = RANDOM_ELEMENT(flavours);
-        }
-    }
+    if (attk.flavour == AF_DRAIN_STAT)
+        attk.flavour = random_choose(AF_DRAIN_STR, AF_DRAIN_INT,AF_DRAIN_DEX);
 
     // Slime creature attacks are multiplied by the number merged.
     if (mon.type == MONS_SLIME_CREATURE && mon.blob_size > 1)
@@ -3722,29 +3741,29 @@ static bool _ms_ranged_spell(spell_type monspell, bool attack_only = false,
                              bool ench_too = true)
 {
     // summoning spells are usable from ranged, but not direct attacks.
-    if (spell_typematch(monspell, SPTYP_SUMMONING)
+    if (spell_typematch(monspell, spschool::summoning)
         || monspell == SPELL_CONJURE_BALL_LIGHTNING)
     {
         return !attack_only;
     }
 
-    const unsigned int flags = get_spell_flags(monspell);
+    const spell_flags flags = get_spell_flags(monspell);
 
     // buffs & escape spells aren't considered 'ranged'.
-    if (testbits(flags, SPFLAG_SELFENCH)
-        || spell_typematch(monspell, SPTYP_CHARMS)
-        || testbits(flags, SPFLAG_ESCAPE)
+    if (testbits(flags, spflag::selfench)
+        || spell_typematch(monspell, spschool::charms)
+        || testbits(flags, spflag::escape)
         || monspell == SPELL_BLINK_OTHER_CLOSE)
     {
         return false;
     }
 
     // conjurations are attacks.
-    if (spell_typematch(monspell, SPTYP_CONJURATION))
+    if (spell_typematch(monspell, spschool::conjuration))
         return true;
 
     // hexes that aren't conjurations or summons are enchantments.
-    if (spell_typematch(monspell, SPTYP_HEXES))
+    if (spell_typematch(monspell, spschool::hexes))
         return !attack_only && ench_too;
 
     switch (monspell)
@@ -3841,10 +3860,19 @@ static bool _mons_has_usable_ranged_weapon(const monster* mon)
     return is_launched(mon, weapon, *missile) != launch_retval::FUMBLED;
 }
 
+static bool _mons_has_attack_wand(const monster& mon)
+{
+    const item_def *wand = mon.mslot_item(MSLOT_WAND);
+
+    return wand && is_offensive_wand(*wand);
+}
+
 bool mons_has_ranged_attack(const monster& mon)
 {
     return mons_has_ranged_spell(mon, true)
-           || _mons_has_usable_ranged_weapon(&mon);
+           || _mons_has_usable_ranged_weapon(&mon)
+           || mon.reach_range() != REACH_NONE
+           || _mons_has_attack_wand(mon);
 }
 
 bool mons_has_incapacitating_ranged_attack(const monster& mon, const actor& foe)
@@ -3882,42 +3910,6 @@ bool mons_has_incapacitating_ranged_attack(const monster& mon, const actor& foe)
     }
 
     return false;
-}
-
-static bool _mons_starts_with_ranged_weapon(monster_type mc)
-{
-    switch (mc)
-    {
-    case MONS_JOSEPH:
-    case MONS_DEEP_ELF_MASTER_ARCHER:
-    case MONS_CENTAUR:
-    case MONS_CENTAUR_WARRIOR:
-    case MONS_NESSOS:
-    case MONS_YAKTAUR:
-    case MONS_YAKTAUR_CAPTAIN:
-    case MONS_CHERUB:
-    case MONS_SONJA:
-    case MONS_HAROLD:
-    case MONS_POLYPHEMUS:
-    case MONS_CYCLOPS:
-    case MONS_STONE_GIANT:
-    case MONS_CHUCK:
-    case MONS_MERFOLK_JAVELINEER:
-    case MONS_URUG:
-    case MONS_FAUN:
-    case MONS_SATYR:
-    case MONS_NAGA_SHARPSHOOTER:
-        return true;
-    default:
-        return false;
-    }
-}
-
-bool mons_has_known_ranged_attack(const monster& mon)
-{
-    return mon.flags & MF_SEEN_RANGED
-           || _mons_starts_with_ranged_weapon(mon.type)
-              && !(mon.flags & MF_KNOWN_SHIFTER);
 }
 
 bool mons_can_attack(const monster& mon)
@@ -4185,25 +4177,7 @@ bool mons_can_traverse(const monster& mon, const coord_def& p,
     if (!mon.is_habitable(p))
         return false;
 
-    const trap_def* ptrap = trap_at(p);
-    if (checktraps && ptrap)
-    {
-        const trap_type tt = ptrap->type;
-
-        // Don't allow allies to pass over known (to them) Zot traps.
-        if (tt == TRAP_ZOT
-            && ptrap->is_known(&mon)
-            && mon.friendly())
-        {
-            return false;
-        }
-
-        // Monsters cannot travel over teleport traps.
-        if (!can_place_on_trap(mons_base_type(mon), tt))
-            return false;
-    }
-
-    return true;
+    return !checktraps || mon.is_trap_safe(p);
 }
 
 void mons_remove_from_grid(const monster& mon)

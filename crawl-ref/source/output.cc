@@ -505,7 +505,7 @@ static bool _boosted_ac()
 
 static bool _boosted_ev()
 {
-    return you.duration[DUR_AGILITY] || acrobat_boost_visible();
+    return you.duration[DUR_AGILITY] || acrobat_boost_active();
 }
 
 static bool _boosted_sh()
@@ -594,6 +594,7 @@ static void _print_stats_equip(int x, int y)
             if (you.slot_item(eqslot))
             {
                 cglyph_t g = get_item_glyph(*(you.slot_item(eqslot)));
+                g.col = element_colour(g.col, !Options.animate_equip_bar);
                 formatted_string::parse_string(glyph_to_tagstr(g)).display();
             }
             else if (!you_can_wear(eqslot, true))
@@ -734,11 +735,21 @@ static void _print_stats_mp(int x, int y)
     if (!boosted)
         textcolour(HUD_VALUE_COLOUR);
     CPRINTF("/%d", you.max_magic_points);
-    if (boosted)
-        textcolour(HUD_VALUE_COLOUR);
 
     int col = _count_digits(you.magic_points)
               + _count_digits(you.max_magic_points) + 1;
+
+    int real_mp = get_real_mp(false);
+    if (you.species == SP_DEEP_DWARF
+        && real_mp != you.max_magic_points)
+    {
+        CPRINTF(" (%d)", real_mp);
+        col += _count_digits(real_mp) + 3;
+    }
+
+    if (boosted)
+        textcolour(HUD_VALUE_COLOUR);
+
     for (int i = 11-col; i > 0; i--)
         CPRINTF(" ");
 
@@ -752,7 +763,7 @@ static void _print_stats_mp(int x, int y)
 
 static void _print_stats_hp(int x, int y)
 {
-    int max_max_hp = get_real_hp(true, true);
+    int max_max_hp = get_real_hp(true, false);
 
     // Calculate colour
     short hp_colour = HUD_VALUE_COLOUR;
@@ -764,7 +775,7 @@ static void _print_stats_hp(int x, int y)
     else
     {
         const int hp_percent =
-            (you.hp * 100) / get_real_hp(true, false);
+            (you.hp * 100) / get_real_hp(true, true);
 
         for (const auto &entry : Options.hp_colour)
             if (hp_percent <= entry.first)
@@ -872,10 +883,10 @@ static void _print_stats_ac(int x, int y)
 static void _print_stats_ev(int x, int y)
 {
     CGOTOXY(x+4, y, GOTO_STAT);
-    textcolour(you.duration[DUR_PETRIFYING] || you.duration[DUR_GRASPING_ROOTS]
-              || you.cannot_move() ? RED :
-              _boosted_ev()
-              ? LIGHTBLUE : HUD_VALUE_COLOUR);
+    textcolour(you.duration[DUR_PETRIFYING]
+               || you.cannot_move() ? RED
+                                    : _boosted_ev() ? LIGHTBLUE
+                                                    : HUD_VALUE_COLOUR);
     CPRINTF("%2d ", you.evasion());
 }
 
@@ -1902,7 +1913,7 @@ static const char* _determine_colour_string(int level, int max_level)
     }
 }
 
-static int _stealth_breakpoint(int stealth)
+int stealth_breakpoint(int stealth)
 {
     if (stealth == 0)
         return 0;
@@ -1920,7 +1931,7 @@ static string _stealth_bar(int sw)
     //no colouring
     bar += _determine_colour_string(0, 5);
     bar += "Stlth    ";
-    const int stealth_num = _stealth_breakpoint(player_stealth());
+    const int stealth_num = stealth_breakpoint(player_stealth());
     for (int i = 0; i < stealth_num; i++)
         bar += "+";
     for (int i = 0; i < 10 - stealth_num; i++)
@@ -2171,7 +2182,7 @@ static vector<formatted_string> _get_overview_stats()
 
     entry.cprintf("%d/%d", you.hp, you.hp_max);
     if (player_rotted())
-        entry.cprintf(" (%d)", get_real_hp(true, true));
+        entry.cprintf(" (%d)", get_real_hp(true, false));
 
     cols.add_formatted(0, entry.to_colour_string(), false);
     entry.clear();
@@ -2188,6 +2199,11 @@ static vector<formatted_string> _get_overview_stats()
         entry.textcolour(HUD_VALUE_COLOUR);
 
     entry.cprintf("%d/%d", you.magic_points, you.max_magic_points);
+    if (you.species == SP_DEEP_DWARF
+        && get_real_mp(false) != you.max_magic_points)
+    {
+        entry.cprintf(" (%d)", get_real_mp(false));
+    }
 
     cols.add_formatted(0, entry.to_colour_string(), false);
     entry.clear();

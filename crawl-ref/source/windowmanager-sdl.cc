@@ -20,7 +20,7 @@
 # else
 #  include <SDL2/SDL.h>
 # endif
-# include <SDL2/SDL_image.h>
+# include <SDL_image.h>
 # if defined(USE_SOUND) && !defined(WINMM_PLAY_SOUNDS)
 #  include <SDL2/SDL_mixer.h>
 # endif
@@ -454,6 +454,12 @@ int SDLWrapper::init(coord_def *m_windowsz)
     }
 
     m_context = SDL_GL_CreateContext(m_window);
+
+    // The following two lines are a part of the magical dance needed to get
+    // Mojave to work with the version of SDL2 we are using.
+    SDL_PumpEvents();
+    SDL_SetWindowSize(m_window, m_windowsz->x, m_windowsz->y);
+
     glDebug("SDL_GL_CreateContext");
     if (!m_context)
     {
@@ -703,6 +709,22 @@ unsigned short SDLWrapper::get_mouse_state(int *x, int *y) const
     if (state & SDL_BUTTON(SDL_BUTTON_MIDDLE))
         ret |= MouseEvent::MIDDLE;
     return ret;
+}
+
+string SDLWrapper::get_clipboard()
+{
+    string result;
+    char *clip = SDL_GetClipboardText();
+    if (!clip)
+        return result;
+    result = string(clip);
+    SDL_free(clip);
+    return result;
+}
+
+bool SDLWrapper::has_clipboard()
+{
+    return SDL_HasClipboardText() == SDL_TRUE;
 }
 
 static char32_t _key_suppresses_textinput(int keycode)

@@ -18,6 +18,7 @@
 
 #include "act-iter.h"
 #include "areas.h"
+#include "attack.h"
 #include "attitude-change.h"
 #include "bloodspatter.h"
 #include "branch.h"
@@ -31,6 +32,7 @@
 #include "english.h"
 #include "exercise.h"
 #include "fight.h"
+#include "food.h"
 #include "god-abil.h"
 #include "god-conduct.h"
 #include "god-item.h"
@@ -50,6 +52,7 @@
 #include "mon-util.h"
 #include "mutation.h"
 #include "nearby-danger.h"
+#include "player-stats.h"
 #include "potion.h"
 #include "prompt.h"
 #include "ranged-attack.h"
@@ -235,7 +238,7 @@ static void _ench_animation(int flavour, const monster* mon, bool force)
 
 // If needs_tracer is true, we need to check the beam path for friendly
 // monsters.
-spret_type zapping(zap_type ztype, int power, bolt &pbolt,
+spret zapping(zap_type ztype, int power, bolt &pbolt,
                    bool needs_tracer, const char* msg, bool fail)
 {
     dprf(DIAG_BEAM, "zapping: power=%d", power);
@@ -247,7 +250,7 @@ spret_type zapping(zap_type ztype, int power, bolt &pbolt,
     // (or effect), player_tracer should be called directly with the highest
     // power possible respecting current skill, experience level, etc.
     if (needs_tracer && !player_tracer(ztype, power, pbolt))
-        return SPRET_ABORT;
+        return spret::abort;
 
     fail_check();
     // Fill in the bolt structure.
@@ -268,7 +271,7 @@ spret_type zapping(zap_type ztype, int power, bolt &pbolt,
 
     pbolt.fire();
 
-    return SPRET_SUCCESS;
+    return spret::success;
 }
 
 // Returns true if the path is considered "safe", and false if there are
@@ -705,8 +708,11 @@ void bolt::apply_beam_conducts()
         switch (flavour)
         {
         case BEAM_DAMNATION:
-            did_god_conduct(DID_EVIL, 2 + random2(3), god_cares());
+        {
+            const int level = 2 + random2(3);
+            did_god_conduct(DID_EVIL, level, god_cares());
             break;
+        }
         default:
             break;
         }
@@ -1342,12 +1348,8 @@ int mons_adjust_flavoured(monster* mons, bolt &pbolt, int hurted,
 
         if (!hurted)
         {
-            if (doFlavouredEffects)
-            {
-                simple_monster_message(*mons,
-                                       (original > 0) ? " completely resists."
-                                                      : " appears unharmed.");
-            }
+            if (original > 0 && doFlavouredEffects)
+                simple_monster_message(*mons, " completely resists.");
         }
         else if (original > hurted)
         {
@@ -1372,25 +1374,16 @@ int mons_adjust_flavoured(monster* mons, bolt &pbolt, int hurted,
 
     case BEAM_WATER:
         hurted = resist_adjust_damage(mons, pbolt.flavour, hurted);
-        if (doFlavouredEffects)
-        {
-            if (!hurted)
-                simple_monster_message(*mons, " shrugs off the wave.");
-            else if (hurted > original)
-                simple_monster_message(*mons, " is doused terribly!");
-        }
+        if (hurted > original && doFlavouredEffects)
+            simple_monster_message(*mons, " is doused terribly!");
         break;
 
     case BEAM_COLD:
         hurted = resist_adjust_damage(mons, pbolt.flavour, hurted);
         if (!hurted)
         {
-            if (doFlavouredEffects)
-            {
-                simple_monster_message(*mons,
-                                       (original > 0) ? " completely resists."
-                                                      : " appears unharmed.");
-            }
+            if (original > 0 && doFlavouredEffects)
+                simple_monster_message(*mons, " completely resists.");
         }
         else if (original > hurted)
         {
@@ -1408,12 +1401,8 @@ int mons_adjust_flavoured(monster* mons, bolt &pbolt, int hurted,
         hurted = resist_adjust_damage(mons, pbolt.flavour, hurted);
         if (!hurted)
         {
-            if (doFlavouredEffects)
-            {
-                simple_monster_message(*mons,
-                                       (original > 0) ? " completely resists."
-                                                      : " appears unharmed.");
-            }
+            if (original > 0 && doFlavouredEffects)
+                simple_monster_message(*mons, " completely resists.");
         }
         else if (original > hurted)
         {
@@ -1432,12 +1421,8 @@ int mons_adjust_flavoured(monster* mons, bolt &pbolt, int hurted,
         hurted = resist_adjust_damage(mons, pbolt.flavour, hurted);
         if (!hurted)
         {
-            if (doFlavouredEffects)
-            {
-                simple_monster_message(*mons,
-                                       (original > 0) ? " completely resists."
-                                                      : " appears unharmed.");
-            }
+            if (original > 0 && doFlavouredEffects)
+                simple_monster_message(*mons, " completely resists.");
         }
         else if (mons->res_acid() <= 0 && doFlavouredEffects)
             mons->splash_with_acid(pbolt.agent());
@@ -1448,12 +1433,8 @@ int mons_adjust_flavoured(monster* mons, bolt &pbolt, int hurted,
     {
         hurted = resist_adjust_damage(mons, pbolt.flavour, hurted);
 
-        if (!hurted && doFlavouredEffects)
-        {
-            simple_monster_message(*mons,
-                                   (original > 0) ? " completely resists."
-                                                  : " appears unharmed.");
-        }
+        if (!hurted && doFlavouredEffects && original > 0)
+            simple_monster_message(*mons, " completely resists.");
         else if (doFlavouredEffects && !one_chance_in(3))
             poison_monster(mons, pbolt.agent());
 
@@ -1531,14 +1512,12 @@ int mons_adjust_flavoured(monster* mons, bolt &pbolt, int hurted,
     case BEAM_HOLY:
     {
         hurted = resist_adjust_damage(mons, pbolt.flavour, hurted);
-        if (doFlavouredEffects && (!hurted || hurted != original))
+        if (doFlavouredEffects && original > 0
+            && (!hurted || hurted != original))
         {
-            simple_monster_message(*mons,
-                                       original == 0 ? " appears unharmed." :
-                                         hurted == 0 ? " completely resists." :
-                                   hurted < original ? " resists." :
-                                   hurted > original ? " writhes in agony!" :
-                                   " suffers an impossible damage scaling amount!");
+            simple_monster_message(*mons, hurted == 0 ? " completely resists." :
+                                    hurted < original ? " resists." :
+                                    " writhes in agony!");
 
         }
         break;
@@ -1587,11 +1566,7 @@ int mons_adjust_flavoured(monster* mons, bolt &pbolt, int hurted,
         if (mons->res_damnation())
         {
             if (doFlavouredEffects)
-            {
-                simple_monster_message(*mons,
-                                       hurted ? " completely resists."
-                                              : " appears unharmed.");
-            }
+                simple_monster_message(*mons, " completely resists.");
 
             hurted = 0;
         }
@@ -1600,12 +1575,8 @@ int mons_adjust_flavoured(monster* mons, bolt &pbolt, int hurted,
     case BEAM_MEPHITIC:
         if (mons->res_poison() > 0)
         {
-            if (doFlavouredEffects)
-            {
-                simple_monster_message(*mons,
-                                        hurted ? " completely resists."
-                                               : " appears unharmed.");
-            }
+            if (original > 0 && doFlavouredEffects)
+                simple_monster_message(*mons, " completely resists.");
 
             hurted = 0;
         }
@@ -1720,7 +1691,7 @@ static bool _monster_resists_mass_enchantment(monster* mons,
 // If m_succumbed is non-nullptr, will be set to the number of monsters that
 // were enchanted. If m_attempted is not nullptr, will be set to the number of
 // monsters that we tried to enchant.
-spret_type mass_enchantment(enchant_type wh_enchant, int pow, bool fail)
+spret mass_enchantment(enchant_type wh_enchant, int pow, bool fail)
 {
     fail_check();
     bool did_msg = false;
@@ -1777,7 +1748,7 @@ spret_type mass_enchantment(enchant_type wh_enchant, int pow, bool fail)
     if (wh_enchant == ENCH_INSANE)
         did_god_conduct(DID_HASTY, 8, true);
 
-    return SPRET_SUCCESS;
+    return spret::success;
 }
 
 void bolt::apply_bolt_paralysis(monster* mons)
@@ -2169,7 +2140,6 @@ void bolt_parent_init(const bolt &parent, bolt &child)
     child.colour         = parent.colour;
 
     child.flavour        = parent.flavour;
-    child.origin_spell   = parent.origin_spell;
 
     // We don't copy target since that is often overriden.
     child.thrower        = parent.thrower;
@@ -2605,7 +2575,7 @@ void bolt::affect_ground()
             if (beh == BEH_FRIENDLY)
                 beh = BEH_GOOD_NEUTRAL;
 
-            const god_type god = agent() ? agent()->deity() : GOD_NO_GOD;
+            const god_type god = agent()->deity();
 
             if (create_monster(mgen_data(MONS_BALLISTOMYCETE,
                                          beh,
@@ -2801,8 +2771,7 @@ void bolt::affect_place_explosion_clouds()
 // A little helper function to handle the calling of ouch()...
 void bolt::internal_ouch(int dam)
 {
-    monster* monst = nullptr;
-    monst = monster_by_mid(source_id);
+    monster* monst = monster_by_mid(source_id);
 
     const char *what = aux_source.empty() ? name.c_str() : aux_source.c_str();
 
@@ -2867,7 +2836,9 @@ bool bolt::fuzz_invis_tracer()
         return false;
 
     // Apply fuzz now.
-    coord_def fuzz(random_range(-2, 2), random_range(-2, 2));
+    coord_def fuzz;
+    fuzz.x = random_range(-2, 2);
+    fuzz.y = random_range(-2, 2);
     coord_def newtarget = target + fuzz;
 
     if (in_bounds(newtarget))
@@ -2945,9 +2916,6 @@ bool bolt::is_harmless(const monster* mon) const
 
     case BEAM_ACID:
         return mon->res_acid() >= 3;
-
-    case BEAM_PETRIFY:
-        return mon->res_petrify() || mon->petrified();
 
     case BEAM_MEPHITIC:
         return mon->res_poison() > 0 || mon->is_unbreathing();
@@ -3030,7 +2998,7 @@ bool bolt::is_reflectable(const actor &whom) const
 
 bool bolt::is_big_cloud() const
 {
-    return get_spell_flags(origin_spell) & SPFLAG_CLOUD;
+    return testbits(get_spell_flags(origin_spell), spflag::cloud);
 }
 
 coord_def bolt::leg_source() const
@@ -3120,21 +3088,18 @@ void bolt::tracer_affect_player()
     extra_range_used += range_used_on_hit();
 }
 
+/* Determine whether the beam hit or missed the player, and tell them if it
+ * missed.
+ *
+ * @return  true if the beam missed, false if the beam hit the player.
+ */
 bool bolt::misses_player()
 {
     if (flavour == BEAM_VISUAL)
         return true;
 
-    const bool engulfs = is_explosion || is_big_cloud();
-
     if (is_explosion || aimed_at_feet || auto_hit)
-    {
-        if (hit_verb.empty())
-            hit_verb = engulfs ? "engulfs" : "hits";
-        if (flavour != BEAM_VISUAL && !is_enchantment())
-            mprf("The %s %s you!", name.c_str(), hit_verb.c_str());
         return false;
-    }
 
     const int dodge = you.evasion();
     int real_tohit  = hit;
@@ -3176,11 +3141,10 @@ bool bolt::misses_player()
         dprf(DIAG_BEAM, "Beamshield: hit: %d, block %d", testhit, block);
         if ((testhit < block && hit != AUTOMATIC_HIT) || omnireflected)
         {
-            bool penet = false;
-
-            const string refl_name = name.empty() && origin_spell ?
-                                     spell_title(origin_spell) :
-                                     name;
+            const string refl_name = name.empty() &&
+                                     origin_spell != SPELL_NO_SPELL ?
+                                        spell_title(origin_spell) :
+                                        name;
 
             const item_def *shield = you.shield();
             if (is_reflectable(you))
@@ -3204,8 +3168,7 @@ bool bolt::misses_player()
                 finish_beam();
             }
             you.shield_block_succeeded(agent());
-            if (!penet)
-                return true;
+            return true;
         }
 
         // Some training just for the "attempt".
@@ -3219,7 +3182,6 @@ bool bolt::misses_player()
         practise_being_shot_at();
 
     defer_rand r;
-    bool miss = true;
 
     int defl = you.missile_deflection();
 
@@ -3237,21 +3199,9 @@ bool bolt::misses_player()
         count_action(CACT_DODGE, DODGE_DEFLECT);
     }
     else
-    {
-        int dodge_more = you.evasion(EV_IGNORE_HELPLESS);
+        return false;
 
-        if (hit_verb.empty())
-            hit_verb = engulfs ? "engulfs" : "hits";
-
-        if (_test_beam_hit(real_tohit, dodge_more, pierce, defl, r))
-            mprf("The %s %s you!", name.c_str(), hit_verb.c_str());
-        else
-            mprf("Helpless, you fail to dodge the %s.", name.c_str());
-
-        miss = false;
-    }
-
-    return miss;
+    return true;
 }
 
 void bolt::affect_player_enchantment(bool resistible)
@@ -3651,6 +3601,138 @@ void bolt::affect_actor(actor *act)
         affect_player();
 }
 
+struct pie_effect
+{
+    const char* desc;
+    function<bool(const actor& def)> valid;
+    function<void (actor& def, const bolt &beam)> effect;
+    int weight;
+};
+
+static const vector<pie_effect> pie_effects = {
+    {
+        "plum",
+        [](const actor &defender) {
+            return defender.is_player();
+        },
+        [](actor &defender, const bolt &/*beam*/) {
+            if (you.duration[DUR_VERTIGO])
+                mpr("You feel your light-headedness will last longer.");
+            else
+                mpr("You feel light-headed.");
+
+            you.increase_duration(DUR_VERTIGO, 10 + random2(11), 50);
+        },
+        10
+    },
+    {
+        "lemon",
+        [](const actor &defender) {
+            return defender.is_player() && !you_foodless();
+        },
+        [](actor &defender, const bolt &beam) {
+            if (you.duration[DUR_NO_POTIONS])
+                mpr("You feel your inability to drink will last longer.");
+            else
+                mpr("You feel unable to drink.");
+
+            you.increase_duration(DUR_NO_POTIONS, 10 + random2(11), 50);
+        },
+        10
+    },
+    {
+        "blueberry",
+        nullptr,
+        [](actor &defender, const bolt &beam) {
+            if (defender.is_monster())
+            {
+                monster *mons = defender.as_monster();
+                simple_monster_message(*mons, " loses the ability to speak.");
+                mons->add_ench(mon_enchant(ENCH_MUTE, 0, beam.agent(),
+                            4 + random2(7) * BASELINE_DELAY));
+            }
+            else
+            {
+                if (you.duration[DUR_SILENCE])
+                    mpr("You feel your silence will last longer.");
+                else
+                    mpr("An unnatural silence engulfs you.");
+
+                you.increase_duration(DUR_SILENCE, 4 + random2(7), 10);
+                invalidate_agrid(true);
+
+                if (you.beheld())
+                    you.update_beholders();
+            }
+        },
+        10
+    },
+    {
+        "raspberry",
+        [](const actor &defender) {
+            return defender.is_player();
+        },
+        [](actor &defender, const bolt &beam) {
+            for (int i = 0; i < NUM_STATS; ++i)
+                lose_stat(static_cast<stat_type>(i), 1 + random2(3));
+        },
+        10
+    },
+    {
+        "cherry",
+        [](const actor &defender) {
+            return defender.is_player() || defender.res_fire() < 3;
+        },
+        [](actor &defender, const bolt &beam) {
+            if (defender.is_monster())
+            {
+                monster *mons = defender.as_monster();
+                simple_monster_message(*mons,
+                        " looks more vulnerable to fire.");
+                mons->add_ench(mon_enchant(ENCH_FIRE_VULN, 0,
+                             beam.agent(),
+                             15 + random2(11) * BASELINE_DELAY));
+            }
+            else
+            {
+                if (you.duration[DUR_FIRE_VULN])
+                {
+                    mpr("You feel your vulnerability to fire will last "
+                        "longer.");
+                }
+                else
+                    mpr("Cherry-coloured flames burn away your fire "
+                        "resistance!");
+
+                you.increase_duration(DUR_FIRE_VULN, 15 + random2(11), 50);
+            }
+        },
+        6
+    },
+    {
+        "moon pie",
+        [](const actor &defender) {
+            return defender.can_polymorph();
+        },
+        [](actor &defender, const bolt &beam) {
+            defender.polymorph(100, false);
+        },
+        4
+    },
+};
+
+static pie_effect _random_pie_effect(const actor &defender)
+{
+    vector<pair<const pie_effect&, int>> weights;
+    for (const pie_effect &effect : pie_effects)
+        if (!effect.valid || effect.valid(defender))
+            weights.push_back({effect, effect.weight});
+
+    ASSERT(!weights.empty());
+
+    return *random_choose_weighted(weights);
+}
+
 void bolt::affect_player()
 {
     hit_count[MID_PLAYER]++;
@@ -3720,22 +3802,17 @@ void bolt::affect_player()
 
     // FIXME: Lots of duplicated code here (compare handling of
     // monsters)
-    int hurted = 0;
+    int pre_ac_dam = 0;
 
     // Roll the damage.
     if (!(origin_spell == SPELL_FLASH_FREEZE && you.duration[DUR_FROZEN]))
-        hurted += damage.roll();
+        pre_ac_dam += damage.roll();
+
+    int pre_res_dam = apply_AC(&you, pre_ac_dam);
 
 #ifdef DEBUG_DIAGNOSTICS
-    const int preac = hurted;
-#endif
-
-    hurted = apply_AC(&you, hurted);
-
-#ifdef DEBUG_DIAGNOSTICS
-    const int postac = hurted;
     dprf(DIAG_BEAM, "Player damage: before AC=%d; after AC=%d",
-                    preac, postac);
+                    pre_ac_dam, pre_res_dam);
 #endif
 
     practise_being_shot();
@@ -3743,7 +3820,7 @@ void bolt::affect_player()
     bool was_affected = false;
     int  old_hp       = you.hp;
 
-    hurted = max(0, hurted);
+    pre_res_dam = max(0, pre_res_dam);
 
     // If the beam is an actual missile or of the MMISSILE type (Earth magic)
     // we might bleed on the floor.
@@ -3751,20 +3828,38 @@ void bolt::affect_player()
         && (flavour == BEAM_MISSILE || flavour == BEAM_MMISSILE))
     {
         // assumes DVORP_PIERCING, factor: 0.5
-        int blood = min(you.hp, hurted / 2);
+        int blood = min(you.hp, pre_res_dam / 2);
         bleed_onto_floor(you.pos(), MONS_PLAYER, blood, true);
     }
 
-    hurted = check_your_resists(hurted, flavour, "", this);
+    // Apply resistances to damage, but don't print "You resist" messages yet
+    int final_dam = check_your_resists(pre_res_dam, flavour, "", this, false);
 
-    if (flavour == BEAM_MIASMA && hurted > 0)
+    // Tell the player the beam hit
+    if (hit_verb.empty())
+        hit_verb = engulfs ? "engulfs" : "hits";
+
+    if (flavour != BEAM_VISUAL && !is_enchantment())
+    {
+        mprf("The %s %s you%s%s", name.c_str(), hit_verb.c_str(),
+             final_dam ? "" : " but does no damage",
+             attack_strength_punctuation(final_dam).c_str());
+    }
+
+    // Now print the messages associated with checking resistances, so that
+    // these come after the beam actually hitting.
+    // Note that this must be called with the pre-resistance damage, so that
+    // poison effects etc work properly.
+    check_your_resists(pre_res_dam, flavour, "", this, true);
+
+    if (flavour == BEAM_MIASMA && final_dam > 0)
         was_affected = miasma_player(agent(), name);
 
     if (flavour == BEAM_DEVASTATION) // DISINTEGRATION already handled
-        blood_spray(you.pos(), MONS_PLAYER, hurted / 5);
+        blood_spray(you.pos(), MONS_PLAYER, final_dam / 5);
 
     // Confusion effect for spore explosions
-    if (flavour == BEAM_SPORE && hurted
+    if (flavour == BEAM_SPORE && final_dam
         && !(you.holiness() & MH_UNDEAD)
         && !you.is_unbreathing())
     {
@@ -3802,7 +3897,7 @@ void bolt::affect_player()
             && coinflip())
         {
             mprf("Your attached jelly eats %s!", item->name(DESC_THE).c_str());
-            inc_hp(random2(hurted / 2));
+            inc_hp(random2(final_dam / 2));
             canned_msg(MSG_GAIN_HEALTH);
             drop_item = false;
         }
@@ -3830,7 +3925,7 @@ void bolt::affect_player()
 
 
     // Manticore spikes
-    if (origin_spell == SPELL_THROW_BARBS && hurted > 0)
+    if (origin_spell == SPELL_THROW_BARBS && final_dam > 0)
     {
         mpr("The barbed spikes become lodged in your body.");
         if (!you.duration[DUR_BARBS])
@@ -3850,13 +3945,19 @@ void bolt::affect_player()
     if (flavour == BEAM_ENSNARE)
         was_affected = ensnare(&you) || was_affected;
 
-
     if (origin_spell == SPELL_QUICKSILVER_BOLT)
         debuff_player();
 
-    dprf(DIAG_BEAM, "Damage: %d", hurted);
+    if (origin_spell == SPELL_THROW_PIE && final_dam > 0)
+    {
+        const pie_effect effect = _random_pie_effect(you);
+        mprf("%s!", effect.desc);
+        effect.effect(you, *this);
+    }
 
-    if (hurted > 0 || old_hp < you.hp || was_affected)
+    dprf(DIAG_BEAM, "Damage: %d", final_dam);
+
+    if (final_dam > 0 || old_hp < you.hp || was_affected)
     {
         if (mons_att_wont_attack(attitude))
         {
@@ -3877,7 +3978,7 @@ void bolt::affect_player()
             foe_info.hurt++;
     }
 
-    internal_ouch(hurted);
+    internal_ouch(final_dam);
 
     // Acid. (Apply this afterward, to avoid bad message ordering.)
     if (flavour == BEAM_ACID)
@@ -3885,8 +3986,8 @@ void bolt::affect_player()
 
     extra_range_used += range_used_on_hit();
 
-    knockback_actor(&you, hurted);
-    pull_actor(&you, hurted);
+    knockback_actor(&you, final_dam);
+    pull_actor(&you, final_dam);
 
     if (origin_spell == SPELL_FLASH_FREEZE
         || name == "blast of ice"
@@ -4186,7 +4287,6 @@ void bolt::tracer_affect_monster(monster* mon)
 void bolt::enchantment_affect_monster(monster* mon)
 {
     god_conduct_trigger conducts[3];
-    disable_attack_conducts(conducts);
 
     bool hit_woke_orc = false;
 
@@ -4199,7 +4299,7 @@ void bolt::enchantment_affect_monster(monster* mon)
             if (is_sanctuary(mon->pos()) || is_sanctuary(you.pos()))
                 remove_sanctuary(true);
 
-            set_attack_conducts(conducts, mon, you.can_see(*mon));
+            set_attack_conducts(conducts, *mon, you.can_see(*mon));
 
             if (have_passive(passive_t::convert_orcs)
                 && mons_genus(mon->type) == MONS_ORC
@@ -4212,8 +4312,6 @@ void bolt::enchantment_affect_monster(monster* mon)
     }
     else if (flavour != BEAM_HIBERNATION || !mon->asleep())
         behaviour_event(mon, ME_ALERT, agent());
-
-    enable_attack_conducts(conducts);
 
     // Doing this here so that the player gets to see monsters
     // "flicker and vanish" when turning invisible....
@@ -4415,6 +4513,14 @@ void bolt::monster_post_hit(monster* mon, int dmg)
     {
         mon->add_ench(mon_enchant(ENCH_BARBS, 1, agent(),
                                   random_range(5, 7) * BASELINE_DELAY));
+    }
+
+    if (origin_spell == SPELL_THROW_PIE && dmg > 0)
+    {
+        const pie_effect effect = _random_pie_effect(*mon);
+        if (you.see_cell(mon->pos()))
+            mprf("%s!", effect.desc);
+        effect.effect(*mon, *this);
     }
 }
 
@@ -4739,7 +4845,6 @@ void bolt::affect_monster(monster* mon)
     // after all).
 
     god_conduct_trigger conducts[3];
-    disable_attack_conducts(conducts);
 
     if (nasty_to(mon))
     {
@@ -4749,7 +4854,7 @@ void bolt::affect_monster(monster* mon)
                 remove_sanctuary(true);
 
             // It's not the player's fault if the monster couldn't be seen
-            set_attack_conducts(conducts, mon, you.can_see(*mon));
+            set_attack_conducts(conducts, *mon, you.can_see(*mon));
         }
     }
 
@@ -4820,12 +4925,11 @@ void bolt::affect_monster(monster* mon)
     }
 
     update_hurt_or_helped(mon);
-    enable_attack_conducts(conducts);
 
-    // We'll say ballistomycete spore explosions don't trigger the ally attack conduct
-    // for Fedhas worshipers. Mostly because you can accidentally blow up a
-    // group of 8 plants and get placed under penance until the end of time
-    // otherwise. I'd prefer to do this elsewhere but the beam information
+    // We'll say ballistomycete spore explosions don't trigger the ally attack
+    // conduct for Fedhas worshipers. Mostly because you can accidentally blow
+    // up a group of 8 plants and get placed under penance until the end of
+    // time otherwise. I'd prefer to do this elsewhere but the beam information
     // goes out of scope.
     //
     // Also exempting miscast explosions from this conduct -cao
@@ -4834,7 +4938,7 @@ void bolt::affect_monster(monster* mon)
             || source_id == MID_PLAYER
                && aux_source.find("your miscasting") != string::npos))
     {
-        conducts[0].enabled = false;
+        conducts[0].set();
     }
 
     if (!is_explosion && !noise_generated)
@@ -4853,10 +4957,15 @@ void bolt::affect_monster(monster* mon)
         if (hit_verb.empty())
             hit_verb = engulfs ? "engulfs" : "hits";
 
-        mprf("The %s %s %s.",
+        // If the beam did no damage because of resistances,
+        // mons_adjust_flavoured below will print "%s completely resists", so
+        // no need to also say "does no damage" here.
+        mprf("The %s %s %s%s%s",
              name.c_str(),
              hit_verb.c_str(),
-             mon->name(DESC_THE).c_str());
+             mon->name(DESC_THE).c_str(),
+             postac ? "" : " but does no damage",
+             attack_strength_punctuation(final).c_str());
 
     }
     else if (heard && !hit_noise_msg.empty())
@@ -5084,6 +5193,10 @@ bool ench_flavour_affects_monster(beam_type flavour, const monster* mon,
         rc = !(mon->is_summoned() || mon->has_ench(ENCH_INNER_FLAME));
         break;
 
+    case BEAM_PETRIFY:
+        rc = !mon->res_petrify();
+        break;
+
     case BEAM_INFESTATION:
         rc = mons_gives_xp(*mon, you) && !mon->has_ench(ENCH_INFESTATION);
         break;
@@ -5217,8 +5330,8 @@ mon_resist_type bolt::apply_enchantment_to_monster(monster* mon)
             obvious_effect = true;
         if (YOU_KILL(thrower))
         {
-            did_god_conduct(DID_DELIBERATE_MUTATING, 2 + random2(3),
-                            god_cares());
+            const int level = 2 + random2(3);
+            did_god_conduct(DID_DELIBERATE_MUTATING, level, god_cares());
         }
         return MON_AFFECTED;
 
@@ -5228,8 +5341,8 @@ mon_resist_type bolt::apply_enchantment_to_monster(monster* mon)
             obvious_effect = true;
         if (YOU_KILL(thrower))
         {
-            did_god_conduct(DID_DELIBERATE_MUTATING, 2 + random2(3),
-                            god_cares());
+            const int level = 2 + random2(3);
+            did_god_conduct(DID_DELIBERATE_MUTATING, level, god_cares());
         }
         return MON_AFFECTED;
 
@@ -5239,18 +5352,31 @@ mon_resist_type bolt::apply_enchantment_to_monster(monster* mon)
         return MON_AFFECTED;
 
     case BEAM_DISPEL_UNDEAD:
-        if (simple_monster_message(*mon, " convulses!"))
+    {
+        const int dam = damage.roll();
+        if (you.see_cell(mon->pos()))
+        {
+            mprf("%s is dispelled%s",
+                 mon->name(DESC_THE).c_str(),
+                 attack_strength_punctuation(dam).c_str());
             obvious_effect = true;
-        mon->hurt(agent(), damage.roll());
+        }
+        mon->hurt(agent(), dam);
         return MON_AFFECTED;
+    }
 
     case BEAM_PAIN:
     {
         const int dam = resist_adjust_damage(mon, flavour, damage.roll());
         if (dam)
         {
-            if (simple_monster_message(*mon, " writhes in agony!"))
+            if (you.see_cell(mon->pos()))
+            {
+                mprf("%s writhes in agony%s",
+                     mon->name(DESC_THE).c_str(),
+                     attack_strength_punctuation(dam).c_str());
                 obvious_effect = true;
+            }
             mon->hurt(agent(), dam, flavour);
             return MON_AFFECTED;
         }
@@ -5259,14 +5385,22 @@ mon_resist_type bolt::apply_enchantment_to_monster(monster* mon)
 
     case BEAM_AGONY:
         torment_cell(mon->pos(), agent(), TORMENT_AGONY);
-        obvious_effect = you.can_see(*mon);
+        obvious_effect = true;
         return MON_AFFECTED;
 
     case BEAM_DISINTEGRATION:   // disrupt/disintegrate
-        if (simple_monster_message(*mon, " is blasted."))
+    {
+        const int dam = damage.roll();
+        if (you.see_cell(mon->pos()))
+        {
+            mprf("%s is blasted%s",
+                 mon->name(DESC_THE).c_str(),
+                 attack_strength_punctuation(dam).c_str());
             obvious_effect = true;
-        mon->hurt(agent(), damage.roll(), flavour);
+        }
+        mon->hurt(agent(), dam, flavour);
         return MON_AFFECTED;
+    }
 
     case BEAM_HIBERNATION:
         if (mon->can_hibernate())
@@ -6134,6 +6268,8 @@ bool bolt::nasty_to(const monster* mon) const
         case BEAM_VILE_CLUTCH:
         case BEAM_SLOW:
         case BEAM_PARALYSIS:
+        case BEAM_PETRIFY:
+        case BEAM_POLYMORPH:
         case BEAM_DISPEL_UNDEAD:
         case BEAM_PAIN:
         case BEAM_AGONY:

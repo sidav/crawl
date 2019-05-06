@@ -37,6 +37,8 @@ struct game_state
 
     bool game_crashed;      // The game crashed and is now in the process of
                             // dumping crash info.
+    bool crash_debug_scans_safe; // should the crash handler run various debug
+                                 // scans?
 
     bool mouse_enabled;     // True if mouse input is currently relevant.
 
@@ -44,6 +46,8 @@ struct game_state
     bool terminal_resized;   // True if the term was resized and we need to
                              // take action to handle it.
     time_t last_winch;       // Time of last resize, for crash dumps.
+
+    uint64_t seed;
 
     bool io_inited;         // Is curses or the equivalent initialised?
     bool need_save;         // Set to true when game can be saved, false when the game ends.
@@ -194,6 +198,7 @@ public:
     bool player_is_dead() const;
 
     bool game_standard_levelgen() const;
+    bool game_is_valid_type() const;
     bool game_is_normal() const;
     bool game_is_tutorial() const;
     bool game_is_arena() const;

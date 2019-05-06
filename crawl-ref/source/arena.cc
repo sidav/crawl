@@ -148,7 +148,7 @@ namespace arena
     {
         monster_spells &spells(mons->spells);
         erase_if(spells, [&](const mon_spell_slot &t) {
-            return (no_summons && spell_typematch(t.spell, SPTYP_SUMMONING))
+            return (no_summons && spell_typematch(t.spell, spschool::summoning))
                 || (no_animate && t.spell == SPELL_ANIMATE_DEAD);
         });
     }
@@ -678,8 +678,9 @@ namespace arena
             if (mon->type == MONS_TEST_SPAWNER)
                 continue;
 
-            MiscastEffect(*mon, *mon, WIZARD_MISCAST, SPTYP_RANDOM,
-                          random_range(1, 3), "arena miscast", NH_NEVER);
+            MiscastEffect(*mon, *mon, {miscast_source::wizard},
+                          spschool::random, random_range(1, 3), "arena miscast",
+                          nothing_happens::NEVER);
         }
     }
 
@@ -1087,7 +1088,7 @@ bool arena_veto_random_monster(monster_type type)
         return true;
     if (!arena::allow_zero_xp && !mons_class_gives_xp(type))
         return true;
-    if (!(mons_char(type) & !127) && arena::banned_glyphs[mons_char(type)])
+    if (!(mons_char(type) & ~127) && arena::banned_glyphs[mons_char(type)])
         return true;
 
     return false;
@@ -1114,7 +1115,7 @@ bool arena_veto_place_monster(const mgen_data &mg, bool first_band_member,
 
     }
     return !arena::allow_bands && !first_band_member
-           || !(mons_char(mg.cls) & !127)
+           || !(mons_char(mg.cls) & ~127)
               && arena::banned_glyphs[mons_char(mg.cls)];
 }
 
@@ -1339,7 +1340,7 @@ int arena_cull_items()
 
     // Cull half of items on the floor.
     const int cull_target = items.size() / 2;
-          int cull_count  = 0;
+    int cull_count  = 0;
 
     sort(items.begin(), items.end(), _sort_by_age);
 
@@ -1391,14 +1392,12 @@ int arena_cull_items()
     }
 
     if (cull_count >= cull_target)
+        dprf("Culled %d (probably) ammo items, done.", cull_count - count1);
+    else
     {
-        dprf("Culled %d (probably) ammo items, done.",
-             cull_count - count1);
-        return first_avail;
+        dprf("Culled %d items total, short of target %d.",
+            cull_count, cull_target);
     }
-
-    dprf("Culled %d items total, short of target %d.",
-         cull_count, cull_target);
     return first_avail;
 } // arena_cull_items
 

@@ -1001,64 +1001,6 @@ int mummy_curse_power(monster_type type)
     }
 }
 
-static void _mummy_curse(monster* mons, int pow, killer_type killer, int index)
-{
-    if (pow <= 0)
-        return;
-
-    switch (killer)
-    {
-        // Mummy killed by trap or something other than the player or
-        // another monster, so no curse.
-        case KILL_MISC:
-        case KILL_RESET:
-        case KILL_DISMISSED:
-        // Mummy sent to the Abyss wasn't actually killed, so no curse.
-        case KILL_BANISHED:
-            return;
-
-        default:
-            break;
-    }
-
-    actor* target;
-
-    if (YOU_KILL(killer))
-        target = &you;
-    // Killed by a Zot trap, a god, etc, or suicide.
-    else if (invalid_monster_index(index) || index == mons->mindex())
-        return;
-    else
-        target = &menv[index];
-
-    // Mummy was killed by a ballistomycete spore or ball lightning?
-    if (!target->alive())
-        return;
-
-    // Mummies are smart enough not to waste curses on summons or allies.
-    if (target->is_monster() && target->as_monster()->friendly()
-        && !crawl_state.game_is_arena())
-    {
-        target = &you;
-    }
-
-    // Stepped from time?
-    if (!in_bounds(target->pos()))
-        return;
-
-    if (target->is_player())
-        mprf(MSGCH_MONSTER_SPELL, "You feel extremely nervous for a moment...");
-    else if (you.can_see(*target))
-    {
-        mprf(MSGCH_MONSTER_SPELL, "A malignant aura surrounds %s.",
-             target->name(DESC_THE).c_str());
-    }
-    const string cause = make_stringf("%s death curse",
-                            apostrophise(mons->name(DESC_A)).c_str());
-    MiscastEffect(target, mons, MUMMY_MISCAST, SPTYP_NECROMANCY,
-                  pow, random2avg(88, 3), cause.c_str());
-}
-
 template<typename valid_T, typename connect_T>
 static void _search_dungeon(const coord_def & start,
                     valid_T & valid_target,
@@ -1585,6 +1527,15 @@ static void _make_derived_undead(monster* mons, bool quiet, bool bound_soul)
                         bound_soul ?
                         GOD_NO_GOD : static_cast<god_type>(you.attribute[ATTR_DIVINE_DEATH_CHANNEL]));
         mg.set_base(mons->type);
+
+        if (!mons->mname.empty() && !(mons->flags & MF_NAME_NOCORPSE))
+            mg.mname = mons->mname;
+        else if (mons_is_unique(mons->type))
+            mg.mname = mons_type_name(mons->type, DESC_PLAIN);
+        mg.extra_flags = mons->flags & (MF_NAME_SUFFIX
+                                          | MF_NAME_ADJECTIVE
+                                          | MF_NAME_DESCRIPTOR);
+
         if (mons->mons_species() == MONS_HYDRA)
         {
             // No undead 0-headed hydras, sorry.
@@ -1601,36 +1552,23 @@ static void _make_derived_undead(monster* mons, bool quiet, bool bound_soul)
                 mg.props[MGEN_NUM_HEADS] = mons->heads();
         }
 
-        if (monster *undead = create_monster(mg))
+        string agent_name = "";
+        if (bound_soul)
         {
-            if (!quiet)
-            {
-                mprf("A %s mist starts to gather...",
-                     bound_soul ? "freezing" : "glowing");
-            }
-
-            // If the original monster has been levelled up, its HD might be
-            // different from its class HD, in which case its HP should be
-            // rerolled to match.
-            if (undead->get_experience_level() != mons->get_experience_level())
-            {
-                undead->set_hit_dice(max(mons->get_experience_level(), 1));
-                roll_zombie_hp(undead);
-            }
-
-            name_zombie(*undead, *mons);
-
-            undead->add_ench(mon_enchant(ENCH_FAKE_ABJURATION, 6));
-            if (bound_soul)
-            {
-                const auto agent = mons->get_ench(ENCH_BOUND_SOUL).agent();
-                if (agent)
-                {
-                    mons_add_blame(undead,
-                        "animated by " + agent->as_monster()->full_name(DESC_A));
-                }
-            }
+            const auto agent = mons->get_ench(ENCH_BOUND_SOUL).agent();
+            if (agent)
+                agent_name = agent->as_monster()->full_name(DESC_A);
         }
+
+        string monster_name = "";
+
+        string message = quiet ? "" :
+            make_stringf("A %s mist starts to gather...",
+                         bound_soul ? "freezing" : "glowing");
+
+        make_derived_undead_fineff::schedule(mons->pos(), mg,
+                mons->get_experience_level(), agent_name, message);
+
     }
 }
 
@@ -1677,22 +1615,19 @@ static void _druid_final_boon(const monster* mons)
     }
 }
 
-static bool _mons_reaped(actor *killer, monster* victim)
+static bool _mons_reaped(actor &killer, monster& victim)
 {
-    ASSERT(killer); // XXX: change to actor &killer
-    ASSERT(victim); // XXX: change to monster &victim
-
     beh_type beh;
     unsigned short hitting;
 
-    if (killer->is_player())
+    if (killer.is_player())
     {
         hitting = MHITYOU;
         beh     = BEH_FRIENDLY;
     }
     else
     {
-        monster* mon = killer->as_monster();
+        monster* mon = killer.as_monster();
 
         beh = SAME_ATTITUDE(mon);
 
@@ -1702,14 +1637,14 @@ static bool _mons_reaped(actor *killer, monster* victim)
     }
 
     monster *zombie = 0;
-    if (animate_remains(victim->pos(), CORPSE_BODY, beh, hitting, killer, "",
+    if (animate_remains(victim.pos(), CORPSE_BODY, beh, hitting, &killer, "",
                         GOD_NO_GOD, true, true, true, &zombie) <= 0)
     {
         return false;
     }
 
-    if (you.can_see(*victim))
-        mprf("%s turns into a zombie!", victim->name(DESC_THE).c_str());
+    if (you.can_see(victim))
+        mprf("%s turns into a zombie!", victim.name(DESC_THE).c_str());
     else if (you.can_see(*zombie))
         mprf("%s appears out of thin air!", zombie->name(DESC_THE).c_str());
 
@@ -1718,19 +1653,19 @@ static bool _mons_reaped(actor *killer, monster* victim)
     return true;
 }
 
-static bool _reaping(monster *mons)
+static bool _reaping(monster &mons)
 {
-    if (!mons->props.exists("reaping_damage"))
+    if (!mons.props.exists("reaping_damage"))
         return false;
 
-    int rd = mons->props["reaping_damage"].get_int();
-    dprf("Reaping chance: %d/%d", rd, mons->damage_total);
-    if (!x_chance_in_y(rd, mons->damage_total))
+    int rd = mons.props["reaping_damage"].get_int();
+    dprf("Reaping chance: %d/%d", rd, mons.damage_total);
+    if (!x_chance_in_y(rd, mons.damage_total))
         return false;
 
-    actor *killer = actor_by_mid(mons->props["reaper"].get_int());
+    actor *killer = actor_by_mid(mons.props["reaper"].get_int());
     if (killer)
-        return _mons_reaped(killer, mons);
+        return _mons_reaped(*killer, mons);
     return false;
 }
 
@@ -1781,7 +1716,7 @@ static void _fire_kill_conducts(monster &mons, killer_type killer,
 
     mon_holy_type holiness = mons.holiness();
 
-    if (holiness == MH_DEMONIC)
+    if (holiness & MH_DEMONIC)
         did_kill_conduct(DID_KILL_DEMON, mons);
     else if (holiness & (MH_NATURAL | MH_PLANT))
     {
@@ -2587,11 +2522,10 @@ item_def* monster_die(monster& mons, killer_type killer,
         {
             // XXX: Actual blood curse effect for Boris? - bwr
 
-            // Now that Boris is dead, he's a valid target for monster
-            // creation again. - bwr
+            // Now that Boris is dead, he can be replaced when new levels
+            // are generated.
             you.unique_creatures.set(mons.type, false);
-            // And his vault can be placed again.
-            you.uniq_map_names.erase("uniq_boris");
+            you.props["killed_boris_once"] = true;
         }
         if (mons.type == MONS_JORY && !in_transit)
             blood_spray(mons.pos(), MONS_JORY, 50);
@@ -2608,7 +2542,7 @@ item_def* monster_die(monster& mons, killer_type killer,
         {
             drop_items = false;
 
-            // Like Boris, but her vault can't come back
+            // Like Boris, but regenerates immediately
             if (mons_is_mons_class(&mons, MONS_NATASHA))
                 you.unique_creatures.set(MONS_NATASHA, false);
             if (!mons_reset && !wizard)
@@ -2684,10 +2618,22 @@ item_def* monster_die(monster& mons, killer_type killer,
         treant_release_fauna(mons);
     }
     else if (!mons.is_summoned() && mummy_curse_power(mons.type) > 0)
-        _mummy_curse(&mons, mummy_curse_power(mons.type), killer, killer_index);
+    {
+        mummy_death_curse_fineff::schedule(
+                actor_by_mid(killer_index),
+                mons.name(DESC_A),
+                killer,
+                mummy_curse_power(mons.type));
+    }
 
-    if (mons.has_ench(ENCH_INFESTATION) && !was_banished && !mons_reset)
-        _infestation_create_scarab(&mons);
+    // Necromancy
+    if (!was_banished && !mons_reset)
+    {
+        if (mons.has_ench(ENCH_INFESTATION))
+            _infestation_create_scarab(&mons);
+        if (you.duration[DUR_DEATH_CHANNEL] && was_visible && gives_player_xp)
+            _make_derived_undead(&mons, !death_message, false);
+    }
 
     if (mons.mons_species() == MONS_BALLISTOMYCETE)
     {
@@ -2718,8 +2664,6 @@ item_def* monster_die(monster& mons, killer_type killer,
     }
     if (corpse && mons.has_ench(ENCH_BOUND_SOUL))
         _make_derived_undead(&mons, !death_message, true);
-    if (you.duration[DUR_DEATH_CHANNEL] && was_visible && gives_player_xp)
-        _make_derived_undead(&mons, !death_message, false);
 
     const unsigned int player_xp = gives_player_xp
         ? _calc_player_experience(&mons) : 0;
@@ -2754,7 +2698,7 @@ item_def* monster_die(monster& mons, killer_type killer,
 
     if (fake)
     {
-        if (corpse && _reaping(&mons))
+        if (corpse && _reaping(mons))
             corpse = nullptr;
         _give_experience(player_xp, monster_xp, killer, killer_index,
                          pet_kill, was_visible, mons.xp_tracking);
@@ -2824,7 +2768,7 @@ item_def* monster_die(monster& mons, killer_type killer,
         autotoggle_autopickup(false);
     }
 
-    if (corpse && _reaping(&mons))
+    if (corpse && _reaping(mons))
         corpse = nullptr;
 
     crawl_state.dec_mon_acting(&mons);
@@ -2918,10 +2862,6 @@ void monster_cleanup(monster* mons)
     if (mons->has_ench(ENCH_AWAKEN_VINES))
         unawaken_vines(mons, false);
 
-    // So proper messages are printed
-    if (mons->has_ench(ENCH_GRASPING_ROOTS_SOURCE))
-        mons->del_ench(ENCH_GRASPING_ROOTS_SOURCE);
-
     // Monsters haloes should be removed when they die.
     if (mons->halo_radius()
         || mons->umbra_radius()
@@ -2940,25 +2880,20 @@ void monster_cleanup(monster* mons)
 
     const mid_t mid = mons->mid;
     env.mid_cache.erase(mid);
-    unsigned int monster_killed = mons->mindex();
-    mons->reset();
 
+    mons->remove_summons();
+
+    unsigned int monster_killed = mons->mindex();
     for (monster_iterator mi; mi; ++mi)
     {
         if (mi->foe == monster_killed)
             mi->foe = MHITNOT;
-
-        int sumtype = 0;
-        if (mi->summoner == mid
-            && (mi->is_summoned(nullptr, &sumtype)
-                || sumtype == MON_SUMM_CLONE))
-        {
-            mi->del_ench(ENCH_ABJ);
-        }
     }
 
     if (you.pet_target == monster_killed)
         you.pet_target = MHITNOT;
+
+    mons->reset();
 }
 
 item_def* mounted_kill(monster* daddy, monster_type mc, killer_type killer,

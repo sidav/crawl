@@ -14,6 +14,7 @@
 #include "initfile.h"
 
 #include <algorithm>
+#include <cinttypes>
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
@@ -176,6 +177,7 @@ const vector<GameOption*> game_options::build_options_list()
         new BoolGameOption(SIMPLE_NAME(show_newturn_mark), true),
         new BoolGameOption(SIMPLE_NAME(show_game_time), true),
         new BoolGameOption(SIMPLE_NAME(equip_bar), false),
+        new BoolGameOption(SIMPLE_NAME(animate_equip_bar), false),
         new BoolGameOption(SIMPLE_NAME(mouse_input), false),
         new BoolGameOption(SIMPLE_NAME(mlist_allow_alternate_layout), false),
         new BoolGameOption(SIMPLE_NAME(messages_at_top), false),
@@ -202,15 +204,17 @@ const vector<GameOption*> game_options::build_options_list()
         new BoolGameOption(SIMPLE_NAME(use_modifier_prefix_keys), true),
         new BoolGameOption(SIMPLE_NAME(ability_menu), true),
         new BoolGameOption(SIMPLE_NAME(easy_floor_use), true),
+        new BoolGameOption(SIMPLE_NAME(bad_item_prompt), true),
         new BoolGameOption(SIMPLE_NAME(dos_use_background_intensity), true),
         new BoolGameOption(SIMPLE_NAME(explore_greedy), true),
         new BoolGameOption(SIMPLE_NAME(explore_auto_rest), false),
         new BoolGameOption(SIMPLE_NAME(travel_key_stop), true),
         new BoolGameOption(SIMPLE_NAME(dump_on_save), true),
         new BoolGameOption(SIMPLE_NAME(rest_wait_both), false),
+        new BoolGameOption(SIMPLE_NAME(rest_wait_ancestor), false),
         new BoolGameOption(SIMPLE_NAME(cloud_status), !is_tiles()),
         new BoolGameOption(SIMPLE_NAME(wall_jump_prompt), false),
-        new BoolGameOption(SIMPLE_NAME(wall_jump_move), true),
+        new BoolGameOption(SIMPLE_NAME(wall_jump_move), false),
         new BoolGameOption(SIMPLE_NAME(darken_beyond_range), true),
         new BoolGameOption(SIMPLE_NAME(dump_book_spells), true),
         new BoolGameOption(SIMPLE_NAME(arena_dump_msgs), false),
@@ -229,9 +233,9 @@ const vector<GameOption*> game_options::build_options_list()
         new ColourGameOption(SIMPLE_NAME(detected_item_colour), GREEN),
         new ColourGameOption(SIMPLE_NAME(detected_monster_colour), LIGHTRED),
         new ColourGameOption(SIMPLE_NAME(remembered_monster_colour), DARKGREY),
-        new ColourGameOption(SIMPLE_NAME(status_caption_colour), BROWN, false),
-        new ColourGameOption(SIMPLE_NAME(background_colour), BLACK, false),
-        new ColourGameOption(SIMPLE_NAME(foreground_colour), LIGHTGREY, false),
+        new ColourGameOption(SIMPLE_NAME(status_caption_colour), BROWN),
+        new ColourGameOption(SIMPLE_NAME(background_colour), BLACK),
+        new ColourGameOption(SIMPLE_NAME(foreground_colour), LIGHTGREY),
         new CursesGameOption(SIMPLE_NAME(friend_brand),
                              CHATTR_HILITE | (GREEN << 8)),
         new CursesGameOption(SIMPLE_NAME(neutral_brand),
@@ -290,6 +294,10 @@ const vector<GameOption*> game_options::build_options_list()
         new ColourThresholdOption(stat_colour, {"stat_colour", "stat_color"},
                                   "3:red", _first_less),
         new StringGameOption(SIMPLE_NAME(sound_file_path), ""),
+#ifndef DGAMELAUNCH
+        new BoolGameOption(SIMPLE_NAME(pregen_dungeon), false),
+#endif
+
 #ifdef DGL_SIMPLE_MESSAGING
         new BoolGameOption(SIMPLE_NAME(messaging), false),
 #endif
@@ -417,7 +425,7 @@ object_class_type item_class_by_sym(char32_t c)
     case ')':
         return OBJ_WEAPONS;
     case '(':
-    case U'➹':
+    case U'\x27b9': //➹
         return OBJ_MISSILES;
     case '[':
         return OBJ_ARMOUR;
@@ -429,14 +437,14 @@ object_class_type item_class_by_sym(char32_t c)
         return OBJ_SCROLLS;
     case '"': // Make the amulet symbol equiv to ring -- bwross
     case '=':
-    case U'°':
+    case U'\xb0': //°
         return OBJ_JEWELLERY;
     case '!':
         return OBJ_POTIONS;
     case ':':
     case '+': // ??? -- was the only symbol working for tile order up to 0.10,
               // so keeping it for compat purposes (user configs).
-    case U'∞':
+    case U'\x221e': //∞
         return OBJ_BOOKS;
     case '|':
         return OBJ_STAVES;
@@ -449,9 +457,9 @@ object_class_type item_class_by_sym(char32_t c)
     case 'x':
         return OBJ_CORPSES;
     case '$':
-    case U'€':
-    case U'£':
-    case U'¥': // FR: support more currencies
+    case U'\x20ac': //€
+    case U'\xa3': //£
+    case U'\xa5': //¥ // FR: support more currencies
         return OBJ_GOLD;
 #if TAG_MAJOR_VERSION == 34
     case '\\': // Compat break: used to be staves (why not '|'?).
@@ -641,6 +649,8 @@ string gametype_to_str(game_type type)
     {
     case GAME_TYPE_NORMAL:
         return "normal";
+    case GAME_TYPE_CUSTOM_SEED:
+        return "seeded";
     case GAME_TYPE_TUTORIAL:
         return "tutorial";
     case GAME_TYPE_ARENA:
@@ -835,7 +845,7 @@ void game_options::set_default_activity_interrupts()
         "interrupt_travel = interrupt_butcher, hungry, hit_monster, "
                             "sense_monster",
         "interrupt_run = interrupt_travel, message",
-        "interrupt_rest = interrupt_run, full_hp, full_mp",
+        "interrupt_rest = interrupt_run, full_hp, full_mp, ancestor_hp",
 
         // Stair ascents/descents cannot be interrupted except by
         // teleportation. Attempts to interrupt the delay will just
@@ -1680,6 +1690,8 @@ newgame_def read_startup_prefs()
         temp.game.job = temp.game.allowed_jobs[0];
     if (!temp.game.allowed_weapons.empty())
         temp.game.weapon = temp.game.allowed_weapons[0];
+    if (!Options.seed_from_rc)
+        Options.seed = temp.seed_from_rc;
     return temp.game;
 #endif // !DISABLE_STICKY_STARTUP_OPTIONS
 }
@@ -1700,6 +1712,8 @@ static void write_newgame_options(const newgame_def& prefs, FILE *f)
         fprintf(f, "background = %s\n", _job_to_str(prefs.job).c_str());
     if (prefs.weapon != WPN_UNKNOWN)
         fprintf(f, "weapon = %s\n", _weapon_to_str(prefs.weapon).c_str());
+    if (prefs.seed != 0)
+        fprintf(f, "game_seed = %" PRIu64 "\n", prefs.seed);
     fprintf(f, "fully_random = %s\n", prefs.fully_random ? "yes" : "no");
 }
 #endif // !DISABLE_STICKY_STARTUP_OPTIONS
@@ -1750,6 +1764,24 @@ void save_player_name()
 #endif // !DISABLE_STICKY_STARTUP_OPTIONS
 }
 
+#ifndef DISABLE_STICKY_STARTUP_OPTIONS
+// TODO: can these functions be generalized? This is called on game end, maybe
+// the entire pref should be updated then?
+void save_seed_pref()
+{
+#ifndef DGAMELAUNCH
+    if (!crawl_state.game_standard_levelgen())
+        return;
+    // Read other preferences
+    newgame_def prefs = read_startup_prefs();
+    prefs.seed = crawl_state.seed;
+
+    // And save
+    write_newgame_options_file(prefs);
+#endif
+}
+#endif // !DISABLE_STICKY_STARTUP_OPTIONS
+
 void read_options(const string &s, bool runscript, bool clear_aliases)
 {
     StringLineInput st(s);
@@ -1757,7 +1789,8 @@ void read_options(const string &s, bool runscript, bool clear_aliases)
 }
 
 game_options::game_options()
-    : seed(0), no_save(false), language(lang_t::EN), lang_name(nullptr)
+    : seed(0), seed_from_rc(0),
+    no_save(false), language(lang_t::EN), lang_name(nullptr)
 {
     reset_options();
 }
@@ -3399,6 +3432,26 @@ void game_options::read_option_line(const string &str, bool runscript)
         else
             constants.insert(field);
     }
+    else if (key == "game_seed")
+    {
+#ifdef DGAMELAUNCH
+        // try to avoid confusing online players who put this in their rc
+        // file. N.b. it is still possible to use the -seed CLO.
+        report_error("Your rc file specifies a game seed, but this build of "
+                     "crawl does not support seed selection. I will "
+                     "choose a seed randomly.");
+#else
+        // special handling because of the large type.
+        uint64_t tmp_seed = 0;
+        if (sscanf(field.c_str(), "%" SCNu64, &tmp_seed))
+        {
+            // seed_from_rc is only ever set here, or by the CLO. The CLO gets
+            // first crack, so don't overwrite it here.
+            if (!seed_from_rc)
+                seed_from_rc = tmp_seed;
+        }
+#endif
+    }
 
     // Catch-all else, copies option into map
     else if (runscript)
@@ -3783,6 +3836,7 @@ enum commandline_option_type
     CLO_HELP,
     CLO_VERSION,
     CLO_SEED,
+    CLO_PREGEN,
     CLO_SAVE_VERSION,
     CLO_SPRINT,
     CLO_EXTRA_OPT_FIRST,
@@ -3814,7 +3868,7 @@ static const char *cmd_ops[] =
     "scores", "name", "species", "background", "dir", "rc", "rcdir", "tscores",
     "vscores", "scorefile", "morgue", "macro", "mapstat", "dump-disconnect",
     "objstat", "iters", "force-map", "arena", "dump-maps", "test", "script",
-    "builddb", "help", "version", "seed", "save-version", "sprint",
+    "builddb", "help", "version", "seed", "pregen", "save-version", "sprint",
     "extra-opt-first", "extra-opt-last", "sprint-map", "edit-save",
     "print-charset", "tutorial", "wizard", "explore", "no-save", "gdb",
     "no-gdb", "nogdb", "throttle", "no-throttle", "playable-json",
@@ -4132,7 +4186,7 @@ static void _write_bones(const string &filename, vector<ghost_demon> ghosts)
     lk_close(ghost_file, filename);
 }
 
-static void _bones_ls(const string &filename, const string name_match, 
+static void _bones_ls(const string &filename, const string name_match,
                                                             bool long_output)
 {
     save_version v = _read_bones_version(filename);
@@ -4288,7 +4342,7 @@ static void _edit_bones(int argc, char **argv)
 
         if (cmd == EB_LS)
         {
-            const bool long_out = 
+            const bool long_out =
                            argc == 3 && !strcmp(argv[2], "--long")
                         || argc == 4 && !strcmp(argv[3], "--long");
             if (argc == 4 && !long_out)
@@ -4874,11 +4928,20 @@ bool parse_args(int argc, char **argv, bool rc_only)
 
         case CLO_SEED:
             if (!next_is_param)
-                return false;
+            {
+                // show seed choice menu
+                Options.game.type = GAME_TYPE_CUSTOM_SEED;
+                break;
+            }
 
-            if (!sscanf(next_arg, "%x", &Options.seed))
+            if (!sscanf(next_arg, "%" SCNu64, &Options.seed_from_rc))
                 return false;
+            Options.seed = Options.seed_from_rc;
             nextUsed = true;
+            break;
+
+        case CLO_PREGEN:
+            Options.pregen_dungeon = true;
             break;
 
         case CLO_SPRINT:

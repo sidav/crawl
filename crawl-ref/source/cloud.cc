@@ -493,7 +493,8 @@ static int _cloud_dissipation_rate(const cloud_struct &cloud)
 
     // Player-created non-opaque clouds vanish instantly when outside LOS.
     // (Opaque clouds don't to prevent cloud suicide.)
-    if (cloud.source == MID_PLAYER && !you.see_cell_no_trans(cloud.pos)
+    if ((cloud.source == MID_PLAYER || cloud.source == MID_YOU_FAULTLESS)
+        && !you.see_cell_no_trans(cloud.pos)
         && !is_opaque_cloud(cloud.type))
     {
         return cloud.decay;
@@ -915,6 +916,14 @@ bool actor_cloud_immune(const actor &act, const cloud_struct &cloud)
             || testbits(act.as_monster()->flags, MF_DEMONIC_GUARDIAN))
         && (cloud.whose == KC_YOU || cloud.whose == KC_FRIENDLY)
         && (act.as_monster()->friendly() || act.as_monster()->neutral()))
+    {
+        return true;
+    }
+
+    int summon_type = 0;
+    act.is_summoned(nullptr, &summon_type);
+    if (!player && have_passive(passive_t::cloud_immunity)
+        && (act.as_monster()->friendly() && summon_type == MON_SUMM_AID))
     {
         return true;
     }

@@ -208,6 +208,9 @@ DEPTH:    For random vaults, branch entry vaults, and minivaults, this
           Lair, for instance (Lair is treated as depth 10 for this purpose.)
           In general, you should avoid using such unconstrained DEPTHs.
 
+          If there are multiple DEPTH: declarations, later ones will be added
+          to previous ones.
+
 CHANCE:   <roll> [ (<depth-ranges>) ]
 
           CHANCE allows you to control the probability that your map is used on
@@ -314,8 +317,7 @@ PLACE:    Used to specify certain special levels. Existing special levels
           will force the map (or one of the maps with PLACE: D:3) to be picked
           when D:3 is generated.
 
-          PLACE cannot be used to specify places in the Abyss, Pandemonium,
-          or Labyrinths.
+          PLACE cannot be used to specify places in the Abyss or Pandemonium.
 
           PLACE can be used with random vaults and minivaults for testing them.
 
@@ -507,11 +509,14 @@ ITEM:     (list of items, separated by comma)
             bonus to depth for the item generation. The "|" item glyph uses
             this quality level (but with a different distribution of item
             classes, see above).
-          * "acquire" requests the use of the acquirement code itself,
-            ensuring that the player gets wearable armour, etc. You can
+          * "acquire" requests the use of the acquirement code
+            itself, ensuring that the player gets wearable armour, etc. You can
             also use acquire:<god> to request that the acquired item be
             treated as a god gift. Examples: "acquire any", "acquire armour",
-            "acquire:sif_muna book", "acquire:trog weapon".
+            "acquire:sif_muna book", "acquire:trog weapon". Use of this outside
+            of specialized portals as part of the builder is *deprecated*,
+            because conditioning level generation on player properties
+            interferes with seeding.
           * "level:N" sets the object's item level (can't be used with
             "good_item"). If set to -2 then the object's item level will
             be the same as a "*" symbol item (five plus twice the
@@ -1479,22 +1484,13 @@ MARKER:   A = feat:<feature_name> or lua:<marker_expr>
           A marker ties a square on the map to a game-trigger of some sort
           (which depends on the marker and what feature it is on).
 
-          The portals to the Hells in the Vestibule of Hell are each annotated
-          with feature markers like this:
+          Lua markers are used for more complex triggers such as entry to the
+          Slime loot areas when the Royal Jelly dies, fog generators,
+          transporters, etc.
 
-          MARKER: D=feat:enter_dis, G=feat:enter_gehenna
-
-          When the horn is sounded, the stone arch at D becomes the portal to
-          Dis, the arch at G becomes the portal to Gehenna. This behaviour
-          applies only to the Vestibule of Hell.
-
-          Lua markers are used for more complex triggers, such as for bazaar
-          and labyrinth gates, rune pickup triggers for the branches of Hell,
-          fog generators, etc.
-
-          Here's a Lua marker that creates a cloud generator (for a
+          Here's a Lua marker that creates a cloud generator. For a
           full explanation of the various parameters, read the header
-          of dat/dlua/lm_fog.lua):
+          of dat/dlua/lm_fog.lua.
 
           MARKER:  A = lua:fog_machine { \
                        pow_max = 15, delay_min = 100, delay_max = 150, \

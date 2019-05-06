@@ -124,7 +124,7 @@ static inline bool _shoals_tide_passable_feat(dungeon_feature_type feat)
            // near the water. Note that the actual probability of the tide
            // getting through a doorway is this probability * 0.5 --
            // see _shoals_apply_tide.
-           || feat == DNGN_OPEN_DOOR
+           || feat_is_open_door(feat)
            || feat_is_closed_door(feat) && one_chance_in(3);
 }
 
@@ -176,8 +176,10 @@ static void _shoals_build_cliff()
         coord_def place =
             cliffc + coord_def(static_cast<int>(distance * cos(angle)),
                                static_cast<int>(distance * sin(angle)));
-        const coord_def fuzz = coord_def(random_range(-2, 2),
-                                         random_range(-2, 2));
+        coord_def fuzz;
+        fuzz.x = random_range(-2, 2);
+        fuzz.y = random_range(-2, 2);
+
         place += fuzz;
         dgn_island_centred_at(place, resolve_range(n_cliff_points),
                               cliff_point_radius, cliff_height_increment,
@@ -351,8 +353,10 @@ static coord_def _shoals_region_center(
     double cx = 0.0, cy = 0.0;
     vector<coord_def> visit(1, c);
     FixedArray<bool, GXM, GYM> visited(false);
-    for (const auto p : visit)
+    // visit can be modified by push_back during this loop
+    for (size_t i = 0; i < visit.size(); ++i)
     {
+        const coord_def p(visit[i]);
         visited(p) = true;
 
         ++nseen;
@@ -493,9 +497,9 @@ static void _shoals_plant_supercluster(coord_def c,
                                        dungeon_feature_type favoured_feat,
                                        grid_bool *verboten = nullptr)
 {
-    _shoals_plant_cluster(c, random_range(10, 17, 2),
-                          random_range(3, 9), favoured_feat,
-                          verboten);
+    int nplants = random_range(10, 17, 2);
+    int radius = random_range(3, 9);
+    _shoals_plant_cluster(c, nplants, radius, favoured_feat, verboten);
 
     const int nadditional_clusters(max(0, random_range(-1, 4, 2)));
     for (int i = 0; i < nadditional_clusters; ++i)
@@ -504,9 +508,9 @@ static void _shoals_plant_supercluster(coord_def c,
             dgn_random_point_from(c, random_range(2, 12), _shoals_margin));
         if (!satellite.origin())
         {
-            _shoals_plant_cluster(satellite, random_range(5, 12, 2),
-                                  random_range(2, 7),
-                                  favoured_feat,
+            nplants = random_range(5, 12, 2);
+            radius = random_range(2, 7);
+            _shoals_plant_cluster(satellite, nplants, radius, favoured_feat,
                                   verboten);
         }
     }
@@ -559,12 +563,13 @@ static vector<coord_def> _shoals_windshadows(grid_bool &windy)
             wind_points.emplace_back(x, wi.y > epsilon ? 1 : GYM - 2);
     }
 
-    for (const coord_dbl& coord : wind_points)
+    // wind_points can be modified during this loop via emplace_back
+    for (size_t i = 0; i < wind_points.size(); ++i)
     {
-        const coord_def here(_int_coord(coord));
+        const coord_def here(_int_coord(wind_points[i]));
         windy(here) = true;
 
-        coord_dbl next = coord + wi;
+        coord_dbl next = wind_points[i] + wi;
         while (_int_coord(next) == here)
             next += wi;
 

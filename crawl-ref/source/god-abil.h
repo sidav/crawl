@@ -90,6 +90,7 @@ void trog_remove_trogs_hand();
 
 bool jiyva_remove_bad_mutation();
 
+bool given_gift(const monster* mons);
 bool beogh_can_gift_items_to(const monster* mons, bool quiet = true);
 bool beogh_gift_item();
 bool beogh_resurrect();
@@ -117,7 +118,7 @@ int place_ring(vector<coord_def>& ring_points,
 void collect_radius_points(vector<vector<coord_def> > &radius_points,
                            const coord_def &origin, los_type los);
 int fedhas_fungal_bloom();
-spret_type fedhas_sunlight(bool fail = false);
+spret fedhas_sunlight(bool fail = false);
 void process_sunlights(bool future = false);
 bool prioritise_adjacent(const coord_def& target, vector<coord_def>& candidates);
 bool fedhas_plant_ring_from_rations();
@@ -127,7 +128,7 @@ int fedhas_check_corpse_spores(bool quiet = false);
 int fedhas_corpse_spores(beh_type attitude = BEH_FRIENDLY);
 bool mons_is_evolvable(const monster* mon);
 bool fedhas_check_evolve_flora(bool quiet);
-spret_type fedhas_evolve_flora(bool fail);
+spret fedhas_evolve_flora(bool fail);
 
 void lugonu_bend_space();
 
@@ -157,9 +158,9 @@ void gozag_deduct_bribe(branch_type br, int amount);
 bool gozag_check_bribe_branch(bool quiet = false);
 bool gozag_bribe_branch();
 
-spret_type qazlal_upheaval(coord_def target, bool quiet = false,
+spret qazlal_upheaval(coord_def target, bool quiet = false,
                            bool fail = false);
-spret_type qazlal_elemental_force(bool fail);
+spret qazlal_elemental_force(bool fail);
 bool qazlal_disaster_area();
 
 void init_sac_index();
@@ -184,14 +185,14 @@ int pakellas_surge_devices();
 
 bool uskayaw_stomp();
 bool uskayaw_line_pass();
-spret_type uskayaw_grand_finale(bool fail);
+spret uskayaw_grand_finale(bool fail);
 
 bool hepliaklqana_choose_ancestor_type(int ancestor_type);
-spret_type hepliaklqana_idealise(bool fail);
-spret_type hepliaklqana_transference(bool fail);
+spret hepliaklqana_idealise(bool fail);
+spret hepliaklqana_transference(bool fail);
 void hepliaklqana_choose_identity();
 
 bool wu_jian_can_wall_jump_in_principle(const coord_def& target);
 bool wu_jian_can_wall_jump(const coord_def& target, string &error_ret);
 bool wu_jian_do_wall_jump(coord_def targ, bool ability);
-bool wu_jian_wall_jump_ability();
+spret wu_jian_wall_jump_ability();

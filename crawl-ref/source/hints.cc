@@ -15,7 +15,6 @@
 #include "cloud.h"
 #include "colour.h"
 #include "database.h"
-#include "decks.h"
 #include "describe.h"
 #include "end.h"
 #include "english.h"
@@ -2736,8 +2735,9 @@ string hints_skills_info()
     text << "<" << colour_to_str(channel_to_colour(MSGCH_TUTORIAL)) << ">";
     string broken = "This screen shows the skill set of your character. "
         "The number next to the skill is your current level, the higher the "
-        "better. The <brown>brown percent value</brown> shows how much "
-        "experience is allocated to go towards that skill. "
+        "better. <w>Training</w> displays training percentages. "
+        "<w>Costs</w> displays relative training costs. "
+        "<w>Targets</w> displays skill training targets. "
         "You can toggle which skills to train by "
         "pressing their slot letters. A <darkgrey>grey</darkgrey> skill "
         "will not be trained and ease the training of others.";
@@ -2757,6 +2757,35 @@ string hints_skill_training_info()
         "used to train each skill. It is automatically set depending on "
         "which skills you have used recently. Disabling a skill sets the "
         "training rate to 0.";
+    text << broken;
+    text << "</" << colour_to_str(channel_to_colour(MSGCH_TUTORIAL)) << ">";
+
+    return text.str();
+}
+
+string hints_skill_costs_info()
+{
+    textcolour(channel_to_colour(MSGCH_TUTORIAL));
+    ostringstream text;
+    text << "<" << colour_to_str(channel_to_colour(MSGCH_TUTORIAL)) << ">";
+    string broken = "The training cost (in <cyan>cyan</cyan>) "
+        "shows the experience cost to raise the given skill one level, "
+        "relative to the cost of raising an aptitude zero skill from level "
+        "zero to level one.";
+    text << broken;
+    text << "</" << colour_to_str(channel_to_colour(MSGCH_TUTORIAL)) << ">";
+
+    return text.str();
+}
+
+string hints_skill_targets_info()
+{
+    textcolour(channel_to_colour(MSGCH_TUTORIAL));
+    ostringstream text;
+    text << "<" << colour_to_str(channel_to_colour(MSGCH_TUTORIAL)) << ">";
+    string broken = "Press the letter of a skill to set a training target. "
+        "When the target is reached a message will appear and "
+        "the training of the skill will be disabled.";
     text << broken;
     text << "</" << colour_to_str(channel_to_colour(MSGCH_TUTORIAL)) << ">";
 
@@ -2827,7 +2856,7 @@ string hints_memorise_info()
     {
         m += "\n\nA spell that isn't <darkgray>grayed out</darkgray> or "
              "<lightred>forbidden</lightred> can be "
-             "memorised right away by selecting it at at this menu.";
+             "memorised right away by selecting it at this menu.";
     }
     else
     {
@@ -2853,13 +2882,12 @@ string hints_memorise_info()
         cmd.push_back(CMD_CAST_SPELL);
     }
 
+    if (you.spell_no)
+        m += _hints_target_mode(true);
     linebreak_string(m, _get_hints_cols());
     if (!cmd.empty())
         insert_commands(m, cmd);
     text << m;
-    if (you.spell_no)
-        text << _hints_target_mode(true);
-    text << "</" << colour_to_str(channel_to_colour(MSGCH_TUTORIAL)) << ">";
 
     return text.str();
 }
@@ -3395,24 +3423,9 @@ string hints_describe_item(const item_def &item)
             break;
 
         case OBJ_MISCELLANY:
-            if (is_deck(item))
-            {
-                ostr << "Decks of cards are powerful but dangerous magical "
-                        "items. Try e<w>%</w>oking it"
-#ifdef USE_TILE
-                        ", which can be done by clicking on it"
-#endif
-                        ". You can read about the effect of a card by "
-                        "searching the game's database with <w>%/c</w>.";
-                cmd.push_back(CMD_EVOKE);
-                cmd.push_back(CMD_DISPLAY_COMMANDS);
-            }
-            else
-            {
-                ostr << "Miscellaneous items sometimes harbour magical powers "
-                        "that can be harnessed by e<w>%</w>oking the item.";
-                cmd.push_back(CMD_EVOKE);
-            }
+            ostr << "Miscellaneous items sometimes harbour magical powers "
+                    "that can be harnessed by e<w>%</w>oking the item.";
+            cmd.push_back(CMD_EVOKE);
 
             Hints.hints_events[HINT_SEEN_MISC] = false;
             break;
@@ -3610,8 +3623,7 @@ static void _hints_describe_feature(int x, int y, ostringstream& ostr)
 #endif
 
     case DNGN_CLOSED_DOOR:
-    case DNGN_RUNED_DOOR:
-            // XXX: should this be elsewhere?
+    case DNGN_CLOSED_CLEAR_DOOR:
         if (!Hints.hints_explored)
         {
             ostr << "\nTo avoid accidentally opening a door you'd rather "
@@ -3914,10 +3926,10 @@ void hints_observe_cell(const coord_def& gc)
         learned_something_new(HINT_SEEN_ALTAR, gc);
     else if (is_feature('^', gc))
         learned_something_new(HINT_SEEN_TRAP, gc);
-    else if (grd(gc) == DNGN_OPEN_DOOR || grd(gc) == DNGN_CLOSED_DOOR)
-        learned_something_new(HINT_SEEN_DOOR, gc);
-    else if (grd(gc) == DNGN_RUNED_DOOR)
+    else if (feat_is_runed(grd(gc)))
         learned_something_new(HINT_SEEN_RUNED_DOOR, gc);
+    else if (feat_is_door(grd(gc)))
+        learned_something_new(HINT_SEEN_DOOR, gc);
     else if (grd(gc) == DNGN_ENTER_SHOP)
         learned_something_new(HINT_SEEN_SHOP, gc);
     else if (feat_is_portal_entrance(grd(gc)))

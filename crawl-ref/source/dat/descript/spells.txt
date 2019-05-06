@@ -295,8 +295,9 @@ Induces a state of bewilderment and confusion in a creature's mind.
 Confusing Touch spell
 
 Enchants the caster's dominant hand with magical energy. This energy is
-released when the caster touches a monster with their bare hand, and may induce
-a state of confusion in the monster.
+released when the caster touches a monster, and may induce a state of confusion
+in the monster. The caster's attacks do no damage while attempting to touch a
+monster in this way.
 %%%%
 Confusion Gaze spell
 
@@ -625,6 +626,12 @@ caster. Those hit by the blast are encased in ice, slowing their movement, and
 those killed by the blast may be frozen into solid blocks of ice. A significant
 portion of its damage bypasses cold resistance.
 %%%%
+Grasping Roots spell
+
+Calls giant grasping roots from deep underground that hold and constrict their
+victim. The roots will retreat if the victim breaks free or if the caller moves
+out of view.
+%%%%
 Greater Servant of Makhleb spell
 
 <Greater Servant of Makhleb ability>
@@ -640,7 +647,7 @@ pulled adjacent to the caster or collide with anything blocking the way.
 %%%%
 Haste spell
 
-Speeds the actions of a targeted creature.
+Speeds the actions of the caster.
 %%%%
 Haunt spell
 
@@ -1492,6 +1499,14 @@ Throw Icicle spell
 
 Fires a shard of ice. Due to its strong impact and cutting edges, a
 significant portion of its damage bypasses cold resistance.
+%%%%
+Throw Klown Pie spell
+
+Throws a harmful yet strangely delicious pie that can inflict its victim with a
+number of debilitating temporary effects. These include inducing vertigo,
+silence, fire vulnerability, stat drain, or an aversion to drinking potions.
+The dreaded moon pie can even turn you into a bat, a hog, or an insubstantial
+wisp!
 %%%%
 Thunderbolt spell
 

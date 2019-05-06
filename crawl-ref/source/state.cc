@@ -28,8 +28,11 @@
 #include "unwind.h"
 
 game_state::game_state()
-    : game_crashed(false), mouse_enabled(false), waiting_for_command(false),
-      terminal_resized(false), last_winch(0), io_inited(false),
+    : game_crashed(false), crash_debug_scans_safe(true),
+      mouse_enabled(false), waiting_for_command(false),
+      terminal_resized(false), last_winch(0),
+      seed(0),
+      io_inited(false),
       need_save(false), game_started(false), saving_game(false),
       updating_scores(false),
       seen_hups(0), map_stat_gen(false), map_stat_dump_disconnect(false),
@@ -549,33 +552,39 @@ bool game_state::game_standard_levelgen() const
     return game_is_normal() || game_is_hints();
 }
 
+bool game_state::game_is_valid_type() const
+{
+    return type < NUM_GAME_TYPE;
+}
+
 bool game_state::game_is_normal() const
 {
-    ASSERT(type < NUM_GAME_TYPE);
-    return type == GAME_TYPE_NORMAL || type == GAME_TYPE_UNSPECIFIED;
+    ASSERT(game_is_valid_type());
+    return type == GAME_TYPE_NORMAL || type == GAME_TYPE_CUSTOM_SEED
+                                    || type == GAME_TYPE_UNSPECIFIED;
 }
 
 bool game_state::game_is_tutorial() const
 {
-    ASSERT(type < NUM_GAME_TYPE);
+    ASSERT(game_is_valid_type());
     return type == GAME_TYPE_TUTORIAL;
 }
 
 bool game_state::game_is_arena() const
 {
-    ASSERT(type < NUM_GAME_TYPE);
+    ASSERT(game_is_valid_type());
     return type == GAME_TYPE_ARENA;
 }
 
 bool game_state::game_is_sprint() const
 {
-    ASSERT(type < NUM_GAME_TYPE);
+    ASSERT(game_is_valid_type());
     return type == GAME_TYPE_SPRINT;
 }
 
 bool game_state::game_is_hints() const
 {
-    ASSERT(type < NUM_GAME_TYPE);
+    ASSERT(game_is_valid_type());
     return type == GAME_TYPE_HINTS;
 }
 
@@ -599,22 +608,30 @@ string game_state::game_type_name_for(game_type _type)
     default:
         // No explicit game type name for default game.
         return "";
+    case GAME_TYPE_CUSTOM_SEED:
+        return "Seeded";
     case GAME_TYPE_TUTORIAL:
         return "Tutorial";
     case GAME_TYPE_ARENA:
         return "Arena";
     case GAME_TYPE_SPRINT:
         return "Dungeon Sprint";
+    case NUM_GAME_TYPE:
+        return "Unknown";
     }
 }
 
 string game_state::game_savedir_path() const
 {
+    if (!game_is_valid_type())
+        return ""; // a game from the future -- avoid the ASSERT below
     return game_is_sprint()? "sprint/" : "";
 }
 
 string game_state::game_type_qualifier() const
 {
+    if (type == GAME_TYPE_CUSTOM_SEED)
+        return "-seeded";
     if (crawl_state.game_is_sprint())
         return "-sprint";
     if (crawl_state.game_is_tutorial())

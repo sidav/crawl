@@ -6,6 +6,7 @@
 #include "beh-type.h"
 #include "enchant-type.h"
 #include "mon-ench.h"
+#include "mon-poly.h"
 #include "montravel-target-type.h"
 #include "potion-type.h"
 #include "seen-context-type.h"
@@ -242,6 +243,8 @@ public:
     void uglything_mutate(colour_t force_colour = COLOUR_UNDEF);
     void destroy_inventory();
     void load_ghost_spells();
+    brand_type ghost_brand() const;
+    bool has_ghost_brand() const;
 
     actor *get_foe() const;
 
@@ -354,7 +357,8 @@ public:
     bool is_stationary() const override;
     bool malmutate(const string &/*reason*/) override;
     void corrupt();
-    bool polymorph(int pow) override;
+    bool polymorph(int pow, bool allow_immobile = true) override;
+    bool polymorph(poly_power_type power = PPT_SAME);
     void banish(actor *agent, const string &who = "", const int power = 0,
                 bool force = false) override;
     void expose_to_element(beam_type element, int strength = 0,
@@ -532,7 +536,7 @@ public:
     int action_energy(energy_use_type et) const;
 
     bool do_shaft() override;
-    bool has_spell_of_type(spschool_flag_type discipline) const;
+    bool has_spell_of_type(spschool discipline) const;
 
     void bind_melee_flags();
     void bind_spell_flags();
@@ -555,8 +559,7 @@ public:
     bool is_jumpy() const;
 
     int  spell_hd(spell_type spell = SPELL_NO_SPELL) const;
-    void align_avatars(bool force_friendly = false);
-    void remove_avatars();
+    void remove_summons(bool check_attitude = false);
     void note_spell_cast(spell_type spell);
 
     bool clear_far_engulf() override;
@@ -583,10 +586,10 @@ private:
     bool pickup_misc(item_def &item, bool msg, bool force);
     bool pickup_missile(item_def &item, bool msg, bool force);
 
-    void equip(item_def &item, bool msg);
-    void equip_weapon(item_def &item, bool msg);
-    void equip_armour(item_def &item, bool msg);
-    void equip_jewellery(item_def &item, bool msg);
+    void equip_message(item_def &item);
+    void equip_weapon_message(item_def &item);
+    void equip_armour_message(item_def &item);
+    void equip_jewellery_message(item_def &item);
     void unequip_weapon(item_def &item, bool msg);
     void unequip_armour(item_def &item, bool msg);
     void unequip_jewellery(item_def &item, bool msg);

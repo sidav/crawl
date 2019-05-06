@@ -1,3 +1,5 @@
+crawl_require("dlua/dungeon.lua")
+
 -- Integer value from 0 to 100 giving the chance that a ghost-allowing level
 -- will attempt to place a ghost vault.
 _GHOST_CHANCE_PERCENT = 10
@@ -49,15 +51,21 @@ function random_item_def(items, egos, args, separator)
     args = args ~= nil and " " .. args or ""
     separator = separator ~= nil and separator or '/'
     local item_def
+    items_list = util.sorted_weight_table(items)
 
-    for iname, iweight in pairs(items) do
+    for i, item_pair in ipairs(items_list) do
+        iname = item_pair[1]
+        iweight = item_pair[2]
         -- If we have egos, define an item spec with all item+ego
         -- combinations, each with weight scaled by item rarity and ego
         -- rarity.
         if egos ~= nil then
-            for ename, eweight in pairs(egos) do
+            egos_list = util.sorted_weight_table(egos)
+            for j, ego_pair in ipairs(egos_list) do
+                ename = ego_pair[1]
+                eweight = ego_pair[2]
                 if (not iname:find("demon") or ename ~= "holy_wrath")
-                   and (not make_arte or ename ~= "none") then
+                   and (not iname:find("quick blade") or ename ~= "speed") then
                     def = iname .. args .. " ego:" .. ename .. " w:" ..
                           math.floor(iweight * eweight)
                     if item_def == nil then
@@ -128,28 +136,21 @@ function lone_ghost_guarded_loot(e, ghost_glyph)
     end
 end
 
--- Some scroll and potions with weights that are used as nice loot.
-ghost_loot_scrolls = "scroll of teleportation w:15 / scroll of fog w:15 / " ..
-    "scroll of fear w:15 / scroll of blinking w:10 / " ..
-    "scroll of enchant weapon w:5 / scroll of enchant armour w:5 / " ..
-    "scroll of brand weapon w:3 / scroll of magic mapping w:10 / " ..
-    "scroll of acquirement w:1"
-ghost_loot_potions = "potion of haste w:15 / potion of might w:10 / " ..
-    "potion of invisibility w:10 / potion of agility w:10 / " ..
-    "potion of brilliance w:5 / potion of magic w:10 / " ..
-    "potion of heal wounds w:15 / potion of mutation w:10 / " ..
-    "potion of cancellation w:10 / potion of resistance w:5 / " ..
-    "potion of experience w:1"
-
+-- Loot scaling that gradually upgrades items on glyphs 'd' and 'e' with depth
+-- of placement. Starting from D:9, 'd' has a chance to become a good potion or
+-- scroll item (according to dgn.loot_potions and dgn.loot_scrolls), an
+-- auxiliary armour item, or a jewellery item. The latter two can be good_item
+-- and then randart with increasing depth.
+--
+-- This function is mostly used by the more challenging ghost vaults that place
+-- many additional monsters as a way to make attempting the vault more
+-- worthwhile.
 function ghost_good_loot(e)
     -- Possible loot items.
     jewellery = "any jewellery"
     good_jewellery = "any jewellery good_item"
     randart_jewellery = "any jewellery randart"
-    aux = "cloak / scarf / helmet / hat / gloves / pair of boots"
-    good_aux = "cloak good_item / scarf good_item / helmet good_item / " ..
-        "hat good_item / gloves good_item / pair of boots good_item"
-    randart_aux = good_aux:gsub("good_item", "randart")
+    aux = dgn.aux_armour
 
     first_item = true
     second_item = false
@@ -162,17 +163,17 @@ function ghost_good_loot(e)
             end
         elseif you.depth() < 14 then
             if crawl.coinflip() then
-                aux = good_aux
+                aux = dgn.good_aux_armour
                 jewellery = good_jewellery
             end
             if crawl.one_chance_in(3) then
                 second_item = true
             end
         else
-            aux = good_aux
+            aux = dgn.good_aux_armour
             jewellery = good_jewellery
             if crawl.one_chance_in(4) then
-               aux = randart_aux
+               aux = dgn.randart_aux_armour
                jewellery = randart_jewellery
             end
             if crawl.coinflip() then
@@ -181,7 +182,7 @@ function ghost_good_loot(e)
          end
     elseif you.in_branch("Lair") then
         if crawl.one_chance_in(3) then
-            aux = good_aux
+            aux = dgn.good_aux_armour
             jewellery = good_jewellery
         end
         if crawl.one_chance_in(4) then
@@ -189,7 +190,7 @@ function ghost_good_loot(e)
         end
     elseif you.in_branch("Orc") then
         if crawl.coinflip() then
-            aux = good_aux
+            aux = dgn.good_aux_armour
             jewellery = good_jewellery
         end
         if crawl.one_chance_in(3) then
@@ -199,35 +200,35 @@ function ghost_good_loot(e)
       or you.in_branch("Snake")
       or you.in_branch("Spider")
       or you.in_branch("Swamp") then
-        aux = good_aux
+        aux = dgn.good_aux_armour
         jewellery = good_jewellery
         if crawl.one_chance_in(3) then
-           aux = randart_aux
+           aux = dgn.randart_aux_armour
            jewellery = randart_jewellery
         end
         second_item = true
     elseif you.in_branch("Vaults") or you.in_branch("Elf") then
-        aux = good_aux
+        aux = dgn.good_aux_armour
         jewellery = good_jewellery
         if crawl.coinflip() then
-           aux = randart_aux
+           aux = dgn.randart_aux_armour
            jewellery = randart_jewellery
         end
         second_item = true
     else
-        aux = randart_aux
+        aux = dgn.randart_aux_armour
         jewellery = randart_jewellery
         second_item = true
     end
 
     -- Define loot tables of potential item defs.
-    first_loot = { {name = "scrolls", def = ghost_loot_scrolls, weight = 20},
-                   {name = "potions", def = ghost_loot_potions, weight = 20},
+    first_loot = { {name = "scrolls", def = dgn.loot_scrolls, weight = 20},
+                   {name = "potions", def = dgn.loot_potions, weight = 20},
                    {name = "aux", def = aux, weight = 10},
                    {name = "jewellery", def = jewellery, weight = 10},
                    {name = "manual", def = "any manual", weight = 5} }
-    second_loot = { {name = "scrolls", def = ghost_loot_scrolls, weight = 10},
-                    {name = "potions", def = ghost_loot_potions, weight = 10} }
+    second_loot = { {name = "scrolls", def = dgn.loot_scrolls, weight = 10},
+                    {name = "potions", def = dgn.loot_potions, weight = 10} }
 
     -- If we're upgrading the first item , choose a class, define the item
     -- slot, otherwise the slot becomes the usual '|*' definition.
@@ -330,30 +331,42 @@ function setup_xom_dancing_weapon(e)
     e.mons("dancing weapon; " .. weapon_def)
 end
 
+-- Some melee weapons sets for warrior monsters. Loosely based on the orc
+-- warrior and knight sets, but including a couple more types and some of the
+-- high-end weapons at reasonable weights.
+ghost_warrior_weap = {
+    ["short sword"] = 5, ["rapier"] = 10, ["long sword"] = 10,
+    ["scimitar"] = 5, ["great sword"] = 10, ["hand axe"] = 5, ["war axe"] = 10,
+    ["broad axe"] = 5, ["battleaxe"] = 10, ["spear"] = 5, ["trident"] = 10,
+    ["halberd"] = 10, ["glaive"] = 5, ["whip"] = 5, ["mace"] = 10,
+    ["flail"] = 10, ["morningstar"] = 5, ["dire flail"] = 10,
+    ["great mace"] = 5, ["quarterstaff"] = 10
+}
+ghost_knight_weap = {
+    ["scimitar"] = 15, ["demon blade"] = 5, ["double sword"] = 5,
+    ["great sword"] = 15, ["triple sword"] = 5, ["war axe"] = 5,
+    ["broad axe"] = 10, ["battleaxe"] = 15, ["executioner's axe"] = 5,
+    ["demon trident"] = 5, ["glaive"] = 10, ["bardiche"] = 5,
+    ["morningstar"] = 10, ["demon whip"] = 5, ["eveningstar"] = 5,
+    ["dire flail"] = 10, ["great mace"] = 10, ["lajatang"] = 5
+}
+
 -- Set up equipment for the fancier orc warriors, knights, and warlord in
 -- biasface_ghost_orc_armoury and biasface_vaults_ghost_orc_armoury.
 function setup_armoury_orcs(e)
-    warrior_weap = {["long sword"] = 10, ["short sword"] = 10,
-                    ["scimitar"] = 10, ["battleaxe"] = 10, ["hand axe"] = 10,
-                    ["halberd"] = 10, ["glaive"] = 10, ["mace"] = 10,
-                    ["dire flail"] = 10, ["trident"] = 10, ["war axe"] = 9,
-                    ["flail"] = 9, ["broad axe"] = 1, ["morningstar"] = 1}
-    knight_weap = {["great sword"] = 4, ["long sword"] = 4, ["battleaxe"] = 4,
-                   ["war axe"] = 4, ["great mace"] = 3, ["dire flail"] = 2,
-                   ["bardiche"] = 1, ["glaive"] = 1, ["broad axe"] = 1 ,
-                   ["halberd"] = 1}
     weapon_quality = crawl.coinflip() and "randart" or "good_item"
-    warrior_def = random_item_def(warrior_weap, nil, weapon_quality, '|')
-    knight_def = random_item_def(knight_weap, nil, weapon_quality, '|')
+    warrior_def = random_item_def(ghost_warrior_weap, nil, weapon_quality, '|')
+    knight_def = random_item_def(ghost_knight_weap, nil, weapon_quality, '|')
     e.kmons("D = orc warrior ; " .. warrior_def .. " . chain mail good_item " ..
-            "| chain mail randart | plate armour good_item" ..
-            "| plate armour randart")
+            "    | chain mail randart | plate armour good_item" ..
+            "    | plate armour randart")
     e.kmons("E = orc knight ; " .. knight_def .. " . chain mail good_item " ..
-            "| chain mail randart | plate armour good_item " ..
-            "| plate armour randart")
-    e.kmons("F = orc warlord ; " .. knight_def .. " . chain mail good_item " ..
-            "| chain mail randart | plate armour good_item " ..
-            "| plate armour randart . shield good_item w:4" ..
-            "| shield randart w:2 | large shield good_item w:2 " ..
-            "| large shield randart w:1")
+            "    | chain mail randart | plate armour good_item " ..
+            "    | plate armour randart")
+    e.kmons("F = orc warlord ; " .. knight_def ..
+            " . chain mail good_item " ..
+            "    | chain mail randart | plate armour good_item " ..
+            "    | plate armour randart " ..
+            " . shield good_item w:4 | shield randart w:2 " ..
+            "    | large shield good_item w:2 | large shield randart w:1")
 end

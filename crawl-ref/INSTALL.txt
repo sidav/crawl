@@ -115,8 +115,8 @@ On Debian-based systems (Ubuntu, Mint, ...), you can get all dependencies by
 typing the following as root/sudo:
 
     apt-get install build-essential libncursesw5-dev bison flex liblua5.1-0-dev \
-      libsqlite3-dev libz-dev pkg-config libsdl2-image-dev libsdl2-mixer-dev    \
-      libsdl2-dev libfreetype6-dev libpng-dev ttf-dejavu-core
+      libsqlite3-dev libz-dev pkg-config python-yaml libsdl2-image-dev \
+      libsdl2-mixer-dev libsdl2-dev libfreetype6-dev libpng-dev ttf-dejavu-core
 
 (the last six are needed only for tiles builds). This is the complete set,
 with it you don't have a need for the bundled "contribs".
@@ -134,8 +134,8 @@ On Fedora, and possibly other RPM-based systems, you can get the dependencies
 by running the following as root:
 
     dnf install gcc gcc-c++ make bison flex ncurses-devel compat-lua-devel \
-      sqlite-devel zlib-devel pkgconfig SDL-devel SDL_image-devel libpng-devel \
-      freetype-devel dejavu-sans-fonts dejavu-sans-mono-fonts
+      sqlite-devel zlib-devel pkgconfig python-yaml SDL-devel SDL_image-devel \
+      libpng-devel freetype-devel dejavu-sans-fonts dejavu-sans-mono-fonts
 
 (the last six are needed only for tile builds). As with Debian, this package
 list avoids the need for the bundled "contribs".
@@ -150,8 +150,8 @@ Prerequisites (Void):
 On Void Linux you can get all dependencies by running the following as root:
 
     xbps-install make gcc perl flex bison pkg-config ncurses-devel lua51-devel \
-      sqlite-devel zlib-devel pngcrush dejavu-fonts-ttf SDL2-devel \
-      SDL2_mixer-devel SDL2_image-devel freetype-devel
+      sqlite-devel zlib-devel python-yaml pngcrush dejavu-fonts-ttf \
+      SDL2-devel SDL2_mixer-devel SDL2_image-devel freetype-devel
 
 (the last six are needed only for tile builds).
 
@@ -164,6 +164,8 @@ Prerequisites (other systems):
 
 GNU gcc and g++, GNU make, libncursesw or libcursesw. You need the development
 headers for ncurses - they may not be installed by default on some Unixes.
+
+Python and PyYAML is required to parse some data files.
 
 For tile builds, you need FreeDesktop's pkg-config, X11 and opengl headers.
 The latter are likely to come from mesa sources.
@@ -296,9 +298,9 @@ from within the MSYS2 Shell.
 
 * At this point on current MSYS2 versions, your development environment should
   be complete. You can test it by running:
-  
+
   gcc -v
-  
+
   If this works, you're all set. If it doesn't, you may be an an older version
   of MSYS2 and need to manually add the newly installed toolchain to your
   path. To do so, run the following line, either at the command line (for
@@ -308,6 +310,15 @@ from within the MSYS2 Shell.
 
   After the packages are installed and gcc runs, you're ready to build crawl!
 
+* To install PyYAML, you can install it from Pip/PyPA:
+
+  pacman -S mingw64/mingw-w64-x86_64-python2-pip
+  pip install pyyaml
+
+  You can verify PyYAML is installed by running `python -m yaml`, which should
+  give an error like "'yaml' is a package and cannot be directly imported"
+  (rather than "No module named yaml").
+
 * To get the Crawl source, follow the steps in the Source Code Checkout
   section above to clone Crawl into your MSYS2 home directory. We recommend
   using the MSYS2-installed version of git for these steps. In brief:
@@ -316,7 +327,7 @@ from within the MSYS2 Shell.
      will clone into a folder named `crawl`. Your home directory (`cd ~`) is
      a reasonable choice.
   2. Run `git clone https://github.com/crawl/crawl.git`.
-  3. Run `cd crawl/crawl-ref-source`.
+  3. Run `cd crawl/crawl-ref/source`.
   4. Run `git submodule update --init`.
 
 * Build the console version of Crawl by simply running:
@@ -378,36 +389,47 @@ Building on Windows 10 (Linux Subsystem)
 Building on Windows (MSVC)
 --------------------------
 
-* This build process is not currently supported and is unlikely to be
-  straightforward in versions of MSVC besides those explicitly mentioned
-  here. If you get it to work on a more recent version, please let us know
-  and submit a patch!
+* This build process is currently unofficially supported, and unlikely
+  to be straightforward in versions of MSVC besides those explicitly mentioned
+  here.
 
-* If you do not have Visual Studio 2012 you can get the free Express edition
-  (for Desktop) from http://www.microsoft.com/visualstudio/eng/downloads (look
-  for Visual Studio Express 2012 for Windows Desktop).
+* You will need to download crawl, as well as its submodules. The easiest way to do
+  this is with the commands
+  `git clone https://github.com/crawl/crawl.git`
+  `git submodule update --init`
+
+* This build is tested on Visual Studio 2017 15.8.7 on Windows 8.1 and 10.
+  Supported configurations are Debug/Release;Console/Tiles;Win32/x64
 
 * You'll need a perl environment, there are links to several Windows binaries
   you can choose from at http://www.perl.org/get.html
 
-* In the Crawl source, run gen-all.cmd which is in source/util/. This step must
+* In the Crawl source, run gen-all.cmd inside crawl-ref/source/util/. This step must
   be executed any time you update to a new version of the source (or if you
   have modified tile data or unrandarts).
+
+* To build the Debug version, first build Release, then re-build with the Debug
+  configuration set. You will need to re-build the Contribs solution as well.
+  Building the Debug version without first building the Release configuration will
+  result in an error on startup.
 
 * The first time you compile, you need to build the Contribs solution. This
   compiles various libraries which Crawl itself needs to build. This only needs
   to be performed the first time you build, or if the contribs are ever updated
-  (extremely rare). To do this open and compile Contribs.sln in source/contrib.
+  (extremely rare). To do this open and compile Contribs.sln in crawl-ref/source/contrib.
+  Make sure to set "Release" or "Debug" (not the library versions), as well as
+  the desired architecture (Win32 or x64). Then build (or re-build) the solution.
 
-* Open crawl-ref.sln in Visual Studio, this is in source/MSVC/.
+* Open crawl-ref.sln in Visual Studio, this is in crawl-ref/source/MSVC/.
 
 * You can now select Debug or Release from the drop-down build configurations
   menu on the main toolbar (it should be next to "Local Windows Debugger");
   crawl.exe can them be compiled by selecting "Build Solution" in the BUILD
   menu. You can quickly run it by selecting "Start without Debugging" in the
-  debug menu (or debug with "Start Debugging" but the game will run extremely
-  slowly). Note: the Release build can still be debugged using the Visual
-  Studio debugger.
+  debug menu (or debug with "Start Debugging"). Note: the Release build can
+  still be debugged using the Visual Studio debugger.
+
+* Building the webserver and Lua (for the dat project) is untested as of now.
 
 * Better support for Python (for the webserver project) and Lua (for the dat
   project) can be installed with these extensions:
@@ -421,6 +443,48 @@ Building on Windows (MSVC)
 
   Try at your own risk, but the first one has been tested and found to be
   effective.
+
+* Maintenance notes:
+
+  MSVC solution files are finicky. Opening the "All Configurations" or
+  "All Platforms" will automatically change settings. This is typically unwanted.
+
+  Troubleshooting tips:
+
+  Make sure Windows Universal C Runtime is installed in MSVC.
+
+  Build Release before rebuilding both solutions with Debug
+
+  Use "Rebuild Solution" to make sure all files are rewritten
+
+  Make sure all projects use /MD (or /MDd for the debug version)
+
+  Make sure the appropriate (/MD or /MDd) CRT libraries are included for SDL,
+  crawl, and tilegen (https://msdn.microsoft.com/en-us/library/abx4dbyh.aspx)
+
+  Make sure libpng.dll, SDL2.dll, and SDL2_image.dll are in crawl-ref/source
+  after building the Contribs solution. These are copied post-build from their
+  original location in source/contrib/bin/8.0/$(Platform).
+
+  Make sure freetype.lib, libpng.lib, lua.lib, pcre.lib, SDL2.lib, SDL2_image.lib,
+  SDL2main.lib, sqlite.lib, and zlib.lib are in source/contrib/bin/8.0/$(Platform)
+  after building the Contribs solution.
+
+  Make sure crawl.exe and tilegen.exe are in crawl-ref/source after building the
+  crawl-ref solution.
+
+  Tilegen runs early during the crawl.exe build process, using libpng.dll to build PNG files
+  inside source/rtiles. Breaking tilegen (e.g. by building a different Contribs configuration)
+  after building these png files correctly will result in tilegen crashing during the crawl build
+  process, but will not stop the build from working (until it breaks for some other reason). fresh.bat
+  inside the MSVC folder will clear these files, making sure tilegen stops the build process if it fails.
+
+  tilegen depends on SDL2, SDL2_image, and libpng.
+  crawl depends on SDL2, SDL2_image, libpng, lua, pcre, sqlite, zlib, and the CRT libraries.
+  freetype uses the zlib source directory as an include.
+  libpng depends on zlib, and uses the zlib source directory as an include.
+  SDL2_image depends on SDL2 and SDL2main.
+  SDL2 depends on winmm.lib,imm32.lib,version.lib, and the CRT libraries.
 
 *****************************************************************************
 

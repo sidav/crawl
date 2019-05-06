@@ -15,7 +15,6 @@
 
 #include "artefact.h"
 #include "art-enum.h"
-#include "decks.h"
 #include "describe.h"
 #include "god-passive.h"
 #include "invent.h"
@@ -1036,22 +1035,6 @@ bool item_is_stationary_net(const item_def &item)
     return item.is_type(OBJ_MISSILES, MI_THROWING_NET) && item.net_placed;
 }
 
-/**
- * Get the actor held in a stationary net.
- *
- * @param net A stationary net item.
- * @return  A pointer to the actor in the net, guaranteed to be non-null.
- */
-actor *net_holdee(const item_def &net)
-{
-    ASSERT(item_is_stationary_net(net));
-    // Stationary nets should not be in inventory etc.
-    ASSERT_IN_BOUNDS(net.pos);
-    actor * const a = actor_at(net.pos);
-    ASSERTM(a, "No actor in stationary net at (%d,%d)", net.pos.x, net.pos.y);
-    return a;
-}
-
 static bool _is_affordable(const item_def &item)
 {
     // Temp items never count.
@@ -1176,10 +1159,7 @@ static iflags_t _full_ident_mask(const item_def& item)
             flagset |= ISFLAG_KNOW_PLUSES;
         break;
     case OBJ_MISCELLANY:
-        if (is_deck(item))
-            flagset = ISFLAG_KNOW_TYPE;
-        else
-            flagset = 0;
+        flagset = 0;
         break;
     case OBJ_WEAPONS:
     case OBJ_ARMOUR:
@@ -1583,10 +1563,14 @@ int wand_charge_value(int type)
     {
     case WAND_CLOUDS:
     case WAND_SCATTERSHOT:
+    case WAND_DIGGING:
         return 9;
 
     case WAND_ICEBLAST:
     case WAND_ACID:
+    case WAND_ENSLAVEMENT:
+    case WAND_PARALYSIS:
+    case WAND_POLYMORPH:
         return 15;
 
     default:
@@ -1594,7 +1578,7 @@ int wand_charge_value(int type)
 
     case WAND_FLAME:
     case WAND_RANDOM_EFFECTS:
-        return 48;
+        return 32;
     }
 }
 
@@ -1988,7 +1972,6 @@ bool item_skills(const item_def &item, set<skill_type> &skills)
     // Jewellery with evokable abilities, wands and similar unwielded
     // evokers allow training.
     if (item_is_evokable(item, false, false, false, true)
-        && !is_deck(item)
         || item.base_type == OBJ_JEWELLERY && gives_ability(item))
     {
         skills.insert(SK_EVOCATIONS);
@@ -2010,7 +1993,6 @@ bool item_skills(const item_def &item, set<skill_type> &skills)
         return !skills.empty();
 
     if (item_is_evokable(item, false, false, false, false)
-        && !is_deck(item)
         || staff_uses_evocations(item)
         || item.base_type == OBJ_WEAPONS && gives_ability(item))
     {
@@ -2179,6 +2161,8 @@ int ammo_type_damage(int missile_type)
 //
 reach_type weapon_reach(const item_def &item)
 {
+    if (is_unrandom_artefact(item, UNRAND_RIFT))
+        return REACH_THREE;
     if (item_attack_skill(item) == SK_POLEARMS)
         return REACH_TWO;
     return REACH_NONE;
@@ -2731,7 +2715,8 @@ bool gives_ability(const item_def &item)
 
     // Unrands that grant an evokable ability.
     if (is_unrandom_artefact(item, UNRAND_THIEF)
-        || is_unrandom_artefact(item, UNRAND_RATSKIN_CLOAK))
+        || is_unrandom_artefact(item, UNRAND_RATSKIN_CLOAK)
+        || is_unrandom_artefact(item, UNRAND_RCLOUDS))
     {
         return true;
     }
@@ -2966,11 +2951,8 @@ void seen_item(const item_def &item)
             you.seen_weapon[item.sub_type] |= 1U << SP_UNKNOWN_BRAND;
         if (item.base_type == OBJ_ARMOUR)
             you.seen_armour[item.sub_type] |= 1U << SP_UNKNOWN_BRAND;
-        if (item.base_type == OBJ_MISCELLANY
-            && !is_deck(item))
-        {
+        if (item.base_type == OBJ_MISCELLANY)
             you.seen_misc.set(item.sub_type);
-        }
     }
 
     _maybe_note_found_unrand(item);

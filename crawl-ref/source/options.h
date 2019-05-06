@@ -170,7 +170,9 @@ public:
                                 // should be accessible by different people.
     vector<string> additional_macro_files;
 
-    uint32_t    seed;   // Non-random games.
+    uint64_t    seed;           // Non-random games.
+    uint64_t    seed_from_rc;
+    bool        pregen_dungeon; // Is the dungeon generated at the beginning?
 
 #ifdef DGL_SIMPLE_MESSAGING
     bool        messaging;      // Check for messages.
@@ -219,6 +221,7 @@ public:
     bool        show_newturn_mark;// Show underscore prefix in messages for new turn
     bool        show_game_time; // Show game time instead of player turns.
     bool        equip_bar; // Show equip bar instead of noise bar.
+    bool        animate_equip_bar; // Animate colours in equip bar.
 
     FixedBitVector<NUM_OBJECT_CLASSES> autopickups; // items to autopickup
     bool        auto_switch;     // switch melee&ranged weapons according to enemy range
@@ -406,6 +409,7 @@ public:
                                     // pickup
     bool        ability_menu;       // 'a'bility starts with a full-screen menu
     bool        easy_floor_use;     // , selects the floor item if there's 1
+    bool        bad_item_prompt;    // Confirm before using a bad consumable
 
     int         assign_item_slot;   // How free slots are assigned
     maybe_bool  show_god_gift;      // Show {god gift} in item names
@@ -451,6 +455,10 @@ public:
 
     bool        rest_wait_both; // Stop resting only when both HP and MP are
                                 // fully restored.
+
+    bool        rest_wait_ancestor;// Stop resting only if the ancestor's HP
+                                   // is fully restored.
+
     int         rest_wait_percent; // Stop resting after restoring this
                                    // fraction of HP or MP
 

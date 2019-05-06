@@ -10,8 +10,9 @@
 #include "stringutil.h"
 #include "tags.h"
 
-///////////////////////////////////////////////////////////
+//
 // User-accessible file operations
+//
 
 static const struct luaL_reg file_clib[] =
 {
@@ -24,8 +25,9 @@ void cluaopen_file(lua_State *ls)
     luaL_openlib(ls, "file", file_clib, 0);
 }
 
-///////////////////////////////////////////////////////////
+//
 // Non-user-accessible file operations
+//
 
 static int file_marshall(lua_State *ls)
 {
@@ -34,7 +36,7 @@ static int file_marshall(lua_State *ls)
     writer &th(*static_cast<writer*>(lua_touserdata(ls, 1)));
     ASSERT(!lua_isfunction(ls, 2));
     if (lua_isnumber(ls, 2))
-        marshallInt(th, luaL_checklong(ls, 2));
+        marshallInt(th, luaL_safe_checklong(ls, 2));
     else if (lua_isboolean(ls, 2))
         marshallByte(th, lua_toboolean(ls, 2));
     else if (lua_isstring(ls, 2))
@@ -178,7 +180,7 @@ LUAFN(_file_datadir_files)
         luaL_error(ls, "Cannot find data directory: '%s'", rawdir.c_str());
 
     const vector<string> files = ext_filter.empty()
-                                 ? get_dir_files(datadir)
+                                 ? get_dir_files_sorted(datadir)
                                  : get_dir_files_ext(datadir, ext_filter);
     return clua_stringtable(ls, files);
 }

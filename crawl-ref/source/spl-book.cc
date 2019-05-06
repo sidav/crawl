@@ -271,9 +271,9 @@ void init_spell_rarities()
             }
             last = spell;
 
-            unsigned int flags = get_spell_flags(spell);
+            spell_flags flags = get_spell_flags(spell);
 
-            if (flags & (SPFLAG_MONSTER | SPFLAG_TESTING))
+            if (flags & (spflag::monster | spflag::testing))
             {
                 item_def item;
                 item.base_type = OBJ_BOOKS;
@@ -838,9 +838,6 @@ bool can_learn_spell(bool silent)
 
 bool learn_spell()
 {
-    if (!can_learn_spell())
-        return false;
-
     spell_list spells(_get_spell_list(false, true));
     if (spells.empty())
         return false;
@@ -936,13 +933,13 @@ static bool _learn_spell_checks(spell_type specspell, bool wizard = false)
 */
 bool learn_spell(spell_type specspell, bool wizard)
 {
+    if (!_learn_spell_checks(specspell, wizard))
+        return false;
+
     string mem_spell_warning_string = god_spell_warn_string(specspell, you.religion);
 
     if (!mem_spell_warning_string.empty())
         mprf(MSGCH_WARN, "%s", mem_spell_warning_string.c_str());
-
-    if (!_learn_spell_checks(specspell, wizard))
-        return false;
 
     if (!wizard)
     {

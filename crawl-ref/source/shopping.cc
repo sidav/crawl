@@ -745,10 +745,7 @@ unsigned int item_value(item_def item, bool ident)
             break;
 
         default:
-            if (is_deck(item))
-                valued += 80 + item.deck_rarity * 60;
-            else
-                valued += 200;
+            valued += 200;
         }
         break;
 
@@ -1645,6 +1642,8 @@ void list_shop_types()
 #define SHOPPING_THING_POS_KEY  "pos_key"
 
 ShoppingList::ShoppingList()
+    : list(nullptr), min_unbuyable_cost(0), min_unbuyable_idx(0),
+      max_buyable_cost(0), max_buyable_idx(0)
 {
 }
 
@@ -2350,10 +2349,10 @@ void ShoppingList::display(bool view_only)
             }
 
             del_thing_at_index(index);
-            mtitle->quantity = list->size();
+            mtitle->quantity = this->list->size();
             shopmenu.set_title(mtitle);
 
-            if (list->empty())
+            if (this->list->empty())
             {
                 mpr("Your shopping list is now empty.");
                 return false;
@@ -2381,7 +2380,14 @@ static bool _compare_shopping_things(const CrawlStoreValue& a,
     const int a_cost = hash_a[SHOPPING_THING_COST_KEY];
     const int b_cost = hash_b[SHOPPING_THING_COST_KEY];
 
-    return a_cost < b_cost;
+    const level_id id_a = hash_a[SHOPPING_THING_POS_KEY].get_level_pos().id;
+    const level_id id_b = hash_b[SHOPPING_THING_POS_KEY].get_level_pos().id;
+
+    // Put Bazaar items at the top of the shopping list.
+    if (!player_in_branch(BRANCH_BAZAAR) || id_a.branch == id_b.branch)
+        return a_cost < b_cost;
+    else
+        return id_a.branch == BRANCH_BAZAAR;
 }
 
 // Reset max_buyable and min_unbuyable info. Call this anytime any of the

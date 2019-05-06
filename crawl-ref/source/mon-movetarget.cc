@@ -726,7 +726,9 @@ void set_random_target(monster* mon)
     mon->target = random_in_bounds(); // If we don't find anything better.
     for (int tries = 0; tries < 150; ++tries)
     {
-        coord_def delta = coord_def(random2(13), random2(13)) - coord_def(6, 6);
+        coord_def delta;
+        delta.x = random2(13) - 6;
+        delta.y = random2(13) - 6;
         if (delta.origin())
             continue;
 
@@ -992,14 +994,6 @@ int mons_find_nearest_level_exit(const monster* mon, vector<level_exit> &e,
 
         if (old_dist == -1 || old_dist >= dist)
         {
-            // Ignore teleportation and shaft traps that the monster
-            // shouldn't know about.
-            if (!mons_is_native_in_branch(*mon)
-                && grd(e[i].target) == DNGN_UNDISCOVERED_TRAP)
-            {
-                continue;
-            }
-
             retval = i;
             old_dist = dist;
         }

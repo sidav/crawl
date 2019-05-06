@@ -500,7 +500,7 @@ void formatted_string::textcolour(int colour)
     if (!ops.empty() && ops[ ops.size() - 1 ].type == FSOP_COLOUR)
         ops.pop_back();
 
-    ops.push_back(colour);
+    ops.emplace_back(colour);
 }
 
 void formatted_string::clear()
@@ -508,7 +508,7 @@ void formatted_string::clear()
     ops.clear();
 }
 
-bool formatted_string::empty()
+bool formatted_string::empty() const
 {
     return ops.empty();
 }

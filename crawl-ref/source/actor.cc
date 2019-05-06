@@ -124,7 +124,8 @@ int actor::check_res_magic(int power)
     const int adj_pow = ench_power_stepdown(power);
 
     const int mrchance = (100 + mrs) - adj_pow;
-    const int mrch2 = random2(100) + random2(101);
+    int mrch2 = random2(100);
+    mrch2 += random2(101);
 
     dprf("Power: %d (%d pre-stepdown), MR: %d, target: %d, roll: %d",
          adj_pow, power, mrs, mrchance, mrch2);
@@ -216,7 +217,10 @@ bool actor::res_corr(bool calc_unid, bool items) const
 
 bool actor::cloud_immune(bool calc_unid, bool items) const
 {
-    return items && (wearing_ego(EQ_CLOAK, SPARM_CLOUD_IMMUNE, calc_unid));
+    const item_def *body_armour = slot_item(EQ_BODY_ARMOUR);
+    return items && (wearing_ego(EQ_CLOAK, SPARM_CLOUD_IMMUNE, calc_unid)
+                     || (body_armour
+                        && is_unrandom_artefact(*body_armour, UNRAND_RCLOUDS)));
 }
 
 bool actor::holy_wrath_susceptible() const
@@ -286,7 +290,9 @@ bool actor::reflection(bool calc_unid, bool items) const
 
 bool actor::extra_harm(bool calc_unid, bool items) const
 {
-    return items && wearing(EQ_AMULET, AMU_HARM, calc_unid);
+    return items &&
+           (wearing(EQ_AMULET, AMU_HARM, calc_unid)
+            || scan_artefacts(ARTP_HARM, calc_unid));
 }
 
 bool actor::rmut_from_item(bool calc_unid) const
@@ -358,7 +364,9 @@ int actor::apply_ac(int damage, int max_damage, ac_type ac_rule,
         gdr /= 2;
         break;
     case AC_TRIPLE:
-        saved = random2(1 + ac) + random2(1 + ac) + random2(1 + ac);
+        saved = random2(1 + ac);
+        saved += random2(1 + ac);
+        saved += random2(1 + ac);
         ac *= 3;
         // apply GDR only twice rather than thrice, that's probably still waaay
         // too good. 50% gives 75% rather than 100%, too.
@@ -470,34 +478,47 @@ void actor::end_constriction(mid_t whom, bool intentional, bool quiet)
     constrictee->clear_constricted();
 
     monster * const mons = monster_by_mid(whom);
+    bool roots = constrictee->is_player() && you.duration[DUR_GRASPING_ROOTS]
+        || mons && mons->has_ench(ENCH_GRASPING_ROOTS);
     bool vile_clutch = mons && mons->has_ench(ENCH_VILE_CLUTCH);
 
     if (!quiet && alive() && constrictee->alive()
         && (you.see_cell(pos()) || you.see_cell(constrictee->pos())))
     {
         string attacker_desc;
-        string attacker_pronoun;
+        const string verb = intentional ? "release" : "lose";
+        bool force_plural = false;
 
         if (vile_clutch)
         {
             attacker_desc = "The zombie hands";
-            attacker_pronoun = "their";
+            force_plural = true;
+        }
+        else if (roots)
+        {
+            attacker_desc = "The roots";
+            force_plural = true;
         }
         else
-        {
             attacker_desc = name(DESC_THE);
-            attacker_pronoun = pronoun(PRONOUN_POSSESSIVE);
-        }
 
         mprf("%s %s %s grip on %s.",
              attacker_desc.c_str(),
-             conj_verb(intentional ? "release" : "lose").c_str(),
-             attacker_pronoun.c_str(),
+             force_plural ? verb.c_str()
+                          : conj_verb(verb).c_str(),
+             force_plural ? "their" : pronoun(PRONOUN_POSSESSIVE).c_str(),
              constrictee->name(DESC_THE).c_str());
     }
 
     if (vile_clutch)
         mons->del_ench(ENCH_VILE_CLUTCH);
+    else if (roots)
+    {
+        if (mons)
+            mons->del_ench(ENCH_GRASPING_ROOTS);
+        else
+            you.duration[DUR_GRASPING_ROOTS] = 0;
+    }
 
     if (constrictee->is_player())
         you.redraw_evasion = true;
@@ -544,7 +565,9 @@ void actor::stop_constricting_all(bool intentional, bool quiet)
 
 static bool _invalid_constricting_map_entry(const actor *constrictee)
 {
-    return !constrictee || !constrictee->is_constricted();
+    return !constrictee
+        || !constrictee->alive()
+        || !constrictee->is_constricted();
 }
 
 /**
@@ -608,21 +631,30 @@ bool actor::has_invalid_constrictor(bool move) const
     if (!is_constricted())
         return false;
 
-    const actor* const attacker = actor_by_mid(constricted_by);
-    if (!attacker)
+    const actor* const attacker = actor_by_mid(constricted_by, true);
+    if (!attacker || !attacker->alive())
         return true;
+
+    // When the player is at the origin, they don't have the normal
+    // considerations, since they're just here to avoid messages or LOS
+    // effects. Cheibriados' time step abilities are an exception to this as
+    // they have the player "leave the normal flow of time" and so should break
+    // constriction.
+    const bool ignoring_player = attacker->is_player()
+        && attacker->pos().origin()
+        && !you.duration[DUR_TIME_STEP];
 
     // Direct constriction (e.g. by nagas and octopode players or AT_CONSTRICT)
     // must happen between adjacent squares.
     if (is_directly_constricted())
-        return !adjacent(attacker->pos(), pos());
+        return !ignoring_player && !adjacent(attacker->pos(), pos());
 
     // Indirect constriction requires the defender not to move.
     return move
         // Indirect constriction requires reachable ground.
         || !feat_has_solid_floor(grd(pos()))
         // Constriction doesn't work out of LOS.
-        || !attacker->see_cell(pos());
+        || !ignoring_player && !attacker->see_cell(pos());
 }
 
 /**
@@ -642,7 +674,7 @@ void actor::clear_invalid_constrictions(bool move)
     vector<mid_t> need_cleared;
     for (const auto &entry : *constricting)
     {
-        const actor * const constrictee = actor_by_mid(entry.first);
+        const actor * const constrictee = actor_by_mid(entry.first, true);
         if (_invalid_constricting_map_entry(constrictee)
             || constrictee->has_invalid_constrictor())
         {
@@ -686,8 +718,10 @@ bool actor::is_constricted() const
 bool actor::is_directly_constricted() const
 {
     return is_constricted()
-        && (is_player()
-            || !as_monster()->has_ench(ENCH_VILE_CLUTCH));
+        && (is_player() && !you.duration[DUR_GRASPING_ROOTS]
+            || is_monster()
+               && !as_monster()->has_ench(ENCH_VILE_CLUTCH)
+               && !as_monster()->has_ench(ENCH_GRASPING_ROOTS));
 }
 
 void actor::accum_has_constricted()
@@ -739,6 +773,8 @@ bool actor::can_constrict(const actor* defender, bool direct) const
 void actor::constriction_damage_defender(actor &defender, int duration)
 {
     const bool direct = defender.is_directly_constricted();
+    const bool vile_clutch = !direct && defender.as_monster()
+        && defender.as_monster()->has_ench(ENCH_VILE_CLUTCH);
     int damage = constriction_damage(direct);
 
     DIAG_ONLY(const int basedam = damage);
@@ -769,15 +805,25 @@ void actor::constriction_damage_defender(actor &defender, int duration)
     if (is_player() || you.can_see(*this))
     {
         string attacker_desc;
-        if (!direct)
+        bool force_plural = false;
+        if (vile_clutch)
+        {
             attacker_desc = "The zombie hands";
+            force_plural = true;
+        }
+        else if (!direct)
+        {
+            attacker_desc = "The grasping roots";
+            force_plural = true;
+        }
         else if (is_player())
             attacker_desc = "You";
         else
             attacker_desc = name(DESC_THE);
 
         mprf("%s %s %s%s%s", attacker_desc.c_str(),
-             conj_verb("constrict").c_str(),
+             force_plural ? "constrict"
+                          : conj_verb("constrict").c_str(),
              defender.name(DESC_THE).c_str(),
 #ifdef DEBUG_DIAGNOSTICS
              make_stringf(" for %d", damage).c_str(),
@@ -829,7 +875,7 @@ void actor::handle_constriction()
     {
         actor* const defender = actor_by_mid(i.first);
         const int duration = i.second;
-        if (defender)
+        if (defender && defender->alive())
             constriction_damage_defender(*defender, duration);
     }
 

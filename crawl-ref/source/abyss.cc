@@ -87,8 +87,10 @@ static coord_def _place_feature_near(const coord_def &centre,
     coord_def cp = INVALID_COORD;
     for (int i = 0; i < tries; ++i)
     {
-        cp = centre + coord_def(random_range(-radius, radius),
-                                random_range(-radius, radius));
+        coord_def offset;
+        offset.x = random_range(-radius, radius);
+        offset.y = random_range(-radius, radius);
+        cp = centre + offset;
 
         if (cp == centre || !in_bounds(cp))
             continue;
@@ -232,6 +234,7 @@ static void _abyss_postvault_fixup()
 {
     fixup_misplaced_items();
     link_items();
+    dgn_make_transporters_from_markers();
     env.markers.activate_all();
 }
 
@@ -1058,6 +1061,7 @@ static level_id _get_random_level()
         for (int j = 1; j <= brdepth[it->id]; ++j)
         {
             const level_id id(it->id, j);
+            // for pregen, this will use levels the player hasn't seen yet
             if (is_existing_level(id))
                 levels.push_back(id);
         }
@@ -1138,6 +1142,7 @@ static cloud_type _cloud_from_feat(const dungeon_feature_type &ft)
     switch (ft)
     {
         case DNGN_CLOSED_DOOR:
+        case DNGN_OPEN_DOOR:
         case DNGN_METAL_WALL:
             return CLOUD_GREY_SMOKE;
         case DNGN_CRYSTAL_WALL:
@@ -1150,6 +1155,8 @@ static cloud_type _cloud_from_feat(const dungeon_feature_type &ft)
         case DNGN_CLEAR_STONE_WALL:
         case DNGN_CLEAR_PERMAROCK_WALL:
         case DNGN_GRATE:
+        case DNGN_CLOSED_CLEAR_DOOR:
+        case DNGN_OPEN_CLEAR_DOOR:
             return CLOUD_MIST;
         case DNGN_ORCISH_IDOL:
         case DNGN_GRANITE_STATUE:
@@ -1239,7 +1246,8 @@ static void _update_abyss_terrain(const coord_def &p,
         if (feat == DNGN_FLOOR && in_los_bounds_g(rp))
         {
             cloud_type cloud = _cloud_from_feat(currfeat);
-            int cloud_life = (_in_wastes(abyssal_state.major_coord) ? 5 : 2) + random2(2);
+            int cloud_life = _in_wastes(abyssal_state.major_coord) ? 5 : 2;
+            cloud_life += random2(2); // force a sequence point, just in case
             if (cloud != CLOUD_NONE)
                 check_place_cloud(_cloud_from_feat(currfeat), rp, cloud_life, 0, 3);
         }
@@ -1769,10 +1777,13 @@ static bool _spawn_corrupted_servant_near(const coord_def &pos)
     // Thirty tries for a place.
     for (int i = 0; i < 30; ++i)
     {
-        const int offsetX = random2avg(4, 3) + random2(3);
-        const int offsetY = random2avg(4, 3) + random2(3);
-        const coord_def p(pos.x + random_choose(offsetX, -offsetX),
-                          pos.y + random_choose(offsetY, -offsetY));
+        int offsetX = random2avg(4, 3);
+        offsetX += random2(3); // force a sequence point between random calls
+        int offsetY = random2avg(4, 3);
+        offsetY += random2(3); // ditto
+        coord_def p;
+        p.x = pos.x + random_choose(offsetX, -offsetX);
+        p.y = pos.y + random_choose(offsetY, -offsetY);
         if (!in_bounds(p) || actor_at(p))
             continue;
 
@@ -1912,7 +1923,7 @@ static void _corrupt_square(const corrupt_env &cenv, const coord_def &c)
     else
         feat = _abyss_proto_feature();
 
-    if (feat_is_trap(feat, true)
+    if (feat_is_trap(feat)
         || feat == DNGN_UNSEEN
         || (feat_is_traversable(grd(c)) && !feat_is_traversable(feat)
             && coinflip()))

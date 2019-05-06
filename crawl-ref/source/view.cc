@@ -75,6 +75,7 @@
 #include "traps.h"
 #include "travel.h"
 #include "unicode.h"
+#include "unwind.h"
 #include "viewchar.h"
 #include "viewmap.h"
 #include "xom.h"
@@ -102,8 +103,6 @@ bool handle_seen_interrupt(monster* mons, vector<string>* msgs_buf)
 
     if (!mons_is_safe(mons))
         return interrupt_activity(AI_SEE_MONSTER, aid, msgs_buf);
-
-    seen_monster(mons);
 
     return false;
 }
@@ -148,10 +147,6 @@ void seen_monsters_react(int stealth)
 
         if (!mi->visible_to(&you))
             continue;
-
-        beogh_follower_convert(*mi);
-        gozag_check_bribe(*mi);
-        slime_convert(*mi);
 
         if (!mi->has_ench(ENCH_INSANE) && mi->can_see(you))
         {
@@ -278,18 +273,17 @@ static string _monster_headsup(const vector<monster*> &monsters,
     string warning_msg = "";
     for (const monster* mon : monsters)
     {
-        const bool ash_ided = mon->props.exists("ash_id");
         const bool zin_ided = mon->props.exists("zin_id");
         const bool has_branded_weapon
             = _is_weapon_worth_listing(mon->weapon())
               || _is_weapon_worth_listing(mon->weapon(1));
-        if ((divine && !ash_ided && !zin_ided)
+        if ((divine && !zin_ided)
             || (!divine && !has_branded_weapon))
         {
             continue;
         }
 
-        if (!divine && (ash_ided || monsters.size() == 1))
+        if (!divine && monsters.size() == 1)
             continue; // don't give redundant warnings for enemies
 
         monster_info mi(mon);
@@ -502,6 +496,13 @@ void update_monsters_in_view()
         }
     }
 
+    // Summoners may have lost their summons upon seeing us and converting
+    // leaving invalid monsters in this vector.
+    monsters.erase(
+        std::remove_if(monsters.begin(), monsters.end(),
+            [](const monster * m) { return !m->alive(); }),
+        monsters.end());
+
     if (!msgs.empty())
     {
         _handle_comes_into_view(msgs, monsters);
@@ -526,36 +527,13 @@ void update_monsters_in_view()
     }
 }
 
-void mark_mon_equipment_seen(const monster *mons)
-{
-    // mark items as seen.
-    for (int slot = MSLOT_WEAPON; slot <= MSLOT_LAST_VISIBLE_SLOT; slot++)
-    {
-        int item_id = mons->inv[slot];
-        if (item_id == NON_ITEM)
-            continue;
-
-        item_def &item = mitm[item_id];
-
-        item.flags |= ISFLAG_SEEN;
-
-        // ID brands of weapons held by enemies.
-        if (slot == MSLOT_WEAPON
-            || slot == MSLOT_ALT_WEAPON && mons_wields_two_weapons(*mons))
-        {
-            if (is_artefact(item))
-                artefact_learn_prop(item, ARTP_BRAND);
-            else
-                item.flags |= ISFLAG_KNOW_TYPE;
-        }
-    }
-}
-
 
 // We logically associate a difficulty parameter with each tile on each level,
-// to make deterministic magic mapping work. This function returns the
-// difficulty parameters for each tile on the current level, whose difficulty
-// is less than a certain amount.
+// to make deterministic passive mapping work. It is deterministic so that the
+// reveal order doesn't, for example, change on reload.
+//
+// This function returns the difficulty parameters for each tile on the current
+// level, whose difficulty is less than a certain amount.
 //
 // Random difficulties are used in the few cases where we want repeated maps
 // to give different results; scrolls and cards, since they are a finite
@@ -652,8 +630,6 @@ bool magic_mapping(int map_radius, int proportion, bool suppress_msg,
             if (knowledge.seen())
             {
                 dungeon_feature_type newfeat = grd(pos);
-                if (newfeat == DNGN_UNDISCOVERED_TRAP)
-                    newfeat = DNGN_FLOOR;
                 trap_type tr = feat_is_trap(newfeat) ? get_trap_type(pos) : TRAP_UNASSIGNED;
                 knowledge.set_feature(newfeat, env.grid_colours(pos), tr);
             }
@@ -1041,13 +1017,16 @@ static update_flags player_view_update_at(const coord_def &gc)
 
     if (!(env.pgrid(gc) & FPROP_SEEN_OR_NOEXP))
     {
-        env.pgrid(gc) |= FPROP_SEEN_OR_NOEXP;
-        if (!crawl_state.game_is_arena())
+        if (!crawl_state.game_is_arena()
+            && cell_triggers_conduct(gc)
+            && !player_in_branch(BRANCH_TEMPLE))
         {
             did_god_conduct(DID_EXPLORATION, 2500);
             const int density = env.density ? env.density : 2000;
             you.exploration += div_rand_round(1<<16, density);
+            roll_trap_effects();
         }
+        env.pgrid(gc) |= FPROP_SEEN_OR_NOEXP;
     }
 
 #ifdef USE_TILE
@@ -1174,7 +1153,9 @@ public:
 
     void init_frame(int frame) override
     {
-        offset = coord_def(random2(3) - 1, random2(3) - 1);
+        offset = coord_def();
+        offset.x = random2(3) - 1;
+        offset.y = random2(3) - 1;
     }
 
     coord_def cell_cb(const coord_def &pos, int &colour) override
@@ -1355,6 +1336,8 @@ void run_animation(animation_type anim, use_animation_type type, bool cleanup)
     }
 }
 
+static bool _view_is_updating = false;
+
 /**
  * Draws the main window using the character set returned
  * by get_show_glyph().
@@ -1368,104 +1351,122 @@ void run_animation(animation_type anim, use_animation_type type, bool cleanup)
  */
 void viewwindow(bool show_updates, bool tiles_only, animation *a)
 {
-    // The player could be at (0,0) if we are called during level-gen; this can
-    // happen via mpr -> interrupt_activity -> stop_delay -> runrest::stop
-    if (you.duration[DUR_TIME_STEP] || you.pos().origin())
-        return;
-
-    screen_cell_t *cell(crawl_view.vbuf);
-
-    // The buffer is not initialised when run from 'monster'; abort early.
-    if (!cell)
-        return;
-
-    // Update the animation of cells only once per turn.
-    const bool anim_updates = (you.last_view_update != you.num_turns);
-    // Except for elemental colours, which should be updated every refresh.
-    you.frame_no++;
-
-#ifdef USE_TILE
-    tiles.clear_text_tags(TAG_NAMED_MONSTER);
-
-    if (show_updates)
-        mcache.clear_nonref();
-#endif
-
-    if (show_updates || _layers != LAYERS_ALL)
+    if (_view_is_updating)
     {
-        if (!is_map_persistent())
-            ash_detect_portals(false);
-
-#ifdef USE_TILE
-        tile_draw_floor();
-        tile_draw_rays(true);
-        tiles.clear_overlays();
-#endif
-
-        show_init(_layers);
+        // recursive calls to this function can lead to memory corruption or
+        // crashes, depending on the circumstance, because some functions
+        // called from here (e.g. show_init) will wipe out a whole bunch of
+        // map data that will still be lurking around higher on the call stack
+        // as references. Because the call paths are so complicated, it's hard
+        // to find a principled / non-brute-force way of preventing recursion
+        // here -- though it's still better to prevent it by other means if
+        // possible.
+        dprf("Recursive viewwindow call attempted!");
+        return;
     }
 
-    if (show_updates)
-        player_view_update();
-
-    bool run_dont_draw = you.running && Options.travel_delay < 0
-                && (!you.running.is_explore() || Options.explore_delay < 0);
-
-    if (run_dont_draw || you.asleep())
     {
+        unwind_bool updating(_view_is_updating, true);
+
+        // The player could be at (0,0) if we are called during level-gen; this can
+        // happen via mpr -> interrupt_activity -> stop_delay -> runrest::stop
+        if (you.duration[DUR_TIME_STEP] || you.pos().origin())
+            return;
+
+        screen_cell_t *cell(crawl_view.vbuf);
+
+        // The buffer is not initialised when run from 'monster'; abort early.
+        if (!cell)
+            return;
+
+        // Update the animation of cells only once per turn.
+        const bool anim_updates = (you.last_view_update != you.num_turns);
+        // Except for elemental colours, which should be updated every refresh.
+        you.frame_no++;
+
+#ifdef USE_TILE
+        tiles.clear_text_tags(TAG_NAMED_MONSTER);
+
+        if (show_updates)
+            mcache.clear_nonref();
+#endif
+
+        if (show_updates || _layers != LAYERS_ALL)
+        {
+            if (!is_map_persistent())
+                ash_detect_portals(false);
+
+#ifdef USE_TILE
+            tile_draw_floor();
+            tile_draw_rays(true);
+            tiles.clear_overlays();
+#endif
+
+            show_init(_layers);
+        }
+
+        if (show_updates)
+            player_view_update();
+
+        bool run_dont_draw = you.running && Options.travel_delay < 0
+                    && (!you.running.is_explore() || Options.explore_delay < 0);
+
+        if (run_dont_draw || you.asleep())
+        {
+            // Reset env.show if we munged it.
+            if (_layers != LAYERS_ALL)
+                show_init();
+            return;
+        }
+
+        cursor_control cs(false);
+
+        int flash_colour = you.flash_colour;
+        if (flash_colour == BLACK)
+            flash_colour = viewmap_flash_colour();
+
+        const coord_def tl = coord_def(1, 1);
+        const coord_def br = crawl_view.viewsz;
+        for (rectangle_iterator ri(tl, br); ri; ++ri)
+        {
+            // in grid coords
+            const coord_def gc = a
+                ? a->cell_cb(view2grid(*ri), flash_colour)
+                : view2grid(*ri);
+
+            if (you.flash_where && you.flash_where->is_affected(gc) <= 0)
+                draw_cell(cell, gc, anim_updates, 0);
+            else
+                draw_cell(cell, gc, anim_updates, flash_colour);
+
+            cell++;
+        }
+
+        you.last_view_update = you.num_turns;
+#ifndef USE_TILE_LOCAL
+        if (!tiles_only)
+        {
+            puttext(crawl_view.viewp.x, crawl_view.viewp.y, crawl_view.vbuf);
+            update_monster_pane();
+        }
+#endif
+#ifdef USE_TILE
+        tiles.set_need_redraw(you.running ? Options.tile_runrest_rate : 0);
+        tiles.load_dungeon(crawl_view.vbuf, crawl_view.vgrdc);
+        tiles.update_tabs();
+#endif
+
+        // Leaving it this way because short flashes can occur in long ones,
+        // and this simply works without requiring a stack.
+        you.flash_colour = BLACK;
+        you.flash_where = 0;
+
         // Reset env.show if we munged it.
         if (_layers != LAYERS_ALL)
             show_init();
-        return;
+
+        _debug_pane_bounds();
     }
-
-    cursor_control cs(false);
-
-    int flash_colour = you.flash_colour;
-    if (flash_colour == BLACK)
-        flash_colour = viewmap_flash_colour();
-
-    const coord_def tl = coord_def(1, 1);
-    const coord_def br = crawl_view.viewsz;
-    for (rectangle_iterator ri(tl, br); ri; ++ri)
-    {
-        // in grid coords
-        const coord_def gc = a
-            ? a->cell_cb(view2grid(*ri), flash_colour)
-            : view2grid(*ri);
-
-        if (you.flash_where && you.flash_where->is_affected(gc) <= 0)
-            draw_cell(cell, gc, anim_updates, 0);
-        else
-            draw_cell(cell, gc, anim_updates, flash_colour);
-
-        cell++;
-    }
-
-    you.last_view_update = you.num_turns;
-#ifndef USE_TILE_LOCAL
-    if (!tiles_only)
-    {
-        puttext(crawl_view.viewp.x, crawl_view.viewp.y, crawl_view.vbuf);
-        update_monster_pane();
-    }
-#endif
-#ifdef USE_TILE
-    tiles.set_need_redraw(you.running ? Options.tile_runrest_rate : 0);
-    tiles.load_dungeon(crawl_view.vbuf, crawl_view.vgrdc);
-    tiles.update_tabs();
-#endif
-
-    // Leaving it this way because short flashes can occur in long ones,
-    // and this simply works without requiring a stack.
-    you.flash_colour = BLACK;
-    you.flash_where = 0;
-
-    // Reset env.show if we munged it.
-    if (_layers != LAYERS_ALL)
-        show_init();
-
-    _debug_pane_bounds();
 }
 
 void draw_cell(screen_cell_t *cell, const coord_def &gc,
@@ -1589,10 +1590,6 @@ void draw_cell(screen_cell_t *cell, const coord_def &gc,
 // Hide view layers. The player can toggle certain layers back on
 // and the resulting configuration will be remembered for the
 // remainder of the game session.
-// Pressing | again will return to normal view. Leaving the prompt
-// by any other means will give back control of the keys, but the
-// view will remain in its altered state until the | key is pressed
-// again or the player performs an action.
 static void _config_layers_menu()
 {
     bool exit = false;
@@ -1632,9 +1629,8 @@ static void _config_layers_menu()
            _layers & LAYER_MONSTER_HEALTH  ? "lightgrey" : "darkgrey"
 #endif
         );
-        mprf(MSGCH_PROMPT, "Press <w>%s</w> to return to normal view. "
-                           "Press any other key to exit.",
-                           command_to_string(CMD_SHOW_TERRAIN).c_str());
+        mprf(MSGCH_PROMPT, "Press escape to toggle all layers. "
+                           "Press any other key to exit.");
 
         switch (get_ch())
         {
@@ -1652,13 +1648,23 @@ static void _config_layers_menu()
                       _layers_saved = _layers |= LAYER_MONSTERS;
                   break;
 #endif
-
-        // Remaining cases fall through to exit.
-        case '|':
+        CASE_ESCAPE if (_layers)
+                      _layers_saved = _layers = LAYERS_NONE;
+                  else
+                  {
+#ifndef USE_TILE_LOCAL
+                      _layers_saved = _layers = LAYERS_ALL
+                                      | LAYER_MONSTER_WEAPONS
+                                      | LAYER_MONSTER_HEALTH;
+#else
+                      _layers_saved = _layers = LAYERS_ALL;
+#endif
+                  }
+                  break;
+        default:
             _layers = LAYERS_ALL;
             crawl_state.viewport_weapons    = !!(_layers & LAYER_MONSTER_WEAPONS);
             crawl_state.viewport_monster_hp = !!(_layers & LAYER_MONSTER_HEALTH);
-        default:
             exit = true;
             break;
         }
@@ -1671,12 +1677,6 @@ static void _config_layers_menu()
     msgwin_set_temporary(false);
 
     canned_msg(MSG_OK);
-    if (_layers != LAYERS_ALL)
-    {
-        mprf(MSGCH_PLAIN, "Press <w>%s</w> or perform an action "
-                          "to restore all view layers.",
-                          command_to_string(CMD_SHOW_TERRAIN).c_str());
-    }
 }
 
 void toggle_show_terrain()

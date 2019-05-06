@@ -1,3 +1,19 @@
+# Warning! Servers will not update or merge with the version controlled copy of
+# this file, so any parameters here, and code that uses them, need to come
+# without the assumption that they will be present in any given config.py on a
+# server. Furthermore, on a typical rebuild in a production server, a running
+# webtiles server *will not restart*, so you can't even assume that any config-
+# specific code that you've added will be consistently present. This
+# particularly impacts templated html files, which are loaded and called
+# dynamically, so *do* get updated immediately on a rebuild. If something like
+# client.html raises an exception, this will trigger 500 errors across the whole
+# server.
+#
+# One useful workaround for all this is to get config paramters with the builtin
+# `getattr` function: e.g. `getattr(config, "dgl_mode", False) will safely get
+# this variable from the module, defaulting to False if it doesn't exist (and
+# not raising an exception). `hasattr` is also safe.
+
 import logging
 try:
     from collections import OrderedDict
@@ -58,6 +74,19 @@ games = OrderedDict([
         client_path = "./webserver/game_data/",
         morgue_url = None,
         send_json_options = True)),
+    ("seeded-web-trunk", dict(
+        name = "DCSS trunk, custom seed",
+        crawl_binary = "./crawl",
+        rcfile_path = "./rcs/",
+        macro_path = "./rcs/",
+        morgue_path = "./rcs/%n",
+        inprogress_path = "./rcs/running",
+        ttyrec_path = "./rcs/ttyrecs/%n",
+        socket_path = "./rcs",
+        client_path = "./webserver/game_data/",
+        morgue_url = None,
+        send_json_options = True,
+        options = ["-seed"])),
     ("sprint-web-trunk", dict(
         name = "Sprint trunk",
         crawl_binary = "./crawl",
@@ -118,6 +147,8 @@ ssl_port = 8081
 connection_timeout = 600
 max_idle_time = 5 * 60 * 60
 
+use_gzip = True
+
 # Seconds until stale HTTP connections are closed
 # This needs a patch currently not in mainline tornado.
 http_connection_timeout = None
@@ -126,6 +157,28 @@ kill_timeout = 10 # Seconds until crawl is killed after HUP is sent
 
 nick_regex = r"^[a-zA-Z0-9]{3,20}$"
 max_passwd_length = 20
+
+allow_password_reset = False # Set to true to allow users to request a password reset email. Some settings must be properly configured for this to work
+
+# Set to the primary URL where a player would reach the main lobby
+# For example: "http://crawl.akrasiac.org/"
+# This is required for for password reset, as it will be the base URL for
+# recovery URLs.
+lobby_url = None
+
+# Proper SMTP settings are required for password reset to function properly.
+# if smtp_host is anything other than `localhost`, you may need to adjust the
+# timeout settings (see server.py, calls to ioloop.set_blocking_log_threshold).
+# Ideally, test out these settings carefully in a non-production setting
+# before enabling this, as there's a bunch of ways for this to go wrong and you
+# don't want to get your SMTP server blacklisted.
+smtp_host = "localhost"
+smtp_port = 25
+smtp_use_ssl = False
+smtp_user = "" # set to None for no auth
+smtp_password = ""
+smtp_from_addr = "noreply@crawl.example.org" # The address from which automated
+                                             # emails will be sent
 
 # crypt() algorithm, e.g. "1" for MD5 or "6" for SHA-512; see crypt(3). If
 # false, use traditional DES (but then only the first eight characters of the

@@ -342,8 +342,8 @@ static const vector<god_passive> god_passives[] =
         {  0, passive_t::auto_map, "have improved mapping abilities" },
         {  0, passive_t::detect_montier, "sense threats" },
         {  0, passive_t::detect_items, "sense items" },
-        {  0, passive_t::search_traps,
-              "are NOW better at searching for traps" },
+        {  0, passive_t::avoid_traps,
+              "avoid traps" },
         {  2, passive_t::bondage_skill_boost,
               "get a skill boost from cursed items" },
         {  3, passive_t::sinv, "are NOW clear of vision" },
@@ -372,7 +372,7 @@ static const vector<god_passive> god_passives[] =
 
     // Qazlal
     {
-        {  0, passive_t::cloud_immunity, "are ADV immune to clouds" },
+        {  0, passive_t::cloud_immunity, "and your divine allies are ADV immune to clouds" },
         {  1, passive_t::storm_shield,
               "generate elemental clouds to protect yourself" },
         {  4, passive_t::upgraded_storm_shield,
@@ -497,7 +497,7 @@ void jiyva_eat_offlevel_items()
 
         const level_id lid(static_cast<branch_type>(branch), level);
 
-        if (lid == level_id::current() || !is_existing_level(lid))
+        if (lid == level_id::current() || !you.level_visited(lid))
             continue;
 
         dprf("Checking %s", lid.describe().c_str());
@@ -847,40 +847,6 @@ bool god_id_item(item_def& item, bool silent)
 
     // nothing new
     return false;
-}
-
-void ash_id_monster_equipment(monster* mon)
-{
-    if (!have_passive(passive_t::identify_items))
-        return;
-
-    bool id = false;
-
-    for (unsigned int i = 0; i <= MSLOT_LAST_VISIBLE_SLOT; ++i)
-    {
-        if (mon->inv[i] == NON_ITEM)
-            continue;
-
-        item_def &item = mitm[mon->inv[i]];
-        if ((i != MSLOT_WAND || !is_offensive_wand(item))
-            && !item_is_branded(item))
-        {
-            continue;
-        }
-
-        if (i == MSLOT_WAND)
-        {
-            set_ident_type(OBJ_WANDS, item.sub_type, true);
-            mon->props["wand_known"] = true;
-        }
-        else
-            set_ident_flags(item, ISFLAG_KNOW_TYPE);
-
-        id = true;
-    }
-
-    if (id)
-        mon->props["ash_id"] = true;
 }
 
 static bool is_ash_portal(dungeon_feature_type feat)
@@ -1274,7 +1240,7 @@ bool does_ru_wanna_redirect(monster* mon)
 {
     return have_passive(passive_t::aura_of_power)
             && !mon->friendly()
-            && you.see_cell(mon->pos())
+            && you.see_cell_no_trans(mon->pos())
             && !mons_is_firewood(*mon)
             && !mon->submerged()
             && !mons_is_projectile(mon->type);

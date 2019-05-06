@@ -73,6 +73,8 @@ bool strip_tag(string &s, const string &tag, bool nopad = false);
 int strip_number_tag(string &s, const string &tagprefix);
 vector<string> strip_multiple_tag_prefix(string &s, const string &tagprefix);
 string strip_tag_prefix(string &s, const string &tagprefix);
+const string tag_without_prefix(const string &s, const string &tagprefix);
+set<string> parse_tags(const string &tags);
 bool parse_int(const char *s, int &i);
 
 // String 'descriptions'
@@ -170,12 +172,13 @@ typename M::mapped_type lookup(M &map, const typename M::key_type &key,
 }
 
 // Delete when we upgrade to C++14!
+#ifndef TARGET_COMPILER_VC
 template<typename T, typename... Args>
 unique_ptr<T> make_unique(Args&&... args)
 {
     return unique_ptr<T>(new T(forward<Args>(args)...));
 }
-
+#endif
 /** Remove from a container all elements matching a predicate.
  *
  * @tparam C the container type. Must be reorderable (not a map or set!),
