@@ -20,7 +20,7 @@
  */
 // COMMENTING THIS OUT COS I DON'T THINK WE NEED THIS 
 // IF WE'RE USING version r8 of CrystaX's toolchain
-/*
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -29,7 +29,7 @@ void __exidx_end() {}
 #ifdef __cplusplus
 }
 #endif
-*/
+
 // WORKAROUND CODE ENDS HERE
 
 #include "AppHdr.h"
@@ -203,10 +203,10 @@ void Java_com_crawlmb_NativeWrapper_refreshTerminal( JNIEnv* env, jobject object
 		for (int j = 0; j < COLS; ++j)
 		{
 			TerminalChar * terminalChar = &terminalWindow[i][j];
-			JAVA_CALL(NativeWrapper_printTerminalChar, terminalChar->y, terminalChar->x, terminalChar->character, terminalChar->foregroundColour, terminalChar->backgroundColour);
+			env->CallVoidMethod(object, NativeWrapper_printTerminalChar, terminalChar->y, terminalChar->x, terminalChar->character, terminalChar->foregroundColour, terminalChar->backgroundColour);
 		}
 	}
-	JAVA_CALL(NativeWrapper_invalidateTerminal);
+	env->CallVoidMethod(object, NativeWrapper_invalidateTerminal);
 }
 
 void set_mouse_enabled(bool enabled)
@@ -494,10 +494,10 @@ void putwch(ucs_t chr)
     {
 		c = ' ';
 	}
-	char printstr;
-	sprintf(&printstr, "%c", chr);
-
-    addnstr(1, &printstr);
+	// char printstr;
+	// sprintf(&printstr, "%c", chr);
+  //  addnstr(1, &printstr);
+	addChar(c);
 }
 
 void puttext(int x1, int y1, const crawl_view_buffer &vbuf)
