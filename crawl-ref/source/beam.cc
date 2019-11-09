@@ -2404,7 +2404,10 @@ static void _malign_offering_effect(actor* victim, const actor* agent, int damag
     coord_def c = victim->pos();
 
     mprf("%s life force is offered up.", victim->name(DESC_ITS).c_str());
-    damage = victim->hurt(agent, damage, BEAM_NEG);
+    if (victim->is_player())
+        ouch(damage, agent->mindex(), KILLED_BY_BEAM, "by a malign offering");
+    else
+        damage = victim->hurt(agent, damage, BEAM_NEG);
 
     // Actors that had LOS to the victim (blocked by glass, clouds, etc),
     // even if they couldn't actually see each other because of blindness
@@ -3877,7 +3880,12 @@ void bolt::affect_player()
     // Trigger an interrupt, so travel will stop on misses which
     // generate smoke.
     if (!YOU_KILL(thrower))
-        interrupt_activity(AI_MONSTER_ATTACKS);
+    {
+        if (agent() && agent()->is_monster())
+            interrupt_activity(AI_MONSTER_ATTACKS, agent()->as_monster());
+        else
+            interrupt_activity(AI_MONSTER_ATTACKS);
+    }
 
     const bool engulfs = is_explosion || is_big_cloud;
 

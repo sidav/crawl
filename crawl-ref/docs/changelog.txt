@@ -1,3 +1,24 @@
+Stone Soup 0.14.2 (20140827)
+----------------------------
+* More crash fixes.
+* Some text fixes.
+* Transformations no longer allow the character to wield too-large weapons.
+* The tutorial skill screen now allows skills to be toggled again.
+* Artefact and non-artefact rings are now distinguished properly when swapping
+  rings.
+
+Stone Soup 0.14.1 (20140428)
+----------------------------
+* Several crash fixes.
+* Fire dragons correctly grant bonus Dithmenos piety.
+* Ranged attacks from invisibile monsters correctly turn off autopickup.
+* Good gods punish the player properly for negative energy clouds.
+* Natasha no longer revives after being pacified, and does not get a new
+  item when reviving.
+* When playing a race with permanent flight ability, it is now possible to
+  remove an item granting flight over dangerous terrain.
+* Wanderers do not occasionally get more MP than other backgrounds.
+
 Stone Soup 0.14 (20140409)
 --------------------------
 * The lower half of D is now a new branch, the Depths.
@@ -354,7 +375,7 @@ Items
       every target hit in a line.
     - New rod: rod of shadows, which summons Shadow Creatures from a depth in
       the dungeon roughly equivalent to the user's skill with Evocations,
-      drawing out-of-depth spawns after 16.
+      drawing out-of-depth spawns after 15.
     - New rod: rod of clouds, which creates various clouds based on power,
       with high skill giving several new types of clouds.
     - The rods of warding, venom, demonology, fiery destruction, and frigid
@@ -408,8 +429,7 @@ Gods
 * Cheibriados' Bend Time is available to all followers (was 1* ability).
 * Zin and Okawaru no longer care about the deaths of allies.
 * Okawaru no longer suppresses the demonic guardian Ds mutation.
-* Xom effects respect clarity and sustain abilities (as long as Xom is not
-  feeling nasty).
+* Xom effects respect clarity and sustain abilities.
 * Xom's confusion now caps at 20 turns.
 * Zin's Recite shows what will be affected by all of the relevant recitations.
 * Lugonu followers no longer suffer distortion unwield effects.
@@ -553,6 +573,8 @@ Character
   further stat drain damages the player. The effects of a stat being at zero
   (fainting, slow actions, etc.) persist.
 * Ogre hunters and artificers now start with a club instead of a short sword.
+* Teleport control is a duration, which expires after time or use. It still
+  is disallowed on some levels.
 
 Monsters
 --------
@@ -771,6 +793,7 @@ Items
    - The knife of accuracy and boots of the Assassin are no more.
    - The lightning scales are now +6 (was +3).
 * Hammers do not generate outside of vaults.
+* Rings of teleport control must be evoked to work.
 
 Gods
 ----

@@ -723,7 +723,7 @@ bool mons_is_fiery(const monster* mon)
 {
     // This chain of checks is for fire breath weapons and special
     // abilities.
-    if (mons_genus(mon->type) == MONS_FIRE_DRAGON
+    if (mons_species(mon->type) == MONS_FIRE_DRAGON
         || mon->type == MONS_BURNING_BUSH
         || mon->type == MONS_PHOENIX
         || (mons_genus(mon->type) == MONS_DRACONIAN
@@ -4959,7 +4959,7 @@ void debug_mondata()
 
         int MR = md->resist_magic;
         if (MR < 0)
-            MR = md->hpdice[9] * -MR * 4 / 3;
+            MR = md->hpdice[0] * -MR * 4 / 3;
         if (md->resist_magic > 200 && md->resist_magic != MAG_IMMUNE)
             fails += make_stringf("%s has MR %d > 200\n", name, MR);
 

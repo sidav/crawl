@@ -319,10 +319,6 @@ static void _handle_ghostly_flame(const cloud_struct& cloud)
     if (!x_chance_in_y(chance, you.time_taken * 600))
         return;
 
-    // No spawns in problematic places.
-    if (!monster_habitable_grid(MONS_IGUANA, grd(cloud.pos)))
-        return;
-
     monster_type basetype = random_choose_weighted(4,   MONS_ANACONDA,
                                                    6,   MONS_HYDRA,
                                                    3,   MONS_SNAPPING_TURTLE,
@@ -356,7 +352,7 @@ void manage_clouds()
         if (cloud.type == CLOUD_NONE)
             continue;
 
-#if ASSERTS
+#ifdef ASSERTS
         if (cell_is_solid(cloud.pos))
         {
             die("cloud %s in %s at (%d,%d)", cloud_type_name(cloud.type).c_str(),
@@ -1060,7 +1056,12 @@ static bool _actor_apply_cloud_side_effects(actor *act,
     case CLOUD_NEGATIVE_ENERGY:
     {
         actor* agent = find_agent(cloud.source, cloud.whose);
-        return act->drain_exp(agent, "cloud of negative energy");
+        if (act->drain_exp(agent, "cloud of negative energy"))
+        {
+            if (cloud.whose == KC_YOU)
+                did_god_conduct(DID_NECROMANCY, 5 + random2(3));
+            return true;
+        }
         break;
     }
 

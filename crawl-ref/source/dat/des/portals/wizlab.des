@@ -193,9 +193,6 @@ function wizlab_eringya_grow(data, triggerable, triggerer, marker, ev)
       crawl.mpr("Mushrooms sprout up around you!")
     end
   end
-  if count > 0 then
-    crawl.mpr("Toadstools sprout up around you!")
-  end
 end
 
 function wizlab_doroklohe_convert_boxes(data, triggerable, triggerer,

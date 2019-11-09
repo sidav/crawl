@@ -143,7 +143,7 @@ bool can_wield(item_def *weapon, bool say_reason,
 
     // Only ogres and trolls can wield giant clubs (>= 30 aum)
     // and large rocks (60 aum).
-    if (you.body_size() < SIZE_LARGE && (item_mass(*weapon) >= 500
+    if (you.body_size(PSIZE_TORSO, true) < SIZE_LARGE && (item_mass(*weapon) >= 500
                                          || weapon->base_type == OBJ_WEAPONS
                                             && item_mass(*weapon) >= 300))
     {
@@ -1180,6 +1180,7 @@ bool safe_to_remove(const item_def &item, bool quiet)
 
     // assumes item can't grant flight twice
     const bool removing_ends_flight = you.flight_mode()
+          && !you.racial_permanent_flight()
           && !you.attribute[ATTR_FLIGHT_UNCANCELLABLE]
           && (you.evokable_flight() == 1)
         || you.is_wall_clinging() && !you.flight_mode()
@@ -1231,7 +1232,7 @@ static bool _swap_rings(int ring_slot)
                 if (ring->sub_type != first_ring->sub_type
                     || ring->plus  != first_ring->plus
                     || ring->plus2 != first_ring->plus2
-                    || is_artefact(*ring))
+                    || is_artefact(*ring) || is_artefact(*first_ring))
                 {
                     all_same = false;
                 }
@@ -2528,7 +2529,7 @@ static int _handle_enchant_armour(int item_slot, bool alreadyknown,
         }
 
         // Okay, we may actually (attempt to) enchant something.
-        if (!alreadyknown && pre_msg)
+        if (pre_msg && alreadyknown)
             mpr(pre_msg->c_str());
 
         int ac_change;

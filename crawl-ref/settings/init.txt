@@ -50,6 +50,8 @@
 # include                 = 071_monster_glyphs.txt
 # include                 = 080_monster_glyphs.txt
 # include                 = 0.9_monster_glyphs.txt
+# include                 = 0.12_monster_glyphs.txt
+# include                 = 0.13_monster_glyphs.txt
 
 ##### 1- Starting Screen ############################################
 #
@@ -219,7 +221,7 @@
 # clear_messages               = true
 # small_more                   = true
 # show_more                    = false
-# show_inventory_weights       = false
+# show_inventory_weights       = (drop_pickup | true | false)
 # item_stack_summary_minimum   = 5
 # msg_condense_repeats         = false
 # msg_condense_short           = false
