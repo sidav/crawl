@@ -15,7 +15,7 @@ static species_type species_order[] =
     // comparatively human-like looks
     SP_HUMAN,          SP_HIGH_ELF,
     SP_DEEP_ELF,       SP_DEEP_DWARF,
-    SP_HILL_ORC,
+    SP_MOUNTAIN_DWARF, SP_HILL_ORC,
     // small species
     SP_HALFLING,       SP_KOBOLD,
     SP_SPRIGGAN,
@@ -208,6 +208,9 @@ string species_name(species_type speci, bool genus, bool adj)
         case SP_DEEP_DWARF:
             res = (adj ? "Dwarven" : genus ? "Dwarf" : "Deep Dwarf");
             break;
+        case SP_MOUNTAIN_DWARF:
+            res = (adj ? "Dwarven" : genus ? "Dwarf" : "Mountain Dwarf");
+            break;
         case SP_FELID:
             res = (adj ? "Feline" : genus ? "Cat" : "Felid");
             break;
@@ -393,6 +396,8 @@ monster_type player_species_to_mons_species(species_type species)
         return MONS_FELID;
     case SP_OCTOPODE:
         return MONS_OCTOPODE;
+    case SP_MOUNTAIN_DWARF:
+        return MONS_DWARF;
 #if TAG_MAJOR_VERSION == 34
     case SP_DJINNI:
         return MONS_DJINNI;
@@ -403,7 +408,6 @@ monster_type player_species_to_mons_species(species_type species)
         return MONS_VINE_STALKER;
     case SP_ELF:
     case SP_HILL_DWARF:
-    case SP_MOUNTAIN_DWARF:
     case SP_OGRE_MAGE:
     case SP_GREY_ELF:
     case SP_GNOME:
@@ -464,6 +468,7 @@ int species_exp_modifier(species_type species)
     case SP_TENGU:
     case SP_GARGOYLE:
     case SP_VINE_STALKER:
+    case SP_MOUNTAIN_DWARF:
         return 0;
     case SP_SPRIGGAN:
     case SP_DEEP_DWARF:
@@ -538,6 +543,7 @@ int species_hp_modifier(species_type species)
     case SP_HILL_ORC:
     case SP_LAVA_ORC:
     case SP_MINOTAUR:
+    case SP_MOUNTAIN_DWARF:
         return 1;
     case SP_DEEP_DWARF:
     case SP_NAGA:
@@ -554,6 +560,7 @@ int species_mp_modifier(species_type species)
     {
     case SP_TROLL:
     case SP_MINOTAUR:
+    case SP_MOUNTAIN_DWARF:
         return -2;
     case SP_CENTAUR:
     case SP_GHOUL:

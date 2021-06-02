@@ -101,6 +101,7 @@ static void _species_stat_init(species_type which_species)
 
     case SP_FELID:              s =  4; i =  9; d = 11;      break;  // 24
     case SP_OCTOPODE:           s =  7; i = 10; d =  7;      break;  // 24
+    case SP_MOUNTAIN_DWARF:     s =  9; i =  4; d =  5;      break;  // 18
     }
 
     you.base_stats[STAT_STR] = s;

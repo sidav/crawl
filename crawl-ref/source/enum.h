@@ -3713,6 +3713,7 @@ enum species_type
     SP_LAVA_ORC,
     SP_GARGOYLE,
     SP_FORMICID,
+    SP_MOUNTAIN_DWARF,  
     SP_VINE_STALKER,
     LAST_VALID_SPECIES = SP_VINE_STALKER,
 // The high scores viewer still needs enums for removed species.
@@ -3721,7 +3722,6 @@ enum species_type
     SP_OGRE_MAGE,                      // (placeholder)
     SP_GREY_ELF,                       // (placeholder)
     SP_GNOME,                          // (placeholder)
-    SP_MOUNTAIN_DWARF,                 // (placeholder)
 #if TAG_MAJOR_VERSION > 34
     SP_SLUDGE_ELF,                     // (placeholder)
     SP_DJINNI,                         // (placeholder)

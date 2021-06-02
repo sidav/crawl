@@ -3508,7 +3508,10 @@ void level_change(int source, const char* aux, bool skip_attribute_increase)
                 if (!(you.experience_level % 5))
                     modify_stat(STAT_RANDOM, 1, false, "level gain");
                 break;
-
+            case SP_MOUNTAIN_DWARF:
+                if (!(you.experience_level % 4))
+                    modify_stat(STAT_STR, 1, false, "level gain");
+                break;		
 #if TAG_MAJOR_VERSION == 34
             case SP_DJINNI:
                 if (!(you.experience_level % 4))
@@ -7134,6 +7137,7 @@ int player_res_magic(bool calc_unid, bool temp)
     case SP_DEMIGOD:
     case SP_OGRE:
     case SP_FORMICID:
+    case SP_MOUNTAIN_DWARF:
         rm = you.experience_level * 4;
         break;
     case SP_NAGA:
