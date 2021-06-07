@@ -564,7 +564,18 @@ int species_apt(skill_type skill, species_type species)
         spec_skills_initialised = true;
     }
 
-    return _spec_skills[species][skill];
+    int mod = 0;
+
+	if (you.char_class == JOB_DEMONSPAWN)
+	{
+		if (skill == SK_INVOCATIONS)
+			mod = 3;
+		else
+			mod = -1;
+	}
+
+
+    return (_spec_skills[species][skill] + mod);
 }
 
 float species_apt_factor(skill_type sk, species_type sp)

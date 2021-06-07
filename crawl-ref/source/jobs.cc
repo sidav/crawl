@@ -18,7 +18,7 @@ static const char * Job_Abbrev_List[] =
       "St",
 #endif
       "Mo", "Wr", "Wn", "Ar", "AM",
-      "DK", "AK",
+      "DK", "AK", "Ds",
 #if TAG_MAJOR_VERSION == 34
       "Jr",
 #endif
@@ -39,7 +39,7 @@ static const char * Job_Name_List[] =
       "Stalker",
 #endif
       "Monk", "Warper", "Wanderer", "Artificer", "Arcane Marksman",
-      "Death Knight", "Abyssal Knight",
+      "Death Knight", "Abyssal Knight", "Demonspawn",
 #if TAG_MAJOR_VERSION == 34
       "Jester",
 #endif

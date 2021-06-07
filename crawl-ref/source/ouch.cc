@@ -311,7 +311,7 @@ int check_your_resists(int hurted, beam_type flavour, string source,
 
         // For mutation damage, we want to count innate mutations for
         // the demonspawn, but not for other species.
-        int mutated = how_mutated(you.species == SP_DEMONSPAWN, true);
+        int mutated = how_mutated((you.species == SP_DEMONSPAWN || you.char_class == JOB_DEMONSPAWN), true);
         int multiplier = min(mutated * 3, 60);
         if (you.is_chaotic() || player_is_shapechanged())
             multiplier = 60; // full damage

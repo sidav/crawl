@@ -169,6 +169,7 @@ static void _jobs_stat_init(job_type which_job)
         _wanderer_assign_remaining_stats(12);           break;
 
     case JOB_ARTIFICER:         s =  3; i =  4; d =  5; break;
+    case JOB_DEMONSPAWN:        s =  6; i =  4; d =  4; break;
     default:                    s =  0; i =  0; d =  0; break;
     }
 
@@ -989,6 +990,18 @@ static void _give_items_skills(const newgame_def& ng)
         you.skills[SK_STEALTH]     = 1;
         break;
 
+    case JOB_DEMONSPAWN:
+        newgame_make_item(0, EQ_WEAPON, OBJ_WEAPONS, WPN_SHORT_SWORD, -1, 1, 0, 0); _update_weapon(ng);
+        newgame_make_item(1, EQ_BODY_ARMOUR, OBJ_ARMOUR, ARM_ANIMAL_SKIN);
+        newgame_make_item(2, EQ_NONE, OBJ_BOOKS, BOOK_CONJURATIONS);
+
+        you.skills[SK_CONJURATIONS] = 2;
+        you.skills[SK_SPELLCASTING] = 2;
+        you.skills[SK_DODGING]      = 1;
+        you.skills[SK_STEALTH]      = 2;
+        weap_skill = 1;
+        break;
+
     default:
         break;
     }
@@ -1154,6 +1167,9 @@ static void _give_basic_spells(job_type which_job)
     case JOB_WARPER:
         which_spell = SPELL_APPORTATION;
         break;
+    case JOB_DEMONSPAWN:
+        which_spell = SPELL_MAGIC_DART;
+        break;
 
     default:
         break;
@@ -1299,7 +1315,7 @@ static void _setup_generic(const newgame_def& ng)
     // This function depends on stats and mutations being finalised.
     _give_items_skills(ng);
 
-    if (you.species == SP_DEMONSPAWN)
+    if (you.species == SP_DEMONSPAWN || you.char_class == JOB_DEMONSPAWN)
         roll_demonspawn_mutations();
 
     _give_starting_food();

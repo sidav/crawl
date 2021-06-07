@@ -3213,7 +3213,8 @@ bool is_useless_item(const item_def &item, bool temp)
         if (you.undead_or_demonic() && is_holy_item(item))
         {
             if (!temp && you.form == TRAN_LICH
-                && you.species != SP_DEMONSPAWN)
+                && you.species != SP_DEMONSPAWN
+				&& you.char_class != JOB_DEMONSPAWN)
             {
                 return false;
             }

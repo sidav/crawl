@@ -98,7 +98,7 @@ void check_demonic_guardian();
 void check_monster_detect();
 int handle_pbd_corpses();
 equipment_type beastly_slot(int mut);
-bool physiology_mutation_conflict(mutation_type mutat);
+bool physiology_mutation_conflict(mutation_type mutat, bool ds_roll = false);
 int augmentation_amount();
 
 bool delete_temp_mutation();

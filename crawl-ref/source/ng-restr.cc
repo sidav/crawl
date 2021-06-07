@@ -429,6 +429,22 @@ char_choice_restriction species_allowed(job_type job, species_type speci)
         default:
             return CC_RESTRICTED;
         }
+    case JOB_DEMONSPAWN:
+        switch (speci)
+        {
+        case SP_HILL_ORC:
+        case SP_SPRIGGAN:
+        case SP_CENTAUR:
+        case SP_MERFOLK:
+        case SP_BASE_DRACONIAN:
+        case SP_HUMAN:
+        case SP_MOUNTAIN_DWARF:
+            return CC_UNRESTRICTED;
+        case SP_DEMONSPAWN:
+            return CC_BANNED;
+        default:
+            return CC_RESTRICTED;
+        }
 
     default:
         return CC_BANNED;
@@ -858,6 +874,7 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
             case JOB_HUNTER:
             case JOB_ARCANE_MARKSMAN:
             case JOB_FIRE_ELEMENTALIST:
+            case JOB_DEMONSPAWN:
                 return CC_UNRESTRICTED;
             default:
                 return CC_RESTRICTED;

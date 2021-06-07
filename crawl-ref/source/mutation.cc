@@ -1285,11 +1285,11 @@ static int _body_covered()
     return covered;
 }
 
-bool physiology_mutation_conflict(mutation_type mutat)
+bool physiology_mutation_conflict(mutation_type mutat, bool ds_roll)
 {
     // If demonspawn, and mutat is a scale, see if they were going
     // to get it sometime in the future anyway; otherwise, conflict.
-    if (you.species == SP_DEMONSPAWN && _is_covering(mutat)
+    if ((you.species == SP_DEMONSPAWN) || (you.char_class == JOB_DEMONSPAWN) && !ds_roll && _is_covering(mutat)
         && find(_all_scales, _all_scales+ARRAYSZ(_all_scales), mutat) !=
                 _all_scales+ARRAYSZ(_all_scales))
     {
@@ -1305,7 +1305,7 @@ bool physiology_mutation_conflict(mutation_type mutat)
     }
 
     // Strict 3-scale limit.
-    if (_is_covering(mutat) && _body_covered() >= 3)
+    if (_is_covering(mutat) && _body_covered() >= 3 && !ds_roll)
         return true;
 
     // Only Nagas and Draconians can get this one.
@@ -1623,7 +1623,7 @@ bool mutate(mutation_type which_mutation, const string &reason, bool failMsg,
     if (you.mutation[mutat] >= mdef.levels)
     {
         bool found = false;
-        if (you.species == SP_DEMONSPAWN)
+        if ((you.species == SP_DEMONSPAWN) || (you.char_class == JOB_DEMONSPAWN))
             for (unsigned i = 0; i < you.demonic_traits.size(); ++i)
                 if (you.demonic_traits[i].mutation == mutat)
                 {
@@ -2135,7 +2135,21 @@ string mutation_desc(mutation_type mut, int level, bool colour)
         }
         else if (permanent)
         {
-            const bool demonspawn = (you.species == SP_DEMONSPAWN);
+            const bool ds = (you.species == SP_DEMONSPAWN || you.char_class == JOB_DEMONSPAWN);
+            bool demonspawn = false;
+
+            if (ds)
+            {
+                for (int i = 0; i < you.demonic_traits.size(); i++)
+                {
+                    if (you.demonic_traits[i].mutation == mut &&
+                        you.demonic_traits[i].level_gained <= you.experience_level)
+                    {
+                        demonspawn = true;
+                        i += 1000;
+                    }
+                }
+            }
             const bool extra = (you.mutation[mut] > you.innate_mutations[mut]);
 
             if (fully_inactive)
@@ -2323,7 +2337,8 @@ try_again:
                 next_facet = &RANDOM_ELEMENT(_demon_facets);
             while (!_works_at_tier(*next_facet, tier)
                    || facets_used.count(next_facet)
-                   || !_slot_is_unique(next_facet->muts, facets_used));
+                   || !_slot_is_unique(next_facet->muts, facets_used)
+				   || physiology_mutation_conflict(next_facet->muts[2], true));
 
             facets_used.insert(next_facet);
 

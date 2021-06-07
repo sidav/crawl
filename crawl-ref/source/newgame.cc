@@ -1019,7 +1019,13 @@ static void _construct_backgrounds_menu(const newgame_def* ng,
             {JOB_WIZARD, JOB_CONJURER, JOB_SUMMONER, JOB_NECROMANCER,
              JOB_FIRE_ELEMENTALIST, JOB_ICE_ELEMENTALIST,
              JOB_AIR_ELEMENTALIST, JOB_EARTH_ELEMENTALIST, JOB_VENOM_MAGE}
+        },
+        {
+            "Hybrid",
+            coord_def(15, 7), 21,
+            {JOB_DEMONSPAWN, JOB_UNKNOWN, JOB_UNKNOWN, JOB_UNKNOWN, JOB_UNKNOWN, JOB_UNKNOWN, JOB_UNKNOWN, JOB_UNKNOWN, JOB_UNKNOWN}
         }
+		
     };
 
     menu_letter letter = 'a';
@@ -1754,6 +1760,7 @@ static bool _choose_weapon(newgame_def* ng, newgame_def* ng_choice,
     case JOB_WARPER:
     case JOB_HUNTER:
     case JOB_ARCANE_MARKSMAN:
+    case JOB_DEMONSPAWN:
         break;
     default:
         return true;

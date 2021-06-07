@@ -3629,6 +3629,54 @@ void level_change(int source, const char* aux, bool skip_attribute_increase)
                 mprf(MSGCH_INTRINSIC_GAIN, "Your Zot abilities now extend through the making of teleport traps.");
 #endif
         }
+            if (you.char_class == JOB_DEMONSPAWN)
+            {
+                bool gave_message = false;
+                int level = 0;
+                mutation_type first_body_facet = NUM_MUTATIONS;
+
+                for (unsigned i = 0; i < you.demonic_traits.size(); ++i)
+                {
+                    if (is_body_facet(you.demonic_traits[i].mutation))
+                    {
+                        if (first_body_facet < NUM_MUTATIONS
+                            && you.demonic_traits[i].mutation
+                                != first_body_facet)
+                        {
+                            if (you.experience_level == level)
+                            {
+                                mprf(MSGCH_MUTATION, "You feel monstrous as your "
+                                     "demonic heritage exerts itself.");
+                                mark_milestone("monstrous", "is a "
+                                               "monstrous demonspawn!");
+                            }
+                            break;
+                        }
+
+                        if (first_body_facet == NUM_MUTATIONS)
+                        {
+                            first_body_facet = you.demonic_traits[i].mutation;
+                            level = you.demonic_traits[i].level_gained;
+                        }
+                    }
+                }
+
+                for (unsigned i = 0; i < you.demonic_traits.size(); ++i)
+                {
+                    if (you.demonic_traits[i].level_gained
+                        == you.experience_level)
+                    {
+                        if (!gave_message)
+                        {
+                            mprf(MSGCH_INTRINSIC_GAIN, "Your demonic ancestry asserts itself...");
+
+                            gave_message = true;
+                        }
+                        perma_mutate(you.demonic_traits[i].mutation, 1,
+                                     "demonic ancestry");
+                    }
+                }
+            }
 
         const int old_hp = you.hp;
         const int old_maxhp = you.hp_max;
@@ -6886,7 +6934,7 @@ mon_holy_type player::holiness() const
 bool player::undead_or_demonic() const
 {
     // This is only for TSO-related stuff, so demonspawn are included.
-    return is_undead || species == SP_DEMONSPAWN;
+    return is_undead || species == SP_DEMONSPAWN || char_class == JOB_DEMONSPAWN;
 }
 
 bool player::is_holy(bool check_spells) const
@@ -6899,7 +6947,7 @@ bool player::is_holy(bool check_spells) const
 
 bool player::is_unholy(bool check_spells) const
 {
-    return species == SP_DEMONSPAWN;
+    return species == SP_DEMONSPAWN || char_class == JOB_DEMONSPAWN;
 }
 
 bool player::is_evil(bool check_spells) const
