@@ -951,7 +951,7 @@ static bool _do_book_acquirement(item_def &book, int agent)
                 other_weights += weight;
         }
 
-        if (you_worship(GOD_TROG))
+        if (you_worship(GOD_TROG) || you.species == SP_DJINNI)
             magic_weights = 0;
 
         // If someone has 25% or more magic skills, never give manuals.

@@ -521,16 +521,14 @@ string describe_mutations(bool center_title)
             !form_keeps_mutations());
         have_any = true;
         break;
-#if TAG_MAJOR_VERSION == 34
 
     case SP_DJINNI:
-        result += "You are immune to all types of fire, even holy and hellish.\n";
-        result += "You are vulnerable to cold.\n";
-        result += "You need no food.\n";
-        result += "You have no legs.\n";
+        result += "Your magical power is your life essence.\n";
+        result += "You float through the air rather than walking.\n";
+        result += "You are immune to poison and rot.\n";
+        result += "You don't need to breathe.\n";
         have_any = true;
         break;
-#endif
 
     case SP_LAVA_ORC:
     {
@@ -1395,18 +1393,18 @@ bool physiology_mutation_conflict(mutation_type mutat, bool ds_roll)
             return true;
         }
     }
-#if TAG_MAJOR_VERSION == 34
 
-    // Heat doesn't hurt fire, djinn don't care about hunger.
-    if (you.species == SP_DJINNI && (mutat == MUT_HEAT_RESISTANCE
-        || mutat == MUT_HEAT_VULNERABILITY
-        || mutat == MUT_BERSERK
-        || mutat == MUT_FAST_METABOLISM || mutat == MUT_SLOW_METABOLISM
-        || mutat == MUT_CARNIVOROUS || mutat == MUT_HERBIVOROUS))
+    // Heat doesn't hurt fire
+    if (you.species == SP_DJINNI && (mutat == MUT_TALONS
+        || mutat == MUT_HOOVES || mutat == MUT_SAPROVOROUS
+        || mutat == MUT_HIGH_MAGIC || mutat == MUT_PASSIVE_FREEZE
+        || mutat == MUT_LOW_MAGIC || mutat == MUT_MANA_SHIELD
+        || mutat == MUT_SLIMY_GREEN_SCALES || mutat == MUT_POISON_RESISTANCE
+        || mutat == MUT_ICEMAIL
+        || mutat == MUT_MANA_LINK || mutat == MUT_MANA_REGENERATION))
     {
         return true;
     }
-#endif
 
     // Already immune.
     if (you.species == SP_GARGOYLE && mutat == MUT_POISON_RESISTANCE)

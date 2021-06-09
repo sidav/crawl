@@ -238,7 +238,7 @@ const int AGILITY_BONUS = 5;
 #define berserk_div(x) div_rand_round((x) * 2, 3)
 
 #define MAX_MONSTER_HP 10000
-#define DJ_MP_RATE 2
+#define DJ_MP_RATE 1
 
 #define GRAND_AVATAR_DAMAGE 15
 

@@ -28,6 +28,7 @@ static species_type species_order[] =
     SP_GARGOYLE,       SP_FORMICID,
     // mostly human shape but made of a strange substance
     SP_LAVA_ORC,       SP_VINE_STALKER,
+    SP_DJINNI,
     // celestial species
     SP_DEMIGOD,        SP_DEMONSPAWN,
     // undead species
@@ -62,14 +63,12 @@ static const char * Species_Abbrev_List[NUM_SPECIES] =
       "Dr", "Dr", "Dr", "Dr", "Dr", "Dr", "Dr", "Dr", "Dr", "Dr",
       "Ce", "Dg", "Sp", "Mi", "Ds", "Gh", "Te", "Mf", "Vp", "DD",
       "Fe", "Op",
-#if TAG_MAJOR_VERSION == 34
       "Dj",
-#endif
       "LO", "Gr", "Fo", "VS",
       // placeholders
       "El", "HD", "OM", "GE", "Gn", "MD",
 #if TAG_MAJOR_VERSION > 34
-      "SE", "Dj",
+      "SE",
 #endif
 };
 
@@ -225,9 +224,7 @@ string species_name(species_type speci, bool genus, bool adj)
         case SP_GHOUL:      res = (adj ? "Ghoulish"   : "Ghoul");      break;
         case SP_MERFOLK:    res = (adj ? "Merfolkian" : "Merfolk");    break;
         case SP_VAMPIRE:    res = (adj ? "Vampiric"   : "Vampire");    break;
-#if TAG_MAJOR_VERSION == 34
         case SP_DJINNI:     res = (adj ? "Djinn"      : "Djinni");     break;
-#endif
         default:            res = (adj ? "Yakish"     : "Yak");        break;
         }
     }
@@ -398,10 +395,8 @@ monster_type player_species_to_mons_species(species_type species)
         return MONS_OCTOPODE;
     case SP_MOUNTAIN_DWARF:
         return MONS_DWARF;
-#if TAG_MAJOR_VERSION == 34
     case SP_DJINNI:
         return MONS_DJINNI;
-#endif
     case SP_FORMICID:
         return MONS_FORMICID;
     case SP_VINE_STALKER:
@@ -413,7 +408,6 @@ monster_type player_species_to_mons_species(species_type species)
     case SP_GNOME:
 #if TAG_MAJOR_VERSION > 34
     case SP_SLUDGE_ELF:
-    case SP_DJINNI:
 #endif
     case NUM_SPECIES:
     case SP_UNKNOWN:
@@ -433,7 +427,7 @@ bool is_valid_species(species_type species)
 bool is_species_valid_choice(species_type species)
 {
 #if TAG_MAJOR_VERSION == 34
-    if (species == SP_SLUDGE_ELF || species == SP_DJINNI)
+    if (species == SP_SLUDGE_ELF)
         return false;
 #endif
     if ((species == SP_LAVA_ORC)
@@ -455,6 +449,7 @@ int species_exp_modifier(species_type species)
     case SP_HALFLING:
     case SP_KOBOLD:
     case SP_FORMICID:
+    case SP_DJINNI:
         return 1;
     case SP_HILL_ORC:
     case SP_OGRE:
@@ -491,9 +486,6 @@ int species_exp_modifier(species_type species)
     case SP_VAMPIRE:
     case SP_TROLL:
     case SP_DEMONSPAWN:
-#if TAG_MAJOR_VERSION == 34
-    case SP_DJINNI:
-#endif
     case SP_LAVA_ORC:
         return -1;
     case SP_DEMIGOD:
@@ -520,8 +512,8 @@ int species_hp_modifier(species_type species)
     case SP_HIGH_ELF:
 #if TAG_MAJOR_VERSION == 34
     case SP_SLUDGE_ELF:
-    case SP_DJINNI:
 #endif
+    case SP_DJINNI:
     case SP_HALFLING:
     case SP_OCTOPODE:
         return -1;

@@ -541,11 +541,9 @@ static void _print_stats_temperature(int x, int y)
 
 static void _print_stats_mp(int x, int y)
 {
-#if TAG_MAJOR_VERSION == 34
     if (you.species == SP_DJINNI)
         return;
 
-#endif
     // Calculate colour
     short mp_colour = HUD_VALUE_COLOUR;
 
@@ -589,7 +587,6 @@ static void _print_stats_mp(int x, int y)
 #if TAG_MAJOR_VERSION == 34
 static void _print_stats_contam(int x, int y)
 {
-    if (you.species != SP_DJINNI)
         return;
 
     const int max_contam = 8000;
@@ -637,10 +634,8 @@ static void _print_stats_contam(int x, int y)
 static void _print_stats_hp(int x, int y)
 {
     int max_max_hp = get_real_hp(true, true);
-#if TAG_MAJOR_VERSION == 34
     if (you.species == SP_DJINNI)
         max_max_hp += get_real_mp(true);
-#endif
 
     // Calculate colour
     short hp_colour = HUD_VALUE_COLOUR;
@@ -664,11 +659,9 @@ static void _print_stats_hp(int x, int y)
     // Health: xxx/yyy (zzz)
     CGOTOXY(x, y, GOTO_STAT);
     textcolor(HUD_CAPTION_COLOUR);
-#if TAG_MAJOR_VERSION == 34
     if (you.species == SP_DJINNI)
         CPRINTF(max_max_hp != you.hp_max ? "EP: " : "Essence: ");
     else
-#endif
     CPRINTF(max_max_hp != you.hp_max ? "HP: " : "Health: ");
     textcolor(hp_colour);
     CPRINTF("%d", you.hp);
@@ -687,20 +680,17 @@ static void _print_stats_hp(int x, int y)
 #ifdef USE_TILE_LOCAL
     if (tiles.is_using_small_layout())
     {
-#if TAG_MAJOR_VERSION == 34
         if (you.species == SP_DJINNI)
             EP_Bar.vdraw(2, 10, you.hp, you.hp_max);
         else
-#endif
+
         HP_Bar.vdraw(2, 10, you.hp, you.hp_max);
     }
     else
 #endif
-#if TAG_MAJOR_VERSION == 34
     if (you.species == SP_DJINNI)
         EP_Bar.draw(19, y, you.hp, you.hp_max);
     else
-#endif
         HP_Bar.draw(19, y, you.hp, you.hp_max, false, you.hp - max(0, poison_survival()));
 }
 
@@ -1437,11 +1427,6 @@ void draw_border(void)
 
     //CGOTOXY(1, 3, GOTO_STAT); CPRINTF("Hp:");
     CGOTOXY(1, mp_pos, GOTO_STAT);
-#if TAG_MAJOR_VERSION == 34
-    if (you.species == SP_DJINNI)
-        CPRINTF("Contam:");
-    else
-#endif
     CPRINTF("Magic:");
     CGOTOXY(1, ac_pos, GOTO_STAT); CPRINTF("AC:");
     CGOTOXY(1, ev_pos, GOTO_STAT); CPRINTF("EV:");
@@ -1789,6 +1774,9 @@ static const char* _determine_colour_string(int level, int max_level)
 
     switch (level)
     {
+    case 4:
+        if (max_level = 3)
+            return "<lightgreen>";
     case 3:
     case 2:
         if (max_level > 1)
@@ -2056,21 +2044,36 @@ static vector<formatted_string> _get_overview_stats()
     {
         if (boosted_hp)
         {
+		    if (you.species == SP_DJINNI)
+            snprintf(buf, sizeof buf, "EP <lightblue>%3d/%d</lightblue>",
+                     you.hp, you.hp_max);
+            else
             snprintf(buf, sizeof buf, "HP <lightblue>%3d/%d</lightblue>",
                      you.hp, you.hp_max);
         }
         else
+		    if (you.species == SP_DJINNI)
+            snprintf(buf, sizeof buf, "EP %3d/%d", you.hp, you.hp_max);
+            else
             snprintf(buf, sizeof buf, "HP %3d/%d", you.hp, you.hp_max);
     }
     else
     {
         if (boosted_hp)
         {
+		    if (you.species == SP_DJINNI)
+            snprintf(buf, sizeof buf, "EP <lightblue>%3d/%d (%d)</lightblue>",
+                     you.hp, you.hp_max, get_real_hp(true, true));
+            else
             snprintf(buf, sizeof buf, "HP <lightblue>%3d/%d (%d)</lightblue>",
                      you.hp, you.hp_max, get_real_hp(true, true));
         }
         else
         {
+		    if (you.species == SP_DJINNI)
+            snprintf(buf, sizeof buf, "EP %3d/%d (%d)",
+                     you.hp, you.hp_max, get_real_hp(true, true));
+            else
             snprintf(buf, sizeof buf, "HP %3d/%d (%d)",
                      you.hp, you.hp_max, get_real_hp(true, true));
         }
@@ -2241,6 +2244,7 @@ static string _resist_composer(
     out += chop_string(name, spacing);
     out += _itosym(value, max);
 
+
     return out;
 }
 
@@ -2263,7 +2267,14 @@ static vector<formatted_string> _get_overview_resistances(
     out += _resist_composer("rNeg", cwidth, rlife, 3) + "\n";
 
     const int rpois = player_res_poison(calc_unid);
-    out += _resist_composer("rPois", cwidth, rpois) + "\n";
+    string rpois_string = _resist_composer("rPois", cwidth, rpois) + "\n";
+    //XXX
+    if (rpois == 3)
+    {
+       rpois_string = replace_all(rpois_string, "+", "∞");
+       rpois_string = replace_all(rpois_string, "green", "lightgreen");
+    }
+    out += rpois_string;
 
     const int relec = player_res_electricity(calc_unid);
     out += _resist_composer("rElec", cwidth, relec) + "\n";
@@ -2726,14 +2737,14 @@ static string _status_mut_abilities(int sw)
         AC_change += 2 + you.experience_level * 2 / 5
                        + max(0, you.experience_level - 7) * 2 / 5;
         break;
-
-#if TAG_MAJOR_VERSION == 34
     case SP_DJINNI:
-        mutations.push_back("fire immunity");
-        mutations.push_back("cold vulnerability");
+        mutations.push_back("hp casting");
+        mutations.push_back("floating");
+        mutations.push_back("poison immunity");
+        mutations.push_back("rot immunity");
         break;
 
-#endif
+
     default:
         break;
     }                           //end switch - innate abilities

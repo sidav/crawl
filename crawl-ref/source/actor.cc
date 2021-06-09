@@ -54,9 +54,7 @@ bool actor::airborne() const
 bool actor::ground_level() const
 {
     return !airborne() && !is_wall_clinging()
-#if TAG_MAJOR_VERSION == 34
         && mons_species() != MONS_DJINNI
-#endif
         ;
 }
 

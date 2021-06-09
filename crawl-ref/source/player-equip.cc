@@ -269,6 +269,15 @@ static void _equip_artefact_effect(item_def &item, bool *show_msgs, bool unmeld)
     if (proprt[ARTP_EYESIGHT])
         autotoggle_autopickup(false);
 
+    if (proprt[ARTP_MAGICAL_POWER] && !known[ARTP_MAGICAL_POWER] && you.species == SP_DJINNI)
+    {
+        if (msg)
+        {
+            mpr("You feel a powerless tug at your essence.");
+        }
+        artefact_wpn_learn_prop(item, ARTP_MAGICAL_POWER);
+    }
+    else
     if (proprt[ARTP_MAGICAL_POWER] && !known[ARTP_MAGICAL_POWER])
     {
         if (msg)
@@ -391,11 +400,18 @@ static void _unequip_artefact_effect(item_def &item,
     if (proprt[ARTP_HP])
         _calc_hp_artefact();
 
-    if (proprt[ARTP_MAGICAL_POWER] && !known[ARTP_MAGICAL_POWER] && msg)
+    if (proprt[ARTP_MAGICAL_POWER] && !known[ARTP_MAGICAL_POWER] && msg && you.species == SP_DJINNI)
     {
+        mpr("You feel something stop trying to affect your essence.");
+    }
+    else
+    if (proprt[ARTP_MAGICAL_POWER] && !known[ARTP_MAGICAL_POWER] && msg)
+	{
         canned_msg(proprt[ARTP_MAGICAL_POWER] > 0 ? MSG_MANA_DECREASE
                                                   : MSG_MANA_INCREASE);
     }
+
+
 
     // Modify ability scores; always output messages.
     notify_stat_change(STAT_STR, -proprt[ARTP_STRENGTH],     !msg, item,
@@ -525,13 +541,11 @@ static void _equip_weapon_effect(item_def& item, bool showMsgs, bool unmeld)
         if (item.sub_type == STAFF_POWER)
         {
             int mp = item.special - you.elapsed_time / POWER_DECAY;
-
-            if (mp > 0)
-#if TAG_MAJOR_VERSION == 34
                 if (you.species == SP_DJINNI)
-                    you.hp += mp;
+                mpr("You can't attune to this foreign source of essence.");
                 else
-#endif
+            if (mp > 0)
+
                 you.magic_points += mp;
 
             if (get_real_mp(true) >= 50)
@@ -691,8 +705,11 @@ static void _equip_weapon_effect(item_def& item, bool showMsgs, bool unmeld)
                     break;
 
                 case SPWPN_ANTIMAGIC:
-                    // Even if your maxmp is 0.
-                    mpr("You feel magic leave you.");
+                    if (you.species == SP_DJINNI)
+                        mpr("You feel a powerless tug at your essence.");
+                    else
+                        // Even if your maxmp is 0.
+                        mpr("You feel magic leave you.");
                     break;
 
                 default:
@@ -848,8 +865,12 @@ static void _unequip_weapon_effect(item_def& item, bool showMsgs, bool meld)
                 break;
 
             case SPWPN_ANTIMAGIC:
-                calc_mp();
-                mpr("You feel magic returning to you.");
+                if (you.species == SP_DJINNI)
+                    mpr("You feel something stop trying to affect your essence.");
+                else
+                    calc_mp();
+                    if (you.species != SP_DJINNI)
+                        mpr("You feel magic returning to you.");
                 break;
 
                 // NOTE: When more are added here, *must* duplicate unwielding
@@ -869,22 +890,14 @@ static void _unequip_weapon_effect(item_def& item, bool showMsgs, bool meld)
     else if (item.base_type == OBJ_STAVES && item.sub_type == STAFF_POWER)
     {
         int mp = you.magic_points;
-#if TAG_MAJOR_VERSION == 34
-        if (you.species == SP_DJINNI)
-        {
-            mp = you.hp;
-            calc_hp();
-            mp -= you.hp;
-        }
-        else
+                if (you.species == SP_DJINNI)
+                mpr("You discard the foreign source of essence.");
+                else
         {
             calc_mp();
             mp -= you.magic_points;
         }
-#else
-        calc_mp();
-        mp -= you.magic_points;
-#endif
+
 
         // Store the MP in case you'll re-wield quickly.
         item.special = mp + you.elapsed_time / POWER_DECAY;
@@ -1002,9 +1015,7 @@ static void _equip_armour_effect(item_def& arm, bool unmeld)
             {
                 dec_mp(you.magic_points);
                 if (
-#if TAG_MAJOR_VERSION == 34
                         you.species == SP_DJINNI ||
-#endif
                         you.species == SP_VINE_STALKER)
                     mpr("You feel the presence of a powerless spirit.");
                 else
@@ -1333,19 +1344,22 @@ static void _equip_jewellery_effect(item_def &item, bool unmeld)
         break;
 
     case RING_MAGICAL_POWER:
-        if ((you.max_magic_points + 9) *
-            (1.0+player_mutation_level(MUT_HIGH_MAGIC)/10.0) > 50)
-        {
-            mpr("You feel your magic capacity is already quite full.");
-        }
+        if (you.species == SP_DJINNI)
+            mpr("You can't attune to this foreign source of essence.");
         else
-            canned_msg(MSG_MANA_INCREASE);
+            if ((you.max_magic_points + 9) *
+                (1.0+player_mutation_level(MUT_HIGH_MAGIC)/10.0) > 50)
+            {
+                mpr("You feel your magic capacity is already quite full.");
+            }
+            else
+                canned_msg(MSG_MANA_INCREASE);
 
-        calc_mp();
+            calc_mp();
 
-        fake_rap = ARTP_MAGICAL_POWER;
-        ident = ID_KNOWN_TYPE;
-        break;
+            fake_rap = ARTP_MAGICAL_POWER;
+            ident = ID_KNOWN_TYPE;
+            break;
 
     case RING_FLIGHT:
         mprf("You feel %sbuoyant.", you.airborne() ? "more " : "");
@@ -1407,9 +1421,7 @@ static void _equip_jewellery_effect(item_def &item, bool unmeld)
         {
             dec_mp(you.magic_points);
             if (
-#if TAG_MAJOR_VERSION == 34
                     you.species == SP_DJINNI ||
-#endif
                     you.species == SP_VINE_STALKER)
                 mpr("You feel the presence of a powerless spirit.");
             else
@@ -1597,8 +1609,11 @@ static void _unequip_jewellery_effect(item_def &item, bool mesg, bool meld)
         break;
 
     case RING_MAGICAL_POWER:
-        canned_msg(MSG_MANA_DECREASE);
-        break;
+        if (you.species == SP_DJINNI)
+            mpr("You discard the foreign source of essence.");
+        else
+            canned_msg(MSG_MANA_DECREASE);
+            break;
 
     case AMU_THE_GOURMAND:
         you.duration[DUR_GOURMAND] = 0;

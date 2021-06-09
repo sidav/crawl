@@ -165,9 +165,6 @@ int list_spells(bool toggle_with_I, bool viewing, bool allow_preselect,
                               text_only);
     string titlestring = make_stringf("%-25.25s", title.c_str());
     string hungerstring =
-#if TAG_MAJOR_VERSION == 34
-        you.species == SP_DJINNI ? "Glow  " :
-#endif
         "Hunger";
 #ifdef USE_TILE_LOCAL
     {
@@ -806,7 +803,6 @@ bool cast_a_spell(bool check_range, spell_type spell)
     else
         practise(EX_DID_MISCAST, spell);
 
-#if TAG_MAJOR_VERSION == 34
     // Nasty special cases.
     if (you.species == SP_DJINNI && cast_result == SPRET_SUCCESS
         && (spell == SPELL_BORGNJORS_REVIVIFICATION
@@ -816,7 +812,7 @@ bool cast_a_spell(bool check_range, spell_type spell)
         inc_mp(cost, true);
     }
     else // Redraw MP
-#endif
+
         flush_mp();
 
     if (!staff_energy && you.is_undead != US_UNDEAD)

@@ -2526,9 +2526,6 @@ string adjust_abil_message(const char *pmsg, bool allow_upgrades)
     if (brdepth[BRANCH_ABYSS] == -1 && strstr(pmsg, "Abyss"))
         return "";
     if ((you.species == SP_FORMICID
-#if TAG_MAJOR_VERSION == 34
-                || you.species == SP_DJINNI
-#endif
          || you.species == SP_MUMMY || you.species == SP_GHOUL)
         && strstr(pmsg, "berserk"))
     {
@@ -3480,10 +3477,26 @@ bool player_can_join_god(god_type which_god)
     // Dithmenos hates fiery species.
     if (which_god == GOD_DITHMENOS
         && (
-#if TAG_MAJOR_VERSION == 34
             you.species == SP_DJINNI ||
-#endif
             you.species == SP_LAVA_ORC))
+    {
+        return false;
+    }
+
+    if (which_god == GOD_SIF_MUNA
+        && (you.species == SP_DJINNI))
+    {
+        return false;
+    }
+
+    if (which_god == GOD_VEHUMET
+        && (you.species == SP_DJINNI))
+    {
+        return false;
+    }
+
+    if (which_god == GOD_KIKUBAAQUDGHA
+        && (you.species == SP_DJINNI))
     {
         return false;
     }

@@ -827,9 +827,6 @@ static bool _actor_cloud_immune(const actor *act, const cloud_struct &cloud)
                 || player &&
                    (you.duration[DUR_FIRE_SHIELD]
                     || you.mutation[MUT_IGNITE_BLOOD]
-#if TAG_MAJOR_VERSION == 34
-                    || you.species == SP_DJINNI
-#endif
                    );
     case CLOUD_HOLY_FLAMES:
         return act->res_holy_fire() > 0;

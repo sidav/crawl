@@ -907,6 +907,25 @@
 },
 
 // species-dependent innate mutations
+
+{ MUT_FLAT_HP,                    0,  3, false, false, false,
+  "extra vitality",
+
+  {"You have superior vitality. (+4 HP).",
+   "You have much superior vitality. (+8 MHP).",
+   "You have exceptionally superior vitality. (+12 MHP)."},
+
+  {"You feel more vital.",
+   "You feel more vital.",
+   "You feel more vital."},
+
+  {"You feel less vital",
+   "You feel less vital",
+   "You feel less vital"},
+
+  "extra vitality"
+},
+
 { MUT_SAPROVOROUS,                    0,  3, false, false, false,
   "saprovore",
 

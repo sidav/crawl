@@ -2134,10 +2134,8 @@ int monster_die(monster* mons, killer_type killer,
                     die("bad kill-on-healing god!");
                 }
 
-#if TAG_MAJOR_VERSION == 34
                 if (you.species == SP_DJINNI)
-                    hp_heal = max(hp_heal, mp_heal * 2), mp_heal = 0;
-#endif
+                    hp_heal = max(hp_heal, mp_heal), mp_heal = 0;
                 if (hp_heal && you.hp < you.hp_max
                     && !you.duration[DUR_DEATHS_DOOR])
                 {

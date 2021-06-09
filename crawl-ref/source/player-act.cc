@@ -160,9 +160,7 @@ bool player::is_habitable_feat(dungeon_feature_type actual_grid) const
         return false;
 
     if (airborne()
-#if TAG_MAJOR_VERSION == 34
             || species == SP_DJINNI
-#endif
             )
         return true;
 
@@ -488,10 +486,8 @@ string player::foot_name(bool plural, bool *can_plural) const
         }
         else if (species == SP_FELID)
             str = "paw";
-#if TAG_MAJOR_VERSION == 34
         else if (species == SP_DJINNI)
             str = "underside", *can_plural = false;
-#endif
         else if (fishtail)
         {
             str         = "tail";
@@ -693,16 +689,6 @@ bool player::can_go_berserk(bool intentional, bool potion, bool quiet) const
         return false;
     }
 
-#if TAG_MAJOR_VERSION == 34
-    if (you.species == SP_DJINNI)
-    {
-        if (verbose)
-            mpr("Only creatures of flesh and blood can berserk.");
-
-        return false;
-    }
-
-#endif
     if (is_lifeless_undead())
     {
         if (verbose)

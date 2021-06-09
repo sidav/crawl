@@ -3359,6 +3359,7 @@ enum mutation_type
     MUT_HEAT_VULNERABILITY,
 #endif
     MUT_BLACK_MARK,
+    MUT_FLAT_HP,
     NUM_MUTATIONS,
 
     RANDOM_MUTATION,
@@ -3708,13 +3709,11 @@ enum species_type
     SP_DEEP_DWARF,
     SP_FELID,
     SP_OCTOPODE,
-#if TAG_MAJOR_VERSION == 34
     SP_DJINNI,
-#endif
     SP_LAVA_ORC,
     SP_GARGOYLE,
     SP_FORMICID,
-    SP_MOUNTAIN_DWARF,  
+    SP_MOUNTAIN_DWARF,
     SP_VINE_STALKER,
     LAST_VALID_SPECIES = SP_VINE_STALKER,
 // The high scores viewer still needs enums for removed species.
@@ -3725,7 +3724,6 @@ enum species_type
     SP_GNOME,                          // (placeholder)
 #if TAG_MAJOR_VERSION > 34
     SP_SLUDGE_ELF,                     // (placeholder)
-    SP_DJINNI,                         // (placeholder)
 #endif
 
     NUM_SPECIES,                       // always after the last species

@@ -2008,10 +2008,6 @@ static void _handle_magic_contamination()
     if (you.duration[DUR_FINESSE])
         added_contamination += 20;
 
-#if TAG_MAJOR_VERSION == 34
-    if (you.duration[DUR_REGENERATION] && you.species == SP_DJINNI)
-        added_contamination += 20;
-#endif
     // The Orb halves dissipation (well a bit more, I had to round it),
     // but won't cause glow on its own -- otherwise it'd spam the player
     // with messages about contamination oscillating near zero.
@@ -2080,11 +2076,7 @@ static void _magic_contamination_effects(int time_delta)
                "mutagenic glow", true,
                coinflip(),
                false, false, false, false,
-#if TAG_MAJOR_VERSION == 34
-               you.species == SP_DJINNI
-#else
                false
-#endif
                );
 
         // we're meaner now, what with explosions and whatnot, but

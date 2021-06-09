@@ -102,6 +102,7 @@ static void _species_stat_init(species_type which_species)
     case SP_FELID:              s =  4; i =  9; d = 11;      break;  // 24
     case SP_OCTOPODE:           s =  7; i = 10; d =  7;      break;  // 24
     case SP_MOUNTAIN_DWARF:     s =  9; i =  4; d =  5;      break;  // 18
+    case SP_DJINNI:             s =  7; i =  9; d =  8;      break;  // 24
     }
 
     you.base_stats[STAT_STR] = s;
@@ -325,11 +326,12 @@ void give_basic_mutations(species_type speci)
     case SP_FORMICID:
         you.mutation[MUT_ANTENNAE]    = 3;
         break;
-#if TAG_MAJOR_VERSION == 34
     case SP_DJINNI:
-        you.mutation[MUT_NEGATIVE_ENERGY_RESISTANCE] = 3;
+        you.mutation[MUT_HEAT_RESISTANCE] = 2;
+        you.mutation[MUT_COLD_VULNERABILITY] = 1;
+        you.mutation[MUT_UNBREATHING]    = 1;
+        you.mutation[MUT_FLAT_HP]        = 1;
         break;
-#endif
     case SP_VINE_STALKER:
         you.mutation[MUT_FANGS]          = 2;
         you.mutation[MUT_ANTIMAGIC_BITE] = 1;
