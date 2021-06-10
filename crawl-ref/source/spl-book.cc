@@ -690,6 +690,12 @@ static bool _get_mem_list(spell_list &mem_spells,
             mprf(MSGCH_PROMPT, "You can't handle any books in this form.");
         return false;
     }
+    if (you.species == SP_DJINNI)
+    {
+        if (!just_check)
+            mprf(MSGCH_PROMPT, "You can't learn anything this way.");
+        return false;
+    }
 
     bool          book_errors    = false;
     unsigned int  num_on_ground  = 0;

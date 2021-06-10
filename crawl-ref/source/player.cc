@@ -3093,6 +3093,22 @@ static void _felid_extra_life()
  * @param skip_attribute_increase If true and XL has increased, don't process
  *                                stat gains.
  */
+
+static void _gain_innate_spells()
+{
+    auto &spell_vec = you.props[INNATE_SPELLS_KEY].get_vector();
+    // Gain spells at every odd XL, starting at XL 3 and continuing to XL 27.
+    for (int i = 0; i < spell_vec.size() && i < (you.experience_level - 1) / 2; i++)
+    {
+        const spell_type spell = (spell_type)spell_vec[i].get_int();
+        auto spindex = find(begin(you.spells), end(you.spells), spell);
+        if (spindex != end(you.spells))
+            continue; // already learned that one
+                mprf("The power to cast %s wells up from within.", spell_title(spell));
+                add_spell_to_memory(spell);
+    }
+} 
+ 
 void level_change(int source, const char* aux, bool skip_attribute_increase)
 {
     const bool wiz_cmd = crawl_state.prev_cmd == CMD_WIZARD
@@ -3148,7 +3164,6 @@ void level_change(int source, const char* aux, bool skip_attribute_increase)
                 mprf(MSGCH_INTRINSIC_GAIN, "You have reached level %d!",
                      new_exp);
             }
-
             if (!(new_exp % 3) && !skip_attribute_increase)
                 if (!attribute_increase())
                     return; // abort level gain, the xp is still there
@@ -3705,7 +3720,10 @@ void level_change(int source, const char* aux, bool skip_attribute_increase)
         if (you.species == SP_FELID)
             _felid_extra_life();
     }
-
+    
+    if (you.mutation[MUT_INNATE_CASTER])
+        _gain_innate_spells();
+        
     you.redraw_title = true;
 
 #ifdef DGL_WHEREIS
@@ -6888,7 +6906,7 @@ bool player::heal(int amount, bool max_too)
 mon_holy_type player::holiness() const
 {
     if (species == SP_GARGOYLE || form == TRAN_STATUE || form == TRAN_WISP
-        || petrified())
+        || petrified() || species == SP_DJINNI)
     {
         return MH_NONLIVING;
     }

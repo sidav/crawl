@@ -926,6 +926,16 @@
   "extra vitality"
 },
 
+{ MUT_INNATE_CASTER,                    0,  1, false, false, false,
+  "innate caster",
+
+  {"You learn spells naturally, not from books.", "", ""},
+  {"", "", ""},
+  {"", "", ""},
+
+  "innate caster"
+},
+
 { MUT_SAPROVOROUS,                    0,  3, false, false, false,
   "saprovore",
 

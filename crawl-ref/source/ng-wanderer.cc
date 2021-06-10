@@ -187,17 +187,22 @@ static skill_type _wanderer_role_skill_select(stat_type selected_role,
     }
 
     case STAT_INT:
-        switch (random2(3))
-        {
-        case 0:
+        if (you.mutation[MUT_INNATE_CASTER])
             selected_skill = SK_SPELLCASTING;
-            break;
-        case 1:
-            selected_skill = sk_1;
-            break;
-        case 2:
+        else 
+        {
+            switch (random2(3))
+            {
+            case 0:
+                selected_skill = SK_SPELLCASTING;
+                break;
+            case 1:
+                selected_skill = sk_1;
+                break;
+            case 2:
             selected_skill = sk_2;
             break;
+        }
         }
         break;
     }

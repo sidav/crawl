@@ -3553,6 +3553,9 @@ bool is_useless_item(const item_def &item, bool temp)
         }
 
     case OBJ_BOOKS:
+        if (item.sub_type != BOOK_MANUAL && item.sub_type != BOOK_DESTRUCTION 
+        && item.sub_type != NUM_BOOKS && you.mutation[MUT_INNATE_CASTER])
+            return true;
         if (item.sub_type != BOOK_MANUAL || !item_type_known(item))
             return false;
         if (you.skills[item.plus] >= 27)

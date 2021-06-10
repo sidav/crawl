@@ -413,18 +413,23 @@ int calc_spell_power(spell_type spell, bool apply_intel, bool fail_rate_check,
         unsigned int disciplines = get_spell_disciplines(spell);
 
         int skillcount = count_bits(disciplines);
-        if (skillcount)
-        {
-            for (int ndx = 0; ndx <= SPTYP_LAST_EXPONENT; ndx++)
+        if (!you.mutation[MUT_INNATE_CASTER])
             {
-                unsigned int bit = (1 << ndx);
-                if (disciplines & bit)
-                    power += you.skill(spell_type2skill(bit), 200);
+            if (skillcount)
+            {
+                for (int ndx = 0; ndx <= SPTYP_LAST_EXPONENT; ndx++)
+                {
+                    unsigned int bit = (1 << ndx);
+                    if (disciplines & bit)
+                        power += you.skill(spell_type2skill(bit), 200);
+                }
+                power /= skillcount;
             }
-            power /= skillcount;
-        }
 
-        power += you.skill(SK_SPELLCASTING, 50);
+            power += you.skill(SK_SPELLCASTING, 50);
+            }
+        else
+            power += you.skill(SK_SPELLCASTING, 250);
 
         // Brilliance boosts spell power a bit (equivalent to three
         // spell school levels).
@@ -728,7 +733,11 @@ bool cast_a_spell(bool check_range, spell_type spell)
         crawl_state.zero_turns_taken();
         return false;
     }
-
+    if (spell_difficulty(spell) > you.experience_level)
+    {
+        mpr("you aren't experienced enough to cast this spell.");
+        return false;
+    }
     if (check_range && spell_no_hostile_in_range(spell))
     {
         // Abort if there are no hostiles within range, but flash the range

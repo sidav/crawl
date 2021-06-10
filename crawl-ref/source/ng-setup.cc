@@ -219,6 +219,20 @@ void autopickup_starting_ammo(missile_type missile)
     if (Options.autopickup_starting_ammo)
         you.force_autopickup[OBJ_MISSILES][missile] = 1;
 }
+static void _cleanup_innate_magic_skills()
+{
+    // could use a reference here, but seems surprising to the reader
+    int spcasting = you.skills[SK_SPELLCASTING];
+    for (int i = SK_FIRST_MAGIC_SCHOOL; i <= SK_LAST_MAGIC; i++)
+    {
+        skill_type sk = skill_type(i);
+        const int lvl = you.skills[sk];
+        if (lvl > spcasting)
+            spcasting = lvl;
+        you.skills[sk] = 0;
+    }
+    you.skills[SK_SPELLCASTING] = spcasting;
+}
 
 void give_basic_mutations(species_type speci)
 {
@@ -331,6 +345,7 @@ void give_basic_mutations(species_type speci)
         you.mutation[MUT_COLD_VULNERABILITY] = 1;
         you.mutation[MUT_UNBREATHING]    = 1;
         you.mutation[MUT_FLAT_HP]        = 1;
+        you.mutation[MUT_INNATE_CASTER]  = 1;
         break;
     case SP_VINE_STALKER:
         you.mutation[MUT_FANGS]          = 2;
@@ -456,6 +471,61 @@ static void _newgame_clear_item(int slot)
     for (int i = EQ_WEAPON; i < NUM_EQUIP; ++i)
         if (you.equip[i] == slot)
             you.equip[i] = -1;
+}
+
+static void _setup_innate_spells()
+{
+    set<spell_type> spellset;
+    // Start with all spells from spellbooks in your inventory.
+    for (item_def& it : you.inv)
+    {
+        if (it.base_type != OBJ_BOOKS || it.sub_type == BOOK_MANUAL)
+            continue;
+        for (int iter_i = 0; iter_i < SPELLBOOK_SIZE; iter_i++)
+        {
+            spell_type sp = which_spell_in_book(it, iter_i);
+            if (!spell_is_useless(sp, false) && sp != SPELL_NO_SPELL) 
+            {
+                add_spell_to_memory(sp);
+                spellset.insert(sp);
+            }
+        }
+        destroy_item(it);
+    }
+
+    // Get spells at XL 3 and every odd level thereafter.
+    vector<spell_type> chosen_spells;
+    int const min_lev[] = {1,2, 2,3,4, 5,6,6, 6,7,7, 8,9};
+    int const max_lev[] = {1,2, 3,4,5, 5,6,7, 7,8,8, 9,9};
+    for (int iter1_i = 0; iter1_i < 27 / 2; iter1_i++)
+    {
+        spell_type next_spell = SPELL_NO_SPELL;
+        int seen = 0;
+        for (int s = 0; s < NUM_SPELLS; ++s)
+        {
+            const spell_type spell = static_cast<spell_type>(s);
+
+            if (!is_player_spell(spell)
+                || spellset.find(spell) != spellset.end()
+                || spell_is_useless(spell, false))
+            {
+                continue;
+            }
+
+            const int lev = spell_difficulty(spell);
+            if (lev >= min_lev[iter1_i] && lev <= max_lev[iter1_i]
+                && one_chance_in(++seen))
+            {
+                next_spell = spell;
+            }
+        }
+        ASSERT(next_spell != SPELL_NO_SPELL);
+        spellset.insert(next_spell);
+        chosen_spells.push_back(next_spell);
+    }
+    
+    for (spell_type s : chosen_spells)
+        you.props[INNATE_SPELLS_KEY].get_vector().push_back(s);
 }
 
 static void _update_weapon(const newgame_def& ng)
@@ -1011,7 +1081,8 @@ static void _give_items_skills(const newgame_def& ng)
     // Deep Dwarves get a wand of heal wounds (5).
     if (you.species == SP_DEEP_DWARF)
         newgame_make_item(-1, EQ_NONE, OBJ_WANDS, WAND_HEAL_WOUNDS, -1, 1, 5);
-
+    if (you.mutation[MUT_INNATE_CASTER])
+        _cleanup_innate_magic_skills();
     // Zotdef: everyone gets bonus two potions of curing.
 
     if (crawl_state.game_is_zotdef())
@@ -1124,7 +1195,7 @@ static void _mark_starting_books()
 static void _give_basic_spells(job_type which_job)
 {
     // Wanderers may or may not already have a spell. - bwr
-    if (which_job == JOB_WANDERER)
+    if (which_job == JOB_WANDERER || you.mutation[MUT_INNATE_CASTER])
         return;
 
     spell_type which_spell = SPELL_NO_SPELL;
@@ -1333,7 +1404,13 @@ static void _setup_generic(const newgame_def& ng)
 
     _give_basic_spells(you.char_class);
     _give_basic_knowledge(you.char_class);
-
+    // Must be after _give_basic_knowledge
+    {
+        // intentionally create the subgenerator either way, so that this has the
+        // same impact on the current main rng for all chars.
+        if (you.mutation[MUT_INNATE_CASTER])
+            _setup_innate_spells();
+    }
     // Clear known-useless items (potions for Mummies, etc).
     for (int i = 0; i < ENDOFPACK; ++i)
     {

@@ -3360,6 +3360,7 @@ enum mutation_type
 #endif
     MUT_BLACK_MARK,
     MUT_FLAT_HP,
+    MUT_INNATE_CASTER,
     NUM_MUTATIONS,
 
     RANDOM_MUTATION,

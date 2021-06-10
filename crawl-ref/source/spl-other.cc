@@ -107,6 +107,10 @@ spret_type cast_sublimation_of_blood(int pow, bool fail)
             mpr("A conflicting enchantment prevents the spell from "
                 "coming into effect.");
         }
+        if (you.species == SP_DJINNI)
+        {
+            mpr("You are unable to violate your essence like that.");
+        }
         else if (!you.can_bleed())
         {
             if (you.species == SP_VAMPIRE)
