@@ -564,13 +564,21 @@ int species_apt(skill_type skill, species_type species)
 
     int mod = 0;
 
-	if (you.char_class == JOB_DEMONSPAWN)
-	{
-		if (skill == SK_INVOCATIONS)
-			mod = 3;
-		else
-			mod = -1;
-	}
+    if (you.char_class == JOB_DEMONSPAWN)
+    {
+        if (_spec_skills[species][skill] == -99)
+            mod = 0;
+        else if (skill == SK_FIGHTING || skill == SK_CONJURATIONS
+        || skill == SK_HEXES || skill == SK_SUMMONINGS
+        || skill == SK_POISON_MAGIC || skill == SK_STEALTH)
+            mod = 0;
+        else if (skill == SK_EVOCATIONS || skill == SK_NECROMANCY)
+            mod = 1;
+        else if (skill == SK_INVOCATIONS)
+            mod = 3;
+        else
+            mod = -1;
+    }
 
 
     return (_spec_skills[species][skill] + mod);
