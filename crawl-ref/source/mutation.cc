@@ -1358,6 +1358,7 @@ bool physiology_mutation_conflict(mutation_type mutat, bool ds_roll)
     // Vampires' healing and thirst rates depend on their blood level.
     if (you.species == SP_VAMPIRE
         && (mutat == MUT_CARNIVOROUS || mutat == MUT_HERBIVOROUS
+            || mutat == MUT_SAPROVOROUS
             || mutat == MUT_REGENERATION || mutat == MUT_SLOW_HEALING
             || mutat == MUT_FAST_METABOLISM || mutat == MUT_SLOW_METABOLISM))
     {
@@ -1407,9 +1408,12 @@ bool physiology_mutation_conflict(mutation_type mutat, bool ds_roll)
     }
 
     // Already immune.
-    if (you.species == SP_GARGOYLE && mutat == MUT_POISON_RESISTANCE)
+    if (you.species == SP_GARGOYLE && (mutat == MUT_POISON_RESISTANCE || mutat == MUT_SLIMY_GREEN_SCALES))
         return true;
 
+    if (you.species == SP_MUMMY && (mutat == MUT_NEGATIVE_ENERGY_RESISTANCE || MUT_IGNITE_BLOOD || mutat == MUT_SLIMY_GREEN_SCALES || mutat == MUT_SAPROVOROUS))
+        return true;
+        
     equipment_type eq_type = EQ_NONE;
 
     // Mutations of the same slot conflict
