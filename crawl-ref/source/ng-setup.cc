@@ -507,7 +507,9 @@ static void _setup_innate_spells()
 
             if (!is_player_spell(spell)
                 || spellset.find(spell) != spellset.end()
-                || spell_is_useless(spell, false))
+                || spell_is_useless(spell, false)
+                || spell != SPELL_DEATHS_DOOR
+                || spell != SPELL_SPELLFORGED_SERVITOR)
             {
                 continue;
             }
