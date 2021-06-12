@@ -922,11 +922,15 @@ void turn_corpse_into_skeleton_and_blood_potions(item_def &item)
     }
 }
 
-static bool allow_bleeding_on_square(const coord_def& where)
+static bool allow_bleeding_on_square(const coord_def& where,
+                                     bool to_ignite = false)
 {
     // No bleeding onto sanctuary ground, please.
-    // Also not necessary if already covered in blood.
-    if (is_bloodcovered(where) || is_sanctuary(where))
+    if (is_sanctuary(where))
+        return false;
+    
+    // Also not necessary if already covered in blood. Unless going to ignite right after.
+    if (is_bloodcovered(where) && !to_ignite)
         return false;
 
     // No spattering into lava or water.
@@ -1020,12 +1024,12 @@ static void _maybe_bloodify_square(const coord_def& where, int amount,
     if (amount < 1)
         return;
 
-    bool may_bleed = allow_bleeding_on_square(where);
+    int ignite_blood = player_mutation_level(MUT_IGNITE_BLOOD);
 
-    bool ignite_blood = player_mutation_level(MUT_IGNITE_BLOOD)
-                        && you.see_cell(where);
+    bool may_bleed = allow_bleeding_on_square(where,
+                       ignite_blood > 0 && you.see_cell(where));
 
-    if (ignite_blood)
+    if (ignite_blood && you.see_cell(where))
         amount *= 2;
 
     if (x_chance_in_y(amount, 20))
@@ -1037,11 +1041,12 @@ static void _maybe_bloodify_square(const coord_def& where, int amount,
             env.pgrid(where) |= FPROP_BLOODY;
             _orient_wall_blood(where, from, old_blood);
 
-            if (ignite_blood
+            if (x_chance_in_y(ignite_blood, 3)
                 && !cell_is_solid(where)
                 && env.cgrid(where) == EMPTY_CLOUD)
             {
-                place_cloud(CLOUD_FIRE, where, 5 + random2(6), &you);
+                int dur = 2 + ignite_blood + random2(2 * ignite_blood);
+                place_cloud(CLOUD_FIRE, where, dur, &you);
             }
         }
 

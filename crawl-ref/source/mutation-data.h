@@ -1579,26 +1579,30 @@
    "camouflage"
 },
 
-{ MUT_IGNITE_BLOOD,                   0,  1, false, false, false,
+{ MUT_IGNITE_BLOOD,                   0,  3, false, false, false,
   "ignite blood",
 
-  {"Your demonic aura causes spilled blood to erupt in flames.", "", ""},
-  {"Your blood runs red-hot!", "", ""},
+  {"Your demonic aura sometimes causes spilled blood to erupt in flames",
+   "Your demonic aura often causes spilled blood to erupt in flames",
+   "Your demonic aura causes all spilled blood to erupt in flames."},
+  {"Your blood heats up.",
+   "Your blood runs red-hot!",
+   "Your blood burns even hotter!"},
   {"", "", ""},
 
   "ignite blood"
 },
 
-{ MUT_FOUL_STENCH,                    0,  2, false, false, false,
+{ MUT_FOUL_STENCH,                    0,  3, false, false, false,
   "foul stench",
 
-  {"You emit a foul stench, and are resistant to rotting and decay.",
-   "You radiate miasma, and are resistant to rotting and decay.",
-   ""},
+  {"You may rarely emit foul miasma when damaged in melee.",
+   "You sometimes emit foul miasma when damaged in melee.",
+   "You frequently emit foul miasma when damaged in melee."},
 
-  {"You begin to emit a foul stench of rot and decay.",
-   "You begin to radiate miasma.",
-   ""},
+   {"You begin to emit a foul stench of rot and decay.",
+   "Your foul stench grows more powerful.",
+   "You begin to radiate miasma.",},
 
   {"", "", ""},
 
