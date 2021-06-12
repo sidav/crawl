@@ -88,13 +88,16 @@ static void _maybe_melt_player_enchantments(beam_type flavour, int damage)
                 you.props["melt_shield"] = true;
         }
 
-        if (you.mutation[MUT_ICEMAIL])
-        {
-            mprf(MSGCH_DURATION, "Your icy envelope dissipates!");
+        if (you.mutation[MUT_CONDENSATION_SHIELD])
+        if (!you.duration[DUR_ICEMAIL_DEPLETED]) 
+            {
+            if (you.mutation[MUT_ICEMAIL])
+            mprf(MSGCH_DURATION, "Your icy defences dissipate!");
+            else
+            mprf(MSGCH_DURATION, "Your frosty shield evaporates!");
             you.duration[DUR_ICEMAIL_DEPLETED] = ICEMAIL_TIME;
             you.redraw_armour_class = true;
         }
-
         if (you.duration[DUR_ICY_ARMOUR] > 0)
         {
             you.duration[DUR_ICY_ARMOUR] -= damage * BASELINE_DELAY;

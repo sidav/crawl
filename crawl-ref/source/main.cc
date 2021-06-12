@@ -2411,8 +2411,12 @@ static void _decrement_durations()
             you.duration[DUR_ICEMAIL_DEPLETED] -= delay;
 
         if (!you.duration[DUR_ICEMAIL_DEPLETED])
+        {
+            if (you.mutation[MUT_ICEMAIL])
             mprf(MSGCH_DURATION, "Your icy envelope is restored.");
-
+            else
+            mprf(MSGCH_DURATION, "Your frosty shield is restored.");
+        }
         you.redraw_armour_class = true;
     }
 

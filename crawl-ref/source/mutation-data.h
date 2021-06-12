@@ -896,7 +896,7 @@
 },
 
 // Draconian only
-{ MUT_BIG_WINGS,                      4,  1, false,  true,  true,
+{ MUT_BIG_WINGS,                        4,  1, false,  true,  true,
   "large and strong wings",
 
   {"Your wings are large and strong.", "", ""},
@@ -908,7 +908,7 @@
 
 // species-dependent innate mutations
 
-{ MUT_FLAT_HP,                    0,  3, false, false, false,
+{ MUT_FLAT_HP,                          0,  3, false, false, false,
   "extra vitality",
 
   {"You have superior vitality. (+4 HP).",
@@ -926,7 +926,7 @@
   "extra vitality"
 },
 
-{ MUT_INNATE_CASTER,                    0,  1, false, false, false,
+{ MUT_INNATE_CASTER,                   0,  1, false, false, false,
   "innate caster",
 
   {"You learn spells naturally, not from books.", "", ""},
@@ -1062,14 +1062,26 @@
   "passive mapping"
 },
 
-{ MUT_ICEMAIL,                        0,  1, false, false, false,
+{ MUT_ICEMAIL,                        0,  2, false, false, false,
   "icemail",
 
-  {"A meltable icy envelope protects you from harm and freezing vapours (AC +", "", ""},
-  {"An icy envelope takes form around you.", "", ""},
+  {"A meltable icy envelope protects you from harm. (AC +",
+   "A thick, meltable icy envelope protects you from harm. (AC +", ""},
+  {"An icy envelope takes form around you.",
+   "Your icy envelope grows thicker.", ""},
   {"", "", ""},
 
   "icemail"
+},
+
+{ MUT_CONDENSATION_SHIELD,            0,  2, false, false, false,
+  "condensation shield",
+
+  {"A meltable shield of frost defends you. (SH +", "", ""},
+  {"Frost condenses into a shield before you.","", ""},
+  {"", "", ""},
+
+  "condensation shield"
 },
 
 { MUT_CONSERVE_SCROLLS,               0,  1, false, false, false,
@@ -1531,7 +1543,7 @@
   "yellow scales"
 },
 
-{ MUT_BIG_BRAIN,                  2,  3, false,  true,  true,
+{ MUT_BIG_BRAIN,                  2,  3, false,  true,  false,
   "big brain",
 
   {"You have an unusually large brain. (Int +2)",

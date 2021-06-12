@@ -755,7 +755,9 @@ static void _print_stats_ac(int x, int y)
         textcolor(RED);
     else if (you.duration[DUR_CONDENSATION_SHIELD]
              || you.duration[DUR_MAGIC_SHIELD]
-             || you.duration[DUR_DIVINE_SHIELD])
+             || you.duration[DUR_DIVINE_SHIELD]
+             || (you.mutation[MUT_CONDENSATION_SHIELD]
+                 && !you.duration[DUR_ICEMAIL_DEPLETED]))
     {
         textcolor(LIGHTBLUE);
     }

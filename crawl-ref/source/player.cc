@@ -148,7 +148,7 @@ bool check_moveto_cloud(const coord_def& p, const string &move_verb,
                     threshold = threshold * 3 / 2;
                 threshold = threshold * you.time_taken / BASELINE_DELAY;
                 // Do prompt if we'd lose icemail, though.
-                if (you.hp > threshold && !you.mutation[MUT_ICEMAIL])
+                if (you.hp > threshold && !you.mutation[MUT_CONDENSATION_SHIELD])
                     return true;
             }
 
@@ -2690,6 +2690,11 @@ int player_shield_class(void)
     shield += (player_mutation_level(MUT_LARGE_BONE_PLATES) > 0
                ? player_mutation_level(MUT_LARGE_BONE_PLATES) * 200
                : 0);
+    if (player_mutation_level(MUT_CONDENSATION_SHIELD) > 0
+            && !you.duration[DUR_ICEMAIL_DEPLETED])
+    {
+        shield += ICEMAIL_MAX * 50;
+    }
 
     return (shield + stat + 50) / 100;
 }
@@ -6637,7 +6642,16 @@ int player_icemail_armour_class()
     if (!you.mutation[MUT_ICEMAIL])
         return 0;
 
-    return you.duration[DUR_ICEMAIL_DEPLETED] ? 0 : ICEMAIL_MAX;
+    return you.duration[DUR_ICEMAIL_DEPLETED] ? 0
+            : player_mutation_level(MUT_ICEMAIL) * ICEMAIL_MAX / 2;
+}
+
+int player_condensation_shield_class()
+{
+    if (!you.mutation[MUT_CONDENSATION_SHIELD])
+        return 0;
+
+    return you.duration[DUR_ICEMAIL_DEPLETED] ? 0 : ICEMAIL_MAX / 2;
 }
 
 bool player_stoneskin()
