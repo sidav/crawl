@@ -2624,7 +2624,8 @@ int player_armour_shield_spell_penalty()
 int player_wizardry(void)
 {
     return you.wearing(EQ_RINGS, RING_WIZARDRY)
-           + you.wearing(EQ_STAFF, STAFF_WIZARDRY);
+           + you.wearing(EQ_STAFF, STAFF_WIZARDRY)
+           + (player_mutation_level(MUT_BIG_BRAIN) == 3);
 }
 
 int player_shield_class(void)

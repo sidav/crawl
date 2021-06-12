@@ -1531,6 +1531,24 @@
   "yellow scales"
 },
 
+{ MUT_BIG_BRAIN,                  2,  3, false,  true,  true,
+  "big brain",
+
+  {"You have an unusually large brain. (Int +2)",
+   "You have an extremely huge brain. (Int + 4)",
+   "You have an absolutely massive brain. (Int +6, Wiz)"},
+
+  {"Your brain expands.",
+   "Your brain expands.",
+   "Your brain expands to incredible size."},
+
+  {"Your brain returns to normal size.",
+   "Your brain shrinks.",
+   "Your brain shrinks."},
+
+  "big brain"
+},
+
 { MUT_CAMOUFLAGE,                     1,  3, false,  true,  true,
   "camouflage",
 
