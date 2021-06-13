@@ -2246,7 +2246,7 @@ static const facet_def _demon_facets[] =
     { 2, { MUT_POWERED_BY_DEATH, MUT_POWERED_BY_DEATH, MUT_POWERED_BY_DEATH },
       { -33, 0, 0 } },
     { 2, { MUT_DEMONIC_GUARDIAN, MUT_DEMONIC_GUARDIAN, MUT_DEMONIC_GUARDIAN },
-      { -66, 17, 50 } },
+      { -33, 0, 0 } },
     { 2, { MUT_NIGHTSTALKER, MUT_NIGHTSTALKER, MUT_NIGHTSTALKER },
       { -33, 0, 0 } },
     { 2, { MUT_SPINY, MUT_SPINY, MUT_SPINY },
@@ -2542,70 +2542,42 @@ int how_mutated(bool all, bool levels)
     return j;
 }
 
-// Return whether current tension is balanced
-static bool _balance_demonic_guardian()
-{
-    const int mutlevel = player_mutation_level(MUT_DEMONIC_GUARDIAN);
-
-    int tension = get_tension(GOD_NO_GOD), mons_val = 0, total = 0;
-    monster_iterator mons;
-
-    // tension is unfavorably high, perhaps another guardian should spawn
-    if (tension*3/4 > mutlevel*6 + random2(mutlevel*mutlevel*2))
-        return false;
-
-    for (int i = 0; mons && i <= 20/mutlevel; ++mons)
-    {
-        mons_val = get_monster_tension(*mons, GOD_NO_GOD);
-        const mon_attitude_type att = mons_attitude(*mons);
-
-        if (testbits(mons->flags, MF_DEMONIC_GUARDIAN)
-            && total < random2(mutlevel * 5)
-            && att == ATT_FRIENDLY
-            && !one_chance_in(3)
-            && !mons->has_ench(ENCH_LIFE_TIMER))
-        {
-            mprf("%s %s!", mons->name(DESC_THE).c_str(),
-                           summoned_poof_msg(*mons).c_str());
-            monster_die(*mons, KILL_NONE, NON_MONSTER);
-        }
-        else
-            total += mons_val;
-    }
-
-    return true;
-}
-
-// Primary function to handle and balance demonic guardians, if the tension
-// is unfavorably high and a guardian was not recently spawned, a new guardian
-// will be made, if tension is below a threshold (determined by the mutations
-// level and a bit of randomness), guardians may be dismissed in
-// _balance_demonic_guardian()
+// Primary function to handle demonic guardians.
+// Guardian tier is partially based on player experience level. This should
+// allow players to get the mutation early without it going totally out of
+// control.
 void check_demonic_guardian()
 {
     const int mutlevel = player_mutation_level(MUT_DEMONIC_GUARDIAN);
 
-    if (!_balance_demonic_guardian() &&
-        you.duration[DUR_DEMONIC_GUARDIAN] == 0)
+    if (you.duration[DUR_DEMONIC_GUARDIAN] == 0)
     {
         monster_type mt;
-
-        switch (mutlevel)
+        int guardian_str = mutlevel + div_rand_round(you.experience_level - 9, 9);
+        
+        switch (guardian_str)
         {
         case 1:
             mt = random_choose(MONS_WHITE_IMP, MONS_QUASIT, MONS_UFETUBUS,
-                               MONS_IRON_IMP, MONS_CRIMSON_IMP, -1);
+                               MONS_IRON_IMP, -1);
             break;
         case 2:
-            mt = random_choose(MONS_SIXFIRHY, MONS_SMOKE_DEMON, MONS_SOUL_EATER,
-                               MONS_SUN_DEMON, MONS_ICE_DEVIL, -1);
+            mt = random_choose(MONS_ORANGE_DEMON, MONS_ICE_DEVIL, MONS_HELLWING, -1);
             break;
         case 3:
-            mt = random_choose(MONS_EXECUTIONER, MONS_BALRUG, MONS_REAPER,
-                               MONS_CACODEMON, -1);
+            mt = random_choose(MONS_SOUL_EATER, MONS_SMOKE_DEMON,
+                               MONS_SIXFIRHY, MONS_SUN_DEMON, -1);
+            break;
+        case 4:
+            mt = random_choose(MONS_BALRUG, MONS_REAPER,
+                               MONS_LOROCYPROCA, MONS_HELL_BEAST, -1);
+            break;
+        case 5:
+            mt = random_choose(MONS_EXECUTIONER, MONS_HELL_SENTINEL,
+                               MONS_BRIMSTONE_FIEND, -1);
             break;
         default:
-            die("Invalid demonic guardian level: %d", mutlevel);
+            die("Invalid demonic guardian level: %d", guardian_str);
         }
 
         monster *guardian = create_monster(mgen_data(mt, BEH_FRIENDLY, &you,
@@ -2623,6 +2595,7 @@ void check_demonic_guardian()
 
         // no more guardians for mutlevel+1 to mutlevel+20 turns
         you.duration[DUR_DEMONIC_GUARDIAN] = 10*(mutlevel + random2(20));
+        mpr("A demonic guardian appears!"); 
     }
 }
 

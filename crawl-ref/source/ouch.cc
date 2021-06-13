@@ -897,6 +897,21 @@ static void _maybe_spawn_jellies(int dam, const char* aux,
     }
 }
 
+static void _maybe_summon_demonic_guardian(int dam)
+{
+    // low chance to summon on any hit that dealt damage
+    // always tries to summon if the hit did 50% max hp or if we're about to die
+    if (you.mutation[MUT_DEMONIC_GUARDIAN]
+        && (x_chance_in_y(dam, you.hp_max)
+            || dam > you.hp_max / 2
+            || you.hp * 5 < you.hp_max))
+    {
+        check_demonic_guardian();
+    }
+}
+
+
+
 static void _powered_by_pain(int dam)
 {
     const int level = player_mutation_level(MUT_POWERED_BY_PAIN);
@@ -1140,6 +1155,7 @@ void ouch(int dam, int death_source, kill_method_type death_type,
 
             _yred_mirrors_injury(dam, death_source);
             _maybe_spawn_jellies(dam, aux, death_type, death_source);
+            _maybe_summon_demonic_guardian(dam);
             _maybe_fog(dam);
             _powered_by_pain(dam);
             if (drain_amount > 0)
