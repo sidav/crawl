@@ -2253,10 +2253,10 @@ static string _resist_composer(
 static vector<formatted_string> _get_overview_resistances(
     vector<char> &equip_chars, bool calc_unid, int sw)
 {
-    // 3 columns, splits at columns 18, 33
-    column_composer cols(3, 18, 33);
-    // First column, resist name is 7 chars
-    int cwidth = 7;
+    // 3 columns, splits at columns 20, 33
+    column_composer cols(3, 20, 33);
+    // First column, resist name is up to 9 chars
+    int cwidth = 9;
     string out;
 
     const int rfire = player_res_fire(calc_unid);
@@ -2300,6 +2300,12 @@ static vector<formatted_string> _get_overview_resistances(
 
     const int rmagi = player_res_magic(calc_unid) / 40;
     out += _resist_composer("MR", cwidth, rmagi, 5) + "\n";
+
+    const int regen = player_regen(); // round up
+    out += make_stringf("HPRegen  %d.%d%d/turn\n", regen/100, regen/10%10, regen%10);
+
+    const int mp_regen = player_mp_regen(); // round up
+    out += make_stringf("MPRegen  %d.%d%d/turn\n", mp_regen/100, mp_regen/10%10, mp_regen%10);
 
     cols.add_formatted(0, out, false);
 

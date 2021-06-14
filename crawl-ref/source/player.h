@@ -858,8 +858,8 @@ int player_wizardry(void);
 int player_prot_life(bool calc_unid = true, bool temp = true,
                      bool items = true);
 
-int player_regen(void);
-
+int player_regen();
+int player_mp_regen();
 int player_res_cold(bool calc_unid = true, bool temp = true,
                     bool items = true);
 int player_res_acid(bool calc_unid = true, bool items = true);

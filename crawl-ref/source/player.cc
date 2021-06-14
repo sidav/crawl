@@ -1371,6 +1371,19 @@ int player_regen()
     return rr;
 }
 
+int player_mp_regen()
+{
+    int regen_amount = 7 + you.max_magic_points / 2;
+
+    int multiplier = 100;
+    if (player_mutation_level(MUT_MANA_REGENERATION))
+        multiplier += 100;
+//    if (you.props[MANA_REGEN_AMULET_ACTIVE].get_int() == 1)
+//        multiplier += 50;
+
+    return regen_amount * multiplier / 100;
+}
+
 int player_hunger_rate(bool temp)
 {
     int hunger = 3;
