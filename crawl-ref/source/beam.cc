@@ -5113,11 +5113,12 @@ bool bolt::ignores_monster(const monster* mon) const
     if (!mon)
         return false;
 
-    // All kinds of beams go past orbs of destruction and friendly
+    // All kinds of beams go past orbs of destruction, demonic guardians and friendly
     // battlespheres. We don't check mon->is_projectile() because that
     // check includes boulder beetles which should be hit.
     if (mons_is_projectile(mon)
-        || (mons_is_avatar(mon->type) && mons_aligned(agent(), mon)))
+        || (mons_is_avatar(mon->type) && mons_aligned(agent(), mon))
+        || (testbits(mon->flags, MF_DEMONIC_GUARDIAN) && mons_aligned(agent(), mon)))
     {
         return true;
     }
