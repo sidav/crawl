@@ -2308,7 +2308,9 @@ bool stop_attack_prompt(const monster* mon, bool beam_attack,
                         bool check_landing_only)
 {
     bool penance = false;
-
+    
+    if (testbits(mon->flags, MF_DEMONIC_GUARDIAN))
+        return false;
     if (prompted)
         *prompted = false;
 
@@ -2386,7 +2388,7 @@ bool stop_attack_prompt(targetter &hitfunc, const char* verb,
         if (hitfunc.is_affected(*di) <= AFF_NO)
             continue;
         const monster* mon = monster_at(*di);
-        if (!mon || !you.can_see(mon))
+        if (!mon || !you.can_see(mon) || testbits(mon->flags, MF_DEMONIC_GUARDIAN))
             continue;
         if (affects && !affects(mon))
             continue;

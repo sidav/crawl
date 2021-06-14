@@ -121,7 +121,8 @@ spret_type cast_tornado(int powc, bool fail)
             continue;
         if (mons_att_wont_attack(m->attitude)
             && mons_class_res_wind(m->type) <= 0
-            && !mons_is_projectile(m->type))
+            && !mons_is_projectile(m->type)
+            && !testbits(monster_at(*ri)->flags, MF_DEMONIC_GUARDIAN))
         {
             friendlies = true;
         }
@@ -320,7 +321,9 @@ void tornado_damage(actor *caster, int dur)
                 leda = victim->liquefied_ground()
                        || victim->is_monster()
                           && _mons_is_unmovable(victim->as_monster());
-                if (!victim->res_wind())
+                if (!victim->res_wind()
+                    && !(caster->is_player()
+                        && testbits(victim->as_monster()->flags, MF_DEMONIC_GUARDIAN)))
                 {
                     if (victim->is_monster())
                     {

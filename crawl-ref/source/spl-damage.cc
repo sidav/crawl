@@ -2703,7 +2703,7 @@ static bool _dazzle_can_hit(const actor *act)
 
         return !mons_is_avatar(mons->type)
                && mons_species(mons->type) != MONS_BUSH
-               && !fedhas_shoot_through(testbeam, mons);
+               && !shoot_through_monster(testbeam, mons);
     }
     else
         return false;
