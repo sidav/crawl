@@ -500,32 +500,33 @@ static void _setup_innate_spells()
     for (int iter1_i = 0; iter1_i < 27 / 2; iter1_i++)
     {
         spell_type next_spell = SPELL_NO_SPELL;
-        int seen = 0;
-        for (int s = 0; s < NUM_SPELLS; ++s)
+        while (next_spell == SPELL_NO_SPELL)
         {
-            const spell_type spell = static_cast<spell_type>(s);
-
-            if (!is_player_spell(spell)
-                || spellset.find(spell) != spellset.end()
-                || spell_is_useless(spell, false)
-                || spell != SPELL_DEATHS_DOOR
-                || spell != SPELL_SPELLFORGED_SERVITOR)
+            int seen = 0;
+            for (int s = 0; s < NUM_SPELLS; ++s)
             {
-                continue;
-            }
+                const spell_type spell = static_cast<spell_type>(s);
 
-            const int lev = spell_difficulty(spell);
-            if (lev >= min_lev[iter1_i] && lev <= max_lev[iter1_i]
-                && one_chance_in(++seen))
-            {
-                next_spell = spell;
+                if (!is_player_spell(spell)
+                    || spellset.find(spell) != spellset.end()
+                    || spell_is_useless(spell, false)
+                    || spell == SPELL_DEATHS_DOOR
+                    || spell == SPELL_SPELLFORGED_SERVITOR)
+                {
+                    continue;
+                }
+    
+                const int lev = spell_difficulty(spell);
+                if (lev >= min_lev[iter1_i] && lev <= max_lev[iter1_i]
+                    && one_chance_in(++seen))
+                {
+                    next_spell = spell;
+                }
             }
         }
-        ASSERT(next_spell != SPELL_NO_SPELL);
         spellset.insert(next_spell);
         chosen_spells.push_back(next_spell);
     }
-    
     for (spell_type s : chosen_spells)
         you.props[INNATE_SPELLS_KEY].get_vector().push_back(s);
 }
