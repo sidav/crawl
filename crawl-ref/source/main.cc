@@ -2620,8 +2620,13 @@ static void _decrement_durations()
         you.redraw_evasion = true;
     }
 
-    _decrement_a_duration(DUR_POWERED_BY_DEATH, delay,
-                          "You feel less regenerative.");
+    // Decrement Powered By Death strength
+    int pbd_str = you.props[POWERED_BY_DEATH_KEY].get_int();
+    if (pbd_str > 0 && _decrement_a_duration(DUR_POWERED_BY_DEATH, delay))
+    {
+        you.props[POWERED_BY_DEATH_KEY] = pbd_str - 1;
+        reset_powered_by_death_duration();
+    }
 
     _decrement_a_duration(DUR_TELEPATHY, delay, "You feel less empathic.");
 

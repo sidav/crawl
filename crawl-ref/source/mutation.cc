@@ -2663,30 +2663,7 @@ void check_monster_detect()
     }
 }
 
-int handle_pbd_corpses()
-{
-    int corpse_count = 0;
 
-    for (radius_iterator ri(you.pos(),
-         player_mutation_level(MUT_POWERED_BY_DEATH) * 3, C_ROUND, LOS_DEFAULT);
-         ri; ++ri)
-    {
-        for (stack_iterator j(*ri); j; ++j)
-        {
-            if (j->base_type == OBJ_CORPSES
-                && j->sub_type == CORPSE_BODY
-                && j->special > 50
-                && !j->props.exists("never_hide"))
-            {
-                ++corpse_count;
-                if (corpse_count == 7)
-                    break;
-            }
-        }
-    }
-
-    return corpse_count;
-}
 
 int augmentation_amount()
 {
@@ -2700,4 +2677,10 @@ int augmentation_amount()
     }
 
     return amount;
+}
+
+void reset_powered_by_death_duration()
+{
+    const int pbd_dur = random_range(2, 5);
+    you.set_duration(DUR_POWERED_BY_DEATH, pbd_dur);
 }

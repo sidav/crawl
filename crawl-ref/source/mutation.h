@@ -96,10 +96,10 @@ int how_mutated(bool all = false, bool levels = false);
 
 void check_demonic_guardian();
 void check_monster_detect();
-int handle_pbd_corpses();
 equipment_type beastly_slot(int mut);
 bool physiology_mutation_conflict(mutation_type mutat, bool ds_roll = false);
 int augmentation_amount();
+void reset_powered_by_death_duration();
 
 bool delete_temp_mutation();
 

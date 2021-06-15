@@ -22,9 +22,13 @@
 #include "tiledoll.h"
 #endif
 
+#define POWERED_BY_DEATH_KEY "powered_by_death_strength"
 class targetter;
 
 int check_stealth(void);
+
+/// The standard unit of regen; one level in artifact inscriptions
+static const int REGEN_PIP = 100;
 
 typedef FixedVector<int, NUM_DURATIONS> durations_t;
 class player : public actor
@@ -416,7 +420,7 @@ public:
     int max_strength() const;
     int max_intel() const;
     int max_dex() const;
-
+   
     bool in_water() const;
     bool in_lava() const;
     bool in_liquid() const;
