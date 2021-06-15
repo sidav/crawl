@@ -378,7 +378,8 @@ bool player_can_memorise_from_spellbook(const item_def &book)
 {
     if (book.base_type != OBJ_BOOKS)
         return true;
-
+    if (you.mutation[MUT_INNATE_CASTER])
+        return false;
     if (book.props.exists(SPELL_LIST_KEY))
         return true;
 
