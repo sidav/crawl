@@ -2301,12 +2301,19 @@ static vector<formatted_string> _get_overview_resistances(
     const int rmagi = player_res_magic(calc_unid) / 40;
     out += _resist_composer("MR", cwidth, rmagi, 5) + "\n";
 
-    const int regen = player_regen(); // round up
-    out += make_stringf("HPRegen  %d.%d%d/turn\n", regen/100, regen/10%10, regen%10);
+    if (you.species != SP_DJINNI)
+    {
+        const int regen = player_regen(); // round up
+        out += make_stringf("HPRegen  %d.%d%d/turn\n", regen/100, regen/10%10, regen%10);
 
-    const int mp_regen = player_mp_regen(); // round up
-    out += make_stringf("MPRegen  %d.%d%d/turn\n", mp_regen/100, mp_regen/10%10, mp_regen%10);
-
+        const int mp_regen = player_mp_regen(); // round up
+        out += make_stringf("MPRegen  %d.%d%d/turn\n", mp_regen/100, mp_regen/10%10, mp_regen%10);
+    }
+    else
+    {
+        const int regen = player_regen(); // round up
+        out += make_stringf("EPRegen  %d.%d%d/turn\n", regen/100, regen/10%10, regen%10); 
+    }
     cols.add_formatted(0, out, false);
 
     // Second column, resist name is 9 chars
