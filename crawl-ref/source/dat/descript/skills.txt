@@ -69,7 +69,7 @@ Slings
 Being skilled with Slings will let you deal more damage when using the
 appropriate launcher and ammunition.
 
-Being skilled with Slings makes it easier to become more skilled in Throwing,
+Being skilled with Slings increases your effectiveness in Throwing,
 and vice versa.
 %%%%
 Bows

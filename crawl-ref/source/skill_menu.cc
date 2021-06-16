@@ -115,11 +115,14 @@ bool SkillMenuEntry::is_selectable(bool keep_hotkey)
     if (is_invalid_skill(m_sk))
         return false;
 
-    if (!_show_skill(m_sk, skm.get_state(SKM_SHOW)))
-        return false;
-
     if (is_set(SKMF_HELP))
         return true;
+
+//    if (you.species == SP_GNOLL)
+//        return false;
+
+    if (!_show_skill(m_sk, skm.get_state(SKM_SHOW)))
+        return false;
 
     if (is_set(SKMF_RESKILL_TO) && you.transfer_from_skill == m_sk)
     {
@@ -297,8 +300,6 @@ COLORS SkillMenuEntry::get_colour() const
             return LIGHTGREEN;
         return you.train[m_sk] ? LIGHTGREEN : GREEN;
     }
-    else if (crosstrain_bonus(m_sk) > 1 && is_set(SKMF_APTITUDE))
-        return GREEN;
     else if (is_antitrained(m_sk) && is_set(SKMF_APTITUDE))
         return RED;
     else if (you.train[m_sk] == 2)
@@ -328,23 +329,6 @@ string SkillMenuEntry::get_prefix()
 #endif
 }
 
-static bool _crosstrain_other(skill_type sk, skill_menu_state state)
-{
-    vector<skill_type> crosstrain_skills = get_crosstrain_skills(sk);
-
-    for (unsigned int i = 0; i < crosstrain_skills.size(); ++i)
-    {
-        if (you.skill(crosstrain_skills[i], 10, true)
-            <= you.skill(sk, 10, true) - CROSSTRAIN_THRESHOLD
-           && _show_skill(crosstrain_skills[i], state))
-        {
-            return true;
-        }
-    }
-
-    return false;
-}
-
 static bool _antitrain_other(skill_type sk, skill_menu_state state)
 {
     skill_type opposite = opposite_skill(sk);
@@ -362,12 +346,9 @@ void SkillMenuEntry::set_aptitude()
     const bool manual = skill_has_manual(m_sk);
     const int apt = species_apt(m_sk, you.species);
 
-    // Crosstraining + manuals aptitude bonus.
-    int ct_bonus = manual ? 4 : 0;
-
-    for (int ct_mult = crosstrain_bonus(m_sk); ct_mult > 1; ct_mult /= 2)
-        ct_bonus += 4;
-
+    // Manuals aptitude bonus.
+    int manual_bonus = manual ? 4 : 0;
+    
     if (apt != 0)
         text += make_stringf("%+d", apt);
     else
@@ -380,31 +361,26 @@ void SkillMenuEntry::set_aptitude()
         skm.set_flag(SKMF_ANTITRAIN);
         text += "<red>*</red>";
     }
-    else if (_crosstrain_other(m_sk, skm.get_state(SKM_SHOW)))
-    {
-        skm.set_flag(SKMF_CROSSTRAIN);
-        text += "<green>*</green>";
-    }
     else
         text += " ";
 
     if (is_antitrained(m_sk))
     {
         skm.set_flag(SKMF_ANTITRAIN);
-        text += make_stringf("<red>%d</red>", ct_bonus - 4);
+        text += make_stringf("<red>%d</red>", manual_bonus - 4);
     }
-    else if (ct_bonus)
+    else if (manual_bonus)
     {
-        skm.set_flag(SKMF_CROSSTRAIN);
+        skm.set_flag(SKMF_MANUAL);
         text += manual ? "<lightgreen>" : "<green>";
 
         // Only room for two characters.
-        if (ct_bonus < 10)
-            text += make_stringf("+%d", ct_bonus);
+        if (manual_bonus < 10)
+            text += make_stringf("+%d", manual_bonus);
         else
-            text += make_stringf("%d", ct_bonus);
+            text += make_stringf("%d", manual_bonus);
 
-        text += manual ? "</lightgreen>" : "</green>";
+        text += "</lightgreen>";
     }
 
     m_aptitude->set_text(text);
@@ -579,9 +555,7 @@ string SkillMenuSwitch::get_help()
     case SKM_LEVEL_ENHANCED:
         if (skm.is_set(SKMF_ENHANCED))
         {
-            return make_stringf("Skills enhanced by the power of %s are in "
-                                "<blue>blue</blue>. ",
-                                god_name(you.religion).c_str());
+            return make_stringf("Enhanced skills are in <blue>blue</blue>.");
         }
         else
         {
@@ -1249,31 +1223,30 @@ void SkillMenu::set_default_help()
         text = hints_skills_info();
     else
     {
-        if (!is_set(SKMF_CROSSTRAIN) && !is_set(SKMF_ANTITRAIN))
+        if (!is_set(SKMF_MANUAL) && !is_set(SKMF_ANTITRAIN))
             text = m_switches[SKM_VIEW]->get_help();
 
         if (get_state(SKM_LEVEL) == SKM_LEVEL_ENHANCED
-            && !(is_set(SKMF_CROSSTRAIN) && is_set(SKMF_ANTITRAIN)))
+            && !(is_set(SKMF_MANUAL) && is_set(SKMF_ANTITRAIN)))
         {
             text += m_switches[SKM_LEVEL]->get_help();
         }
         else
             text += "The species aptitude is in <white>white</white>. ";
 
-        if (is_set(SKMF_CROSSTRAIN))
-            text += "Crosstraining is in <green>green</green>. ";
+        if (is_set(SKMF_MANUAL))
+            text += "Manual usage is in <green>green</green>. ";
         if (is_set(SKMF_ANTITRAIN))
             text += "Antitraining is in <red>red</red>. ";
 
-        if (is_set(SKMF_CROSSTRAIN) && is_set(SKMF_ANTITRAIN))
+        if (is_set(SKMF_ANTITRAIN))
         {
-            text += "The skill responsible for the bonus or malus is "
+            text += "The skill responsible for the malus is "
                     "marked with '*'.";
         }
-        else if (is_set(SKMF_CROSSTRAIN))
+        else if (is_set(SKMF_MANUAL))
         {
-            text += "The skill responsible for the bonus is marked with "
-                    "'<green>*</green>'.";
+            text += "Manual usage is in <green>green</green>. ";
         }
         else if (is_set(SKMF_ANTITRAIN))
         {
@@ -1307,7 +1280,7 @@ void SkillMenu::set_skills()
 
     SkillMenuEntry::m_letter = '9';
     bool default_set = false;
-    clear_flag(SKMF_CROSSTRAIN);
+    clear_flag(SKMF_MANUAL);
     clear_flag(SKMF_ANTITRAIN);
 
     int col = 0, ln = 0;

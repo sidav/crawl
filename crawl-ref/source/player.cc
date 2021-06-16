@@ -6608,14 +6608,23 @@ int player::skill(skill_type sk, int scale, bool real) const
     // skill training, so make sure to use the correct value.
     // This duplicates code in check_skill_level_change(), unfortunately.
     int actual_skill = skills[sk];
+    unsigned int effective_points = skill_points[sk];
+     if (!real)
+     {
+         vector<skill_type> cross_skills = get_crosstrain_skills(sk);
+         for (size_t i = 0; i < cross_skills.size(); ++i)
+             effective_points += skill_points[cross_skills[i]] * 2 / 5;
+     }
+
+    effective_points = min(effective_points, skill_exp_needed(27, sk));
     while (1)
     {
         if (actual_skill < 27
-            && skill_points[sk] >= skill_exp_needed(actual_skill + 1, sk))
+            && effective_points >= skill_exp_needed(actual_skill + 1, sk))
         {
             ++actual_skill;
         }
-        else if (skill_points[sk] < skill_exp_needed(actual_skill, sk))
+        else if (effective_points < skill_exp_needed(actual_skill, sk))
         {
             actual_skill--;
             ASSERT(actual_skill >= 0);
@@ -6624,7 +6633,8 @@ int player::skill(skill_type sk, int scale, bool real) const
             break;
     }
 
-    int level = actual_skill * scale + get_skill_progress(sk, actual_skill, skill_points[sk], scale);
+    int level = actual_skill * scale
+      + get_skill_progress(sk, actual_skill, effective_points, scale);
     if (real)
         return level;
     if (duration[DUR_HEROISM] && sk <= SK_LAST_MUNDANE)

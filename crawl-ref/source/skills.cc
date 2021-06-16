@@ -142,7 +142,10 @@ static void _change_skill_level(skill_type exsk, int n)
         take_note(Note(NOTE_GAIN_SKILL, exsk, you.skills[exsk]));
     else
         take_note(Note(NOTE_LOSE_SKILL, exsk, you.skills[exsk]));
-
+        
+    // are you drained/crosstrained/ash'd in the relevant skill?
+    const bool specify_base = you.skill(exsk, 1) != you.skill(exsk, 1, true);
+    
     if (you.skills[exsk] == 27)
     {
         mprf(MSGCH_INTRINSIC_GAIN, "You have mastered %s!", skill_name(exsk));
@@ -158,14 +161,18 @@ static void _change_skill_level(skill_type exsk, int n)
     }
     else if (abs(n) == 1 && you.num_turns)
     {
-        mprf(MSGCH_INTRINSIC_GAIN, "Your %s skill %s to level %d!",
+        mprf(MSGCH_INTRINSIC_GAIN, "Your %s%s skill %s to level %d!",
+             specify_base ? "base " : "",
              skill_name(exsk), (n > 0) ? "increases" : "decreases",
              you.skills[exsk]);
     }
     else if (you.num_turns)
     {
-        mprf(MSGCH_INTRINSIC_GAIN, "Your %s skill %s %d levels and is now at "
-             "level %d!", skill_name(exsk), (n > 0) ? "gained" : "lost",
+        mprf(MSGCH_INTRINSIC_GAIN, "Your %s%s skill %s %d levels and is now "
+             "at level %d!",
+             specify_base ? "base " : "",
+             skill_name(exsk),
+             (n > 0) ? "gained" : "lost",
              abs(n), you.skills[exsk]);
     }
 
@@ -950,10 +957,6 @@ static int _train(skill_type exsk, int &max_exp, bool simu)
     // This will be deducted from you.exp_available.
     int cost = calc_skill_cost(you.skill_cost_level);
 
-    // Being good at some weapons makes others easier to learn.
-    if (exsk < SK_ARMOUR)
-        skill_inc *= crosstrain_bonus(exsk);
-
     if (is_antitrained(exsk))
         cost *= ANTITRAIN_PENALTY;
 
@@ -985,8 +988,6 @@ static int _train(skill_type exsk, int &max_exp, bool simu)
 
     const skill_type old_best_skill = best_skill(SK_FIRST_SKILL, SK_LAST_SKILL);
     you.skill_points[exsk] += skill_inc;
-    you.ct_skill_points[exsk] += (1 - 1 / crosstrain_bonus(exsk))
-                                 * skill_inc;
     you.exp_available -= cost;
     you.total_experience += cost;
     max_exp -= cost;
