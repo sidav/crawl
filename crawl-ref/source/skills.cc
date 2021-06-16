@@ -957,9 +957,6 @@ static int _train(skill_type exsk, int &max_exp, bool simu)
     // This will be deducted from you.exp_available.
     int cost = calc_skill_cost(you.skill_cost_level);
 
-    if (is_antitrained(exsk))
-        cost *= ANTITRAIN_PENALTY;
-
     // Scale cost and skill_inc to available experience.
     const int spending_limit = min(MAX_SPENDING_LIMIT, max_exp);
     if (cost > spending_limit)

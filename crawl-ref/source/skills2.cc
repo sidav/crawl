@@ -673,15 +673,6 @@ bool compare_skills(skill_type sk1, skill_type sk2)
                   && you.skill_order[sk1] < you.skill_order[sk2];
 }
 
-bool is_antitrained(skill_type sk)
-{
-    skill_type opposite = opposite_skill(sk);
-    if (opposite == SK_NONE || you.skills[sk] >= 27)
-        return false;
-
-    return compare_skills(opposite, sk) && you.skills[opposite];
-}
-
 void dump_skills(string &text)
 {
     for (uint8_t i = 0; i < NUM_SKILLS; i++)
@@ -739,15 +730,11 @@ int transfer_skill_points(skill_type fsk, skill_type tsk, int skp_max,
         dprf("ct_skill_points[%s]: %d", skill_name(fsk), you.ct_skill_points[fsk]);
 
     // We need to transfer by small steps and update skill levels each time
-    // so that cross/anti-training are handled properly.
     while (total_skp_lost < skp_max
            && (simu || total_skp_lost < (int)you.transfer_skill_points))
     {
         int skp_lost = min(20, skp_max - total_skp_lost);
         int skp_gained = skp_lost * penalty / 100;
-
-        if (is_antitrained(tsk))
-            skp_gained /= ANTITRAIN_PENALTY;
 
         ASSERT(you.skill_points[fsk] > you.ct_skill_points[fsk]);
 

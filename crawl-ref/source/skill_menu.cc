@@ -300,8 +300,6 @@ COLORS SkillMenuEntry::get_colour() const
             return LIGHTGREEN;
         return you.train[m_sk] ? LIGHTGREEN : GREEN;
     }
-    else if (is_antitrained(m_sk) && is_set(SKMF_APTITUDE))
-        return RED;
     else if (you.train[m_sk] == 2)
         return WHITE;
     else
@@ -329,16 +327,6 @@ string SkillMenuEntry::get_prefix()
 #endif
 }
 
-static bool _antitrain_other(skill_type sk, skill_menu_state state)
-{
-    skill_type opposite = opposite_skill(sk);
-    if (opposite == SK_NONE)
-        return false;
-
-    return _show_skill(opposite, state) && you.skills[sk] > 0
-           && you.skills[opposite] < 27 && compare_skills(sk, opposite);
-}
-
 void SkillMenuEntry::set_aptitude()
 {
     string text = "<white>";
@@ -354,22 +342,9 @@ void SkillMenuEntry::set_aptitude()
     else
         text += make_stringf(" %d", apt);
 
-    text += "</white>";
+    text += "</white> ";
 
-    if (_antitrain_other(m_sk, skm.get_state(SKM_SHOW)))
-    {
-        skm.set_flag(SKMF_ANTITRAIN);
-        text += "<red>*</red>";
-    }
-    else
-        text += " ";
-
-    if (is_antitrained(m_sk))
-    {
-        skm.set_flag(SKMF_ANTITRAIN);
-        text += make_stringf("<red>%d</red>", manual_bonus - 4);
-    }
-    else if (manual_bonus)
+    if (manual_bonus)
     {
         skm.set_flag(SKMF_MANUAL);
         text += manual ? "<lightgreen>" : "<green>";
@@ -1223,36 +1198,16 @@ void SkillMenu::set_default_help()
         text = hints_skills_info();
     else
     {
-        if (!is_set(SKMF_MANUAL) && !is_set(SKMF_ANTITRAIN))
+        if (!is_set(SKMF_MANUAL))
             text = m_switches[SKM_VIEW]->get_help();
 
-        if (get_state(SKM_LEVEL) == SKM_LEVEL_ENHANCED
-            && !(is_set(SKMF_MANUAL) && is_set(SKMF_ANTITRAIN)))
-        {
+        if (get_state(SKM_LEVEL) == SKM_LEVEL_ENHANCED)
             text += m_switches[SKM_LEVEL]->get_help();
-        }
         else
             text += "The species aptitude is in <white>white</white>. ";
 
         if (is_set(SKMF_MANUAL))
             text += "Manual usage is in <green>green</green>. ";
-        if (is_set(SKMF_ANTITRAIN))
-            text += "Antitraining is in <red>red</red>. ";
-
-        if (is_set(SKMF_ANTITRAIN))
-        {
-            text += "The skill responsible for the malus is "
-                    "marked with '*'.";
-        }
-        else if (is_set(SKMF_MANUAL))
-        {
-            text += "Manual usage is in <green>green</green>. ";
-        }
-        else if (is_set(SKMF_ANTITRAIN))
-        {
-            text += "The skill responsible for the malus is marked with "
-                    "'<red>*</red>'.";
-        }
     }
 
     // This one takes priority.
@@ -1281,7 +1236,6 @@ void SkillMenu::set_skills()
     SkillMenuEntry::m_letter = '9';
     bool default_set = false;
     clear_flag(SKMF_MANUAL);
-    clear_flag(SKMF_ANTITRAIN);
 
     int col = 0, ln = 0;
 
