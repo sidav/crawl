@@ -114,15 +114,12 @@ bool SkillMenuEntry::is_selectable(bool keep_hotkey)
 {
     if (is_invalid_skill(m_sk))
         return false;
-        
-    if (you.mutation[MUT_DISTRIBUTED_TRAINING])
-        return false;
 
     if (is_set(SKMF_HELP))
         return true;
-
-//    if (you.species == SP_GNOLL)
-//        return false;
+        
+    if (you.mutation[MUT_DISTRIBUTED_TRAINING])
+        return false;
 
     if (!_show_skill(m_sk, skm.get_state(SKM_SHOW)))
         return false;
@@ -838,6 +835,7 @@ bool SkillMenu::exit()
 
     if (!enabled_skill && !all_skills_maxed())
     {
+        ASSERT(!you.mutation[MUT_DISTRIBUTED_TRAINING]);
         set_help("<lightred>You need to enable at least one skill.</lightred>");
         return false;
     }

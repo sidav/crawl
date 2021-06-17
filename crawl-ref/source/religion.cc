@@ -947,7 +947,8 @@ string get_god_dislikes(god_type which_god, bool /*verbose*/)
     case GOD_TROG:
         really_dislikes.push_back("you memorise spells");
         really_dislikes.push_back("you attempt to cast spells");
-        really_dislikes.push_back("you train magic skills");
+        if (!you.mutation[MUT_DISTRIBUTED_TRAINING])
+            really_dislikes.push_back("you train magic skills");
         break;
 
     case GOD_BEOGH:
@@ -3684,7 +3685,7 @@ void god_pitch(god_type which_god)
     }
 
     // We disable all magical skills to avoid accidentally angering Trog.
-    if (you_worship(GOD_TROG))
+    if (you_worship(GOD_TROG) && !you.mutation[MUT_DISTRIBUTED_TRAINING])
     {
         for (int sk = SK_SPELLCASTING; sk <= SK_LAST_MAGIC; ++sk)
             if (you.skills[sk])

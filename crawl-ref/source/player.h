@@ -76,7 +76,8 @@ public:
   uint8_t hit_points_regeneration;
   uint8_t magic_points_regeneration;
   unsigned int experience;
-  unsigned int total_experience; // Unaffected by draining. Used for skill cost.
+  unsigned int total_experience; // 10 * amount of xp put into skills, used
+                                 // only for skill_cost_level
   int experience_level;
   int gold;
   int zigs_completed, zig_max;

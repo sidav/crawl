@@ -417,12 +417,12 @@ bool potion_effect(potion_type pot_eff, int pow, item_def *potion, bool was_know
         more();
         if (!you.mutation[MUT_DISTRIBUTED_TRAINING])
         {
-            skill_menu(SKMF_EXPERIENCE_POTION, 750 * you.experience_level);
+            skill_menu(SKMF_EXPERIENCE_POTION, 7500 * you.experience_level);
             break;
         }
         else
         {
-            you.exp_available += 750;
+            you.exp_available += 7500;
             train_skills();
             break;
         }

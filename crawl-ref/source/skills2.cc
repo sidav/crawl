@@ -861,13 +861,16 @@ void fixup_skills()
     {
         skill_type sk = static_cast<skill_type>(i);
         if (is_useless_skill(sk))
+        {
             you.skill_points[i] = 0;
+            you.train[sk] = 0;
+        }
         you.skill_points[i] = min(you.skill_points[i], skill_exp_needed(27, sk));
         check_skill_level_change(sk);
     }
     init_can_train();
 
-    if (you.exp_available >= calc_skill_cost(you.skill_cost_level))
+    if (you.exp_available >= 10 * calc_skill_cost(you.skill_cost_level) && you.species != SP_GNOLL)
         skill_menu(SKMF_EXPERIENCE);
 }
 
