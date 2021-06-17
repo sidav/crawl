@@ -456,6 +456,8 @@ void update_can_train()
 
 bool training_restricted(skill_type sk)
 {
+    if (you.mutation[MUT_DISTRIBUTED_TRAINING])
+        return false;
     switch (sk)
     {
     case SK_FIGHTING:
@@ -506,8 +508,16 @@ void init_train()
         else
         {
             // Skills are on by default in auto mode and off in manual.
-            you.train[i] = you.auto_training;
-            you.train_alt[i] = !you.auto_training;
+            if (!you.mutation[MUT_DISTRIBUTED_TRAINING])
+            {
+                you.train[i] = you.auto_training;
+                you.train_alt[i] = !you.auto_training;
+            }
+            else
+            {
+                you.train[i] = 1;
+                you.train_alt[i] = 1;
+            }
         }
 }
 
@@ -649,11 +659,18 @@ bool check_selected_skills()
  */
 void reset_training()
 {
+    // Disable this here since we don't want any autotraining related skilling
+    // changes for Gnolls.
+    if (you.mutation[MUT_DISTRIBUTED_TRAINING])
+        you.auto_training = false;
     // We clear the values in the training array. In auto mode they are set
     // to 0 (and filled later with the content of the queue), in manual mode,
     // the trainable ones are set to 1 (or 2 for focus).
     for (int i = 0; i < NUM_SKILLS; ++i)
-        if (you.auto_training || !skill_trained(i))
+        // Gnolls always train all skills
+        if (you.mutation[MUT_DISTRIBUTED_TRAINING])
+            you.training[i] = 1;
+        else if (you.auto_training || !skill_trained(i))
             you.training[i] = 0;
         else
             you.training[i] = you.train[i];

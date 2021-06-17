@@ -26,6 +26,7 @@ static species_type species_order[] =
     SP_MERFOLK,        SP_MINOTAUR,
     SP_TENGU,          SP_BASE_DRACONIAN,
     SP_GARGOYLE,       SP_FORMICID,
+    SP_GNOLL,
     // mostly human shape but made of a strange substance
     SP_LAVA_ORC,       SP_VINE_STALKER,
     SP_DJINNI,
@@ -200,7 +201,7 @@ string species_name(species_type speci, bool genus, bool adj)
         case SP_TENGU:    res = "Tengu";    break;
         case SP_GARGOYLE: res = "Gargoyle"; break;
         case SP_FORMICID: res = "Formicid"; break;
-
+        case SP_GNOLL:    res = "Gnoll";    break;
         case SP_VINE_STALKER:
             res = (adj ? "Vine" : genus ? "Vine" : "Vine Stalker");
             break;
@@ -395,6 +396,8 @@ monster_type player_species_to_mons_species(species_type species)
         return MONS_OCTOPODE;
     case SP_MOUNTAIN_DWARF:
         return MONS_DWARF;
+    case SP_GNOLL:
+        return MONS_GNOLL;
     case SP_DJINNI:
         return MONS_DJINNI;
     case SP_FORMICID:
@@ -464,6 +467,7 @@ int species_exp_modifier(species_type species)
     case SP_GARGOYLE:
     case SP_VINE_STALKER:
     case SP_MOUNTAIN_DWARF:
+    case SP_GNOLL:
         return 0;
     case SP_SPRIGGAN:
     case SP_DEEP_DWARF:

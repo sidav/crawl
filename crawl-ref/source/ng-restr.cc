@@ -168,6 +168,7 @@ char_choice_restriction species_allowed(job_type job, species_type speci)
         case SP_MERFOLK:
         case SP_BASE_DRACONIAN:
         case SP_VAMPIRE:
+        case SP_GNOLL:
             return CC_UNRESTRICTED;
         default:
             return CC_RESTRICTED;
@@ -182,6 +183,7 @@ char_choice_restriction species_allowed(job_type job, species_type speci)
         case SP_SPRIGGAN:
         case SP_CENTAUR:
         case SP_BASE_DRACONIAN:
+        case SP_GNOLL:
             return CC_UNRESTRICTED;
         default:
             return CC_RESTRICTED;
@@ -197,6 +199,7 @@ char_choice_restriction species_allowed(job_type job, species_type speci)
         case SP_OCTOPODE:
         case SP_HUMAN:
         case SP_MUMMY:
+        case SP_GNOLL:
             return CC_UNRESTRICTED;
         default:
             return CC_RESTRICTED;
@@ -211,6 +214,7 @@ char_choice_restriction species_allowed(job_type job, species_type speci)
         case SP_TENGU:
         case SP_BASE_DRACONIAN:
         case SP_DEMIGOD:
+        case SP_GNOLL:
             return CC_UNRESTRICTED;
         default:
             return CC_RESTRICTED;
@@ -225,6 +229,7 @@ char_choice_restriction species_allowed(job_type job, species_type speci)
         case SP_SPRIGGAN:
         case SP_NAGA:
         case SP_VAMPIRE:
+        case SP_GNOLL:
             return CC_UNRESTRICTED;
         default:
             return CC_RESTRICTED;
@@ -270,6 +275,7 @@ char_choice_restriction species_allowed(job_type job, species_type speci)
         case SP_DEMIGOD:
         case SP_DEMONSPAWN:
         case SP_TROLL:
+        case SP_GNOLL:
             return CC_UNRESTRICTED;
         default:
             return CC_RESTRICTED;
@@ -301,6 +307,7 @@ char_choice_restriction species_allowed(job_type job, species_type speci)
         case SP_BASE_DRACONIAN:
         case SP_DEMIGOD:
         case SP_GARGOYLE:
+        case SP_GNOLL:
             return CC_UNRESTRICTED;
         default:
             return CC_RESTRICTED;
@@ -425,6 +432,7 @@ char_choice_restriction species_allowed(job_type job, species_type speci)
         case SP_BASE_DRACONIAN:
         case SP_HUMAN:
         case SP_DEMONSPAWN:
+        case SP_GNOLL:
             return CC_UNRESTRICTED;
         default:
             return CC_RESTRICTED;
@@ -441,6 +449,7 @@ char_choice_restriction species_allowed(job_type job, species_type speci)
         case SP_MOUNTAIN_DWARF:
             return CC_UNRESTRICTED;
         case SP_DEMONSPAWN:
+        case SP_DEMIGOD:
             return CC_BANNED;
         default:
             return CC_RESTRICTED;
@@ -637,6 +646,7 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
             case JOB_CHAOS_KNIGHT:
             case JOB_DEATH_KNIGHT:
             case JOB_HEALER:
+            case JOB_DEMONSPAWN:
                 return CC_BANNED;
             case JOB_TRANSMUTER:
             case JOB_CONJURER:
@@ -680,6 +690,7 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
         switch (job)
         {
             case JOB_HEALER:
+            case JOB_DEMONSPAWN:
                 return CC_BANNED;
             case JOB_GLADIATOR:
             case JOB_BERSERKER:
@@ -902,6 +913,20 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
             default:
                 return CC_RESTRICTED;
         }
+    case SP_GNOLL:
+        switch (job)
+        {
+            case JOB_WARPER:
+            case JOB_WIZARD:
+            case JOB_CONJURER:
+            case JOB_ENCHANTER:
+            case JOB_TRANSMUTER:
+            case JOB_ICE_ELEMENTALIST:
+            case JOB_WANDERER:
+			return CC_UNRESTRICTED;
+            default:
+                return CC_RESTRICTED;
+        }
     default:
         return CC_BANNED;
     }
@@ -933,6 +958,13 @@ char_choice_restriction weapon_restriction(weapon_type wpn,
     case WPN_UNARMED:
         if (species_has_claws(ng.species))
             return CC_UNRESTRICTED;
+        switch (ng.species)
+        {
+        case SP_GNOLL:
+            return CC_UNRESTRICTED;
+        default:
+            return CC_BANNED;
+        }
         return CC_BANNED;
 
     case WPN_SHORT_SWORD:
@@ -992,6 +1024,7 @@ char_choice_restriction weapon_restriction(weapon_type wpn,
         case SP_FORMICID:
         case SP_VINE_STALKER:
         case SP_MOUNTAIN_DWARF:
+        case SP_GNOLL:
             return CC_UNRESTRICTED;
 
         default:
@@ -1096,7 +1129,6 @@ char_choice_restriction weapon_restriction(weapon_type wpn,
         case SP_LAVA_ORC:
         case SP_SPRIGGAN:
         case SP_TROLL:
-        case SP_MOUNTAIN_DWARF:
             return CC_RESTRICTED;
         case SP_FELID:
             return CC_BANNED;

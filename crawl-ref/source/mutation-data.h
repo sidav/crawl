@@ -936,6 +936,16 @@
   "innate caster"
 },
 
+{ MUT_DISTRIBUTED_TRAINING,                   0,  1, false, false, false,
+  "distributed training",
+
+  {"Your experience applies equally to all skills.", "", ""},
+  {"Your experience now applies equally to all skills.", "", ""},
+  {"Your experience no longer applies equally to all skills.", "", ""},
+
+  "distributed training"
+},
+
 { MUT_SAPROVOROUS,                    0,  3, false, false, false,
   "saprovore",
 

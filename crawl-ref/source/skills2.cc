@@ -592,7 +592,8 @@ float species_apt_factor(skill_type sk, species_type sp)
 vector<skill_type> get_crosstrain_skills(skill_type sk)
 {
     vector<skill_type> ret;
-
+    if (you.mutation[MUT_DISTRIBUTED_TRAINING])
+        return ret;
     switch (sk)
     {
     case SK_SHORT_BLADES:
@@ -868,4 +869,14 @@ void fixup_skills()
 
     if (you.exp_available >= calc_skill_cost(you.skill_cost_level))
         skill_menu(SKMF_EXPERIENCE);
+}
+
+/** Can the player enable training for this skill?
+ *
+ * @param sk The skill to check.
+ * @returns True if the skill can be enabled for training, false otherwise.
+ */
+bool can_enable_skill(skill_type sk)
+{
+    return !you.mutation[MUT_DISTRIBUTED_TRAINING] && you.can_train[sk];
 }

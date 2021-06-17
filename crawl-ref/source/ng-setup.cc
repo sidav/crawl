@@ -103,6 +103,7 @@ static void _species_stat_init(species_type which_species)
     case SP_OCTOPODE:           s =  7; i = 10; d =  7;      break;  // 24
     case SP_MOUNTAIN_DWARF:     s =  9; i =  4; d =  5;      break;  // 18
     case SP_DJINNI:             s =  7; i =  9; d =  8;      break;  // 24
+    case SP_GNOLL:              s =  7; i =  7; d =  7;      break;  // 21
     }
 
     you.base_stats[STAT_STR] = s;
@@ -354,6 +355,9 @@ void give_basic_mutations(species_type speci)
         you.mutation[MUT_MANA_SHIELD]    = 1;
         you.mutation[MUT_NO_DEVICE_HEAL] = 1;
         break;
+    case SP_GNOLL:
+        you.mutation[MUT_FANGS]          = 1;
+        you.mutation[MUT_DISTRIBUTED_TRAINING] = 1;
     default:
         break;
     }

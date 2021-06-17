@@ -3363,6 +3363,7 @@ enum mutation_type
     MUT_BLACK_MARK,
     MUT_FLAT_HP,
     MUT_INNATE_CASTER,
+    MUT_DISTRIBUTED_TRAINING,
     NUM_MUTATIONS,
 
     RANDOM_MUTATION,
@@ -3717,6 +3718,7 @@ enum species_type
     SP_GARGOYLE,
     SP_FORMICID,
     SP_MOUNTAIN_DWARF,
+    SP_GNOLL,
     SP_VINE_STALKER,
     LAST_VALID_SPECIES = SP_VINE_STALKER,
 // The high scores viewer still needs enums for removed species.
