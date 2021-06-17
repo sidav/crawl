@@ -946,6 +946,16 @@
   "distributed training"
 },
 
+{ MUT_STRONG_NOSE,                   0,  1, false, false, false,
+  "strong nose",
+
+  {"Your uncanny sense of smell can sniff out nearby items.", "", ""},
+  {"Your sense of smell grows stronger.", "", ""},
+  {"Your sense of smell gets weaker.", "", ""},
+
+  "strong nose"
+},
+
 { MUT_SAPROVOROUS,                    0,  3, false, false, false,
   "saprovore",
 

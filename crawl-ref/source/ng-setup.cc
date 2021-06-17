@@ -358,6 +358,7 @@ void give_basic_mutations(species_type speci)
     case SP_GNOLL:
         you.mutation[MUT_FANGS]          = 1;
         you.mutation[MUT_DISTRIBUTED_TRAINING] = 1;
+        you.mutation[MUT_STRONG_NOSE] = 1;
     default:
         break;
     }

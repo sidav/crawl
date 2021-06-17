@@ -6364,6 +6364,8 @@ string player::shout_verb() const
     default:
         if (species == SP_FELID)
             return coinflip() ? "meow" : "yowl";
+        if (species == SP_GNOLL)
+            return coinflip() ? "bark" : "howl";
         // depends on SCREAM mutation
         int level = player_mutation_level(MUT_SCREAM);
         if (level <= 1)

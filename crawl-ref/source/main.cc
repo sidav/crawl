@@ -3423,7 +3423,7 @@ static void _player_reacts_to_monsters()
     check_monster_detect();
 
     if ((you_worship(GOD_ASHENZARI) && !player_under_penance())
-        || you.mutation[MUT_JELLY_GROWTH])
+        || you.mutation[MUT_JELLY_GROWTH] || you.mutation[MUT_STRONG_NOSE])
     {
         detect_items(-1);
     }
