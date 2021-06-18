@@ -2014,6 +2014,8 @@ static tileidx_t _tileidx_monster_base(int type, bool in_water, int colour,
         return TILEP_MONS_BATTLESPHERE;
     case MONS_FULMINANT_PRISM:
         return _mon_random(TILEP_MONS_FULMINANT_PRISM);
+    case MONS_SINGULARITY:
+        return _mon_cycle(TILEP_MONS_SINGULARITY, tile_num_prop);
     case MONS_SILVER_STAR:
         return TILEP_MONS_SILVER_STAR;
 
@@ -4871,6 +4873,7 @@ tileidx_t tileidx_spell(spell_type spell)
     case SPELL_BATTLESPHERE:             return TILEG_BATTLESPHERE;
     case SPELL_DAZZLING_SPRAY:           return TILEG_DAZZLING_SPRAY;
     case SPELL_FULMINANT_PRISM:          return TILEG_FULMINANT_PRISM;
+    case SPELL_SINGULARITY:              return TILEG_SINGULARITY;
     case SPELL_SEARING_RAY:              return TILEG_SEARING_RAY;
 
     // Rod-only spells

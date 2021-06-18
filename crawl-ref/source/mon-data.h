@@ -6002,6 +6002,18 @@ static monsterentry mondata[] =
     I_PLANT, HT_LAND, FL_LEVITATE, 10, DEFAULT_ENERGY,
     MONUSE_NOTHING, MONEAT_NOTHING, SIZE_LITTLE
 },
+{ // not an actual monster, used by a spell
+    MONS_SINGULARITY, '*', ETC_DISJUNCTION, "singularity",
+    M_NO_POLY_TO | M_STATIONARY,
+    mrd(MR_RES_POISON, 3) | mrd(MR_RES_FIRE | MR_RES_COLD | MR_RES_ELEC, 3),
+    0, 0, MONS_SINGULARITY, MONS_SINGULARITY,
+        MH_NONLIVING, MAG_IMMUNE,
+    { AT_NO_ATK, AT_NO_ATK, AT_NO_ATK, AT_NO_ATK },
+    { 5, 0, 0, 10000 }, // Invincible in monster::hurt
+    3, 0, MST_NO_SPELLS, CE_NOCORPSE, Z_NOZOMBIE, S_SILENT,
+    I_PLANT, HT_LAND, FL_LEVITATE, 10, DEFAULT_ENERGY,
+    MONUSE_NOTHING, MONEAT_NOTHING, SIZE_LITTLE
+},
 
 {
     MONS_SILVER_STAR, '*', ETC_SILVER, "silver star",

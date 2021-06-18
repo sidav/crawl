@@ -2266,6 +2266,11 @@ simulacrum
 
 An ice replica of a monster, animated by the powers of necromancy.
 %%%%
+Singularity spell
+
+This spell compresses space into a gravitational singularity, pulling nearby
+enemies of the caster towards it and warping them violently in the process.
+%%%%
 siren
 
 Once a merfolk woman, she has become an avatar of the sunken god. Her voice can

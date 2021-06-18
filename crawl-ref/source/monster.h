@@ -52,7 +52,7 @@ public:
 
     unsigned int experience;
     monster_type  base_monster;        // zombie base monster, draconian colour
-    unsigned int  number;              // #heads (hydra), etc.
+    unsigned int  number;              // #heads (hydra), singularity, etc.
     int           colour;
     mid_t         summoner;
 

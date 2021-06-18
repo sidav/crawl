@@ -2977,6 +2977,7 @@ enum monster_type                      // menv[].type
     MONS_ORB_OF_DESTRUCTION,    // a projectile, not a real mon
 #if TAG_MAJOR_VERSION > 34
     MONS_FULMINANT_PRISM,
+    MONS_SINGULARITY,
     MONS_BATTLESPHERE,
 #endif
     MONS_PILLAR_OF_SALT,
@@ -3022,6 +3023,7 @@ enum monster_type                      // menv[].type
     MONS_LAMIA,
 
     MONS_FULMINANT_PRISM,
+    MONS_SINGULARITY,
     MONS_BATTLESPHERE,
 
     MONS_GIANT_LIZARD,          // genus
@@ -4013,6 +4015,7 @@ enum spell_type
 #endif
     SPELL_BATTLESPHERE,
     SPELL_FULMINANT_PRISM,
+    SPELL_SINGULARITY,
     SPELL_DAZZLING_SPRAY,
     SPELL_FORCE_LANCE,
     SPELL_MALMUTATE,
