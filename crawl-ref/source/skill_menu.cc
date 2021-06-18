@@ -1101,7 +1101,45 @@ void SkillMenu::init_switches()
         sw->set_id(SKM_SHOW);
         add_item(sw, sw->size(), m_pos);
     }
-
+    else
+    {
+        sw = new SkillMenuSwitch("Mode", '/');
+        m_switches[SKM_MODE] = sw;
+        sw->add(SKM_MODE_AUTO);
+        if (!is_set(SKMF_SPECIAL) && !is_set(SKMF_SIMPLE))
+            sw->add(SKM_MODE_MANUAL);
+        if (!you.auto_training)
+            sw->set_state(SKM_MODE_MANUAL);
+        sw->update();
+        sw->set_id(SKM_MODE);
+        add_item(sw, sw->size(), m_pos);
+        sw = new SkillMenuSwitch("Do", '|');
+        m_switches[SKM_DO] = sw;
+        if (!is_set(SKMF_EXPERIENCE)
+            && (is_set(SKMF_SIMPLE) || Options.skill_focus != SKM_FOCUS_ON))
+        {
+                sw->add(SKM_DO_PRACTISE);
+        }
+        if (!is_set(SKMF_RESKILLING) && !is_set(SKMF_SIMPLE)
+            && Options.skill_focus != SKM_FOCUS_OFF)
+        {
+            sw->add(SKM_DO_FOCUS);
+        }
+        sw->set_state(you.skill_menu_do);
+        sw->add_hotkey('\t');
+        sw->update();
+        sw->set_id(SKM_DO);
+        add_item(sw, sw->size(), m_pos);
+        sw = new SkillMenuSwitch("Show", '*');
+        m_switches[SKM_SHOW] = sw;
+        //sw->add(SKM_SHOW_KNOWN);
+        sw->add(SKM_SHOW_DEFAULT);
+        if (!is_set(SKMF_SIMPLE) && !is_set(SKMF_EXPERIENCE))
+            sw->add(SKM_SHOW_ALL);
+        sw->update();
+        sw->set_id(SKM_SHOW);
+        add_item(sw, sw->size(), m_pos);
+    }
     if (is_set(SKMF_CHANGED))
     {
         sw = new SkillMenuSwitch("Level", '_');
