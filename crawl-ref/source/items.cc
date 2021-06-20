@@ -1512,6 +1512,48 @@ static void _got_item(item_def& item, int quant)
         item.props.erase("needs_autopickup");
 }
 
+
+static void _get_book(const item_def& it, bool quiet)
+{
+    if (!you.mutation[MUT_INNATE_CASTER])
+    {
+        bool newspells = false;
+        if (!quiet)
+            mprf("You pick up %s and begin reading...", it.name(DESC_A).c_str());
+        for (int j = 0; j < SPELLBOOK_SIZE; j++)
+        {
+            spell_type st = which_spell_in_book(it, j);
+            if (st != SPELL_NO_SPELL)
+                if (!you.spell_stash.count(st))
+                {
+                    you.spell_stash.insert(st);
+                        newspells = true;
+                    if (!quiet && !you_cannot_memorise(st))
+                        mprf("You add the spell %s to your library.", spell_title(st));
+                }
+        }
+        if (!newspells && !quiet)
+            mpr("Unfortunately, it added no spells to the library.");
+    }
+    else
+    if (!quiet)
+            mpr("You can't learn anything from spellbooks.");
+    
+}
+
+void add_held_books_to_stash()
+{
+    for (item_def& it : you.inv)
+    {
+        if (it.base_type == OBJ_BOOKS && it.sub_type != BOOK_MANUAL && it.sub_type != BOOK_DESTRUCTION)
+        {
+            if (!you.mutation[MUT_INNATE_CASTER])
+                _get_book(it, true);
+            destroy_item(it);
+        }
+    }
+}
+
 static void _got_gold(item_def& item, int quant, bool quiet)
 {
     you.attribute[ATTR_GOLD_FOUND] += quant;
@@ -1672,7 +1714,15 @@ int move_item_to_player(int obj, int quant_got, bool quiet,
 
         return retval;
     }
-
+    
+    //Same goes for books, now.    
+    if (it.base_type == OBJ_BOOKS && it.sub_type != BOOK_MANUAL && it.sub_type != BOOK_DESTRUCTION)
+    {
+        _get_book(it, quiet);
+        dec_mitm_item_quantity(obj, quant_got);
+        return true;
+    }
+    
     const int unit_mass = item_mass(it);
     if (quant_got > it.quantity || quant_got <= 0)
         quant_got = it.quantity;

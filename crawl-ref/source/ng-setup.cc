@@ -1419,6 +1419,7 @@ static void _setup_generic(const newgame_def& ng)
         if (you.mutation[MUT_INNATE_CASTER])
             _setup_innate_spells();
     }
+    add_held_books_to_stash();
     // Clear known-useless items (potions for Mummies, etc).
     for (int i = 0; i < ENDOFPACK; ++i)
     {

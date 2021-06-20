@@ -1370,6 +1370,13 @@ static void tag_construct_you(writer &th)
     {
         marshallShort(th, *it);
     }
+    
+    marshallUByte(th, you.spell_stash.size());
+    for (set<spell_type>::iterator it = you.spell_stash.begin();
+         it != you.spell_stash.end(); ++it)
+    {
+        marshallShort(th, *it);
+    }
 
     CANARY;
 
@@ -2326,6 +2333,11 @@ static void tag_read_you(reader &th)
         }
     }
 #endif
+
+    count = unmarshallUByte(th);
+    for (i = 0; i < count; ++i)
+        you.spell_stash.insert(unmarshallSpellType(th));
+        
     EAT_CANARY;
 
     // how many skills?

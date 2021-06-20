@@ -848,6 +848,15 @@ void handle_delay()
 
 static void _armour_wear_effects(const int item_slot);
 
+void stash_recover_spell(spell_type spell)
+{
+    if (you.spell_stash.count(spell))
+    {
+        you.spell_stash.erase(spell);
+        you.seen_spell.set(spell);
+    }
+}
+
 static void _finish_delay(const delay_queue_item &delay)
 {
     switch (delay.type)
@@ -940,6 +949,7 @@ static void _finish_delay(const delay_queue_item &delay)
         mpr("You finish memorising.");
         add_spell_to_memory(spell);
         vehumet_accept_gift(spell);
+        stash_recover_spell(spell);
         break;
     }
 

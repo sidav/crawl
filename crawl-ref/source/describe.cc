@@ -2260,15 +2260,6 @@ static bool _can_memorise(item_def &item)
            && player_can_memorise_from_spellbook(item);
 }
 
-static void _update_inscription(item_def &item)
-{
-    if (item.base_type == OBJ_BOOKS && in_inventory(item)
-        && !_can_memorise(item))
-    {
-        inscribe_book_highlevel(item);
-    }
-}
-
 static bool _describe_spellbook(item_def &item)
 {
     while (true)
@@ -2278,7 +2269,6 @@ static bool _describe_spellbook(item_def &item)
             return false;
 
         _show_item_description(item);
-        _update_inscription(item);
 
         cgotoxy(1, wherey());
         textcolor(LIGHTGREY);
@@ -2578,7 +2568,6 @@ bool describe_item(item_def &item, bool allow_inscribe, bool shopping)
         return _describe_spellbook(item);
 
     _show_item_description(item);
-    _update_inscription(item);
 
     if (allow_inscribe && crawl_state.game_is_tutorial())
         allow_inscribe = false;
