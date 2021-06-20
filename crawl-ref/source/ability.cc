@@ -323,8 +323,8 @@ static const ability_def Ability_List[] =
     { ABIL_SIF_MUNA_FORGET_SPELL, "Forget Spell", 5, 0, 0, 8, 0, ABFLAG_NONE},
 
     // Trog
-    { ABIL_TROG_BURN_SPELLBOOKS, "Burn Spellbooks",
-      0, 0, 10, 0, 0, ABFLAG_NONE},
+    //{ ABIL_TROG_BURN_SPELLBOOKS, "Burn Spellbooks",
+    //  0, 0, 10, 0, 0, ABFLAG_NONE},
     { ABIL_TROG_BERSERK, "Berserk", 0, 0, 200, 0, 0, ABFLAG_NONE},
     { ABIL_TROG_REGEN_MR, "Trog's Hand",
       0, 0, 50, generic_cost::range(2, 3), 0, ABFLAG_NONE},
@@ -1063,7 +1063,7 @@ talent get_talent(ability_type ability, bool check_confused)
     // Abilities with no fail rate.
     case ABIL_ZIN_CURE_ALL_MUTATIONS:
     case ABIL_ELYVILON_LIFESAVING:
-    case ABIL_TROG_BURN_SPELLBOOKS:
+    //case ABIL_TROG_BURN_SPELLBOOKS:
     case ABIL_ASHENZARI_TRANSFER_KNOWLEDGE:
     case ABIL_ASHENZARI_END_TRANSFER:
     case ABIL_ASHENZARI_SCRYING:
@@ -2595,10 +2595,10 @@ static bool _do_ability(const ability_def& abil)
                           20 + you.skill(SK_INVOCATIONS, 3), GOD_MAKHLEB);
         break;
 
-    case ABIL_TROG_BURN_SPELLBOOKS:
-        if (!trog_burn_spellbooks())
-            return false;
-        break;
+    //case ABIL_TROG_BURN_SPELLBOOKS:
+    //    if (!trog_burn_spellbooks())
+    //        return false;
+    //    break;
 
     case ABIL_TROG_BERSERK:
         // Trog abilities don't use or train invocations.
@@ -3668,9 +3668,9 @@ static int _find_ability_slot(const ability_def &abil)
 vector<ability_type> get_god_abilities(bool include_unusable, bool ignore_piety)
 {
     vector<ability_type> abilities;
-    if (you_worship(GOD_TROG) && (include_unusable || !silenced(you.pos())))
-        abilities.push_back(ABIL_TROG_BURN_SPELLBOOKS);
-    else if (you_worship(GOD_ELYVILON) && (include_unusable || !silenced(you.pos())))
+    //if (you_worship(GOD_TROG) && (include_unusable || !silenced(you.pos())))
+    //    abilities.push_back(ABIL_TROG_BURN_SPELLBOOKS);
+    if (you_worship(GOD_ELYVILON) && (include_unusable || !silenced(you.pos())))
         abilities.push_back(ABIL_ELYVILON_LESSER_HEALING_OTHERS);
     else if (you_worship(GOD_CHEIBRIADOS) && (include_unusable
                                               || !(silenced(you.pos())

@@ -4608,15 +4608,15 @@ void describe_god(god_type which_god, bool give_title)
             cprintf("%s %s shields you from negative energy.\n",
                     uppercase_first(god_name(which_god)).c_str(), how);
         }
-        else if (which_god == GOD_TROG)
-        {
-            have_any = true;
-            string buf = "You can call upon "
-                         + god_name(which_god)
-                         + " to burn spellbooks in your surroundings.";
-            _print_final_god_abil_desc(which_god, buf,
-                                       ABIL_TROG_BURN_SPELLBOOKS);
-        }
+        //else if (which_god == GOD_TROG)
+        //{
+        //    have_any = true;
+        //    string buf = "You can call upon "
+        //                 + god_name(which_god)
+        //                 + " to burn spellbooks in your surroundings.";
+        //    _print_final_god_abil_desc(which_god, buf,
+        //                               ABIL_TROG_BURN_SPELLBOOKS);
+        //}
         else if (which_god == GOD_JIYVA)
         {
             if (!player_under_penance())

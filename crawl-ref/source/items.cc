@@ -1537,7 +1537,7 @@ static void _get_book(const item_def& it, bool quiet)
     }
     else
     if (!quiet)
-            mpr("You can't learn anything from spellbooks.");
+            mpr("This book is full of glibberish!");
     
 }
 

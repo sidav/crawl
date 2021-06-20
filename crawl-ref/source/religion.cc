@@ -567,11 +567,11 @@ string get_god_likes(god_type which_god, bool verbose)
         likes.push_back(info);
         break;
 
-    case GOD_TROG:
-        snprintf(info, INFO_SIZE, "you destroy spellbooks%s",
-                 verbose ? " via the <w>a</w> command" : "");
-        likes.push_back(info);
-        break;
+//    case GOD_TROG:
+//        snprintf(info, INFO_SIZE, "you destroy spellbooks%s",
+//                 verbose ? " via the <w>a</w> command" : "");
+//        likes.push_back(info);
+//        break;
 
     case GOD_NEMELEX_XOBEH:
         snprintf(info, INFO_SIZE, "you draw unmarked cards and use up decks%s",
@@ -3733,11 +3733,11 @@ void god_pitch(god_type which_god)
                         "lying on the ground.");
         mprf(MSGCH_GOD, "You can now provide lesser healing for others.");
     }
-    else if (you_worship(GOD_TROG))
-    {
-        mprf(MSGCH_GOD, "You can now call upon Trog to burn spellbooks in your "
-            "surroundings.");
-    }
+//    else if (you_worship(GOD_TROG))
+//    {
+//        mprf(MSGCH_GOD, "You can now call upon Trog to burn spellbooks in your "
+//            "surroundings.");
+//    }
     else if (you_worship(GOD_FEDHAS))
     {
         mprf(MSGCH_GOD, "You can now call upon Fedhas to speed up the decay of corpses.");
