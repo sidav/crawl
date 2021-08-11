@@ -57,6 +57,8 @@
 #include "directn.h"
 #endif
 
+#define CPRINTF_TRUE cprintf
+
 #ifdef USE_TILE_LOCAL
 #include "tilesdl.h"
 
@@ -1306,7 +1308,7 @@ void print_stats(void)
             textcolor(Options.status_caption_colour);
             CPRINTF("Next: ");
             textcolor(HUD_VALUE_COLOUR);
-            CPRINTF("%2d%% ", get_exp_progress());
+            CPRINTF_TRUE("%2d%% ", get_exp_progress());
         }
         if (crawl_state.game_is_zotdef())
         {
