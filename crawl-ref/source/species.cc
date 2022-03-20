@@ -65,9 +65,9 @@ static const char * Species_Abbrev_List[NUM_SPECIES] =
       "Ce", "Dg", "Sp", "Mi", "Ds", "Gh", "Te", "Mf", "Vp", "DD",
       "Fe", "Op",
       "Dj",
-      "LO", "Gr", "Fo", "VS",
+      "LO", "Gr", "Fo", "Gn", "VS",
       // placeholders
-      "El", "HD", "OM", "GE", "Gn", "MD",
+      "El", "HD", "OM", "GE", "MD",
 #if TAG_MAJOR_VERSION > 34
       "SE",
 #endif

@@ -48,6 +48,11 @@ Ghoul
 An undead, damned to rot eternally. They are always looking for rotten food to
 eat, hacking away with their claws.
 %%%%
+Gnoll
+
+Gnolls are canine-like humanoids. They are unable to specialise in any single
+skill, but instead gradually become proficient in all skills at once.
+%%%%
 Gargoyle
 
 Made of living stone, Gargoyles have a preternatural affinity for the earth.
