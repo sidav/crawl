@@ -3576,6 +3576,11 @@ void level_change(int source, const char* aux, bool skip_attribute_increase)
                 if (you.experience_level == 12)
                     perma_mutate(MUT_REGENERATION, 1, "vine stalker growth");
                 break;
+                
+            case SP_GNOLL:
+                if (!(you.experience_level % 4))
+                    modify_stat(STAT_RANDOM, 1, false, "level gain");
+                break;
 
             default:
                 break;
