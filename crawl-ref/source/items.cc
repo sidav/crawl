@@ -1512,7 +1512,6 @@ static void _got_item(item_def& item, int quant)
         item.props.erase("needs_autopickup");
 }
 
-
 static void _get_book(const item_def& it, bool quiet)
 {
     if (!you.mutation[MUT_INNATE_CASTER])
@@ -1523,7 +1522,12 @@ static void _get_book(const item_def& it, bool quiet)
         for (int j = 0; j < SPELLBOOK_SIZE; j++)
         {
             spell_type st = which_spell_in_book(it, j);
-            if (st != SPELL_NO_SPELL)
+            bool knows_spell = false;
+            for (int z = 0; z < MAX_KNOWN_SPELLS && !knows_spell; z++)
+                knows_spell = (you.spells[z] == st);
+                // You don't already know this spell.
+
+            if (st != SPELL_NO_SPELL && !knows_spell)
                 if (!you.spell_stash.count(st))
                 {
                     you.spell_stash.insert(st);

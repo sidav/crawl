@@ -2562,7 +2562,7 @@ int item_mass(const item_def &item)
         break;
 
     case OBJ_BOOKS:
-        unit_mass = 70;
+        unit_mass = 0;
         break;
 
     case OBJ_STAVES:
