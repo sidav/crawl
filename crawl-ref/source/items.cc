@@ -1512,10 +1512,11 @@ static void _got_item(item_def& item, int quant)
         item.props.erase("needs_autopickup");
 }
 
-static void _get_book(const item_def& it, bool quiet)
+static void _get_book(item_def& it, bool quiet)
 {
     if (!you.mutation[MUT_INNATE_CASTER])
     {
+        set_ident_flags(it, ISFLAG_KNOW_TYPE);
         bool newspells = false;
         if (!quiet)
             mprf("You pick up %s and begin reading...", it.name(DESC_A).c_str());
