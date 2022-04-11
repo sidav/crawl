@@ -567,11 +567,11 @@ string get_god_likes(god_type which_god, bool verbose)
         likes.push_back(info);
         break;
 
-    case GOD_TROG:
-        snprintf(info, INFO_SIZE, "you destroy spellbooks%s",
-                 verbose ? " via the <w>a</w> command" : "");
-        likes.push_back(info);
-        break;
+//    case GOD_TROG:
+//        snprintf(info, INFO_SIZE, "you destroy spellbooks%s",
+//                 verbose ? " via the <w>a</w> command" : "");
+//        likes.push_back(info);
+//        break;
 
     case GOD_NEMELEX_XOBEH:
         snprintf(info, INFO_SIZE, "you draw unmarked cards and use up decks%s",
@@ -947,7 +947,8 @@ string get_god_dislikes(god_type which_god, bool /*verbose*/)
     case GOD_TROG:
         really_dislikes.push_back("you memorise spells");
         really_dislikes.push_back("you attempt to cast spells");
-        really_dislikes.push_back("you train magic skills");
+        if (!you.mutation[MUT_DISTRIBUTED_TRAINING])
+            really_dislikes.push_back("you train magic skills");
         break;
 
     case GOD_BEOGH:
@@ -2526,9 +2527,6 @@ string adjust_abil_message(const char *pmsg, bool allow_upgrades)
     if (brdepth[BRANCH_ABYSS] == -1 && strstr(pmsg, "Abyss"))
         return "";
     if ((you.species == SP_FORMICID
-#if TAG_MAJOR_VERSION == 34
-                || you.species == SP_DJINNI
-#endif
          || you.species == SP_MUMMY || you.species == SP_GHOUL)
         && strstr(pmsg, "berserk"))
     {
@@ -3480,10 +3478,26 @@ bool player_can_join_god(god_type which_god)
     // Dithmenos hates fiery species.
     if (which_god == GOD_DITHMENOS
         && (
-#if TAG_MAJOR_VERSION == 34
             you.species == SP_DJINNI ||
-#endif
             you.species == SP_LAVA_ORC))
+    {
+        return false;
+    }
+
+    if (which_god == GOD_SIF_MUNA
+        && (you.species == SP_DJINNI))
+    {
+        return false;
+    }
+
+    if (which_god == GOD_VEHUMET
+        && (you.species == SP_DJINNI))
+    {
+        return false;
+    }
+
+    if (which_god == GOD_KIKUBAAQUDGHA
+        && (you.species == SP_DJINNI))
     {
         return false;
     }
@@ -3671,7 +3685,7 @@ void god_pitch(god_type which_god)
     }
 
     // We disable all magical skills to avoid accidentally angering Trog.
-    if (you_worship(GOD_TROG))
+    if (you_worship(GOD_TROG) && !you.mutation[MUT_DISTRIBUTED_TRAINING])
     {
         for (int sk = SK_SPELLCASTING; sk <= SK_LAST_MAGIC; ++sk)
             if (you.skills[sk])
@@ -3719,11 +3733,11 @@ void god_pitch(god_type which_god)
                         "lying on the ground.");
         mprf(MSGCH_GOD, "You can now provide lesser healing for others.");
     }
-    else if (you_worship(GOD_TROG))
-    {
-        mprf(MSGCH_GOD, "You can now call upon Trog to burn spellbooks in your "
-            "surroundings.");
-    }
+//    else if (you_worship(GOD_TROG))
+//    {
+//        mprf(MSGCH_GOD, "You can now call upon Trog to burn spellbooks in your "
+//            "surroundings.");
+//    }
     else if (you_worship(GOD_FEDHAS))
     {
         mprf(MSGCH_GOD, "You can now call upon Fedhas to speed up the decay of corpses.");

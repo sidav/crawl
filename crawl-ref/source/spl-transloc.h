@@ -29,4 +29,8 @@ spret_type cast_semi_controlled_blink(int pow, bool cheap_cancel,
                                       bool fail = false);
 spret_type cast_golubrias_passage(const coord_def& where, bool fail);
 
+int singularity_range(int pow, int strength = 1);
+spret_type cast_singularity(int pow, const coord_def& where, bool fail);
+void singularity_pull(const monster *singularity);
+
 #endif

@@ -196,18 +196,6 @@ bool can_wield(item_def *weapon, bool say_reason,
             id_brand = true;
         }
     }
-#if TAG_MAJOR_VERSION == 34
-    else if (you.species == SP_DJINNI
-             && get_weapon_brand(*weapon) == SPWPN_ANTIMAGIC
-             && (item_type_known(*weapon) || !only_known))
-    {
-        if (say_reason)
-        {
-            mpr("As you grasp it, you feel your magic disrupted. Quickly, you stop.");
-            id_brand = true;
-        }
-    }
-#endif
 
     if (id_brand)
     {
@@ -732,9 +720,7 @@ bool can_wear_armour(const item_def &item, bool verbose, bool ignore_temporary)
         }
 
         if (you.species == SP_NAGA
-#if TAG_MAJOR_VERSION == 34
             || you.species == SP_DJINNI
-#endif
            )
         {
             if (verbose)
@@ -3392,8 +3378,9 @@ void tile_item_use(int idx)
                 if (check_warning_inscriptions(item, OPER_READ))
                     _handle_read_book(idx);
             } // else it's a spellbook
-            else if (check_warning_inscriptions(item, OPER_MEMORISE))
-                learn_spell(); // offers all spells, might not be what we want
+            else if (!you.mutation[MUT_INNATE_CASTER])
+                     if (check_warning_inscriptions(item, OPER_MEMORISE))
+                         learn_spell(); // offers all spells, might not be what we want
             return;
 
         case OBJ_SCROLLS:

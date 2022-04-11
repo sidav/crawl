@@ -1370,6 +1370,13 @@ static void tag_construct_you(writer &th)
     {
         marshallShort(th, *it);
     }
+    
+    marshallUByte(th, you.spell_stash.size());
+    for (set<spell_type>::iterator it = you.spell_stash.begin();
+         it != you.spell_stash.end(); ++it)
+    {
+        marshallShort(th, *it);
+    }
 
     CANARY;
 
@@ -2326,6 +2333,11 @@ static void tag_read_you(reader &th)
         }
     }
 #endif
+
+    count = unmarshallUByte(th);
+    for (i = 0; i < count; ++i)
+        you.spell_stash.insert(unmarshallSpellType(th));
+        
     EAT_CANARY;
 
     // how many skills?
@@ -2542,11 +2554,6 @@ static void tag_read_you(reader &th)
     {
         you.mutation[MUT_POISON_RESISTANCE] =
         you.innate_mutations[MUT_POISON_RESISTANCE] = 0;
-    }
-    if (you.species == SP_DJINNI)
-    {
-        you.mutation[MUT_NEGATIVE_ENERGY_RESISTANCE] =
-        you.innate_mutations[MUT_NEGATIVE_ENERGY_RESISTANCE] = 3;
     }
     if (you.species == SP_FELID && you.innate_mutations[MUT_JUMP] == 0)
     {

@@ -517,6 +517,8 @@ int detect_items(int pow)
             if (map_radius <= 0)
                 return 0;
         }
+        else if (you.mutation[MUT_STRONG_NOSE])
+            map_radius = 7;
         else // MUT_JELLY_GROWTH
             map_radius = 6;
     }

@@ -127,3 +127,10 @@ Wizard
 Wizards start with a book of Minor Magic, containing a wide range of spells.
 They have higher magical reserves than any other background.
 %%%%
+Demonspawn
+
+Demonspawn are born of an unholy union between a demon and a mortal. They 
+acquire strong demonic mutations as they grow and are quick to learn channeling
+divine energy, at the cost of all other skills being harder to master.
+Don't ask where they got their book of Conjurations.
+%%%%

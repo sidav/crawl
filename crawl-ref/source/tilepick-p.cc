@@ -626,14 +626,14 @@ tileidx_t tilep_species_to_base_tile(int sp, int level)
         return TILEP_BASE_FELID;
     case SP_OCTOPODE:
         return TILEP_BASE_OCTOPODE;
-#if TAG_MAJOR_VERSION == 34
     case SP_DJINNI:
         return TILEP_BASE_DJINNI;
-#endif
     case SP_FORMICID:
         return TILEP_BASE_FORMICID;
     case SP_VINE_STALKER:
         return TILEP_BASE_VINE_STALKER;
+    case SP_GNOLL:
+        return TILEP_BASE_GNOLL;
     default:
         return TILEP_BASE_HUMAN;
     }
@@ -767,11 +767,9 @@ void tilep_race_default(int sp, int level, dolls_data *doll)
         case SP_FORMICID:
             hair = 0;
             break;
-#if TAG_MAJOR_VERSION == 34
         case SP_DJINNI:
             hair = TILEP_HAIR_DJINN2;
             break;
-#endif
         default:
             // nothing to do
             break;
@@ -1043,7 +1041,6 @@ void tilep_calc_flags(const dolls_data &doll, int flag[])
         flag[TILEP_PART_LEG]    = TILEP_FLAG_HIDE;
         flag[TILEP_PART_SHADOW] = TILEP_FLAG_HIDE;
     }
-#if TAG_MAJOR_VERSION == 34
     else if (is_player_tile(doll.parts[TILEP_PART_BASE], TILEP_BASE_DJINNI))
     {
         flag[TILEP_PART_BOOTS]  = TILEP_FLAG_HIDE;
@@ -1051,7 +1048,6 @@ void tilep_calc_flags(const dolls_data &doll, int flag[])
         flag[TILEP_PART_SHADOW] = TILEP_FLAG_HIDE;
         flag[TILEP_PART_BODY]   = TILEP_FLAG_CUT_NAGA; // Do they need their own flag?
     }
-#endif
     else if (doll.parts[TILEP_PART_BASE] >= TILEP_BASE_DRACONIAN_FIRST
              && doll.parts[TILEP_PART_BASE] <= TILEP_BASE_DRACONIAN_LAST)
     {

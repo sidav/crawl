@@ -135,7 +135,7 @@ static const mutation_type _all_scales[] =
     MUT_MOLTEN_SCALES,              MUT_ROUGH_BLACK_SCALES,
     MUT_RUGGED_BROWN_SCALES,        MUT_SLIMY_GREEN_SCALES,
     MUT_THIN_METALLIC_SCALES,       MUT_THIN_SKELETAL_STRUCTURE,
-    MUT_YELLOW_SCALES,
+    MUT_YELLOW_SCALES,              MUT_BIG_BRAIN,
 };
 
 static bool _is_covering(mutation_type mut)
@@ -521,16 +521,14 @@ string describe_mutations(bool center_title)
             !form_keeps_mutations());
         have_any = true;
         break;
-#if TAG_MAJOR_VERSION == 34
 
     case SP_DJINNI:
-        result += "You are immune to all types of fire, even holy and hellish.\n";
-        result += "You are vulnerable to cold.\n";
-        result += "You need no food.\n";
-        result += "You have no legs.\n";
+        result += "Your magical power is your life essence.\n";
+        result += "You float through the air rather than walking.\n";
+        result += "You are immune to poison and rot.\n";
+        result += "You don't need to breathe.\n";
         have_any = true;
         break;
-#endif
 
     case SP_LAVA_ORC:
     {
@@ -1285,11 +1283,11 @@ static int _body_covered()
     return covered;
 }
 
-bool physiology_mutation_conflict(mutation_type mutat)
+bool physiology_mutation_conflict(mutation_type mutat, bool ds_roll)
 {
     // If demonspawn, and mutat is a scale, see if they were going
     // to get it sometime in the future anyway; otherwise, conflict.
-    if (you.species == SP_DEMONSPAWN && _is_covering(mutat)
+    if ((you.species == SP_DEMONSPAWN) || (you.char_class == JOB_DEMONSPAWN) && !ds_roll && _is_covering(mutat)
         && find(_all_scales, _all_scales+ARRAYSZ(_all_scales), mutat) !=
                 _all_scales+ARRAYSZ(_all_scales))
     {
@@ -1305,7 +1303,7 @@ bool physiology_mutation_conflict(mutation_type mutat)
     }
 
     // Strict 3-scale limit.
-    if (_is_covering(mutat) && _body_covered() >= 3)
+    if (_is_covering(mutat) && _body_covered() >= 3 && !ds_roll)
         return true;
 
     // Only Nagas and Draconians can get this one.
@@ -1360,6 +1358,7 @@ bool physiology_mutation_conflict(mutation_type mutat)
     // Vampires' healing and thirst rates depend on their blood level.
     if (you.species == SP_VAMPIRE
         && (mutat == MUT_CARNIVOROUS || mutat == MUT_HERBIVOROUS
+            || mutat == MUT_SAPROVOROUS
             || mutat == MUT_REGENERATION || mutat == MUT_SLOW_HEALING
             || mutat == MUT_FAST_METABOLISM || mutat == MUT_SLOW_METABOLISM))
     {
@@ -1395,23 +1394,26 @@ bool physiology_mutation_conflict(mutation_type mutat)
             return true;
         }
     }
-#if TAG_MAJOR_VERSION == 34
 
-    // Heat doesn't hurt fire, djinn don't care about hunger.
-    if (you.species == SP_DJINNI && (mutat == MUT_HEAT_RESISTANCE
-        || mutat == MUT_HEAT_VULNERABILITY
-        || mutat == MUT_BERSERK
-        || mutat == MUT_FAST_METABOLISM || mutat == MUT_SLOW_METABOLISM
-        || mutat == MUT_CARNIVOROUS || mutat == MUT_HERBIVOROUS))
+    // Heat doesn't hurt fire
+    if (you.species == SP_DJINNI && (mutat == MUT_TALONS
+        || mutat == MUT_HOOVES || mutat == MUT_SAPROVOROUS
+        || mutat == MUT_HIGH_MAGIC || mutat == MUT_PASSIVE_FREEZE
+        || mutat == MUT_LOW_MAGIC || mutat == MUT_MANA_SHIELD
+        || mutat == MUT_SLIMY_GREEN_SCALES || mutat == MUT_POISON_RESISTANCE
+        || mutat == MUT_ICEMAIL
+        || mutat == MUT_MANA_LINK || mutat == MUT_MANA_REGENERATION))
     {
         return true;
     }
-#endif
 
     // Already immune.
-    if (you.species == SP_GARGOYLE && mutat == MUT_POISON_RESISTANCE)
+    if (you.species == SP_GARGOYLE && (mutat == MUT_POISON_RESISTANCE || mutat == MUT_SLIMY_GREEN_SCALES))
         return true;
 
+    if (you.species == SP_MUMMY && (mutat == MUT_NEGATIVE_ENERGY_RESISTANCE || MUT_IGNITE_BLOOD || mutat == MUT_SLIMY_GREEN_SCALES || mutat == MUT_SAPROVOROUS))
+        return true;
+        
     equipment_type eq_type = EQ_NONE;
 
     // Mutations of the same slot conflict
@@ -1623,7 +1625,7 @@ bool mutate(mutation_type which_mutation, const string &reason, bool failMsg,
     if (you.mutation[mutat] >= mdef.levels)
     {
         bool found = false;
-        if (you.species == SP_DEMONSPAWN)
+        if ((you.species == SP_DEMONSPAWN) || (you.char_class == JOB_DEMONSPAWN))
             for (unsigned i = 0; i < you.demonic_traits.size(); ++i)
                 if (you.demonic_traits[i].mutation == mutat)
                 {
@@ -2081,6 +2083,12 @@ string mutation_desc(mutation_type mut, int level, bool colour)
         ostr << mdef.have[0] << player_icemail_armour_class() << ").";
         result = ostr.str();
     }
+    else if (mut == MUT_CONDENSATION_SHIELD)
+    {
+        ostringstream ostr;
+        ostr << mdef.have[0] << player_condensation_shield_class() << ").";
+        result = ostr.str();
+    }
     else if (mut == MUT_DEFORMED && is_useless_skill(SK_ARMOUR))
         result = "Your body is misshapen.";
     else if (result.empty() && level > 0)
@@ -2135,7 +2143,21 @@ string mutation_desc(mutation_type mut, int level, bool colour)
         }
         else if (permanent)
         {
-            const bool demonspawn = (you.species == SP_DEMONSPAWN);
+            const bool ds = (you.species == SP_DEMONSPAWN || you.char_class == JOB_DEMONSPAWN);
+            bool demonspawn = false;
+
+            if (ds)
+            {
+                for (int i = 0; i < you.demonic_traits.size(); i++)
+                {
+                    if (you.demonic_traits[i].mutation == mut &&
+                        you.demonic_traits[i].level_gained <= you.experience_level)
+                    {
+                        demonspawn = true;
+                        i += 1000;
+                    }
+                }
+            }
             const bool extra = (you.mutation[mut] > you.innate_mutations[mut]);
 
             if (fully_inactive)
@@ -2214,24 +2236,26 @@ static const facet_def _demon_facets[] =
       { -33, -33, 0 } },
     { 1, { MUT_YELLOW_SCALES, MUT_YELLOW_SCALES, MUT_YELLOW_SCALES },
       { -33, -33, 0 } },
+    { 1, { MUT_BIG_BRAIN, MUT_BIG_BRAIN, MUT_BIG_BRAIN },
+      { -33, -33, 0 } },
     // Tier 2 facets
-    { 2, { MUT_CONSERVE_SCROLLS, MUT_HEAT_RESISTANCE, MUT_IGNITE_BLOOD },
+    { 2, { MUT_IGNITE_BLOOD, MUT_IGNITE_BLOOD, MUT_IGNITE_BLOOD },
       { -33, 0, 0 } },
-    { 2, { MUT_COLD_RESISTANCE, MUT_CONSERVE_POTIONS, MUT_ICEMAIL },
+    { 2, { MUT_CONDENSATION_SHIELD, MUT_ICEMAIL, MUT_ICEMAIL },
       { -33, 0, 0 } },
     { 2, { MUT_POWERED_BY_DEATH, MUT_POWERED_BY_DEATH, MUT_POWERED_BY_DEATH },
       { -33, 0, 0 } },
     { 2, { MUT_DEMONIC_GUARDIAN, MUT_DEMONIC_GUARDIAN, MUT_DEMONIC_GUARDIAN },
-      { -66, 17, 50 } },
+      { -33, 0, 0 } },
     { 2, { MUT_NIGHTSTALKER, MUT_NIGHTSTALKER, MUT_NIGHTSTALKER },
       { -33, 0, 0 } },
     { 2, { MUT_SPINY, MUT_SPINY, MUT_SPINY },
       { -33, 0, 0 } },
     { 2, { MUT_POWERED_BY_PAIN, MUT_POWERED_BY_PAIN, MUT_POWERED_BY_PAIN },
       { -33, 0, 0 } },
-    { 2, { MUT_SAPROVOROUS, MUT_FOUL_STENCH, MUT_FOUL_STENCH },
+    { 2, { MUT_FOUL_STENCH, MUT_FOUL_STENCH, MUT_FOUL_STENCH },
       { -33, 0, 0 } },
-    { 2, { MUT_MANA_SHIELD, MUT_MANA_REGENERATION, MUT_MANA_LINK },
+    { 2, { MUT_MANA_REGENERATION, MUT_MANA_SHIELD, MUT_MANA_LINK },
       { -33, 0, 0 } },
     // Tier 3 facets
     { 3, { MUT_CONSERVE_SCROLLS, MUT_HEAT_RESISTANCE, MUT_HURL_HELLFIRE },
@@ -2323,7 +2347,8 @@ try_again:
                 next_facet = &RANDOM_ELEMENT(_demon_facets);
             while (!_works_at_tier(*next_facet, tier)
                    || facets_used.count(next_facet)
-                   || !_slot_is_unique(next_facet->muts, facets_used));
+                   || !_slot_is_unique(next_facet->muts, facets_used)
+				   || physiology_mutation_conflict(next_facet->muts[2], true));
 
             facets_used.insert(next_facet);
 
@@ -2343,7 +2368,7 @@ try_again:
                 if (m == MUT_CONSERVE_SCROLLS)
                     fire_elemental++;
 
-                if (m == MUT_SAPROVOROUS || m == MUT_IGNITE_BLOOD)
+                if (m == MUT_FOUL_STENCH || m == MUT_IGNITE_BLOOD)
                     cloud_producing++;
             }
 
@@ -2475,6 +2500,8 @@ bool perma_mutate(mutation_type which_mut, int how_much, const string &reason)
             // in question is one less than the cap, we are permafying a
             // temporary mutation. This fails to produce any output normally.
             mprf(MSGCH_MUTATION, "Your mutations feel more permanent.");
+            take_note(Note(NOTE_PERM_MUTATION, which_mut,
+                           you.mutation[which_mut], reason.c_str()));
         }
         else if (you.mutation[which_mut] < cap
             && !mutate(which_mut, reason, false, true, false, false, true))
@@ -2517,70 +2544,42 @@ int how_mutated(bool all, bool levels)
     return j;
 }
 
-// Return whether current tension is balanced
-static bool _balance_demonic_guardian()
-{
-    const int mutlevel = player_mutation_level(MUT_DEMONIC_GUARDIAN);
-
-    int tension = get_tension(GOD_NO_GOD), mons_val = 0, total = 0;
-    monster_iterator mons;
-
-    // tension is unfavorably high, perhaps another guardian should spawn
-    if (tension*3/4 > mutlevel*6 + random2(mutlevel*mutlevel*2))
-        return false;
-
-    for (int i = 0; mons && i <= 20/mutlevel; ++mons)
-    {
-        mons_val = get_monster_tension(*mons, GOD_NO_GOD);
-        const mon_attitude_type att = mons_attitude(*mons);
-
-        if (testbits(mons->flags, MF_DEMONIC_GUARDIAN)
-            && total < random2(mutlevel * 5)
-            && att == ATT_FRIENDLY
-            && !one_chance_in(3)
-            && !mons->has_ench(ENCH_LIFE_TIMER))
-        {
-            mprf("%s %s!", mons->name(DESC_THE).c_str(),
-                           summoned_poof_msg(*mons).c_str());
-            monster_die(*mons, KILL_NONE, NON_MONSTER);
-        }
-        else
-            total += mons_val;
-    }
-
-    return true;
-}
-
-// Primary function to handle and balance demonic guardians, if the tension
-// is unfavorably high and a guardian was not recently spawned, a new guardian
-// will be made, if tension is below a threshold (determined by the mutations
-// level and a bit of randomness), guardians may be dismissed in
-// _balance_demonic_guardian()
+// Primary function to handle demonic guardians.
+// Guardian tier is partially based on player experience level. This should
+// allow players to get the mutation early without it going totally out of
+// control.
 void check_demonic_guardian()
 {
     const int mutlevel = player_mutation_level(MUT_DEMONIC_GUARDIAN);
 
-    if (!_balance_demonic_guardian() &&
-        you.duration[DUR_DEMONIC_GUARDIAN] == 0)
+    if (you.duration[DUR_DEMONIC_GUARDIAN] == 0)
     {
         monster_type mt;
-
-        switch (mutlevel)
+        int guardian_str = mutlevel + div_rand_round(you.experience_level - 9, 9);
+        
+        switch (guardian_str)
         {
         case 1:
             mt = random_choose(MONS_WHITE_IMP, MONS_QUASIT, MONS_UFETUBUS,
-                               MONS_IRON_IMP, MONS_CRIMSON_IMP, -1);
+                               MONS_IRON_IMP, -1);
             break;
         case 2:
-            mt = random_choose(MONS_SIXFIRHY, MONS_SMOKE_DEMON, MONS_SOUL_EATER,
-                               MONS_SUN_DEMON, MONS_ICE_DEVIL, -1);
+            mt = random_choose(MONS_ORANGE_DEMON, MONS_ICE_DEVIL, MONS_HELLWING, -1);
             break;
         case 3:
-            mt = random_choose(MONS_EXECUTIONER, MONS_BALRUG, MONS_REAPER,
-                               MONS_CACODEMON, -1);
+            mt = random_choose(MONS_SOUL_EATER, MONS_SMOKE_DEMON,
+                               MONS_SIXFIRHY, MONS_SUN_DEMON, -1);
+            break;
+        case 4:
+            mt = random_choose(MONS_BALRUG, MONS_REAPER,
+                               MONS_LOROCYPROCA, MONS_HELL_BEAST, -1);
+            break;
+        case 5:
+            mt = random_choose(MONS_EXECUTIONER, MONS_HELL_SENTINEL,
+                               MONS_BRIMSTONE_FIEND, -1);
             break;
         default:
-            die("Invalid demonic guardian level: %d", mutlevel);
+            die("Invalid demonic guardian level: %d", guardian_str);
         }
 
         monster *guardian = create_monster(mgen_data(mt, BEH_FRIENDLY, &you,
@@ -2598,6 +2597,7 @@ void check_demonic_guardian()
 
         // no more guardians for mutlevel+1 to mutlevel+20 turns
         you.duration[DUR_DEMONIC_GUARDIAN] = 10*(mutlevel + random2(20));
+        mpr("A demonic guardian appears!"); 
     }
 }
 
@@ -2665,30 +2665,7 @@ void check_monster_detect()
     }
 }
 
-int handle_pbd_corpses()
-{
-    int corpse_count = 0;
 
-    for (radius_iterator ri(you.pos(),
-         player_mutation_level(MUT_POWERED_BY_DEATH) * 3, C_ROUND, LOS_DEFAULT);
-         ri; ++ri)
-    {
-        for (stack_iterator j(*ri); j; ++j)
-        {
-            if (j->base_type == OBJ_CORPSES
-                && j->sub_type == CORPSE_BODY
-                && j->special > 50
-                && !j->props.exists("never_hide"))
-            {
-                ++corpse_count;
-                if (corpse_count == 7)
-                    break;
-            }
-        }
-    }
-
-    return corpse_count;
-}
 
 int augmentation_amount()
 {
@@ -2702,4 +2679,10 @@ int augmentation_amount()
     }
 
     return amount;
+}
+
+void reset_powered_by_death_duration()
+{
+    const int pbd_dur = random_range(2, 5);
+    you.set_duration(DUR_POWERED_BY_DEATH, pbd_dur);
 }

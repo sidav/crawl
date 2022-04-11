@@ -69,7 +69,7 @@ Slings
 Being skilled with Slings will let you deal more damage when using the
 appropriate launcher and ammunition.
 
-Being skilled with Slings makes it easier to become more skilled in Throwing,
+Being skilled with Slings increases your effectiveness in Throwing,
 and vice versa.
 %%%%
 Bows
@@ -143,11 +143,17 @@ do so.
 %%%%
 Spellcasting
 
-Being skilled in Spellcasting slightly increases the success rate and spell
-power of all spells, along with increasing your magical reserves and reducing
-the effects of spell hunger.
-
-Training Spellcasting also gives you more spell slots to spend on new spells.
+{{
+    if (you.species == SP_DJINNI) then
+        return "Being skilled in Spellcasting increases the success rate and spell "..
+               "power of all spells."
+    else
+        return "Being skilled in Spellcasting slightly increases the success " ..
+                "rate and spell power of all spells, along with increasing your " ..
+                "magical reserves. Training Spellcasting also gives you more spell " ..
+                "slots to spend on new spells."
+    end
+}}
 %%%%
 Conjurations
 
@@ -243,7 +249,6 @@ spells in this school. Many spells belong to a combination of several schools,
 in which case spellcasting success and power will depend on the average skill
 in these schools.
 
-Being skilled in Fire Magic makes Ice Magic harder to learn, and vice versa.
 %%%%
 Ice Magic
 
@@ -255,7 +260,6 @@ in this school. Many spells belong to a combination of several schools, in
 which case spellcasting success and power will depend on the average skill in
 these schools.
 
-Being skilled in Ice Magic makes Fire Magic harder to learn, and vice versa.
 %%%%
 Air Magic
 
@@ -269,7 +273,6 @@ in this school. Many spells belong to a combination of several schools, in
 which case spellcasting success and power will depend on the average skill in
 these schools.
 
-Being skilled in Air Magic makes Earth Magic harder to learn, and vice versa.
 %%%%
 Earth Magic
 
@@ -283,7 +286,6 @@ spells in this school. Many spells belong to a combination of several schools,
 in which case spellcasting success and power will depend on the average skill
 in these schools.
 
-Being skilled in Earth Magic makes Air Magic harder to learn, and vice versa.
 %%%%
 Poison Magic
 
@@ -300,8 +302,13 @@ Invocations
 Your Invocations skill affects the likelihood that an attempt to use a divine
 ability will be successful, and often the power of such abilities.
 
-The Invocations skill also affects your magical reserves, but to a lesser
-degree than the Spellcasting skill, and only the highest contribution is used.
+{{
+    if (you.species != SP_DJINNI) then
+        return "The Invocations skill also affects your magical reserves, " ..
+               "but to a lesser degree than the Spellcasting skill. Only the " ..
+               "higher contribution is used."
+    end
+}}
 %%%%
 Evocations
 

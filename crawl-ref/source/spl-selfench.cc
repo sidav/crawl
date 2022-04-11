@@ -316,7 +316,7 @@ int cast_selective_amnesia(string *pre_msg)
         mpr(pre_msg->c_str());
 
     del_spell_from_memory_by_slot(slot);
-
+    you.spell_stash.insert(spell);
     return 1;
 }
 

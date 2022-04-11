@@ -57,9 +57,9 @@ static void _train_skills(int exp, const int cost, const bool simu);
 // 130 exp apt is midway between +0 and -1 now. -- elliptic
 unsigned int skill_cost_needed(int level)
 {
-    return (exp_needed(level, 1) * 13) / 10;
+    return exp_needed(level, 1) * 13;
 }
-
+static const int MAX_SKILL_COST_LEVEL = 27;
 // skill_cost_level makes skills more expensive for more experienced characters
 int calc_skill_cost(int skill_cost_level)
 {
@@ -142,7 +142,10 @@ static void _change_skill_level(skill_type exsk, int n)
         take_note(Note(NOTE_GAIN_SKILL, exsk, you.skills[exsk]));
     else
         take_note(Note(NOTE_LOSE_SKILL, exsk, you.skills[exsk]));
-
+        
+    // are you drained/crosstrained/ash'd in the relevant skill?
+    const bool specify_base = you.skill(exsk, 1) != you.skill(exsk, 1, true);
+    
     if (you.skills[exsk] == 27)
     {
         mprf(MSGCH_INTRINSIC_GAIN, "You have mastered %s!", skill_name(exsk));
@@ -158,14 +161,18 @@ static void _change_skill_level(skill_type exsk, int n)
     }
     else if (abs(n) == 1 && you.num_turns)
     {
-        mprf(MSGCH_INTRINSIC_GAIN, "Your %s skill %s to level %d!",
+        mprf(MSGCH_INTRINSIC_GAIN, "Your %s%s skill %s to level %d!",
+             specify_base ? "base " : "",
              skill_name(exsk), (n > 0) ? "increases" : "decreases",
              you.skills[exsk]);
     }
     else if (you.num_turns)
     {
-        mprf(MSGCH_INTRINSIC_GAIN, "Your %s skill %s %d levels and is now at "
-             "level %d!", skill_name(exsk), (n > 0) ? "gained" : "lost",
+        mprf(MSGCH_INTRINSIC_GAIN, "Your %s%s skill %s %d levels and is now "
+             "at level %d!",
+             specify_base ? "base " : "",
+             skill_name(exsk),
+             (n > 0) ? "gained" : "lost",
              abs(n), you.skills[exsk]);
     }
 
@@ -406,6 +413,9 @@ static void _check_start_train()
 
 static void _check_stop_train()
 {
+    // Gnolls can't stop training skills.
+    if (you.mutation[MUT_DISTRIBUTED_TRAINING])
+        return;
     _check_inventory_skills();
     _check_equipment_skills();
     _check_spell_skills();
@@ -449,6 +459,8 @@ void update_can_train()
 
 bool training_restricted(skill_type sk)
 {
+    if (you.mutation[MUT_DISTRIBUTED_TRAINING])
+        return false;
     switch (sk)
     {
     case SK_FIGHTING:
@@ -494,14 +506,24 @@ void init_can_train()
 void init_train()
 {
     for (int i = 0; i < NUM_SKILLS; ++i)
+    {
         if (you.can_train[i] && you.skill_points[i])
             you.train[i] = you.train_alt[i] = true;
         else
         {
             // Skills are on by default in auto mode and off in manual.
-            you.train[i] = you.auto_training;
-            you.train_alt[i] = !you.auto_training;
+            if (!you.mutation[MUT_DISTRIBUTED_TRAINING] && !is_useless_skill((skill_type) i))
+            {
+                you.train[i] = you.auto_training;
+                you.train_alt[i] = !you.auto_training;
+            }
+            else if (!is_useless_skill((skill_type) i))
+            {
+                you.train[i] = 1;
+                you.train_alt[i] = 1;
+            }
         }
+    }
 }
 
 static bool _cmp_rest(const pair<skill_type, int64_t>& a,
@@ -616,6 +638,8 @@ bool check_selected_skills()
     if (trainable_skill)
     {
         mpr("You need to enable at least one skill for training.");
+        // Training will be fixed up on load if this ASSERT triggers.
+        ASSERT(you.species != SP_GNOLL);
         more();
         reset_training();
         skill_menu();
@@ -642,11 +666,21 @@ bool check_selected_skills()
  */
 void reset_training()
 {
+    // Disable this here since we don't want any autotraining related skilling
+    // changes for Gnolls.
+    if (you.mutation[MUT_DISTRIBUTED_TRAINING])
+        you.auto_training = false;
     // We clear the values in the training array. In auto mode they are set
     // to 0 (and filled later with the content of the queue), in manual mode,
     // the trainable ones are set to 1 (or 2 for focus).
     for (int i = 0; i < NUM_SKILLS; ++i)
-        if (you.auto_training || !skill_trained(i))
+        // Gnolls always train all non-useless skills, even if they wouldn't
+        // normally be trainable.
+        if (is_useless_skill((skill_type) i))
+            you.training[i] = 0;
+        else if (you.mutation[MUT_DISTRIBUTED_TRAINING])
+            you.training[i] = 1;
+        else if (you.auto_training || !skill_trained(i))
             you.training[i] = 0;
         else
             you.training[i] = you.train[i];
@@ -748,25 +782,41 @@ bool is_magic_skill(skill_type sk)
     return sk > SK_LAST_MUNDANE && sk <= SK_LAST_MAGIC;
 }
 
+int _gnoll_total_skill_cost();
+
 void train_skills(bool simu)
 {
     int cost, exp;
-    do
+    if(you.mutation[MUT_DISTRIBUTED_TRAINING])
     {
-        cost = calc_skill_cost(you.skill_cost_level);
-        exp = you.exp_available;
-        if (you.skill_cost_level == 27)
-            _train_skills(exp, cost, simu);
-        else
+        do
         {
-            // Amount of experience points needed to reach the next skill cost level
-            const int next_level = skill_cost_needed(you.skill_cost_level + 1)
-                                   - you.total_experience;
-            ASSERT(next_level > 0);
-            _train_skills(min(exp, next_level + cost - 1), cost, simu);
+            exp = you.exp_available;
+            cost = _gnoll_total_skill_cost();
+            if (exp >= cost)
+                _train_skills(exp, calc_skill_cost(you.skill_cost_level), simu);
         }
+        while (exp != you.exp_available);
     }
-    while (you.exp_available >= cost && exp != you.exp_available);
+    else
+    {
+        do
+        {
+            cost = calc_skill_cost(you.skill_cost_level);
+            exp = you.exp_available;
+            if (you.skill_cost_level == MAX_SKILL_COST_LEVEL)
+                _train_skills(exp, cost, simu);
+            else
+            {
+                // Amount of experience points needed to reach the next skill cost level
+                const int next_level = skill_cost_needed(you.skill_cost_level + 1)
+                                       - you.total_experience;
+                ASSERT(next_level > 0);
+                _train_skills(min(exp, next_level + cost - 1), cost, simu);
+            }
+        }
+        while (you.exp_available >= cost && exp != you.exp_available);
+    }
 
     for (int i = 0; i < NUM_SKILLS; ++i)
         check_skill_level_change(static_cast<skill_type>(i), !simu);
@@ -789,7 +839,7 @@ static void _train_skills(int exp, const int cost, const bool simu)
 #endif
 #ifdef DEBUG_TRAINING_COST
     int exp_pool = you.exp_available;
-    dprf("skill cost level: %d, cost: %dxp/10skp, max XP usable: %d.",
+    dprf("skill cost level: %d, cost: %dxp/skp, max XP usable: %d.",
          you.skill_cost_level, cost, exp);
 #endif
 
@@ -799,7 +849,7 @@ static void _train_skills(int exp, const int cost, const bool simu)
         if (you.training[i] > 0)
         {
             sk_exp[i] = you.training[i] * exp / 100;
-            if (sk_exp[i] < cost)
+            if (sk_exp[i] < cost && !you.mutation[MUT_DISTRIBUTED_TRAINING])
             {
                 // One skill has a too low training to be trained at all.
                 // We skip the first phase and go directly to the random
@@ -820,7 +870,8 @@ static void _train_skills(int exp, const int cost, const bool simu)
         {
             skill_type sk = *it;
             int gain = 0;
-
+            if(you.mutation[MUT_DISTRIBUTED_TRAINING])
+                sk_exp[sk] = exp;
             while (sk_exp[sk] >= cost && you.training[sk])
             {
                 exp -= sk_exp[sk];
@@ -829,6 +880,8 @@ static void _train_skills(int exp, const int cost, const bool simu)
                 ASSERT(exp >= 0);
                 if (_level_up_check(sk, simu))
                     sk_exp[sk] = 0;
+                if(you.mutation[MUT_DISTRIBUTED_TRAINING])
+                    break;
             }
 
             if (gain && is_magic_skill(sk))
@@ -843,6 +896,8 @@ static void _train_skills(int exp, const int cost, const bool simu)
     // with random_choose_weighted.
     while (exp >= cost)
     {
+        if(you.mutation[MUT_DISTRIBUTED_TRAINING])
+            break;
         int gain;
         skill_type sk = SK_NONE;
         if (!skip_first_phase)
@@ -918,6 +973,21 @@ void train_skill(skill_type skill, int exp)
     dprf("Trained %s by %d.", skill_name(skill), gain);
 }
 
+static int _calc_skill_cost_level(int xp, int start)
+{
+    while (start < MAX_SKILL_COST_LEVEL
+           && xp >= (int) skill_cost_needed(start + 1))
+    {
+        ++start;
+    }
+    while (start > 0
+           && xp < (int) skill_cost_needed(start))
+    {
+        --start;
+    }
+    return start;
+}
+
 void check_skill_cost_change()
 {
     while (you.skill_cost_level < 27
@@ -930,6 +1000,63 @@ void check_skill_cost_change()
     {
         --you.skill_cost_level;
     }
+}
+
+static int _useless_skill_count()
+{
+    int count = 0;
+    for (int i = SK_FIRST_SKILL; i < NUM_SKILLS; ++i)
+    {
+        skill_type skill = static_cast<skill_type>(i);
+#if TAG_MAJOR_VERSION == 34
+        if (skill == SK_STABBING || skill == SK_TRAPS)
+            continue;
+#endif
+        if (is_useless_skill(skill))
+            count++;
+    }
+    return count;
+}
+
+static int _total_skill_count()
+{
+    int count = 0;
+    for (int i = SK_FIRST_SKILL; i < NUM_SKILLS; ++i)
+    {
+        skill_type skill = static_cast<skill_type>(i);
+#if TAG_MAJOR_VERSION == 34
+        if (skill == SK_STABBING || skill == SK_TRAPS)
+            continue;
+#endif
+        count++;
+    }
+    return count;
+}
+
+// The current cost of raising each skill by one skill point, taking the
+// gnoll penalty for useless skills into account and rounding up for all
+// computations. Used to ensure that gnoll skills rise evenly - we don't
+// train anything unless we have this much xp to spend.
+int _gnoll_total_skill_cost()
+{
+    int this_cost;
+    int total_cost = 0;
+    int cur_cost_level = you.skill_cost_level;
+    const int useless_count = _useless_skill_count();
+    const int total_count = _total_skill_count();
+    const int num = total_count;
+    const int denom = total_count - useless_count;
+    for (int i = 0; i < NUM_SKILLS; ++i)
+    {
+        if (!you.training[i])
+            continue;
+        cur_cost_level = _calc_skill_cost_level(you.total_experience + total_cost, cur_cost_level);
+        this_cost = calc_skill_cost(cur_cost_level);
+        if (num != denom)
+            this_cost = (num * this_cost + denom - 1) / denom;
+        total_cost += this_cost;
+    }
+    return total_cost;
 }
 
 void change_skill_points(skill_type sk, int points, bool do_level_up)
@@ -945,28 +1072,29 @@ void change_skill_points(skill_type sk, int points, bool do_level_up)
 static int _train(skill_type exsk, int &max_exp, bool simu)
 {
     // This will be added to you.skill_points[exsk];
-    int skill_inc = 10;
+    int skill_inc = 1;
 
     // This will be deducted from you.exp_available.
     int cost = calc_skill_cost(you.skill_cost_level);
 
-    // Being good at some weapons makes others easier to learn.
-    if (exsk < SK_ARMOUR)
-        skill_inc *= crosstrain_bonus(exsk);
-
-    if (is_antitrained(exsk))
-        cost *= ANTITRAIN_PENALTY;
-
-    // Scale cost and skill_inc to available experience.
-    const int spending_limit = min(MAX_SPENDING_LIMIT, max_exp);
-    if (cost > spending_limit)
+    if (you.mutation[MUT_DISTRIBUTED_TRAINING])
+     {
+        int useless_count = _useless_skill_count();
+        int total_count = _total_skill_count();
+        int num = total_count;
+        int denom = total_count - useless_count;
+        if (num != denom)
+            cost = div_rand_round(num * cost, denom);
+    }
+    else
     {
-        int frac = spending_limit * 10 / cost;
-        cost = spending_limit;
-        skill_inc = skill_inc * frac / 10;
+        // Scale cost and skill_inc to available experience.
+        const int spending_limit = min(10 * MAX_SPENDING_LIMIT, max_exp);
+        skill_inc = spending_limit / cost;
+        cost = skill_inc * cost;
     }
 
-    if (skill_inc <= 0)
+    if (skill_inc <= 0 || cost > max_exp)
         return 0;
 
     // Bonus from manual
@@ -985,8 +1113,6 @@ static int _train(skill_type exsk, int &max_exp, bool simu)
 
     const skill_type old_best_skill = best_skill(SK_FIRST_SKILL, SK_LAST_SKILL);
     you.skill_points[exsk] += skill_inc;
-    you.ct_skill_points[exsk] += (1 - 1 / crosstrain_bonus(exsk))
-                                 * skill_inc;
     you.exp_available -= cost;
     you.total_experience += cost;
     max_exp -= cost;

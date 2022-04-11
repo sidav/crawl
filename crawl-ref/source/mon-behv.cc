@@ -19,6 +19,7 @@
 #include "fprop.h"
 #include "exclude.h"
 #include "losglobal.h"
+#include "libutil.h"
 #include "macro.h"
 #include "mon-act.h"
 #include "mon-death.h"
@@ -1364,7 +1365,8 @@ void behaviour_event(monster* mon, mon_event_type event, const actor *src,
 
         if (src == &you
             && !mon->has_ench(ENCH_INSANE)
-            && !mons_is_avatar(mon->type))
+            && !mons_is_avatar(mon->type)
+            && !testbits(mon->flags, MF_DEMONIC_GUARDIAN))
         {
             mon->attitude = ATT_HOSTILE;
             breakCharm    = true;
@@ -1545,7 +1547,8 @@ void behaviour_event(monster* mon, mon_event_type event, const actor *src,
         mon->target = src_pos;
         if (src->is_player()
             && !mon->has_ench(ENCH_INSANE)
-            && !mons_is_avatar(mon->type))
+            && !mons_is_avatar(mon->type)
+            && !testbits(mon->flags, MF_DEMONIC_GUARDIAN))
         {
             // Why only attacks by the player change attitude? -- 1KB
             mon->attitude = ATT_HOSTILE;

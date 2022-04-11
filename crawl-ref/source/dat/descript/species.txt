@@ -23,6 +23,11 @@ Demonspawn
 Demonspawn are half human, half demon. They acquire strong demonic mutations as
 they grow.
 %%%%
+Djinni
+
+Djinni are ever-burning spirits. They learn spells innately, without books, and
+cast by drawing down their own fires.
+%%%%
 Draconian
 
 Draconians are versatile hybrids. They mature when reaching level 7 and develop
@@ -42,6 +47,11 @@ Ghoul
 
 An undead, damned to rot eternally. They are always looking for rotten food to
 eat, hacking away with their claws.
+%%%%
+Gnoll
+
+Gnolls are canine-like humanoids. They are unable to specialise in any single
+skill, but instead gradually become proficient in all skills at once.
 %%%%
 Gargoyle
 
@@ -89,6 +99,10 @@ Minotaur
 
 A large muscular human with the head of a bull. They excel at all forms of
 close and ranged combat.
+%%%%
+Mountain Dwarf
+
+Sturdy, strong and not too intelligent, they love heavy weapons and armours.
 %%%%
 Mummy
 

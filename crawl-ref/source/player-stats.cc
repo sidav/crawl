@@ -434,7 +434,7 @@ static int _int_modifier()
 
     // mutations
     result += 2 * (player_mutation_level(MUT_CLEVER)
-                  - player_mutation_level(MUT_DOPEY));
+                  - player_mutation_level(MUT_DOPEY) + player_mutation_level(MUT_BIG_BRAIN));
 
     return result;
 }

@@ -2067,6 +2067,7 @@ enum job_type
     JOB_ARCANE_MARKSMAN,
     JOB_DEATH_KNIGHT,
     JOB_ABYSSAL_KNIGHT,
+    JOB_DEMONSPAWN,
 #if TAG_MAJOR_VERSION == 34
     JOB_JESTER,
 #endif
@@ -2976,6 +2977,7 @@ enum monster_type                      // menv[].type
     MONS_ORB_OF_DESTRUCTION,    // a projectile, not a real mon
 #if TAG_MAJOR_VERSION > 34
     MONS_FULMINANT_PRISM,
+    MONS_SINGULARITY,
     MONS_BATTLESPHERE,
 #endif
     MONS_PILLAR_OF_SALT,
@@ -3021,6 +3023,7 @@ enum monster_type                      // menv[].type
     MONS_LAMIA,
 
     MONS_FULMINANT_PRISM,
+    MONS_SINGULARITY,
     MONS_BATTLESPHERE,
 
     MONS_GIANT_LIZARD,          // genus
@@ -3251,6 +3254,7 @@ enum mutation_type
     MUT_THIN_METALLIC_SCALES,
     MUT_THIN_SKELETAL_STRUCTURE,
     MUT_YELLOW_SCALES,
+    MUT_BIG_BRAIN,
     MUT_CAMOUFLAGE,
 
     MUT_ACUTE_VISION,
@@ -3291,6 +3295,7 @@ enum mutation_type
     MUT_GOURMAND,
     MUT_HIGH_MAGIC,
     MUT_ICEMAIL,
+    MUT_CONDENSATION_SHIELD,
     MUT_IGNITE_BLOOD,
     MUT_LOW_MAGIC,
     MUT_MAGIC_RESISTANCE,
@@ -3358,6 +3363,10 @@ enum mutation_type
     MUT_HEAT_VULNERABILITY,
 #endif
     MUT_BLACK_MARK,
+    MUT_FLAT_HP,
+    MUT_INNATE_CASTER,
+    MUT_DISTRIBUTED_TRAINING,
+    MUT_STRONG_NOSE,
     NUM_MUTATIONS,
 
     RANDOM_MUTATION,
@@ -3707,12 +3716,12 @@ enum species_type
     SP_DEEP_DWARF,
     SP_FELID,
     SP_OCTOPODE,
-#if TAG_MAJOR_VERSION == 34
     SP_DJINNI,
-#endif
     SP_LAVA_ORC,
     SP_GARGOYLE,
     SP_FORMICID,
+    SP_MOUNTAIN_DWARF,
+    SP_GNOLL,
     SP_VINE_STALKER,
     LAST_VALID_SPECIES = SP_VINE_STALKER,
 // The high scores viewer still needs enums for removed species.
@@ -3721,10 +3730,8 @@ enum species_type
     SP_OGRE_MAGE,                      // (placeholder)
     SP_GREY_ELF,                       // (placeholder)
     SP_GNOME,                          // (placeholder)
-    SP_MOUNTAIN_DWARF,                 // (placeholder)
 #if TAG_MAJOR_VERSION > 34
     SP_SLUDGE_ELF,                     // (placeholder)
-    SP_DJINNI,                         // (placeholder)
 #endif
 
     NUM_SPECIES,                       // always after the last species
@@ -4008,6 +4015,7 @@ enum spell_type
 #endif
     SPELL_BATTLESPHERE,
     SPELL_FULMINANT_PRISM,
+    SPELL_SINGULARITY,
     SPELL_DAZZLING_SPRAY,
     SPELL_FORCE_LANCE,
     SPELL_MALMUTATE,

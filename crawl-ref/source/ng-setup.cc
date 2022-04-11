@@ -101,6 +101,9 @@ static void _species_stat_init(species_type which_species)
 
     case SP_FELID:              s =  4; i =  9; d = 11;      break;  // 24
     case SP_OCTOPODE:           s =  7; i = 10; d =  7;      break;  // 24
+    case SP_MOUNTAIN_DWARF:     s =  9; i =  4; d =  5;      break;  // 18
+    case SP_DJINNI:             s =  7; i =  9; d =  8;      break;  // 24
+    case SP_GNOLL:              s =  7; i =  7; d =  7;      break;  // 21
     }
 
     you.base_stats[STAT_STR] = s;
@@ -168,6 +171,7 @@ static void _jobs_stat_init(job_type which_job)
         _wanderer_assign_remaining_stats(12);           break;
 
     case JOB_ARTIFICER:         s =  3; i =  4; d =  5; break;
+    case JOB_DEMONSPAWN:        s =  6; i =  4; d =  4; break;
     default:                    s =  0; i =  0; d =  0; break;
     }
 
@@ -215,6 +219,20 @@ void autopickup_starting_ammo(missile_type missile)
 {
     if (Options.autopickup_starting_ammo)
         you.force_autopickup[OBJ_MISSILES][missile] = 1;
+}
+static void _cleanup_innate_magic_skills()
+{
+    // could use a reference here, but seems surprising to the reader
+    int spcasting = you.skills[SK_SPELLCASTING];
+    for (int i = SK_FIRST_MAGIC_SCHOOL; i <= SK_LAST_MAGIC; i++)
+    {
+        skill_type sk = skill_type(i);
+        const int lvl = you.skills[sk];
+        if (lvl > spcasting)
+            spcasting = lvl;
+        you.skills[sk] = 0;
+    }
+    you.skills[SK_SPELLCASTING] = spcasting;
 }
 
 void give_basic_mutations(species_type speci)
@@ -323,11 +341,13 @@ void give_basic_mutations(species_type speci)
     case SP_FORMICID:
         you.mutation[MUT_ANTENNAE]    = 3;
         break;
-#if TAG_MAJOR_VERSION == 34
     case SP_DJINNI:
-        you.mutation[MUT_NEGATIVE_ENERGY_RESISTANCE] = 3;
+        you.mutation[MUT_HEAT_RESISTANCE] = 2;
+        you.mutation[MUT_COLD_VULNERABILITY] = 1;
+        you.mutation[MUT_UNBREATHING]    = 1;
+        you.mutation[MUT_FLAT_HP]        = 1;
+        you.mutation[MUT_INNATE_CASTER]  = 1;
         break;
-#endif
     case SP_VINE_STALKER:
         you.mutation[MUT_FANGS]          = 2;
         you.mutation[MUT_ANTIMAGIC_BITE] = 1;
@@ -335,6 +355,10 @@ void give_basic_mutations(species_type speci)
         you.mutation[MUT_MANA_SHIELD]    = 1;
         you.mutation[MUT_NO_DEVICE_HEAL] = 1;
         break;
+    case SP_GNOLL:
+        you.mutation[MUT_FANGS]          = 1;
+        you.mutation[MUT_DISTRIBUTED_TRAINING] = 1;
+        you.mutation[MUT_STRONG_NOSE] = 1;
     default:
         break;
     }
@@ -452,6 +476,64 @@ static void _newgame_clear_item(int slot)
     for (int i = EQ_WEAPON; i < NUM_EQUIP; ++i)
         if (you.equip[i] == slot)
             you.equip[i] = -1;
+}
+
+static void _setup_innate_spells()
+{
+    set<spell_type> spellset;
+    // Start with all spells from spellbooks in your inventory.
+    for (item_def& it : you.inv)
+    {
+        if (it.base_type != OBJ_BOOKS || it.sub_type == BOOK_MANUAL)
+            continue;
+        for (int iter_i = 0; iter_i < SPELLBOOK_SIZE; iter_i++)
+        {
+            spell_type sp = which_spell_in_book(it, iter_i);
+            if (!spell_is_useless(sp, false) && sp != SPELL_NO_SPELL) 
+            {
+                add_spell_to_memory(sp);
+                spellset.insert(sp);
+            }
+        }
+        destroy_item(it);
+    }
+
+    // Get spells at XL 3 and every odd level thereafter.
+    vector<spell_type> chosen_spells;
+    int const min_lev[] = {1,2, 2,3,4, 5,6,6, 6,7,7, 8,9};
+    int const max_lev[] = {1,2, 3,4,5, 5,6,7, 7,8,8, 9,9};
+    for (int iter1_i = 0; iter1_i < 27 / 2; iter1_i++)
+    {
+        spell_type next_spell = SPELL_NO_SPELL;
+        while (next_spell == SPELL_NO_SPELL)
+        {
+            int seen = 0;
+            for (int s = 0; s < NUM_SPELLS; ++s)
+            {
+                const spell_type spell = static_cast<spell_type>(s);
+
+                if (!is_player_spell(spell)
+                    || spellset.find(spell) != spellset.end()
+                    || spell_is_useless(spell, false)
+                    || spell == SPELL_DEATHS_DOOR
+                    || spell == SPELL_SPELLFORGED_SERVITOR)
+                {
+                    continue;
+                }
+    
+                const int lev = spell_difficulty(spell);
+                if (lev >= min_lev[iter1_i] && lev <= max_lev[iter1_i]
+                    && one_chance_in(++seen))
+                {
+                    next_spell = spell;
+                }
+            }
+        }
+        spellset.insert(next_spell);
+        chosen_spells.push_back(next_spell);
+    }
+    for (spell_type s : chosen_spells)
+        you.props[INNATE_SPELLS_KEY].get_vector().push_back(s);
 }
 
 static void _update_weapon(const newgame_def& ng)
@@ -988,6 +1070,18 @@ static void _give_items_skills(const newgame_def& ng)
         you.skills[SK_STEALTH]     = 1;
         break;
 
+    case JOB_DEMONSPAWN:
+        newgame_make_item(0, EQ_WEAPON, OBJ_WEAPONS, WPN_SHORT_SWORD, -1, 1, 0, 0); _update_weapon(ng);
+        newgame_make_item(1, EQ_BODY_ARMOUR, OBJ_ARMOUR, ARM_ANIMAL_SKIN);
+        newgame_make_item(2, EQ_NONE, OBJ_BOOKS, BOOK_CONJURATIONS);
+
+        you.skills[SK_CONJURATIONS] = 2;
+        you.skills[SK_SPELLCASTING] = 2;
+        you.skills[SK_DODGING]      = 1;
+        you.skills[SK_STEALTH]      = 2;
+        weap_skill = 1;
+        break;
+
     default:
         break;
     }
@@ -995,7 +1089,8 @@ static void _give_items_skills(const newgame_def& ng)
     // Deep Dwarves get a wand of heal wounds (5).
     if (you.species == SP_DEEP_DWARF)
         newgame_make_item(-1, EQ_NONE, OBJ_WANDS, WAND_HEAL_WOUNDS, -1, 1, 5);
-
+    if (you.mutation[MUT_INNATE_CASTER])
+        _cleanup_innate_magic_skills();
     // Zotdef: everyone gets bonus two potions of curing.
 
     if (crawl_state.game_is_zotdef())
@@ -1108,7 +1203,7 @@ static void _mark_starting_books()
 static void _give_basic_spells(job_type which_job)
 {
     // Wanderers may or may not already have a spell. - bwr
-    if (which_job == JOB_WANDERER)
+    if (which_job == JOB_WANDERER || you.mutation[MUT_INNATE_CASTER])
         return;
 
     spell_type which_spell = SPELL_NO_SPELL;
@@ -1152,6 +1247,9 @@ static void _give_basic_spells(job_type which_job)
         break;
     case JOB_WARPER:
         which_spell = SPELL_APPORTATION;
+        break;
+    case JOB_DEMONSPAWN:
+        which_spell = SPELL_MAGIC_DART;
         break;
 
     default:
@@ -1298,7 +1396,7 @@ static void _setup_generic(const newgame_def& ng)
     // This function depends on stats and mutations being finalised.
     _give_items_skills(ng);
 
-    if (you.species == SP_DEMONSPAWN)
+    if (you.species == SP_DEMONSPAWN || you.char_class == JOB_DEMONSPAWN)
         roll_demonspawn_mutations();
 
     _give_starting_food();
@@ -1314,7 +1412,14 @@ static void _setup_generic(const newgame_def& ng)
 
     _give_basic_spells(you.char_class);
     _give_basic_knowledge(you.char_class);
-
+    // Must be after _give_basic_knowledge
+    {
+        // intentionally create the subgenerator either way, so that this has the
+        // same impact on the current main rng for all chars.
+        if (you.mutation[MUT_INNATE_CASTER])
+            _setup_innate_spells();
+    }
+    add_held_books_to_stash();
     // Clear known-useless items (potions for Mummies, etc).
     for (int i = 0; i < ENDOFPACK; ++i)
     {

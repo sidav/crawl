@@ -182,7 +182,7 @@ const int GOURMAND_NUTRITION_BASE = 10  * BASELINE_DELAY;
 
 const int CHUNK_BASE_NUTRITION    = 1000;
 
-const int ICEMAIL_MAX  = 10;
+const int ICEMAIL_MAX  = 8;
 const int ICEMAIL_TIME = 30 * BASELINE_DELAY;
 
 // The maximum number of abilities any god can have
@@ -205,7 +205,7 @@ const int MAX_SEC_ENCHANT = 2;
 // The time (in aut) for a staff of power to decay 1 mp.
 #define POWER_DECAY 50
 
-const int MAX_KNOWN_SPELLS = 21;
+const int MAX_KNOWN_SPELLS = 52;
 
 const int INVALID_ABSDEPTH = -1000;
 
@@ -219,8 +219,6 @@ const int INVALID_ABSDEPTH = -1000;
   #define FEATURE_MIMIC_CHANCE 100
   #define ITEM_MIMIC_CHANCE    1000
 #endif
-
-const int ANTITRAIN_PENALTY = 2;
 
 const int AGILITY_BONUS = 5;
 
@@ -238,7 +236,7 @@ const int AGILITY_BONUS = 5;
 #define berserk_div(x) div_rand_round((x) * 2, 3)
 
 #define MAX_MONSTER_HP 10000
-#define DJ_MP_RATE 2
+#define DJ_MP_RATE 1
 
 #define GRAND_AVATAR_DAMAGE 15
 

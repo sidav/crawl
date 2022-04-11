@@ -2148,7 +2148,7 @@ void process_command(command_type cmd)
 
     case CMD_QUIT:
         if (crawl_state.disables[DIS_CONFIRMATIONS]
-            || yes_or_no("Are you sure you want to abandon this character and quit the game?"))
+            || yes_or_no("Are you sure you want to suicide this character and quit the game?"))
         {
             ouch(INSTANT_DEATH, NON_MONSTER, KILLED_BY_QUITTING);
         }
@@ -2411,8 +2411,12 @@ static void _decrement_durations()
             you.duration[DUR_ICEMAIL_DEPLETED] -= delay;
 
         if (!you.duration[DUR_ICEMAIL_DEPLETED])
+        {
+            if (you.mutation[MUT_ICEMAIL])
             mprf(MSGCH_DURATION, "Your icy envelope is restored.");
-
+            else
+            mprf(MSGCH_DURATION, "Your frosty shield is restored.");
+        }
         you.redraw_armour_class = true;
     }
 
@@ -2616,8 +2620,13 @@ static void _decrement_durations()
         you.redraw_evasion = true;
     }
 
-    _decrement_a_duration(DUR_POWERED_BY_DEATH, delay,
-                          "You feel less regenerative.");
+    // Decrement Powered By Death strength
+    int pbd_str = you.props[POWERED_BY_DEATH_KEY].get_int();
+    if (pbd_str > 0 && _decrement_a_duration(DUR_POWERED_BY_DEATH, delay))
+    {
+        you.props[POWERED_BY_DEATH_KEY] = pbd_str - 1;
+        reset_powered_by_death_duration();
+    }
 
     _decrement_a_duration(DUR_TELEPATHY, delay, "You feel less empathic.");
 
@@ -3190,10 +3199,8 @@ static void _regenerate_hp_and_mp(int delay)
 
     if (you.magic_points < you.max_magic_points)
     {
-        const int base_val = 7 + you.max_magic_points / 2;
+        const int base_val = player_mp_regen();
         int mp_regen_countup = div_rand_round(base_val * delay, BASELINE_DELAY);
-        if (you.mutation[MUT_MANA_REGENERATION])
-            mp_regen_countup *= 2;
         tmp += mp_regen_countup;
     }
 
@@ -3296,9 +3303,6 @@ static void _player_reacts()
 
     if (you.species == SP_LAVA_ORC)
         temperature_check();
-
-    if (player_mutation_level(MUT_DEMONIC_GUARDIAN))
-        check_demonic_guardian();
 
     _check_equipment_conducts();
 
@@ -3419,7 +3423,7 @@ static void _player_reacts_to_monsters()
     check_monster_detect();
 
     if ((you_worship(GOD_ASHENZARI) && !player_under_penance())
-        || you.mutation[MUT_JELLY_GROWTH])
+        || you.mutation[MUT_JELLY_GROWTH] || you.mutation[MUT_STRONG_NOSE])
     {
         detect_items(-1);
     }

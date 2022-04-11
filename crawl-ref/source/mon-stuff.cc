@@ -52,6 +52,7 @@
 #include "mon-death.h"
 #include "mon-place.h"
 #include "mon-speak.h"
+#include "mutation.h"
 #include "notes.h"
 #include "ouch.h"
 #include "player.h"
@@ -671,6 +672,25 @@ static void _give_player_experience(int experience, killer_type killer,
 {
     if (experience <= 0 || crawl_state.game_is_arena())
         return;
+
+    // Player Powered by Death
+    if (player_mutation_level(MUT_POWERED_BY_DEATH))
+    {
+        // Enable the status
+        reset_powered_by_death_duration();
+
+        // Maybe increase strength. The chance decreases with number
+        // of existing stacks.
+        const int pbd_level = player_mutation_level(MUT_POWERED_BY_DEATH);
+        const int pbd_str = you.props[POWERED_BY_DEATH_KEY].get_int();
+        if (x_chance_in_y(10 - pbd_str, 10))
+        {
+            const int pbd_inc = random2(1 + pbd_level);
+            you.props[POWERED_BY_DEATH_KEY] = pbd_str + pbd_inc;
+            dprf("Powered by Death strength +%d=%d", pbd_inc,
+                 pbd_str + pbd_inc);
+        }
+    }
 
     unsigned int exp_gain = 0;
     gain_exp(experience, &exp_gain);
@@ -1790,6 +1810,12 @@ int monster_die(monster* mons, killer_type killer,
             silent = true;
         }
     }
+    else if (mons->type == MONS_SINGULARITY && mons->number <= 0)
+    {
+        simple_monster_message(mons, " implodes!");
+        invalidate_agrid();
+        silent = true;
+    }
     else if (mons->type == MONS_FIRE_VORTEX
              || mons->type == MONS_SPATIAL_VORTEX
              || mons->type == MONS_TWISTER)
@@ -2134,10 +2160,8 @@ int monster_die(monster* mons, killer_type killer,
                     die("bad kill-on-healing god!");
                 }
 
-#if TAG_MAJOR_VERSION == 34
                 if (you.species == SP_DJINNI)
-                    hp_heal = max(hp_heal, mp_heal * 2), mp_heal = 0;
-#endif
+                    hp_heal = max(hp_heal, mp_heal), mp_heal = 0;
                 if (hp_heal && you.hp < you.hp_max
                     && !you.duration[DUR_DEATHS_DOOR])
                 {
@@ -2676,18 +2700,6 @@ int monster_die(monster* mons, killer_type killer,
         corpse = place_monster_corpse(mons, silent);
         if (corpse == -1)
             corpse = corpse2;
-    }
-
-    if ((killer == KILL_YOU
-         || killer == KILL_YOU_MISSILE
-         || killer == KILL_YOU_CONF
-         || pet_kill)
-             && corpse >= 0 && player_mutation_level(MUT_POWERED_BY_DEATH))
-    {
-        const int pbd_dur = player_mutation_level(MUT_POWERED_BY_DEATH) * 8
-                            + roll_dice(2, 8);
-        if (pbd_dur > you.duration[DUR_POWERED_BY_DEATH])
-            you.set_duration(DUR_POWERED_BY_DEATH, pbd_dur);
     }
 
     if (corpse >= 0)

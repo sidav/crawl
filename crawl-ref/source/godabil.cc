@@ -1468,122 +1468,122 @@ bool vehumet_supports_spell(spell_type spell)
 }
 
 // Returns false if the invocation fails (no spellbooks in sight, etc.).
-bool trog_burn_spellbooks()
-{
-    if (!you_worship(GOD_TROG))
-        return false;
-
-    god_acting gdact;
-
-    // XXX: maybe this should be allowed with less than immunity.
-    if (player_res_fire(false) <= 3)
-    {
-        for (stack_iterator si(you.pos()); si; ++si)
-        {
-            if (item_is_spellbook(*si))
-            {
-                mprf("Burning your own %s might not be such a smart idea!",
-                        you.foot_name(true).c_str());
-                return false;
-            }
-        }
-    }
-
-    int totalpiety = 0;
-    int totalblocked = 0;
-    vector<coord_def> mimics;
-
-    for (radius_iterator ri(you.pos(), LOS_DEFAULT); ri; ++ri)
-    {
-        const unsigned short cloud = env.cgrid(*ri);
-        int count = 0;
-        int rarity = 0;
-        for (stack_iterator si(*ri); si; ++si)
-        {
-            if (!item_is_spellbook(*si))
-                continue;
-
-            // If a grid is blocked, books lying there will be ignored.
-            // Allow bombing of monsters.
-            if (cell_is_solid(*ri)
-                || cloud != EMPTY_CLOUD && env.cloud[cloud].type != CLOUD_FIRE)
-            {
-                totalblocked++;
-                continue;
-            }
-
-            if (si->flags & ISFLAG_MIMIC)
-            {
-                totalblocked++;
-                mimics.push_back(*ri);
-                continue;
-            }
-
-            // Ignore {!D} inscribed books.
-            if (!check_warning_inscriptions(*si, OPER_DESTROY))
-            {
-                mpr("Won't ignite {!D} inscribed spellbook.");
-                continue;
-            }
-
-            totalpiety += 2;
-
-            // Rarity influences the duration of the pyre.
-            rarity += book_rarity(si->sub_type);
-
-            dprf("Burned spellbook rarity: %d", rarity);
-            destroy_spellbook(*si);
-            item_was_destroyed(*si);
-            destroy_item(si.link());
-            count++;
-        }
-
-        if (count)
-        {
-            if (cloud != EMPTY_CLOUD)
-            {
-                // Reinforce the cloud.
-                mpr("The fire roars with new energy!");
-                const int extra_dur = count + random2(rarity / 2);
-                env.cloud[cloud].decay += extra_dur * 5;
-                env.cloud[cloud].set_whose(KC_YOU);
-                continue;
-            }
-
-            const int duration = min(4 + count + random2(rarity/2), 23);
-            place_cloud(CLOUD_FIRE, *ri, duration, &you);
-
-            mprf(MSGCH_GOD, "The spellbook%s burst%s into flames.",
-                 count == 1 ? ""  : "s",
-                 count == 1 ? "s" : "");
-        }
-    }
-
-    if (totalpiety)
-    {
-        simple_god_message(" is delighted!", GOD_TROG);
-        gain_piety(totalpiety);
-    }
-    else if (totalblocked)
-    {
-        mprf("The spellbook%s fail%s to ignite!",
-             totalblocked == 1 ? ""  : "s",
-             totalblocked == 1 ? "s" : "");
-        for (vector<coord_def>::iterator it = mimics.begin();
-             it != mimics.end(); ++it)
-        {
-            discover_mimic(*it, false);
-        }
-        return false;
-    }
-    else
-    {
-        mpr("You cannot see a spellbook to ignite!");
-        return false;
-    }
-
-    return true;
-}
+//bool trog_burn_spellbooks()
+//{
+//    if (!you_worship(GOD_TROG))
+//        return false;
+//
+//    god_acting gdact;
+//
+//    // XXX: maybe this should be allowed with less than immunity.
+//    if (player_res_fire(false) <= 3)
+//    {
+//        for (stack_iterator si(you.pos()); si; ++si)
+//        {
+//            if (item_is_spellbook(*si))
+//            {
+//                mprf("Burning your own %s might not be such a smart idea!",
+//                        you.foot_name(true).c_str());
+//                return false;
+//            }
+//        }
+//    }
+//
+//    int totalpiety = 0;
+//    int totalblocked = 0;
+//    vector<coord_def> mimics;
+//
+//    for (radius_iterator ri(you.pos(), LOS_DEFAULT); ri; ++ri)
+//    {
+//        const unsigned short cloud = env.cgrid(*ri);
+//        int count = 0;
+//        int rarity = 0;
+//        for (stack_iterator si(*ri); si; ++si)
+//        {
+//            if (!item_is_spellbook(*si))
+//                continue;
+//
+//            // If a grid is blocked, books lying there will be ignored.
+//            // Allow bombing of monsters.
+//            if (cell_is_solid(*ri)
+//                || cloud != EMPTY_CLOUD && env.cloud[cloud].type != CLOUD_FIRE)
+//            {
+//                totalblocked++;
+//                continue;
+//            }
+//
+//            if (si->flags & ISFLAG_MIMIC)
+//            {
+//                totalblocked++;
+//                mimics.push_back(*ri);
+//                continue;
+//            }
+//
+//            // Ignore {!D} inscribed books.
+//            if (!check_warning_inscriptions(*si, OPER_DESTROY))
+//            {
+//                mpr("Won't ignite {!D} inscribed spellbook.");
+//                continue;
+//            }
+//
+//            totalpiety += 2;
+//
+//            // Rarity influences the duration of the pyre.
+//            rarity += book_rarity(si->sub_type);
+//
+//            dprf("Burned spellbook rarity: %d", rarity);
+//            destroy_spellbook(*si);
+//            item_was_destroyed(*si);
+//            destroy_item(si.link());
+//            count++;
+//        }
+//
+//        if (count)
+//        {
+//            if (cloud != EMPTY_CLOUD)
+//            {
+//                // Reinforce the cloud.
+//                mpr("The fire roars with new energy!");
+//                const int extra_dur = count + random2(rarity / 2);
+//                env.cloud[cloud].decay += extra_dur * 5;
+//                env.cloud[cloud].set_whose(KC_YOU);
+//                continue;
+//            }
+//
+//            const int duration = min(4 + count + random2(rarity/2), 23);
+//            place_cloud(CLOUD_FIRE, *ri, duration, &you);
+//
+//            mprf(MSGCH_GOD, "The spellbook%s burst%s into flames.",
+//                 count == 1 ? ""  : "s",
+//                 count == 1 ? "s" : "");
+//        }
+//    }
+//
+//    if (totalpiety)
+//    {
+//        simple_god_message(" is delighted!", GOD_TROG);
+//        gain_piety(totalpiety);
+//    }
+//    else if (totalblocked)
+//    {
+//        mprf("The spellbook%s fail%s to ignite!",
+//             totalblocked == 1 ? ""  : "s",
+//             totalblocked == 1 ? "s" : "");
+//        for (vector<coord_def>::iterator it = mimics.begin();
+//             it != mimics.end(); ++it)
+//        {
+//            discover_mimic(*it, false);
+//        }
+//        return false;
+//    }
+//    else
+//    {
+//        mpr("You cannot see a spellbook to ignite!");
+//        return false;
+//    }
+//
+//    return true;
+//}
 
 void trog_do_trogs_hand(int pow)
 {
@@ -1913,39 +1913,6 @@ bool fedhas_passthrough(const monster_info* target)
            && fedhas_passthrough_class(target->type)
            && (mons_species(target->type) != MONS_OKLOB_PLANT
                || target->attitude != ATT_HOSTILE);
-}
-
-// Fedhas worshipers can shoot through non-hostile plants, can a
-// particular beam go through a particular monster?
-bool fedhas_shoot_through(const bolt& beam, const monster* victim)
-{
-    actor *originator = beam.agent();
-    if (!victim || !originator)
-        return false;
-
-    bool origin_worships_fedhas;
-    mon_attitude_type origin_attitude;
-    if (originator->is_player())
-    {
-        origin_worships_fedhas = you_worship(GOD_FEDHAS);
-        origin_attitude = ATT_FRIENDLY;
-    }
-    else
-    {
-        monster* temp = originator->as_monster();
-        if (!temp)
-            return false;
-        origin_worships_fedhas = temp->god == GOD_FEDHAS;
-        origin_attitude = temp->attitude;
-    }
-
-    return origin_worships_fedhas
-           && fedhas_protects(victim)
-           && !beam.is_enchantment()
-           && !(beam.is_explosion && beam.in_explosion_phase)
-           && beam.name != "lightning arc"
-           && (mons_atts_aligned(victim->attitude, origin_attitude)
-               || victim->neutral());
 }
 
 // Turns corpses in LOS into skeletons and grows toadstools on them.

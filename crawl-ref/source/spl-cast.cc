@@ -165,9 +165,6 @@ int list_spells(bool toggle_with_I, bool viewing, bool allow_preselect,
                               text_only);
     string titlestring = make_stringf("%-25.25s", title.c_str());
     string hungerstring =
-#if TAG_MAJOR_VERSION == 34
-        you.species == SP_DJINNI ? "Glow  " :
-#endif
         "Hunger";
 #ifdef USE_TILE_LOCAL
     {
@@ -416,18 +413,23 @@ int calc_spell_power(spell_type spell, bool apply_intel, bool fail_rate_check,
         unsigned int disciplines = get_spell_disciplines(spell);
 
         int skillcount = count_bits(disciplines);
-        if (skillcount)
-        {
-            for (int ndx = 0; ndx <= SPTYP_LAST_EXPONENT; ndx++)
+        if (!you.mutation[MUT_INNATE_CASTER])
             {
-                unsigned int bit = (1 << ndx);
-                if (disciplines & bit)
-                    power += you.skill(spell_type2skill(bit), 200);
+            if (skillcount)
+            {
+                for (int ndx = 0; ndx <= SPTYP_LAST_EXPONENT; ndx++)
+                {
+                    unsigned int bit = (1 << ndx);
+                    if (disciplines & bit)
+                        power += you.skill(spell_type2skill(bit), 200);
+                }
+                power /= skillcount;
             }
-            power /= skillcount;
-        }
 
-        power += you.skill(SK_SPELLCASTING, 50);
+            power += you.skill(SK_SPELLCASTING, 50);
+            }
+        else
+            power += you.skill(SK_SPELLCASTING, 250);
 
         // Brilliance boosts spell power a bit (equivalent to three
         // spell school levels).
@@ -731,7 +733,11 @@ bool cast_a_spell(bool check_range, spell_type spell)
         crawl_state.zero_turns_taken();
         return false;
     }
-
+    if (spell_difficulty(spell) > you.experience_level)
+    {
+        mpr("you aren't experienced enough to cast this spell.");
+        return false;
+    }
     if (check_range && spell_no_hostile_in_range(spell))
     {
         // Abort if there are no hostiles within range, but flash the range
@@ -806,7 +812,6 @@ bool cast_a_spell(bool check_range, spell_type spell)
     else
         practise(EX_DID_MISCAST, spell);
 
-#if TAG_MAJOR_VERSION == 34
     // Nasty special cases.
     if (you.species == SP_DJINNI && cast_result == SPRET_SUCCESS
         && (spell == SPELL_BORGNJORS_REVIVIFICATION
@@ -816,7 +821,7 @@ bool cast_a_spell(bool check_range, spell_type spell)
         inc_mp(cost, true);
     }
     else // Redraw MP
-#endif
+
         flush_mp();
 
     if (!staff_energy && you.is_undead != US_UNDEAD)
@@ -1120,6 +1125,9 @@ static targetter* _spell_targetter(spell_type spell, int pow, int range)
         return new targetter_fragment(&you, pow, range);
     case SPELL_FULMINANT_PRISM:
         return new targetter_smite(&you, range, 0, 2);
+    case SPELL_SINGULARITY:
+        return new targetter_smite(&you, range, singularity_range(pow, 2),
+                                                singularity_range(pow));
     case SPELL_DAZZLING_SPRAY:
         return new targetter_spray(&you, range, ZAP_DAZZLING_SPRAY);
     case SPELL_EXPLOSIVE_BOLT:
@@ -1888,6 +1896,9 @@ static spret_type _do_cast(spell_type spell, int powc,
 
     case SPELL_FULMINANT_PRISM:
         return cast_fulminating_prism(powc, beam.target, fail);
+
+    case SPELL_SINGULARITY:
+        return cast_singularity(powc, beam.target, fail);
 
     case SPELL_SEARING_RAY:
         return cast_searing_ray(powc, beam, fail);

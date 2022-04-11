@@ -20,6 +20,7 @@
 #include "env.h"
 #include "fprop.h"
 #include "godconduct.h"
+#include "libutil.h"
 #include "losglobal.h"
 #include "mapmark.h"
 #include "melee_attack.h"
@@ -811,8 +812,8 @@ static bool _actor_cloud_immune(const actor *act, const cloud_struct &cloud)
     const bool player = act->is_player();
 
     if (!player
-        && you_worship(GOD_FEDHAS)
-        && fedhas_protects(act->as_monster())
+        && ((you_worship(GOD_FEDHAS) && fedhas_protects(act->as_monster())) 
+        || testbits(act->as_monster()->flags, MF_DEMONIC_GUARDIAN))
         && (cloud.whose == KC_YOU || cloud.whose == KC_FRIENDLY)
         && (act->as_monster()->friendly() || act->as_monster()->neutral()))
     {
@@ -827,9 +828,6 @@ static bool _actor_cloud_immune(const actor *act, const cloud_struct &cloud)
                 || player &&
                    (you.duration[DUR_FIRE_SHIELD]
                     || you.mutation[MUT_IGNITE_BLOOD]
-#if TAG_MAJOR_VERSION == 34
-                    || you.species == SP_DJINNI
-#endif
                    );
     case CLOUD_HOLY_FLAMES:
         return act->res_holy_fire() > 0;

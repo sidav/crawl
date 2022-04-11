@@ -896,7 +896,7 @@
 },
 
 // Draconian only
-{ MUT_BIG_WINGS,                      4,  1, false,  true,  true,
+{ MUT_BIG_WINGS,                        4,  1, false,  true,  true,
   "large and strong wings",
 
   {"Your wings are large and strong.", "", ""},
@@ -907,6 +907,55 @@
 },
 
 // species-dependent innate mutations
+
+{ MUT_FLAT_HP,                          0,  3, false, false, false,
+  "extra vitality",
+
+  {"You have superior vitality. (+4 HP).",
+   "You have much superior vitality. (+8 MHP).",
+   "You have exceptionally superior vitality. (+12 MHP)."},
+
+  {"You feel more vital.",
+   "You feel more vital.",
+   "You feel more vital."},
+
+  {"You feel less vital",
+   "You feel less vital",
+   "You feel less vital"},
+
+  "extra vitality"
+},
+
+{ MUT_INNATE_CASTER,                   0,  1, false, false, false,
+  "innate caster",
+
+  {"You learn spells naturally, not from books.", "", ""},
+  {"", "", ""},
+  {"", "", ""},
+
+  "innate caster"
+},
+
+{ MUT_DISTRIBUTED_TRAINING,                   0,  1, false, false, false,
+  "distributed training",
+
+  {"Your experience applies equally to all skills.", "", ""},
+  {"Your experience now applies equally to all skills.", "", ""},
+  {"Your experience no longer applies equally to all skills.", "", ""},
+
+  "distributed training"
+},
+
+{ MUT_STRONG_NOSE,                   0,  1, false, false, false,
+  "strong nose",
+
+  {"Your uncanny sense of smell can sniff out nearby items.", "", ""},
+  {"Your sense of smell grows stronger.", "", ""},
+  {"Your sense of smell gets weaker.", "", ""},
+
+  "strong nose"
+},
+
 { MUT_SAPROVOROUS,                    0,  3, false, false, false,
   "saprovore",
 
@@ -1033,14 +1082,26 @@
   "passive mapping"
 },
 
-{ MUT_ICEMAIL,                        0,  1, false, false, false,
+{ MUT_ICEMAIL,                        0,  2, false, false, false,
   "icemail",
 
-  {"A meltable icy envelope protects you from harm and freezing vapours (AC +", "", ""},
-  {"An icy envelope takes form around you.", "", ""},
+  {"A meltable icy envelope protects you from harm. (AC +",
+   "A thick, meltable icy envelope protects you from harm. (AC +", ""},
+  {"An icy envelope takes form around you.",
+   "Your icy envelope grows thicker.", ""},
   {"", "", ""},
 
   "icemail"
+},
+
+{ MUT_CONDENSATION_SHIELD,            0,  2, false, false, false,
+  "condensation shield",
+
+  {"A meltable shield of frost defends you. (SH +", "", ""},
+  {"Frost condenses into a shield before you.","", ""},
+  {"", "", ""},
+
+  "condensation shield"
 },
 
 { MUT_CONSERVE_SCROLLS,               0,  1, false, false, false,
@@ -1111,9 +1172,9 @@
 { MUT_POWERED_BY_DEATH,               0,  3, false, false, false,
   "powered by death",
 
-  {"You can steal the life force of nearby defeated enemies.",
-   "You can steal the life force of defeated enemies.",
-   "You can steal the life force of all defeated enemies in sight."},
+  {"You regenerate a little health from kills.",
+   "You regenerate health from kills.",
+   "You regenerate a lot of health from kills."},
 
   {"A wave of death washes over you.",
    "The wave of death grows in power.",
@@ -1172,7 +1233,7 @@
   "magic regeneration",
 
   {"You regenerate magic rapidly.", "", ""},
-  {"You feel your magic shroud grow more resilient.", "", ""},
+  {"Your magic begins to regenerate rapidly.", "", ""},
   {"", "", ""},
 
   "magic regeneration"
@@ -1502,6 +1563,24 @@
   "yellow scales"
 },
 
+{ MUT_BIG_BRAIN,                  2,  3, false,  true,  false,
+  "big brain",
+
+  {"You have an unusually large brain. (Int +2)",
+   "You have an extremely huge brain. (Int + 4)",
+   "You have an absolutely massive brain. (Int +6, Wiz)"},
+
+  {"Your brain expands.",
+   "Your brain expands.",
+   "Your brain expands to incredible size."},
+
+  {"Your brain returns to normal size.",
+   "Your brain shrinks.",
+   "Your brain shrinks."},
+
+  "big brain"
+},
+
 { MUT_CAMOUFLAGE,                     1,  3, false,  true,  true,
   "camouflage",
 
@@ -1520,26 +1599,30 @@
    "camouflage"
 },
 
-{ MUT_IGNITE_BLOOD,                   0,  1, false, false, false,
+{ MUT_IGNITE_BLOOD,                   0,  3, false, false, false,
   "ignite blood",
 
-  {"Your demonic aura causes spilled blood to erupt in flames.", "", ""},
-  {"Your blood runs red-hot!", "", ""},
+  {"Your demonic aura sometimes causes spilled blood to erupt in flames",
+   "Your demonic aura often causes spilled blood to erupt in flames",
+   "Your demonic aura causes all spilled blood to erupt in flames."},
+  {"Your blood heats up.",
+   "Your blood runs red-hot!",
+   "Your blood burns even hotter!"},
   {"", "", ""},
 
   "ignite blood"
 },
 
-{ MUT_FOUL_STENCH,                    0,  2, false, false, false,
+{ MUT_FOUL_STENCH,                    0,  3, false, false, false,
   "foul stench",
 
-  {"You emit a foul stench, and are resistant to rotting and decay.",
-   "You radiate miasma, and are resistant to rotting and decay.",
-   ""},
+  {"You may rarely emit foul miasma when damaged in melee.",
+   "You sometimes emit foul miasma when damaged in melee.",
+   "You frequently emit foul miasma when damaged in melee."},
 
-  {"You begin to emit a foul stench of rot and decay.",
-   "You begin to radiate miasma.",
-   ""},
+   {"You begin to emit a foul stench of rot and decay.",
+   "Your foul stench grows more powerful.",
+   "You begin to radiate miasma.",},
 
   {"", "", ""},
 

@@ -113,6 +113,7 @@ static bool _is_noteworthy(const Note& note)
         || note.type == NOTE_LOSE_GOD
         || note.type == NOTE_PENANCE
         || note.type == NOTE_MOLLIFY_GOD
+        || note.type == NOTE_PERM_MUTATION
         || note.type == NOTE_DEATH
         || note.type == NOTE_XOM_REVIVAL
         || note.type == NOTE_SEEN_FEAT
@@ -336,6 +337,13 @@ string Note::describe(bool when, bool where, bool what) const
             result << "Lost mutation: "
                    << mutation_desc(static_cast<mutation_type>(first),
                                     second == 3 ? 3 : second+1);
+            if (!name.empty())
+                result << " [" << name << "]";
+            break;
+        case NOTE_PERM_MUTATION:
+            result << "Mutation became permanent: "
+                   << mutation_desc(static_cast<mutation_type>(first),
+                                    second == 0 ? 1 : second);
             if (!name.empty())
                 result << " [" << name << "]";
             break;

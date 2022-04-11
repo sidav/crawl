@@ -22,9 +22,13 @@
 #include "tiledoll.h"
 #endif
 
+#define POWERED_BY_DEATH_KEY "powered_by_death_strength"
 class targetter;
 
 int check_stealth(void);
+
+/// The standard unit of regen; one level in artifact inscriptions
+static const int REGEN_PIP = 100;
 
 typedef FixedVector<int, NUM_DURATIONS> durations_t;
 class player : public actor
@@ -72,7 +76,8 @@ public:
   uint8_t hit_points_regeneration;
   uint8_t magic_points_regeneration;
   unsigned int experience;
-  unsigned int total_experience; // Unaffected by draining. Used for skill cost.
+  unsigned int total_experience; // 10 * amount of xp put into skills, used
+                                 // only for skill_cost_level
   int experience_level;
   int gold;
   int zigs_completed, zig_max;
@@ -94,7 +99,7 @@ public:
   int burden;
   burden_state_type burden_state;
   FixedVector<spell_type, MAX_KNOWN_SPELLS> spells;
-  set<spell_type> old_vehumet_gifts, vehumet_gifts;
+  set<spell_type> old_vehumet_gifts, vehumet_gifts, spell_stash;
 
   uint8_t spell_no;
   game_direction_type char_direction;
@@ -416,7 +421,7 @@ public:
     int max_strength() const;
     int max_intel() const;
     int max_dex() const;
-
+   
     bool in_water() const;
     bool in_lava() const;
     bool in_liquid() const;
@@ -688,6 +693,7 @@ public:
     int stat_maxhp() const  { return hp_max; }
     int stealth() const     { return check_stealth(); }
 
+    bool shielded() const;
     int shield_bonus() const;
     int shield_block_penalty() const;
     int shield_bypass_ability(int tohit) const;
@@ -849,6 +855,7 @@ int player_hunger_rate(bool temp = true);
 int calc_hunger(int food_cost);
 
 int player_icemail_armour_class();
+int player_condensation_shield_class();
 
 bool player_stoneskin();
 
@@ -857,8 +864,8 @@ int player_wizardry(void);
 int player_prot_life(bool calc_unid = true, bool temp = true,
                      bool items = true);
 
-int player_regen(void);
-
+int player_regen();
+int player_mp_regen();
 int player_res_cold(bool calc_unid = true, bool temp = true,
                     bool items = true);
 int player_res_acid(bool calc_unid = true, bool items = true);

@@ -2260,15 +2260,6 @@ static bool _can_memorise(item_def &item)
            && player_can_memorise_from_spellbook(item);
 }
 
-static void _update_inscription(item_def &item)
-{
-    if (item.base_type == OBJ_BOOKS && in_inventory(item)
-        && !_can_memorise(item))
-    {
-        inscribe_book_highlevel(item);
-    }
-}
-
 static bool _describe_spellbook(item_def &item)
 {
     while (true)
@@ -2278,7 +2269,6 @@ static bool _describe_spellbook(item_def &item)
             return false;
 
         _show_item_description(item);
-        _update_inscription(item);
 
         cgotoxy(1, wherey());
         textcolor(LIGHTGREY);
@@ -2578,7 +2568,6 @@ bool describe_item(item_def &item, bool allow_inscribe, bool shopping)
         return _describe_spellbook(item);
 
     _show_item_description(item);
-    _update_inscription(item);
 
     if (allow_inscribe && crawl_state.game_is_tutorial())
         allow_inscribe = false;
@@ -4619,15 +4608,15 @@ void describe_god(god_type which_god, bool give_title)
             cprintf("%s %s shields you from negative energy.\n",
                     uppercase_first(god_name(which_god)).c_str(), how);
         }
-        else if (which_god == GOD_TROG)
-        {
-            have_any = true;
-            string buf = "You can call upon "
-                         + god_name(which_god)
-                         + " to burn spellbooks in your surroundings.";
-            _print_final_god_abil_desc(which_god, buf,
-                                       ABIL_TROG_BURN_SPELLBOOKS);
-        }
+        //else if (which_god == GOD_TROG)
+        //{
+        //    have_any = true;
+        //    string buf = "You can call upon "
+        //                 + god_name(which_god)
+        //                 + " to burn spellbooks in your surroundings.";
+        //    _print_final_god_abil_desc(which_god, buf,
+        //                               ABIL_TROG_BURN_SPELLBOOKS);
+        //}
         else if (which_god == GOD_JIYVA)
         {
             if (!player_under_penance())

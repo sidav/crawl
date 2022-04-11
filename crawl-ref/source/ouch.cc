@@ -88,13 +88,16 @@ static void _maybe_melt_player_enchantments(beam_type flavour, int damage)
                 you.props["melt_shield"] = true;
         }
 
-        if (you.mutation[MUT_ICEMAIL])
-        {
-            mprf(MSGCH_DURATION, "Your icy envelope dissipates!");
+        if (you.mutation[MUT_CONDENSATION_SHIELD])
+        if (!you.duration[DUR_ICEMAIL_DEPLETED]) 
+            {
+            if (you.mutation[MUT_ICEMAIL])
+            mprf(MSGCH_DURATION, "Your icy defences dissipate!");
+            else
+            mprf(MSGCH_DURATION, "Your frosty shield evaporates!");
             you.duration[DUR_ICEMAIL_DEPLETED] = ICEMAIL_TIME;
             you.redraw_armour_class = true;
         }
-
         if (you.duration[DUR_ICY_ARMOUR] > 0)
         {
             you.duration[DUR_ICY_ARMOUR] -= damage * BASELINE_DELAY;
@@ -161,19 +164,6 @@ int check_your_resists(int hurted, beam_type flavour, string source,
             mpr("The fire burns you terribly!");
             xom_is_stimulated(200);
         }
-        break;
-
-    case BEAM_HELLFIRE:
-#if TAG_MAJOR_VERSION == 34
-        if (you.species == SP_DJINNI)
-        {
-            hurted = 0;
-            if (doEffects)
-                mpr("You resist completely.");
-        }
-#endif
-        // Inconsistency: no penalty for rF-, unlike monsters.  That's
-        // probably good, and monsters should be changed.
         break;
 
     case BEAM_COLD:
@@ -311,7 +301,7 @@ int check_your_resists(int hurted, beam_type flavour, string source,
 
         // For mutation damage, we want to count innate mutations for
         // the demonspawn, but not for other species.
-        int mutated = how_mutated(you.species == SP_DEMONSPAWN, true);
+        int mutated = how_mutated((you.species == SP_DEMONSPAWN || you.char_class == JOB_DEMONSPAWN), true);
         int multiplier = min(mutated * 3, 60);
         if (you.is_chaotic() || player_is_shapechanged())
             multiplier = 60; // full damage
@@ -907,6 +897,21 @@ static void _maybe_spawn_jellies(int dam, const char* aux,
     }
 }
 
+static void _maybe_summon_demonic_guardian(int dam)
+{
+    // low chance to summon on any hit that dealt damage
+    // always tries to summon if the hit did 50% max hp or if we're about to die
+    if (you.mutation[MUT_DEMONIC_GUARDIAN]
+        && (x_chance_in_y(dam, you.hp_max)
+            || dam > you.hp_max / 2
+            || you.hp * 5 < you.hp_max))
+    {
+        check_demonic_guardian();
+    }
+}
+
+
+
 static void _powered_by_pain(int dam)
 {
     const int level = player_mutation_level(MUT_POWERED_BY_PAIN);
@@ -1150,6 +1155,7 @@ void ouch(int dam, int death_source, kill_method_type death_type,
 
             _yred_mirrors_injury(dam, death_source);
             _maybe_spawn_jellies(dam, aux, death_type, death_source);
+            _maybe_summon_demonic_guardian(dam);
             _maybe_fog(dam);
             _powered_by_pain(dam);
             if (drain_amount > 0)

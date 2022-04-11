@@ -345,4 +345,5 @@ void clear_zap_info_on_exit();
 int zap_power_cap(zap_type ztype);
 void zappy(zap_type z_type, int power, bolt &pbolt);
 void bolt_parent_init(bolt *parent, bolt *child);
+bool shoot_through_monster(const bolt& beam, const monster* victim);
 #endif

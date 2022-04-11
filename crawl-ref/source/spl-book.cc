@@ -128,9 +128,7 @@ int spellbook_contents(item_def &book, read_book_action_type action,
                 colour = COL_MEMORIZED;
             else if (you_cannot_memorise(stype)
                 || you.experience_level < level_diff
-                || spell_levels < levels_req
-                || book.base_type == OBJ_BOOKS
-                   && !player_can_memorise_from_spellbook(book))
+                || spell_levels < levels_req)
             {
                 colour = COL_USELESS;
             }
@@ -179,18 +177,6 @@ int spellbook_contents(item_def &book, read_book_action_type action,
     {
     case RBOOK_USE_ROD:
         out.cprintf("Select a spell to cast.\n");
-        break;
-
-    case RBOOK_READ_SPELL:
-        if (book.base_type == OBJ_BOOKS && in_inventory(book)
-            && item_type_known(book)
-            && player_can_memorise_from_spellbook(book))
-        {
-            out.cprintf("Select a spell to read its description, to "
-                         "memorise it or to forget it.\n");
-        }
-        else
-            out.cprintf("Select a spell to read its description.\n");
         break;
 
     default:
@@ -376,27 +362,7 @@ static bool _is_valid_spell_in_book(const item_def &book, int spell)
 // and true otherwise. -- bwr
 bool player_can_memorise_from_spellbook(const item_def &book)
 {
-    if (book.base_type != OBJ_BOOKS)
-        return true;
-
-    if (book.props.exists(SPELL_LIST_KEY))
-        return true;
-
-    if ((book.sub_type == BOOK_ANNIHILATIONS
-         && (you.skill(SK_CONJURATIONS) < 10
-             || you.skill(SK_SPELLCASTING) < 6))
-        || (book.sub_type == BOOK_GRAND_GRIMOIRE
-            && (you.skill(SK_SUMMONINGS) < 10
-                || you.skill(SK_SPELLCASTING) < 6))
-        || (book.sub_type == BOOK_NECRONOMICON
-            && !you_worship(GOD_KIKUBAAQUDGHA)
-            && (you.skill(SK_NECROMANCY) < 10
-                || you.skill(SK_SPELLCASTING) < 6)))
-    {
-        return false;
-    }
-
-    return true;
+    return false;
 }
 
 void mark_had_book(const item_def &book)
@@ -429,15 +395,6 @@ void mark_had_book(int booktype)
     you.had_book.set(booktype);
 }
 
-void inscribe_book_highlevel(item_def &book)
-{
-    if (!item_type_known(book)
-        && book.inscription.find("highlevel") == string::npos)
-    {
-        add_inscription(book, "highlevel");
-    }
-}
-
 /**
  * Identify a held book/rod, if appropriate.
  * @return whether we can see its spells
@@ -456,19 +413,6 @@ bool maybe_id_book(item_def &book, bool silent)
     if (book.base_type == OBJ_BOOKS && book.sub_type == BOOK_MANUAL)
     {
         set_ident_flags(book, ISFLAG_IDENT_MASK);
-        return false;
-    }
-
-    if (book.base_type == OBJ_BOOKS && !item_type_known(book)
-        && !player_can_memorise_from_spellbook(book))
-    {
-        if (!silent)
-        {
-            mpr("This book is beyond your current level of understanding.");
-            more();
-        }
-
-        inscribe_book_highlevel(book);
         return false;
     }
 
@@ -571,16 +515,16 @@ bool you_cannot_memorise(spell_type spell, bool &form)
     {
         rc = true, form = false;
     }
-#if TAG_MAJOR_VERSION == 34
 
     if (you.species == SP_DJINNI
         && (spell == SPELL_ICE_FORM
          || spell == SPELL_OZOCUBUS_ARMOUR
-         || spell == SPELL_LEDAS_LIQUEFACTION))
+         || spell == SPELL_LEDAS_LIQUEFACTION
+         || spell == SPELL_CURE_POISON))
     {
         rc = true, form = false;
     }
-#endif
+
 
     if (you.species == SP_LAVA_ORC
         && (spell == SPELL_STONESKIN
@@ -641,16 +585,8 @@ bool player_can_memorise(const item_def &book)
 typedef vector<spell_type>   spell_list;
 typedef map<spell_type, int> spells_to_books;
 
-static void _index_book(item_def& book, spells_to_books &book_hash,
-                        unsigned int &num_unreadable, bool &book_errors)
+static void _index_book(item_def& book, spells_to_books &book_hash, bool &book_errors)
 {
-    if (!player_can_memorise_from_spellbook(book))
-    {
-        inscribe_book_highlevel(book);
-        num_unreadable++;
-        return;
-    }
-
     mark_had_book(book);
     set_ident_flags(book, ISFLAG_KNOW_TYPE);
     set_ident_flags(book, ISFLAG_IDENT_MASK);
@@ -680,7 +616,6 @@ static void _index_book(item_def& book, spells_to_books &book_hash,
 
 static bool _get_mem_list(spell_list &mem_spells,
                           spells_to_books &book_hash,
-                          unsigned int &num_unreadable,
                           unsigned int &num_race,
                           bool just_check = false,
                           spell_type current_spell = SPELL_NO_SPELL)
@@ -696,41 +631,25 @@ static bool _get_mem_list(spell_list &mem_spells,
     unsigned int  num_on_ground  = 0;
     unsigned int  num_books      = 0;
     unsigned int  num_unknown    = 0;
-                  num_unreadable = 0;
 
-    // Collect the list of all spells in all available spellbooks.
-    for (int i = 0; i < ENDOFPACK; i++)
-    {
-        item_def& book(you.inv[i]);
-
-        if (!item_is_spellbook(book))
-            continue;
-
-        num_books++;
-        _index_book(book, book_hash, num_unreadable, book_errors);
-    }
-
+ 
     // We also check the ground
-    vector<const item_def*> items;
-    item_list_on_square(items, you.visible_igrd(you.pos()));
-
-    for (unsigned int i = 0; i < items.size(); ++i)
+    if (!you.mutation[MUT_INNATE_CASTER])
     {
-        item_def book(*items[i]);
-        if (!item_is_spellbook(book))
-            continue;
+        vector<const item_def*> items;
+        item_list_on_square(items, you.visible_igrd(you.pos()));
 
-        if (!item_type_known(book))
+        for (unsigned int i = 0; i < items.size(); ++i)
         {
+            item_def book(*items[i]);
+            if (!item_is_spellbook(book))
+                continue;
+
             num_unknown++;
-            continue;
+            num_on_ground++;
+            _index_book(book, book_hash, book_errors);
         }
-
-        num_books++;
-        num_on_ground++;
-        _index_book(book, book_hash, num_unreadable, book_errors);
     }
-
     // Handle Vehumet gifts
     set<spell_type>::iterator gift_iterator = you.vehumet_gifts.begin();
     if (gift_iterator != you.vehumet_gifts.end())
@@ -739,7 +658,15 @@ static bool _get_mem_list(spell_list &mem_spells,
         while (gift_iterator != you.vehumet_gifts.end())
             book_hash[*gift_iterator++] = NUM_BOOKS;
     }
-
+    
+    // Handle spell stash
+    set<spell_type>::iterator stash_iterator = you.spell_stash.begin();
+    if (stash_iterator != you.spell_stash.end())
+    {
+        num_books++;
+        while (stash_iterator != you.spell_stash.end())
+            book_hash[*stash_iterator++] = NUM_BOOKS;
+    }
     if (book_errors)
         more();
 
@@ -748,21 +675,11 @@ static bool _get_mem_list(spell_list &mem_spells,
         if (!just_check)
         {
             if (num_unknown > 1)
-                mprf(MSGCH_PROMPT, "You must pick up those books before reading them.");
+                mprf(MSGCH_PROMPT, "You must pick up those books to add them to your library.");
             else if (num_unknown == 1)
                 mprf(MSGCH_PROMPT, "You must pick up this book before reading it.");
             else
-                mprf(MSGCH_PROMPT, "You aren't carrying or standing over any spellbooks.");
-        }
-        return false;
-    }
-    else if (num_unreadable == num_books)
-    {
-        if (!just_check)
-        {
-            mprf(MSGCH_PROMPT, "All of the spellbooks%s are beyond your "
-                 "current level of comprehension.",
-                 num_on_ground == 0 ? " you're carrying" : "");
+                mprf(MSGCH_PROMPT, "Your library is empty.");
         }
         return false;
     }
@@ -844,13 +761,6 @@ static bool _get_mem_list(spell_list &mem_spells,
                            "reason; please file a bug report.");
     }
 
-    if (num_unreadable)
-    {
-        mprf(MSGCH_PROMPT, "Additionally, %u of your spellbooks are beyond "
-             "your current level of understanding, and thus none of the "
-             "spells in them are available to you.", num_unreadable);
-    }
-
     return false;
 }
 
@@ -860,10 +770,9 @@ bool has_spells_to_memorise(bool silent, int current_spell)
 {
     spell_list      mem_spells;
     spells_to_books book_hash;
-    unsigned int    num_unreadable;
     unsigned int    num_race;
 
-    return _get_mem_list(mem_spells, book_hash, num_unreadable, num_race,
+    return _get_mem_list(mem_spells, book_hash, num_race,
                          silent, (spell_type) current_spell);
 }
 
@@ -906,10 +815,9 @@ vector<spell_type> get_mem_spell_list(vector<int> &books)
 
     spell_list      mem_spells;
     spells_to_books book_hash;
-    unsigned int    num_unreadable;
     unsigned int    num_race;
 
-    if (!_get_mem_list(mem_spells, book_hash, num_unreadable, num_race))
+    if (!_get_mem_list(mem_spells, book_hash, num_race))
         return spells;
 
     sort(mem_spells.begin(), mem_spells.end(), _sort_mem_spells);
@@ -928,7 +836,6 @@ vector<spell_type> get_mem_spell_list(vector<int> &books)
 
 static spell_type _choose_mem_spell(spell_list &spells,
                                     spells_to_books &book_hash,
-                                    unsigned int num_unreadable,
                                     unsigned int num_race)
 {
     sort(spells.begin(), spells.end(), _sort_mem_spells);
@@ -945,11 +852,11 @@ static spell_type _choose_mem_spell(spell_list &spells,
 #ifdef USE_TILE_LOCAL
     // [enne] Hack.  Use a separate title, so the column headers are aligned.
     spell_menu.set_title(
-        new MenuEntry(" Your Spells - Memorisation  (toggle to descriptions with '!')",
+        new MenuEntry(" Spell Library - Memorisation  (toggle to descriptions with '!')",
             MEL_TITLE));
 
     spell_menu.set_title(
-        new MenuEntry(" Your Spells - Descriptions  (toggle to memorisation with '!')",
+        new MenuEntry(" Spell Library - Descriptions  (toggle to memorisation with '!')",
             MEL_TITLE), false);
 
     {
@@ -983,14 +890,6 @@ static spell_type _choose_mem_spell(spell_list &spells,
                                    player_spell_levels(),
                                    (player_spell_levels() > 1
                                     || player_spell_levels() == 0) ? "s" : "");
-
-    if (num_unreadable > 0)
-    {
-        more_str += make_stringf(", <lightmagenta>%u overly difficult "
-                                 "spellbook%s</lightmagenta>",
-                                 num_unreadable,
-                                 num_unreadable > 1 ? "s" : "");
-    }
 
     if (num_race > 0)
     {
@@ -1124,13 +1023,12 @@ bool learn_spell()
     spell_list      mem_spells;
     spells_to_books book_hash;
 
-    unsigned int num_unreadable, num_race;
+    unsigned int num_race;
 
-    if (!_get_mem_list(mem_spells, book_hash, num_unreadable, num_race))
+    if (!_get_mem_list(mem_spells, book_hash, num_race))
         return false;
 
-    spell_type specspell = _choose_mem_spell(mem_spells, book_hash,
-                                             num_unreadable, num_race);
+    spell_type specspell = _choose_mem_spell(mem_spells, book_hash, num_race);
 
     if (specspell == SPELL_NO_SPELL)
     {
@@ -1193,13 +1091,13 @@ static bool _learn_spell_checks(spell_type specspell)
         return false;
     }
 
-    if (you.experience_level < spell_difficulty(specspell))
+    if (you.experience_level < spell_difficulty(specspell) && !you.mutation[MUT_INNATE_CASTER])
     {
         mpr("You're too inexperienced to learn that spell!");
         return false;
     }
 
-    if (player_spell_levels() < spell_levels_required(specspell))
+    if (player_spell_levels() < spell_levels_required(specspell) && !you.mutation[MUT_INNATE_CASTER])
     {
         mpr("You can't memorise that many levels of magic yet!");
         return false;
@@ -1230,12 +1128,16 @@ bool learn_spell(spell_type specspell)
         mprf(MSGCH_WARN, "This spell is quite dangerous to cast!");
     else if (chance >= 0.001)
         mprf(MSGCH_WARN, "This spell is slightly dangerous to cast.");
-
-    snprintf(info, INFO_SIZE,
-             "Memorise %s, consuming %d spell level%s and leaving %d?",
-             spell_title(specspell), spell_levels_required(specspell),
-             spell_levels_required(specspell) != 1 ? "s" : "",
-             player_spell_levels() - spell_levels_required(specspell));
+    if (!you.mutation[MUT_INNATE_CASTER])
+        snprintf(info, INFO_SIZE,
+                 "Memorise %s, consuming %d spell level%s and leaving %d?",
+                 spell_title(specspell), spell_levels_required(specspell),
+                 spell_levels_required(specspell) != 1 ? "s" : "",
+                 player_spell_levels() - spell_levels_required(specspell));
+    else
+        snprintf(info, INFO_SIZE,
+                 "Memorise %s?",
+                 spell_title(specspell));
 
     // Deactivate choice from tile inventory.
     mouse_control mc(MOUSE_MODE_MORE);

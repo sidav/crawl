@@ -77,7 +77,14 @@ djinni_m
 formicid FORMICID
 vine_stalker_f VINE_STALKER
 vine_stalker_m
-
+gnoll_f GNOLL
+gnoll_m
+gnoll2_f
+gnoll2_m
+gnoll3_f
+gnoll3_m
+gnoll4_f
+gnoll4_m
 # draconians
 draconian_f DRACONIAN DRACONIAN_FIRST
 draconian_m

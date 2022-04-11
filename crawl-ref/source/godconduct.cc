@@ -813,7 +813,7 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
                 piety_denom = 40;
                 retval = true;
             }
-            else if (you_worship(GOD_TROG))
+            else if (you_worship(GOD_TROG) && !you.mutation[MUT_DISTRIBUTED_TRAINING])
             {
                 simple_god_message(" doesn't appreciate your training magic!");
                 piety_change = -level;

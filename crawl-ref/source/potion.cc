@@ -29,6 +29,7 @@
 #include "player.h"
 #include "player-stats.h"
 #include "skill_menu.h"
+#include "skills.h"
 #include "spl-miscast.h"
 #include "terrain.h"
 #include "transform.h"
@@ -414,16 +415,21 @@ bool potion_effect(potion_type pot_eff, int pow, item_def *potion, bool was_know
         else
             mpr("A flood of memories washes over you.");
         more();
-        skill_menu(SKMF_EXPERIENCE_POTION, 750 * you.experience_level);
-        break;
-
+        if (!you.mutation[MUT_DISTRIBUTED_TRAINING])
+        {
+            skill_menu(SKMF_EXPERIENCE_POTION, 7500 * you.experience_level);
+            break;
+        }
+        else
+        {
+            you.exp_available += 7500;
+            train_skills();
+            break;
+        }
     case POT_MAGIC:
         // Allow repairing rot, disallow going through Death's Door.
-#if TAG_MAJOR_VERSION == 34
         if (you.species == SP_DJINNI)
             return potion_effect(POT_HEAL_WOUNDS, pow, potion, was_known);
-#endif
-
         inc_mp(10 + random2avg(28, 3));
         mpr("Magic courses through your body.");
         break;

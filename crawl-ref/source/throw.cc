@@ -631,8 +631,9 @@ bool silver_damages_victim(bolt &beam, actor* victim, int &dmg,
 
     // For mutation damage, we want to count innate mutations for
     // the demonspawn, but not for other species.
-    if (you.species == SP_DEMONSPAWN)
+    if (you.species == SP_DEMONSPAWN || you.char_class == JOB_DEMONSPAWN)
         mutated = how_mutated(true, true);
+    // This counts racial mutations for JOB_DEMONSPAWN, might change later, but for now "corrupted racials" make sense
     else
         mutated = how_mutated(false, true);
 

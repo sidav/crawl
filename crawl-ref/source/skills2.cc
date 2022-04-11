@@ -214,9 +214,7 @@ static string _stk_walker()
 {
     return Skill_Species == SP_NAGA         ? "Slider"   :
            Skill_Species == SP_TENGU        ? "Glider"   :
-#if TAG_MAJOR_VERSION == 34
            Skill_Species == SP_DJINNI       ? "Floater"  :
-#endif
            Skill_Species == SP_OCTOPODE     ? "Wriggler" :
            Skill_Species == SP_VINE_STALKER ? "Stalker"
                                             : "Walker";
@@ -564,7 +562,26 @@ int species_apt(skill_type skill, species_type species)
         spec_skills_initialised = true;
     }
 
-    return _spec_skills[species][skill];
+    int mod = 0;
+
+    if (you.char_class == JOB_DEMONSPAWN)
+    {
+        if (_spec_skills[species][skill] == -99)
+            mod = 0;
+        else if (skill == SK_FIGHTING || skill == SK_CONJURATIONS
+        || skill == SK_HEXES || skill == SK_SUMMONINGS
+        || skill == SK_POISON_MAGIC || skill == SK_STEALTH)
+            mod = 0;
+        else if (skill == SK_EVOCATIONS || skill == SK_NECROMANCY)
+            mod = 1;
+        else if (skill == SK_INVOCATIONS)
+            mod = 3;
+        else
+            mod = -1;
+    }
+
+
+    return (_spec_skills[species][skill] + mod);
 }
 
 float species_apt_factor(skill_type sk, species_type sp)
@@ -575,7 +592,8 @@ float species_apt_factor(skill_type sk, species_type sp)
 vector<skill_type> get_crosstrain_skills(skill_type sk)
 {
     vector<skill_type> ret;
-
+    if (you.mutation[MUT_DISTRIBUTED_TRAINING])
+        return ret;
     switch (sk)
     {
     case SK_SHORT_BLADES:
@@ -603,22 +621,6 @@ vector<skill_type> get_crosstrain_skills(skill_type sk)
     default:
         return ret;
     }
-}
-
-float crosstrain_bonus(skill_type sk)
-{
-    int bonus = 1;
-
-    vector<skill_type> crosstrain_skills = get_crosstrain_skills(sk);
-
-    for (unsigned int i = 0; i < crosstrain_skills.size(); ++i)
-        if (you.skill(crosstrain_skills[i], 10, true)
-            >= you.skill(sk, 10, true) + CROSSTRAIN_THRESHOLD)
-        {
-            bonus *= 2;
-        }
-
-    return bonus;
 }
 
 skill_type opposite_skill(skill_type sk)
@@ -670,15 +672,6 @@ bool compare_skills(skill_type sk1, skill_type sk2)
         return you.skill(sk1, 10, true) > you.skill(sk2, 10, true)
                || you.skill(sk1, 10, true) == you.skill(sk2, 10, true)
                   && you.skill_order[sk1] < you.skill_order[sk2];
-}
-
-bool is_antitrained(skill_type sk)
-{
-    skill_type opposite = opposite_skill(sk);
-    if (opposite == SK_NONE || you.skills[sk] >= 27)
-        return false;
-
-    return compare_skills(opposite, sk) && you.skills[opposite];
 }
 
 void dump_skills(string &text)
@@ -738,21 +731,11 @@ int transfer_skill_points(skill_type fsk, skill_type tsk, int skp_max,
         dprf("ct_skill_points[%s]: %d", skill_name(fsk), you.ct_skill_points[fsk]);
 
     // We need to transfer by small steps and update skill levels each time
-    // so that cross/anti-training are handled properly.
     while (total_skp_lost < skp_max
            && (simu || total_skp_lost < (int)you.transfer_skill_points))
     {
         int skp_lost = min(20, skp_max - total_skp_lost);
         int skp_gained = skp_lost * penalty / 100;
-
-        float ct_bonus = crosstrain_bonus(tsk);
-        if (ct_bonus > 1 && fsk != tsk)
-        {
-            skp_gained *= ct_bonus;
-            you.ct_skill_points[tsk] += (1 - 1 / ct_bonus) * skp_gained;
-        }
-        else if (is_antitrained(tsk))
-            skp_gained /= ANTITRAIN_PENALTY;
 
         ASSERT(you.skill_points[fsk] > you.ct_skill_points[fsk]);
 
@@ -878,12 +861,25 @@ void fixup_skills()
     {
         skill_type sk = static_cast<skill_type>(i);
         if (is_useless_skill(sk))
+        {
             you.skill_points[i] = 0;
+            you.train[sk] = 0;
+        }
         you.skill_points[i] = min(you.skill_points[i], skill_exp_needed(27, sk));
         check_skill_level_change(sk);
     }
     init_can_train();
 
-    if (you.exp_available >= calc_skill_cost(you.skill_cost_level))
+    if (you.exp_available >= 10 * calc_skill_cost(you.skill_cost_level) && you.species != SP_GNOLL)
         skill_menu(SKMF_EXPERIENCE);
+}
+
+/** Can the player enable training for this skill?
+ *
+ * @param sk The skill to check.
+ * @returns True if the skill can be enabled for training, false otherwise.
+ */
+bool can_enable_skill(skill_type sk)
+{
+    return !you.mutation[MUT_DISTRIBUTED_TRAINING] && you.can_train[sk];
 }

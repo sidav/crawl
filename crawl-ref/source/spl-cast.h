@@ -48,7 +48,7 @@ enum spret_type
     SPRET_SUCCESS,
     SPRET_NONE,                 // spell was not handled
 };
-
+#define INNATE_SPELLS_KEY "innate_spells"
 #define fail_check() if (fail) return SPRET_FAIL
 
 typedef bool (*spell_selector)(spell_type spell);

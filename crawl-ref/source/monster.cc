@@ -3346,6 +3346,14 @@ bool monster::pacified() const
     return attitude == ATT_NEUTRAL && testbits(flags, MF_GOT_HALF_XP);
 }
 
+/**
+ * Returns whether the monster currently has any kind of shield.
+ */
+bool monster::shielded() const
+{
+    return shield();
+}
+
 int monster::shield_bonus() const
 {
     const item_def *shld = const_cast<monster* >(this)->shield();
@@ -4247,7 +4255,7 @@ int monster::hurt(const actor *agent, int amount, beam_type flavour,
 {
     if (mons_is_projectile(type) || mindex() == ANON_FRIENDLY_MONSTER
         || mindex() == YOU_FAULTLESS || type == MONS_DIAMOND_OBELISK
-        || type == MONS_PLAYER_SHADOW)
+        || type == MONS_SINGULARITY || type == MONS_PLAYER_SHADOW)
     {
         return 0;
     }

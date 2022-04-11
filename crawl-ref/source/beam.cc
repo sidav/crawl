@@ -3199,14 +3199,6 @@ bool bolt::harmless_to_player() const
     case BEAM_ACID:
         return false;
 
-#if TAG_MAJOR_VERSION == 34
-    case BEAM_FIRE:
-    case BEAM_HELLFIRE:
-    case BEAM_HOLY_FLAME:
-    case BEAM_NAPALM:
-        return you.species == SP_DJINNI;
-#endif
-
     case BEAM_VIRULENCE:
         return player_res_poison(false) >= 3;
 
@@ -3363,7 +3355,7 @@ bool bolt::misses_player()
     bool train_shields_more = false;
 
     if (is_blockable()
-        && (you.shield() || player_mutation_level(MUT_LARGE_BONE_PLATES) > 0)
+        && you.shielded()
         && !aimed_at_feet
         && player_shield_class() > 0)
     {
@@ -4795,17 +4787,22 @@ void bolt::affect_monster(monster* mon)
 
     hit_count[mon->mid]++;
 
-    if (fedhas_shoot_through(*this, mon) && !is_tracer)
+    if (shoot_through_monster(*this, mon) && !is_tracer)
     {
         // FIXME: Could use a better message, something about
         // dodging that doesn't sound excessively weird would be
         // nice.
         if (you.see_cell(mon->pos()))
         {
-            simple_god_message(
-                make_stringf(" protects %s plant from harm.",
-                    attitude == ATT_FRIENDLY ? "your" : "a").c_str(),
-                GOD_FEDHAS);
+            if (testbits(mon->flags, MF_DEMONIC_GUARDIAN))
+                mpr("Your attack phases through your demonic guardian.");
+            else
+            {
+                simple_god_message(
+                    make_stringf(" protects %s plant from harm.",
+                        attitude == ATT_FRIENDLY ? "your" : "a").c_str(),
+                    GOD_FEDHAS);
+            }
         }
     }
 
@@ -5116,11 +5113,12 @@ bool bolt::ignores_monster(const monster* mon) const
     if (!mon)
         return false;
 
-    // All kinds of beams go past orbs of destruction and friendly
+    // All kinds of beams go past orbs of destruction, demonic guardians and friendly
     // battlespheres. We don't check mon->is_projectile() because that
     // check includes boulder beetles which should be hit.
     if (mons_is_projectile(mon)
-        || (mons_is_avatar(mon->type) && mons_aligned(agent(), mon)))
+        || (mons_is_avatar(mon->type) && mons_aligned(agent(), mon))
+        || (testbits(mon->flags, MF_DEMONIC_GUARDIAN) && mons_aligned(agent(), mon)))
     {
         return true;
     }
@@ -5137,7 +5135,7 @@ bool bolt::ignores_monster(const monster* mon) const
         return true;
     }
 
-    if (fedhas_shoot_through(*this, mon))
+    if (shoot_through_monster(*this, mon))
         return true;
 
     // Fire storm creates these, so we'll avoid affecting them.
@@ -5315,6 +5313,41 @@ mon_resist_type bolt::try_enchant_monster(monster* mon, int &res_margin)
     }
 
     return apply_enchantment_to_monster(mon);
+}
+
+// Can a particular beam go through a particular monster?
+// Fedhas worshipers can shoot through non-hostile plants,
+// and players can shoot through their demonic guardians.
+bool shoot_through_monster(const bolt& beam, const monster* victim)
+{
+    actor *originator = beam.agent();
+    if (!victim || !originator)
+        return false;
+
+    bool origin_worships_fedhas;
+    mon_attitude_type origin_attitude;
+    if (originator->is_player())
+    {
+        origin_worships_fedhas = you_worship(GOD_FEDHAS);
+        origin_attitude = ATT_FRIENDLY;
+    }
+    else
+    {
+        monster* temp = originator->as_monster();
+        if (!temp)
+            return false;
+        origin_worships_fedhas = temp->god == GOD_FEDHAS;
+        origin_attitude = temp->attitude;
+    }
+
+    return ((origin_worships_fedhas
+            && fedhas_protects(victim))
+            && !beam.is_enchantment()
+            && beam.name != "lightning arc"
+            && (mons_atts_aligned(victim->attitude, origin_attitude)
+               || victim->neutral()))
+            || (originator->is_player()
+                && testbits(victim->flags, MF_DEMONIC_GUARDIAN));
 }
 
 mon_resist_type bolt::apply_enchantment_to_monster(monster* mon)

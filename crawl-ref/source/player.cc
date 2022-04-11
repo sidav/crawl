@@ -148,7 +148,7 @@ bool check_moveto_cloud(const coord_def& p, const string &move_verb,
                     threshold = threshold * 3 / 2;
                 threshold = threshold * you.time_taken / BASELINE_DELAY;
                 // Do prompt if we'd lose icemail, though.
-                if (you.hp > threshold && !you.mutation[MUT_ICEMAIL])
+                if (you.hp > threshold && !you.mutation[MUT_CONDENSATION_SHIELD])
                     return true;
             }
 
@@ -725,9 +725,7 @@ bool you_can_wear(int eq, bool special_armour)
         // These species cannot wear boots.
         if (you.species == SP_TROLL
             || you.species == SP_SPRIGGAN
-#if TAG_MAJOR_VERSION == 34
             || you.species == SP_DJINNI
-#endif
             || you.species == SP_OGRE)
         {
             return false;
@@ -789,9 +787,7 @@ bool player_has_feet(bool temp)
     if (you.species == SP_NAGA
         || you.species == SP_FELID
         || you.species == SP_OCTOPODE
-#if TAG_MAJOR_VERSION == 34
         || you.species == SP_DJINNI
-#endif
         || you.fishtail && temp)
     {
         return false;
@@ -1292,12 +1288,10 @@ static int _player_bonus_regen()
     // Fast heal mutation.
     rr += player_mutation_level(MUT_REGENERATION) * 20;
 
-    // Powered By Death mutation, boosts regen by 10 per corpse in
-    // a mutation_level * 3 (3/6/9) radius, to a maximum of 7
-    // corpses.  If and only if the duration of the effect is
-    // still active.
+    // Powered By Death mutation, boosts regen by variable strength
+    // if the duration of the effect is still active.
     if (you.duration[DUR_POWERED_BY_DEATH])
-        rr += handle_pbd_corpses() * 100;
+    rr += you.props[POWERED_BY_DEATH_KEY].get_int() * REGEN_PIP;
 
     return rr;
 }
@@ -1348,7 +1342,6 @@ int player_regen()
         else if (you.hunger_state >= HS_FULL)
             rr += 10; // Bonus regeneration for full vampires.
     }
-#if TAG_MAJOR_VERSION == 34
 
     // Compared to other races, a starting djinni would have regen of 4 (hp)
     // plus 17 (mp).  So let's compensate them early; they can stand getting
@@ -1356,7 +1349,6 @@ int player_regen()
     if (you.species == SP_DJINNI)
         if (you.hp_max < 100)
             rr += (100 - you.hp_max) / 6;
-#endif
 
     // Slow heal mutation.
     if (player_mutation_level(MUT_SLOW_HEALING) > 0)
@@ -1375,6 +1367,19 @@ int player_regen()
         rr += 100;
 
     return rr;
+}
+
+int player_mp_regen()
+{
+    int regen_amount = 7 + you.max_magic_points / 2;
+
+    int multiplier = 100;
+    if (player_mutation_level(MUT_MANA_REGENERATION))
+        multiplier += 100;
+//    if (you.props[MANA_REGEN_AMULET_ACTIVE].get_int() == 1)
+//        multiplier += 50;
+
+    return regen_amount * multiplier / 100;
 }
 
 int player_hunger_rate(bool temp)
@@ -1520,11 +1525,6 @@ int player_likes_chunks(bool permanently)
 // If temp is set to false, temporary sources or resistance won't be counted.
 int player_res_fire(bool calc_unid, bool temp, bool items)
 {
-#if TAG_MAJOR_VERSION == 34
-    if (you.species == SP_DJINNI)
-        return 4; // full immunity
-
-#endif
     int rf = 0;
 
     if (items)
@@ -1727,11 +1727,7 @@ int player_res_cold(bool calc_unid, bool temp, bool items)
             rc++;
     }
 
-#if TAG_MAJOR_VERSION == 34
     // species:
-    if (you.species == SP_DJINNI)
-        rc--;
-#endif
     // mutations:
     rc += player_mutation_level(MUT_COLD_RESISTANCE, temp);
     rc -= player_mutation_level(MUT_COLD_VULNERABILITY, temp);
@@ -1880,7 +1876,8 @@ int player_res_poison(bool calc_unid, bool temp, bool items)
         || you.is_artificial()
         || (temp && you.form == TRAN_SHADOW)
         || player_equip_unrand(UNRAND_OLGREB)
-        || you.duration[DUR_DIVINE_STAMINA])
+        || you.duration[DUR_DIVINE_STAMINA]
+        || (you.species == SP_DJINNI))
     {
         return 3;
     }
@@ -2638,7 +2635,8 @@ int player_armour_shield_spell_penalty()
 int player_wizardry(void)
 {
     return you.wearing(EQ_RINGS, RING_WIZARDRY)
-           + you.wearing(EQ_STAFF, STAFF_WIZARDRY);
+           + you.wearing(EQ_STAFF, STAFF_WIZARDRY)
+           + (player_mutation_level(MUT_BIG_BRAIN) == 3);
 }
 
 int player_shield_class(void)
@@ -2703,6 +2701,11 @@ int player_shield_class(void)
     shield += (player_mutation_level(MUT_LARGE_BONE_PLATES) > 0
                ? player_mutation_level(MUT_LARGE_BONE_PLATES) * 200
                : 0);
+    if (player_mutation_level(MUT_CONDENSATION_SHIELD) > 0
+            && !you.duration[DUR_ICEMAIL_DEPLETED])
+    {
+        shield += ICEMAIL_MAX * 50;
+    }
 
     return (shield + stat + 50) / 100;
 }
@@ -2977,7 +2980,7 @@ void gain_exp(unsigned int exp_gained, unsigned int* actual_gain)
     if (crawl_state.game_is_sprint())
         exp_gained = sprint_modify_exp(exp_gained);
 
-    you.exp_available += exp_gained;
+    you.exp_available += 10 * exp_gained;
 
     train_skills();
     while (check_selected_skills()
@@ -2985,9 +2988,6 @@ void gain_exp(unsigned int exp_gained, unsigned int* actual_gain)
     {
         train_skills();
     }
-
-    if (you.exp_available >= calc_skill_cost(you.skill_cost_level))
-        you.exp_available = calc_skill_cost(you.skill_cost_level);
 
     level_change();
 
@@ -3107,6 +3107,25 @@ static void _felid_extra_life()
  * @param skip_attribute_increase If true and XL has increased, don't process
  *                                stat gains.
  */
+
+static void _gain_innate_spells()
+{
+    auto &spell_vec = you.props[INNATE_SPELLS_KEY].get_vector();
+    // Gain spells at every odd XL, starting at XL 3 and continuing to XL 27.
+    for (int i = 0; i < spell_vec.size() && i < (you.experience_level - 1) / 2; i++)
+    {
+        const spell_type spell = (spell_type)spell_vec[i].get_int();
+        auto spindex = find(begin(you.spells), end(you.spells), spell);
+        if (spindex != end(you.spells))
+            continue; // already learned that one
+                if (!you.spell_stash.count(spell))
+                {
+                    mprf("The power to cast %s wells up from within.", spell_title(spell));
+                    add_spell_to_memory(spell);
+                }
+    }
+} 
+ 
 void level_change(int source, const char* aux, bool skip_attribute_increase)
 {
     const bool wiz_cmd = crawl_state.prev_cmd == CMD_WIZARD
@@ -3162,7 +3181,6 @@ void level_change(int source, const char* aux, bool skip_attribute_increase)
                 mprf(MSGCH_INTRINSIC_GAIN, "You have reached level %d!",
                      new_exp);
             }
-
             if (!(new_exp % 3) && !skip_attribute_increase)
                 if (!attribute_increase())
                     return; // abort level gain, the xp is still there
@@ -3508,14 +3526,15 @@ void level_change(int source, const char* aux, bool skip_attribute_increase)
                 if (!(you.experience_level % 5))
                     modify_stat(STAT_RANDOM, 1, false, "level gain");
                 break;
-
-#if TAG_MAJOR_VERSION == 34
+            case SP_MOUNTAIN_DWARF:
+                if (!(you.experience_level % 4))
+                    modify_stat(STAT_STR, 1, false, "level gain");
+                break;		
             case SP_DJINNI:
                 if (!(you.experience_level % 4))
                     modify_stat(STAT_RANDOM, 1, false, "level gain");
                 break;
 
-#endif
             case SP_FORMICID:
                 if (!(you.experience_level % 4))
                 {
@@ -3556,6 +3575,11 @@ void level_change(int source, const char* aux, bool skip_attribute_increase)
 
                 if (you.experience_level == 12)
                     perma_mutate(MUT_REGENERATION, 1, "vine stalker growth");
+                break;
+                
+            case SP_GNOLL:
+                if (!(you.experience_level % 4))
+                    modify_stat(STAT_RANDOM, 1, false, "level gain");
                 break;
 
             default:
@@ -3626,6 +3650,54 @@ void level_change(int source, const char* aux, bool skip_attribute_increase)
                 mprf(MSGCH_INTRINSIC_GAIN, "Your Zot abilities now extend through the making of teleport traps.");
 #endif
         }
+            if (you.char_class == JOB_DEMONSPAWN)
+            {
+                bool gave_message = false;
+                int level = 0;
+                mutation_type first_body_facet = NUM_MUTATIONS;
+
+                for (unsigned i = 0; i < you.demonic_traits.size(); ++i)
+                {
+                    if (is_body_facet(you.demonic_traits[i].mutation))
+                    {
+                        if (first_body_facet < NUM_MUTATIONS
+                            && you.demonic_traits[i].mutation
+                                != first_body_facet)
+                        {
+                            if (you.experience_level == level)
+                            {
+                                mprf(MSGCH_MUTATION, "You feel monstrous as your "
+                                     "demonic heritage exerts itself.");
+                                mark_milestone("monstrous", "is a "
+                                               "monstrous demonspawn!");
+                            }
+                            break;
+                        }
+
+                        if (first_body_facet == NUM_MUTATIONS)
+                        {
+                            first_body_facet = you.demonic_traits[i].mutation;
+                            level = you.demonic_traits[i].level_gained;
+                        }
+                    }
+                }
+
+                for (unsigned i = 0; i < you.demonic_traits.size(); ++i)
+                {
+                    if (you.demonic_traits[i].level_gained
+                        == you.experience_level)
+                    {
+                        if (!gave_message)
+                        {
+                            mprf(MSGCH_INTRINSIC_GAIN, "Your demonic ancestry asserts itself...");
+
+                            gave_message = true;
+                        }
+                        perma_mutate(you.demonic_traits[i].mutation, 1,
+                                     "demonic ancestry");
+                    }
+                }
+            }
 
         const int old_hp = you.hp;
         const int old_maxhp = you.hp_max;
@@ -3646,14 +3718,12 @@ void level_change(int source, const char* aux, bool skip_attribute_increase)
         const int note_maxmp = get_real_mp(false);
 
         char buf[200];
-#if TAG_MAJOR_VERSION == 34
         if (you.species == SP_DJINNI)
             // Djinn don't HP/MP
             sprintf(buf, "EP: %d/%d",
                     min(you.hp, note_maxhp + note_maxmp),
                     note_maxhp + note_maxmp);
         else
-#endif
             sprintf(buf, "HP: %d/%d MP: %d/%d",
                     min(you.hp, note_maxhp), note_maxhp,
                     min(you.magic_points, note_maxmp), note_maxmp);
@@ -3672,7 +3742,10 @@ void level_change(int source, const char* aux, bool skip_attribute_increase)
         if (you.species == SP_FELID)
             _felid_extra_life();
     }
-
+    
+    if (you.mutation[MUT_INNATE_CASTER])
+        _gain_innate_spells();
+        
     you.redraw_title = true;
 
 #ifdef DGL_WHEREIS
@@ -3749,9 +3822,7 @@ int check_stealth(void)
         case SP_TROLL:
         case SP_OGRE:
         case SP_CENTAUR:
-#if TAG_MAJOR_VERSION == 34
         case SP_DJINNI:
-#endif
             race_mod = 9;
             break;
         case SP_MINOTAUR:
@@ -4510,10 +4581,8 @@ void calc_hp()
 {
     int oldhp = you.hp, oldmax = you.hp_max;
     you.hp_max = get_real_hp(true, false);
-#if TAG_MAJOR_VERSION == 34
     if (you.species == SP_DJINNI)
         you.hp_max += get_real_mp(true);
-#endif
     deflate_hp(you.hp_max, false);
     if (oldhp != you.hp || oldmax != you.hp_max)
         dprf("HP changed: %d/%d -> %d/%d", oldhp, oldmax, you.hp, you.hp_max);
@@ -4546,13 +4615,11 @@ void dec_hp(int hp_loss, bool fatal, const char *aux)
 
 void calc_mp()
 {
-#if TAG_MAJOR_VERSION == 34
     if (you.species == SP_DJINNI)
     {
         you.magic_points = you.max_magic_points = 0;
         return calc_hp();
     }
-#endif
 
     you.max_magic_points = get_real_mp(true);
     you.magic_points = min(you.magic_points, you.max_magic_points);
@@ -4579,10 +4646,8 @@ void dec_mp(int mp_loss, bool silent)
     if (mp_loss < 1)
         return;
 
-#if TAG_MAJOR_VERSION == 34
     if (you.species == SP_DJINNI)
         return dec_hp(mp_loss * DJ_MP_RATE, false);
-#endif
 
     you.magic_points -= mp_loss;
 
@@ -4593,7 +4658,6 @@ void dec_mp(int mp_loss, bool silent)
 
 void drain_mp(int loss)
 {
-#if TAG_MAJOR_VERSION == 34
     if (you.species == SP_DJINNI)
     {
 
@@ -4604,7 +4668,6 @@ void drain_mp(int loss)
                                            1000); // so it goes away after one '5'
     }
     else
-#endif
     return dec_mp(loss);
 }
 
@@ -4644,10 +4707,8 @@ bool enough_hp(int minimum, bool suppress_msg, bool abort_macros)
 
 bool enough_mp(int minimum, bool suppress_msg, bool abort_macros)
 {
-#if TAG_MAJOR_VERSION == 34
     if (you.species == SP_DJINNI)
         return enough_hp(minimum * DJ_MP_RATE, suppress_msg);
-#endif
 
     ASSERT(!crawl_state.game_is_arena());
 
@@ -4694,10 +4755,8 @@ void inc_mp(int mp_gain, bool silent)
     if (mp_gain < 1)
         return;
 
-#if TAG_MAJOR_VERSION == 34
     if (you.species == SP_DJINNI)
         return inc_hp(mp_gain * DJ_MP_RATE);
-#endif
 
     bool wasnt_max = (you.magic_points < you.max_magic_points);
 
@@ -4852,7 +4911,7 @@ int get_real_hp(bool trans, bool rotted)
     // Racial modifier.
     hitp *= 10 + species_hp_modifier(you.species);
     hitp /= 10;
-
+    hitp += player_mutation_level(MUT_FLAT_HP) * 4;
     // Mutations that increase HP by a percentage
     hitp *= 100 + (player_mutation_level(MUT_ROBUST) * 10)
                 + (you.attribute[ATTR_DIVINE_VIGOUR] * 5)
@@ -4923,7 +4982,9 @@ int get_real_mp(bool include_items)
         enp /= 3;
 
     enp = max(enp, 0);
-
+    if (you.species == SP_DJINNI)
+	return 0;
+	else
     return enp;
 }
 
@@ -5912,6 +5973,7 @@ void player::init()
     old_vehumet_gifts.clear();
     spell_no        = 0;
     vehumet_gifts.clear();
+    spell_stash.clear();
     char_direction  = GDT_DESCENDING;
     opened_zot      = false;
     royal_jelly_dead = false;
@@ -6200,9 +6262,7 @@ flight_type player::flight_mode() const
         return FL_NONE;
 
     if (duration[DUR_FLIGHT]
-#if TAG_MAJOR_VERSION == 34
         || you.species == SP_DJINNI
-#endif
         || attribute[ATTR_PERM_FLIGHT]
         || form == TRAN_WISP
         // dragon and bat should be FL_WINGED, but we don't want paralysis
@@ -6313,6 +6373,8 @@ string player::shout_verb() const
     default:
         if (species == SP_FELID)
             return coinflip() ? "meow" : "yowl";
+        if (species == SP_GNOLL)
+            return coinflip() ? "bark" : "howl";
         // depends on SCREAM mutation
         int level = player_mutation_level(MUT_SCREAM);
         if (level <= 1)
@@ -6422,6 +6484,19 @@ bool player::liquefied_ground() const
 {
     return liquefied(pos())
            && ground_level() && !is_insubstantial();
+}
+
+/**
+ * Returns whether the player currently has any kind of shield.
+ */
+bool player::shielded() const
+{
+    return shield()
+           || duration[DUR_CONDENSATION_SHIELD]
+           || duration[DUR_MAGIC_SHIELD]
+           || duration[DUR_DIVINE_SHIELD]
+           || player_mutation_level(MUT_LARGE_BONE_PLATES) > 0
+           || (you.mutation[MUT_CONDENSATION_SHIELD] && !duration[DUR_ICEMAIL_DEPLETED]);
 }
 
 int player::shield_block_penalty() const
@@ -6554,14 +6629,23 @@ int player::skill(skill_type sk, int scale, bool real) const
     // skill training, so make sure to use the correct value.
     // This duplicates code in check_skill_level_change(), unfortunately.
     int actual_skill = skills[sk];
+    unsigned int effective_points = skill_points[sk];
+     if (!real)
+     {
+         vector<skill_type> cross_skills = get_crosstrain_skills(sk);
+         for (size_t i = 0; i < cross_skills.size(); ++i)
+             effective_points += skill_points[cross_skills[i]] * 2 / 5;
+     }
+
+    effective_points = min(effective_points, skill_exp_needed(27, sk));
     while (1)
     {
         if (actual_skill < 27
-            && skill_points[sk] >= skill_exp_needed(actual_skill + 1, sk))
+            && effective_points >= skill_exp_needed(actual_skill + 1, sk))
         {
             ++actual_skill;
         }
-        else if (skill_points[sk] < skill_exp_needed(actual_skill, sk))
+        else if (effective_points < skill_exp_needed(actual_skill, sk))
         {
             actual_skill--;
             ASSERT(actual_skill >= 0);
@@ -6570,7 +6654,8 @@ int player::skill(skill_type sk, int scale, bool real) const
             break;
     }
 
-    int level = actual_skill * scale + get_skill_progress(sk, actual_skill, skill_points[sk], scale);
+    int level = actual_skill * scale
+      + get_skill_progress(sk, actual_skill, effective_points, scale);
     if (real)
         return level;
     if (duration[DUR_HEROISM] && sk <= SK_LAST_MUNDANE)
@@ -6599,7 +6684,16 @@ int player_icemail_armour_class()
     if (!you.mutation[MUT_ICEMAIL])
         return 0;
 
-    return you.duration[DUR_ICEMAIL_DEPLETED] ? 0 : ICEMAIL_MAX;
+    return you.duration[DUR_ICEMAIL_DEPLETED] ? 0
+            : player_mutation_level(MUT_ICEMAIL) * ICEMAIL_MAX / 2;
+}
+
+int player_condensation_shield_class()
+{
+    if (!you.mutation[MUT_CONDENSATION_SHIELD])
+        return 0;
+
+    return you.duration[DUR_ICEMAIL_DEPLETED] ? 0 : ICEMAIL_MAX / 2;
 }
 
 bool player_stoneskin()
@@ -6869,7 +6963,7 @@ bool player::heal(int amount, bool max_too)
 mon_holy_type player::holiness() const
 {
     if (species == SP_GARGOYLE || form == TRAN_STATUE || form == TRAN_WISP
-        || petrified())
+        || petrified() || species == SP_DJINNI)
     {
         return MH_NONLIVING;
     }
@@ -6883,7 +6977,7 @@ mon_holy_type player::holiness() const
 bool player::undead_or_demonic() const
 {
     // This is only for TSO-related stuff, so demonspawn are included.
-    return is_undead || species == SP_DEMONSPAWN;
+    return is_undead || species == SP_DEMONSPAWN || char_class == JOB_DEMONSPAWN;
 }
 
 bool player::is_holy(bool check_spells) const
@@ -6896,7 +6990,7 @@ bool player::is_holy(bool check_spells) const
 
 bool player::is_unholy(bool check_spells) const
 {
-    return species == SP_DEMONSPAWN;
+    return species == SP_DEMONSPAWN || char_class == JOB_DEMONSPAWN;
 }
 
 bool player::is_evil(bool check_spells) const
@@ -6961,10 +7055,6 @@ int player::res_fire() const
 
 int player::res_holy_fire() const
 {
-#if TAG_MAJOR_VERSION == 34
-    if (species == SP_DJINNI)
-        return 3;
-#endif
     return actor::res_holy_fire();
 }
 
@@ -6995,12 +7085,11 @@ int player::res_water_drowning() const
         rw++;
     }
 
-#if TAG_MAJOR_VERSION == 34
     // A fiery lich/hot statue suffers from quenching but not drowning, so
     // neutral resistance sounds ok.
     if (species == SP_DJINNI)
         rw--;
-#endif
+
 
     return rw;
 }
@@ -7028,7 +7117,7 @@ int player::res_rotting(bool temp) const
         return 3;
     }
 
-    if (species == SP_GARGOYLE || species == SP_VINE_STALKER)
+    if (species == SP_GARGOYLE || species == SP_VINE_STALKER || species == SP_DJINNI)
         return 3;
 
     if (mutation[MUT_FOUL_STENCH])
@@ -7134,6 +7223,8 @@ int player_res_magic(bool calc_unid, bool temp)
     case SP_DEMIGOD:
     case SP_OGRE:
     case SP_FORMICID:
+    case SP_MOUNTAIN_DWARF:
+    case SP_DJINNI:
         rm = you.experience_level * 4;
         break;
     case SP_NAGA:
@@ -7213,18 +7304,14 @@ bool player::cancellable_flight() const
 bool player::permanent_flight() const
 {
     return attribute[ATTR_PERM_FLIGHT]
-#if TAG_MAJOR_VERSION == 34
         || species == SP_DJINNI
-#endif
         ;
 }
 
 bool player::racial_permanent_flight() const
 {
     return species == SP_TENGU && experience_level >= 15
-#if TAG_MAJOR_VERSION == 34
         || species == SP_DJINNI
-#endif
         || species == SP_BLACK_DRACONIAN && experience_level >= 14
         || species == SP_GARGOYLE && experience_level >= 14;
 }
@@ -7830,9 +7917,6 @@ bool player::can_bleed(bool allow_tran) const
     }
 
     if (is_lifeless_undead()
-#if TAG_MAJOR_VERSION == 34
-        || you.species == SP_DJINNI
-#endif
         || holiness() == MH_NONLIVING)
     {   // demonspawn and demigods have a mere drop of taint
         return false;
