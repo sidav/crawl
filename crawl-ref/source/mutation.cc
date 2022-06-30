@@ -1287,7 +1287,7 @@ bool physiology_mutation_conflict(mutation_type mutat, bool ds_roll)
 {
     // If demonspawn, and mutat is a scale, see if they were going
     // to get it sometime in the future anyway; otherwise, conflict.
-    if ((you.species == SP_DEMONSPAWN) || (you.char_class == JOB_DEMONSPAWN) && !ds_roll && _is_covering(mutat)
+    if (((you.species == SP_DEMONSPAWN) || (you.char_class == JOB_DEMONSPAWN)) && !ds_roll && _is_covering(mutat)
         && find(_all_scales, _all_scales+ARRAYSZ(_all_scales), mutat) !=
                 _all_scales+ARRAYSZ(_all_scales))
     {
