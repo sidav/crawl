@@ -45,6 +45,7 @@ public:
     bool         can_cleave;
     list<actor*> cleave_targets;
     bool         cleaving;        // additional attack from cleaving
+    bool      is_riposte;         // long blade retaliation attack
     bool jumping_attack;
     bool jump_blocked;
     coord_def attack_position;
@@ -110,6 +111,9 @@ private:
     /* Axe cleaving */
     void cleave_setup();
     int cleave_damage_mod(int dam);
+    
+    /* Long blade riposte */
+    void riposte();
 
     /* Mutation Effects */
     void do_spines();
