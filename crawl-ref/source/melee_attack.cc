@@ -281,23 +281,24 @@ bool melee_attack::handle_phase_attempted()
         // Set delay now that we know the attack won't be cancelled.
         if (!is_riposte)
             you.time_taken = calc_attack_delay();
+        const caction_type cact_typ = is_riposte ? CACT_RIPOSTE : CACT_MELEE;
         if (weapon)
         {
             if (weapon->base_type == OBJ_WEAPONS)
                 if (is_unrandom_artefact(*weapon)
                     && get_unrand_entry(weapon->special)->type_name)
                 {
-                    count_action(CACT_MELEE, weapon->special);
+                    count_action(cact_typ, weapon->special);
                 }
                 else
-                    count_action(CACT_MELEE, weapon->sub_type);
+                    count_action(cact_typ, weapon->sub_type);
             else if (weapon->base_type == OBJ_RODS)
-                count_action(CACT_MELEE, WPN_ROD);
+                count_action(cact_typ, WPN_ROD);
             else if (weapon->base_type == OBJ_STAVES)
-                count_action(CACT_MELEE, WPN_STAFF);
+                count_action(cact_typ, WPN_STAFF);
         }
         else
-            count_action(CACT_MELEE, -1);
+            count_action(cact_typ, -1);
     }
     else
     {
