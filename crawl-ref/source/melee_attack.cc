@@ -115,7 +115,7 @@ melee_attack::melee_attack(actor *attk, actor *defn,
     perceived_attack(false), obvious_effect(false), attack_number(attack_num),
     effective_attack_number(effective_attack_num),
     fake_chaos_attack(false), special_damage_flavour(BEAM_NONE),
-    stab_attempt(false), stab_bonus(0), cleaving(is_cleaving),
+    stab_attempt(false), stab_bonus(0), cleaving(is_cleaving), is_riposte(false),
     jumping_attack(is_jump_attack), jump_blocked(is_jump_blocked),
     miscast_level(-1), miscast_type(SPTYP_NONE), miscast_target(NULL),
     simu(false)
@@ -279,24 +279,26 @@ bool melee_attack::handle_phase_attempted()
         }
 
         // Set delay now that we know the attack won't be cancelled.
-        you.time_taken = calc_attack_delay();
+        if (!is_riposte)
+            you.time_taken = calc_attack_delay();
+        const caction_type cact_typ = is_riposte ? CACT_RIPOSTE : CACT_MELEE;
         if (weapon)
         {
             if (weapon->base_type == OBJ_WEAPONS)
                 if (is_unrandom_artefact(*weapon)
                     && get_unrand_entry(weapon->special)->type_name)
                 {
-                    count_action(CACT_MELEE, weapon->special);
+                    count_action(cact_typ, weapon->special);
                 }
                 else
-                    count_action(CACT_MELEE, weapon->sub_type);
+                    count_action(cact_typ, weapon->sub_type);
             else if (weapon->base_type == OBJ_RODS)
-                count_action(CACT_MELEE, WPN_ROD);
+                count_action(cact_typ, WPN_ROD);
             else if (weapon->base_type == OBJ_STAVES)
-                count_action(CACT_MELEE, WPN_STAFF);
+                count_action(cact_typ, WPN_STAFF);
         }
         else
-            count_action(CACT_MELEE, -1);
+            count_action(cact_typ, -1);
     }
     else
     {
@@ -332,7 +334,7 @@ bool melee_attack::handle_phase_attempted()
             return false;
     }
 
-    if (attacker != defender)
+    if (attacker != defender && !is_riposte)
     {
         // Allow setting of your allies' target, etc.
         attacker->attacking(defender);
@@ -442,19 +444,36 @@ bool melee_attack::handle_phase_dodged()
         }
     }
 
-    if (attacker != defender && adjacent(defender->pos(), attack_position))
+    if (attacker != defender && adjacent(defender->pos(), attack_position)
+        && attacker->alive() && defender->can_see(attacker)
+        && !defender->cannot_act() && !defender->confused()
+        && (!defender->is_player() || (!you.duration[DUR_LIFESAVING]
+                                       && !attacker->as_monster()->neutral()))
+        // Retaliation only works on the first attack in a round.
+        // FIXME: player's attack is -1, even for auxes
+        && effective_attack_number <= 0)
     {
-        if (attacker->alive()
-            && (defender->is_player() ?
-                   you.species == SP_MINOTAUR :
-                   mons_base_type(defender->as_monster()) == MONS_MINOTAUR)
-            && defender->can_see(attacker)
-            // Retaliation only works on the first attack in a round.
-            // FIXME: player's attack is -1, even for auxes
-            && effective_attack_number <= 0)
+        if (defender->is_player() ?
+                you.species == SP_MINOTAUR :
+                mons_species(mons_base_type(defender->as_monster()))
+                    == MONS_MINOTAUR)
         {
             do_minotaur_retaliation();
         }
+
+        // Retaliations can kill!
+        if (!attacker->alive())
+            return false;
+
+        const bool using_lbl = defender->is_player()
+            && you.weapon()
+            && weapon_skill(*you.weapon()) == SK_LONG_BLADES;
+        const bool using_fencers
+            = defender->is_player() && player_equip_unrand(UNRAND_FENCERS_GLOVES);
+        const int chance = using_lbl + using_fencers;
+
+        if (x_chance_in_y(chance, 3) && !is_riposte) // no longblade ping-pong!
+            riposte();
 
         // Retaliations can kill!
         if (!attacker->alive())
@@ -996,7 +1015,8 @@ bool melee_attack::attack()
         handle_phase_blocked();
     else
     {
-        if (attacker != defender && adjacent(defender->pos(), attack_position))
+        if (attacker != defender && adjacent(defender->pos(), attack_position)
+            && !is_riposte)
         {
             // Check for defender Spines
             do_spines();
@@ -3431,6 +3451,8 @@ bool melee_attack::chop_hydra_head(int dam,
     // Small claws are not big enough.
     if (dam_type == DVORP_CLAWING && attacker->has_claws() < 3)
         return false;
+    if (is_riposte)
+        return false;
 
     const char *verb = NULL;
 
@@ -3527,7 +3549,7 @@ void melee_attack::attacker_sustain_passive_damage()
     if (defender->type == MONS_PROGRAM_BUG)
         return;
 
-    if (mons_class_flag(defender->type, M_ACID_SPLASH)
+    if ((mons_class_flag(defender->type, M_ACID_SPLASH) && !is_riposte)
         || defender->is_player() && you.form == TRAN_JELLY)
     {
         int rA = attacker->res_acid();
@@ -5184,14 +5206,6 @@ void melee_attack::emit_foul_stench()
 
 void melee_attack::do_minotaur_retaliation()
 {
-    if (defender->cannot_act()
-        || defender->confused()
-        || !attacker->alive()
-        || defender->is_player() && you.duration[DUR_LIFESAVING])
-    {
-        return;
-    }
-
     if (!defender->is_player())
     {
         // monsters have no STR or DEX
@@ -5261,6 +5275,25 @@ void melee_attack::do_minotaur_retaliation()
             attacker->hurt(&you, hurt);
         }
     }
+}
+
+/**
+ * Launch a long blade counterattack against the attacker. No sanity checks;
+ * caller beware!
+ *
+ * XXX: might be wrong for deep elf blademasters with a long blade in only
+ * one hand
+ */
+void melee_attack::riposte()
+{
+    if (you.see_cell(defender->pos()))
+    {
+        mprf("%s riposte%s.", defender->name(DESC_THE).c_str(),
+             defender->is_player() ? "" : "s");
+    }
+    melee_attack attck(defender, attacker, 0, effective_attack_number + 1);
+    attck.is_riposte = true;
+    attck.attack();
 }
 
 bool melee_attack::do_knockback(bool trample)

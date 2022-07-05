@@ -846,14 +846,13 @@ MAGIC:   1
 BOOL:    elec
 
 NAME:    fencer's gloves
+INSCRIP: Riposte
 OBJ:     OBJ_ARMOUR/ARM_GLOVES
 PLUS:    +2
 COLOUR:  WHITE
 TILE:    urand_fencer
 TILE_EQ: glove_white
-EV:      3
 DEX:     3
-ACC:     8
 
 NAME:     cloak of Starlight
 OBJ:      OBJ_ARMOUR/ARM_CLOAK

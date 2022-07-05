@@ -1151,6 +1151,8 @@ static string _describe_action(caction_type type)
         return "  Use";
     case CACT_STAB:
         return " Stab";
+    case CACT_RIPOSTE:
+        return "Rpst.";
     default:
         return "Error";
     }
@@ -1189,6 +1191,7 @@ static string _describe_action_subtype(caction_type type, int subtype)
     }
     case CACT_MELEE:
     case CACT_FIRE:
+    case CACT_RIPOSTE:
         if (subtype >= UNRAND_START)
         {
             // Paranoia: an artefact may lose its specialness.

@@ -581,6 +581,7 @@ enum caction_type    // Primary categorization of counted actions.
 {                    // A subtype will also be given in each case:
     CACT_MELEE,      // weapon subtype or unrand index
     CACT_FIRE,       // weapon subtype or unrand index
+    CACT_RIPOSTE,    // as CACT_MELEE
     CACT_THROW,      // item basetype << 16 | subtype
     CACT_CAST,       // spell_type
     CACT_INVOKE,     // ability_type

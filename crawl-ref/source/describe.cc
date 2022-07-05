@@ -832,6 +832,10 @@ static string _describe_weapon(const item_def &item, bool verbose)
             description += "\n\nIt can hit multiple enemies in an arc"
                            " around the wielder.";
             break;
+        case SK_LONG_BLADES:
+            description += "\n\nIt can be used to riposte, swiftly "
+                           "retaliating against a missed attack.";
+            break;
         case SK_SHORT_BLADES:
             // TODO: should we mention stabbing for "ok" stabbing weapons?
             // (long blades, piercing polearms, and clubs)
